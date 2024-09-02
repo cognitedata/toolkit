@@ -129,6 +129,10 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
             return ResourceBuildList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
 
+    @property
+    def identifiers(self) -> list[T_ID]:
+        return [resource.identifier for resource in self]
+
 
 @dataclass
 class ModuleBuildInfo:

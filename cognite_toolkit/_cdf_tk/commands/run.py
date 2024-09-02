@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import questionary
 from cognite.client.data_classes import FunctionCall, FunctionScheduleWriteList, FunctionWriteList
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
@@ -24,10 +25,10 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
 
-from ..loaders.data_classes import FunctionScheduleID
 from ._base import ToolkitCommand
 
 
@@ -52,8 +53,8 @@ intended to test the function before deploying it to CDF or to debug issues with
         resources = ModuleResources(project_dir, build_env_name)
         functions = resources.list_resources(str, "functions", FunctionLoader.kind)
         if external_id is None:
-            external_id = self._select_function(functions)
-        elif external_id not in functions:
+            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
+        elif external_id not in functions.identifiers:
             raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
 
         if data is not None:
@@ -86,19 +87,16 @@ intended to test the function before deploying it to CDF or to debug issues with
         rebuild_env: bool = False,
     ) -> None:
         # Todo: Run locally with credentials from a schedule.
-        run_info = self._select_input(modules, external_id, data, credentials)
+        resources = ModuleResources(project_dir, build_env_name)
+        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
+        if external_id is None:
+            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
+        elif external_id not in functions.identifiers:
+            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
 
-        self._setup_virtual_env(run_info, project_dir, rebuild_env)
+        self._setup_virtual_env(external_id, project_dir, rebuild_env)
 
-        self._run_function_locally(ToolGlobals, run_info)
-
-    def _run_function_cdf(self, ToolGlobals: CDFToolConfig, run_info: RunFunction, wait: bool) -> None:
-        raise NotImplementedError()
-
-    def _select_input(
-        self, modules: dict[str, Any], external_id: str | None, data: str | None, credentials: str | None = None
-    ) -> RunFunction:
-        raise NotImplementedError()
+        self._run_function_locally(ToolGlobals, external_id)
 
     def _setup_virtual_env(self, run_info: RunFunction, project_dir: Path, rebuild_env: bool) -> None:
         raise NotImplementedError()
