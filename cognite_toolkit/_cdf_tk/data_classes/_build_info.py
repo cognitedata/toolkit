@@ -278,7 +278,13 @@ class BuildInfo(ConfigCore):
         safe_write(self.filepath, content)
 
     def compare_modules(self, current_modules: ModuleDirectories) -> set[Path]:
-        raise NotImplementedError()
+        current_module_hash_by_path = {module.relative_path: module.hash for module in current_modules}
+        cached_hash_by_path = {module.location.path: module.location.hash for module in self.modules.modules}
+        needs_rebuild = set()
+        for path, current_hash in current_module_hash_by_path.items():
+            if path not in cached_hash_by_path or current_hash != cached_hash_by_path[path]:
+                needs_rebuild.add(path)
+        return needs_rebuild
 
 
 class ModuleResources:
