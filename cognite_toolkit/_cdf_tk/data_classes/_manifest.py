@@ -14,7 +14,7 @@ else:
 class Manifest:
     version: str
     description: str | None
-    tags: list[str] | None = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     @classmethod
     def load(cls, manifest_path: Path) -> Manifest:
