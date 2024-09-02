@@ -57,69 +57,25 @@ intended to test the function before deploying it to CDF or to debug issues with
         wait: bool = False,
     ) -> bool:
         resources = ModuleResources(project_dir, build_env_name)
-        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
-        is_interactive = False
-        if external_id is None:
-            is_interactive = True
-            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
-        elif external_id not in functions.identifiers:
-            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
-
-        input_data: dict | None = None
-        if data is not None:
-            try:
-                input_data = json.loads(data)
-            except json.JSONDecodeError:
-                schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
-                for schedule in schedules:
-                    if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
-                        config = cast(
-                            FunctionScheduleWrite,
-                            resources.retrieve_resource_config(schedule, ToolGlobals.environment_variables()),
-                        )
-                        if config.data is None:
-                            raise ToolkitMissingResourceError(
-                                f"The schedule {schedule.identifier.name} does not have data"
-                            )
-
-                        input_data = config.data
-                        break
-                else:
-                    raise ToolkitMissingResourceError(f"Could not find data for schedule {data}")
-        elif input_data is None:
-            if questionary.confirm("Do you want to provide input data for the function?"):
-                schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
-                options = {
-                    schedule.identifier.name: schedule
-                    for schedule in schedules
-                    if schedule.identifier.function_external_id == external_id
-                }
-                if len(options) == 0:
-                    print("No schedules found for this function.")
-                else:
-                    selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
-                    config = cast(
-                        FunctionScheduleWrite,
-                        resources.retrieve_resource_config(options[selected], ToolGlobals.environment_variables()),
-                    )
-                    if config.data is None:
-                        raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
-                    input_data = config.data
+        is_interactive = external_id is None
+        external_id = self._get_function(external_id, resources)
+        input_data = self._get_input_data(ToolGlobals, data, external_id, resources)
 
         client = ToolGlobals.toolkit_client
-
         function = client.functions.retrieve(external_id=external_id)
         if function is None:
-            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+            raise ToolkitMissingResourceError(
+                f"Could not find function with external id {external_id}. Have you deployed it?"
+            )
 
         if is_interactive:
             wait = questionary.confirm("Do you want to wait for the function to complete?").ask()
 
         session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-
         result = ToolGlobals.toolkit_client.functions.call(
             external_id=external_id, data=input_data, wait=False, nonce=session.nonce
         )
+
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
         table.add_column("Value", justify="left", style="green")
@@ -166,6 +122,49 @@ intended to test the function before deploying it to CDF or to debug issues with
         print(table)
         return True
 
+    @staticmethod
+    def _get_function(external_id: str | None, resources: ModuleResources) -> str:
+        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
+        if external_id is None:
+            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
+        elif external_id not in functions.identifiers:
+            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+        return external_id
+
+    @staticmethod
+    def _get_input_data(
+        ToolGlobals: CDFToolConfig, data: str | None, external_id: str, resources: ModuleResources
+    ) -> dict | None:
+        if data is None and not questionary.confirm("Do you want to provide input data for the function?").ask():
+            return None
+        schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+        if data is None:
+            # Interactive mode
+            options = {
+                schedule.identifier.name: schedule
+                for schedule in schedules
+                if schedule.identifier.function_external_id == external_id
+            }
+            if len(options) == 0:
+                print(f"No schedules found for this {external_id} function.")
+                return None
+            selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+        else:
+            for schedule in schedules:
+                if schedule.identifier.function_external_id == external_id and schedule.identifier.name == data:
+                    selected = schedule
+                    break
+            else:
+                raise ToolkitMissingResourceError(f"Could not find data for schedule {data}")
+
+        config = cast(
+            FunctionScheduleWrite,
+            resources.retrieve_resource_config(selected, ToolGlobals.environment_variables()),
+        )
+        if config.data is None:
+            raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
+        return config.data
+
     def run_local(
         self,
         ToolGlobals: CDFToolConfig,
@@ -178,11 +177,7 @@ intended to test the function before deploying it to CDF or to debug issues with
     ) -> None:
         # Todo: Run locally with credentials from a schedule.
         resources = ModuleResources(project_dir, build_env_name)
-        functions = resources.list_resources(str, "functions", FunctionLoader.kind)
-        if external_id is None:
-            external_id = questionary.select("Select function to run", choices=functions.identifiers).ask()
-        elif external_id not in functions.identifiers:
-            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+        external_id = self._get_function(external_id, resources)
 
         self._setup_virtual_env(external_id, project_dir, rebuild_env)
 
