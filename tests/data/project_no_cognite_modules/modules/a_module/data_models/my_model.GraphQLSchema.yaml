@@ -1,0 +1,7 @@
+- space: {{ space }}
+  externalId: WindTurbine
+  version: v1
+  name: Wind Turbine Model
+  description: A model for wind turbines
+  previousVersion: null
+  dml: my_model.graphql
