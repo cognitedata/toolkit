@@ -283,7 +283,7 @@ class BuildEnvironment(Environment):
 
             if not file.exists():
                 warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
-            elif hash_ != calculate_str_or_file_hash(file):
+            elif hash_ != calculate_str_or_file_hash(file, shorten=True):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list
 
