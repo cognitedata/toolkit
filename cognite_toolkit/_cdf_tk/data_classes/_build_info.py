@@ -273,6 +273,8 @@ class BuildInfo(ConfigCore):
 
     def dump_to_file(self) -> None:
         dumped = self.dump()
+        # Avoid dumping pointer references: https://stackoverflow.com/questions/51272814/python-yaml-dumping-pointer-references
+        yaml.Dumper.ignore_aliases = lambda *args: True  # type: ignore[method-assign]
         content = yaml.safe_dump(dumped, sort_keys=False)
         content = f"{self.top_warning}\n{content}"
         safe_write(self.filepath, content)
