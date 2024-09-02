@@ -28,9 +28,16 @@ class BuildVariable:
     location: Path
 
     def dump(self) -> dict[str, Any]:
+        value: str | int | float | bool | list[str | int | float | bool]
+        if isinstance(self.value, tuple):
+            # Convert the tuple back to a list to make it JSON serializable
+            value = list(self.value)
+        else:
+            value = self.value
+
         return {
             "key": self.key,
-            "value": self.value,
+            "value": value,
             "is_selected": self.is_selected,
             "location": self.location.as_posix(),
         }
