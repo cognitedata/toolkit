@@ -1,6 +1,6 @@
 [module]
 version = "0.0.0"
-description = ""
+description = "Admin group for CI/CD"
 
 [packages]
 tags = [

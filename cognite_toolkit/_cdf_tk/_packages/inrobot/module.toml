@@ -1,6 +1,6 @@
 [module]
 version = "0.2.18"
-description = "InRobot common"
+description = "InRobot"
 
 [packages]
 tags = [

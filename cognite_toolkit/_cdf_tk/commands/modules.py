@@ -72,7 +72,7 @@ class ModulesCommand(ToolkitCommand):
                 if isinstance(subvalue, dict):
                     self._build_tree(subvalue, subtree)
                 else:
-                    subtree.add(subvalue)
+                    subtree.add(str(subvalue))
 
     def _create(
         self, init_dir: str, selected: dict[str, dict[str, Any]], environments: list[str], mode: str | None
@@ -204,16 +204,18 @@ class ModulesCommand(ToolkitCommand):
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(
-                            title=value, value=key, checked=True if key in selected.get(package_name, {}) else False
+                            title=selectable_module.title,
+                            value=selectable_module,
+                            checked=True if selectable_module.name in selected.get(package_name, {}) else False,
                         )
-                        for key, value in package.modules.items()
+                        for selectable_module in package.modules
                     ],
                     qmark=INDENT,
                     pointer=POINTER,
                     style=custom_style_fancy,
                 ).ask()
             else:
-                selection = list(package.modules.keys())
+                selection = package.modules
 
             selected[package_name] = selection
 
