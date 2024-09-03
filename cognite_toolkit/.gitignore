@@ -275,3 +275,4 @@ $RECYCLE.BIN/
 .venv.*
 build.*
 build/
+local_function_venvs/

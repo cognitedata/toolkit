@@ -193,11 +193,18 @@ intended to test the function before deploying it to CDF or to debug issues with
 
         function_local = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
 
-        self._setup_virtual_env(function_local, function_build, rebuild_env)
+        self._setup_virtual_env(function_local, function_build, rebuild_env, organization_dir)
 
         self._run_function_locally(ToolGlobals, function_build, input_data)
 
-    def _setup_virtual_env(self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool) -> None:
+    def _setup_virtual_env(
+        self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool, organization_dir: Path
+    ) -> None:
+        virtual_envs_dir = organization_dir / self.virtual_env_dir
+        virtual_envs_dir.mkdir(exist_ok=True)
+        readme = virtual_envs_dir / "README.md"
+        if not readme.exists():
+            readme.write_text(self.default_readme_md)
         raise NotImplementedError()
 
     def _run_function_locally(
