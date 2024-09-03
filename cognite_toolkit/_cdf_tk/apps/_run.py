@@ -47,7 +47,7 @@ class RunFunctionApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("local")(self.run_local)
-        self.command("cdf")(self.run_cdf)
+        self.command("live")(self.run_cdf)
 
     @staticmethod
     def main(ctx: typer.Context) -> None:
