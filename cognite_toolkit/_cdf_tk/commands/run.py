@@ -59,7 +59,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         resources = ModuleResources(project_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources)
+        input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive)
 
         client = ToolGlobals.toolkit_client
         function = client.functions.retrieve(external_id=external_id)
@@ -129,6 +129,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         }
 
         if external_id is None:
+            # Interactive mode
             external_id = questionary.select(
                 "Select function to run", choices=list(function_builds_by_identifier.keys())
             ).ask()
@@ -138,15 +139,18 @@ intended to test the function before deploying it to CDF or to debug issues with
 
     @staticmethod
     def _get_input_data(
-        ToolGlobals: CDFToolConfig, schedule_name: str | None, external_id: str, resources: ModuleResources
+        ToolGlobals: CDFToolConfig,
+        schedule_name: str | None,
+        external_id: str,
+        resources: ModuleResources,
+        is_interactive: bool,
     ) -> dict | None:
-        if (
-            schedule_name is None
-            and not questionary.confirm("Do you want to provide input data for the function?").ask()
+        if schedule_name is None and (
+            not is_interactive or not questionary.confirm("Do you want to provide input data for the function?").ask()
         ):
             return None
         schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
-        if schedule_name is None:
+        if is_interactive:
             # Interactive mode
             options = {
                 schedule.identifier.name: schedule
@@ -182,9 +186,10 @@ intended to test the function before deploying it to CDF or to debug issues with
         rebuild_env: bool = False,
     ) -> None:
         resources = ModuleResources(project_dir, build_env_name)
+        is_interactive = external_id is None
         function_build = self._get_function(external_id, resources)
         # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
-        input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources)
+        input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
 
         function_local = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
 

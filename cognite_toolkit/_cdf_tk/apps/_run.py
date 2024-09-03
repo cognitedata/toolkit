@@ -59,12 +59,11 @@ class RunFunctionApp(typer.Typer):
     def run_local(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[str],
+            str,
             typer.Argument(
-                help="External id of the function to run. If not provided, the function "
-                "will be selected interactively.",
+                help="External id of the function to run.",
             ),
-        ] = None,
+        ],
         project_dir: Annotated[
             Path,
             typer.Option(
@@ -100,8 +99,18 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
         cmd.run(
-            lambda: cmd.run_local(
-                CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, schedule, rebuild_env
+            lambda: cmd.execute(
+                CDFToolConfig.from_context(ctx),
+                external_id,
+                schedule,
+                False,
+                True,
+                rebuild_env,
+                False,
+                str(project_dir),
+                schedule,
+                env_name,
+                False,
             )
         )
 
