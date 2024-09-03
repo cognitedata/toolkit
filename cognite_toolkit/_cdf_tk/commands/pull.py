@@ -402,7 +402,7 @@ class PullCommand(ToolkitCommand):
             )
             _, source_by_build_path = BuildCommand().build_config(
                 build_dir=build_dir,
-                source_dir=organization_dir,
+                organization_dir=organization_dir,
                 config=config,
                 packages=cdf_toml.modules.packages,
                 clean=True,

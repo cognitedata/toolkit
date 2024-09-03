@@ -77,7 +77,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     with pytest.raises(ToolkitDuplicatedModuleError) as err:
         BuildCommand().build_config(
             build_dir=build_tmp_path,
-            source_dir=PROJECT_WITH_DUPLICATES,
+            organization_dir=PROJECT_WITH_DUPLICATES,
             config=config,
             packages={},
         )

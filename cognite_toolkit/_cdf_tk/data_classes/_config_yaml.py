@@ -184,7 +184,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         self,
         modules_by_package: dict[str, list[str | Path]],
         available_modules: set[str | Path],
-        source_dir: Path,
+        organization_dir: Path,
         verbose: bool,
     ) -> list[str | Path]:
         selected_packages = [
@@ -201,7 +201,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
         if missing := set(selected_modules) - available_modules:
-            hint = ModuleDefinition.long(missing, source_dir)
+            hint = ModuleDefinition.long(missing, organization_dir)
             raise ToolkitMissingModuleError(
                 f"The following selected modules are missing, please check path: {missing}.\n{hint}"
             )

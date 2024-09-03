@@ -695,7 +695,7 @@ def run_function_cmd(
             help="Do not delete the temporary build directory.",
         ),
     ] = False,
-    source_dir: Annotated[
+    organization_dir: Annotated[
         Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
@@ -739,7 +739,7 @@ def run_function_cmd(
             local,
             rebuild_env,
             no_cleanup,
-            source_dir,
+            organization_dir,
             schedule,
             build_env_name,
             verbose or ctx.obj.verbose,

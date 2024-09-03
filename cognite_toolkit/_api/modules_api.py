@@ -43,12 +43,12 @@ class ModulesAPI:
             return COGNITE_MODULES_PATH
 
     def _load_modules(self) -> None:
-        source_dir = self._source_dir()
+        organization_dir = self._source_dir()
 
-        cdf_toml = CDFToml.load(source_dir.parent)
-        default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
+        cdf_toml = CDFToml.load(organization_dir.parent)
+        default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(organization_dir)
 
-        for module, _ in iterate_modules(source_dir):
+        for module, _ in iterate_modules(organization_dir):
             module_packages = {
                 package_name
                 for package_name, package_modules in cdf_toml.modules.packages.items()

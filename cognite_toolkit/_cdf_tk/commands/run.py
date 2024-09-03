@@ -214,7 +214,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         local: bool,
         rebuild_env: bool,
         no_cleanup: bool,
-        source_dir: str | None,
+        organization_dir: str | None,
         schedule: str | None,
         build_env_name: str,
         verbose: bool,
@@ -226,9 +226,9 @@ intended to test the function before deploying it to CDF or to debug issues with
             print(
                 "  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified."
             )
-        if source_dir is None:
-            source_dir = "./"
-        source_path = Path(source_dir)
+        if organization_dir is None:
+            organization_dir = "./"
+        source_path = Path(organization_dir)
         if not source_path.exists():
             raise ToolkitFileNotFoundError(f"Could not find source directory {source_path}")
         _ = CDFToml.load(source_path)
@@ -382,7 +382,7 @@ intended to test the function before deploying it to CDF or to debug issues with
             return False
         BuildCommand().build_config(
             build_dir=build_dir,
-            source_dir=source_path,
+            organization_dir=source_path,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=True,

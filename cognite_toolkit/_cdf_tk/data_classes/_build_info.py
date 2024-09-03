@@ -323,7 +323,7 @@ class BuildInfo(ConfigCore):
                 config.environment.selected = list(needs_rebuild)
             build, _ = BuildCommand().build_config(
                 build_dir=build_dir,
-                source_dir=organization_dir,
+                organization_dir=organization_dir,
                 config=config,
                 packages=cdf_toml.modules.packages,
                 clean=True,

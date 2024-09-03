@@ -40,15 +40,15 @@ class ModuleDefinition(Hint):
         return f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}. {cls._link(URL.configs)} to learn more."
 
     @classmethod
-    def long(cls, missing_modules: set[str | Path] | None = None, source_dir: Path | None = None) -> str:  # type: ignore[override]
+    def long(cls, missing_modules: set[str | Path] | None = None, organization_dir: Path | None = None) -> str:  # type: ignore[override]
         lines = [
             "A module is a directory with one or more resource directories in it.",
             f"Available resource directories are {sorted(LOADER_BY_FOLDER_NAME)}",
             f"{cls._link(URL.configs)} to learn more",
         ]
-        if missing_modules and source_dir:
+        if missing_modules and organization_dir:
             found_directory, subdirectories = find_directory_with_subdirectories(
-                next((m for m in missing_modules if isinstance(m, str)), None), source_dir
+                next((m for m in missing_modules if isinstance(m, str)), None), organization_dir
             )
             if found_directory:
                 lines += [

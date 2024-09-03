@@ -102,8 +102,8 @@ class ModulesCommand(ToolkitCommand):
 
             for module in modules:
                 print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
-                source_dir = Path(_packages.__file__).parent / package / module
-                if not Path(source_dir).exists():
+                organization_dir = Path(_packages.__file__).parent / package / module
+                if not organization_dir.exists():
                     print(f"{INDENT*3}[red]Module {module} not found in package {package}. Skipping...[/]")
                     continue
                 module_dir = modules_root_dir / package / module
@@ -116,7 +116,7 @@ class ModulesCommand(ToolkitCommand):
                     else:
                         continue
 
-                shutil.copytree(source_dir, module_dir, ignore=shutil.ignore_patterns("default.*"))
+                shutil.copytree(organization_dir, module_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
             # if mode == "update":
