@@ -257,12 +257,12 @@ def common(
 def build(
     ctx: typer.Context,
     organization_dir: Annotated[
-        str,
+        Path,
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     build_dir: Annotated[
         str,
         typer.Option(
@@ -278,7 +278,7 @@ def build(
             "-e",
             help="The name of the environment to build",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     no_clean: Annotated[
         bool,
         typer.Option(
@@ -766,13 +766,13 @@ def pull_transformation_cmd(
             help="External id of the transformation to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the destination module templates.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -780,7 +780,7 @@ def pull_transformation_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -804,7 +804,7 @@ def pull_transformation_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             external_id,
             env,
             dry_run,
@@ -837,12 +837,12 @@ def pull_node_cmd(
         ),
     ],
     organization_dir: Annotated[
-        str,
+        Path,
         typer.Argument(
             help="Where to find the modules.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -850,7 +850,7 @@ def pull_node_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(

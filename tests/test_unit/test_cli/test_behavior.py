@@ -135,7 +135,7 @@ def test_pull_transformation(
 
     pull_transformation_cmd(
         typer_context,
-        source_dir=str(init_project_mutable),
+        organization_dir=str(init_project_mutable),
         external_id=read_transformation.external_id,
         env="dev",
         dry_run=False,

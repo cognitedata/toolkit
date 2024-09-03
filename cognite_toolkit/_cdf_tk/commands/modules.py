@@ -136,7 +136,7 @@ class ModulesCommand(ToolkitCommand):
         if not dest.exists():
             shutil.copy(_cdf_toml_tmpl, dest)
 
-    def init(self, init_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
+    def init(self, organization_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
         print("\n")
         print(
             Panel(
@@ -160,15 +160,15 @@ class ModulesCommand(ToolkitCommand):
 
         mode = "new"
 
-        if not init_dir:
-            init_dir = questionary.text(
+        if not organization_dir:
+            organization_dir = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
                 default="new_project",
             ).ask()
-            if not init_dir or init_dir.strip() == "":
+            if not organization_dir or organization_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
-        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        modules_root_dir = Path(organization_dir) / ALT_CUSTOM_MODULES
         if modules_root_dir.is_dir():
             mode = questionary.select(
                 f"Directory {modules_root_dir} already exists. What would you like to do?",
@@ -184,7 +184,7 @@ class ModulesCommand(ToolkitCommand):
                 print("Aborting...")
                 raise typer.Exit()
 
-        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
+        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
         selected: dict[str, dict[str, Any]] = {}
         if arg_package:
@@ -252,10 +252,10 @@ class ModulesCommand(ToolkitCommand):
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
-            self._create(init_dir, selected, environments, mode)
+            self._create(organization_dir, selected, environments, mode)
             print(
                 Panel(
-                    f"""Modules have been prepared in [bold]{init_dir}[/]. \nNext steps:
+                    f"""Modules have been prepared in [bold]{organization_dir}[/]. \nNext steps:
     1. Run `cdf-tk auth verify --interactive to set up credentials.
     2. Configure your project in the config files. Use cdf-tk build for assistance.
     3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
@@ -272,9 +272,8 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def upgrade(self, project_dir: str | Path | None = None, verbose: bool = False) -> Changes:
-        project_path = Path(project_dir or ".")
-        module_version = self._get_module_version(project_path)
+    def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
+        module_version = self._get_module_version(organization_dir)
         cli_version = parse_version(__version__)
 
         if cli_version < module_version:
@@ -305,7 +304,7 @@ class ModulesCommand(ToolkitCommand):
             module_version=module_version, cli_version=cli_version
         )
 
-        changes = Changes.load(module_version, project_path)
+        changes = Changes.load(module_version, organization_dir)
         if not changes:
             print("No changes required.")
             return changes
@@ -346,7 +345,7 @@ class ModulesCommand(ToolkitCommand):
                 elif isinstance(change, AutomaticChange):
                     print("The following files have been changed:")
                     for file in changed_files:
-                        print(Markdown(f"  - {file.relative_to(project_path).as_posix()}"))
+                        print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
             if changed_files or not change.has_file_changes or verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
             print(Rule())
@@ -385,11 +384,10 @@ class ModulesCommand(ToolkitCommand):
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, project_dir: str | Path, build_env_name: str) -> None:
-        project_dir = Path(project_dir)
-        modules = ModuleResources(project_dir, build_env_name)
+    def list(self, organization_dir: Path, build_env_name: str) -> None:
+        modules = ModuleResources(organization_dir, build_env_name)
 
-        table = Table(title=f"{build_env_name} {project_dir.name} modules")
+        table = Table(title=f"{build_env_name} {organization_dir.name} modules")
         table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")

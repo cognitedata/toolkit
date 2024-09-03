@@ -49,13 +49,13 @@ intended to test the function before deploying it to CDF or to debug issues with
     def run_cdf(
         self,
         ToolGlobals: CDFToolConfig,
-        project_dir: Path,
+        organization_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
         schedule: str | None = None,
         wait: bool = False,
     ) -> bool:
-        resources = ModuleResources(project_dir, build_env_name)
+        resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
         input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive)
