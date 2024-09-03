@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -611,14 +610,6 @@ if __name__ == "__main__":
         if not no_cleanup:
             shutil.rmtree(build_dir)
         return True
-
-
-@dataclass
-class RunFunction:
-    function_external_id: str
-    data: dict[str, Any] | None
-    credentials: dict[str, str]
-    requirement_file: Path | None
 
 
 class RunTransformationCommand(ToolkitCommand):
