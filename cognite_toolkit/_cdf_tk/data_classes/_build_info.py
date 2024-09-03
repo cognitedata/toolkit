@@ -8,12 +8,17 @@ from pathlib import Path
 from typing import Any, ClassVar, Generic, SupportsIndex, cast, overload
 
 import yaml
+from cognite.client.data_classes._base import (
+    T_CogniteResourceList,
+    T_WritableCogniteResource,
+    T_WriteClass,
+)
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes, get_loader
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_str_or_file_hash,
@@ -130,6 +135,38 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
     module_name: str
     module_location: Path
     resource_dir: str
+
+    def load_resource_dict(self, environment_variables: dict[str, str | None]) -> dict[str, Any]:
+        content = self.build_variables.replace(safe_read(self.location.path))
+        loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
+        raw = load_yaml_inject_variables(content, environment_variables)
+        if isinstance(raw, dict):
+            return raw
+        elif isinstance(raw, list):
+            for item in raw:
+                if loader.get_id(item) == self.identifier:
+                    return item
+        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.location.path}")
+
+    def load_resource(
+        self,
+        environment_variables: dict[str, str | None],
+        loader: type[
+            ResourceLoader[
+                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            ]
+        ]
+        | None = None,
+    ) -> T_WriteClass:
+        """Load the resource from the build info.
+
+        Args:
+            environment_variables: The environment variables to inject into the resource file.
+            loader: The loader to use to load the resource. If not provided, the loader will be inferred from the resource directory and kind.
+                The motivation to explicitly provide the loader is to get the correct type hints.
+        """
+        loader = loader or get_loader(self.resource_dir, self.kind)  # type: ignore[assignment]
+        return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
 class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
@@ -402,19 +439,6 @@ class ModuleResources:
             ):
                 self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
-
-    def retrieve_resource_config(self, build: ResourceBuildInfoFull, environment_variables: dict[str, Any]) -> Any:
-        content = safe_read(build.location.path)
-        content = build.build_variables.replace(content)
-        loader = cast(ResourceLoader, get_loader(build.resource_dir, build.kind))
-        raw = load_yaml_inject_variables(content, environment_variables)
-        if isinstance(raw, dict):
-            return loader.resource_write_cls.load(raw, build.identifier)
-        elif isinstance(raw, list):
-            for item in raw:
-                if loader.get_id(item) == build.identifier:
-                    return loader.resource_write_cls.load(item)
-        raise ToolkitMissingResourceError(f"Resource {build.identifier} not found in {build.location.path}")
 
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date

@@ -10,12 +10,11 @@ import tempfile
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import questionary
 from cognite.client.data_classes import (
     FunctionCall,
-    FunctionScheduleWrite,
     FunctionScheduleWriteList,
     FunctionWrite,
     FunctionWriteList,
@@ -168,11 +167,7 @@ intended to test the function before deploying it to CDF or to debug issues with
                     break
             else:
                 raise ToolkitMissingResourceError(f"Could not find data for schedule {schedule_name}")
-
-        config = cast(
-            FunctionScheduleWrite,
-            resources.retrieve_resource_config(selected, ToolGlobals.environment_variables()),
-        )
+        config = selected.load_resource(ToolGlobals.environment_variables(), FunctionScheduleLoader)
         if config.data is None:
             raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
         return config.data
@@ -191,7 +186,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
         input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources)
 
-        function_local = resources.retrieve_resource_config(function_build, ToolGlobals.environment_variables())
+        function_local = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
 
         self._setup_virtual_env(function_local, function_build, rebuild_env)
 
