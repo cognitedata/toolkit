@@ -132,7 +132,7 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--organization-dir",
                 "-o",
-                help="Path to project directory with the modules. This is used to search for available functions.",
+                help="Path to organization directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.organization_dir,
         env_name: Annotated[
