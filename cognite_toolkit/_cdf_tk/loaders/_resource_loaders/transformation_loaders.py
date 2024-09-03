@@ -120,6 +120,10 @@ class TransformationLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -350,6 +354,10 @@ class TransformationScheduleLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
@@ -428,6 +436,14 @@ class TransformationNotificationLoader(
             return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
 
         return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        transformation_id, destination = id.split(cls._split_character, maxsplit=1)
+        return {
+            "transformationExternalId": transformation_id,
+            "destination": destination,
+        }
 
     @classmethod
     def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:

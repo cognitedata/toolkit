@@ -124,7 +124,7 @@ def test_pull_transformation(
         transformation = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
         # Write back original content
         transformation_yaml.write_text(original)
-        return transformation
+        return cast(TransformationWrite, transformation)
 
     loaded = load_transformation()
 

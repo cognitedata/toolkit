@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, ClassVar, Literal, get_args
 
 import yaml
 from rich import print
@@ -70,12 +70,12 @@ class Environment:
 
         if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
-                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML._file_name(build_name)!s}"
+                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML.get_filename(build_name)!s}"
             )
         build_type = data["type"]
         if build_type not in _AVAILABLE_ENV_TYPES:
             raise ToolkitEnvError(
-                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. "
+                f"Invalid type {build_type} in {BuildConfigYAML.get_filename(build_name)!s}. "
                 f"Must be one of {_AVAILABLE_ENV_TYPES}"
             )
 
@@ -115,11 +115,8 @@ class ConfigYAMLCore(ABC):
 class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
+    filename: ClassVar[str] = "config.{build_env}.yaml"
     variables: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def _file_name(cls, build_env_name: str) -> str:
-        return f"config.{build_env_name}.yaml"
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
@@ -135,7 +132,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         build_type = self.environment.build_type
         env_name = self.environment.name
-        file_name = self._file_name(env_name)
+        file_name = self.get_filename(env_name)
         missing_message = (
             "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
             f"set in environment section of {file_name!r}.\nThis is required for "
@@ -286,7 +283,7 @@ class BuildEnvironment(Environment):
 
             if not file.exists():
                 warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
-            elif hash_ != calculate_str_or_file_hash(file):
+            elif hash_ != calculate_str_or_file_hash(file, shorten=True):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list
 

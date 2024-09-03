@@ -8,7 +8,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite_toolkit._cdf_tk.utils import iterate_modules
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
 
 
 @dataclass(frozen=True)
@@ -45,6 +45,11 @@ class ModuleLocation:
     def parent_relative_paths(self) -> set[Path]:
         """All relative parent paths of the module."""
         return set(self.relative_path.parents)
+
+    @cached_property
+    def hash(self) -> str:
+        """The hash of the module."""
+        return calculate_directory_hash(self.dir, shorten=True)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"

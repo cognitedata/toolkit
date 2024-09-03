@@ -47,6 +47,10 @@ class ThreeDModelLoader(
         return item.name
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"name": id}
+
+    @classmethod
     def get_required_capability(cls, items: ThreeDModelWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
