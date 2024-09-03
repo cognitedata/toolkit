@@ -179,13 +179,13 @@ intended to test the function before deploying it to CDF or to debug issues with
     def run_local(
         self,
         ToolGlobals: CDFToolConfig,
-        project_dir: Path,
+        organization_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
         schedule: str | None = None,
         rebuild_env: bool = False,
     ) -> None:
-        resources = ModuleResources(project_dir, build_env_name)
+        resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         function_build = self._get_function(external_id, resources)
         # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.

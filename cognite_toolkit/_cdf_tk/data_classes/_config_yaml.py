@@ -488,7 +488,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             entries=entries,
         )
 
-    def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
+    def load_variables(self, organization_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -496,20 +496,20 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         Variables are marked with a {{ variable }} syntax.
 
         Args:
-            project_dir: The directory with all project configurations.
+            organization_dir: The directory with all project configurations.
             propagate_reused_variables: Whether to move variables with the same name to a shared parent.
 
         Returns:
             self
         """
         variable_by_parent_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
-        for filepath in project_dir.glob("**/*"):
+        for filepath in organization_dir.glob("**/*"):
             if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
                 continue
             if filepath.name.startswith("default"):
                 continue
             content = safe_read(filepath)
-            key_parent = filepath.parent.relative_to(project_dir).parts
+            key_parent = filepath.parent.relative_to(organization_dir).parts
             if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
 
@@ -641,7 +641,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         for config_yaml in self.values():
             config_yaml.load_defaults(cognite_module)
 
-    def load_variables(self, project_dir: Path) -> None:
+    def load_variables(self, organization_dir: Path) -> None:
         # Can be optimized, but not a priority
         for config_yaml in self.values():
-            config_yaml.load_variables(project_dir)
+            config_yaml.load_variables(organization_dir)

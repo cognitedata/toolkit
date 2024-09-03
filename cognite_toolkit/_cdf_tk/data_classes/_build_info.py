@@ -304,14 +304,14 @@ class BuildInfo(ConfigCore):
         return cls(filepath, ModulesInfo.load(data["modules"]))
 
     @classmethod
-    def rebuild(cls, project_dir: Path, build_env: str, needs_rebuild: set[Path] | None = None) -> BuildInfo:
+    def rebuild(cls, organization_dir: Path, build_env: str, needs_rebuild: set[Path] | None = None) -> BuildInfo:
         # To avoid circular imports
         # Ideally, this class should be in a separate module
         from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 
         with tmp_build_directory() as build_dir:
             cdf_toml = CDFToml.load()
-            config = BuildConfigYAML.load_from_directory(project_dir, build_env)
+            config = BuildConfigYAML.load_from_directory(organization_dir, build_env)
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
@@ -323,7 +323,7 @@ class BuildInfo(ConfigCore):
                 config.environment.selected = list(needs_rebuild)
             build, _ = BuildCommand().build_config(
                 build_dir=build_dir,
-                source_dir=project_dir,
+                source_dir=organization_dir,
                 config=config,
                 packages=cdf_toml.modules.packages,
                 clean=True,
@@ -331,10 +331,10 @@ class BuildInfo(ConfigCore):
             )
 
         new_build = cls(
-            filepath=project_dir / cls.get_filename(build_env),
+            filepath=organization_dir / cls.get_filename(build_env),
             modules=ModulesInfo(version=_version.__version__, modules=build),
         )
-        if needs_rebuild is not None and (existing := cls._get_existing(project_dir, build_env)):
+        if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env)):
             # Merge the existing modules with the new modules
             new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
             module_list = ModuleBuildList(
@@ -351,9 +351,9 @@ class BuildInfo(ConfigCore):
         return new_build
 
     @classmethod
-    def _get_existing(cls, project_dir: Path, build_env: str) -> BuildInfo | None:
+    def _get_existing(cls, organization_dir: Path, build_env: str) -> BuildInfo | None:
         try:
-            existing = cls.load_from_directory(project_dir, build_env)
+            existing = cls.load_from_directory(organization_dir, build_env)
         except FileNotFoundError:
             return None
         if existing.modules.modules != _version.__version__:
@@ -408,24 +408,24 @@ class ModuleResources:
     latest changes in the source directory.
     """
 
-    def __init__(self, project_dir: Path, build_env: str) -> None:
-        self._project_dir = project_dir
+    def __init__(self, organization_dir: Path, build_env: str) -> None:
+        self._organization_gir = organization_dir
         self._build_env = build_env
         self._build_info: BuildInfo
         try:
-            self._build_info = BuildInfo.load_from_directory(project_dir, build_env)
+            self._build_info = BuildInfo.load_from_directory(organization_dir, build_env)
             self._has_rebuilt = False
         except FileNotFoundError:
-            self._build_info = BuildInfo.rebuild(project_dir, build_env)
+            self._build_info = BuildInfo.rebuild(organization_dir, build_env)
             self._has_rebuilt = True
 
     @cached_property
     def _current_modules(self) -> ModuleDirectories:
-        return ModuleDirectories.load(self._project_dir, {Path("")})
+        return ModuleDirectories.load(self._organization_gir, {Path("")})
 
     @cached_property
     def _current_variables(self) -> BuildVariables:
-        config_yaml = BuildConfigYAML.load_from_directory(self._project_dir, self._build_env)
+        config_yaml = BuildConfigYAML.load_from_directory(self._organization_gir, self._build_env)
         return BuildVariables.load_raw(
             config_yaml.variables, self._current_modules.available_paths, self._current_modules.selected.available_paths
         )
@@ -437,13 +437,13 @@ class ModuleResources:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}
             ):
-                self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
+                self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
 
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(self._current_modules, self._current_variables):
-                self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
+                self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
             self._has_rebuilt = True
         return self._build_info.modules.modules
