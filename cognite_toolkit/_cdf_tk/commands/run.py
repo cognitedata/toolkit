@@ -160,7 +160,8 @@ intended to test the function before deploying it to CDF or to debug issues with
             if len(options) == 0:
                 print(f"No schedules found for this {external_id} function.")
                 return None
-            selected = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+            selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+            selected = options[selected_name]
         else:
             for schedule in schedules:
                 if (
