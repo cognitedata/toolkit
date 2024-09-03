@@ -922,22 +922,6 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return config_data
 
 
-def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
-    """
-    This is useful if we provide a relative path to some resource in a config file.
-    """
-    if path.is_absolute():
-        raise ValueError(f"Path {path} is not relative.")
-
-    if isinstance(base_path, str):
-        base_path = Path(base_path)
-
-    if not base_path.is_dir():
-        base_path = base_path.parent
-
-    return (base_path / path).resolve()
-
-
 def calculate_directory_hash(
     directory: Path,
     exclude_prefixes: set[str] | None = None,
