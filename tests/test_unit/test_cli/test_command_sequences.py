@@ -66,7 +66,7 @@ def test_build_deploy_module(
 
     build(
         typer_context,
-        source_dir=str(init_project),
+        organization_dir=str(init_project),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -112,7 +112,7 @@ def test_build_deploy_with_dry_run(
 
     build(
         typer_context,
-        source_dir=str(init_project),
+        organization_dir=str(init_project),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -149,7 +149,7 @@ def test_init_build_clean(
 
     build(
         typer_context,
-        source_dir=str(init_project),
+        organization_dir=str(init_project),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,

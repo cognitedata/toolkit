@@ -50,7 +50,7 @@ def test_inject_custom_environmental_variables(
 
     build(
         typer_context,
-        source_dir=str(init_project),
+        organization_dir=str(init_project),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -276,7 +276,7 @@ def test_build_custom_project(
     }
     build(
         typer_context,
-        source_dir=str(PROJECT_NO_COGNITE_MODULES),
+        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -298,7 +298,7 @@ def test_build_project_selecting_parent_path(
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
     build(
         typer_context,
-        source_dir=str(PROJECT_FOR_TEST),
+        organization_dir=str(PROJECT_FOR_TEST),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -347,7 +347,7 @@ def test_build_project_with_only_top_level_variables(
 ) -> None:
     build(
         typer_context,
-        source_dir=str(PROJECT_NO_COGNITE_MODULES),
+        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
         build_dir=str(build_tmp_path),
         build_env_name="top_level_variables",
         no_clean=False,

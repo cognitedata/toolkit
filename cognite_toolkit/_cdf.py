@@ -61,9 +61,8 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
-# Should raise if the cdf.toml is not found
-if "pytest" not in sys.modules:
-    CDF_TOML = CDFToml.load(Path.cwd())
+
+CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,
@@ -257,7 +256,7 @@ def common(
 @_app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: Annotated[
+    organization_dir: Annotated[
         str,
         typer.Argument(
             help="Where to find the module templates to build from",
@@ -310,7 +309,7 @@ def build(
     cmd.run(
         lambda: cmd.execute(
             verbose or ctx.obj.verbose,
-            Path(source_dir),
+            Path(organization_dir),
             Path(build_dir),
             build_env_name,
             no_clean,
@@ -837,10 +836,10 @@ def pull_node_cmd(
             help="External id of the node to pull.",
         ),
     ],
-    source_dir: Annotated[
+    organization_dir: Annotated[
         str,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the modules.",
             allow_dash=True,
         ),
     ] = "./",
@@ -876,7 +875,7 @@ def pull_node_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             NodeId(space, external_id),
             env,
             dry_run,
