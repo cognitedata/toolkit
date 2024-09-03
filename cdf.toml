@@ -1,5 +1,8 @@
 [cdf]
-project_dir = "cognite_toolkit"
+# This is the organization name, it can be set to anything. But it is typicaly
+# the name of https://<your-organization>.fusion.cognite.com # when you log in to Cognite Data Fusion.
+organization_dir = "cognite_toolkit"
+default_env = "local"
 
 [cdf.feature_flags]
 graphql = true
