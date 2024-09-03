@@ -102,18 +102,13 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
         cmd.run(
-            lambda: cmd.execute(
+            lambda: cmd.run_local(
                 CDFToolConfig.from_context(ctx),
+                organization_dir,
+                env_name,
                 external_id,
                 schedule,
-                False,
-                True,
                 rebuild_env,
-                False,
-                str(organization_dir),
-                schedule,
-                env_name,
-                False,
             )
         )
 
