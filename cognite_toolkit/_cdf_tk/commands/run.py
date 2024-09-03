@@ -11,24 +11,200 @@ import time
 from pathlib import Path
 from typing import Any
 
-from cognite.client.data_classes import FunctionCall, FunctionScheduleWriteList, FunctionWriteList
+import questionary
+from cognite.client.data_classes import (
+    FunctionCall,
+    FunctionScheduleWriteList,
+    FunctionWrite,
+    FunctionWriteList,
+)
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
+from cognite.client.utils import ms_to_datetime
 from rich import print
+from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources, ResourceBuildInfoFull
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
 
 from ._base import ToolkitCommand
 
 
 class RunFunctionCommand(ToolkitCommand):
+    virtual_env_dir = "local_function_venvs"
+    default_readme_md = """# Local Function Quality Assurance
+
+This directory contains virtual environments for running functions locally. This is
+intended to test the function before deploying it to CDF or to debug issues with a deployed function.
+
+"""
+
+    def run_cdf(
+        self,
+        ToolGlobals: CDFToolConfig,
+        project_dir: Path,
+        build_env_name: str,
+        external_id: str | None = None,
+        schedule: str | None = None,
+        wait: bool = False,
+    ) -> bool:
+        resources = ModuleResources(project_dir, build_env_name)
+        is_interactive = external_id is None
+        external_id = self._get_function(external_id, resources).identifier
+        input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive)
+
+        client = ToolGlobals.toolkit_client
+        function = client.functions.retrieve(external_id=external_id)
+        if function is None:
+            raise ToolkitMissingResourceError(
+                f"Could not find function with external id {external_id}. Have you deployed it?"
+            )
+
+        if is_interactive:
+            wait = questionary.confirm("Do you want to wait for the function to complete?").ask()
+
+        session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+        result = ToolGlobals.toolkit_client.functions.call(
+            external_id=external_id, data=input_data, wait=False, nonce=session.nonce
+        )
+
+        table = Table(title=f"Function {external_id!r}, id {function.id!r}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Call id", str(result.id))
+        table.add_row("Status", str(result.status))
+        table.add_row("Created time", str(ms_to_datetime(result.start_time)))
+        print(table)
+
+        if not wait:
+            return True
+
+        max_time = client.functions.limits().timeout_minutes * 60
+        with Progress() as progress:
+            call_task = progress.add_task("Waiting for function call to complete...", total=max_time)
+            start_time = time.time()
+            duration = 0.0
+            sleep_time = 1
+            while result.status.casefold() == "running" and duration < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 60)
+                result.update()
+                duration = time.time() - start_time
+                progress.advance(call_task, advance=duration)
+            progress.advance(call_task, advance=max_time - duration)
+            progress.stop()
+        table = Table(title=f"Function {external_id}, id {function.id}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Call id", str(result.id))
+        table.add_row("Status", str(result.status))
+        created_time = ms_to_datetime(result.start_time)
+        finished_time = ms_to_datetime(result.end_time or (datetime.datetime.now().timestamp() * 1000))
+        table.add_row("Created time", str(created_time))
+        table.add_row("Finished time", str(finished_time))
+        run_time = finished_time - created_time
+        table.add_row("Duration", f"{run_time.total_seconds():,} seconds")
+        if result.error is not None:
+            table.add_row("Error", str(result.error.get("message", "Empty error")))
+            table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
+        response = client.functions.calls.get_response(call_id=result.id or 0, function_id=function.id)
+        table.add_row("Result", str(json.dumps(response, indent=2, sort_keys=True)))
+        logs = ToolGlobals.toolkit_client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
+        table.add_row("Logs", str(logs))
+        print(table)
+        return True
+
+    @staticmethod
+    def _get_function(external_id: str | None, resources: ModuleResources) -> ResourceBuildInfoFull[str]:
+        function_builds_by_identifier = {
+            build.identifier: build for build in resources.list_resources(str, "functions", FunctionLoader.kind)
+        }
+
+        if external_id is None:
+            # Interactive mode
+            external_id = questionary.select(
+                "Select function to run", choices=list(function_builds_by_identifier.keys())
+            ).ask()
+        elif external_id not in function_builds_by_identifier.keys():
+            raise ToolkitMissingResourceError(f"Could not find function with external id {external_id}")
+        return function_builds_by_identifier[external_id]
+
+    @staticmethod
+    def _get_input_data(
+        ToolGlobals: CDFToolConfig,
+        schedule_name: str | None,
+        external_id: str,
+        resources: ModuleResources,
+        is_interactive: bool,
+    ) -> dict | None:
+        if schedule_name is None and (
+            not is_interactive or not questionary.confirm("Do you want to provide input data for the function?").ask()
+        ):
+            return None
+        schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+        if is_interactive:
+            # Interactive mode
+            options = {
+                schedule.identifier.name: schedule
+                for schedule in schedules
+                if schedule.identifier.function_external_id == external_id
+            }
+            if len(options) == 0:
+                print(f"No schedules found for this {external_id} function.")
+                return None
+            selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+            selected = options[selected_name]
+        else:
+            for schedule in schedules:
+                if (
+                    schedule.identifier.function_external_id == external_id
+                    and schedule.identifier.name == schedule_name
+                ):
+                    selected = schedule
+                    break
+            else:
+                raise ToolkitMissingResourceError(f"Could not find data for schedule {schedule_name}")
+        config = selected.load_resource(ToolGlobals.environment_variables(), FunctionScheduleLoader)
+        if config.data is None:
+            raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
+        return config.data
+
+    def run_local(
+        self,
+        ToolGlobals: CDFToolConfig,
+        project_dir: Path,
+        build_env_name: str,
+        external_id: str | None = None,
+        schedule: str | None = None,
+        rebuild_env: bool = False,
+    ) -> None:
+        resources = ModuleResources(project_dir, build_env_name)
+        is_interactive = external_id is None
+        function_build = self._get_function(external_id, resources)
+        # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
+        input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
+
+        function_local = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
+
+        self._setup_virtual_env(function_local, function_build, rebuild_env)
+
+        self._run_function_locally(ToolGlobals, function_build, input_data)
+
+    def _setup_virtual_env(self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool) -> None:
+        raise NotImplementedError()
+
+    def _run_function_locally(
+        self, ToolGlobals: CDFToolConfig, build: ResourceBuildInfoFull[str], input_data: dict | None
+    ) -> None:
+        raise NotImplementedError()
+
     def execute(
         self,
         ToolGlobals: CDFToolConfig,

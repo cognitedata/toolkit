@@ -5,7 +5,9 @@ from ._build_info import (
     ModuleBuildInfo,
     ModuleBuildList,
     ModuleResources,
+    ResourceBuildFullList,
     ResourceBuildInfo,
+    ResourceBuildInfoFull,
     ResourceBuildList,
 )
 from ._build_variables import BuildVariable, BuildVariables
@@ -38,4 +40,6 @@ __all__ = [
     "ModuleBuildList",
     "BuildLocationEager",
     "BuildLocationLazy",
+    "ResourceBuildFullList",
+    "ResourceBuildInfoFull",
 ]

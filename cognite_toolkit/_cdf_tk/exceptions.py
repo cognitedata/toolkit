@@ -13,6 +13,9 @@ class ToolkitError(Exception):
         return str(self)
 
 
+class ToolkitNotSupported(ToolkitError): ...
+
+
 class ToolkitInvalidSettingsError(ToolkitError):
     pass
 

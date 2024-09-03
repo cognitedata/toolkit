@@ -830,35 +830,37 @@ class CDFToolConfig:
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"]
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"]
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
 ) -> dict[str, Any] | list[dict[str, Any]]:
-    content = filepath.read_text()
+    if isinstance(filepath, str):
+        content = filepath
+    else:
+        content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
-        MediumSeverityWarning(
-            f"Variable {environment_variable} is not set in the environment. It is expected in {filepath.name}."
-        ).print_warning()
+        suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
+        MediumSeverityWarning(f"Variable {environment_variable} is not set in the environment.{suffix}").print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
@@ -918,22 +920,6 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     else:
         config_data = yaml.safe_load(content)
     return config_data
-
-
-def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
-    """
-    This is useful if we provide a relative path to some resource in a config file.
-    """
-    if path.is_absolute():
-        raise ValueError(f"Path {path} is not relative.")
-
-    if isinstance(base_path, str):
-        base_path = Path(base_path)
-
-    if not base_path.is_dir():
-        base_path = base_path.parent
-
-    return (base_path / path).resolve()
 
 
 def calculate_directory_hash(

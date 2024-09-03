@@ -8,13 +8,22 @@ from pathlib import Path
 from typing import Any, ClassVar, Generic, SupportsIndex, cast, overload
 
 import yaml
+from cognite.client.data_classes._base import (
+    T_CogniteResourceList,
+    T_WritableCogniteResource,
+    T_WriteClass,
+)
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.loaders import ResourceTypes, get_loader
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_str_or_file_hash,
+    load_yaml_inject_variables,
+    safe_read,
     safe_write,
     tmp_build_directory,
 )
@@ -108,25 +117,100 @@ class ResourceBuildInfo(Generic[T_ID]):
             "kind": self.kind,
         }
 
+    def create_full(self, module: ModuleBuildInfo, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
+        return ResourceBuildInfoFull(
+            identifier=self.identifier,
+            location=self.location,
+            kind=self.kind,
+            build_variables=module.build_variables,
+            module_name=module.name,
+            module_location=module.location.path,
+            resource_dir=resource_dir,
+        )
 
-class ResourceBuildList(list, MutableSequence[ResourceBuildInfo]):
+
+@dataclass
+class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
+    build_variables: BuildVariables
+    module_name: str
+    module_location: Path
+    resource_dir: str
+
+    def load_resource_dict(self, environment_variables: dict[str, str | None]) -> dict[str, Any]:
+        content = self.build_variables.replace(safe_read(self.location.path))
+        loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
+        raw = load_yaml_inject_variables(content, environment_variables)
+        if isinstance(raw, dict):
+            return raw
+        elif isinstance(raw, list):
+            for item in raw:
+                if loader.get_id(item) == self.identifier:
+                    return item
+        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.location.path}")
+
+    def load_resource(
+        self,
+        environment_variables: dict[str, str | None],
+        loader: type[
+            ResourceLoader[
+                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            ]
+        ]
+        | None = None,
+    ) -> T_WriteClass:
+        """Load the resource from the build info.
+
+        Args:
+            environment_variables: The environment variables to inject into the resource file.
+            loader: The loader to use to load the resource. If not provided, the loader will be inferred from the resource directory and kind.
+                The motivation to explicitly provide the loader is to get the correct type hints.
+        """
+        loader = loader or get_loader(self.resource_dir, self.kind)  # type: ignore[assignment]
+        return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
+
+
+class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ResourceBuildInfo] | None = None) -> None:
+    def __init__(self, collection: Collection[ResourceBuildInfo[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ResourceBuildInfo]:
+    def __iter__(self) -> Iterator[ResourceBuildInfo[T_ID]]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo: ...
+    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildList: ...
+    def __getitem__(self, index: slice) -> ResourceBuildList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo | ResourceBuildList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuildList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildList(super().__getitem__(index))
+            return ResourceBuildList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
+
+    @property
+    def identifiers(self) -> list[T_ID]:
+        return [resource.identifier for resource in self]
+
+
+class ResourceBuildFullList(ResourceBuildList[T_ID]):
+    # Implemented to get correct type hints
+    def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def __iter__(self) -> Iterator[ResourceBuildInfoFull[T_ID]]:
+        return cast(Iterator[ResourceBuildInfoFull[T_ID]], super().__iter__())
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> ResourceBuildFullList[T_ID]: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildFullList[T_ID]:
+        if isinstance(index, slice):
+            return ResourceBuildFullList[T_ID](super().__getitem__(index))
+        return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
 
 
 @dataclass
@@ -178,6 +262,16 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
         if isinstance(index, slice):
             return ModuleBuildList(super().__getitem__(index))
         return super().__getitem__(index)
+
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildFullList[T_ID]:
+        return ResourceBuildFullList[T_ID](
+            [
+                resource.create_full(module, resource_dir)
+                for module in self
+                for resource in module.resources.get(resource_dir, [])
+                if resource.kind == kind
+            ]
+        )
 
 
 @dataclass
@@ -279,11 +373,22 @@ class BuildInfo(ConfigCore):
         content = f"{self.top_warning}\n{content}"
         safe_write(self.filepath, content)
 
-    def compare_modules(self, current_modules: ModuleDirectories, current_variables: BuildVariables) -> set[Path]:
+    def compare_modules(
+        self,
+        current_modules: ModuleDirectories,
+        current_variables: BuildVariables,
+        resource_dirs: set[str] | None = None,
+    ) -> set[Path]:
         current_module_by_path = {module.relative_path: module for module in current_modules}
         cached_module_by_path = {module.location.path: module for module in self.modules.modules}
         needs_rebuild = set()
         for path, current_module in current_module_by_path.items():
+            if resource_dirs is not None and all(
+                resource_dir not in current_module.resource_directories for resource_dir in resource_dirs
+            ):
+                # The module does not contain any of the specified resources, so it does not need to be rebuilt.
+                continue
+
             if path not in cached_module_by_path:
                 needs_rebuild.add(path)
                 continue
@@ -314,15 +419,31 @@ class ModuleResources:
             self._build_info = BuildInfo.rebuild(project_dir, build_env)
             self._has_rebuilt = True
 
+    @cached_property
+    def _current_modules(self) -> ModuleDirectories:
+        return ModuleDirectories.load(self._project_dir, {Path("")})
+
+    @cached_property
+    def _current_variables(self) -> BuildVariables:
+        config_yaml = BuildConfigYAML.load_from_directory(self._project_dir, self._build_env)
+        return BuildVariables.load_raw(
+            config_yaml.variables, self._current_modules.available_paths, self._current_modules.selected.available_paths
+        )
+
+    def list_resources(
+        self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
+    ) -> ResourceBuildFullList[T_ID]:
+        if not self._has_rebuilt:
+            if needs_rebuild := self._build_info.compare_modules(
+                self._current_modules, self._current_variables, {resource_dir}
+            ):
+                self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
+        return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
+
     def list(self) -> ModuleBuildList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
-            current_modules = ModuleDirectories.load(self._project_dir, {Path("")})
-            config_yaml = BuildConfigYAML.load_from_directory(self._project_dir, self._build_env)
-            current_variables = BuildVariables.load_raw(
-                config_yaml.variables, current_modules.available_paths, current_modules.selected.available_paths
-            )
-            if needs_rebuild := self._build_info.compare_modules(current_modules, current_variables):
+            if needs_rebuild := self._build_info.compare_modules(self._current_modules, self._current_variables):
                 self._build_info = BuildInfo.rebuild(self._project_dir, self._build_env, needs_rebuild)
             self._has_rebuilt = True
         return self._build_info.modules.modules
