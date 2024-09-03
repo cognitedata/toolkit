@@ -16,6 +16,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
+from rich.table import Table
 from rich.tree import Tree
 
 import cognite_toolkit
@@ -34,7 +35,7 @@ from cognite_toolkit._cdf_tk.constants import (
     COGNITE_MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
 )
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
 from cognite_toolkit._cdf_tk.data_classes._packages import Packages
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.prototypes import _packages
@@ -364,6 +365,26 @@ class ModulesCommand(ToolkitCommand):
         else:
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
+
+    def list(self, project_dir: str | Path, build_env_name: str) -> None:
+        project_dir = Path(project_dir)
+        modules = ModuleResources(project_dir, build_env_name)
+
+        table = Table(title=f"{build_env_name} {project_dir.name} modules")
+        table.add_column("Module Name", style="bold")
+        table.add_column("Resource Folders", style="bold")
+        table.add_column("Resources", style="bold")
+        table.add_column("Location", style="bold")
+
+        for module in modules.list():
+            table.add_row(
+                module.name,
+                f"{len(module.resources):,}",
+                f"{sum(len(resources) for resources in module.resources.values()):,}",
+                module.location.path.as_posix(),
+            )
+
+        print(table)
 
 
 class CLICommands:

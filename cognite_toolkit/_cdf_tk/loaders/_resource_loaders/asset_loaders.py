@@ -41,6 +41,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_required_capability(cls, items: AssetWriteList) -> Capability | list[Capability]:
         if not items:
             return []

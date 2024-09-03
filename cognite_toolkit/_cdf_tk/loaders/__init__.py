@@ -95,8 +95,15 @@ ResourceTypes: TypeAlias = Literal[
     "workflows",
 ]
 
+
+def get_loader(resource_dir: str, kind: str) -> type[Loader]:
+    for loader in LOADER_BY_FOLDER_NAME[resource_dir]:
+        if loader.kind == kind:
+            return loader
+    raise ValueError(f"Loader not found for {resource_dir} and {kind}")
+
+
 __all__ = [
-    "LOADER_BY_FOLDER_NAME",
     "GroupLoader",
     "GroupAllScopedLoader",
     "GroupResourceScopedLoader",
@@ -129,4 +136,9 @@ __all__ = [
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "get_loader",
+    "LOADER_BY_FOLDER_NAME",
+    "LOADER_LIST",
+    "RESOURCE_LOADER_LIST",
+    "RESOURCE_CONTAINER_LOADER_LIST",
 ]

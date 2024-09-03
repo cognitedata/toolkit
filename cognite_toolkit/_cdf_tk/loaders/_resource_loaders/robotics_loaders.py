@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import suppress
+from typing import Any
 
 from cognite.client.data_classes import capabilities
 from cognite.client.data_classes._base import T_CogniteResourceList
@@ -56,6 +57,10 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         if not item.external_id:
             raise KeyError("Map must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: MapWriteList) -> Capability | list[Capability]:
@@ -115,6 +120,10 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_required_capability(cls, items: FrameWriteList) -> Capability | list[Capability]:
         if not items:
             return []
@@ -170,6 +179,10 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         if not item.external_id:
             raise KeyError("Location must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: LocationWriteList) -> Capability | list[Capability]:
@@ -231,6 +244,10 @@ class RoboticsDataPostProcessingLoader(
         if not item.external_id:
             raise KeyError("DataPostProcessing must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: DataPostProcessingWriteList) -> Capability | list[Capability]:
@@ -302,6 +319,10 @@ class RobotCapabilityLoader(
         if not item.external_id:
             raise KeyError("RobotCapability must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: RobotCapabilityWriteList) -> Capability | list[Capability]:

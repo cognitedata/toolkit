@@ -325,20 +325,20 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-extractor-utils"
-version = "7.3.0"
+version = "7.4.0"
 description = "Utilities for easier development of extractors for CDF"
 optional = false
-python-versions = "<4.0.0,>=3.8.0"
+python-versions = "<4.0.0,>=3.9.0"
 files = [
-    {file = "cognite_extractor_utils-7.3.0-py3-none-any.whl", hash = "sha256:39f351d2ee4b4d595af94d3eda756169f546fc158624553cefea701567eca924"},
-    {file = "cognite_extractor_utils-7.3.0.tar.gz", hash = "sha256:143665084287ba6a0d8308c12dd6dce93c4376a0beeb84624151cfe55ac32558"},
+    {file = "cognite_extractor_utils-7.4.0-py3-none-any.whl", hash = "sha256:769174634211328fb9ce90280dfba5e5b1a19ffe31a45f7ebc60cf24e69b7b24"},
+    {file = "cognite_extractor_utils-7.4.0.tar.gz", hash = "sha256:fb8b0cc294d313c1a38b6132b018181045516f7e7c15b408f64d87bb6e270cb6"},
 ]
 
 [package.dependencies]
 arrow = ">=1.0.0,<2.0.0"
 azure-identity = ">=1.14.0,<2.0.0"
 azure-keyvault-secrets = ">=4.7.0,<5.0.0"
-cognite-sdk = ">=7.43.3,<8.0.0"
+cognite-sdk = ">=7.54.17,<8.0.0"
 dacite = ">=1.6.0,<2.0.0"
 decorator = ">=5.1.1,<6.0.0"
 httpx = ">=0.27.0,<0.28.0"
@@ -2413,4 +2413,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "f7dbffcce84d7b249abb12a830abe258be18b21962000dfa019937ed33aff0d8"
+content-hash = "7316a7f732343a3eb9cd09a88c7ebd7655ea97047db27d34d63d4a9466375558"
