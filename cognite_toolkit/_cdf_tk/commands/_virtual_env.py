@@ -21,7 +21,7 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
     def post_setup(self, context: SimpleNamespace) -> None:
         args = [str(Path(context.bin_path) / "pip"), "install", "-r", "requirements.txt"]
 
-        function_dir = Path(context.env_dir)
+        function_dir = Path(context.env_dir).parent
         requirements_destination_path = function_dir / "requirements.txt"
         if isinstance(self.requirements_txt, Path):
             shutil.copy(self.requirements_txt, requirements_destination_path)
@@ -35,6 +35,15 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
             raise ToolkitEnvError(f"Invalid 'requirements.txt' file{suffix}.")
         self._context = context
 
-    def check_import(self) -> None: ...
+    def execute(self, script: Path, script_name: str) -> None:
+        if self._context is None:
+            raise ToolkitEnvError("Virtual environment not created.")
+        function_dir = Path(self._context.env_dir).parent
+        args = [str(Path(self._context.bin_path) / "python"), str(script)]
+
+        process = Popen(args, stdout=sys.stdout, stderr=sys.stderr, cwd=str(function_dir))
+        process.wait()
+        if process.returncode != 0:
+            raise ToolkitEnvError(f"Error executing {script} {script.as_posix()}.")
 
     def run(self, environment: dict[str, str]) -> None: ...

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import questionary
+from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
 from cognite.client.data_classes import (
     FunctionCall,
     FunctionScheduleWriteList,
@@ -51,6 +52,19 @@ class RunFunctionCommand(ToolkitCommand):
 This directory contains virtual environments for running functions locally. This is
 intended to test the function before deploying it to CDF or to debug issues with a deployed function.
 
+"""
+    validate_py = """from cognite.client._api.functions import validate_function_folder
+
+
+def main() -> None:
+    validate_function_folder(
+        root_path="code/",
+        function_path="{handler_py}",
+        skip_folder_validation=False,
+    )
+
+if __name__ == "__main__":
+    main()
 """
 
     def run_cdf(
@@ -215,6 +229,7 @@ intended to test the function before deploying it to CDF or to debug issues with
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
             )
+
         requirements_txt: Path | str = function_source_code / "requirements.txt"
         if not cast(Path, requirements_txt).exists():
             self.warn(
@@ -250,16 +265,22 @@ intended to test the function before deploying it to CDF or to debug issues with
             raise ToolkitFileNotFoundError("Could not find handler.py file for function.")
 
         args = self._get_function_args(handler_path, function_name="handle")
-        expected = {"data", "client", "secrets", "function_call_info"}
-        if not args.issuperset(expected):
+        expected = ALLOWED_HANDLE_ARGS
+        if not args <= ALLOWED_HANDLE_ARGS:
             raise ToolkitInvalidFunctionError(f"Function handle function should have arguments {expected}, got {args}")
         print(
-            f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} is valid with arguments {args} "
+            f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} is valid with arguments {args}."
         )
 
-        # is_interactive = external_id is None
-        # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
-        # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
+        validate_py = f"import_check_{function_external_id}.py"
+        (function_venv / validate_py).write_text(self.validate_py.format(handler_py=handler_file))
+
+        virtual_env.execute(Path(validate_py), f"import_check {function_external_id}")
+
+        print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
+
+        is_interactive = external_id is None
+        _ = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
