@@ -53,7 +53,7 @@ This directory contains virtual environments for running functions locally. This
 intended to test the function before deploying it to CDF or to debug issues with a deployed function.
 
 """
-    validate_py = """from cognite.client._api.functions import validate_function_folder
+    import_check_py = """from cognite.client._api.functions import validate_function_folder
 
 
 def main() -> None:
@@ -272,10 +272,10 @@ if __name__ == "__main__":
             f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} is valid with arguments {args}."
         )
 
-        validate_py = f"import_check_{function_external_id}.py"
-        (function_venv / validate_py).write_text(self.validate_py.format(handler_py=handler_file))
+        import_check = "import_check.py"
+        (function_venv / import_check).write_text(self.import_check_py.format(handler_py=handler_file))
 
-        virtual_env.execute(Path(validate_py), f"import_check {function_external_id}")
+        virtual_env.execute(Path(import_check), f"import_check {function_external_id}")
 
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
