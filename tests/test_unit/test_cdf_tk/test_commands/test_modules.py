@@ -19,7 +19,7 @@ class TestModulesCommand:
     def test_modules_command(self, selected_packages: dict[str, list[SelectableModule]], tmp_path: Path) -> None:
         assert selected_packages is not None
 
-        target_path = tmp_path / "_"
+        target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
         cmd._create(init_dir=target_path, selected=selected_packages, environments=[], mode=None)
@@ -32,7 +32,7 @@ class TestModulesCommand:
     ) -> None:
         assert selected_packages is not None
 
-        target_path = tmp_path / "_"
+        target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
         cmd._create(init_dir=target_path, selected=selected_packages, environments=["dev", "prod"], mode=None)
