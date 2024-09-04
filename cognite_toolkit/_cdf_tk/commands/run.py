@@ -372,10 +372,10 @@ if __name__ == "__main__":
         handler_args: dict[str, Any] = {}
         if "client" in args:
             handler_args["client"] = "client"
-        if "data" in schedule_dict and "data" in args:
-            handler_args["data"] = str(schedule_dict["data"])
-        if "secrets" in args and "secrets" in function_dict:
-            handler_args["secrets"] = str(function_dict["secrets"])
+        if "data" in args:
+            handler_args["data"] = str(schedule_dict.get("data", {}))
+        if "secrets" in args:
+            handler_args["secrets"] = str(function_dict.get("secrets", {}))
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
