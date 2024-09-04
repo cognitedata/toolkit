@@ -258,7 +258,6 @@ intended to test the function before deploying it to CDF or to debug issues with
         # is_interactive = external_id is None
         # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
         # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
-        #
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
