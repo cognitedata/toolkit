@@ -293,6 +293,9 @@ if __name__ == "__main__":
         if function_destination_code.exists():
             shutil.rmtree(function_destination_code)
         shutil.copytree(function_source_code, function_destination_code)
+        init_py = function_destination_code / "__init__.py"
+        if not init_py.exists():
+            init_py.touch()
 
         function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
         handler_file = function_dict.get("functionPath", "handler.py")
@@ -378,6 +381,13 @@ if __name__ == "__main__":
             handler_args["secrets"] = str(function_dict.get("secrets", {}))
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
+
+        if platform.system() == "Windows" and (system_root := os.environ.get("SYSTEMROOT")):
+            # This is needed to run python on Windows.
+            # https://stackoverflow.com/questions/78652758/cryptic-oserror-winerror-10106-the-requested-service-provider-could-not-be-l
+            env["SYSTEMROOT"] = system_root
+        if platform.system() == "Windows":
+            env = {k: str(v) for k, v in env.items()}
 
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,

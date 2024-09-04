@@ -40,7 +40,7 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
         if self._context is None:
             raise ToolkitEnvError("Virtual environment not created.")
         function_dir = Path(self._context.env_dir).parent
-        args = [str(Path(self._context.bin_path) / "python"), "-Xfrozen_modules=off", str(script)]
+        args = [str(Path(self._context.bin_path) / "python"), str(script)]
 
         process = Popen(args, stdout=sys.stdout, stderr=sys.stderr, cwd=str(function_dir), env=env)
         process.wait()
