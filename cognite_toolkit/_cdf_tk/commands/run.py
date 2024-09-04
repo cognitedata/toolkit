@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import datetime
 import json
 import os
@@ -30,6 +31,7 @@ from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources, ResourceBuildInfoFull
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
+    ToolkitInvalidFunctionError,
     ToolkitMissingResourceError,
     ToolkitNotADirectoryError,
     ToolkitNotSupported,
@@ -242,15 +244,31 @@ intended to test the function before deploying it to CDF or to debug issues with
         shutil.copytree(function_source_code, function_destination_code)
 
         function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables())
-        handler_filer = function_dict.get("functionPath", "handler.py")
+        handler_file = function_dict.get("functionPath", "handler.py")
+        handler_path = function_destination_code / handler_file
+        if not handler_path.exists():
+            raise ToolkitFileNotFoundError("Could not find handler.py file for function.")
 
-        if not (function_destination_code / handler_filer).exists():
-            raise ToolkitFileNotFoundError("Could not find handler file for function.")
+        args = self._get_function_args(handler_path, function_name="handle")
+        expected = {"data", "client", "secrets", "function_call_info"}
+        if not args.issuperset(expected):
+            raise ToolkitInvalidFunctionError(f"Function handle function should have arguments {expected}, got {args}")
+        print(f"[green] Check 2/4 [/green]Function {function_external_id!r} {handler_file!r} is valid ")
 
         # is_interactive = external_id is None
         # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
         # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
         #
+
+    @staticmethod
+    def _get_function_args(py_file: Path, function_name: str) -> set[str]:
+        parsed = ast.parse(py_file.read_text())
+        handle_function = next(
+            (item for item in parsed.body if isinstance(item, ast.FunctionDef) and item.name == function_name), None
+        )
+        if handle_function is None:
+            raise ToolkitMissingResourceError(f"No {function_name} function found in {py_file}")
+        return {a.arg for a in handle_function.args.args}
 
     def execute(
         self,
