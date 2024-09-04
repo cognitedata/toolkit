@@ -1,3 +1,0 @@
-example_secret: '${MY_SECRET}'
-default_location: 'oid'
-version: '0.0.1'
