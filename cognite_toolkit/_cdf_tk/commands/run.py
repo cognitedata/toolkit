@@ -43,7 +43,7 @@ from ._base import ToolkitCommand
 
 
 class RunFunctionCommand(ToolkitCommand):
-    virtual_env_folder = "local_function_venvs"
+    virtual_env_folder = "function_local_venvs"
     default_readme_md = """# Local Function Quality Assurance
 
 This directory contains virtual environments for running functions locally. This is
@@ -197,12 +197,8 @@ intended to test the function before deploying it to CDF or to debug issues with
                 raise ToolkitNotSupported("This functionality is not supported in a browser environment.")
             raise
         resources = ModuleResources(organization_dir, build_env_name)
-        # is_interactive = external_id is None
         function_build = self._get_function(external_id, resources)
-        # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
-        # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
-        #
-        # function_config = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
+
         function_external_id = function_build.identifier
 
         virtual_envs_dir = organization_dir / self.virtual_env_folder
@@ -212,11 +208,12 @@ intended to test the function before deploying it to CDF or to debug issues with
             readme_overview.write_text(self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        if not (function_build.location.path.parent / function_external_id).exists():
+        function_source_code = function_build.location.path.parent / function_external_id
+        if not function_source_code.exists():
             raise ToolkitNotADirectoryError(
-                f"Could not find function code for {function_external_id}. Expected at {function_build.location.path / function_external_id}"
+                f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
             )
-        requirements_txt: Path | str = function_build.location.path.parent / function_external_id / "requirements.txt"
+        requirements_txt: Path | str = function_source_code / "requirements.txt"
         if not cast(Path, requirements_txt).exists():
             self.warn(
                 MediumSeverityWarning(
@@ -235,9 +232,25 @@ intended to test the function before deploying it to CDF or to debug issues with
         virtual_env.create(function_venv / ".venv")
 
         print(
-            f"[green] Check 1/3 [/green]Function {function_external_id!r} virtual environment setup complete: "
+            f"[green] Check 1/4 [/green]Function {function_external_id!r} virtual environment setup complete: "
             f"'requirements.txt' file is valid."
         )
+
+        function_destination_code = function_venv / function_external_id
+        if function_destination_code.exists():
+            shutil.rmtree(function_destination_code)
+        shutil.copytree(function_source_code, function_destination_code)
+
+        function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables())
+        handler_filer = function_dict.get("functionPath", "handler.py")
+
+        if not (function_destination_code / handler_filer).exists():
+            raise ToolkitFileNotFoundError("Could not find handler file for function.")
+
+        # is_interactive = external_id is None
+        # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
+        # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
+        #
 
     def execute(
         self,
