@@ -234,16 +234,16 @@ intended to test the function before deploying it to CDF or to debug issues with
         virtual_env.create(function_venv / ".venv")
 
         print(
-            f"[green] Check 1/4 [/green]Function {function_external_id!r} virtual environment setup complete: "
+            f"    [green]✓ 1/4[/green] Function {function_external_id!r} virtual environment setup complete: "
             f"'requirements.txt' file is valid."
         )
 
-        function_destination_code = function_venv / function_external_id
+        function_destination_code = function_venv / "code"
         if function_destination_code.exists():
             shutil.rmtree(function_destination_code)
         shutil.copytree(function_source_code, function_destination_code)
 
-        function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables())
+        function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
         handler_file = function_dict.get("functionPath", "handler.py")
         handler_path = function_destination_code / handler_file
         if not handler_path.exists():
@@ -253,7 +253,9 @@ intended to test the function before deploying it to CDF or to debug issues with
         expected = {"data", "client", "secrets", "function_call_info"}
         if not args.issuperset(expected):
             raise ToolkitInvalidFunctionError(f"Function handle function should have arguments {expected}, got {args}")
-        print(f"[green] Check 2/4 [/green]Function {function_external_id!r} {handler_file!r} is valid ")
+        print(
+            f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} is valid with arguments {args} "
+        )
 
         # is_interactive = external_id is None
         # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
@@ -266,7 +268,7 @@ intended to test the function before deploying it to CDF or to debug issues with
             (item for item in parsed.body if isinstance(item, ast.FunctionDef) and item.name == function_name), None
         )
         if handle_function is None:
-            raise ToolkitMissingResourceError(f"No {function_name} function found in {py_file}")
+            raise ToolkitInvalidFunctionError(f"No {function_name} function found in {py_file}")
         return {a.arg for a in handle_function.args.args}
 
     def execute(

@@ -830,24 +830,30 @@ class CDFToolConfig:
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"], validate: bool = True
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"], validate: bool = True
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any", "list", "dict"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]:
     if isinstance(filepath, str):
         content = filepath
@@ -857,10 +863,13 @@ def load_yaml_inject_variables(
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
-    for match in re.finditer(r"\$\{([^}]+)\}", content):
-        environment_variable = match.group(1)
-        suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
-        MediumSeverityWarning(f"Variable {environment_variable} is not set in the environment.{suffix}").print_warning()
+    if validate:
+        for match in re.finditer(r"\$\{([^}]+)\}", content):
+            environment_variable = match.group(1)
+            suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
+            MediumSeverityWarning(
+                f"Variable {environment_variable} is not set in the environment.{suffix}"
+            ).print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
