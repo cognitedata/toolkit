@@ -335,7 +335,7 @@ if __name__ == "__main__":
                 raise ToolkitInvalidFunctionError(
                     f"Missing environment variable for clientSecret in schedule authentication, {authentication['clientSecret']}"
                 )
-            print("Using schedule authentication for function.")
+            print(f"Using schedule authentication to run {function_external_id!r}.")
             credentials_args = {
                 "token_url": f'"{ToolGlobals._token_url}"',
                 "client_id": '"{}"'.format(schedule_dict["authentication"]["clientId"]),
@@ -347,7 +347,7 @@ if __name__ == "__main__":
             }
             credentials_cls = OAuthClientCredentials.__name__
         else:
-            print("Using toolkit authentication for function.")
+            print(f"Using toolkit authentication to run {function_external_id!r}.")
             env = {}
             if ToolGlobals._login_flow == "token":
                 credentials_cls = Token.__name__
