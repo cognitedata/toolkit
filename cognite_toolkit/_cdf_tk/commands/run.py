@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -67,10 +68,13 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 """
-    run_check_py = """from cognite.client import CogniteClient, ClientConfig
+    run_check_py = """import os
+from pprint import pprint
+
+from cognite.client import CogniteClient, ClientConfig
 from cognite.client.credentials import {credentials_cls}
 
-from code.{handler_import} import handler
+from code.{handler_import} import handle
 
 
 def main() -> None:
@@ -87,9 +91,12 @@ def main() -> None:
         )
     )
 
-    handler(
+    response = handle(
         {handler_args}
     )
+
+    print("{function_external_id} response:")
+    pprint(response)
 
 
 if __name__ == "__main__":
@@ -325,28 +332,42 @@ if __name__ == "__main__":
                 raise ToolkitInvalidFunctionError(
                     f"Missing environment variable for clientSecret in schedule authentication, {authentication['clientSecret']}"
                 )
-            credential_args = {
-                "client_id": schedule_dict["authentication"]["clientId"],
+            print("Using schedule authentication for function.")
+            credentials_args = {
+                "token_url": f'"{ToolGlobals._token_url}"',
+                "client_id": '"{}"'.format(schedule_dict["authentication"]["clientId"]),
                 "client_secret": 'os.getenv("IDP_CLIENT_SECRET")',
+                "scopes": str(ToolGlobals._scopes),
             }
             env = {
                 "IDP_CLIENT_SECRET": schedule_dict["authentication"]["clientSecret"],
             }
             credentials_cls = OAuthClientCredentials.__name__
         else:
-            credentials_cls = {
-                "token": Token.__name__,
-                "interactive": OAuthInteractive.__name__,
-                "client_credentials": OAuthClientCredentials.__name__,
-            }[ToolGlobals._login_flow]
-            credential_args = ToolGlobals._credentials_args
+            print("Using toolkit authentication for function.")
             env = {}
-            if "client_secret" in credential_args:
-                env["IDP_CLIENT_SECRET"] = credential_args["client_secret"]
-                credential_args["client_secret"] = 'os.getenv("IDP_CLIENT_SECRET")'
-            if "token" in credential_args:
-                env["CDF_TOKEN"] = credential_args["token"]
-                credential_args["token"] = 'os.getenv("CDF_TOKEN")'
+            if ToolGlobals._login_flow == "token":
+                credentials_cls = Token.__name__
+                credentials_args = {"token": "os.getenv('CDF_TOKEN')"}
+                env["CDF_TOKEN"] = ToolGlobals._credentials_args["token"]
+            elif ToolGlobals._login_flow == "interactive":
+                credentials_cls = OAuthInteractive.__name__
+                credentials_args = {
+                    "authority_url": '"{}"'.format(ToolGlobals._credentials_args["authority_url"]),
+                    "client_id": '"{}"'.format(ToolGlobals._credentials_args["client_id"]),
+                    "scopes": str(ToolGlobals._scopes),
+                }
+            elif ToolGlobals._login_flow == "client_credentials":
+                credentials_cls = OAuthClientCredentials.__name__
+                credentials_args = {
+                    "token_url": '"{}"'.format(ToolGlobals._credentials_args["token_url"]),
+                    "client_id": '"{}"'.format(ToolGlobals._credentials_args["client_id"]),
+                    "client_secret": 'os.getenv("IDP_CLIENT_SECRET")',
+                    "scopes": str(ToolGlobals._scopes),
+                }
+                env["IDP_CLIENT_SECRET"] = ToolGlobals._credentials_args["client_secret"]
+            else:
+                raise ToolkitNotSupported(f"Login flow {ToolGlobals._login_flow} is not supported .")
 
         handler_args: dict[str, Any] = {}
         if "client" in args:
@@ -360,12 +381,13 @@ if __name__ == "__main__":
 
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,
-            handler_import=handler_file.replace(".py", "").replace("/", "."),
+            handler_import=re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix("."),
             client_name=ToolGlobals._client_name,
             project=ToolGlobals._project,
             base_url=ToolGlobals._cdf_url,
-            credentials_args="\n        ".join(f"{k}={v}," for k, v in credential_args.items()),
+            credentials_args="\n        ".join(f"{k}={v}," for k, v in credentials_args.items()),
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
+            function_external_id=function_external_id,
         )
         run_check = "run_check.py"
         (function_venv / run_check).write_text(run_check_py)

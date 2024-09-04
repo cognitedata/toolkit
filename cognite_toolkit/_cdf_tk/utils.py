@@ -421,6 +421,7 @@ class CDFToolConfig:
         self._cdf_url: str | None = None
         self._scopes: list[str] = []
         self._audience: str | None = None
+        self._token_url: str | None = None
         self._credentials_args: dict[str, Any] = {}
         self._credentials_provider: CredentialProvider | None = None
         self._toolkit_client: ToolkitClient | None = None
@@ -506,7 +507,7 @@ class CDFToolConfig:
             self._credentials_provider = OAuthClientCredentials(**self._credentials_args)
         else:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
-
+        self._token_url = auth.token_url
         self._toolkit_client = ToolkitClient(
             ClientConfig(
                 client_name=self._client_name,
