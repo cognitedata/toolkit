@@ -96,7 +96,7 @@ jobs:
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/  --ignore=cognite_toolkit/_cdf_tk/_packages/ -n8 
+        run: pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/   -n8 
       - name: Push coverage report to PR
         uses: orgoro/coverage@v3.2
         with:
