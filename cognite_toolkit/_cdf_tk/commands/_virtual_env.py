@@ -44,6 +44,4 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
         process = Popen(args, stdout=sys.stdout, stderr=sys.stderr, cwd=str(function_dir))
         process.wait()
         if process.returncode != 0:
-            raise ToolkitEnvError(f"Error executing {script} {script.as_posix()}.")
-
-    def run(self, environment: dict[str, str]) -> None: ...
+            raise ToolkitEnvError(f"Error executing {script_name} {script.as_posix()}.")
