@@ -29,7 +29,6 @@ packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
 types-toml = "^0.10.8.20240310"
 toml = "^0.10.2"
-matplotlib = "^3.9.2"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
@@ -61,9 +60,8 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
-norecursedirs = [
-    "cognite_toolkit/_cdf_tk/_packages"
-]
+addopts = "--ignore=cognite_toolkit/_cdf_tk/_packages/"
+
 markers = [
     "toolkit: big smoke tests",
 ]
