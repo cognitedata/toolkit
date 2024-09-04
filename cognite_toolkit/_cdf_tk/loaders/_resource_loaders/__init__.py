@@ -1,11 +1,12 @@
 from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
-from .datamodel_loaders import ContainerLoader, DataModelLoader, NodeLoader, SpaceLoader, ViewLoader
+from .datamodel_loaders import ContainerLoader, DataModelLoader, GraphQLLoader, NodeLoader, SpaceLoader, ViewLoader
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
 from .file_loader import FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
+from .location_loaders import LocationFilterLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .robotics_loaders import (
     RobotCapabilityLoader,
@@ -27,6 +28,7 @@ __all__ = [
     "DataModelLoader",
     "DataSetsLoader",
     "LabelLoader",
+    "LocationFilterLoader",
     "SpaceLoader",
     "ContainerLoader",
     "ViewLoader",
@@ -52,4 +54,5 @@ __all__ = [
     "RobotCapabilityLoader",
     "RoboticLocationLoader",
     "RoboticsDataPostProcessingLoader",
+    "GraphQLLoader",
 ]

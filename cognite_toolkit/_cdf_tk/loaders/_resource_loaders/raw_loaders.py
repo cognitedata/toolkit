@@ -17,7 +17,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import cast, final
+from typing import Any, cast, final
 
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -76,6 +76,10 @@ class RawDatabaseLoader(
         if isinstance(item, dict):
             return RawDatabaseTable(item["dbName"])
         return item
+
+    @classmethod
+    def dump_id(cls, id: RawDatabaseTable) -> dict[str, Any]:
+        return {"dbName": id.db_name}
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -191,6 +195,10 @@ class RawTableLoader(
                 raise KeyError(*missing)
             return RawDatabaseTable(item["dbName"], item["tableName"])
         return item
+
+    @classmethod
+    def dump_id(cls, id: RawDatabaseTable) -> dict[str, Any]:
+        return {"dbName": id.db_name, "tableName": id.table_name}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

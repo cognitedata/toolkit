@@ -97,6 +97,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -147,7 +151,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         function_rootdir = Path(self.resource_build_path / f"{local.external_id}")
         if local.metadata is None:
             local.metadata = {}
-        local.metadata[self._MetadataKey.function_hash] = calculate_directory_hash(function_rootdir)
+        local.metadata[self._MetadataKey.function_hash] = calculate_directory_hash(
+            function_rootdir, ignore_files={".pyc"}
+        )
 
         # Is changed as part of deployment to the API
         local.file_id = cdf_resource.file_id
@@ -199,7 +205,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         for item in items:
             function_rootdir = Path(self.resource_build_path / (item.external_id or ""))
             item.metadata = item.metadata or {}
-            item.metadata[self._MetadataKey.function_hash] = calculate_directory_hash(function_rootdir)
+            item.metadata[self._MetadataKey.function_hash] = calculate_directory_hash(
+                function_rootdir, ignore_files={".pyc"}
+            )
             if item.secrets:
                 item.metadata[self._MetadataKey.secret_hash] = calculate_secure_hash(item.secrets)
 
@@ -282,6 +290,10 @@ class FunctionScheduleLoader(
         ]
 
     @classmethod
+    def dump_id(cls, id: FunctionScheduleID) -> dict[str, Any]:
+        return id.dump(camel_case=True)
+
+    @classmethod
     def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> FunctionScheduleID:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
@@ -300,7 +312,7 @@ class FunctionScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
+    ) -> FunctionScheduleWriteList:
         schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(schedules, dict):
             schedules = [schedules]

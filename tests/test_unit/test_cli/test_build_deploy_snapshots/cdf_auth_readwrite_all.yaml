@@ -132,6 +132,12 @@ Group:
       - DELETE
       scope:
         all: {}
+  - locationFiltersAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
@@ -279,6 +285,12 @@ Group:
   - threedAcl:
       actions:
       - READ
+      scope:
+        all: {}
+  - locationFiltersAcl:
+      actions:
+      - READ
+      - WRITE
       scope:
         all: {}
   metadata:

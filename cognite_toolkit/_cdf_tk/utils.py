@@ -25,7 +25,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -44,7 +44,7 @@ from cognite.client.data_classes.capabilities import (
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -830,35 +830,37 @@ class CDFToolConfig:
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"]
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"]
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
 ) -> dict[str, Any] | list[dict[str, Any]]:
-    content = filepath.read_text()
+    if isinstance(filepath, str):
+        content = filepath
+    else:
+        content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
     for match in re.finditer(r"\$\{([^}]+)\}", content):
         environment_variable = match.group(1)
-        MediumSeverityWarning(
-            f"Variable {environment_variable} is not set in the environment. It is expected in {filepath.name}."
-        ).print_warning()
+        suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
+        MediumSeverityWarning(f"Variable {environment_variable} is not set in the environment.{suffix}").print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
@@ -920,23 +922,12 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return config_data
 
 
-def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
-    """
-    This is useful if we provide a relative path to some resource in a config file.
-    """
-    if path.is_absolute():
-        raise ValueError(f"Path {path} is not relative.")
-
-    if isinstance(base_path, str):
-        base_path = Path(base_path)
-
-    if not base_path.is_dir():
-        base_path = base_path.parent
-
-    return (base_path / path).resolve()
-
-
-def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
+def calculate_directory_hash(
+    directory: Path,
+    exclude_prefixes: set[str] | None = None,
+    ignore_files: set[str] | None = None,
+    shorten: bool = False,
+) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
@@ -944,6 +935,8 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
         if filepath.is_dir():
             continue
         if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
+            continue
+        if ignore_files and filepath.suffix in ignore_files:
             continue
         relative_path = filepath.relative_to(directory)
         sha256_hash.update(relative_path.as_posix().encode("utf-8"))
@@ -953,7 +946,10 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
                 # Get rid of Windows line endings to make the hash consistent across platforms.
                 sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
 def calculate_secure_hash(item: dict[str, Any]) -> str:
@@ -963,13 +959,16 @@ def calculate_secure_hash(item: dict[str, Any]) -> str:
     return sha256_hash.hexdigest()
 
 
-def calculate_str_or_file_hash(content: str | Path) -> str:
+def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
         content = content.read_text(encoding="utf-8")
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
 def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
@@ -1330,3 +1329,181 @@ def get_cicd_environment() -> str:
         return "azure"
 
     return "local"
+
+
+class GraphQLParser:
+    _token_pattern = re.compile(r"\w+|[^\w\s]")
+
+    def __init__(self, raw: str, data_model_id: DataModelId) -> None:
+        self.raw = raw
+        self.data_model_id = data_model_id
+        self._entities: list[_Entity] | None = None
+
+    def get_views(self) -> set[ViewId]:
+        return {
+            ViewId(self.data_model_id.space, entity.identifier)
+            for entity in self._get_entities()
+            if not entity.is_imported
+        }
+
+    def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
+        dependencies: set[ViewId | DataModelId] = set()
+        for entity in self._get_entities():
+            view_directive: _ViewDirective | None = None
+            is_dependency = False
+            for directive in entity.directives:
+                if isinstance(directive, _Import):
+                    if directive.data_model:
+                        dependencies.add(directive.data_model)
+                        break
+                    is_dependency = True
+                elif isinstance(directive, _ViewDirective):
+                    view_directive = directive
+            if is_dependency and view_directive:
+                dependencies.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            elif is_dependency:
+                # Todo: Warning Likely invalid directive
+                ...
+        return dependencies
+
+    def _get_entities(self) -> list[_Entity]:
+        if self._entities is None:
+            self._entities = self._parse()
+        return self._entities
+
+    def _parse(self) -> list[_Entity]:
+        entities: list[_Entity] = []
+        entity: _Entity | None = None
+        last_class: Literal["type", "interface"] | None = None
+
+        parentheses: list[str] = []
+
+        directive_tokens: _DirectiveTokens | None = None
+        is_directive_start: bool = False
+        for token in self._token_pattern.findall(self.raw):
+            if token in "({[<":
+                parentheses.append(token)
+            elif token in ")}]>":
+                parentheses.pop()
+
+            is_end_of_entity = bool(parentheses and parentheses[0] == "{")
+
+            if entity and is_end_of_entity:
+                # End of entity definition
+                if directive_tokens and (directive := directive_tokens.create()):
+                    entity.directives.append(directive)
+                directive_tokens = None
+                entities.append(entity)
+                entity = None
+            elif entity is not None:
+                if directive_tokens is not None and (not parentheses or token == "@"):
+                    # End of directive
+                    if directive := directive_tokens.create():
+                        entity.directives.append(directive)
+                    directive_tokens = None
+                    if token == "@":
+                        is_directive_start = True
+                elif directive_tokens:
+                    # Gather the content of the directive
+                    directive_tokens.append(token)
+                elif token == "@":
+                    is_directive_start = True
+                elif is_directive_start and token in ("import", "view"):
+                    directive_tokens = _DirectiveTokens([token])
+                    is_directive_start = False
+                elif is_directive_start:
+                    # Not a directive we care about
+                    is_directive_start = False
+
+            elif token in ("type", "interface"):
+                # Next token starts a new entity definition
+                last_class = token
+            elif last_class is not None:
+                # Start of a new entity definition
+                entity = _Entity(identifier=token, class_=last_class)
+                last_class = None
+        return entities
+
+
+class _DirectiveTokens(list, MutableSequence[str]):
+    def create(self) -> _Directive | None:
+        return _Directive.load(self)
+
+
+@dataclass
+class _Directive:
+    # This pattern ignores commas inside }
+    SPLIT_ON_COMMA_PATTERN = re.compile(r",(?![^{]*\})")
+
+    @classmethod
+    def load(cls, content: list[str]) -> _Directive | None:
+        key, *content = content
+        raw_string = "".join(content).removeprefix("(").removesuffix(")")
+        data = typing.cast(dict[str, Any], cls._create_args(raw_string))
+        if key == "import":
+            return _Import._load(data)
+        if key == "view":
+            return _ViewDirective._load(data)
+        return None
+
+    @classmethod
+    def _create_args(cls, string: str) -> dict[str, Any] | str:
+        if "," not in string:
+            return string
+        output: dict[str, Any] = {}
+        if string[0] == "{" and string[-1] == "}":
+            string = string[1:-1]
+        for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
+            stripped = pair.strip()
+            if not stripped or ":" not in stripped:
+                continue
+            key, value = cls._clean(*stripped.split(":", maxsplit=1))
+            output[key] = cls._create_args(value)
+        return output
+
+    @classmethod
+    def _clean(cls, *args: Any) -> Any:
+        return tuple(arg.removeprefix('"').removesuffix('"').removeprefix('"').removesuffix('"') for arg in args)
+
+    @classmethod
+    @abstractmethod
+    def _load(cls, data: dict[str, Any]) -> _Directive: ...
+
+
+@dataclass
+class _ViewDirective(_Directive):
+    space: str | None = None
+    external_id: str | None = None
+    version: str | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _ViewDirective:
+        return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
+
+
+@dataclass
+class _Import(_Directive):
+    data_model: DataModelId | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _Import:
+        if "dataModel" in data:
+            return _Import(data_model=DataModelId.load(data["dataModel"]))
+        return _Import()
+
+
+@dataclass
+class _Entity:
+    identifier: str
+    class_: Literal["type", "interface"]
+    directives: list[_Directive] = field(default_factory=list)
+
+    @property
+    def is_imported(self) -> bool:
+        return any(isinstance(directive, _Import) for directive in self.directives)

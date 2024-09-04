@@ -116,6 +116,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return item.name
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"name": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         from .data_organization_loaders import DataSetsLoader
         from .datamodel_loaders import SpaceLoader
@@ -400,6 +404,10 @@ class SecurityCategoryLoader(
         if isinstance(item, dict):
             return item["name"]
         return cast(str, item.name)
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"name": id}
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
