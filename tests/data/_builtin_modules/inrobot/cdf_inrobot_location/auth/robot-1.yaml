@@ -1,0 +1,77 @@
+name: "gp_Robot_{{first_location}}"
+sourceId: "{{robot_1_first_location_source_id}}"
+metadata:
+  origin: "cdf-project-templates"
+capabilities:
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "APM_Config"
+            - "cdf_core"
+            - "cdf_apm"
+            - "cdf_apps_shared"
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "APM_Config"
+            - "cognite_app_data"
+            - "cdf_apm"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "cognite_app_data"
+            - "cdf_apm"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
+  - filesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+        - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - labelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - videoStreamingAcl:
+      actions:
+        - PUBLISH
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"

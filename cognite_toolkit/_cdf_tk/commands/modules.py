@@ -31,8 +31,8 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 )
 from cognite_toolkit._cdf_tk.constants import (
     ALT_CUSTOM_MODULES,
+    BUILTIN_MODULES_PATH,
     COGNITE_MODULES,
-    COGNITE_MODULES_PATH,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
 )
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
@@ -110,7 +110,7 @@ class ModulesCommand(ToolkitCommand):
                     build_type="dev" if environment == "dev" else "prod",
                     selected=list(selected.keys()) if selected else ["empty"],
                 )
-            ).load_selected_defaults(COGNITE_MODULES_PATH)
+            ).load_selected_defaults(BUILTIN_MODULES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(init_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
@@ -136,7 +136,7 @@ class ModulesCommand(ToolkitCommand):
             )
         )
 
-        packages = Packages().load(COGNITE_MODULES_PATH)
+        packages = Packages().load(BUILTIN_MODULES_PATH)
 
         mode = "new"
 

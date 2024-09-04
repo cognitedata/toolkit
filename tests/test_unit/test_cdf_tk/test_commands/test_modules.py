@@ -6,12 +6,12 @@ import pytest
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes._packages import Packages, SelectableModule
-from tests.data import PACKAGE_FOR_TEST
+from tests.data import BUILTIN_MODULES_FOR_TEST
 
 
 @pytest.fixture(scope="session")
 def selected_packages() -> dict[str, list[SelectableModule]]:
-    available = Packages.load(PACKAGE_FOR_TEST)[0]
+    available = Packages.load(BUILTIN_MODULES_FOR_TEST)[0]
     return {available.name: available.modules}
 
 
