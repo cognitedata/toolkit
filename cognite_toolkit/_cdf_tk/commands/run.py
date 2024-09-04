@@ -14,6 +14,7 @@ from typing import Any, cast
 
 import questionary
 from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
+from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import (
     FunctionCall,
     FunctionScheduleWriteList,
@@ -80,7 +81,7 @@ def main() -> None:
     client = CogniteClient(
         config=ClientConfig(
             client_name="{client_name}",
-            project="{project_name}",
+            project="{project}",
             base_url="{base_url}",
             credentials=credentials,
         )
@@ -107,7 +108,10 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive)
+        schedule_dict = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive) or {}
+        if "data" not in schedule_dict and schedule_dict:
+            raise ToolkitMissingResourceError(f"The schedule {schedule_dict['name']} does not have data")
+        input_data = schedule_dict.get("data", None)
 
         client = ToolGlobals.toolkit_client
         function = client.functions.retrieve(external_id=external_id)
@@ -220,10 +224,7 @@ if __name__ == "__main__":
                     break
             else:
                 raise ToolkitMissingResourceError(f"Could not find data for schedule {schedule_name}")
-        config = selected.load_resource(ToolGlobals.environment_variables(), FunctionScheduleLoader)
-        if config.data is None:
-            raise ToolkitMissingResourceError(f"The schedule {selected} does not have data")
-        return config.data
+        return selected.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
 
     def run_local(
         self,
@@ -308,13 +309,67 @@ if __name__ == "__main__":
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
         is_interactive = external_id is None
-        _ = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
-        run_check = "run_check.py"
-        (function_venv / run_check).write_text(
-            self.run_check_py.format(
-                credentials_cls="OAuthClientCredentials",
-            )
+        schedule_dict = (
+            self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive) or {}
         )
+        if authentication := schedule_dict.get("authentication"):
+            if "clientId" not in authentication or "clientSecret" not in authentication:
+                raise ToolkitInvalidFunctionError(
+                    "Authentication data for schedule should contain clientId and clientSecret"
+                )
+            if authentication["clientId"].startswith("${"):
+                raise ToolkitInvalidFunctionError(
+                    f"Missing environment variable for clientId in schedule authentication, {authentication['clientId']}"
+                )
+            if authentication["clientSecret"].startswith("${"):
+                raise ToolkitInvalidFunctionError(
+                    f"Missing environment variable for clientSecret in schedule authentication, {authentication['clientSecret']}"
+                )
+            credential_args = {
+                "client_id": schedule_dict["authentication"]["clientId"],
+                "client_secret": 'os.getenv("IDP_CLIENT_SECRET")',
+            }
+            env = {
+                "IDP_CLIENT_SECRET": schedule_dict["authentication"]["clientSecret"],
+            }
+            credentials_cls = OAuthClientCredentials.__name__
+        else:
+            credentials_cls = {
+                "token": Token.__name__,
+                "interactive": OAuthInteractive.__name__,
+                "client_credentials": OAuthClientCredentials.__name__,
+            }[ToolGlobals._login_flow]
+            credential_args = ToolGlobals._credentials_args
+            env = {}
+            if "client_secret" in credential_args:
+                env["IDP_CLIENT_SECRET"] = credential_args["client_secret"]
+                credential_args["client_secret"] = 'os.getenv("IDP_CLIENT_SECRET")'
+            if "token" in credential_args:
+                env["CDF_TOKEN"] = credential_args["token"]
+                credential_args["token"] = 'os.getenv("CDF_TOKEN")'
+
+        handler_args: dict[str, Any] = {}
+        if "client" in args:
+            handler_args["client"] = "client"
+        if "data" in schedule_dict and "data" in args:
+            handler_args["data"] = str(schedule_dict["data"])
+        if "secrets" in args and "secrets" in function_dict:
+            handler_args["secrets"] = str(function_dict["secrets"])
+        if "function_call_info" in args:
+            handler_args["function_call_info"] = str({"local": True})
+
+        run_check_py = self.run_check_py.format(
+            credentials_cls=credentials_cls,
+            handler_import=handler_file.replace(".py", "").replace("/", "."),
+            client_name=ToolGlobals._client_name,
+            project=ToolGlobals._project,
+            base_url=ToolGlobals._cdf_url,
+            credentials_args="\n        ".join(f"{k}={v}," for k, v in credential_args.items()),
+            handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
+        )
+        run_check = "run_check.py"
+        (function_venv / run_check).write_text(run_check_py)
+        virtual_env.execute(Path(run_check), f"run_check {function_external_id}", env)
 
         print(f"    [green]✓ 4/4[/green] Function {function_external_id!r} successfully executed code.")
 
