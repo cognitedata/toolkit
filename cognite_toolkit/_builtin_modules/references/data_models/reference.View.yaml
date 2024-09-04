@@ -1,0 +1,8 @@
+space: str
+externalId: str
+version: str
+description: str | None
+name: str | None
+filter: Filter | None
+implements: list[ViewId] | None
+properties: dict[str, ViewPropertyApply] | None

@@ -1,0 +1,27 @@
+externalId: str
+name: str
+dataSetExternalId: str
+description: str | None
+rawTables:
+#  optional list[dict[str, str]]::
+#  - db1: table1
+#  - db2: table2
+#  - db3: {}
+schedule: str | None
+contacts:
+#  optional list[ExtractionPipelineContact] :
+#  - name: str
+#    email: str
+#    role: str
+#    sendNotification: True | False
+#  - name: str
+#    email: str
+#    role: str
+#    sendNotification: True | False
+metadata:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+source: str | None
+documentation: str | None
+createdBy: str | None

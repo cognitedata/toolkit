@@ -1,0 +1,7 @@
+externalId: str
+partitionCount: int
+timeSeriesIds: list[ExternalId] | None
+filter: Filter | None
+name: str | None
+description: str | None
+dataSetExternalId: str | None

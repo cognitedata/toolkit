@@ -125,12 +125,11 @@ class ModulesCommand(ToolkitCommand):
             Panel(
                 "\n".join(
                     [
-                        "Interactive process for selecting initial modules"
-                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
-                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                        "The modules are thematically bundled in packages you can choose from. You can add more by repeating the process.",
+                        "Use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
                     ]
                 ),
-                title="Interactive template wizard",
+                title="Select initial modules",
                 style="green",
                 padding=(1, 2),
             )
@@ -143,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
         if not init_dir:
             init_dir = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
-                default="new_project",
+                default="my_organization",
             ).ask()
             if not init_dir or init_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
