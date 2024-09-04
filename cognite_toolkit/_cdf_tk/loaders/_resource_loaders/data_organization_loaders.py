@@ -80,6 +80,10 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
@@ -166,6 +170,10 @@ class LabelLoader(
         if not item.external_id:
             raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: LabelDefinitionWriteList) -> Capability | list[Capability]:

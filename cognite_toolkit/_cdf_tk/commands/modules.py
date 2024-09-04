@@ -5,7 +5,7 @@ import subprocess
 from contextlib import suppress
 from importlib import resources
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import questionary
 import typer
@@ -16,6 +16,7 @@ from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.rule import Rule
+from rich.table import Table
 from rich.tree import Tree
 
 import cognite_toolkit
@@ -34,10 +35,9 @@ from cognite_toolkit._cdf_tk.constants import (
     COGNITE_MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
 )
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML
-from cognite_toolkit._cdf_tk.data_classes._packages import Packages
+from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
+from cognite_toolkit._cdf_tk.data_classes._packages import Packages, SelectableModule
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.prototypes import _packages
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
@@ -71,10 +71,10 @@ class ModulesCommand(ToolkitCommand):
                 if isinstance(subvalue, dict):
                     self._build_tree(subvalue, subtree)
                 else:
-                    subtree.add(subvalue)
+                    subtree.add(str(subvalue))
 
     def _create(
-        self, init_dir: str, selected: dict[str, dict[str, Any]], environments: list[str], mode: str | None
+        self, init_dir: str, selected: dict[str, list[SelectableModule]], environments: list[str], mode: str | None
     ) -> None:
         modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
         if mode == "overwrite":
@@ -89,21 +89,17 @@ class ModulesCommand(ToolkitCommand):
 
             for module in modules:
                 print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
-                source_dir = Path(_packages.__file__).parent / package / module
-                if not Path(source_dir).exists():
-                    print(f"{INDENT*3}[red]Module {module} not found in package {package}. Skipping...[/]")
-                    continue
-                module_dir = modules_root_dir / package / module
-                if Path(module_dir).exists() and mode == "update":
+                target_dir = modules_root_dir / module.name
+                if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
-                        f"{INDENT}Module {module} already exists in folder {module_dir}. Would you like to overwrite?",
+                        f"{INDENT}Module {module} already exists in folder {target_dir}. Would you like to overwrite?",
                         default=False,
                     ).ask():
-                        shutil.rmtree(module_dir)
+                        shutil.rmtree(target_dir)
                     else:
                         continue
 
-                shutil.copytree(source_dir, module_dir, ignore=shutil.ignore_patterns("default.*"))
+                shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
             # if mode == "update":
@@ -114,9 +110,9 @@ class ModulesCommand(ToolkitCommand):
                     build_type="dev" if environment == "dev" else "prod",
                     selected=list(selected.keys()) if selected else ["empty"],
                 )
-            ).load_selected_defaults(Path(_packages.__file__).parent)
+            ).load_selected_defaults(BUILTIN_PACKAGES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
-            Path(init_dir + f"/config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+            (Path(init_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
         dest = Path(init_dir).parent / CDFToml.file_name
@@ -170,7 +166,7 @@ class ModulesCommand(ToolkitCommand):
 
         print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
 
-        selected: dict[str, dict[str, Any]] = {}
+        selected: dict[str, list[SelectableModule]] = {}
 
         while True:
             if len(selected) > 0:
@@ -203,16 +199,18 @@ class ModulesCommand(ToolkitCommand):
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(
-                            title=value, value=key, checked=True if key in selected.get(package_name, {}) else False
+                            title=selectable_module.title,
+                            value=selectable_module,
+                            checked=True if selectable_module.name in selected.get(package_name, {}) else False,
                         )
-                        for key, value in package.modules.items()
+                        for selectable_module in package.modules
                     ],
                     qmark=INDENT,
                     pointer=POINTER,
                     style=custom_style_fancy,
                 ).ask()
             else:
-                selection = list(package.modules.keys())
+                selection = package.modules
 
             selected[package_name] = selection
 
@@ -364,6 +362,26 @@ class ModulesCommand(ToolkitCommand):
         else:
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
+
+    def list(self, project_dir: str | Path, build_env_name: str) -> None:
+        project_dir = Path(project_dir)
+        modules = ModuleResources(project_dir, build_env_name)
+
+        table = Table(title=f"{build_env_name} {project_dir.name} modules")
+        table.add_column("Module Name", style="bold")
+        table.add_column("Resource Folders", style="bold")
+        table.add_column("Resources", style="bold")
+        table.add_column("Location", style="bold")
+
+        for module in modules.list():
+            table.add_row(
+                module.name,
+                f"{len(module.resources):,}",
+                f"{sum(len(resources) for resources in module.resources.values()):,}",
+                module.location.path.as_posix(),
+            )
+
+        print(table)
 
 
 class CLICommands:

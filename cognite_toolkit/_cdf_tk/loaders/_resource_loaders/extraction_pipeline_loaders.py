@@ -100,6 +100,10 @@ class ExtractionPipelineLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
@@ -232,6 +236,10 @@ class ExtractionPipelineConfigLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

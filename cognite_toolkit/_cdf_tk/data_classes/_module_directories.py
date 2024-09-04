@@ -8,8 +8,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
-from cognite_toolkit._cdf_tk.utils import iterate_modules
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
 
 
 @dataclass(frozen=True)
@@ -47,13 +47,14 @@ class ModuleLocation:
         """All relative parent paths of the module."""
         return set(self.relative_path.parents)
 
+    def hash(self) -> str:
+        """The hash of the module."""
+        return calculate_directory_hash(self.dir, shorten=True)
+
     @cached_property
-    def module_toml(self) -> ModuleToml | None:
-        """The module toml of the module."""
-        module_toml_file = self.dir / "module.toml"
-        if module_toml_file.exists():
-            return ModuleToml.load(module_toml_file)
-        return None
+    def resource_directories(self) -> set[str]:
+        """The resource directories in the module."""
+        return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"

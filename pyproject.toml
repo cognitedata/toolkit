@@ -14,7 +14,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.54.19", extras = ["pandas"]}
+cognite-sdk = {version = "^7.55.2", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
@@ -60,6 +60,8 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
+norecursedirs = "cognite_toolkit/_cdf_tk/_packages/"
+
 markers = [
     "toolkit: big smoke tests",
 ]
@@ -72,7 +74,8 @@ follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
             "cognite_toolkit/build*", 
-            "tests/data/_packages","cognite_toolkit/_cdf_tk/_packages/*"]
+            "tests/data/_packages",
+            "cognite_toolkit/_cdf_tk/_packages/*"]
 [tool.ruff]
 line-length = 120
 

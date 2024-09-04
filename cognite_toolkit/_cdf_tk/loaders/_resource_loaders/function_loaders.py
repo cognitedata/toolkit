@@ -97,6 +97,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -286,6 +290,10 @@ class FunctionScheduleLoader(
         ]
 
     @classmethod
+    def dump_id(cls, id: FunctionScheduleID) -> dict[str, Any]:
+        return id.dump(camel_case=True)
+
+    @classmethod
     def get_id(cls, item: FunctionScheduleWrite | FunctionSchedule | dict) -> FunctionScheduleID:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"functionExternalId", "name"} if k not in item):
@@ -304,7 +312,7 @@ class FunctionScheduleLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> FunctionScheduleWrite | FunctionScheduleWriteList | None:
+    ) -> FunctionScheduleWriteList:
         schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         if isinstance(schedules, dict):
             schedules = [schedules]

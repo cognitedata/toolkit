@@ -14,7 +14,8 @@ class TestPackages:
         packages = Packages.load(PACKAGE_FOR_TEST)
         assert packages is not None
         assert len(packages) == 5
-        assert len(packages[0].modules) > 0
+        assert len(packages[0].modules) == 1
+        assert packages[0].modules[0].name == "infield"
 
     def test_fail_on_invalid_tag(self) -> None:
         def mock_toml_load(path):

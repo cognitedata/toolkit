@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import final
+from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
@@ -58,6 +58,10 @@ class LocationFilterLoader(
         if not item.external_id:
             raise KeyError("LocationFilter must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
