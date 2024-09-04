@@ -9,13 +9,12 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import questionary
 from cognite.client.data_classes import (
     FunctionCall,
     FunctionScheduleWriteList,
-    FunctionWrite,
     FunctionWriteList,
 )
 from cognite.client.data_classes.transformations import TransformationList
@@ -32,11 +31,12 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResource
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitMissingResourceError,
+    ToolkitNotADirectoryError,
     ToolkitNotSupported,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
 
 from ._base import ToolkitCommand
@@ -190,43 +190,48 @@ intended to test the function before deploying it to CDF or to debug issues with
         schedule: str | None = None,
         rebuild_env: bool = False,
     ) -> None:
-        resources = ModuleResources(organization_dir, build_env_name)
-        is_interactive = external_id is None
-        function_build = self._get_function(external_id, resources)
-        # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
-        input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
-
-        function_local = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
-
-        self._setup_virtual_env(function_local, function_build, rebuild_env, organization_dir)
-
-        self._run_function_locally(ToolGlobals, function_build, input_data)
-
-    def _setup_virtual_env(
-        self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool, organization_dir: Path
-    ) -> None:
         try:
-            import venv
+            from ._virtual_env import FunctionVirtualEnvironment
         except ImportError:
             if _RUNNING_IN_BROWSER:
                 raise ToolkitNotSupported("This functionality is not supported in a browser environment.")
             raise
+        resources = ModuleResources(organization_dir, build_env_name)
+        # is_interactive = external_id is None
+        function_build = self._get_function(external_id, resources)
+        # # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
+        # input_data = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
+        #
+        # function_config = function_build.load_resource(ToolGlobals.environment_variables(), FunctionLoader)
+        function_external_id = function_build.identifier
 
         virtual_envs_dir = organization_dir / self.virtual_env_folder
         virtual_envs_dir.mkdir(exist_ok=True)
-        readme = virtual_envs_dir / "README.md"
-        if not readme.exists():
-            readme.write_text(self.default_readme_md)
-        if function.external_id is None:
-            raise ToolkitValueError("Function external_id is missing")
-        function_venv = Path(virtual_envs_dir) / function.external_id
+        readme_overview = virtual_envs_dir / "README.md"
+        if not readme_overview.exists():
+            readme_overview.write_text(self.default_readme_md)
 
-        venv.create(function_venv, clear=rebuild_env, with_pip=True)
+        function_venv = Path(virtual_envs_dir) / function_external_id
+        if not (function_build.location.path / function_external_id).exists():
+            raise ToolkitNotADirectoryError(
+                f"Could not find function code for {function_external_id}. Expected at {function_build.location.path / function_external_id}"
+            )
+        requirements_txt: Path | str = function_build.location.path / function_external_id / "requirements.txt"
+        if not cast(Path, requirements_txt).exists():
+            self.warn(
+                MediumSeverityWarning(
+                    "No requirements.txt found for function, "
+                    "it is recommended that you have one and pin your "
+                    "dependencies including the cognite-sdk"
+                )
+            )
 
-    def _run_function_locally(
-        self, ToolGlobals: CDFToolConfig, build: ResourceBuildInfoFull[str], input_data: dict | None
-    ) -> None:
-        raise NotImplementedError()
+            # Default to install only the SDK in the latest version
+            requirements_txt = "cognite-sdk\n"
+
+        virtual_env = FunctionVirtualEnvironment(requirements_txt)
+
+        virtual_env.create(function_venv / ".venv")
 
     def execute(
         self,
