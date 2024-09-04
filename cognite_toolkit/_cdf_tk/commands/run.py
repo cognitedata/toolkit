@@ -29,7 +29,12 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, ModuleResources, ResourceBuildInfoFull
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
+    ToolkitMissingResourceError,
+    ToolkitNotSupported,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, module_from_path, safe_read
@@ -38,7 +43,7 @@ from ._base import ToolkitCommand
 
 
 class RunFunctionCommand(ToolkitCommand):
-    virtual_env_dir = "local_function_venvs"
+    virtual_env_folder = "local_function_venvs"
     default_readme_md = """# Local Function Quality Assurance
 
 This directory contains virtual environments for running functions locally. This is
@@ -200,12 +205,23 @@ intended to test the function before deploying it to CDF or to debug issues with
     def _setup_virtual_env(
         self, function: FunctionWrite, build: ResourceBuildInfoFull[str], rebuild_env: bool, organization_dir: Path
     ) -> None:
-        virtual_envs_dir = organization_dir / self.virtual_env_dir
+        try:
+            import venv
+        except ImportError:
+            if _RUNNING_IN_BROWSER:
+                raise ToolkitNotSupported("This functionality is not supported in a browser environment.")
+            raise
+
+        virtual_envs_dir = organization_dir / self.virtual_env_folder
         virtual_envs_dir.mkdir(exist_ok=True)
         readme = virtual_envs_dir / "README.md"
         if not readme.exists():
             readme.write_text(self.default_readme_md)
-        raise NotImplementedError()
+        if function.external_id is None:
+            raise ToolkitValueError("Function external_id is missing")
+        function_venv = Path(virtual_envs_dir) / function.external_id
+
+        venv.create(function_venv, clear=rebuild_env, with_pip=True)
 
     def _run_function_locally(
         self, ToolGlobals: CDFToolConfig, build: ResourceBuildInfoFull[str], input_data: dict | None
