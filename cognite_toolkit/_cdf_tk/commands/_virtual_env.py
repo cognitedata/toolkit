@@ -1,6 +1,7 @@
 import shutil
 import sys
 import venv
+from collections.abc import Mapping
 from pathlib import Path
 from subprocess import Popen
 from types import SimpleNamespace
@@ -35,13 +36,13 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
             raise ToolkitEnvError(f"Invalid 'requirements.txt' file{suffix}.")
         self._context = context
 
-    def execute(self, script: Path, script_name: str) -> None:
+    def execute(self, script: Path, script_name: str, env: Mapping[str, str] | None = None) -> None:
         if self._context is None:
             raise ToolkitEnvError("Virtual environment not created.")
         function_dir = Path(self._context.env_dir).parent
         args = [str(Path(self._context.bin_path) / "python"), str(script)]
 
-        process = Popen(args, stdout=sys.stdout, stderr=sys.stderr, cwd=str(function_dir))
+        process = Popen(args, stdout=sys.stdout, stderr=sys.stderr, cwd=str(function_dir), env=env)
         process.wait()
         if process.returncode != 0:
             raise ToolkitEnvError(f"Error executing {script_name} {script.as_posix()}.")
