@@ -1,10 +1,10 @@
 [module]
 version = "0.2.18"
-name = "InField"
-description = "Cognite InField"
+description = "InField common"
+default = true
 
 [packages]
 tags = [
     "infield",
-    "quickstart",  
+    "quickstart"
 ]
