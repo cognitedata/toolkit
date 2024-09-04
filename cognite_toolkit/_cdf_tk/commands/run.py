@@ -230,9 +230,14 @@ intended to test the function before deploying it to CDF or to debug issues with
             requirements_txt = "cognite-sdk\n"
 
         print(f"Setting up virtual environment for function {function_external_id}...")
-        virtual_env = FunctionVirtualEnvironment(requirements_txt)
+        virtual_env = FunctionVirtualEnvironment(requirements_txt, rebuild_env)
 
         virtual_env.create(function_venv / ".venv")
+
+        print(
+            f"[green] Check 1/3 [/green]Function {function_external_id!r} virtual environment setup complete: "
+            f"'requirements.txt' file is valid."
+        )
 
     def execute(
         self,
