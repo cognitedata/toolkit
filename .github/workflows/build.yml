@@ -69,7 +69,8 @@ jobs:
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
-        run: pytest tests/test_unit -n8
+        run: pytest tests/test_unit -n8 --ignore=cognite_toolkit/_cdf_tk/_packages/
+
   coverage:
     name: Create coverage report
     runs-on: ubuntu-latest
