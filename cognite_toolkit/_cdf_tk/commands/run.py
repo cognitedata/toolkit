@@ -66,6 +66,34 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 """
+    run_check_py = """from cognite.client import CogniteClient, ClientConfig
+from cognite.client.credentials import {credentials_cls}
+
+from code.{handler_import} import handler
+
+
+def main() -> None:
+    credentials = {credentials_cls}(
+        {credentials_args}
+    )
+
+    client = CogniteClient(
+        config=ClientConfig(
+            client_name="{client_name}",
+            project="{project_name}",
+            base_url="{base_url}",
+            credentials=credentials,
+        )
+    )
+
+    handler(
+        {handler_args}
+    )
+
+
+if __name__ == "__main__":
+    main()
+"""
 
     def run_cdf(
         self,
@@ -281,6 +309,14 @@ if __name__ == "__main__":
 
         is_interactive = external_id is None
         _ = self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive)
+        run_check = "run_check.py"
+        (function_venv / run_check).write_text(
+            self.run_check_py.format(
+                credentials_cls="OAuthClientCredentials",
+            )
+        )
+
+        print(f"    [green]✓ 4/4[/green] Function {function_external_id!r} successfully executed code.")
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
