@@ -1,4 +1,0 @@
-title: "Empty: I want to create my own modules"
-modules: {
-      "my_module": {"items": {}},
-}
