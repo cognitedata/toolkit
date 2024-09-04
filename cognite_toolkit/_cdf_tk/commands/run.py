@@ -212,11 +212,11 @@ intended to test the function before deploying it to CDF or to debug issues with
             readme_overview.write_text(self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        if not (function_build.location.path / function_external_id).exists():
+        if not (function_build.location.path.parent / function_external_id).exists():
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_build.location.path / function_external_id}"
             )
-        requirements_txt: Path | str = function_build.location.path / function_external_id / "requirements.txt"
+        requirements_txt: Path | str = function_build.location.path.parent / function_external_id / "requirements.txt"
         if not cast(Path, requirements_txt).exists():
             self.warn(
                 MediumSeverityWarning(
@@ -229,6 +229,7 @@ intended to test the function before deploying it to CDF or to debug issues with
             # Default to install only the SDK in the latest version
             requirements_txt = "cognite-sdk\n"
 
+        print(f"Setting up virtual environment for function {function_external_id}...")
         virtual_env = FunctionVirtualEnvironment(requirements_txt)
 
         virtual_env.create(function_venv / ".venv")
