@@ -63,7 +63,7 @@ def test_run_function(toolkit_client_approval: ApprovalToolkitClient):
     )
 
 
-def test_run_local_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
+def test_run_local_function(cdf_tool_config: CDFToolConfig) -> None:
     cmd = RunFunctionCommand()
 
     cmd.run_local(
