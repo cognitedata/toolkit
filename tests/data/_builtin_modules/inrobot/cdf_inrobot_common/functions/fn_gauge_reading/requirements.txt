@@ -5,7 +5,7 @@ cognite-extractor-utils==1.4.2
 cognite-sdk==2.56.1
 dacite==1.8.1
 decorator==4.4.2
-idna==3.7
+idna==3.8
 numpy==1.22.0
 oauthlib==3.1.0
 pandas==1.5.3
