@@ -1,7 +1,5 @@
-import json
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand
+from cognite_toolkit._cdf_tk.commands import RunTransformationCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
@@ -18,12 +16,4 @@ class RunAPI:
         return RunTransformationCommand().run_transformation(
             self._create_tool_config(),
             external_id,
-        )
-
-    def function(self, external_id: str, payload: dict, follow: bool = False) -> bool:
-        return RunFunctionCommand().run_function(
-            self._create_tool_config(),
-            external_id,
-            json.dumps(payload),
-            follow,
         )
