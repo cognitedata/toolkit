@@ -10,9 +10,8 @@ else:
     import tomli as toml
 
 
-@dataclass(frozen=True)
+@dataclass
 class ModuleToml:
-    version: str
     description: str | None
     tags: list[str] = field(default_factory=list)
 
@@ -20,7 +19,6 @@ class ModuleToml:
     def load(cls, manifest_path: Path) -> ModuleToml:
         manifest = toml.loads(manifest_path.read_text())
         return cls(
-            version=manifest["module"]["version"],
             description=manifest["module"].get("description"),
             tags=manifest["packages"]["tags"],
         )

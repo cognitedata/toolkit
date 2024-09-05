@@ -1,0 +1,3 @@
+destination: str
+transformationId: int | None
+transformationExternalId: str | None

@@ -1,0 +1,8 @@
+[module]
+version = "0.2.18"
+description = "Reference YAML files for all supported resource types"
+
+[packages]
+tags = [
+    "references",
+]

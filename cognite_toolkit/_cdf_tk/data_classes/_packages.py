@@ -8,6 +8,7 @@ from typing import Any, Optional, overload
 
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 
 if sys.version_info >= (3, 11):
     import toml
@@ -91,7 +92,7 @@ class Packages(list, MutableSequence[Package]):
 
         package_definition_path = path / "package.toml"
         if not package_definition_path.exists():
-            raise FileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
+            raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
         package_definitions = toml.loads(package_definition_path.read_text())["packages"]
 
         collected: dict[str, Package] = {}
