@@ -1,0 +1,51 @@
+- name: "Contextualize robot data"
+  externalId: "fn_contextualize_robot_data"
+  owner: "Robotics team"
+  description: "Contextualize data uploaded to CDF from robots."
+  envVars:
+    # The two environment variables below are set by the Toolkit
+    ENV_TYPE: "${CDF_BUILD_TYPE}"
+    CDF_ENV: "${CDF_ENVIRON}"
+  runtime: "py39"
+  functionPath: "./handler.py"
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"
+
+- name: Gauge reading
+  externalId: "fn_gauge_reading"
+  owner: "Robotics team"
+  description: "Reads the gauge data from the robot."
+  envVars:
+    # The two environment variables below are set by the Toolkit
+    ENV_TYPE: "${CDF_BUILD_TYPE}"
+    CDF_ENV: "${CDF_ENVIRON}"
+  runtime: "py39"
+  functionPath: "./handler.py"
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"
+
+- name: Get IR data From IR raw
+  externalId: "fn_get_ir_data_from_ir_raw"
+  owner: "Robotics team"
+  description: "Extracts the IR data from the raw IR info."
+  envVars:
+    # The two environment variables below are set by the Toolkit
+    ENV_TYPE: "${CDF_BUILD_TYPE}"
+    CDF_ENV: "${CDF_ENVIRON}"
+  runtime: "py39"
+  functionPath: "./handler.py"
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"
+
+- name: Process 360
+  externalId: "fn_threesixty"
+  owner: "Robotics team"
+  description: "Process 360 images into streetview"
+  envVars:
+    # The two environment variables below are set by the Toolkit
+    ENV_TYPE: "${CDF_BUILD_TYPE}"
+    CDF_ENV: "${CDF_ENVIRON}"
+  runtime: "py39"
+  functionPath: "./handler.py"
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"

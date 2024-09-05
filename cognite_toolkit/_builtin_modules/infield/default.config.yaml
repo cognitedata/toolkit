@@ -1,0 +1,7 @@
+# The root asset external id should be
+# set to different values for each location,
+# but for demo purposes we are using the same value
+first_location: oid
+first_root_asset_external_id: 'WMT:VAL'
+second_location: oid2
+second_root_asset_external_id: 'WMT:VAL'

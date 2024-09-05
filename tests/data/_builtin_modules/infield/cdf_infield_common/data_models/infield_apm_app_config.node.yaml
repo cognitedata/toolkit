@@ -1,0 +1,32 @@
+autoCreateDirectRelations: true
+skipOnVersionConflict: false
+replace: true
+nodes:
+- space: {{apm_config_instance_space}}
+  externalId: default_infield_config_minimal
+  sources:
+  - source:
+      space: APM_Config
+      externalId: APM_Config
+      version: '1'
+      type: view
+    properties:
+      featureConfiguration:
+        rootLocationConfigurations:
+        - assetExternalId: {{first_root_asset_external_id}}
+          appDataInstanceSpace: sp_infield_{{first_location}}_app_data
+          sourceDataInstanceSpace: sp_asset_{{first_location}}_source
+          templateAdmins:
+          - gp_infield_{{first_location}}_template_admins
+          checklistAdmins:
+          - gp_infield_{{first_location}}_checklist_admins
+        - assetExternalId: {{second_root_asset_external_id}}
+          appDataInstanceSpace: sp_infield_{{second_location}}_app_data
+          sourceDataInstanceSpace: sp_asset_{{second_location}}_source
+          templateAdmins:
+          - gp_infield_{{second_location}}_template_admins
+          checklistAdmins:
+          - gp_infield_{{second_location}}_checklist_admins
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      name: Infield APM App Config

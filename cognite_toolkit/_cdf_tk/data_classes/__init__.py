@@ -20,6 +20,7 @@ from ._config_yaml import (
     InitConfigYAML,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
+from ._packages import Package, Packages
 
 __all__ = [
     "InitConfigYAML",
@@ -32,6 +33,8 @@ __all__ = [
     "ModuleDirectories",
     "BuildVariable",
     "BuildVariables",
+    "Package",
+    "Packages",
     "ModuleResources",
     "BuildLocation",
     "ResourceBuildInfo",

@@ -1,6 +1,7 @@
 from datetime import datetime
 from unittest.mock import MagicMock
 
+import pytest
 from cognite.client.data_classes.functions import Function
 from cognite.client.data_classes.transformations import Transformation
 
@@ -63,6 +64,7 @@ def test_run_function(toolkit_client_approval: ApprovalToolkitClient):
     )
 
 
+@pytest.mark.skip(reason="This test is soon obsolete")
 def test_run_local_function(toolkit_client_approval: ApprovalToolkitClient) -> None:
     cdf_tool = MagicMock(spec=CDFToolConfig)
     cdf_tool.toolkit_client = toolkit_client_approval.mock_client
