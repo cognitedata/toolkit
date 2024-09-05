@@ -149,7 +149,7 @@
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
-      "args": ["features", "set", "--flag=interactive_init", "--enabled=true"],
+      "args": ["features", "set", "modules-cmd", "--enable"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
