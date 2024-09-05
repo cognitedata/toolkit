@@ -1,0 +1,38 @@
+externalId: 'ep_src_asset_{{location_name}}_{{source_name}}'
+description: 'DB extractor config reading data from {{location_name}}:{{source_name}}'
+config:
+  logger:
+    console:
+      level: INFO
+    file:
+      level: INFO
+      path: "file.log"
+  # List of databases
+  databases:
+    - type: odbc
+      name: postgres
+      connection-string: "DSN={MyPostgresDsn}"
+  # List of queries
+  queries:
+    - name: test-postgres
+      database: postgres
+      query: >
+        SELECT
+
+          *
+        FROM
+
+          mytable
+        WHERE
+
+          {incremental_field} >= '{start_at}'
+        ORDER BY
+
+          {incremental_field} ASC
+      incremental-field: "id"
+      initial-start: 0
+      destination:
+        type: raw
+        database: "db-extractor"
+        table: "postgres"
+      primary-key: "{id}"

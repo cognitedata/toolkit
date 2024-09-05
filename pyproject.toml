@@ -27,6 +27,8 @@ tomli = { version = "^2.0.1", python = "<3.11" }
 # 22.0 was when explicit support for 3.11 was added.
 packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
+types-toml = "^0.10.8.20240310"
+toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
@@ -58,6 +60,8 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
+norecursedirs = "cognite_toolkit/_cdf_tk/_packages/"
+
 markers = [
     "toolkit: big smoke tests",
 ]
@@ -69,13 +73,18 @@ disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
 exclude = ["cognite_toolkit/cognite_modules",
-            "cognite_toolkit/build*"]
+            "cognite_toolkit/build*", 
+            "tests/data/_builtin_modules/*", 
+            "cognite_toolkit/_builtin_modules/*"]
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.format]
 # Ruff messes up the docstrings which are expected to be in Markdown format
-exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py", "cognite_toolkit/cognite_modules/inrobot/*"]
+exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py", 
+            "cognite_toolkit/cognite_modules/inrobot/*", 
+            "tests/data/_builtin_modules/*", 
+            "cognite_toolkit/_builtin_modules/*"]
 
 [build-system]
 requires = ["poetry-core"]
