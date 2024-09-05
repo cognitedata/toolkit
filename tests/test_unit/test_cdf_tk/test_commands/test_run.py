@@ -64,28 +64,13 @@ def test_run_function(toolkit_client_approval: ApprovalToolkitClient):
 
 
 def test_run_local_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
-    function = Function(
-        id=1234567890,
-        name="Test function",
-        external_id="fn_test2",
-        description="Test function",
-        owner="test",
-        status="RUNNING",
-        file_id=1234567890,
-        function_path="./handler.py",
-        created_time=int(datetime.now().timestamp() / 1000),
-    )
-    toolkit_client_approval.append(Function, function)
-
     cmd = RunFunctionCommand()
 
-    result = cmd.run_local_function(
+    cmd.run_local(
         ToolGlobals=cdf_tool_config,
-        source_path=RUN_DATA,
-        rebuild_env=True,
+        organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test2",
-        payload='{"var1": "value"}',
+        schedule="daily-8pm-utc",
+        rebuild_env=False,
     )
-
-    assert result is True
