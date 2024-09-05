@@ -47,6 +47,7 @@ class ModuleLocation:
         """All relative parent paths of the module."""
         return set(self.relative_path.parents)
 
+    @cached_property
     def hash(self) -> str:
         """The hash of the module."""
         return calculate_directory_hash(self.dir, shorten=True)
