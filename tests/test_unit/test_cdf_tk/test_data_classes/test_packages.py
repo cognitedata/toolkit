@@ -19,7 +19,7 @@ class TestPackages:
 
     def test_fail_on_invalid_tag(self) -> None:
         def mock_toml_load(path):
-            return ModuleToml("1.0.0", "description", ["invalid_tag", "tag2"])
+            return ModuleToml("description", ["invalid_tag", "tag2"])
 
         with patch("cognite_toolkit._cdf_tk.data_classes._module_toml.ModuleToml.load", side_effect=mock_toml_load):
             # Test the overridden behavior

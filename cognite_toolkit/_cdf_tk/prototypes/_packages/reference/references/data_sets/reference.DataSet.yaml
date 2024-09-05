@@ -1,0 +1,8 @@
+externalId: str | None
+name: str | None
+description: str | None
+metadata:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+writeProtected: bool | None
