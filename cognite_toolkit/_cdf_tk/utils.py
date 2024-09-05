@@ -52,7 +52,7 @@ from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILTIN_MODULES, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -1205,6 +1205,10 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
 
     """
     if root_dir.name in ROOT_MODULES:
+        yield from _iterate_modules(root_dir)
+        return
+    # todo: BUILTIN_MODULES cannot be a ROOT_MODULE yet because that causes lots of duplicate modules.
+    elif root_dir.name == BUILTIN_MODULES:
         yield from _iterate_modules(root_dir)
         return
     for root_module in ROOT_MODULES:

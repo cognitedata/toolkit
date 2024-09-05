@@ -1,0 +1,9 @@
+externalId: 'ep_src_asset_{{location_name}}_{{source_name}}'
+name: 'src:asset:{{location_name}}:{{source_name}}'
+dataSetExternalId: 'ds_asset_{{location_name}}'
+description: 'Asset source extraction pipeline with configuration for DB extractor reading data from {{location_name}}:{{source_name}}'
+rawTables:
+  - dbName: 'asset_{{location_name}}_{{source_name}}'
+    tableName: 'assets'
+source: '{{source_name}}'
+documentation: "The DB Extractor is a general database extractor that connects to a database, executes one or several queries and sends the result to CDF RAW.\n\nThe extractor connects to a database over ODBC, which means that you need an ODBC driver for your database. If you are running the Docker version of the extractor, ODBC drivers for MySQL, MS SQL, PostgreSql and Oracle DB are preinstalled in the image. See the example config for details on connection strings for these. If you are running the Windows exe version of the extractor, you must provide an ODBC driver yourself. These are typically provided by the database vendor.\n\nFurther documentation is available [here](./docs/documentation.md)\n\nFor information on development, consider the following guides:\n\n * [Development guide](guides/development.md)\n * [Release guide](guides/release.md)"
