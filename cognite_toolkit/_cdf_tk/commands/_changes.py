@@ -20,8 +20,8 @@ class Change:
     required_from: Version | None = None
     has_file_changes: bool = False
 
-    def __init__(self, project_dir: Path) -> None:
-        self._project_path = project_dir
+    def __init__(self, organization_dir: Path) -> None:
+        self._organization_dir = organization_dir
 
 
 class AutomaticChange(Change):
@@ -64,10 +64,10 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._project_path / COGNITE_MODULES / "_system.yaml"
+        system_yaml = self._organization_dir / COGNITE_MODULES / "_system.yaml"
         if not system_yaml.exists():
             return set()
-        new_system_yaml = self._project_path / "_system.yaml"
+        new_system_yaml = self._organization_dir / "_system.yaml"
         system_yaml.rename(new_system_yaml)
         return {system_yaml}
 
@@ -100,7 +100,7 @@ After:
 
     def do(self) -> set[Path]:
         changed: set[Path] = set()
-        for config_yaml in self._project_path.glob("config.*.yaml"):
+        for config_yaml in self._organization_dir.glob("config.*.yaml"):
             data_raw = safe_read(config_yaml)
             # We do not parse the YAML file to avoid removing comments
             updated_file: list[str] = []
@@ -134,11 +134,11 @@ class CommonFunctionCodeNotSupported(ManualChange):
     has_file_changes = True
 
     def needs_to_change(self) -> set[Path]:
-        common_function_code = self._project_path / "common_function_code"
+        common_function_code = self._organization_dir / "common_function_code"
         if not common_function_code.exists():
             return set()
         needs_change = {common_function_code}
-        for py_file in self._project_path.rglob("*.py"):
+        for py_file in self._organization_dir.rglob("*.py"):
             content = safe_read(py_file).splitlines()
             use_common_function_code = any(
                 (line.startswith("from common") or line.startswith("import common")) for line in content
@@ -153,14 +153,14 @@ class CommonFunctionCodeNotSupported(ManualChange):
             if module == Path("."):
                 # This is the common_function_code folder
                 continue
-            to_update.append(f"  - In module {module.relative_to(self._project_path).as_posix()!r}:")
+            to_update.append(f"  - In module {module.relative_to(self._organization_dir).as_posix()!r}:")
             for py_file in py_files:
                 to_update.append(f"    - In file {py_file.relative_to(module).as_posix()!r}")
         to_update_str = "\n".join(to_update)
         return (
             "Cognite-Toolkit no longer supports the common functions code.\n"
             f"Please update the following files to not use 'common' module:\n{to_update_str}"
-            f"\n\nThen remove the '{self._project_path.name}/common_function_code' folder."
+            f"\n\nThen remove the '{self._organization_dir.name}/common_function_code' folder."
         )
 
     @staticmethod
@@ -195,7 +195,7 @@ dataSetExternalId: my_external_id
 
     def do(self) -> set[Path]:
         changed: set[Path] = set()
-        for resource_yaml in self._project_path.glob("*.yaml"):
+        for resource_yaml in self._organization_dir.glob("*.yaml"):
             if resource_yaml.parent == "functions":
                 content = safe_read(resource_yaml)
                 if "externalDataSetId" in content:
@@ -229,7 +229,7 @@ environment:
 
     def do(self) -> set[Path]:
         changed = set()
-        for config_yaml in self._project_path.glob("config.*.yaml"):
+        for config_yaml in self._organization_dir.glob("config.*.yaml"):
             data = safe_read(config_yaml)
             if "selected_modules_and_packages" in data:
                 changed.add(config_yaml)
@@ -267,7 +267,7 @@ After:
 
     def do(self) -> set[Path]:
         changed = set()
-        for resource_yaml in self._project_path.glob("functions/**/*.yaml"):
+        for resource_yaml in self._organization_dir.glob("functions/**/*.yaml"):
             if self._is_function(resource_yaml):
                 new_path = self._new_path(resource_yaml)
                 if new_path != resource_yaml:
@@ -301,7 +301,7 @@ class UpdateModuleVersion(AutomaticChange):
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._project_path / "_system.yaml"
+        system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
             return set()
         raw = safe_read(system_yaml)

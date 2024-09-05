@@ -236,7 +236,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
 
         _, source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
-            source_dir=source_path,
+            organization_dir=source_path,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=True,

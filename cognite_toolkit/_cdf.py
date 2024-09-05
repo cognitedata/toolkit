@@ -61,9 +61,8 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
-# Should raise if the cdf.toml is not found
-if "pytest" not in sys.modules:
-    CDF_TOML = CDFToml.load(Path.cwd())
+
+CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,
@@ -257,13 +256,13 @@ def common(
 @_app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     build_dir: Annotated[
         str,
         typer.Option(
@@ -279,7 +278,7 @@ def build(
             "-e",
             help="The name of the environment to build",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     no_clean: Annotated[
         bool,
         typer.Option(
@@ -310,7 +309,7 @@ def build(
     cmd.run(
         lambda: cmd.execute(
             verbose or ctx.obj.verbose,
-            Path(source_dir),
+            Path(organization_dir),
             Path(build_dir),
             build_env_name,
             no_clean,
@@ -696,7 +695,7 @@ def run_function_cmd(
             help="Do not delete the temporary build directory.",
         ),
     ] = False,
-    source_dir: Annotated[
+    organization_dir: Annotated[
         Optional[str],
         typer.Argument(
             help="Where to find the module templates to build from",
@@ -740,7 +739,7 @@ def run_function_cmd(
             local,
             rebuild_env,
             no_cleanup,
-            source_dir,
+            organization_dir,
             schedule,
             build_env_name,
             verbose or ctx.obj.verbose,
@@ -767,13 +766,13 @@ def pull_transformation_cmd(
             help="External id of the transformation to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the destination module templates.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -781,7 +780,7 @@ def pull_transformation_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -805,7 +804,7 @@ def pull_transformation_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             external_id,
             env,
             dry_run,
@@ -837,13 +836,13 @@ def pull_node_cmd(
             help="External id of the node to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the modules.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -851,7 +850,7 @@ def pull_node_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -876,7 +875,7 @@ def pull_node_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             NodeId(space, external_id),
             env,
             dry_run,

@@ -119,8 +119,8 @@ class BuildCommand(ToolkitCommand):
         if not source_path.is_dir():
             raise ToolkitNotADirectoryError(str(source_path))
 
-        cdf_toml = CDFToml.load(source_path)
-        sources = cdf_toml.cdf.get_root_module_paths(source_path)
+        cdf_toml = CDFToml.load()
+        sources = cdf_toml.cdf.get_root_module_paths()
         config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
 
         directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
@@ -139,7 +139,7 @@ class BuildCommand(ToolkitCommand):
 
         self.build_config(
             build_dir=build_dir,
-            source_dir=source_path,
+            organization_dir=source_path,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=not no_clean,
@@ -150,7 +150,7 @@ class BuildCommand(ToolkitCommand):
     def build_config(
         self,
         build_dir: Path,
-        source_dir: Path,
+        organization_dir: Path,
         config: BuildConfigYAML,
         packages: dict[str, list[str]],
         clean: bool = False,
@@ -176,8 +176,8 @@ class BuildCommand(ToolkitCommand):
             self.warn(issue)
 
         user_selected_modules = config.environment.get_selected_modules(packages)
-        modules = ModuleDirectories.load(source_dir, user_selected_modules)
-        self._validate_modules(modules, config, packages, user_selected_modules, source_dir)
+        modules = ModuleDirectories.load(organization_dir, user_selected_modules)
+        self._validate_modules(modules, config, packages, user_selected_modules, organization_dir)
 
         if verbose:
             print("  [bold green]INFO:[/] Selected packages:")
@@ -209,7 +209,7 @@ class BuildCommand(ToolkitCommand):
         state, build = self.process_config_files(
             modules.selected, build_dir, variables, module_names_by_variable_key, verbose
         )
-        self._check_missing_dependencies(state, source_dir, ToolGlobals)
+        self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
@@ -223,7 +223,7 @@ class BuildCommand(ToolkitCommand):
         config: BuildConfigYAML,
         packages: dict[str, list[str]],
         selected_modules: set[str | Path],
-        source_dir: Path,
+        organization_dir: Path,
     ) -> None:
         # Validations: Ambiguous selection.
         selected_names = {s for s in config.environment.selected if isinstance(s, str)}
@@ -252,7 +252,7 @@ class BuildCommand(ToolkitCommand):
 
         # Selected modules does not exists
         if missing_modules := set(selected_modules) - modules.available:
-            hint = ModuleDefinition.long(missing_modules, source_dir)
+            hint = ModuleDefinition.long(missing_modules, organization_dir)
             raise ToolkitMissingModuleError(
                 f"The following selected modules are missing, please check path: {missing_modules}.\n{hint}"
             )

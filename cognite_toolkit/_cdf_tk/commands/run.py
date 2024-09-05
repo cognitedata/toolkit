@@ -49,13 +49,13 @@ intended to test the function before deploying it to CDF or to debug issues with
     def run_cdf(
         self,
         ToolGlobals: CDFToolConfig,
-        project_dir: Path,
+        organization_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
         schedule: str | None = None,
         wait: bool = False,
     ) -> bool:
-        resources = ModuleResources(project_dir, build_env_name)
+        resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
         input_data = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive)
@@ -179,13 +179,13 @@ intended to test the function before deploying it to CDF or to debug issues with
     def run_local(
         self,
         ToolGlobals: CDFToolConfig,
-        project_dir: Path,
+        organization_dir: Path,
         build_env_name: str,
         external_id: str | None = None,
         schedule: str | None = None,
         rebuild_env: bool = False,
     ) -> None:
-        resources = ModuleResources(project_dir, build_env_name)
+        resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         function_build = self._get_function(external_id, resources)
         # Todo: Run locally with credentials from a schedule, pick up the schedule credentials and use for run.
@@ -214,7 +214,7 @@ intended to test the function before deploying it to CDF or to debug issues with
         local: bool,
         rebuild_env: bool,
         no_cleanup: bool,
-        source_dir: str | None,
+        organization_dir: str | None,
         schedule: str | None,
         build_env_name: str,
         verbose: bool,
@@ -226,9 +226,9 @@ intended to test the function before deploying it to CDF or to debug issues with
             print(
                 "  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified."
             )
-        if source_dir is None:
-            source_dir = "./"
-        source_path = Path(source_dir)
+        if organization_dir is None:
+            organization_dir = "./"
+        source_path = Path(organization_dir)
         if not source_path.exists():
             raise ToolkitFileNotFoundError(f"Could not find source directory {source_path}")
         _ = CDFToml.load(source_path)
@@ -382,7 +382,7 @@ intended to test the function before deploying it to CDF or to debug issues with
             return False
         BuildCommand().build_config(
             build_dir=build_dir,
-            source_dir=source_path,
+            organization_dir=source_path,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=True,

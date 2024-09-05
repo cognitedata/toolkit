@@ -75,12 +75,12 @@ class ModulesCommand(ToolkitCommand):
 
     def _create(
         self,
-        init_dir: str,
+        organization_dir: str,
         selected_packages: dict[str, list[SelectableModule]],
         environments: list[str],
         mode: str | None,
     ) -> None:
-        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        modules_root_dir = Path(organization_dir) / ALT_CUSTOM_MODULES
         if mode == "overwrite":
             if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
@@ -117,21 +117,22 @@ class ModulesCommand(ToolkitCommand):
                 )
             ).load_selected_defaults(BUILTIN_MODULES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
-            (Path(init_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
-        dest = Path(init_dir).parent / CDFToml.file_name
+        dest = Path(organization_dir).parent / CDFToml.file_name
         if not dest.exists():
             shutil.copy(_cdf_toml_tmpl, dest)
 
-    def init(self, init_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
+    def init(self, organization_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
         print("\n")
         print(
             Panel(
                 "\n".join(
                     [
-                        "The modules are thematically bundled in packages you can choose from. You can add more by repeating the process.",
-                        "Use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                        "Interactive process for selecting initial modules"
+                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
+                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
                     ]
                 ),
                 title="Select initial modules",
@@ -144,15 +145,15 @@ class ModulesCommand(ToolkitCommand):
 
         mode = "new"
 
-        if not init_dir:
-            init_dir = questionary.text(
+        if not organization_dir:
+            organization_dir = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
                 default="my_organization",
             ).ask()
-            if not init_dir or init_dir.strip() == "":
+            if not organization_dir or organization_dir.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
 
-        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        modules_root_dir = Path(organization_dir) / ALT_CUSTOM_MODULES
         if modules_root_dir.is_dir():
             mode = questionary.select(
                 f"Directory {modules_root_dir} already exists. What would you like to do?",
@@ -168,7 +169,7 @@ class ModulesCommand(ToolkitCommand):
                 print("Aborting...")
                 raise typer.Exit()
 
-        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{init_dir}[/]")
+        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
         selected: dict[str, list[SelectableModule]] = {}
 
@@ -234,10 +235,10 @@ class ModulesCommand(ToolkitCommand):
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
-            self._create(init_dir, selected, environments, mode)
+            self._create(organization_dir, selected, environments, mode)
             print(
                 Panel(
-                    f"""Modules have been prepared in [bold]{init_dir}[/]. \nNext steps:
+                    f"""Modules have been prepared in [bold]{organization_dir}[/]. \nNext steps:
     1. Run `cdf-tk auth verify --interactive to set up credentials.
     2. Configure your project in the config files. Use cdf-tk build for assistance.
     3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
@@ -254,9 +255,8 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def upgrade(self, project_dir: str | Path | None = None, verbose: bool = False) -> Changes:
-        project_path = Path(project_dir or ".")
-        module_version = self._get_module_version(project_path)
+    def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
+        module_version = self._get_module_version(organization_dir)
         cli_version = parse_version(__version__)
 
         if cli_version < module_version:
@@ -287,7 +287,7 @@ class ModulesCommand(ToolkitCommand):
             module_version=module_version, cli_version=cli_version
         )
 
-        changes = Changes.load(module_version, project_path)
+        changes = Changes.load(module_version, organization_dir)
         if not changes:
             print("No changes required.")
             return changes
@@ -328,7 +328,7 @@ class ModulesCommand(ToolkitCommand):
                 elif isinstance(change, AutomaticChange):
                     print("The following files have been changed:")
                     for file in changed_files:
-                        print(Markdown(f"  - {file.relative_to(project_path).as_posix()}"))
+                        print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
             if changed_files or not change.has_file_changes or verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
             print(Rule())
@@ -367,11 +367,10 @@ class ModulesCommand(ToolkitCommand):
             raise ToolkitRequiredValueError("No system.yaml file found in project.")
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, project_dir: str | Path, build_env_name: str) -> None:
-        project_dir = Path(project_dir)
-        modules = ModuleResources(project_dir, build_env_name)
+    def list(self, organization_dir: Path, build_env_name: str) -> None:
+        modules = ModuleResources(organization_dir, build_env_name)
 
-        table = Table(title=f"{build_env_name} {project_dir.name} modules")
+        table = Table(title=f"{build_env_name} {organization_dir.name} modules")
         table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")

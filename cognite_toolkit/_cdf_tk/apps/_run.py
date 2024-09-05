@@ -4,11 +4,14 @@ from typing import Annotated, Any, Optional
 import typer
 from rich import print
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     RunFunctionCommand,
     RunTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+
+CDF_TOML = CDFToml.load(Path.cwd())
 
 
 class RunApp(typer.Typer):
@@ -64,14 +67,14 @@ class RunFunctionApp(typer.Typer):
                 help="External id of the function to run.",
             ),
         ],
-        project_dir: Annotated[
+        organization_dir: Annotated[
             Path,
             typer.Option(
-                "--project-dir",
-                "-p",
+                "--organization-dir",
+                "-o",
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
-        ] = Path.cwd(),
+        ] = CDF_TOML.cdf.organization_dir,
         env_name: Annotated[
             str,
             typer.Option(
@@ -79,7 +82,7 @@ class RunFunctionApp(typer.Typer):
                 "-e",
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
-        ] = "dev",
+        ] = CDF_TOML.cdf.default_env,
         schedule: Annotated[
             Optional[str],
             typer.Option(
@@ -107,7 +110,7 @@ class RunFunctionApp(typer.Typer):
                 True,
                 rebuild_env,
                 False,
-                str(project_dir),
+                str(organization_dir),
                 schedule,
                 env_name,
                 False,
@@ -124,14 +127,14 @@ class RunFunctionApp(typer.Typer):
                 "will be selected interactively.",
             ),
         ] = None,
-        project_dir: Annotated[
+        organization_dir: Annotated[
             Path,
             typer.Option(
-                "--project-dir",
-                "-p",
-                help="Path to project directory with the modules. This is used to search for available functions.",
+                "--organization-dir",
+                "-o",
+                help="Path to organization directory with the modules. This is used to search for available functions.",
             ),
-        ] = Path.cwd(),
+        ] = CDF_TOML.cdf.organization_dir,
         env_name: Annotated[
             str,
             typer.Option(
@@ -139,7 +142,7 @@ class RunFunctionApp(typer.Typer):
                 "-e",
                 help="Name of the build environment to use. If not provided, the default environment will be used.",
             ),
-        ] = "dev",
+        ] = CDF_TOML.cdf.default_env,
         schedule: Annotated[
             Optional[str],
             typer.Option(
@@ -160,5 +163,7 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
         cmd.run(
-            lambda: cmd.run_cdf(CDFToolConfig.from_context(ctx), project_dir, env_name, external_id, schedule, wait)
+            lambda: cmd.run_cdf(
+                CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, schedule, wait
+            )
         )
