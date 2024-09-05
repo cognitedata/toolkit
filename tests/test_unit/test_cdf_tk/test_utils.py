@@ -400,9 +400,9 @@ class TestModuleFromPath:
 class TestIterateModules:
     def test_modules_project_for_tests(self):
         expected_modules = {
-            PROJECT_FOR_TEST / "cognite_modules" / "a_module",
-            PROJECT_FOR_TEST / "cognite_modules" / "another_module",
-            PROJECT_FOR_TEST / "cognite_modules" / "parent_module" / "child_module",
+            PROJECT_FOR_TEST / "_builtin_modules" / "a_module",
+            PROJECT_FOR_TEST / "_builtin_modules" / "another_module",
+            PROJECT_FOR_TEST / "_builtin_modules" / "parent_module" / "child_module",
         }
 
         actual_modules = {module for module, _ in iterate_modules(PROJECT_FOR_TEST)}

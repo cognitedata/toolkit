@@ -164,7 +164,8 @@ def run_modules_upgrade(
                 / "data_models"
                 / "4.Pump.view.yaml"
             )
-            pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
+            if pump_view.exists():
+                pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
 
         build = BuildCommand(print_warning=False)
         build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)

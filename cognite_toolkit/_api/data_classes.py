@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pandas as pd
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES_PATH
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 
@@ -72,7 +72,7 @@ class Variables(UserDict):
     def _load(cls, module_path: Path, default_variables: dict[tuple[str, ...], ConfigEntry]) -> Variables:
         loaded_variables = InitConfigYAML(_DUMMY_ENVIRONMENT).load_variables(module_path)
         variables: dict[str, Variable] = {}
-        module_key_path = tuple(module_path.relative_to(COGNITE_MODULES_PATH).parts)
+        module_key_path = tuple(module_path.relative_to(BUILTIN_MODULES_PATH).parts)
         for (*_, variable_name), value in loaded_variables.items():
             variable_module_key = [*module_key_path, "first_pop"]
             while variable_module_key:

@@ -31,8 +31,8 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 )
 from cognite_toolkit._cdf_tk.constants import (
     ALT_CUSTOM_MODULES,
+    BUILTIN_MODULES,
     BUILTIN_MODULES_PATH,
-    COGNITE_MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
 )
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
@@ -360,7 +360,7 @@ class ModulesCommand(ToolkitCommand):
         if (system_yaml := project_path / "_system.yaml").exists():
             # From 0.2.0a3 we have the _system.yaml on the root of the project
             content = read_yaml_file(system_yaml)
-        elif (system_yaml := project_path / COGNITE_MODULES / "_system.yaml").exists():
+        elif (system_yaml := project_path / BUILTIN_MODULES / "_system.yaml").exists():
             # Up to 0.2.0a2 we have the _system.yaml in the cognite_modules folder
             content = read_yaml_file(system_yaml)
         else:

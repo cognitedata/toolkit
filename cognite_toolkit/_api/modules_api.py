@@ -15,7 +15,7 @@ from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, Mo
 from cognite_toolkit._cdf import Common, clean, deploy
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, COGNITE_MODULES_PATH
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES, BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 from cognite_toolkit._cdf_tk.utils import iterate_modules
@@ -40,7 +40,7 @@ class ModulesAPI:
         if self._url is not None:
             raise NotImplementedError("Loading modules from a URL is not yet supported")
         else:
-            return COGNITE_MODULES_PATH
+            return BUILTIN_MODULES_PATH
 
     def _load_modules(self) -> None:
         organization_dir = self._source_dir()
@@ -65,9 +65,9 @@ class ModulesAPI:
         return self.__module_by_name
 
     def _build(self, modules: Sequence[ModuleMeta], verbose: bool) -> None:
-        variables: dict[str, Any] = {COGNITE_MODULES: {}}
+        variables: dict[str, Any] = {BUILTIN_MODULES: {}}
         for module in modules:
-            key_parent_path = (COGNITE_MODULES, *module._source.relative_to(self._source_dir()).parts)
+            key_parent_path = (BUILTIN_MODULES, *module._source.relative_to(self._source_dir()).parts)
             for variable in module.variables.values():
                 key_path = (*key_parent_path, variable.name)
                 current = variables

@@ -8,7 +8,7 @@ from pathlib import Path
 from packaging.version import Version
 from packaging.version import parse as parse_version
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -64,7 +64,7 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir / COGNITE_MODULES / "_system.yaml"
+        system_yaml = self._organization_dir / BUILTIN_MODULES / "_system.yaml"
         if not system_yaml.exists():
             return set()
         new_system_yaml = self._organization_dir / "_system.yaml"

@@ -15,7 +15,7 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, clean, deploy
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -29,7 +29,7 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / COGNITE_MODULES):
+    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / BUILTIN_MODULES):
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 

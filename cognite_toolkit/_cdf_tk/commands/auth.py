@@ -34,7 +34,7 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -72,7 +72,7 @@ class AuthCommand(ToolkitCommand):
         if group_file is None:
             template_dir = cast(Path, resources.files("cognite_toolkit"))
             group_path = template_dir.joinpath(
-                Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
+                Path(f"./{BUILTIN_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
             )
         else:
             group_path = Path(group_file)
