@@ -1,0 +1,7 @@
+[module]
+description = "InRobot"
+
+[packages]
+tags = [
+    "inrobot",
+]
