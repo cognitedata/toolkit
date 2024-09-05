@@ -30,6 +30,8 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 def find_all_modules() -> Iterator[Path]:
     for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / BUILTIN_MODULES):
+        if module.name == "references":  # module should never be built or deployed
+            continue
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 

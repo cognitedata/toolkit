@@ -1,0 +1,17 @@
+externalId: tr_pump_asset_hierarchy-load-collections_pump
+name: pump_asset_hierarchy-load-collections_pump
+destination:
+  type: asset_hierarchy
+dataSetExternalId: {{data_set}}
+ignoreNullFields: false
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}
