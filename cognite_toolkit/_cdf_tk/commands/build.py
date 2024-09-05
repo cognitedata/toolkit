@@ -195,7 +195,8 @@ class BuildCommand(ToolkitCommand):
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
-                print(f"    {warning.get_message()}")
+                if self.print_warning:
+                    print(f"    {warning.get_message()}")
 
         # This structure is used in a hint in case the user misplaces a variable in the wrong module.
         # From a code architecture perspective, it is not ideal to create this structure here and
