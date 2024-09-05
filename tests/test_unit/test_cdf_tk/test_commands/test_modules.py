@@ -22,7 +22,7 @@ class TestModulesCommand:
         target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-        cmd._create(init_dir=target_path, selected=selected_packages, environments=[], mode=None)
+        cmd._create(organization_dir=target_path, selected=selected_packages, environments=[], mode=None)
 
         assert Path(target_path).exists()
         assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
@@ -35,7 +35,7 @@ class TestModulesCommand:
         target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-        cmd._create(init_dir=target_path, selected=selected_packages, environments=["dev", "prod"], mode=None)
+        cmd._create(organization_dir=target_path, selected=selected_packages, environments=["dev", "prod"], mode=None)
 
         assert Path(target_path / "config.dev.yaml").exists()
         assert Path(target_path / "config.prod.yaml").exists()
