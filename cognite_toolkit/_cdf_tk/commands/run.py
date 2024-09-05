@@ -91,11 +91,12 @@ def main() -> None:
         )
     )
 
+    print("{function_external_id} LOGS:")
     response = handle(
         {handler_args}
     )
 
-    print("{function_external_id} response:")
+    print("{function_external_id} RESPONSE:")
     pprint(response)
 
 
@@ -115,7 +116,7 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        schedule_dict = self._get_input_data(ToolGlobals, schedule, external_id, resources, is_interactive) or {}
+        schedule_dict = self._get_schedule_dict(ToolGlobals, schedule, external_id, resources, is_interactive) or {}
         if "data" not in schedule_dict and schedule_dict:
             raise ToolkitMissingResourceError(f"The schedule {schedule_dict['name']} does not have data")
         input_data = schedule_dict.get("data", None)
@@ -197,7 +198,7 @@ if __name__ == "__main__":
         return function_builds_by_identifier[external_id]
 
     @staticmethod
-    def _get_input_data(
+    def _get_schedule_dict(
         ToolGlobals: CDFToolConfig,
         schedule_name: str | None,
         external_id: str,
@@ -280,6 +281,7 @@ if __name__ == "__main__":
             requirements_txt = "cognite-sdk\n"
 
         print(f"Setting up virtual environment for function {function_external_id}...")
+        # Todo: Ensure cognite-sdk is installed in the virtual environment?
         virtual_env = FunctionVirtualEnvironment(requirements_txt, rebuild_env)
 
         virtual_env.create(function_venv / ".venv")
@@ -295,6 +297,7 @@ if __name__ == "__main__":
         shutil.copytree(function_source_code, function_destination_code)
         init_py = function_destination_code / "__init__.py"
         if not init_py.exists():
+            # We need a __init__ to avoid import errors when running the function code.
             init_py.touch()
 
         function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
@@ -306,9 +309,12 @@ if __name__ == "__main__":
         args = self._get_function_args(handler_path, function_name="handle")
         expected = ALLOWED_HANDLE_ARGS
         if not args <= ALLOWED_HANDLE_ARGS:
-            raise ToolkitInvalidFunctionError(f"Function handle function should have arguments {expected}, got {args}")
+            raise ToolkitInvalidFunctionError(
+                f"Function handle function should have arguments {expected}, got {list(args)}"
+            )
         print(
-            f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} is valid with arguments {args}."
+            f"    [green]✓ 2/4[/green] Function {function_external_id!r} the {handler_file!r} "
+            f"is valid with arguments {list(args)}."
         )
 
         import_check = "import_check.py"
@@ -320,12 +326,38 @@ if __name__ == "__main__":
 
         is_interactive = external_id is None
         schedule_dict = (
-            self._get_input_data(ToolGlobals, schedule, function_build.identifier, resources, is_interactive) or {}
+            self._get_schedule_dict(ToolGlobals, schedule, function_build.identifier, resources, is_interactive) or {}
         )
+        run_check_py, env = self._create_run_check_file_with_env(
+            ToolGlobals, args, function_dict, function_external_id, handler_file, schedule_dict
+        )
+        if platform.system() == "Windows":
+            if system_root := os.environ.get("SYSTEMROOT"):
+                # This is necessary to run python on Windows.
+                # https://stackoverflow.com/questions/78652758/cryptic-oserror-winerror-10106-the-requested-service-provider-could-not-be-l
+                env["SYSTEMROOT"] = system_root
+            # In addition, we need to convert all values to strings.
+            env = {k: str(v) for k, v in env.items()}
+
+        run_check = "run_check.py"
+        (function_venv / run_check).write_text(run_check_py)
+        virtual_env.execute(Path(run_check), f"run_check {function_external_id}", env)
+
+        print(f"    [green]✓ 4/4[/green] Function {function_external_id!r} successfully executed code.")
+
+    def _create_run_check_file_with_env(
+        self,
+        ToolGlobals: CDFToolConfig,
+        args: set[str],
+        function_dict: dict[str, Any],
+        function_external_id: str,
+        handler_file: str,
+        schedule_dict: dict[str, Any],
+    ) -> tuple[str, dict[str, str]]:
         if authentication := schedule_dict.get("authentication"):
             if "clientId" not in authentication or "clientSecret" not in authentication:
                 raise ToolkitInvalidFunctionError(
-                    "Authentication data for schedule should contain clientId and clientSecret"
+                    "Authentication data for schedule should contain 'clientId' and 'clientSecret'"
                 )
             if authentication["clientId"].startswith("${"):
                 raise ToolkitInvalidFunctionError(
@@ -338,20 +370,20 @@ if __name__ == "__main__":
             print(f"Using schedule authentication to run {function_external_id!r}.")
             credentials_args = {
                 "token_url": f'"{ToolGlobals._token_url}"',
-                "client_id": '"{}"'.format(schedule_dict["authentication"]["clientId"]),
-                "client_secret": 'os.getenv("IDP_CLIENT_SECRET")',
+                "client_id": '"{}"'.format(authentication["clientId"]),
+                "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
                 "scopes": str(ToolGlobals._scopes),
             }
             env = {
-                "IDP_CLIENT_SECRET": schedule_dict["authentication"]["clientSecret"],
+                "IDP_CLIENT_SECRET": authentication["clientSecret"],
             }
             credentials_cls = OAuthClientCredentials.__name__
         else:
-            print(f"Using toolkit authentication to run {function_external_id!r}.")
+            print(f"Using Toolkit authentication to run {function_external_id!r}.")
             env = {}
             if ToolGlobals._login_flow == "token":
                 credentials_cls = Token.__name__
-                credentials_args = {"token": "os.getenv('CDF_TOKEN')"}
+                credentials_args = {"token": 'os.environ["CDF_TOKEN"]'}
                 env["CDF_TOKEN"] = ToolGlobals._credentials_args["token"]
             elif ToolGlobals._login_flow == "interactive":
                 credentials_cls = OAuthInteractive.__name__
@@ -365,7 +397,7 @@ if __name__ == "__main__":
                 credentials_args = {
                     "token_url": '"{}"'.format(ToolGlobals._credentials_args["token_url"]),
                     "client_id": '"{}"'.format(ToolGlobals._credentials_args["client_id"]),
-                    "client_secret": 'os.getenv("IDP_CLIENT_SECRET")',
+                    "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
                     "scopes": str(ToolGlobals._scopes),
                 }
                 env["IDP_CLIENT_SECRET"] = ToolGlobals._credentials_args["client_secret"]
@@ -382,13 +414,6 @@ if __name__ == "__main__":
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
-        if platform.system() == "Windows" and (system_root := os.environ.get("SYSTEMROOT")):
-            # This is needed to run python on Windows.
-            # https://stackoverflow.com/questions/78652758/cryptic-oserror-winerror-10106-the-requested-service-provider-could-not-be-l
-            env["SYSTEMROOT"] = system_root
-        if platform.system() == "Windows":
-            env = {k: str(v) for k, v in env.items()}
-
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,
             handler_import=re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix("."),
@@ -399,11 +424,7 @@ if __name__ == "__main__":
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
             function_external_id=function_external_id,
         )
-        run_check = "run_check.py"
-        (function_venv / run_check).write_text(run_check_py)
-        virtual_env.execute(Path(run_check), f"run_check {function_external_id}", env)
-
-        print(f"    [green]✓ 4/4[/green] Function {function_external_id!r} successfully executed code.")
+        return run_check_py, env
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
