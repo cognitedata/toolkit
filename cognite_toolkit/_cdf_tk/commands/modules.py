@@ -74,7 +74,11 @@ class ModulesCommand(ToolkitCommand):
                     subtree.add(str(subvalue))
 
     def _create(
-        self, init_dir: str, selected: dict[str, list[SelectableModule]], environments: list[str], mode: str | None
+        self,
+        init_dir: str,
+        selected_packages: dict[str, list[SelectableModule]],
+        environments: list[str],
+        mode: str | None,
     ) -> None:
         modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
         if mode == "overwrite":
@@ -84,7 +88,8 @@ class ModulesCommand(ToolkitCommand):
 
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
-        for package, modules in selected.items():
+        variable_sections: list[str | Path] = []
+        for package, modules in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating {package}[/]")
 
             for module in modules:
@@ -98,7 +103,7 @@ class ModulesCommand(ToolkitCommand):
                         shutil.rmtree(target_dir)
                     else:
                         continue
-
+                variable_sections.append(module.name)
                 shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
@@ -108,7 +113,7 @@ class ModulesCommand(ToolkitCommand):
                     name=environment,
                     project=f"<my-project-{environment}>",
                     build_type="dev" if environment == "dev" else "prod",
-                    selected=list(selected.keys()) if selected else ["empty"],
+                    selected=variable_sections if len(variable_sections) > 0 else ["empty"],
                 )
             ).load_selected_defaults(BUILTIN_MODULES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
