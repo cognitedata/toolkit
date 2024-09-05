@@ -3,10 +3,10 @@ environment:
   project: <customer-dev>
   type: dev
   selected:
-    - cognite_modules/
+    - modules/
 
 variables:
-  cognite_modules:
+  modules:
     top_variable: <top_variable>
     default_location: oid
     a_module:
