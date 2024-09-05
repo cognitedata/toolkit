@@ -14,9 +14,6 @@ from typing import Any, cast
 import questionary
 from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
-from cognite.client.data_classes import (
-    FunctionCall,
-)
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.utils import ms_to_datetime
@@ -429,102 +426,6 @@ if __name__ == "__main__":
         if handle_function is None:
             raise ToolkitInvalidFunctionError(f"No {function_name} function found in {py_file}")
         return {a.arg for a in handle_function.args.args}
-
-    def run_function(self, ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
-        """Run a function in CDF"""
-        session = get_oneshot_session(ToolGlobals.toolkit_client)
-        if session is None:
-            print("[bold red]ERROR:[/] Could not get a oneshot session.")
-            return False
-        try:
-            function = ToolGlobals.toolkit_client.functions.retrieve(external_id=external_id)
-        except Exception as e:
-            print("[bold red]ERROR:[/] Could not retrieve function.")
-            print(e)
-            return False
-        if function is None:
-            print(f"[bold red]ERROR:[/] Could not find function with external_id {external_id}")
-            return False
-        try:
-            data: dict[str, Any] = json.loads(payload or "{}")
-        except Exception as e:
-            print("[bold red]ERROR:[/] Could not parse payload.")
-            print(e)
-            return False
-
-        def _function_call(id: int, payload: dict[str, Any]) -> FunctionCall | None:
-            (_, bearer) = ToolGlobals.toolkit_client.config.credentials.authorization_header()
-            session = get_oneshot_session(ToolGlobals.toolkit_client)
-            if session is None:
-                print("[bold red]ERROR:[/] Could not get a oneshot session.")
-                return None
-            nonce = session.nonce
-            ret = ToolGlobals.toolkit_client.post(
-                url=f"/api/v1/projects/{ToolGlobals.project}/functions/{id}/call",
-                json={
-                    "data": payload,
-                    "nonce": nonce,
-                },
-                headers={"Authorization": bearer},
-            )
-            if ret.status_code == 201:
-                return FunctionCall.load(ret.json())
-            return None
-
-        try:
-            call_result = _function_call(id=function.id, payload=data)
-            if call_result is None:
-                print("[bold red]ERROR:[/] Could not run function.")
-                return False
-        except Exception as e:
-            print("[bold red]ERROR:[/] Could not run function.")
-            print(e)
-            return False
-        table = Table(title=f"Function {external_id}, id {function.id}")
-        table.add_column("Info", justify="left")
-        table.add_column("Value", justify="left", style="green")
-        table.add_row("Call id", str(call_result.id))
-        table.add_row("Status", str(call_result.status))
-        table.add_row("Created time", str(datetime.datetime.fromtimestamp((call_result.start_time or 1000) / 1000)))
-        print(table)
-
-        if follow:
-            print("Awaiting results from function call...")
-            sleep_time = 1
-            total_time = 0
-            while True and total_time < 540:  # 9 minutes timeout in Azure
-                total_time += sleep_time
-                time.sleep(sleep_time)
-                sleep_time = min(sleep_time * 2, 60)
-                call_result = ToolGlobals.toolkit_client.functions.calls.retrieve(
-                    call_id=call_result.id or 0, function_id=function.id
-                )
-                if call_result is None:
-                    print("[bold red]ERROR:[/] Could not retrieve function call result.")
-                    return False
-                if call_result.status != "Running":
-                    break
-            table = Table(title=f"Function {external_id}, id {function.id}")
-            table.add_column("Info", justify="left")
-            table.add_column("Value", justify="left", style="green")
-            table.add_row("Call id", str(call_result.id))
-            table.add_row("Status", str(call_result.status))
-            table.add_row("Created time", str(datetime.datetime.fromtimestamp((call_result.start_time or 1000) / 1000)))
-            table.add_row("Finished time", str(datetime.datetime.fromtimestamp((call_result.end_time or 1000) / 1000)))
-            table.add_row("Duration", str((call_result.end_time or 1) - (call_result.start_time or 1)))
-            if call_result.error is not None:
-                table.add_row("Error", str(call_result.error.get("message", "Empty error")))
-                table.add_row("Error trace", str(call_result.error.get("trace", "Empty trace")))
-            result = ToolGlobals.toolkit_client.functions.calls.get_response(
-                call_id=call_result.id or 0, function_id=function.id
-            )
-            table.add_row("Result", str(json.dumps(result, indent=2, sort_keys=True)))
-            logs = ToolGlobals.toolkit_client.functions.calls.get_logs(
-                call_id=call_result.id or 0, function_id=function.id
-            )
-            table.add_row("Logs", str(logs))
-            print(table)
-        return True
 
 
 class RunTransformationCommand(ToolkitCommand):
