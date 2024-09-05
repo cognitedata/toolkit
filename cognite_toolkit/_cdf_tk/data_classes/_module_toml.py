@@ -10,7 +10,7 @@ else:
     import tomli as toml
 
 
-@dataclass(frozen=True)
+@dataclass
 class ModuleToml:
     description: str | None
     tags: list[str] = field(default_factory=list)
