@@ -74,9 +74,13 @@ class ModulesCommand(ToolkitCommand):
                     subtree.add(str(subvalue))
 
     def _create(
-        self, init_dir: str, selected: dict[str, list[SelectableModule]], environments: list[str], mode: str | None
+        self,
+        organization_dir: str,
+        selected: dict[str, list[SelectableModule]],
+        environments: list[str],
+        mode: str | None,
     ) -> None:
-        modules_root_dir = Path(init_dir) / ALT_CUSTOM_MODULES
+        modules_root_dir = Path(organization_dir) / ALT_CUSTOM_MODULES
         if mode == "overwrite":
             if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
@@ -112,10 +116,10 @@ class ModulesCommand(ToolkitCommand):
                 )
             ).load_selected_defaults(BUILTIN_MODULES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
-            (Path(init_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
-        dest = Path(init_dir).parent / CDFToml.file_name
+        dest = Path(organization_dir).parent / CDFToml.file_name
         if not dest.exists():
             shutil.copy(_cdf_toml_tmpl, dest)
 
