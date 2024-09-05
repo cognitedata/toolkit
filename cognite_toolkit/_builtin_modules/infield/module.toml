@@ -1,7 +1,5 @@
 [module]
-version = "0.2.18"
 description = "InField"
-default = true
 
 [packages]
 tags = [

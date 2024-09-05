@@ -1,0 +1,4 @@
+interval: str
+id: int | None
+externalId: str | None
+isPaused: bool

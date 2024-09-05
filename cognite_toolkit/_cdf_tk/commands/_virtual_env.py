@@ -35,7 +35,9 @@ class FunctionVirtualEnvironment(venv.EnvBuilder):
         process.wait()
         if process.returncode != 0:
             suffix = f" {self.requirements_txt.as_posix()}" if isinstance(self.requirements_txt, Path) else ""
-            raise ToolkitEnvError(f"Invalid 'requirements.txt' file{suffix}.")
+            raise ToolkitEnvError(
+                f"Unable to install dependencies in 'requirements.txt' in the current environment {suffix}."
+            )
         self._context = context
 
     def execute(self, script: Path, script_name: str, env: Mapping[str, str] | None = None) -> None:

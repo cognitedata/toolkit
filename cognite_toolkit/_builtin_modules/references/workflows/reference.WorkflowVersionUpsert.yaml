@@ -1,0 +1,10 @@
+workflowExternalId: str
+version: str
+workflowDefinition:
+  description: str | None
+  tasks:
+  - externalId: str
+    type: function | transformation | cdf
+    parameters:
+      function:
+        externalId: str

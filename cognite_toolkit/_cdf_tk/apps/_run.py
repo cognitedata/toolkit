@@ -89,7 +89,7 @@ class RunFunctionApp(typer.Typer):
                 "--schedule",
                 "-s",
                 help="Schedule to run the function with (if any). The data and credentials "
-                "will be taken from the schedule. If the schedule have no credentials, the "
+                "will be taken from the schedule. If the schedule has no credentials, the "
                 "default from the environment will be used.",
             ),
         ] = None,

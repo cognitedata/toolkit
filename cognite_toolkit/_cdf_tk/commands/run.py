@@ -109,7 +109,7 @@ if __name__ == "__main__":
         external_id = self._get_function(external_id, resources).identifier
         schedule_dict = self._get_schedule_dict(ToolGlobals, schedule, external_id, resources, is_interactive) or {}
         if "data" not in schedule_dict and schedule_dict:
-            raise ToolkitMissingResourceError(f"The schedule {schedule_dict['name']} does not have data")
+            raise ToolkitMissingResourceError(f"The schedule {schedule_dict['name']} has no data")
         input_data = schedule_dict.get("data", None)
 
         client = ToolGlobals.toolkit_client

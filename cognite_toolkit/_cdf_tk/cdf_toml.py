@@ -8,7 +8,6 @@ from typing import Any, ClassVar
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitMissingModulesError,
     ToolkitRequiredValueError,
     ToolkitVersionError,
@@ -85,22 +84,21 @@ class CDFToml:
             return _CDF_TOML
         cwd = cwd or Path.cwd()
         file_path = cwd / cls.file_name
-        if not file_path.exists():
-            raise ToolkitFileNotFoundError(
-                f"Could not find {cls.file_name} in {cwd}. This file is required to run the toolkit."
-            )
-        # TOML files are required to be UTF-8 encoded
-        raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
-        # No required fields in the cdf section
-        cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
-        try:
-            modules = ModulesConfig.load(raw["modules"])
-        except KeyError as e:
-            raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-        instance = cls(cdf=cdf, modules=modules)
-        if use_singleton:
-            _CDF_TOML = instance
-        return instance
+        if file_path.exists():
+            # TOML files are required to be UTF-8 encoded
+            raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
+            # No required fields in the cdf section
+            cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
+            try:
+                modules = ModulesConfig.load(raw["modules"])
+            except KeyError as e:
+                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
+            instance = cls(cdf=cdf, modules=modules)
+            if use_singleton:
+                _CDF_TOML = instance
+            return instance
+        else:
+            return cls(cdf=CLIConfig(cwd), modules=ModulesConfig.load({"version": _version.__version__}))
 
 
 _CDF_TOML: CDFToml | None = None

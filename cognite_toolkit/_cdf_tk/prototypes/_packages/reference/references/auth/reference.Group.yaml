@@ -1,0 +1,375 @@
+name: str
+sourceId: str | None
+metadata:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+members: '''allUserAccounts'' | list[str] | None'
+capabilities:
+- analyticsAcl:
+    actions:
+    - READ
+    - EXECUTE
+    - LIST
+    scope:
+      all: {}
+- annotationsAcl:
+    actions:
+    - READ
+    - WRITE
+    - SUGGEST
+    - REVIEW
+    scope:
+      all: {}
+- assetsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- datasetsAcl:
+    actions:
+    - READ
+    - WRITE
+    - OWNER
+    scope:
+#      one of:
+#        all: {}
+#        idScope:
+#          ids: list[str]
+- digitalTwinAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- entitymatchingAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- eventsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- extractionPipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        idScope:
+#          ids: list[str]
+#        datasetScope:
+#          ids: list[str]
+- extractionRunsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        extractionPipelineScope:
+#          ids: list[str]
+- extractionConfigsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        extractionPipelineScope:
+#          ids: list[str]
+- filesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- functionsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- geospatialAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- geospatialCrsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- groupsAcl:
+    actions:
+    - CREATE
+    - DELETE
+    - READ
+    - LIST
+    - UPDATE
+    scope:
+#      one of:
+#        all: {}
+#        currentuserscope: {}
+- labelsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- projectsAcl:
+    actions:
+    - READ
+    - CREATE
+    - LIST
+    - UPDATE
+    - DELETE
+    scope:
+      all: {}
+- rawAcl:
+    actions:
+    - READ
+    - WRITE
+    - LIST
+    scope:
+#      one of:
+#        all: {}
+#        tableScope: {}
+- relationshipsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- roboticsAcl:
+    actions:
+    - READ
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- securityCategoriesAcl:
+    actions:
+    - MEMBEROF
+    - LIST
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+#      one of:
+#        all: {}
+#        idscope:
+#          ids: list[str]
+- sequencesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- sessionsAcl:
+    actions:
+    - LIST
+    - CREATE
+    - DELETE
+    scope:
+      all: {}
+- threedAcl:
+    actions:
+    - READ
+    - CREATE
+    - UPDATE
+    - DELETE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- timeSeriesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+#        idscope:
+#          ids: list[str]
+#        assetRootIdScope: {}
+- timeSeriesSubscriptionsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- transformationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- typesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- wellsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- experimentAcl:
+    actions:
+    - USE
+    scope:
+      experimentscope: {}
+- templateGroupsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- templateInstancesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        datasetScope:
+#          ids: list[str]
+- dataModelInstancesAcl:
+    actions:
+    - READ
+    - WRITE
+    - WRITE_PROPERTIES
+    scope:
+#      one of:
+#        all: {}
+#        spaceIdScope: {}
+#        spaceScope: {}
+- dataModelsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+#      one of:
+#        all: {}
+#        spaceIdScope: {}
+#        dataModelScope: {}
+- pipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- documentPipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- filePipelinesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- notificationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- scheduledCalculationsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- monitoringTasksAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- hostedExtractorsAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- visionModelAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- documentFeedbackAcl:
+    actions:
+    - CREATE
+    - READ
+    - DELETE
+    scope:
+      all: {}
+- workflowOrchestrationAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      all: {}
+- userProfilesAcl:
+    actions:
+    - READ
+    scope:
+      all: {}
+- auditlogAcl:
+    actions:
+    - READ
+    scope:
+      all: {}

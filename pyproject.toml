@@ -60,7 +60,7 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
-norecursedirs = "cognite_toolkit/_cdf_tk/_packages/"
+norecursedirs = "cognite_toolkit/_builtin_modules"
 
 markers = [
     "toolkit: big smoke tests",

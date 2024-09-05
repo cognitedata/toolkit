@@ -13,13 +13,42 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Python: build",
+      "name": "cdf --version",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--version",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf functions run local",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
         "--verbose",
         "--override-env",
+        "modules",
+        "build",
+        "--build-dir=build",
+        "--env=local",
+        "./cognite_toolkit/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf modules build",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--verbose",
+        "--override-env",
+        "modules",
         "build",
         "--build-dir=build",
         "--env=local",
@@ -135,21 +164,13 @@
       "console": "integratedTerminal",
       "justMyCode": false
     },
-    {
-      "name": "Python: feature flags",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": ["features", "list"],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
+
     {
       "name": "Python: feature flag set",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
-      "args": ["features", "set", "--flag=interactive_init", "--enabled=true"],
+      "args": ["features", "set", "modules-cmd", "--enable"],
       "console": "integratedTerminal",
       "justMyCode": false
     },

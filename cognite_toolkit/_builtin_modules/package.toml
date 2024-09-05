@@ -16,7 +16,7 @@ description = "Capture and integrate a broad spectrum of robotics inspection dat
 
 [packages.references]
 title = "References"
-description = "Reference files for all supported resoucre types"
+description = "Reference files for all supported resource types"
 
 [packages.examples]
 title = "Examples"
