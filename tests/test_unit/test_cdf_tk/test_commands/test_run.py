@@ -63,10 +63,7 @@ def test_run_function(toolkit_client_approval: ApprovalToolkitClient):
     )
 
 
-def test_run_local_function(toolkit_client_approval: ApprovalToolkitClient) -> None:
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-    cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+def test_run_local_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
     function = Function(
         id=1234567890,
         name="Test function",
@@ -83,7 +80,7 @@ def test_run_local_function(toolkit_client_approval: ApprovalToolkitClient) -> N
     cmd = RunFunctionCommand()
 
     result = cmd.run_local_function(
-        ToolGlobals=cdf_tool,
+        ToolGlobals=cdf_tool_config,
         source_path=RUN_DATA,
         rebuild_env=True,
         build_env_name="dev",

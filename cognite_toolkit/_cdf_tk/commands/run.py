@@ -436,46 +436,6 @@ if __name__ == "__main__":
             raise ToolkitInvalidFunctionError(f"No {function_name} function found in {py_file}")
         return {a.arg for a in handle_function.args.args}
 
-    def execute(
-        self,
-        ToolGlobals: CDFToolConfig,
-        external_id: str,
-        payload: str | None,
-        follow: bool,
-        local: bool,
-        rebuild_env: bool,
-        no_cleanup: bool,
-        organization_dir: str | None,
-        schedule: str | None,
-        build_env_name: str,
-        verbose: bool,
-    ) -> None:
-        if not local:
-            self.run_function(ToolGlobals, external_id=external_id, payload=payload or "", follow=follow)
-            return None
-        if follow:
-            print(
-                "  [bold yellow]WARNING:[/] --follow is not supported when running locally and should not be specified."
-            )
-        if organization_dir is None:
-            organization_dir = "./"
-        source_path = Path(organization_dir)
-        if not source_path.exists():
-            raise ToolkitFileNotFoundError(f"Could not find source directory {source_path}")
-        _ = CDFToml.load(source_path)
-
-        self.run_local_function(
-            ToolGlobals=ToolGlobals,
-            source_path=source_path,
-            external_id=external_id,
-            payload=payload or "{}",
-            schedule=schedule,
-            build_env_name=build_env_name,
-            rebuild_env=rebuild_env,
-            verbose=verbose,
-            no_cleanup=no_cleanup,
-        )
-
     def run_function(self, ToolGlobals: CDFToolConfig, external_id: str, payload: str, follow: bool = False) -> bool:
         """Run a function in CDF"""
         session = get_oneshot_session(ToolGlobals.toolkit_client)
