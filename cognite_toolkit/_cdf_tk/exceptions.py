@@ -40,6 +40,9 @@ class ToolkitMissingResourceError(ToolkitError):
     pass
 
 
+class ToolkitInvalidFunctionError(ToolkitError): ...
+
+
 class ToolkitCleanResourceError(ToolkitError):
     pass
 

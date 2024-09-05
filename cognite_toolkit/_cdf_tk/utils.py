@@ -421,6 +421,8 @@ class CDFToolConfig:
         self._cdf_url: str | None = None
         self._scopes: list[str] = []
         self._audience: str | None = None
+        self._token_url: str | None = None
+        self._credentials_args: dict[str, Any] = {}
         self._credentials_provider: CredentialProvider | None = None
         self._toolkit_client: ToolkitClient | None = None
 
@@ -433,6 +435,7 @@ class CDFToolConfig:
         auth_vars = AuthVariables.from_env(self._environ)
         if not skip_initialization:
             self.initialize_from_auth_variables(auth_vars)
+        self._login_flow = auth_vars.login_flow
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -461,7 +464,8 @@ class CDFToolConfig:
         if auth.login_flow == "token":
             if not auth.token:
                 raise AuthenticationError("Login flow=token is set but no CDF_TOKEN is not provided.")
-            self._credentials_provider = Token(auth.token)
+            self._credentials_args = dict(token=auth.token)
+            self._credentials_provider = Token(**self._credentials_args)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
@@ -470,11 +474,12 @@ class CDFToolConfig:
                     "Login flow=interactive is set but missing required authentication "
                     "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
-            self._credentials_provider = OAuthInteractive(
+            self._credentials_args = dict(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
                 scopes=self._scopes,
             )
+            self._credentials_provider = OAuthInteractive(**self._credentials_args)
         elif auth.login_flow == "client_credentials" or auth.login_flow is None:
             if auth.login_flow is None:
                 print(
@@ -492,17 +497,17 @@ class CDFToolConfig:
                     "variables: IDP_CLIENT_ID, IDP_CLIENT_SECRET and IDP_TENANT_ID (or IDP_TOKEN_URL). "
                     "Cannot authenticate the client."
                 )
-
-            self._credentials_provider = OAuthClientCredentials(
+            self._credentials_args = dict(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
                 scopes=self._scopes,
                 audience=self._audience,
             )
+            self._credentials_provider = OAuthClientCredentials(**self._credentials_args)
         else:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
-
+        self._token_url = auth.token_url
         self._toolkit_client = ToolkitClient(
             ClientConfig(
                 client_name=self._client_name,
@@ -830,24 +835,30 @@ class CDFToolConfig:
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"], validate: bool = True
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"], validate: bool = True
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any", "list", "dict"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]:
     if isinstance(filepath, str):
         content = filepath
@@ -857,10 +868,13 @@ def load_yaml_inject_variables(
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
-    for match in re.finditer(r"\$\{([^}]+)\}", content):
-        environment_variable = match.group(1)
-        suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
-        MediumSeverityWarning(f"Variable {environment_variable} is not set in the environment.{suffix}").print_warning()
+    if validate:
+        for match in re.finditer(r"\$\{([^}]+)\}", content):
+            environment_variable = match.group(1)
+            suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
+            MediumSeverityWarning(
+                f"Variable {environment_variable} is not set in the environment.{suffix}"
+            ).print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
