@@ -153,7 +153,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 class LabelLoader(
     ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
 ):
-    folder_name = "classic_model"
+    folder_name = "classic"
     filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite

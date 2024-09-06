@@ -21,7 +21,7 @@ from .data_organization_loaders import DataSetsLoader, LabelLoader
 
 @final
 class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetList]):
-    folder_name = "classic_model"
+    folder_name = "classic"
     filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
