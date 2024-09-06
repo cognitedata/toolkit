@@ -62,11 +62,11 @@ class RunFunctionApp(typer.Typer):
     def run_local(
         ctx: typer.Context,
         external_id: Annotated[
-            str,
+            Optional[str],
             typer.Argument(
                 help="External id of the function to run.",
             ),
-        ],
+        ] = None,
         organization_dir: Annotated[
             Path,
             typer.Option(
@@ -88,7 +88,9 @@ class RunFunctionApp(typer.Typer):
             typer.Option(
                 "--schedule",
                 "-s",
-                help="Schedule to run the function with (if any). The data and credentials will be taken from the schedule.",
+                help="Schedule to run the function with (if any). The data and credentials "
+                "will be taken from the schedule. If the schedule has no credentials, the "
+                "default from the environment will be used.",
             ),
         ] = None,
         rebuild_env: Annotated[
@@ -102,18 +104,13 @@ class RunFunctionApp(typer.Typer):
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
         cmd.run(
-            lambda: cmd.execute(
+            lambda: cmd.run_local(
                 CDFToolConfig.from_context(ctx),
+                organization_dir,
+                env_name,
                 external_id,
                 schedule,
-                False,
-                True,
                 rebuild_env,
-                False,
-                str(organization_dir),
-                schedule,
-                env_name,
-                False,
             )
         )
 

@@ -136,10 +136,12 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
     module_location: Path
     resource_dir: str
 
-    def load_resource_dict(self, environment_variables: dict[str, str | None]) -> dict[str, Any]:
+    def load_resource_dict(
+        self, environment_variables: dict[str, str | None], validate: bool = False
+    ) -> dict[str, Any]:
         content = self.build_variables.replace(safe_read(self.location.path))
         loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
-        raw = load_yaml_inject_variables(content, environment_variables)
+        raw = load_yaml_inject_variables(content, environment_variables, validate=validate)
         if isinstance(raw, dict):
             return raw
         elif isinstance(raw, list):

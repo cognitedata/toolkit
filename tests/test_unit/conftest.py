@@ -113,6 +113,16 @@ def cdf_tool_config(
         cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
         cdf_tool.client = toolkit_client_approval.mock_client
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+        cdf_tool._login_flow = "client_credentials"
+        cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]
+        cdf_tool._credentials_args = {
+            "client_id": "dummy-123",
+            "client_secret": "dummy-secret",
+            "token_url": "dummy-url",
+        }
+        cdf_tool._project = "pytest-project"
+        cdf_tool._client_name = "pytest"
+        cdf_tool._cdf_url = "https://bluefield.cognitedata.com"
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42

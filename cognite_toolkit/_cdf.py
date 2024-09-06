@@ -27,8 +27,6 @@ from cognite_toolkit._cdf_tk.commands import (
     DumpCommand,
     FeatureFlagCommand,
     PullCommand,
-    RunFunctionCommand,
-    RunTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -85,7 +83,6 @@ except AttributeError as e:
 _app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
@@ -616,135 +613,6 @@ def describe_datamodel_cmd(
     name and datamodel name."""
     cmd = DescribeCommand()
     cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
-
-
-@run_app.callback(invoke_without_command=True)
-def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk run --help[/] for more information.")
-
-
-@run_app.command("transformation")
-def run_transformation_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the transformation to run.",
-        ),
-    ],
-) -> None:
-    """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand()
-    cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
-
-
-@run_app.command("function")
-def run_function_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the function to run.",
-        ),
-    ],
-    payload: Annotated[
-        Optional[str],
-        typer.Option(
-            "--payload",
-            "-p",
-            help='Payload to send to the function, remember to escape " with \\.',
-        ),
-    ] = None,
-    follow: Annotated[
-        bool,
-        typer.Option(
-            "--follow",
-            "-f",
-            help="Use follow to wait for results of function.",
-        ),
-    ] = False,
-    local: Annotated[
-        bool,
-        typer.Option(
-            "--local",
-            "-l",
-            help="Run the function locally in a virtual environment.",
-        ),
-    ] = False,
-    rebuild_env: Annotated[
-        bool,
-        typer.Option(
-            "--rebuild-env",
-            "-r",
-            help="Rebuild the virtual environment.",
-        ),
-    ] = False,
-    no_cleanup: Annotated[
-        bool,
-        typer.Option(
-            "--no-cleanup",
-            "-n",
-            help="Do not delete the temporary build directory.",
-        ),
-    ] = False,
-    organization_dir: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="Where to find the module templates to build from",
-        ),
-    ] = None,
-    schedule: Annotated[
-        Optional[str],
-        typer.Option(
-            "--schedule",
-            "-s",
-            help="Run the function locally with the credentials from the schedule specified with the cron expression.",
-        ),
-    ] = None,
-    build_env_name: Annotated[
-        str,
-        typer.Option(
-            "--env",
-            "-e",
-            help="Build environment to build for",
-        ),
-    ] = "dev",
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand()
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            external_id,
-            payload,
-            follow,
-            local,
-            rebuild_env,
-            no_cleanup,
-            organization_dir,
-            schedule,
-            build_env_name,
-            verbose or ctx.obj.verbose,
-        )
-    )
 
 
 @pull_app.callback(invoke_without_command=True)
