@@ -277,13 +277,10 @@ class BuildCommand(ToolkitCommand):
         for module in modules:
             if verbose:
                 self.console(f"Processing module {module.name}")
-
             module_variables = variables.get_module_variables(module)
-
             build_resources = self._build_module(
                 module, build_dir, module_variables, module_names_by_variable_key, state, verbose
             )
-
             build.append(
                 ModuleBuiltInfo(
                     name=module.name,
@@ -700,11 +697,12 @@ class BuildCommand(ToolkitCommand):
                     if len(module_names) == 1
                     else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
                 )
-                print(
-                    f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                self.console(
+                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
                     f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
                     f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}."
+                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}.",
+                    prefix="    [bold green]Hint:[/] ",
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
