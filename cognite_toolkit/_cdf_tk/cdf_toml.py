@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModulesError,
     ToolkitRequiredValueError,
@@ -18,14 +17,6 @@ if sys.version_info >= (3, 11):
     import tomllib
 else:
     import tomli as tomllib
-
-# This is a regular expression that matches any non-word character or underscore
-# It is used to clean the feature flag names.
-_CLEAN_PATTERN = re.compile(r"[\W_]+")
-
-
-def _clean(name: str) -> str:
-    return _CLEAN_PATTERN.sub("", name).casefold()
 
 
 @dataclass
@@ -40,7 +31,7 @@ class CLIConfig:
         return cls(
             organization_dir=organization_dir,
             default_env=raw.get("default_env", "dev"),
-            feature_flags={_clean(k): v for k, v in raw.get("feature_flags", {}).items()},
+            feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
         )
 
     def get_root_module_paths(self) -> list[Path]:
