@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Any, ClassVar
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import clean_name
 
 
 class Flags(Enum):
@@ -38,4 +39,4 @@ class FeatureFlag:
             return False
 
         user_settings = CDFToml.load().cdf.feature_flags
-        return user_settings.get(fflag.name.lower().replace("_", "-"), False)
+        return user_settings.get(clean_name(fflag.name), False)
