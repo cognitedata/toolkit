@@ -1,3 +1,0 @@
-externalId: tr_event_{{default_location}}_{{source_asset}}_workitem_example
-interval: '{{scheduleHourly}}'
-isPaused: false

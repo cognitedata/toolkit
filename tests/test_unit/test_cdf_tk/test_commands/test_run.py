@@ -38,8 +38,8 @@ def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
 def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
     function = Function(
         id=1234567890,
-        name="test2",
-        external_id="fn_test2",
+        name="test3",
+        external_id="fn_test3",
         description="Returns the input data, secrets, and function info.",
         owner="pytest",
         status="RUNNING",
@@ -60,7 +60,7 @@ def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: A
         cdf_tool_config,
         organization_dir=RUN_DATA,
         build_env_name="dev",
-        external_id="fn_test2",
+        external_id="fn_test3",
         schedule="daily-8pm-utc",
         wait=False,
     )
@@ -74,7 +74,7 @@ def test_run_local_function(cdf_tool_config: CDFToolConfig) -> None:
         ToolGlobals=cdf_tool_config,
         organization_dir=RUN_DATA,
         build_env_name="dev",
-        external_id="fn_test2",
+        external_id="fn_test3",
         schedule="daily-8pm-utc",
         rebuild_env=False,
     )

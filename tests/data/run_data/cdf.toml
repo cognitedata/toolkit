@@ -3,7 +3,7 @@
 # It will be updated by the 'cdf module upgrade' command.
 version = "0.2.18"
 
-[modules.packages_]
+[modules.packages]
 cdf_infield = [
     "cdf_auth_readwrite_all",
     "cdf_apm_base",
