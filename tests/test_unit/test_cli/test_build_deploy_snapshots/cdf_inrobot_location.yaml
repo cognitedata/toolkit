@@ -1,19 +1,19 @@
 Frame:
-- externalId: frame_{{ three_d_model_name }}
-  name: Frame {{ three_d_model_name }}
+- externalId: <change_me>
+  name: Root frame at the origin of location <change_me>
+- externalId: frame_<change_me>
+  name: Frame <change_me>
   transform:
     orientation:
       w: 1.0
       x: 0.0
       y: 0.0
       z: 0.0
-    parentFrameExternalId: '{{ first_root_asset_external_id }}'
+    parentFrameExternalId: <change_me>
     translation:
       x: 0.0
       y: 0.0
       z: 0.0
-- externalId: '{{ first_root_asset_external_id }}'
-  name: Root frame at the origin of location {{ first_root_asset_external_id }}
 Group:
 - capabilities:
   - assetsAcl:
@@ -44,8 +44,8 @@ Group:
           spaceIds:
           - cdf_apm
           - cognite_app_data
-          - sp_{{first_location}}_source_data
-          - sp_{{first_location}}_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
   - eventsAcl:
       actions:
       - READ
@@ -120,8 +120,8 @@ Group:
         all: {}
   metadata:
     origin: cdf-project-templates
-  name: gp_InRobot_Admin_{{first_location}}
-  sourceId: '{{inrobot_admin_first_location_source_id}}'
+  name: gp_InRobot_Admin_<change_me>
+  sourceId: <change_me>
 - capabilities:
   - assetsAcl:
       actions:
@@ -148,8 +148,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - sp_{{first_location}}_source_data
-          - sp_{{first_location}}_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -213,8 +213,8 @@ Group:
           - 42
   metadata:
     origin: cdf-project-templates
-  name: gp_InRobot_Users_{{first_location}}
-  sourceId: '{{inrobot_users_first_location_source_id}}'
+  name: gp_InRobot_Users_<change_me>
+  sourceId: <change_me>
 - capabilities:
   - assetsAcl:
       actions:
@@ -241,8 +241,8 @@ Group:
           - APM_Config
           - cognite_app_data
           - cdf_apm
-          - sp_{{first_location}}_source_data
-          - sp_{{first_location}}_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -251,8 +251,8 @@ Group:
           spaceIds:
           - cognite_app_data
           - cdf_apm
-          - sp_{{first_location}}_source_data
-          - sp_{{first_location}}_app_data
+          - sp_<change_me>_source_data
+          - sp_<change_me>_app_data
   - filesAcl:
       actions:
       - READ
@@ -290,27 +290,27 @@ Group:
           - 42
   metadata:
     origin: cdf-project-templates
-  name: gp_Robot_{{first_location}}
-  sourceId: '{{robot_1_first_location_source_id}}'
+  name: gp_Robot_<change_me>
+  sourceId: <change_me>
 Location:
 - description: Robot location
-  externalId: '{{ first_root_asset_external_id }}'
-  name: '{{ first_root_asset_external_id }}'
+  externalId: <change_me>
+  name: <change_me>
 Map:
 - data:
-    modelId: '{{ three_d_model_id }}'
-    revisionId: '{{ three_d_revision_id }}'
-  description: '{{ three_d_type }} {{ three_d_model_name }}'
-  externalId: '{{ three_d_model_name }}'
-  frameExternalId: frame_{{ three_d_model_name }}
-  locationExternalId: '{{ first_root_asset_external_id }}'
-  mapType: '{{ three_d_type }}'
-  name: '{{ three_d_model_name }}'
+    modelId: <change_me>
+    revisionId: <change_me>
+  description: <change_me> <change_me>
+  externalId: <change_me>
+  frameExternalId: frame_<change_me>
+  locationExternalId: <change_me>
+  mapType: <change_me>
+  name: <change_me>
   scale: 1.0
 Space:
-- description: Space for InRobot {{first_location}} Source Data
-  name: sp:inrobot:{{ first_location}}:source
-  space: sp_{{ first_location}}_source_data
-- description: Space for {{first_location}} App Data
-  name: sp:inrobot:{{first_location}}:app_data
-  space: sp_{{first_location}}_app_data
+- description: Space for <change_me> App Data
+  name: sp:inrobot:<change_me>:app_data
+  space: sp_<change_me>_app_data
+- description: Space for InRobot <change_me> Source Data
+  name: sp:inrobot:<change_me>:source
+  space: sp_<change_me>_source_data
