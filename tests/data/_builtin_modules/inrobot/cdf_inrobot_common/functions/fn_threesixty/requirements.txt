@@ -1,4 +1,4 @@
-bosdyn-client==3.3.2
+bosdyn-client==4.0.3
 cognite-sdk==5.*
 Pillow==10.3.0
 py360convert==0.1.0
