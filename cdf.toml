@@ -20,21 +20,8 @@ modules-app = true
 version = "0.2.18"
 
 [modules.packages]
-data_model_examples = [
-    "cdf_auth_readwrite_all",
-    "cdf_oid_example_data",
-    "cdf_apm_simple_data_model"
-]
-cdf_demo_infield = [
-    "cdf_auth_readwrite_all",
-    "cdf_oid_example_data",
-    "cdf_apm_base",
-    "cdf_infield_common",
-    "cdf_infield_location",
-]
 cdf_infield = [
     "cdf_auth_readwrite_all",
-    "cdf_apm_base",
     "cdf_infield_common",
     "cdf_infield_location",
 ]
