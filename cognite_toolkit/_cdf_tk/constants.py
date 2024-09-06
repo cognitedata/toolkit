@@ -46,6 +46,15 @@ SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
 
+# This is a regular expression that matches any non-word character or underscore
+# It is used to clean the feature flag names.
+_CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+
+def clean_name(name: str) -> str:
+    """Cleans the name by removing any non-word characters or underscores."""
+    return _CLEAN_PATTERN.sub("", name).casefold()
+
 
 class URL:
     configure_access = "https://docs.cognite.com/cdf/deploy/cdf_deploy/cdf_deploy_access_management"

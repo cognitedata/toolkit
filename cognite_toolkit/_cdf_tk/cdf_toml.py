@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModulesError,
     ToolkitRequiredValueError,
@@ -31,7 +31,7 @@ class CLIConfig:
         return cls(
             organization_dir=organization_dir,
             default_env=raw.get("default_env", "dev"),
-            feature_flags=raw.get("feature_flags", {}),
+            feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
         )
 
     def get_root_module_paths(self) -> list[Path]:
