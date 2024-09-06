@@ -327,9 +327,7 @@ class BuildCommand(ToolkitCommand):
                             self._copy_and_timeshift_csv_files(source_path, destination)
                         else:
                             if verbose:
-                                print(
-                                    f"    [bold green]INFO:[/] Found unrecognized file {source_path}. Copying in untouched..."
-                                )
+                                self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
                             # Copy the file as is, not variable replacement
                             shutil.copyfile(source_path, destination)
 
@@ -504,8 +502,7 @@ class BuildCommand(ToolkitCommand):
         # In addition, all files in not int the 'functions' directory are considered other files.
         return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
-    @staticmethod
-    def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
+    def _copy_and_timeshift_csv_files(self, csv_file: Path, destination: Path) -> None:
         """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
         # Process all csv files
         if csv_file.suffix.lower() != ".csv":
@@ -516,7 +513,7 @@ class BuildCommand(ToolkitCommand):
         file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
         data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
         if "timeshift_" in data.index.name:
-            print("      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today...")
+            self.console("Found 'timeshift_' in index name, timeshifting datapoints up to today...")
             data.index.name = str(data.index.name).replace("timeshift_", "")
             data.index = pd.DatetimeIndex(data.index)
             periods = datetime.datetime.today() - data.index[-1]
