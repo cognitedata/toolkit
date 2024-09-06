@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union
 
 import typer
+from cognite.client.config import global_config
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
@@ -59,6 +60,10 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
 
 CDF_TOML = CDFToml.load(Path.cwd())
 

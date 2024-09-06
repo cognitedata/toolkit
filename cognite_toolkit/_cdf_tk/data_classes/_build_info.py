@@ -117,7 +117,7 @@ class ResourceBuildInfo(Generic[T_ID]):
             "kind": self.kind,
         }
 
-    def create_full(self, module: ModuleBuildInfo, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
+    def create_full(self, module: BuiltModule, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
         return ResourceBuildInfoFull(
             identifier=self.identifier,
             location=self.location,
@@ -171,7 +171,7 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
         return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
-class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
+class ResourceBuiltList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[ResourceBuildInfo[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
@@ -183,11 +183,11 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
     def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildList[T_ID]: ...
+    def __getitem__(self, index: slice) -> ResourceBuiltList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuildList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuiltList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildList[T_ID](super().__getitem__(index))
+            return ResourceBuiltList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
 
     @property
@@ -195,7 +195,7 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
         return [resource.identifier for resource in self]
 
 
-class ResourceBuildFullList(ResourceBuildList[T_ID]):
+class ResourceBuiltFullList(ResourceBuiltList[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
@@ -207,31 +207,35 @@ class ResourceBuildFullList(ResourceBuildList[T_ID]):
     def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildFullList[T_ID]: ...
+    def __getitem__(self, index: slice) -> ResourceBuiltFullList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildFullList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuiltFullList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildFullList[T_ID](super().__getitem__(index))
+            return ResourceBuiltFullList[T_ID](super().__getitem__(index))
         return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
 
 
 @dataclass
-class ModuleBuildInfo:
+class BuiltModule:
     name: str
     location: BuildLocation
     build_variables: BuildVariables
-    resources: dict[str, ResourceBuildList]
+    resources: dict[str, ResourceBuiltList]
+    warning_count: int
+    status: str
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> ModuleBuildInfo:
+    def load(cls, data: dict[str, Any]) -> BuiltModule:
         return cls(
             name=data["name"],
             location=BuildLocation.load(data["location"]),
             build_variables=BuildVariables.load(data["build_variables"]),
             resources={
-                key: ResourceBuildList([ResourceBuildInfo.load(resource_data, key) for resource_data in resources_data])
+                key: ResourceBuiltList([ResourceBuildInfo.load(resource_data, key) for resource_data in resources_data])
                 for key, resources_data in data["resources"].items()
             },
+            warning_count=data.get("warning_count", 0),
+            status=data.get("status", "Success"),
         )
 
     def dump(self) -> dict[str, Any]:
@@ -242,31 +246,33 @@ class ModuleBuildInfo:
             "resources": {
                 key: [resource.dump(key) for resource in resources] for key, resources in self.resources.items()
             },
+            "warning_count": self.warning_count,
+            "status": self.status,
         }
 
 
 @dataclass
-class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
+class BuiltModuleList(list, MutableSequence[BuiltModule]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ModuleBuildInfo] | None = None) -> None:
+    def __init__(self, collection: Collection[BuiltModule] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ModuleBuildInfo]:
+    def __iter__(self) -> Iterator[BuiltModule]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ModuleBuildInfo: ...
+    def __getitem__(self, index: SupportsIndex) -> BuiltModule: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ModuleBuildList: ...
+    def __getitem__(self, index: slice) -> BuiltModuleList: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleBuildInfo | ModuleBuildList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltModule | BuiltModuleList:
         if isinstance(index, slice):
-            return ModuleBuildList(super().__getitem__(index))
+            return BuiltModuleList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildFullList[T_ID]:
-        return ResourceBuildFullList[T_ID](
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuiltFullList[T_ID]:
+        return ResourceBuiltFullList[T_ID](
             [
                 resource.create_full(module, resource_dir)
                 for module in self
@@ -279,13 +285,13 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
 @dataclass
 class ModulesInfo:
     version: str
-    modules: ModuleBuildList
+    modules: BuiltModuleList
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> ModulesInfo:
         return cls(
             version=data["version"],
-            modules=ModuleBuildList([ModuleBuildInfo.load(module_data) for module_data in data["modules"]]),
+            modules=BuiltModuleList([BuiltModule.load(module_data) for module_data in data["modules"]]),
         )
 
     def dump(self) -> dict[str, Any]:
@@ -323,13 +329,14 @@ class BuildInfo(ConfigCore):
             else:
                 # Use path syntax to select only the modules that need to be rebuilt
                 config.environment.selected = list(needs_rebuild)
-            build, _ = BuildCommand().build_config(
+            build, _ = BuildCommand(silent=True).build_config(
                 build_dir=build_dir,
                 organization_dir=organization_dir,
                 config=config,
                 packages=cdf_toml.modules.packages,
                 clean=True,
                 verbose=False,
+                progress_bar=True,
             )
 
         new_build = cls(
@@ -339,12 +346,13 @@ class BuildInfo(ConfigCore):
         if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env)):
             # Merge the existing modules with the new modules
             new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
-            module_list = ModuleBuildList(
+            existing_modules_by_path = {module.location.path: module for module in existing.modules.modules}
+            all_module_paths = set(new_modules_by_path) | set(existing_modules_by_path)
+
+            module_list = BuiltModuleList(
                 [
-                    new_modules_by_path[existing_module.location.path]
-                    if existing_module.location.path in new_modules_by_path
-                    else existing_module
-                    for existing_module in existing.modules.modules
+                    new_modules_by_path[path] if path in new_modules_by_path else existing_modules_by_path[path]
+                    for path in all_module_paths
                 ]
             )
             new_build.modules.modules = module_list
@@ -358,7 +366,7 @@ class BuildInfo(ConfigCore):
             existing = cls.load_from_directory(organization_dir, build_env)
         except FileNotFoundError:
             return None
-        if existing.modules.modules != _version.__version__:
+        if existing.modules.version != _version.__version__:
             return None
         return existing
 
@@ -434,7 +442,7 @@ class ModuleResources:
 
     def list_resources(
         self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
-    ) -> ResourceBuildFullList[T_ID]:
+    ) -> ResourceBuiltFullList[T_ID]:
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}
@@ -442,7 +450,7 @@ class ModuleResources:
                 self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
 
-    def list(self) -> ModuleBuildList:
+    def list(self) -> BuiltModuleList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(self._current_modules, self._current_variables):

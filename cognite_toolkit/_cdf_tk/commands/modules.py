@@ -374,13 +374,26 @@ class ModulesCommand(ToolkitCommand):
         table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")
+        table.add_column("Build Warnings", style="bold")
+        table.add_column("Build Result", style="bold")
         table.add_column("Location", style="bold")
 
         for module in modules.list():
+            if module.status == "Success":
+                status = f"[green]{module.status}[/]"
+            else:
+                status = f"[red]{module.status}[/]"
+            if module.warning_count > 0:
+                warning_count = f"[yellow]{module.warning_count:,}[/]"
+            else:
+                warning_count = f"{module.warning_count:,}"
+
             table.add_row(
                 module.name,
                 f"{len(module.resources):,}",
                 f"{sum(len(resources) for resources in module.resources.values()):,}",
+                warning_count,
+                status,
                 module.location.path.as_posix(),
             )
 

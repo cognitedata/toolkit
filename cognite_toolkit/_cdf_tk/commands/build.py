@@ -9,16 +9,17 @@ import shutil
 import sys
 import traceback
 from collections import Counter, defaultdict
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
 from rich import print
 from rich.panel import Panel
+from rich.progress import track
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -34,16 +35,18 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildLocationEager,
     BuildLocationLazy,
     BuildVariables,
-    ModuleBuildInfo,
-    ModuleBuildList,
+    BuiltModule,
+    BuiltModuleList,
     ModuleDirectories,
+    ModuleLocation,
     ResourceBuildInfo,
-    ResourceBuildList,
+    ResourceBuiltList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
+    ToolkitError,
     ToolkitFileExistsError,
     ToolkitMissingModuleError,
     ToolkitNotADirectoryError,
@@ -156,19 +159,20 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> tuple[ModuleBuildList, dict[Path, Path]]:
+        progress_bar: bool = False,
+    ) -> tuple[BuiltModuleList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
-                print(f"[bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+                self.console(f"Cleaned existing build directory {build_dir!s}.")
         elif is_populated and not _RUNNING_IN_BROWSER:
             self.warn(
                 LowSeverityWarning("Build directory is not empty. Run without --no-clean to remove existing files.")
             )
         elif build_dir.exists() and not _RUNNING_IN_BROWSER:
-            print("[bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
+            self.console("Build directory does already exist and is empty. No need to create it.")
         else:
             build_dir.mkdir(exist_ok=True)
 
@@ -180,22 +184,23 @@ class BuildCommand(ToolkitCommand):
         self._validate_modules(modules, config, packages, user_selected_modules, organization_dir)
 
         if verbose:
-            print("  [bold green]INFO:[/] Selected packages:")
+            self.console("Selected packages:")
             selected_packages = [package for package in packages if package in config.environment.selected]
             if len(selected_packages) == 0:
-                print("    None")
+                self.console("    None", prefix="")
             for package in selected_packages:
-                print(f"    {package}")
-            print("  [bold green]INFO:[/] Selected modules:")
+                self.console(f"    {package}", prefix="")
+            self.console("Selected modules:")
             for module in [module.name for module in modules.selected]:
-                print(f"    {module}")
+                self.console(f"    {module}", prefix="")
 
         variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
             for warning in warnings:
-                print(f"    {warning.get_message()}")
+                if self.print_warning:
+                    print(f"    {warning.get_message()}")
 
         # This structure is used in a hint in case the user misplaces a variable in the wrong module.
         # From a code architecture perspective, it is not ideal to create this structure here and
@@ -206,16 +211,16 @@ class BuildCommand(ToolkitCommand):
                 if variable.location in module_location.relative_path.parts:
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
-        state, build = self.process_config_files(
-            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
+        state, built_modules = self.build_modules(
+            modules.selected, build_dir, variables, module_names_by_variable_key, verbose, progress_bar
         )
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
-            print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
-        return build, state.source_by_build_path
+            self.console(f"Build complete. Files are located in {build_dir!s}/")
+        return built_modules, state.source_by_build_path
 
     @staticmethod
     def _validate_modules(
@@ -264,86 +269,109 @@ class BuildCommand(ToolkitCommand):
                 f"the environment ({config.environment.name})?"
             )
 
-    def process_config_files(
+    def build_modules(
         self,
         modules: ModuleDirectories,
         build_dir: Path,
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
-    ) -> tuple[_BuildState, ModuleBuildList]:
-        build = ModuleBuildList()
+        progress_bar: bool = False,
+    ) -> tuple[_BuildState, BuiltModuleList]:
+        build = BuiltModuleList()
         state = _BuildState()
-        for module in modules:
+        warning_count = len(self.warning_list)
+        if progress_bar:
+            modules_iter = cast(
+                Iterable[ModuleLocation], track(modules, description="Building modules", transient=True)
+            )
+        else:
+            modules_iter = modules
+        for module in modules_iter:
             if verbose:
-                print(f"  [bold green]INFO:[/] Processing module {module.name}")
-
+                self.console(f"Processing module {module.name}")
             module_variables = variables.get_module_variables(module)
+            try:
+                built_resources = self._build_module(
+                    module, build_dir, module_variables, module_names_by_variable_key, state, verbose
+                )
+            except ToolkitError as e:
+                built_status = type(e).__name__
+                built_resources = {}
+            else:
+                built_status = "Success"
 
-            files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
-
-            build_resources: dict[str, ResourceBuildList] = defaultdict(ResourceBuildList)
-            for resource_directory_name, directory_files in files_by_resource_directory.items():
-                build_folder: list[Path] = []
-                for source_path in directory_files.resource_files:
-                    destination = state.create_destination_path(
-                        source_path, resource_directory_name, module.dir, build_dir
-                    )
-
-                    resource_info = self._replace_variables_validate_to_build_directory(
-                        source_path, destination, module_variables, state, module_names_by_variable_key, verbose
-                    )
-                    build_folder.append(destination)
-                    build_resources[resource_directory_name].extend(resource_info)
-
-                if resource_directory_name == FunctionLoader.folder_name:
-                    self._validate_function_directory(state, directory_files, module.dir)
-                    self.validate_and_copy_function_directory_to_build(
-                        resource_files_build_folder=build_folder,
-                        state=state,
-                        module_dir=module.dir,
-                        build_dir=build_dir,
-                    )
-                elif resource_directory_name == FileLoader.folder_name:
-                    self.copy_files_to_upload_to_build_directory(
-                        file_to_upload=directory_files.other_files,
-                        resource_files_build_folder=build_folder,
-                        state=state,
-                        module_dir=module.dir,
-                        build_dir=build_dir,
-                        verbose=verbose,
-                    )
-                else:
-                    for source_path in directory_files.other_files:
-                        destination = state.create_destination_path(
-                            source_path, resource_directory_name, module.dir, build_dir
-                        )
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        if (
-                            resource_directory_name == DatapointsLoader.folder_name
-                            and source_path.suffix.lower() == ".csv"
-                        ):
-                            self._copy_and_timeshift_csv_files(source_path, destination)
-                        else:
-                            if verbose:
-                                print(
-                                    f"    [bold green]INFO:[/] Found unrecognized file {source_path}. Copying in untouched..."
-                                )
-                            # Copy the file as is, not variable replacement
-                            shutil.copyfile(source_path, destination)
+            module_warnings = len(self.warning_list) - warning_count
+            warning_count = len(self.warning_list)
 
             build.append(
-                ModuleBuildInfo(
+                BuiltModule(
                     name=module.name,
                     location=BuildLocationLazy(
                         path=module.relative_path,
                         absolute_path=module.dir,
                     ),
                     build_variables=module_variables,
-                    resources=build_resources,
+                    resources=built_resources,
+                    warning_count=module_warnings,
+                    status=built_status,
                 )
             )
         return state, build
+
+    def _build_module(
+        self,
+        module: ModuleLocation,
+        build_dir: Path,
+        module_variables: BuildVariables,
+        module_names_by_variable_key: dict[str, list[str]],
+        state: _BuildState,
+        verbose: bool,
+    ) -> dict[str, ResourceBuiltList]:
+        files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
+        build_resources: dict[str, ResourceBuiltList] = defaultdict(ResourceBuiltList)
+        for resource_directory_name, directory_files in files_by_resource_directory.items():
+            build_folder: list[Path] = []
+            for source_path in directory_files.resource_files:
+                destination = state.create_destination_path(source_path, resource_directory_name, module.dir, build_dir)
+
+                resource_info = self._replace_variables_validate_to_build_directory(
+                    source_path, destination, module_variables, state, module_names_by_variable_key, verbose
+                )
+                build_folder.append(destination)
+                build_resources[resource_directory_name].extend(resource_info)
+
+            if resource_directory_name == FunctionLoader.folder_name:
+                self._validate_function_directory(state, directory_files, module.dir)
+                self.validate_and_copy_function_directory_to_build(
+                    resource_files_build_folder=build_folder,
+                    state=state,
+                    module_dir=module.dir,
+                    build_dir=build_dir,
+                )
+            elif resource_directory_name == FileLoader.folder_name:
+                self.copy_files_to_upload_to_build_directory(
+                    file_to_upload=directory_files.other_files,
+                    resource_files_build_folder=build_folder,
+                    state=state,
+                    module_dir=module.dir,
+                    build_dir=build_dir,
+                    verbose=verbose,
+                )
+            else:
+                for source_path in directory_files.other_files:
+                    destination = state.create_destination_path(
+                        source_path, resource_directory_name, module.dir, build_dir
+                    )
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    if resource_directory_name == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
+                        self._copy_and_timeshift_csv_files(source_path, destination)
+                    else:
+                        if verbose:
+                            self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
+                        # Copy the file as is, not variable replacement
+                        shutil.copyfile(source_path, destination)
+        return build_resources
 
     def _validate_function_directory(
         self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
@@ -382,9 +410,9 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> ResourceBuildList:
+    ) -> ResourceBuiltList:
         if verbose:
-            print(f"    [bold green]INFO:[/] Processing {source_path.name}")
+            self.console(f"Processing {source_path.name}")
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -405,7 +433,7 @@ class BuildCommand(ToolkitCommand):
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return ResourceBuildList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
+        return ResourceBuiltList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
@@ -503,8 +531,7 @@ class BuildCommand(ToolkitCommand):
         # In addition, all files in not int the 'functions' directory are considered other files.
         return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
-    @staticmethod
-    def _copy_and_timeshift_csv_files(csv_file: Path, destination: Path) -> None:
+    def _copy_and_timeshift_csv_files(self, csv_file: Path, destination: Path) -> None:
         """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
         # Process all csv files
         if csv_file.suffix.lower() != ".csv":
@@ -515,7 +542,7 @@ class BuildCommand(ToolkitCommand):
         file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
         data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
         if "timeshift_" in data.index.name:
-            print("      [bold green]INFO:[/] Found 'timeshift_' in index name, timeshifting datapoints up to today...")
+            self.console("Found 'timeshift_' in index name, timeshifting datapoints up to today...")
             data.index.name = str(data.index.name).replace("timeshift_", "")
             data.index = pd.DatetimeIndex(data.index)
             periods = datetime.datetime.today() - data.index[-1]
@@ -608,8 +635,8 @@ class BuildCommand(ToolkitCommand):
 
         return function_path_by_external_id
 
-    @staticmethod
     def copy_files_to_upload_to_build_directory(
+        self,
         file_to_upload: list[Path],
         resource_files_build_folder: list[Path],
         state: _BuildState,
@@ -625,7 +652,7 @@ class BuildCommand(ToolkitCommand):
         if len(file_to_upload) == 0:
             return
 
-        template_name = BuildCommand._get_file_template_name(resource_files_build_folder, module_dir, verbose)
+        template_name = self._get_file_template_name(resource_files_build_folder, module_dir, verbose)
 
         for filepath in file_to_upload:
             destination_stem = filepath.stem
@@ -635,8 +662,9 @@ class BuildCommand(ToolkitCommand):
             destination = state.create_destination_path(new_source, FileLoader.folder_name, module_dir, build_dir)
             shutil.copyfile(filepath, destination)
 
-    @staticmethod
-    def _get_file_template_name(resource_files_build_folder: list[Path], module_dir: Path, verbose: bool) -> str | None:
+    def _get_file_template_name(
+        self, resource_files_build_folder: list[Path], module_dir: Path, verbose: bool
+    ) -> str | None:
         # We only support one file template definition per module.
         configuration_files = [
             file for file in resource_files_build_folder if FileMetadataLoader.is_supported_file(file)
@@ -666,8 +694,8 @@ class BuildCommand(ToolkitCommand):
             return None
         template_name = template["name"]
         if verbose:
-            print(
-                f"      [bold green]INFO:[/] Detected file template name {template_name!r} in "
+            self.console(
+                f"Detected file template name {template_name!r} in "
                 f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
             )
         return template_name
@@ -694,11 +722,12 @@ class BuildCommand(ToolkitCommand):
                     if len(module_names) == 1
                     else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
                 )
-                print(
-                    f"    [bold green]Hint:[/] The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                self.console(
+                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
                     f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
                     f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}."
+                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}.",
+                    prefix="    [bold green]Hint:[/] ",
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
