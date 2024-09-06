@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, ORGANIZATION, PROJECT_FOR_TEST
+from tests.data import LOAD_DATA, ORGANIZATION_FOR_TEST, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
@@ -216,7 +216,7 @@ def test_resource_types_is_up_to_date() -> None:
 
 
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
-    source_path = ORGANIZATION
+    source_path = ORGANIZATION_FOR_TEST
     with tmp_build_directory() as build_dir:
         cdf_toml = CDFToml.load(REPO_ROOT)
         config_init = InitConfigYAML(

@@ -1,0 +1,37 @@
+externalId: 'ep_ctx_files_{{location_name}}_{{source_name}}_pandid_annotation'
+name: 'ctx:files:{{location_name}}:{{source_name}}:pandid_annotation'
+dataSetExternalId: 'ds_files_{{location_name}}'
+description: 'Annotation of P&ID documents from file source  {{location_name}}:{{source_name}}'
+
+source: '{{source_name}}'
+documentation: >
+  # Contextualization / Annotation of P&ID Documents
+ 
+
+  The P&ID Annotation runs as a process in CDF Functions. Process triggers on new and updated documents based on update timestamp for document.
+
+
+  Extracts all tags in P&ID that matches tags from Asset Hierarchy and creates CDF annotations used for linking found objects in document to other resource types in CDF.
+ 
+ 
+  Default configuration is provided as part of the deployment, but can be overwritten by configuration provided in configuration section below
+ 
+  ```
+   # if True, run without writing any annotations to CDF
+   debug: False
+   # if True run annotation on all found documents, if False only run on document not updated since last  annotation
+   runAll: False
+   # Number of document from each asset to annotate -1 = All, else number is used
+   docLimit: -1
+   # Data set to read documents / P&ID from + update with annotated timestamp when done
+   docDataSetExtId: "{{files_dataset}}"
+   # In document metadata, where is location of property for P&ID type documents
+   docTypeMetaCol: "doc_type"
+   # Document type for P&ID type documents
+   pAndIdDocType: "PNID"
+   # List of externalId for root assets to be used for annotation of documents. Documents are also extracted based on the root asset ID
+   assetRootExtIds: [{{external_root_id_asset}}]
+   # Number between 0 and 1, indication of strict the matching should be 1 = only exact matches
+   matchTreshold: 0.85
+  ```
+

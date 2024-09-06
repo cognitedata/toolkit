@@ -1,0 +1,13 @@
+- name: every 30 min
+  functionExternalId: fn_workflow_files_{{location_name}}_{{source_name}}_annotation
+  description: Run every 30 minute
+  cronExpression: "0,30 * * * *"
+  data:
+    WorkflowExtId: wf_oid_files_annotation
+    WorkflowVersion: 1
+  authentication:
+    # Credentials to use to run the function in this schedule.
+    # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
+    # credentials (env variables) if you want to run the function with different permissions.
+    clientId: {{cicd_clientId}}
+    clientSecret: {{cicd_clientSecret}}

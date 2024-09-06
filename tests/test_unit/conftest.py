@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.constants import ROOT_PATH
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
-from tests.data import ORGANIZATION
+from tests.data import ORGANIZATION_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -172,7 +172,7 @@ def typer_context_no_cdf_tool_config() -> typer.Context:
 
 @pytest.fixture(scope="session")
 def module_directories() -> ModuleDirectories:
-    return ModuleDirectories.load(ORGANIZATION, {Path("")})
+    return ModuleDirectories.load(ORGANIZATION_FOR_TEST, {Path("")})
 
 
 @pytest.fixture(scope="session")
@@ -185,7 +185,7 @@ def init_project(
 
     init_config_yaml = InitConfigYAML(
         Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
-    ).load_defaults(ORGANIZATION)
+    ).load_defaults(ORGANIZATION_FOR_TEST)
     config_dev = init_config_yaml.dump_yaml_with_comments()
     (local_tmp_project_path_immutable / "config.dev.yaml").write_text(config_dev)
 

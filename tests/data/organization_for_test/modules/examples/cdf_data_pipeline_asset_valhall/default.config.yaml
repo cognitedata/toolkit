@@ -1,0 +1,22 @@
+# This is the configuration file used for the example data from The Open Industrial Data (oid)
+#
+# The data originates from a single compressor on Aker BP’s Valhall oil platform 
+# in the North Sea. Aker BP selected the first stage compressor on the Valhall 
+# because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+# specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all' 
+
+# location based on OID example data
+location_name: oid
+
+# specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+source_name: workmate
+asset_dataset: ds_asset_oid
+asset_raw_input_db: asset_oid_workmate
+asset_raw_input_table: assets
+pause_transformations: true
+
+
+# source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+asset_location_extractor_group_source_id: <change_me>
+asset_location_processing_group_source_id: <change_me>
+asset_location_read_group_source_id: <change_me>

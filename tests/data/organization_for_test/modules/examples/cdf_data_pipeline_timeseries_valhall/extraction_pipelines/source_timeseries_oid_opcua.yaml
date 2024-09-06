@@ -1,0 +1,80 @@
+externalId: 'ep_src_timeseries_{{location_name}}_{{source_name}}'
+name: 'src:timeseries:{{location_name}}:{{source_name}}'
+dataSetExternalId: 'ds_timeseries_{{location_name}}'
+description: 'Time Series source extraction pipeline with configuration for OPC-UA reading data from and OPC-UA simulator'
+
+
+source: '{{source_name}}'
+documentation: >
+    # OPC UA Test simulator extraction pipeline
+
+      OPC Unified Architecture (OPC UA) is a machine-to-machine communication protocol developed by the OPC Foundation. Cognite OPC-UA Extractor is an
+      open-source program designed to copy the OPC-UA node-hierarchy to CDF, then stream data and events to time series in CDF.
+
+      Extracted data can be configured by extractor to store data directly as Assets, Time series and Events in CDF dataset.
+      Alternatively the data can be stored in a RAW database and then processed by a CDF Function to contextualize the data before storing in CDF dataset.
+
+      More on OPC-UA extractor: see <https://docs.cognite.com/cdf/integration/guides/extraction/opc_ua/>
+
+    ## Simulator
+
+      Download and install [Prosys OPC UA Simulation Server](https://prosysopc.com/products/opc-ua-simulation-server/) on a host where you want to run the simulation.
+      From the installed simulator you will find the required configuration parameters, as:
+
+
+    ```
+      - endpoint_url, ex: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
+      - root_namespace_uri, ex: http://www.prosysopc.com/OPCUA/SimulationNodes/
+      - root_node_id, ex: s=85/0:Simulation
+    ```
+
+    ### Extractor configuration on the simulator host
+
+
+      Extractor service installation location example: C:\Cognite\OpcUaExtractor\bin\OpcuaExtractor.exe
+
+
+        ```
+        Config file: ...\config\config.yml (only contains the credentials as it should read the configuration in this extraction pipeline)
+        ```
+
+
+      Configuration for connection to the OPC-UA server is maintained and stored as part of this extraction pipeline.
+      The configuration file for the OPC-UA Extractor should be placed on the host running the extractor with access to the simulator.
+      The configuration file should be named `config.yml`  (default name - other names can also be used) and contain the following parameters:
+
+        ``` yaml
+          # Version of the config schema
+          version: 1
+
+          type: remote
+          cognite:
+              # The project to connect to in the API, uses the environment variable COGNITE_PROJECT.
+              project: ${CDF_PROJECT} <ex: my_project>
+              host: ${CDF_URL} <ex: https://api.cognitedata.com>
+
+              # If this is set to true, credentials can be left out, and the extractor
+              # will read data without pushing it to CDF.
+              # This is for microsoft as IdP, to use a different provider,
+              # set implementation: Basic, and use token-url instead of tenant.
+              # See the example config for the full list of options.
+              idp-authentication:
+                  # Directory tenant
+                  tenant: ${IDP_TENANT_ID} <ex:  1f4afa-asfd-3434-bb46-93123s423ds >
+                  # Application Id
+                  client-id: ${IDP_CLIENT_ID}  <ex: 1f4afa-asfd-3434-bb46-93123s423ds >
+                  # Client secret
+                  secret: ${IDP_CLIENT_SECRET} <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd >
+                  # List of resource scopes, ex:
+                  # scopes:
+                  #   - scopeA
+                  #   - scopeB
+                  scopes:
+                      - ${IDP_SCOPES} <ex: https://api.cognitedata.com/.default>
+              extraction-pipeline:
+                  # ExternalId of extraction pipeline
+                  pipeline-id: ep_src_timeseries_oid_opcua
+
+        ```
+
+        All parameters in the config file that are environment variables ex: `${CDF_PROJECT}` that should be set on the host running the extractor.

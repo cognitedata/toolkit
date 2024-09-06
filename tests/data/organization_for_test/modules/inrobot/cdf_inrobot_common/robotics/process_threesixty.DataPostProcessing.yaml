@@ -1,0 +1,23 @@
+method: process_threesixty
+name: Process a 360 image
+externalId: process_threesixty
+description: Process a 360 image into a panoramic view
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_postprocessing/process_threesixty
+  title: Process threesixty input
+  type: object
+  properties:
+    image:
+      type: object
+      properties:
+        method:
+          type: string
+        parameters:
+          type: object
+          properties: {}
+      required:
+        - method
+        - parameters
+      additionalProperties: false
+  additionalProperties: false

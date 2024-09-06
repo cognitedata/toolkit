@@ -18,7 +18,7 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf import build, clean, deploy
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
-from tests.data import ORGANIZATION
+from tests.data import ORGANIZATION_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -30,7 +30,7 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(ORGANIZATION):
+    for module, _ in iterate_modules(ORGANIZATION_FOR_TEST):
         if module.name == "references":  # this particular module should never be built or deployed
             continue
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
@@ -139,7 +139,6 @@ def test_build_deploy_with_dry_run(
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
-@pytest.mark.skip("This fails when packages aren't defined in cdf.toml. Need to fix that.")
 @pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_init_build_clean(

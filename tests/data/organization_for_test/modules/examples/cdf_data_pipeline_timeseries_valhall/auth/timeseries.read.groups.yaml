@@ -1,0 +1,25 @@
+# This role is identical to the normal users, but is used to group user with additional InField feature capabilities for checklist admins.
+# Typical Team captain / Supervisor users
+name: 'gp_timeseries_{{location_name}}_read'
+sourceId: '{{timeseries_location_read_group_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - annotationsAcl:
+      actions:
+        - READ
+        - REVIEW
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope: {
+            ids: ['ds_timeseries_{{location_name}}']
+        }
