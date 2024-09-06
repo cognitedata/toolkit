@@ -374,6 +374,8 @@ class ModulesCommand(ToolkitCommand):
         table.add_column("Module Name", style="bold")
         table.add_column("Resource Folders", style="bold")
         table.add_column("Resources", style="bold")
+        table.add_column("Build Warnings", style="bold")
+        table.add_column("Build Result", style="bold")
         table.add_column("Location", style="bold")
 
         for module in modules.list():
@@ -381,6 +383,8 @@ class ModulesCommand(ToolkitCommand):
                 module.name,
                 f"{len(module.resources):,}",
                 f"{sum(len(resources) for resources in module.resources.values()):,}",
+                f"{module.warning_count:,}",
+                module.status,
                 module.location.path.as_posix(),
             )
 

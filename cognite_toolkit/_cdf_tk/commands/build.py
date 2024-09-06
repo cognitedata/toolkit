@@ -34,8 +34,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildLocationEager,
     BuildLocationLazy,
     BuildVariables,
-    ModuleBuiltInfo,
-    ModuleBuiltList,
+    BuiltModule,
+    BuiltModuleList,
     ModuleDirectories,
     ModuleLocation,
     ResourceBuildInfo,
@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
+    ToolkitError,
     ToolkitFileExistsError,
     ToolkitMissingModuleError,
     ToolkitNotADirectoryError,
@@ -157,7 +158,7 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> tuple[ModuleBuiltList, dict[Path, Path]]:
+    ) -> tuple[BuiltModuleList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -273,18 +274,28 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
-    ) -> tuple[_BuildState, ModuleBuiltList]:
-        build = ModuleBuiltList()
+    ) -> tuple[_BuildState, BuiltModuleList]:
+        build = BuiltModuleList()
         state = _BuildState()
+        warning_count = len(self.warning_list)
         for module in modules:
             if verbose:
                 self.console(f"Processing module {module.name}")
             module_variables = variables.get_module_variables(module)
-            build_resources = self._build_module(
-                module, build_dir, module_variables, module_names_by_variable_key, state, verbose
-            )
+            try:
+                build_resources = self._build_module(
+                    module, build_dir, module_variables, module_names_by_variable_key, state, verbose
+                )
+            except ToolkitError as e:
+                built_status = type(e).__name__
+            else:
+                built_status = "Success"
+
+            module_warnings = len(self.warning_list) - warning_count
+            warning_count = len(self.warning_list)
+
             build.append(
-                ModuleBuiltInfo(
+                BuiltModule(
                     name=module.name,
                     location=BuildLocationLazy(
                         path=module.relative_path,
@@ -292,6 +303,8 @@ class BuildCommand(ToolkitCommand):
                     ),
                     build_variables=module_variables,
                     resources=build_resources,
+                    warning_count=module_warnings,
+                    status=built_status,
                 )
             )
         return state, build
