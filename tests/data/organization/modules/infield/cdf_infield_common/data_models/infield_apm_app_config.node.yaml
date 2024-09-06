@@ -2,7 +2,7 @@ autoCreateDirectRelations: true
 skipOnVersionConflict: false
 replace: true
 nodes:
-- space: {{apm_config_instance_space}}
+- space: '{{apm_config_instance_space}}'
   externalId: default_infield_config_minimal
   sources:
   - source:
@@ -13,7 +13,7 @@ nodes:
     properties:
       featureConfiguration:
         rootLocationConfigurations:
-        - assetExternalId: {{first_root_asset_external_id}}
+        - assetExternalId: '{{first_root_asset_external_id}}'
           appDataInstanceSpace: sp_infield_{{first_location}}_app_data
           sourceDataInstanceSpace: sp_asset_{{first_location}}_source
           templateAdmins:

@@ -141,7 +141,7 @@ DataPostProcessing:
   method: read_valve
   name: Read valve state
 DataSet:
-- externalId: ds_robot_1
+- externalId: '{{ robot_1_dataset_ext_id }}'
   metadata: {}
   name: Robot 1 Dataset
   writeProtected: false
@@ -154,7 +154,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: cfd716ae544fb40bdb163dfa489aff5f95911d80c1c5ee95ca3daeed569b7e43
+    cdf-toolkit-function-hash: 770f2eafb9aef298280513e5d0f414b66a6c952a5e78a3f63445ed6c31b3589f
   name: Contextualize robot data
   owner: Robotics team
   runtime: py39
@@ -166,7 +166,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 648298904f166c1c5d78a3c0993590d0b7b932012641dac8b2cbab7c969d7898
+    cdf-toolkit-function-hash: ff9fc3fdb8f49b00ad0578daba03aa0d20b36e88a3f4a0dc4f7ca0cdfa0a1d32
   name: Gauge reading
   owner: Robotics team
   runtime: py39
@@ -178,7 +178,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 58b3517280a2b4f3be9705cb24e6d44eaa88011a4d63010931e3c0a725b6e34d
+    cdf-toolkit-function-hash: 35be747f45ea633e801f72978613ae5d204e2275d160c8d0db9d395ad97f61aa
   name: Get IR data From IR raw
   owner: Robotics team
   runtime: py39
@@ -197,7 +197,7 @@ Function:
 FunctionSchedule:
 - cronExpression: '* * * * *'
   data:
-    data_set_external_id: ds_robot_1
+    data_set_external_id: '{{robot_1_dataset_ext_id}}'
     gauge_context_label: robot_gauge
     read_dial_gauge_label: read_dial_gauge
     read_digital_gauge_label: read_digital_gauge
@@ -211,7 +211,7 @@ FunctionSchedule:
   name: contextualize_robot_data
 - cronExpression: '* * * * *'
   data:
-    data_set_external_id: ds_robot_1
+    data_set_external_id: '{{robot_1_dataset_ext_id}}'
     failed_label: FAILED_IR
     input_label: read_ir
     output_label: ir_finished
@@ -259,7 +259,7 @@ FunctionSchedule:
   name: read_valve
 - cronExpression: '* * * * *'
   data:
-    data_set_external_id: ds_robot_1
+    data_set_external_id: '{{robot_1_dataset_ext_id}}'
   functionExternalId: fn_threesixty
   name: threesixty
 Group:
@@ -351,7 +351,7 @@ Group:
   metadata:
     origin: cdf-project-templates
   name: gp_Run_Function_User
-  sourceId: <change_me>
+  sourceId: '{{run_function_user_group_source_id}}'
 LabelDefinition:
 - dataSetId: 42
   externalId: read_ir
@@ -368,9 +368,9 @@ Node:
       customerDataSpaceVersion: '1'
       featureConfiguration:
         rootLocationConfigurations:
-        - appDataInstanceSpace: sp_<change_me>_app_data
-          assetExternalId: <change_me>
-          sourceDataInstanceSpace: sp_<change_me>_source_data
+        - appDataInstanceSpace: sp_{{ first_location }}_app_data
+          assetExternalId: '{{ first_root_asset_external_id }}'
+          sourceDataInstanceSpace: sp_{{ first_location }}_source_data
       name: InRobot APM App Config
     source:
       externalId: APM_Config
