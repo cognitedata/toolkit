@@ -67,7 +67,7 @@ class ToolkitCommand:
 
     def warn(self, warning: ToolkitWarning) -> None:
         self.warning_list.append(warning)
-        if self.print_warning:
+        if self.print_warning and not self.silent:
             warning.print_warning()
 
     def console(self, message: str, prefix: str = "[bold green]INFO:[/] ") -> None:
