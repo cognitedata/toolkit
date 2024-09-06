@@ -208,14 +208,16 @@ class BuildCommand(ToolkitCommand):
                 if variable.location in module_location.relative_path.parts:
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
-        state, build = self.build_modules(modules.selected, build_dir, variables, module_names_by_variable_key, verbose)
+        state, built_modules = self.build_modules(
+            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
+        )
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             self.console(f"Build complete. Files are located in {build_dir!s}/")
-        return build, state.source_by_build_path
+        return built_modules, state.source_by_build_path
 
     @staticmethod
     def _validate_modules(
