@@ -26,8 +26,9 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
-        self.print_warning = print_warning
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+        self._print_warning = print_warning
+        self.silent = silent
         if len(sys.argv) > 1:
             self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
         else:
@@ -35,6 +36,10 @@ class ToolkitCommand:
         self.warning_list = WarningList[ToolkitWarning]()
         self.tracker = Tracker(self.user_command)
         self.skip_tracking = self.tracker.opted_out or skip_tracking
+
+    @property
+    def print_warning(self) -> bool:
+        return self._print_warning and not self.silent
 
     def _track_command(self, result: str | Exception) -> None:
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
@@ -68,6 +73,10 @@ class ToolkitCommand:
         self.warning_list.append(warning)
         if self.print_warning:
             warning.print_warning()
+
+    def console(self, message: str, prefix: str = "[bold green]INFO:[/] ") -> None:
+        if not self.silent:
+            print(f"{prefix}{message}")
 
     def _load_files(
         self,
