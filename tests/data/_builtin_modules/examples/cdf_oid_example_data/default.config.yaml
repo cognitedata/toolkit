@@ -1,0 +1,19 @@
+# Only valid for this module, loads template variables from environment
+#
+# In the example below we are setting up a project based on the Open Industry Data (OID), 
+# that originates from the Valhall oil rig. Note that the location/site is NOT used
+# to structure the data when on-boarding. The expectation is that a single source system
+# and it's data pipeline may supply data for multiple locations/sites.
+# The structuring of the data based on site/location should happen as part of processing
+# the data in CDF, i.e. contextualisation.
+#
+# Each of data resource types have assigned the source system where the data originates from.
+# This information will be used to construct RAW database names, and to create data sets in CDF,
+# and can be used to control access.
+default_location: oid
+source_asset: workmate
+source_event: workmate
+source_workorder: workmate
+source_files: fileshare
+source_timeseries: pi
+
