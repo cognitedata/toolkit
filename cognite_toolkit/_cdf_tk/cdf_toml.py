@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,14 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
+# This is a regular expression that matches any non-word character or underscore
+# It is used to clean the feature flag names.
+_CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+
+def _clean(name: str) -> str:
+    return _CLEAN_PATTERN.sub("", name).casefold()
+
 
 @dataclass
 class CLIConfig:
@@ -31,7 +40,7 @@ class CLIConfig:
         return cls(
             organization_dir=organization_dir,
             default_env=raw.get("default_env", "dev"),
-            feature_flags=raw.get("feature_flags", {}),
+            feature_flags={_clean(k): v for k, v in raw.get("feature_flags", {}).items()},
         )
 
     def get_root_module_paths(self) -> list[Path]:
