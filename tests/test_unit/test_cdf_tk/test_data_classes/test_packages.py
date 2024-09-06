@@ -6,12 +6,12 @@ from pytest import raises
 
 from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
 from cognite_toolkit._cdf_tk.data_classes._packages import Packages
-from tests.data import BUILTIN_MODULES_FOR_TEST
+from tests.data import MODULES_FOR_TEST
 
 
 class TestPackages:
     def test_load(self) -> None:
-        packages = Packages.load(BUILTIN_MODULES_FOR_TEST)
+        packages = Packages.load(MODULES_FOR_TEST)
         assert packages is not None
         assert len(packages) == 5
         assert len(packages[0].modules) == 1
@@ -24,4 +24,4 @@ class TestPackages:
         with patch("cognite_toolkit._cdf_tk.data_classes._module_toml.ModuleToml.load", side_effect=mock_toml_load):
             # Test the overridden behavior
             with raises(ValueError):
-                Packages.load(BUILTIN_MODULES_FOR_TEST)
+                Packages.load(MODULES_FOR_TEST)

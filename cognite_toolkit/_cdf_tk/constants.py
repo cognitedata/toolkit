@@ -20,10 +20,11 @@ CONFIG_FILE_SUFFIX = "config.yaml"
 GLOBAL_CONFIG_FILE = "global.yaml"
 
 BUILTIN_MODULES = "_builtin_modules"
+COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
-ALT_CUSTOM_MODULES = "modules"
+MODULES = "modules"
 
-ROOT_MODULES = [CUSTOM_MODULES, ALT_CUSTOM_MODULES, BUILTIN_MODULES]
+ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"
 
 MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
@@ -37,8 +38,9 @@ SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".csv", ".txt", ".md", ".html", ".py"])
 ROOT_PATH = Path(__file__).parent.parent
+COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
+MODULES_PATH = ROOT_PATH / MODULES
 BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
-
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.

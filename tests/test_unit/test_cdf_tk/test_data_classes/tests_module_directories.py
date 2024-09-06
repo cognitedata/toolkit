@@ -32,6 +32,6 @@ class TestModuleDirectories:
                 ),
             ]
         )
-        actual = ModuleDirectories.load(data.PROJECT_FOR_TEST, {("_builtin_modules",)})
+        actual = ModuleDirectories.load(data.PROJECT_FOR_TEST, {("modules",)})
 
         assert actual == expected

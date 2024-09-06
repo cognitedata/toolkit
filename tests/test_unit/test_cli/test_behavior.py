@@ -101,7 +101,7 @@ def test_pull_transformation(
     # Loading a selected transformation to be pulled
     transformation_yaml = (
         init_project_mutable
-        / "_builtin_modules"
+        / "modules"
         / "examples"
         / "example_pump_asset_hierarchy"
         / "transformations"
