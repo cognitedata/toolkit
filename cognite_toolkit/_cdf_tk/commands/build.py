@@ -162,13 +162,13 @@ class BuildCommand(ToolkitCommand):
             shutil.rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
-                print(f"[bold green]INFO:[/] Cleaned existing build directory {build_dir!s}.")
+                self.console(f"Cleaned existing build directory {build_dir!s}.")
         elif is_populated and not _RUNNING_IN_BROWSER:
             self.warn(
                 LowSeverityWarning("Build directory is not empty. Run without --no-clean to remove existing files.")
             )
         elif build_dir.exists() and not _RUNNING_IN_BROWSER:
-            print("[bold green]INFO:[/] Build directory does already exist and is empty. No need to create it.")
+            self.console("Build directory does already exist and is empty. No need to create it.")
         else:
             build_dir.mkdir(exist_ok=True)
 
@@ -180,15 +180,15 @@ class BuildCommand(ToolkitCommand):
         self._validate_modules(modules, config, packages, user_selected_modules, organization_dir)
 
         if verbose:
-            print("  [bold green]INFO:[/] Selected packages:")
+            self.console("Selected packages:")
             selected_packages = [package for package in packages if package in config.environment.selected]
             if len(selected_packages) == 0:
-                print("    None")
+                self.console("    None", prefix="")
             for package in selected_packages:
-                print(f"    {package}")
-            print("  [bold green]INFO:[/] Selected modules:")
+                self.console(f"    {package}", prefix="")
+            self.console("Selected modules:")
             for module in [module.name for module in modules.selected]:
-                print(f"    {module}")
+                self.console(f"    {module}", prefix="")
 
         variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
@@ -215,7 +215,7 @@ class BuildCommand(ToolkitCommand):
         build_environment = config.create_build_environment(state.hash_by_source_path)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
-            print(f"  [bold green]INFO:[/] Build complete. Files are located in {build_dir!s}/")
+            self.console(f"Build complete. Files are located in {build_dir!s}/")
         return build, state.source_by_build_path
 
     @staticmethod

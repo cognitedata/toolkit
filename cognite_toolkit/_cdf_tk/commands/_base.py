@@ -26,8 +26,9 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         self.print_warning = print_warning
+        self.silent = silent
         if len(sys.argv) > 1:
             self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
         else:
@@ -68,6 +69,10 @@ class ToolkitCommand:
         self.warning_list.append(warning)
         if self.print_warning:
             warning.print_warning()
+
+    def console(self, message: str, prefix: str = "[bold green]INFO:[/] ") -> None:
+        if not self.silent:
+            print(f"{prefix}{message}")
 
     def _load_files(
         self,
