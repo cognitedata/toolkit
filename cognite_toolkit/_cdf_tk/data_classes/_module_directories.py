@@ -8,7 +8,8 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
-from cognite_toolkit._cdf_tk.utils import iterate_modules
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,16 @@ class ModuleLocation:
     def parent_relative_paths(self) -> set[Path]:
         """All relative parent paths of the module."""
         return set(self.relative_path.parents)
+
+    @cached_property
+    def hash(self) -> str:
+        """The hash of the module."""
+        return calculate_directory_hash(self.dir, shorten=True)
+
+    @cached_property
+    def resource_directories(self) -> set[str]:
+        """The resource directories in the module."""
+        return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
@@ -84,24 +95,24 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     @classmethod
     def load(
         cls,
-        source_dir: Path,
+        organization_dir: Path,
         user_selected_modules: set[str | Path],
     ) -> ModuleDirectories:
         """Loads the modules in the source directory.
 
         Args:
-            source_dir: The absolute path to the source directory.
+            organization_dir: The absolute path to the source directory.
             user_selected_modules: The modules selected by the user either by name or by path.
 
         """
 
         module_locations: list[ModuleLocation] = []
-        for module, source_paths in iterate_modules(source_dir):
-            relative_module_dir = module.relative_to(source_dir)
+        for module, source_paths in iterate_modules(organization_dir):
+            relative_module_dir = module.relative_to(organization_dir)
             module_locations.append(
                 ModuleLocation(
                     module,
-                    source_dir,
+                    organization_dir,
                     cls._is_selected_module(relative_module_dir, user_selected_modules),
                     source_paths,
                 )
@@ -109,14 +120,14 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
 
         return cls(module_locations)
 
-    def dump(self, source_dir: Path) -> None:
+    def dump(self, organization_dir: Path) -> None:
         """Dumps the module directories to the source directory.
 
         Args:
-            source_dir: The absolute path to the source directory.
+            organization_dir: The absolute path to the source directory.
         """
         for module in self:
-            module_dir = source_dir / module.relative_path
+            module_dir = organization_dir / module.relative_path
             module_dir.mkdir(parents=True, exist_ok=True)
             for source_file in module.source_paths:
                 relative_file_path = source_file.relative_to(module.dir)

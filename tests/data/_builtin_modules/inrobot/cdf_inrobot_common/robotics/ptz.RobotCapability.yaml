@@ -1,0 +1,63 @@
+name: PTZ camera
+externalId: ptz
+method: ptz
+description: Pan, tilt, zoom camera for image capture.
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  additionalProperties: false
+  id: robotics/schemas/0.1.0/capabilities/ptz
+  properties:
+    method:
+      type: string
+    parameters:
+      type: object
+      properties:
+        pan:
+          maximum: 180.0
+          minimum: -180.0
+          type: number
+        tilt:
+          maximum: 90.0
+          minimum: -90.0
+          type: number
+        zoom:
+          maximum: 100.0
+          minimum: 0.0
+          type: number
+      required:
+        - pan
+        - tilt
+        - zoom
+  required:
+    - method
+    - parameters
+  title: PTZ camera input
+  type: object
+dataHandlingSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_handling/ptz
+  properties:
+    uploadInstructions:
+      type: object
+      additionalProperties: false
+      properties:
+        image:
+          type: object
+          additionalProperties: false
+          properties:
+            method:
+              const: uploadFile
+              type: string
+            parameters:
+              type: object
+              properties:
+                filenamePrefix:
+                  type: string
+              required:
+                - filenamePrefix
+          required:
+            - method
+            - parameters
+  required:
+    - uploadInstructions
+  type: object

@@ -10,12 +10,13 @@ from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union
 
 import typer
+from cognite.client.config import global_config
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp
+from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
@@ -27,16 +28,14 @@ from cognite_toolkit._cdf_tk.commands import (
     DumpCommand,
     FeatureFlagCommand,
     PullCommand,
-    RunFunctionCommand,
-    RunTransformationCommand,
 )
-from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
     ToolkitFileNotFoundError,
     ToolkitInvalidSettingsError,
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     NodeLoader,
@@ -61,9 +60,12 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
-# Should raise if the cdf.toml is not found
-if "pytest" not in sys.modules:
-    CDF_TOML = CDFToml.load(Path.cwd())
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
+
+CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,
@@ -86,7 +88,6 @@ except AttributeError as e:
 _app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
@@ -96,7 +97,7 @@ landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
-_app.add_typer(run_app, name="run")
+_app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
@@ -257,13 +258,13 @@ def common(
 @_app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     build_dir: Annotated[
         str,
         typer.Option(
@@ -279,7 +280,7 @@ def build(
             "-e",
             help="The name of the environment to build",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     no_clean: Annotated[
         bool,
         typer.Option(
@@ -310,7 +311,7 @@ def build(
     cmd.run(
         lambda: cmd.execute(
             verbose or ctx.obj.verbose,
-            Path(source_dir),
+            Path(organization_dir),
             Path(build_dir),
             build_env_name,
             no_clean,
@@ -619,135 +620,6 @@ def describe_datamodel_cmd(
     cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
-@run_app.callback(invoke_without_command=True)
-def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk run --help[/] for more information.")
-
-
-@run_app.command("transformation")
-def run_transformation_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the transformation to run.",
-        ),
-    ],
-) -> None:
-    """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand()
-    cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
-
-
-@run_app.command("function")
-def run_function_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the function to run.",
-        ),
-    ],
-    payload: Annotated[
-        Optional[str],
-        typer.Option(
-            "--payload",
-            "-p",
-            help='Payload to send to the function, remember to escape " with \\.',
-        ),
-    ] = None,
-    follow: Annotated[
-        bool,
-        typer.Option(
-            "--follow",
-            "-f",
-            help="Use follow to wait for results of function.",
-        ),
-    ] = False,
-    local: Annotated[
-        bool,
-        typer.Option(
-            "--local",
-            "-l",
-            help="Run the function locally in a virtual environment.",
-        ),
-    ] = False,
-    rebuild_env: Annotated[
-        bool,
-        typer.Option(
-            "--rebuild-env",
-            "-r",
-            help="Rebuild the virtual environment.",
-        ),
-    ] = False,
-    no_cleanup: Annotated[
-        bool,
-        typer.Option(
-            "--no-cleanup",
-            "-n",
-            help="Do not delete the temporary build directory.",
-        ),
-    ] = False,
-    source_dir: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="Where to find the module templates to build from",
-        ),
-    ] = None,
-    schedule: Annotated[
-        Optional[str],
-        typer.Option(
-            "--schedule",
-            "-s",
-            help="Run the function locally with the credentials from the schedule specified with the cron expression.",
-        ),
-    ] = None,
-    build_env_name: Annotated[
-        str,
-        typer.Option(
-            "--env",
-            "-e",
-            help="Build environment to build for",
-        ),
-    ] = "dev",
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand()
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            external_id,
-            payload,
-            follow,
-            local,
-            rebuild_env,
-            no_cleanup,
-            source_dir,
-            schedule,
-            build_env_name,
-            verbose or ctx.obj.verbose,
-        )
-    )
-
-
 @pull_app.callback(invoke_without_command=True)
 def pull_main(ctx: typer.Context) -> None:
     """Commands to download resource configurations from CDF into the module directory."""
@@ -767,13 +639,13 @@ def pull_transformation_cmd(
             help="External id of the transformation to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the destination module templates.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -781,7 +653,7 @@ def pull_transformation_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -805,7 +677,7 @@ def pull_transformation_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             external_id,
             env,
             dry_run,
@@ -837,13 +709,13 @@ def pull_node_cmd(
             help="External id of the node to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the modules.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -851,7 +723,7 @@ def pull_node_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -876,7 +748,7 @@ def pull_node_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             NodeId(space, external_id),
             env,
             dry_run,
@@ -1150,8 +1022,9 @@ def feature_flag_main(ctx: typer.Context) -> None:
                 "\nDo not enable a flag unless you are familiar with what it does.[/]"
             )
         )
+        print("Use [bold yellow]cdf-tk features list[/] available feature flags")
         print(
-            "Use [bold yellow]cdf-tk features list[/] or [bold yellow]cdf-tk features set <flag> --enabled/--disabled[/]"
+            f"Use [bold yellow]the section cdf.feature_flags in {CDFToml.file_name!r}[/] to enable or disable feature flags."
         )
     return None
 
@@ -1161,49 +1034,7 @@ def feature_flag_list() -> None:
     """List all available feature flags."""
 
     cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.list())
-
-
-@feature_flag_app.command("set")
-def feature_flag_set(
-    flag: Annotated[
-        str,
-        typer.Argument(
-            help="Which flag to set",
-        ),
-    ],
-    enable: Annotated[
-        bool,
-        typer.Option(
-            "--enable",
-            "-e",
-            help="Enable the flag.",
-        ),
-    ] = False,
-    disable: Annotated[
-        bool,
-        typer.Option(
-            "--disable",
-            help="Disable the flag.",
-        ),
-    ] = False,
-) -> None:
-    """Enable or disable a feature flag."""
-
-    cmd = FeatureFlagCommand()
-    if enable and disable:
-        raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
-    if not enable and not disable:
-        raise ToolkitValidationError("Must specify either --enable or --disable.")
-    cmd.run(lambda: cmd.set(flag, enable))
-
-
-@feature_flag_app.command("reset")
-def feature_flag_reset() -> None:
-    """Reset all feature flags to their default values."""
-
-    cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.reset())
+    cmd.run(cmd.list)
 
 
 @user_app.callback(invoke_without_command=True)

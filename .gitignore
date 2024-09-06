@@ -289,9 +289,10 @@ my_project/
 module_upgrade/tmp*
 
 cognite_toolkit/config.local.yaml
-**/functions/**/common
 **/.venv*
 .venv.*
 build.*
 cognite_toolkit/.env.*
 module_upgrade/project_inits
+function_local_venvs/
+tests/data/run_data/build_info.dev.yaml

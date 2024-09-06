@@ -38,6 +38,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceTypes,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModel
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     module_from_path,
@@ -121,10 +122,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         loader = Loader.create_loader(cdf_tool_config, None)
 
-        if loader.resource_cls in [Transformation, FileMetadata]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -151,10 +152,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         loader = Loader.create_loader(cdf_tool_config, None)
 
-        if loader.resource_cls in [Transformation, FileMetadata]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -233,9 +234,9 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
         # Use path syntax to select all modules in the source directory
         config.environment.selected = [Path()]
 
-        source_by_build_path = BuildCommand().build_config(
+        _, source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
-            source_dir=source_path,
+            organization_dir=source_path,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=True,

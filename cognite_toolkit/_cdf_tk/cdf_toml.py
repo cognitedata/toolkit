@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import ROOT_MODULES
+from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitMissingModulesError,
     ToolkitRequiredValueError,
     ToolkitVersionError,
@@ -22,21 +21,28 @@ else:
 
 @dataclass
 class CLIConfig:
-    project_dir: Path | None = None
+    organization_dir: Path
+    default_env: str = "dev"
+    feature_flags: dict[str, bool] = field(default_factory=dict)
 
     @classmethod
-    def load(cls, raw: dict[str, Any], source_dir: Path) -> CLIConfig:
-        project_dir = source_dir / raw["project_dir"] if "project_dir" in raw else None
-        return cls(project_dir=project_dir)
+    def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
+        organization_dir = cwd / raw["organization_dir"] if "organization_dir" in raw else Path.cwd()
+        return cls(
+            organization_dir=organization_dir,
+            default_env=raw.get("default_env", "dev"),
+            feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
+        )
 
-    def get_root_module_paths(self, project_dir: Path | None = None) -> list[Path]:
-        source_path = project_dir or self.project_dir or Path.cwd()
-        sources = [module_dir for root_module in ROOT_MODULES if (module_dir := source_path / root_module).exists()]
+    def get_root_module_paths(self) -> list[Path]:
+        sources = [
+            module_dir for root_module in ROOT_MODULES if (module_dir := self.organization_dir / root_module).exists()
+        ]
         if not sources:
             directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
             raise ToolkitMissingModulesError(
                 f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
-                f"{source_path.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+                f"{self.organization_dir.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
             )
         return sources
 
@@ -70,30 +76,35 @@ class CDFToml:
     modules: ModulesConfig
 
     @classmethod
-    def load(cls, path: Path | None = None, use_singleton: bool = True) -> CDFToml:
+    def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> CDFToml:
         """Loads the cdf.toml file from the given path. If use_singleton is True, the instance will be stored as a
         singleton and returned on subsequent calls."""
         global _CDF_TOML
         if use_singleton and _CDF_TOML:
             return _CDF_TOML
-        path = path or Path.cwd()
-        file_path = path / cls.file_name
-        if not file_path.exists():
-            raise ToolkitFileNotFoundError(
-                f"Could not find {cls.file_name} in {path}. This file is required to run the toolkit."
-            )
-        # TOML files are required to be UTF-8 encoded
-        raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
-        # No required fields in the cdf section
-        cdf = CLIConfig.load(raw["cdf"], path) if "cdf" in raw else CLIConfig()
-        try:
-            modules = ModulesConfig.load(raw["modules"])
-        except KeyError as e:
-            raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-        instance = cls(cdf=cdf, modules=modules)
-        if use_singleton:
-            _CDF_TOML = instance
-        return instance
+        cwd = cwd or Path.cwd()
+        file_path = cwd / cls.file_name
+        if file_path.exists():
+            # TOML files are required to be UTF-8 encoded
+            raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
+            # No required fields in the cdf section
+            cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
+            try:
+                modules = ModulesConfig.load(raw["modules"])
+            except KeyError as e:
+                raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
+            instance = cls(cdf=cdf, modules=modules)
+            if use_singleton:
+                _CDF_TOML = instance
+            return instance
+        else:
+            return cls(cdf=CLIConfig(cwd), modules=ModulesConfig.load({"version": _version.__version__}))
 
 
 _CDF_TOML: CDFToml | None = None
+
+if __name__ == "__main__":
+    # This is a test to quickly check that the code works.
+    # also useful to check that when you change cdf.toml it is loaded correctly
+    _ROOT = Path(__file__).parent.parent.parent
+    print(CDFToml.load(_ROOT))

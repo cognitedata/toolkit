@@ -1,5 +1,18 @@
 [cdf]
-project_dir = "cognite_toolkit"
+# organization_dir is the top level directory for configuration across environments. It is typically
+# the same as 'your-organization' in https://<your-organization>.fusion.cognite.com
+# when you log in to Cognite Data Fusion.
+# Note any string without white-space is allowed.
+organization_dir = "cognite_toolkit"
+default_env = "dev"
+
+[cdf.feature_flags]
+graphql = true
+asset-dump = true
+timeseries-dump = true
+import-cmd = true
+modules-app = true
+
 
 [modules]
 # This is the version of the modules. It should not be changed manually.

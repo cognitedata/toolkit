@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, get_args
+from typing import Any, ClassVar, Literal, get_args
 
 import yaml
 from rich import print
@@ -70,12 +70,12 @@ class Environment:
 
         if missing := {"name", "project", "type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
-                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML._file_name(build_name)!s}"
+                f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML.get_filename(build_name)!s}"
             )
         build_type = data["type"]
         if build_type not in _AVAILABLE_ENV_TYPES:
             raise ToolkitEnvError(
-                f"Invalid type {build_type} in {BuildConfigYAML._file_name(build_name)!s}. "
+                f"Invalid type {build_type} in {BuildConfigYAML.get_filename(build_name)!s}. "
                 f"Must be one of {_AVAILABLE_ENV_TYPES}"
             )
 
@@ -115,11 +115,8 @@ class ConfigYAMLCore(ABC):
 class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
+    filename: ClassVar[str] = "config.{build_env}.yaml"
     variables: dict[str, Any] = field(default_factory=dict)
-
-    @classmethod
-    def _file_name(cls, build_env_name: str) -> str:
-        return f"config.{build_env_name}.yaml"
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
@@ -135,7 +132,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         build_type = self.environment.build_type
         env_name = self.environment.name
-        file_name = self._file_name(env_name)
+        file_name = self.get_filename(env_name)
         missing_message = (
             "No 'CDF_PROJECT' environment variable set. This is expected to match the project "
             f"set in environment section of {file_name!r}.\nThis is required for "
@@ -187,7 +184,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         self,
         modules_by_package: dict[str, list[str | Path]],
         available_modules: set[str | Path],
-        source_dir: Path,
+        organization_dir: Path,
         verbose: bool,
     ) -> list[str | Path]:
         selected_packages = [
@@ -204,7 +201,7 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
 
         selected_modules = [module for module in self.environment.selected if module not in modules_by_package]
         if missing := set(selected_modules) - available_modules:
-            hint = ModuleDefinition.long(missing, source_dir)
+            hint = ModuleDefinition.long(missing, organization_dir)
             raise ToolkitMissingModuleError(
                 f"The following selected modules are missing, please check path: {missing}.\n{hint}"
             )
@@ -286,7 +283,7 @@ class BuildEnvironment(Environment):
 
             if not file.exists():
                 warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
-            elif hash_ != calculate_str_or_file_hash(file):
+            elif hash_ != calculate_str_or_file_hash(file, shorten=True):
                 warning_list.append(SourceFileModifiedWarning(file))
         return warning_list
 
@@ -491,7 +488,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             entries=entries,
         )
 
-    def load_variables(self, project_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
+    def load_variables(self, organization_dir: Path, propagate_reused_variables: bool = False) -> InitConfigYAML:
         """This scans the content the files in the given directories and finds the variables.
         The motivation is to find the variables that are used in the templates, as well
         as picking up variables that are used in custom modules.
@@ -499,20 +496,20 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         Variables are marked with a {{ variable }} syntax.
 
         Args:
-            project_dir: The directory with all project configurations.
+            organization_dir: The directory with all project configurations.
             propagate_reused_variables: Whether to move variables with the same name to a shared parent.
 
         Returns:
             self
         """
         variable_by_parent_key: dict[str, set[tuple[str, ...]]] = defaultdict(set)
-        for filepath in project_dir.glob("**/*"):
+        for filepath in organization_dir.glob("**/*"):
             if filepath.suffix.lower() not in SEARCH_VARIABLES_SUFFIX:
                 continue
             if filepath.name.startswith("default"):
                 continue
             content = safe_read(filepath)
-            key_parent = filepath.parent.relative_to(project_dir).parts
+            key_parent = filepath.parent.relative_to(organization_dir).parts
             if key_parent and key_parent[-1] in LOADER_BY_FOLDER_NAME:
                 key_parent = key_parent[:-1]
 
@@ -644,7 +641,7 @@ class ConfigYAMLs(UserDict[str, InitConfigYAML]):
         for config_yaml in self.values():
             config_yaml.load_defaults(cognite_module)
 
-    def load_variables(self, project_dir: Path) -> None:
+    def load_variables(self, organization_dir: Path) -> None:
         # Can be optimized, but not a priority
         for config_yaml in self.values():
-            config_yaml.load_variables(project_dir)
+            config_yaml.load_variables(organization_dir)

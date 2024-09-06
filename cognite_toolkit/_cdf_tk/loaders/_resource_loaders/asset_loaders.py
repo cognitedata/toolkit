@@ -21,7 +21,7 @@ from .data_organization_loaders import DataSetsLoader, LabelLoader
 
 @final
 class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetList]):
-    folder_name = "assets"
+    folder_name = "classic"
     filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
@@ -32,6 +32,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     dependencies = frozenset({DataSetsLoader, LabelLoader})
     _doc_url = "Assets/operation/createAssets"
 
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
     @classmethod
     def get_id(cls, item: Asset | AssetWrite | dict) -> str:
         if isinstance(item, dict):
@@ -39,6 +43,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if not item.external_id:
             raise KeyError("Asset must have external_id")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: AssetWriteList) -> Capability | list[Capability]:

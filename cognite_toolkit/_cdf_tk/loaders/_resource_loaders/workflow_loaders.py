@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import final
+from typing import Any, final
 
 from cognite.client.data_classes import (
     Workflow,
@@ -87,6 +87,10 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         if item.external_id is None:
             raise ToolkitRequiredValueError("Workflow must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
         resource = load_yaml_inject_variables(filepath, {})
@@ -166,6 +170,10 @@ class WorkflowVersionLoader(
                 raise KeyError(*missing)
             return WorkflowVersionId(item["workflowExternalId"], item["version"])
         return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
+        return id.dump()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

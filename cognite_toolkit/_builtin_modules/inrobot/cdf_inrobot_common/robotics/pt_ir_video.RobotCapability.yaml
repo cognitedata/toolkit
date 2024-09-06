@@ -1,0 +1,64 @@
+name: PT ir video recording
+externalId: pt_ir_video
+method: pt_ir_video
+description: Pan, tilt, thermal camera for video recording
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  additionalProperties: false
+  id: robotics/schemas/0.1.0/capabilities/pt_ir_video
+  properties:
+    method:
+      type: string
+    parameters:
+      properties:
+        duration:
+          maximum: 120.0
+          minimum: 0.0
+          type: number
+        pan:
+          maximum: 180.0
+          minimum: -180.0
+          type: number
+        tilt:
+          maximum: 90.0
+          minimum: -90.0
+          type: number
+        zoom:
+          maximum: 100.0
+          minimum: 0.0
+          type: number
+      required:
+        - pan
+        - tilt
+        - duration
+      type: object
+  required:
+    - method
+    - parameters
+  title: Pan tilt thermal video recording input
+  type: object
+dataHandlingSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_handling/pt_ir_video
+  properties:
+    uploadInstructions:
+      type: object
+      additionalProperties: false
+      properties:
+        video:
+          type: object
+          additionalProperties: false
+          properties:
+            method:
+              const: uploadFile
+              type: string
+            parameters:
+              type: object
+              properties:
+                filenamePrefix:
+                  type: string
+              required:
+                - filenamePrefix
+  required:
+    - uploadInstructions
+  type: object

@@ -14,5 +14,5 @@
     ]
   }
 ],
-  "ignorePaths": ["cognite_toolkit/**"]
+  "ignorePaths": ["cognite_toolkit/", "tests/"]
 }

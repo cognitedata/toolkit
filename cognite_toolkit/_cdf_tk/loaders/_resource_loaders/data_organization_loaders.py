@@ -80,6 +80,10 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
             raise ToolkitRequiredValueError("DataSet must have external_id set.")
         return item.external_id
 
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
         resource = load_yaml_inject_variables(filepath, {})
 
@@ -149,7 +153,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 class LabelLoader(
     ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
 ):
-    folder_name = "labels"
+    folder_name = "classic"
     filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite
@@ -159,6 +163,10 @@ class LabelLoader(
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
 
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
         if isinstance(item, dict):
@@ -166,6 +174,10 @@ class LabelLoader(
         if not item.external_id:
             raise ToolkitRequiredValueError("LabelDefinition must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_required_capability(cls, items: LabelDefinitionWriteList) -> Capability | list[Capability]:

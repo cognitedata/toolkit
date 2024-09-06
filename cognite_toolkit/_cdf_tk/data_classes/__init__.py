@@ -1,3 +1,15 @@
+from ._build_info import (
+    BuildLocation,
+    BuildLocationEager,
+    BuildLocationLazy,
+    BuiltModule,
+    BuiltModuleList,
+    ModuleResources,
+    ResourceBuildInfo,
+    ResourceBuildInfoFull,
+    ResourceBuiltFullList,
+    ResourceBuiltList,
+)
 from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
@@ -8,6 +20,7 @@ from ._config_yaml import (
     InitConfigYAML,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
+from ._packages import Package, Packages
 
 __all__ = [
     "InitConfigYAML",
@@ -20,4 +33,16 @@ __all__ = [
     "ModuleDirectories",
     "BuildVariable",
     "BuildVariables",
+    "Package",
+    "Packages",
+    "ModuleResources",
+    "BuildLocation",
+    "ResourceBuildInfo",
+    "ResourceBuiltList",
+    "BuiltModule",
+    "BuiltModuleList",
+    "BuildLocationEager",
+    "BuildLocationLazy",
+    "ResourceBuiltFullList",
+    "ResourceBuildInfoFull",
 ]

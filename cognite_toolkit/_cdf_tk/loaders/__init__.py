@@ -15,6 +15,8 @@ import itertools
 import sys
 from typing import Literal
 
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
@@ -26,6 +28,7 @@ from ._resource_loaders import (
     FileMetadataLoader,
     FunctionLoader,
     FunctionScheduleLoader,
+    GraphQLLoader,
     GroupAllScopedLoader,
     GroupLoader,
     GroupResourceScopedLoader,
@@ -49,6 +52,9 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
+_EXCLUDED_LOADERS = set()
+if not FeatureFlag.is_enabled(Flags.GRAPHQL):
+    _EXCLUDED_LOADERS.add(GraphQLLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -57,7 +63,7 @@ for _loader in itertools.chain(
     DataLoader.__subclasses__(),
     GroupLoader.__subclasses__(),
 ):
-    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, GroupLoader]:
+    if _loader in [ResourceLoader, ResourceContainerLoader, DataLoader, GroupLoader] or _loader in _EXCLUDED_LOADERS:
         # Skipping base classes
         continue
     if _loader.folder_name not in LOADER_BY_FOLDER_NAME:  # type: ignore[attr-defined]
@@ -72,11 +78,10 @@ RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
-    "assets",
     "auth",
+    "classic",
     "data_models",
     "data_sets",
-    "labels",
     "locations",
     "transformations",
     "files",
@@ -89,8 +94,15 @@ ResourceTypes: TypeAlias = Literal[
     "workflows",
 ]
 
+
+def get_loader(resource_dir: str, kind: str) -> type[Loader]:
+    for loader in LOADER_BY_FOLDER_NAME[resource_dir]:
+        if loader.kind == kind:
+            return loader
+    raise ValueError(f"Loader not found for {resource_dir} and {kind}")
+
+
 __all__ = [
-    "LOADER_BY_FOLDER_NAME",
     "GroupLoader",
     "GroupAllScopedLoader",
     "GroupResourceScopedLoader",
@@ -123,4 +135,9 @@ __all__ = [
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "get_loader",
+    "LOADER_BY_FOLDER_NAME",
+    "LOADER_LIST",
+    "RESOURCE_LOADER_LIST",
+    "RESOURCE_CONTAINER_LOADER_LIST",
 ]

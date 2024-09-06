@@ -103,6 +103,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -256,6 +260,10 @@ class DatapointSubscriptionLoader(
         if isinstance(item, dict):
             return item["externalId"]
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     @lru_cache(maxsize=1)

@@ -133,10 +133,10 @@ tableName: myTable
 
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
-    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment):
+    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment) -> None:
         state = _BuildState()
         cmd = BuildCommand(print_warning=False)
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
-        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, {}, False)
+        yaml_warnings, *_ = cmd.validate(raw_yaml, source_path, destination, state, {})
         assert not yaml_warnings

@@ -1,0 +1,51 @@
+externalId: str
+name: str
+ignoreNullFields: bool
+query: str | None
+destination:
+#  one of:
+#    type:
+#    - "asset_hierarchy"
+#    - "assets"
+#    - "data_sets"
+#    - "datapoints"
+#    - "events"
+#    - "files"
+#    - "labels"
+#    - "relationships"
+#    - "sequences"
+#    - "string_datapoints"
+#    - "timeseries"
+#    edges:
+#      view: ViewInfo | None
+#      instance_space: str | None
+#      edge_type: EdgeType | None
+#    instances:
+#      data_model: DataModelInfo | None
+#      instance_space: str | None
+#    nodes:
+#      view: ViewInfo | None
+#      instance_space: str | None
+#    raw:
+#      database: str
+#      table: str
+#    sequenceRows:
+#      external_id: str
+conflictMode:
+#  optional:
+#    one of:
+#    - "abort"
+#    - "delete"
+#    - "update"
+#    - "upsert"
+isPublic: bool
+authentication:
+#  optional OidcCredentials:
+#    clientId: str
+#    clientSecret: str
+#    scopes: str | list[str]
+#    tokenUri: str
+#    cdfProjectName: str
+#    audience: str | None
+dataSetExternalId: str | None
+tags: list[str] | None

@@ -1,0 +1,94 @@
+- name: "contextualize_robot_data"
+  functionExternalId: "fn_contextualize_robot_data"
+  description: "Contextualizes the robot data and adds appropriate labels"
+  cronExpression: "* * * * *"
+  data:
+    gauge_context_label: robot_gauge
+    read_dial_gauge_label: read_dial_gauge
+    read_multiple_dial_gauges_label: read_multiple_dial_gauges
+    read_digital_gauge_label: read_digital_gauge
+    read_level_gauge_label: read_level_gauge
+    read_valve_label: read_valve
+    read_ir_raw_label: read_ir
+    spill_detection_label: unprocessed_spill_detection
+    data_set_external_id: "{{robot_1_dataset_ext_id}}"
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: "read_dial_gauge"
+  functionExternalId: "fn_gauge_reading"
+  description: "Reads the dial gauge data from the robot"
+  cronExpression: "* * * * *"
+  data:
+    gauge_type: dial # The gauge type to use in the API call. Currently, "analog", "digital" and "level" is supported.
+    input_label: read_dial_gauge # Label to list files by
+    output_label: gauge_reading # Label that is added to all files that the function has run on.
+    success_label: SUCCESS
+    failed_label: FAILED
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: read_level_gauge
+  functionExternalId: "fn_gauge_reading"
+  description: "Reads the level gauge data from the robot"
+  cronExpression: "* * * * *"
+  data:
+    gauge_type: level # The gauge type to use in the API call. Currently, "analog", "digital" and "level" is supported.
+    input_label: read_level_gauge # Label to list files by
+    output_label: gauge_reading # Label that is added to all files that the function has run on.
+    success_label: SUCCESS
+    failed_label: FAILED
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: read_digital_gauge
+  functionExternalId: "fn_gauge_reading"
+  cronExpression: "* * * * *"
+  data:
+    gauge_type: digital # The gauge type to use in the API call. Currently, "analog", "digital" and "level" is supported.
+    input_label: read_digital_gauge # Label to list files by
+    output_label: gauge_reading # Label that is added to all files that the function has run on.
+    success_label: SUCCESS
+    failed_label: FAILED
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: read_valve
+  functionExternalId: "fn_gauge_reading"
+  description: "Reads the valve data from the robot"
+  cronExpression: "* * * * *"
+  data:
+    gauge_type: valve # The gauge type to use in the API call. Currently, "analog", "digital" and "level" is supported.
+    input_label: read_valve # Label to list files by
+    output_label: gauge_reading # Label that is added to all files that the function has run on.
+    success_label: SUCCESS
+    failed_label: FAILED
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: get_ir_data
+  functionExternalId: "fn_get_ir_data_from_ir_raw"
+  cronExpression: "* * * * *"
+  data:
+    input_label: read_ir # Label to list files by
+    output_label: ir_finished # Label that is added to all files that the function has run on
+    success_label: SUCCESS_IR
+    failed_label: FAILED_IR
+    data_set_external_id: "{{robot_1_dataset_ext_id}}"
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"
+
+- name: threesixty
+  functionExternalId: "fn_threesixty"
+  cronExpression: "* * * * *"
+  data:
+    data_set_external_id: "{{robot_1_dataset_ext_id}}"
+  authentication:
+    clientId: "{{ run_function_client_id }}"
+    clientSecret: "{{ run_function_secret }}"

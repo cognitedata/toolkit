@@ -1,0 +1,22 @@
+name: str
+externalId: str | None
+description: str | None
+owner: str | None
+functionPath: str
+secrets:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+envVars:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+cpu: float | None
+memory: float | None
+runtime: py38 | py39 | py310 | py311 | None
+metadata:
+#  optional dict[str,str]:
+#    key1: value1
+#    key2: value2
+indexUrl: str | None
+extraIndexUrls: list[str] | None

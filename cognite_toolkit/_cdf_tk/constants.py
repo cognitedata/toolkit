@@ -20,6 +20,7 @@ CONFIG_FILE_SUFFIX = "config.yaml"
 GLOBAL_CONFIG_FILE = "global.yaml"
 
 COGNITE_MODULES = "cognite_modules"
+BUILTIN_MODULES = "_builtin_modules"
 CUSTOM_MODULES = "custom_modules"
 ALT_CUSTOM_MODULES = "modules"
 
@@ -38,11 +39,21 @@ SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".csv", ".txt", ".md", ".html", ".py"])
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
+BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
 
 SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
+
+# This is a regular expression that matches any non-word character or underscore
+# It is used to clean the feature flag names.
+_CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+
+def clean_name(name: str) -> str:
+    """Cleans the name by removing any non-word characters or underscores."""
+    return _CLEAN_PATTERN.sub("", name).casefold()
 
 
 class URL:

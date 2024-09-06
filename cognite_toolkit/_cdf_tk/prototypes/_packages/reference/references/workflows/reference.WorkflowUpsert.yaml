@@ -1,0 +1,2 @@
+externalId: str
+description: str | None
