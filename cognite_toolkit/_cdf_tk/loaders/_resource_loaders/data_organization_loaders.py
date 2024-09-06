@@ -163,6 +163,10 @@ class LabelLoader(
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
 
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
         if isinstance(item, dict):

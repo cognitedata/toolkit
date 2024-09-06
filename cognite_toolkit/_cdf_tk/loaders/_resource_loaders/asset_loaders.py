@@ -32,6 +32,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     dependencies = frozenset({DataSetsLoader, LabelLoader})
     _doc_url = "Assets/operation/createAssets"
 
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
     @classmethod
     def get_id(cls, item: Asset | AssetWrite | dict) -> str:
         if isinstance(item, dict):
