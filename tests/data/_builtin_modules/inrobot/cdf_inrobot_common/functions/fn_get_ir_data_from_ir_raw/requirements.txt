@@ -1,6 +1,6 @@
 arrow==1.0.3
 certifi==2024.7.4
-chardet==4.0.0
+chardet==5.2.0
 cognite-extractor-utils==1.4.2
 cognite-sdk==2.56.1
 dacite==1.8.1
