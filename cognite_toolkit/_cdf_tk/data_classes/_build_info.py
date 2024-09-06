@@ -336,6 +336,7 @@ class BuildInfo(ConfigCore):
                 packages=cdf_toml.modules.packages,
                 clean=True,
                 verbose=False,
+                progress_bar=True,
             )
 
         new_build = cls(

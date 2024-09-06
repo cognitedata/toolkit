@@ -17,7 +17,7 @@ class TestBuildConfigYAML:
         available_modules = {module.name for module, _ in iterate_modules(PROJECT_FOR_TEST)}
         config.environment.selected = list(available_modules)
 
-        BuildCommand().build_config(
+        BuildCommand(silent=True).build_config(
             BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
 

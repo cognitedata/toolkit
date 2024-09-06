@@ -9,16 +9,17 @@ import shutil
 import sys
 import traceback
 from collections import Counter, defaultdict
-from collections.abc import Hashable, Mapping
+from collections.abc import Hashable, Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import yaml
 from cognite.client._api.functions import validate_function_folder
 from rich import print
 from rich.panel import Panel
+from rich.progress import track
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
@@ -158,6 +159,7 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
+        progress_bar: bool = False,
     ) -> tuple[BuiltModuleList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
@@ -210,7 +212,7 @@ class BuildCommand(ToolkitCommand):
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
         state, built_modules = self.build_modules(
-            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
+            modules.selected, build_dir, variables, module_names_by_variable_key, verbose, progress_bar
         )
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
@@ -274,20 +276,28 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
+        progress_bar: bool = False,
     ) -> tuple[_BuildState, BuiltModuleList]:
         build = BuiltModuleList()
         state = _BuildState()
         warning_count = len(self.warning_list)
-        for module in modules:
+        if progress_bar:
+            modules_iter = cast(
+                Iterable[ModuleLocation], track(modules, description="Building modules", transient=True)
+            )
+        else:
+            modules_iter = modules
+        for module in modules_iter:
             if verbose:
                 self.console(f"Processing module {module.name}")
             module_variables = variables.get_module_variables(module)
             try:
-                build_resources = self._build_module(
+                built_resources = self._build_module(
                     module, build_dir, module_variables, module_names_by_variable_key, state, verbose
                 )
             except ToolkitError as e:
                 built_status = type(e).__name__
+                built_resources = {}
             else:
                 built_status = "Success"
 
@@ -302,7 +312,7 @@ class BuildCommand(ToolkitCommand):
                         absolute_path=module.dir,
                     ),
                     build_variables=module_variables,
-                    resources=build_resources,
+                    resources=built_resources,
                     warning_count=module_warnings,
                     status=built_status,
                 )
