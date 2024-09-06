@@ -22,12 +22,14 @@ Changes are grouped as follows:
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
 - Support for `LocationFilter` in the `locations` folder.
+- Command `cdf modules list` to list all modules.
 
 ## Changed
 
 - The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
   This enables multiple schedules with the same cron expression for the same function.
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
+- [BREAKING] The resource `Label` is now in the resource folder `classic_model` and not in the `labels` folder.
 
 ### Fixed
 
