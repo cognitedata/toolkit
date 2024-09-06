@@ -277,7 +277,7 @@ class BuildCommand(ToolkitCommand):
         state = _BuildState()
         for module in modules:
             if verbose:
-                print(f"  [bold green]INFO:[/] Processing module {module.name}")
+                self.console(f"Processing module {module.name}")
 
             module_variables = variables.get_module_variables(module)
 
@@ -385,7 +385,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
     ) -> ResourceBuildList:
         if verbose:
-            print(f"    [bold green]INFO:[/] Processing {source_path.name}")
+            self.console(f"Processing {source_path.name}")
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -609,8 +609,8 @@ class BuildCommand(ToolkitCommand):
 
         return function_path_by_external_id
 
-    @staticmethod
     def copy_files_to_upload_to_build_directory(
+        self,
         file_to_upload: list[Path],
         resource_files_build_folder: list[Path],
         state: _BuildState,
@@ -626,7 +626,7 @@ class BuildCommand(ToolkitCommand):
         if len(file_to_upload) == 0:
             return
 
-        template_name = BuildCommand._get_file_template_name(resource_files_build_folder, module_dir, verbose)
+        template_name = self._get_file_template_name(resource_files_build_folder, module_dir, verbose)
 
         for filepath in file_to_upload:
             destination_stem = filepath.stem
@@ -636,8 +636,9 @@ class BuildCommand(ToolkitCommand):
             destination = state.create_destination_path(new_source, FileLoader.folder_name, module_dir, build_dir)
             shutil.copyfile(filepath, destination)
 
-    @staticmethod
-    def _get_file_template_name(resource_files_build_folder: list[Path], module_dir: Path, verbose: bool) -> str | None:
+    def _get_file_template_name(
+        self, resource_files_build_folder: list[Path], module_dir: Path, verbose: bool
+    ) -> str | None:
         # We only support one file template definition per module.
         configuration_files = [
             file for file in resource_files_build_folder if FileMetadataLoader.is_supported_file(file)
@@ -667,8 +668,8 @@ class BuildCommand(ToolkitCommand):
             return None
         template_name = template["name"]
         if verbose:
-            print(
-                f"      [bold green]INFO:[/] Detected file template name {template_name!r} in "
+            self.console(
+                f"Detected file template name {template_name!r} in "
                 f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
             )
         return template_name
