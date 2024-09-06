@@ -346,12 +346,13 @@ class BuildInfo(ConfigCore):
         if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env)):
             # Merge the existing modules with the new modules
             new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
+            existing_modules_by_path = {module.location.path: module for module in existing.modules.modules}
+            all_module_paths = set(new_modules_by_path) | set(existing_modules_by_path)
+
             module_list = BuiltModuleList(
                 [
-                    new_modules_by_path[existing_module.location.path]
-                    if existing_module.location.path in new_modules_by_path
-                    else existing_module
-                    for existing_module in existing.modules.modules
+                    new_modules_by_path[path] if path in new_modules_by_path else existing_modules_by_path[path]
+                    for path in all_module_paths
                 ]
             )
             new_build.modules.modules = module_list
@@ -365,7 +366,7 @@ class BuildInfo(ConfigCore):
             existing = cls.load_from_directory(organization_dir, build_env)
         except FileNotFoundError:
             return None
-        if existing.modules.modules != _version.__version__:
+        if existing.modules.version != _version.__version__:
             return None
         return existing
 
