@@ -37,8 +37,9 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleBuiltInfo,
     ModuleBuiltList,
     ModuleDirectories,
+    ModuleLocation,
     ResourceBuildInfo,
-    ResourceBuildList,
+    ResourceBuiltList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -279,55 +280,9 @@ class BuildCommand(ToolkitCommand):
 
             module_variables = variables.get_module_variables(module)
 
-            files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
-
-            build_resources: dict[str, ResourceBuildList] = defaultdict(ResourceBuildList)
-            for resource_directory_name, directory_files in files_by_resource_directory.items():
-                build_folder: list[Path] = []
-                for source_path in directory_files.resource_files:
-                    destination = state.create_destination_path(
-                        source_path, resource_directory_name, module.dir, build_dir
-                    )
-
-                    resource_info = self._replace_variables_validate_to_build_directory(
-                        source_path, destination, module_variables, state, module_names_by_variable_key, verbose
-                    )
-                    build_folder.append(destination)
-                    build_resources[resource_directory_name].extend(resource_info)
-
-                if resource_directory_name == FunctionLoader.folder_name:
-                    self._validate_function_directory(state, directory_files, module.dir)
-                    self.validate_and_copy_function_directory_to_build(
-                        resource_files_build_folder=build_folder,
-                        state=state,
-                        module_dir=module.dir,
-                        build_dir=build_dir,
-                    )
-                elif resource_directory_name == FileLoader.folder_name:
-                    self.copy_files_to_upload_to_build_directory(
-                        file_to_upload=directory_files.other_files,
-                        resource_files_build_folder=build_folder,
-                        state=state,
-                        module_dir=module.dir,
-                        build_dir=build_dir,
-                        verbose=verbose,
-                    )
-                else:
-                    for source_path in directory_files.other_files:
-                        destination = state.create_destination_path(
-                            source_path, resource_directory_name, module.dir, build_dir
-                        )
-                        destination.parent.mkdir(parents=True, exist_ok=True)
-                        if (
-                            resource_directory_name == DatapointsLoader.folder_name
-                            and source_path.suffix.lower() == ".csv"
-                        ):
-                            self._copy_and_timeshift_csv_files(source_path, destination)
-                        else:
-                            if verbose:
-                                self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
-                            # Copy the file as is, not variable replacement
-                            shutil.copyfile(source_path, destination)
+            build_resources = self._build_module(
+                module, build_dir, module_variables, module_names_by_variable_key, state, verbose
+            )
 
             build.append(
                 ModuleBuiltInfo(
@@ -341,6 +296,60 @@ class BuildCommand(ToolkitCommand):
                 )
             )
         return state, build
+
+    def _build_module(
+        self,
+        module: ModuleLocation,
+        build_dir: Path,
+        module_variables: BuildVariables,
+        module_names_by_variable_key: dict[str, list[str]],
+        state: _BuildState,
+        verbose: bool,
+    ) -> dict[str, ResourceBuiltList]:
+        files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
+        build_resources: dict[str, ResourceBuiltList] = defaultdict(ResourceBuiltList)
+        for resource_directory_name, directory_files in files_by_resource_directory.items():
+            build_folder: list[Path] = []
+            for source_path in directory_files.resource_files:
+                destination = state.create_destination_path(source_path, resource_directory_name, module.dir, build_dir)
+
+                resource_info = self._replace_variables_validate_to_build_directory(
+                    source_path, destination, module_variables, state, module_names_by_variable_key, verbose
+                )
+                build_folder.append(destination)
+                build_resources[resource_directory_name].extend(resource_info)
+
+            if resource_directory_name == FunctionLoader.folder_name:
+                self._validate_function_directory(state, directory_files, module.dir)
+                self.validate_and_copy_function_directory_to_build(
+                    resource_files_build_folder=build_folder,
+                    state=state,
+                    module_dir=module.dir,
+                    build_dir=build_dir,
+                )
+            elif resource_directory_name == FileLoader.folder_name:
+                self.copy_files_to_upload_to_build_directory(
+                    file_to_upload=directory_files.other_files,
+                    resource_files_build_folder=build_folder,
+                    state=state,
+                    module_dir=module.dir,
+                    build_dir=build_dir,
+                    verbose=verbose,
+                )
+            else:
+                for source_path in directory_files.other_files:
+                    destination = state.create_destination_path(
+                        source_path, resource_directory_name, module.dir, build_dir
+                    )
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    if resource_directory_name == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
+                        self._copy_and_timeshift_csv_files(source_path, destination)
+                    else:
+                        if verbose:
+                            self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
+                        # Copy the file as is, not variable replacement
+                        shutil.copyfile(source_path, destination)
+        return build_resources
 
     def _validate_function_directory(
         self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
@@ -379,7 +388,7 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> ResourceBuildList:
+    ) -> ResourceBuiltList:
         if verbose:
             self.console(f"Processing {source_path.name}")
 
@@ -402,7 +411,7 @@ class BuildCommand(ToolkitCommand):
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return ResourceBuildList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
+        return ResourceBuiltList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None

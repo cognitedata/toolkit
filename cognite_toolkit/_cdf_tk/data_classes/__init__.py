@@ -5,10 +5,10 @@ from ._build_info import (
     ModuleBuiltInfo,
     ModuleBuiltList,
     ModuleResources,
-    ResourceBuildFullList,
     ResourceBuildInfo,
     ResourceBuildInfoFull,
-    ResourceBuildList,
+    ResourceBuiltFullList,
+    ResourceBuiltList,
 )
 from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
@@ -38,11 +38,11 @@ __all__ = [
     "ModuleResources",
     "BuildLocation",
     "ResourceBuildInfo",
-    "ResourceBuildList",
+    "ResourceBuiltList",
     "ModuleBuiltInfo",
     "ModuleBuiltList",
     "BuildLocationEager",
     "BuildLocationLazy",
-    "ResourceBuildFullList",
+    "ResourceBuiltFullList",
     "ResourceBuildInfoFull",
 ]

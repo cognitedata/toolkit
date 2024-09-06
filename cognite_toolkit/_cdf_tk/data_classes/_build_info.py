@@ -171,7 +171,7 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
         return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
-class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
+class ResourceBuiltList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[ResourceBuildInfo[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
@@ -183,11 +183,11 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
     def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildList[T_ID]: ...
+    def __getitem__(self, index: slice) -> ResourceBuiltList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuildList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuiltList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildList[T_ID](super().__getitem__(index))
+            return ResourceBuiltList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
 
     @property
@@ -195,7 +195,7 @@ class ResourceBuildList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
         return [resource.identifier for resource in self]
 
 
-class ResourceBuildFullList(ResourceBuildList[T_ID]):
+class ResourceBuiltFullList(ResourceBuiltList[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
@@ -207,11 +207,11 @@ class ResourceBuildFullList(ResourceBuildList[T_ID]):
     def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuildFullList[T_ID]: ...
+    def __getitem__(self, index: slice) -> ResourceBuiltFullList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuildFullList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuiltFullList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuildFullList[T_ID](super().__getitem__(index))
+            return ResourceBuiltFullList[T_ID](super().__getitem__(index))
         return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
 
 
@@ -220,7 +220,7 @@ class ModuleBuiltInfo:
     name: str
     location: BuildLocation
     build_variables: BuildVariables
-    resources: dict[str, ResourceBuildList]
+    resources: dict[str, ResourceBuiltList]
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> ModuleBuiltInfo:
@@ -229,7 +229,7 @@ class ModuleBuiltInfo:
             location=BuildLocation.load(data["location"]),
             build_variables=BuildVariables.load(data["build_variables"]),
             resources={
-                key: ResourceBuildList([ResourceBuildInfo.load(resource_data, key) for resource_data in resources_data])
+                key: ResourceBuiltList([ResourceBuildInfo.load(resource_data, key) for resource_data in resources_data])
                 for key, resources_data in data["resources"].items()
             },
         )
@@ -265,8 +265,8 @@ class ModuleBuiltList(list, MutableSequence[ModuleBuiltInfo]):
             return ModuleBuiltList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildFullList[T_ID]:
-        return ResourceBuildFullList[T_ID](
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuiltFullList[T_ID]:
+        return ResourceBuiltFullList[T_ID](
             [
                 resource.create_full(module, resource_dir)
                 for module in self
@@ -434,7 +434,7 @@ class ModuleResources:
 
     def list_resources(
         self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
-    ) -> ResourceBuildFullList[T_ID]:
+    ) -> ResourceBuiltFullList[T_ID]:
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}
