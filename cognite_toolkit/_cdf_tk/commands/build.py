@@ -34,8 +34,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildLocationEager,
     BuildLocationLazy,
     BuildVariables,
-    ModuleBuildInfo,
-    ModuleBuildList,
+    ModuleBuiltInfo,
+    ModuleBuiltList,
     ModuleDirectories,
     ResourceBuildInfo,
     ResourceBuildList,
@@ -156,7 +156,7 @@ class BuildCommand(ToolkitCommand):
         clean: bool = False,
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
-    ) -> tuple[ModuleBuildList, dict[Path, Path]]:
+    ) -> tuple[ModuleBuiltList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -207,9 +207,7 @@ class BuildCommand(ToolkitCommand):
                 if variable.location in module_location.relative_path.parts:
                     module_names_by_variable_key[variable.key].append(module_location.name)
 
-        state, build = self.process_config_files(
-            modules.selected, build_dir, variables, module_names_by_variable_key, verbose
-        )
+        state, build = self.build_modules(modules.selected, build_dir, variables, module_names_by_variable_key, verbose)
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
@@ -265,15 +263,15 @@ class BuildCommand(ToolkitCommand):
                 f"the environment ({config.environment.name})?"
             )
 
-    def process_config_files(
+    def build_modules(
         self,
         modules: ModuleDirectories,
         build_dir: Path,
         variables: BuildVariables,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool = False,
-    ) -> tuple[_BuildState, ModuleBuildList]:
-        build = ModuleBuildList()
+    ) -> tuple[_BuildState, ModuleBuiltList]:
+        build = ModuleBuiltList()
         state = _BuildState()
         for module in modules:
             if verbose:
@@ -332,7 +330,7 @@ class BuildCommand(ToolkitCommand):
                             shutil.copyfile(source_path, destination)
 
             build.append(
-                ModuleBuildInfo(
+                ModuleBuiltInfo(
                     name=module.name,
                     location=BuildLocationLazy(
                         path=module.relative_path,

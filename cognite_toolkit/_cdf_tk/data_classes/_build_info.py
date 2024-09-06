@@ -117,7 +117,7 @@ class ResourceBuildInfo(Generic[T_ID]):
             "kind": self.kind,
         }
 
-    def create_full(self, module: ModuleBuildInfo, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
+    def create_full(self, module: ModuleBuiltInfo, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
         return ResourceBuildInfoFull(
             identifier=self.identifier,
             location=self.location,
@@ -216,14 +216,14 @@ class ResourceBuildFullList(ResourceBuildList[T_ID]):
 
 
 @dataclass
-class ModuleBuildInfo:
+class ModuleBuiltInfo:
     name: str
     location: BuildLocation
     build_variables: BuildVariables
     resources: dict[str, ResourceBuildList]
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> ModuleBuildInfo:
+    def load(cls, data: dict[str, Any]) -> ModuleBuiltInfo:
         return cls(
             name=data["name"],
             location=BuildLocation.load(data["location"]),
@@ -246,23 +246,23 @@ class ModuleBuildInfo:
 
 
 @dataclass
-class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
+class ModuleBuiltList(list, MutableSequence[ModuleBuiltInfo]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ModuleBuildInfo] | None = None) -> None:
+    def __init__(self, collection: Collection[ModuleBuiltInfo] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ModuleBuildInfo]:
+    def __iter__(self) -> Iterator[ModuleBuiltInfo]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ModuleBuildInfo: ...
+    def __getitem__(self, index: SupportsIndex) -> ModuleBuiltInfo: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ModuleBuildList: ...
+    def __getitem__(self, index: slice) -> ModuleBuiltList: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleBuildInfo | ModuleBuildList:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> ModuleBuiltInfo | ModuleBuiltList:
         if isinstance(index, slice):
-            return ModuleBuildList(super().__getitem__(index))
+            return ModuleBuiltList(super().__getitem__(index))
         return super().__getitem__(index)
 
     def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuildFullList[T_ID]:
@@ -279,13 +279,13 @@ class ModuleBuildList(list, MutableSequence[ModuleBuildInfo]):
 @dataclass
 class ModulesInfo:
     version: str
-    modules: ModuleBuildList
+    modules: ModuleBuiltList
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> ModulesInfo:
         return cls(
             version=data["version"],
-            modules=ModuleBuildList([ModuleBuildInfo.load(module_data) for module_data in data["modules"]]),
+            modules=ModuleBuiltList([ModuleBuiltInfo.load(module_data) for module_data in data["modules"]]),
         )
 
     def dump(self) -> dict[str, Any]:
@@ -339,7 +339,7 @@ class BuildInfo(ConfigCore):
         if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env)):
             # Merge the existing modules with the new modules
             new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
-            module_list = ModuleBuildList(
+            module_list = ModuleBuiltList(
                 [
                     new_modules_by_path[existing_module.location.path]
                     if existing_module.location.path in new_modules_by_path
@@ -442,7 +442,7 @@ class ModuleResources:
                 self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
 
-    def list(self) -> ModuleBuildList:
+    def list(self) -> ModuleBuiltList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(self._current_modules, self._current_variables):
