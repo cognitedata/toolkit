@@ -1049,7 +1049,7 @@ def user_main(ctx: typer.Context) -> None:
 @user_app.command("info")
 def user_info() -> None:
     """Print information about user"""
-    tracker = Tracker("".join(sys.argv[1:]))
+    tracker = Tracker()
     print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 

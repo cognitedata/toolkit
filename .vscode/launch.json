@@ -165,6 +165,15 @@
       "justMyCode": false
     },
     {
+      "name": "Python: build local",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["build", "--env", "local", "./my_organization"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: modules init",
       "type": "debugpy",
       "request": "launch",
@@ -183,6 +192,18 @@
       "init", 
       "--all",
       "--clean"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules list",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+        "list",
+        "--env", "local"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
