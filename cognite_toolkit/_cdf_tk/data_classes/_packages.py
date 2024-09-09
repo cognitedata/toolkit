@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, MutableMapping, Mapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, overload
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 
 from ._module_directories import ModuleDirectories, ModuleLocation
-from ._module_toml import ModuleToml
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 
 if sys.version_info >= (3, 11):
     import toml

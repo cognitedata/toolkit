@@ -7,10 +7,11 @@ from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
-from ._module_toml import ModuleToml
 
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
+
+from ._module_toml import ModuleToml
 
 
 @dataclass(frozen=True)
