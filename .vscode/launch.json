@@ -187,6 +187,18 @@
       "justMyCode": false
     },
     {
+      "name": "Python: modules list",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+        "list",
+        "--env", "local"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: modules upgrade",
       "type": "debugpy",
       "request": "launch",

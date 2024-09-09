@@ -160,6 +160,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
         progress_bar: bool = False,
+        skip_tracking: bool = False,
     ) -> tuple[BuiltModuleList, dict[Path, Path]]:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:

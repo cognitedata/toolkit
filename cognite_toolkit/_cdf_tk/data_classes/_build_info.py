@@ -337,6 +337,7 @@ class BuildInfo(ConfigCore):
                 clean=True,
                 verbose=False,
                 progress_bar=True,
+                skip_tracking=True,
             )
 
         new_build = cls(
