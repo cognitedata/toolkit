@@ -12,25 +12,35 @@ from ._base import ToolkitCommand
 
 
 class RepoCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        skip_git_verify: bool = False,
+    ) -> None:
         super().__init__(print_warning=print_warning, skip_tracking=skip_tracking, silent=silent)
         self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
+        self.skip_git_verify = skip_git_verify
 
     def init(self, cwd: Path, verbose: bool = False) -> None:
-        if (git_root := _cli_commands.git_root()) is None:
-            if not _cli_commands.use_git():
-                self.warn(
-                    MediumSeverityWarning("git is not installed. It is strongly recommended to use version control.")
+        if not self.skip_git_verify:
+            if (git_root := _cli_commands.git_root()) is None:
+                if not _cli_commands.use_git():
+                    self.warn(
+                        MediumSeverityWarning(
+                            "git is not installed. It is strongly recommended to use version control."
+                        )
+                    )
+                elif not _cli_commands.has_initiated_repo():
+                    self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
+                else:
+                    self.warn(MediumSeverityWarning("Unknown error when trying to find git root."))
+            if cwd != git_root:
+                raise ToolkitValueError(
+                    f"Current working directory is not the root of the git repository. "
+                    f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
                 )
-            elif not _cli_commands.has_initiated_repo():
-                self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
-            else:
-                self.warn(MediumSeverityWarning("Unknown error when trying to find git root."))
-        if cwd != git_root:
-            raise ToolkitValueError(
-                f"Current working directory is not the root of the git repository. "
-                f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
-            )
 
         if verbose:
             self.console("Initializing git repository...")
