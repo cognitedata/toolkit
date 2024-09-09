@@ -37,7 +37,7 @@ def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
 
 
 @pytest.mark.skip("Needs investigation")
-def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
+def test_run_function(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
     function = Function(
         id=1234567890,
         name="test3",
@@ -59,7 +59,7 @@ def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: A
     cmd = RunFunctionCommand()
 
     cmd.run_cdf(
-        cdf_tool_config,
+        cdf_tool_mock,
         organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test3",
@@ -70,11 +70,11 @@ def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: A
 
 
 @pytest.mark.skip("Needs investigation")
-def test_run_local_function(cdf_tool_config: CDFToolConfig) -> None:
+def test_run_local_function(cdf_tool_mock: CDFToolConfig) -> None:
     cmd = RunFunctionCommand()
 
     cmd.run_local(
-        ToolGlobals=cdf_tool_config,
+        ToolGlobals=cdf_tool_mock,
         organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test3",

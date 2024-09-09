@@ -26,17 +26,15 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
-@pytest.mark.skip("Need to rethink")
-@pytest.mark.usefixtures("cdf_toml")
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    organization_dir: Path,
 ) -> None:
-    config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
+    config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
     config_yaml["variables"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected"] = ["cdf_infield_location"]
@@ -51,7 +49,7 @@ def test_inject_custom_environmental_variables(
 
     build(
         typer_context,
-        organization_dir=str(init_project),
+        organization_dir=organization_dir,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -96,20 +94,20 @@ def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project_mutable: Path,
+    organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
     transformation_yaml = (
-        init_project_mutable
+        organization_dir_mutable
         / "modules"
         / "examples"
         / "example_pump_asset_hierarchy"
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
-    loader = TransformationLoader.create_loader(cdf_tool_config, None)
+    loader = TransformationLoader.create_loader(cdf_tool_mock, None)
 
     def load_transformation() -> TransformationWrite:
         # Injecting variables into the transformation file, so we can load it.
@@ -123,7 +121,7 @@ def test_pull_transformation(
         content = content.replace("{{cicd_audience}}", "123")
         transformation_yaml.write_text(content)
 
-        transformation = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
+        transformation = loader.load_resource(transformation_yaml, cdf_tool_mock, skip_validation=True)
         # Write back original content
         transformation_yaml.write_text(original)
         return cast(TransformationWrite, transformation)
@@ -137,7 +135,7 @@ def test_pull_transformation(
 
     pull_transformation_cmd(
         typer_context,
-        organization_dir=init_project_mutable,
+        organization_dir=organization_dir_mutable,
         external_id=read_transformation.external_id,
         env="dev",
         dry_run=False,
@@ -151,7 +149,7 @@ def test_pull_transformation(
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
     # Create a datamodel and append it to the approval client

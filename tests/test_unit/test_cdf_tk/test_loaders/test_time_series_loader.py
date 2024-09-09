@@ -25,12 +25,12 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_no_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config_real, skip_validation=True)
+        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == -1
@@ -38,15 +38,15 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_with_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        cdf_tool_config_real._cache.data_set_id_by_external_id["ds_timeseries_oid"] = 12345
+        cdf_tool_real._cache.data_set_id_by_external_id["ds_timeseries_oid"] = 12345
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
 
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
 
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_config_real, skip_validation=True)
+        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == 12345

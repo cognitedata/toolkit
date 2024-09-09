@@ -126,16 +126,16 @@ class TestViewLoader:
         assert len(unchanged) == 1
 
     def test_unchanged_view_int_version(
-        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = ViewLoader.create_loader(cdf_tool_config, None)
+        loader = ViewLoader.create_loader(cdf_tool_mock, None)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
 
-        local_view: dm.ViewApplyList = loader.load_resource(file, cdf_tool_config, False)
+        local_view: dm.ViewApplyList = loader.load_resource(file, cdf_tool_mock, False)
 
         cdf_view = dm.View(
             space="sp_space",
@@ -219,7 +219,7 @@ class TestViewLoader:
 
         assert list(actual) == expected
 
-    def test_are_equal_version_int(self, cdf_tool_config: CDFToolConfig) -> None:
+    def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
         local_view = dm.ViewApply.load("""space: sp_space
 externalId: my_view
 version: 1""")
@@ -239,7 +239,7 @@ version: 1""")
             properties={},
         )
 
-        loader = ViewLoader.create_loader(cdf_tool_config, None)
+        loader = ViewLoader.create_loader(cdf_tool_mock, None)
 
         _, local_dumped, cdf_dumped = loader.are_equal(local_view, cdf_view, return_dumped=True)
 

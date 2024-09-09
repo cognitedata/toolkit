@@ -70,11 +70,11 @@ nodes:
         self,
         yamL_raw: str,
         expected: NodeApplyListWithCall,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = NodeLoader.create_loader(cdf_tool_config, None)
+        loader = NodeLoader.create_loader(cdf_tool_mock, None)
         mock_read_yaml_file({"my_node.yaml": yaml.safe_load(yamL_raw)}, monkeypatch)
-        loaded = loader.load_resource(Path("my_node.yaml"), cdf_tool_config, skip_validation=True)
+        loaded = loader.load_resource(Path("my_node.yaml"), cdf_tool_mock, skip_validation=True)
 
         assert loaded.dump() == expected.dump()

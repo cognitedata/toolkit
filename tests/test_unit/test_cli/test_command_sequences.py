@@ -61,9 +61,9 @@ def test_build_deploy_module(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    organization_dir: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
@@ -73,7 +73,7 @@ def test_build_deploy_module(
 
     build(
         typer_context,
-        organization_dir=str(init_project),
+        organization_dir=str(organization_dir),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -112,15 +112,15 @@ def test_build_deploy_with_dry_run(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    organization_dir: Path,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     build(
         typer_context,
-        organization_dir=str(init_project),
+        organization_dir=str(organization_dir),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -149,16 +149,16 @@ def test_init_build_clean(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    organization_dir: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
     build(
         typer_context,
-        organization_dir=str(init_project),
+        organization_dir=str(organization_dir),
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,

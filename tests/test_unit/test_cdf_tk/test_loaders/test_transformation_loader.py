@@ -44,19 +44,19 @@ conflictMode: upsert
     def test_no_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
         mock_read_yaml_file({"transformation.yaml": yaml.CSafeLoader(self.trafo_yaml).get_data()}, monkeypatch)
-        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None
 
     def test_oidc_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -74,14 +74,14 @@ conflictMode: upsert
 
         mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
 
-        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+        loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
         assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
         assert loaded.destination is not None
 
     def test_oidc_raise_if_invalid(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -96,12 +96,12 @@ conflictMode: upsert
         mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
 
         with pytest.raises(ToolkitYAMLFormatError):
-            loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+            loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
 
     def test_sql_file(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -112,13 +112,13 @@ conflictMode: upsert
 
         with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
             with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
-                loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+                loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
                 assert loaded.query == self.trafo_sql
 
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -128,13 +128,13 @@ conflictMode: upsert
         mock_read_yaml_file({"transformation.yaml": resource}, monkeypatch)
 
         with patch.object(TransformationLoader, "_get_query_file", return_value=None):
-            loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+            loaded = loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
             assert loaded.query == resource["query"]
 
     def test_if_ambiguous(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config_real: CDFToolConfig,
+        cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -144,7 +144,7 @@ conflictMode: upsert
         with pytest.raises(ToolkitYAMLFormatError):
             with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
                 with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
-                    loader.load_resource(Path("transformation.yaml"), cdf_tool_config_real, skip_validation=False)
+                    loader.load_resource(Path("transformation.yaml"), cdf_tool_real, skip_validation=False)
 
     @pytest.mark.parametrize(
         "item, expected",

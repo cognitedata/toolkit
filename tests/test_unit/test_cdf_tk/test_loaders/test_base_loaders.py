@@ -110,20 +110,20 @@ class TestDeployResources:
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(cdf_tool_config, None)
+        loader = Loader.create_loader(cdf_tool_mock, None)
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
-        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_config, None)
+        loader = Loader.create_loader(cdf_tool_mock, None)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -143,7 +143,7 @@ class TestFormatConsistency:
         mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
 
         loaded = loader.load_resource(
-            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_mock, skip_validation=True
         )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
@@ -151,9 +151,9 @@ class TestFormatConsistency:
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
-        self, Loader: type[ResourceLoader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_config, None)
+        loader = Loader.create_loader(cdf_tool_mock, None)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -177,7 +177,7 @@ class TestFormatConsistency:
         mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
 
         loaded = loader.load_resource(
-            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_config, skip_validation=True
+            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_mock, skip_validation=True
         )
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
@@ -194,8 +194,8 @@ class TestFormatConsistency:
     @pytest.mark.parametrize(
         "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = Loader.create_loader(cdf_tool_config, None)
+    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = Loader.create_loader(cdf_tool_mock, None)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
@@ -312,7 +312,7 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_empty_required_capabilities_when_no_items(
-        self, loader_cls: type[ResourceLoader], cdf_tool_config: CDFToolConfig
+        self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig
     ):
         actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]))
 
@@ -332,9 +332,9 @@ class TestResourceLoaders:
 
 
 class TestLoaders:
-    def test_unique_display_names(self, cdf_tool_config: CDFToolConfig):
+    def test_unique_display_names(self, cdf_tool_mock: CDFToolConfig):
         name_by_count = Counter(
-            [loader_cls.create_loader(cdf_tool_config, None).display_name for loader_cls in LOADER_LIST]
+            [loader_cls.create_loader(cdf_tool_mock, None).display_name for loader_cls in LOADER_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}

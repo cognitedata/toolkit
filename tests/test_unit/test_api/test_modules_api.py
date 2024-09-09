@@ -42,7 +42,7 @@ class TestModulesAPI:
         self,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
     ) -> None:
         module = cognite_toolkit.modules.retrieve("cdf_auth_readwrite_all")
         assert isinstance(module, dc.ModuleMeta)
@@ -65,7 +65,7 @@ class TestModulesAPI:
         self,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
     ):
         module = cognite_toolkit.modules.retrieve("cdf_infield_common")
 
@@ -82,7 +82,7 @@ class TestModulesAPI:
         module_name: str,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
     ) -> None:
         toolkit_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
@@ -97,7 +97,7 @@ class TestModulesAPI:
         module_name: str,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
     ):
         toolkit_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
