@@ -19,6 +19,7 @@ from rich.tree import Tree
 
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
     UPDATE_MODULE_VERSION_DOCSTRING,
@@ -27,7 +28,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     ManualChange,
     UpdateModuleVersion,
 )
-from cognite_toolkit._cdf_tk.commands._cli_commands import CLICommands
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     BUILTIN_MODULES_PATH,
