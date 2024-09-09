@@ -1,0 +1,64 @@
+externalId: 'ep_src_timeseries_{{location_name}}_{{source_name}}'
+config:
+    # Version of the config schema
+    version: 1
+
+    source:
+        # The URL of the OPC-UA server to connect to
+        endpoint-url: '{{opcua_endpoint_url}}'
+        force-restart: true
+        browse-nodes-chunk: 100
+        subscription-chunk: 1000
+        keep-alive-interval: 50000
+        sampling-interval: 0
+        queue-length: 10
+        browse-throttling:
+            max-node-parallelism: 1000
+        retries:
+            timeout: 0
+            max-tries: 10
+            max-delay: 20s
+            initial-delay: 2s
+            retry-status-codes:
+                - 2150694912
+                - 2148007936
+    cognite:
+        # The project to connect to in the API, uses the environment variable COGNITE_PROJECT.
+        project: ${CDF_PROJECT}
+        host: ${CDF_URL}
+
+        # If this is set to true, credentials can be left out, and the extractor
+        # will read data without pushing it to CDF.
+        debug: false
+        non-finite-replacement:
+        data-set-external-id: 'ds_timeseries_{{location_name}}'
+        cdf-chunking:
+            data-point-time-series: 500
+            data-points: 10000
+
+    extraction:
+        # Global prefix for externalId in destinations. Should be unique to prevent name conflicts.
+        id-prefix: '{{opcua_id_prefix}}'
+
+        # Source node in the OPC-UA server. Leave empty to use the top level Objects node.
+        # If root-nodes is set, this is added to the list of root nodes.
+        root-node:
+            # Full name of the namespace of the root node.
+            namespace-uri: '{{opcua_root_namespace_uri}}'
+            # Id of the root node, on the form "i=123" or "s=stringid" etc.
+            node-id: '{{opcua_root_node_id}}'
+
+        # Time in minutes between each call to browse the OPC-UA directory, then push new nodes to destinations.
+        # Note that this is a heavy operation, so this number should not be set too low.
+        # Alternatively, use N[timeunit] where timeunit is w, d, h, m, s or ms.
+        auto-rebrowse-period: 1m
+        # Enable using audit events to discover new nodes. If this is set to true, the client will expect AuditAddNodes/AuditAddReferences
+        # events on the server node. These will be used to add new nodes automatically, by recursively browsing from each given ParentId.
+        enable-audit-discovery: true
+
+        # Config for how OPC-UA data-types are mapped to destinations
+        data-types:
+            # Add full JSON node-ids to data pushed to Raw. TypeDefintionId, ParentNodeId, NodeId and DataTypeId.
+            expand-node-ids: true
+            allow-string-variables: true
+            auto-identify-types: true

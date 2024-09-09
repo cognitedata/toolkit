@@ -29,6 +29,8 @@ Changes are grouped as follows:
 - The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
   This enables multiple schedules with the same cron expression for the same function.
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
+- Cognite_modules is removed and replaced with internal directory `_builtin_modules`.
+  Modules can be copied into `modules` manually or through the `cdf modules init` command.
 - [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
 
 ### Fixed

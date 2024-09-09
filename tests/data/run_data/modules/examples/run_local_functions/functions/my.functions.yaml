@@ -1,0 +1,13 @@
+- name: 'test3'
+  externalId: 'fn_test3'
+  owner: 'Anonymous'
+  description: 'Returns the input data, secrets, and function info.'
+  metadata:
+    version: '{{version}}'
+  secrets:
+    mysecret: '{{example_secret}}'
+  functionPath: './handler.py'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'

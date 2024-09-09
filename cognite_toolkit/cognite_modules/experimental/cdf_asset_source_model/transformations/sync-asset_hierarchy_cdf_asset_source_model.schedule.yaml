@@ -1,3 +1,0 @@
-externalId: tr_sync-asset_hierarchy_cdf_asset_source_model
-interval: '{{scheduleHourly}}'
-isPaused: true

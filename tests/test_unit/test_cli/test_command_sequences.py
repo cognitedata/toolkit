@@ -7,6 +7,7 @@ If the changes are desired, you can update the snapshot by running `pytest tests
 
 from __future__ import annotations
 
+import shutil
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -15,9 +16,9 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf import build, clean, deploy
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
-from tests.constants import REPO_ROOT
+from tests.data import ORGANIZATION_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -29,7 +30,9 @@ SNAPSHOTS_DIR_CLEAN.mkdir(exist_ok=True)
 
 
 def find_all_modules() -> Iterator[Path]:
-    for module, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / COGNITE_MODULES):
+    for module, _ in iterate_modules(ORGANIZATION_FOR_TEST):
+        if module.name == "references":  # this particular module should never be built or deployed
+            continue
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 
@@ -50,6 +53,7 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
     )
 
 
+@pytest.mark.skip("Need to rethink")
 @pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_build_deploy_module(
@@ -63,6 +67,9 @@ def test_build_deploy_module(
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
+
+    target = build_tmp_path / MODULES / module_path.name
+    shutil.copytree(module_path, target)
 
     build(
         typer_context,

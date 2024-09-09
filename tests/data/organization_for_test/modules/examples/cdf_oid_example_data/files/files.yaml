@@ -1,0 +1,4 @@
+- externalId: {{source_files}}_PH-$FILENAME
+  dataSetExternalId: ds_files_{{default_location}}
+  source: {{source_files}}
+  name: PH-$FILENAME
