@@ -36,9 +36,6 @@ class RepoCommand(ToolkitCommand):
 
         if verbose:
             self.console("Initializing git repository...")
-            self.console(
-                f"Will create {[abs_file.relative_to(self._repo_files) for abs_file in self._repo_files.iterdir()]} in {cwd}"
-            )
 
         for file in self._repo_files.rglob("*"):
             destination = cwd / file.relative_to(self._repo_files)
@@ -47,5 +44,5 @@ class RepoCommand(ToolkitCommand):
                 continue
             shutil.copy(file, destination)
             if verbose:
-                self.console(f"Created {destination}")
+                self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
         self.console("Repo initialization complete.")

@@ -26,8 +26,9 @@ class RepoApp(typer.Typer):
                 help="",
             ),
         ] = Path.cwd(),
+        verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     ) -> None:
         """Initialize a new git repository with files like .gitignore, cdf.toml, and so on."""
 
         cmd = RepoCommand()
-        cmd.run(lambda: cmd.init(cwd=cwd))
+        cmd.run(lambda: cmd.init(cwd=cwd, verbose=verbose))
