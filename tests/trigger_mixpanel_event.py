@@ -15,7 +15,7 @@ def main() -> None:
         # To ensure that cdf.toml is loaded correctly
         _ = CDFToml.load()
         tracker = Tracker(" ".join(sys.argv))
-        tracker.track_command(WarningList([]), "Success", "test")
+        tracker.track_cli_command(WarningList([]), "Success", "test")
         print("Event sent")
 
 
