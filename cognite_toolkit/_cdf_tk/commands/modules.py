@@ -85,12 +85,12 @@ class ModulesCommand(ToolkitCommand):
 
     def _create(
         self,
-        organization_dir: str,
+        organization_dir: Path,
         selected_packages: dict[str, list[SelectableModule]],
         environments: list[str],
         mode: str | None,
     ) -> None:
-        modules_root_dir = Path(organization_dir) / MODULES
+        modules_root_dir = organization_dir / MODULES
         if mode == "clean":
             if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
@@ -131,7 +131,7 @@ class ModulesCommand(ToolkitCommand):
 
     def init(
         self,
-        organization_dir: Optional[str] = None,
+        organization_dir: Optional[Path] = None,
         arg_package: Optional[str] = None,
         all: Optional[bool] = False,
         clean: Optional[bool] = False,
@@ -141,19 +141,19 @@ class ModulesCommand(ToolkitCommand):
         mode = "new"
 
         if not organization_dir:
-            organization_dir = questionary.text(
+            organization_dir_raw = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
                 default="my_organization",
             ).ask()
-            if not organization_dir or organization_dir.strip() == "":
+            if not organization_dir_raw or organization_dir_raw.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
+            organization_dir = Path(organization_dir_raw)
 
-        organization_dir_path = Path(organization_dir)
         modules_root_dir = Path(organization_dir) / MODULES
 
         if all:
             print(Panel("instantiating all available modules"))
-            self._copy_all(organization_dir_path=organization_dir_path, clean=clean)
+            self._copy_all(organization_dir_path=organization_dir, clean=clean)
             return
 
         print("\n")

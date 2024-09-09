@@ -27,7 +27,7 @@ class ModulesApp(typer.Typer):
     def init(
         self,
         organization_dir: Annotated[
-            Optional[str],
+            Optional[Path],
             typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
