@@ -12,6 +12,7 @@ from pathlib import Path
 
 from mixpanel import Consumer, Mixpanel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
@@ -36,6 +37,7 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Name"] = warning
 
         def track() -> None:
+            cdf_toml = CDFToml.load()
             # If we are unable to connect to Mixpanel, we don't want to crash the program
             with suppress(ConnectionError):
                 self.mp.track(
@@ -53,6 +55,7 @@ class Tracker:
                         "CICD": self._cicd,
                         **positional_args,
                         **optional_args,
+                        **{f"featureFlag-{name}": value for name, value in cdf_toml.cdf.feature_flags.items()},
                     },
                 )
 
