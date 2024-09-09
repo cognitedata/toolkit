@@ -153,7 +153,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 class LabelLoader(
     ResourceLoader[str, LabelDefinitionWrite, LabelDefinition, LabelDefinitionWriteList, LabelDefinitionList]
 ):
-    folder_name = "labels"
+    folder_name = "classic"
     filename_pattern = r"^.*Label$"  # Matches all yaml files whose stem ends with *Label.
     resource_cls = LabelDefinition
     resource_write_cls = LabelDefinitionWrite
@@ -162,6 +162,10 @@ class LabelLoader(
     kind = "Label"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
+
+    @property
+    def display_name(self) -> str:
+        return self.kind
 
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
