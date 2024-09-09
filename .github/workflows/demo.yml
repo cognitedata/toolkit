@@ -35,6 +35,8 @@ jobs:
         run: python ./demo/old_init.py
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py
+      - name: "Not collect metrics"
+        run: cdf collect opt-out
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       # be careful, this works as promised
