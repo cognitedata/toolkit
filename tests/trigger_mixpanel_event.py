@@ -23,46 +23,50 @@ def track_cli_command() -> None:
         # To ensure that cdf.toml is loaded correctly
         _ = CDFToml.load()
         tracker = Tracker()
-        tracker.track_cli_command(WarningList([]), "Success", "test")
-        print("Event sent")
+        is_sent = tracker.track_cli_command(WarningList([]), "Success", "test")
+        if is_sent:
+            print("Event sent")
+        else:
+            print("Event not sent")
 
 
 def track_module_build() -> None:
     with chdir(REPO_ROOT):
         # To ensure that cdf.toml is loaded correctly
         tracker = Tracker()
-        tracker.track_module_build(
-            BuiltModule(
-                "cdf_module_test",
-                location=BuildLocationEager(
-                    path=Path("modules/cdf_module_test"),
-                    _hash="hash",
-                ),
-                build_variables=BuildVariables([]),
-                resources={
-                    "files": ResourceBuiltList(
-                        [
-                            ResourceBuildInfo(
-                                "file1", BuildLocationEager(Path("files/file1.yaml"), "hash"), kind="File"
-                            ),
-                        ]
-                    ),
-                    "functions": ResourceBuiltList(
-                        [
-                            ResourceBuildInfo(
-                                "function1",
-                                BuildLocationEager(Path("functions/function1.yaml"), "hash"),
-                                kind="Function",
-                            )
-                        ]
-                    ),
-                },
-                warning_count=4,
-                status="success",
-            )
-        )
-        print("Event sent")
+        is_sent = tracker.track_module_build(DEMO_MODULE)
+        if is_sent:
+            print("Event sent")
+        else:
+            print("Event not sent")
 
+
+DEMO_MODULE = BuiltModule(
+    "cdf_module_test",
+    location=BuildLocationEager(
+        path=Path("modules/cdf_module_test"),
+        _hash="hash",
+    ),
+    build_variables=BuildVariables([]),
+    resources={
+        "files": ResourceBuiltList(
+            [
+                ResourceBuildInfo("file1", BuildLocationEager(Path("files/file1.yaml"), "hash"), kind="File"),
+            ]
+        ),
+        "functions": ResourceBuiltList(
+            [
+                ResourceBuildInfo(
+                    "function1",
+                    BuildLocationEager(Path("functions/function1.yaml"), "hash"),
+                    kind="Function",
+                )
+            ]
+        ),
+    },
+    warning_count=4,
+    status="success",
+)
 
 if __name__ == "__main__":
     track_module_build()
