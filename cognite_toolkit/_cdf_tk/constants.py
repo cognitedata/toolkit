@@ -23,6 +23,7 @@ BUILTIN_MODULES = "_builtin_modules"
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 MODULES = "modules"
+REPO_FILES = "_repo_files"
 
 ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"
