@@ -135,6 +135,8 @@ jobs:
         run: cdf modules init demo_project --clean --all
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py --modules all
+      - name: "Not collect metrics"
+        run: cdf collect opt-out
       - name: "Build the templates"
         run: cdf build --build-dir=./build --env=demo ./demo_project
       - name: "Verify and create access rights"
