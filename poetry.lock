@@ -325,13 +325,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-extractor-utils"
-version = "7.4.1"
+version = "7.4.3"
 description = "Utilities for easier development of extractors for CDF"
 optional = false
 python-versions = "<4.0.0,>=3.9.0"
 files = [
-    {file = "cognite_extractor_utils-7.4.1-py3-none-any.whl", hash = "sha256:454770e5422c02621fa7327d5875358a5359e777503e54a65122a23d2a1a8b96"},
-    {file = "cognite_extractor_utils-7.4.1.tar.gz", hash = "sha256:715dc3f99e74e5a387accc59022313f400d99600cd20b32e3cd009d94b42db4f"},
+    {file = "cognite_extractor_utils-7.4.3-py3-none-any.whl", hash = "sha256:9043d4c6eac9959662632dd700d42f6c6f01a597a08fd4821e1023cf0365c715"},
+    {file = "cognite_extractor_utils-7.4.3.tar.gz", hash = "sha256:7b69a1353a459e423cf6468267420cfbd459296c550dfa25880f8aebf4255c6b"},
 ]
 
 [package.dependencies]
