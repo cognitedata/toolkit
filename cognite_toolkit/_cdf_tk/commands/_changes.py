@@ -8,7 +8,6 @@ from pathlib import Path
 from packaging.version import Version
 from packaging.version import parse as parse_version
 
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
