@@ -64,7 +64,7 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir / BUILTIN_MODULES / "_system.yaml"
+        system_yaml = self._organization_dir /  "cognite_modules" / "_system.yaml"
         if not system_yaml.exists():
             return set()
         new_system_yaml = self._organization_dir / "_system.yaml"
