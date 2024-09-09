@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 from collections.abc import Iterator
@@ -17,7 +16,7 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.constants import ROOT_PATH
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.constants import REPO_ROOT
+from tests.constants import REPO_ROOT, chdir
 from tests.data import ORGANIZATION_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
@@ -25,25 +24,6 @@ from tests.test_unit.utils import PrintCapture
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
-
-
-@contextlib.contextmanager
-def chdir(new_dir: Path) -> Iterator[None]:
-    """
-    Change directory to new_dir and return to the original directory when exiting the context.
-
-    Args:
-        new_dir: The new directory to change to.
-
-    """
-    current_working_dir = Path.cwd()
-    os.chdir(new_dir)
-
-    try:
-        yield
-
-    finally:
-        os.chdir(current_working_dir)
 
 
 @pytest.fixture
