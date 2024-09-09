@@ -11,4 +11,4 @@ if __name__ == "__main__":
         verbose=True,
     )
 
-    ModulesCommand(skip_tracking=True).init(DEMO_PROJECT)
+    ModulesCommand(skip_tracking=True).init(DEMO_PROJECT, all=True, clean=True)
