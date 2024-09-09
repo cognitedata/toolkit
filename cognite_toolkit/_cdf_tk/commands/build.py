@@ -317,7 +317,7 @@ class BuildCommand(ToolkitCommand):
                 status=built_status,
             )
             build.append(built_module)
-            self._track_module_build(built_module)
+            self.tracker.track_modul_command(built_module)
         return state, build
 
     def _build_module(

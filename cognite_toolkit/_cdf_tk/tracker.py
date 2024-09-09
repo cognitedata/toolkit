@@ -21,16 +21,16 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, user_command: str, skip_tracking: bool) -> None:
-        self.user_command = user_command
+    def __init__(self, skip_tracking: bool) -> None:
+        self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = self.opted_out or skip_tracking
+        self._cdf_toml = CDFToml.load()
 
     def track_cli_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
         if self.skip_tracking:
             return
-        distinct_id = self.get_distinct_id()
         positional_args, optional_args = self._parse_sys_args()
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
@@ -39,14 +39,7 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
-        def track() -> None:
-            cdf_toml = CDFToml.load()
-            # If we are unable to connect to Mixpanel, we don't want to crash the program
-            with suppress(ConnectionError):
-                self.mp.track(
-                    distinct_id,
-                    f"command{cmd.capitalize()}",
-                    {
+        data = {
                         "userInput": self.user_command,
                         "toolkitVersion": __version__,
                         "warningTotalCount": len(warning_list),
@@ -58,8 +51,21 @@ class Tracker:
                         "CICD": self._cicd,
                         **positional_args,
                         **optional_args,
-                        **{f"featureFlag-{name}": value for name, value in cdf_toml.cdf.feature_flags.items()},
-                    },
+                        **{f"featureFlag-{name}": value for name, value in self._cdf_toml.cdf.feature_flags.items()},
+                    }
+        self._track(f"command{cmd.capitalize()}", data)
+
+    def _track(self, event_name: str, data)-> :
+        if self.skip_tracking:
+            return
+        distinct_id = self.get_distinct_id()
+        def track() -> None:
+            # If we are unable to connect to Mixpanel, we don't want to crash the program
+            with suppress(ConnectionError):
+                self.mp.track(
+                    distinct_id,
+                    command,
+                    data,
                 )
 
         thread = threading.Thread(

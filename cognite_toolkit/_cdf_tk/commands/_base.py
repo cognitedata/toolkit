@@ -29,13 +29,8 @@ class ToolkitCommand:
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         self._print_warning = print_warning
         self.silent = silent
-        if len(sys.argv) > 1:
-            self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
-        else:
-            self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(self.user_command, skip_tracking)
-        self.skip_tracking =
+        self.tracker = Tracker(skip_tracking)
 
     @property
     def print_warning(self) -> bool:
