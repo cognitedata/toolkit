@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
+    EnvType,
 )
 from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
 from cognite_toolkit._cdf_tk.data_classes._packages import Package, Packages, SelectableModule
@@ -78,43 +79,44 @@ class ModulesCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         selected_packages: dict[str, list[SelectableModule]],
-        environments: list[str],
-        mode: Literal["new", "clean"] | None,
+        environments: list[EnvType],
+        mode: Literal["new", "clean", "update"] | None,
     ) -> None:
         modules_root_dir = organization_dir / MODULES
-        if mode == "clean":
-            if modules_root_dir.is_dir():
-                print(f"{INDENT}[yellow]Clearing directory[/]")
-                shutil.rmtree(modules_root_dir)
+        if mode == "clean" and modules_root_dir.is_dir():
+            print(f"{INDENT}[yellow]Clearing directory[/]")
+            shutil.rmtree(modules_root_dir)
 
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
-        variable_sections: list[str | Path] = []
+        selected_modules: list[str | Path] = []
         for package, modules in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package}[/]")
 
             for module in modules:
                 print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module}[/]")
                 target_dir = modules_root_dir / module.name
-                if Path(target_dir).exists() and mode == "update":
-                    if questionary.confirm(
+                if (
+                    Path(target_dir).exists()
+                    and mode == "update"
+                    and questionary.confirm(
                         f"{INDENT}Module {module} already exists in folder {target_dir}. Would you like to overwrite?",
                         default=False,
-                    ).ask():
-                        shutil.rmtree(target_dir)
-                    else:
-                        continue
-                variable_sections.append(module.name)
+                    ).ask()
+                ):
+                    shutil.rmtree(target_dir)
+                else:
+                    continue
                 shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns("default.*"))
+                selected_modules.append(module.name)
 
         for environment in environments:
-            # if mode == "update":
             config_init = InitConfigYAML(
                 Environment(
                     name=environment,
                     project=f"<my-project-{environment}>",
-                    build_type="dev" if environment == "dev" else "prod",
-                    selected=variable_sections if len(variable_sections) > 0 else ["empty"],
+                    build_type=environment,
+                    selected=selected_modules if len(selected_modules) > 0 else ["modules/"],
                 )
             ).load_selected_defaults(self._builtin_modules_path)
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")

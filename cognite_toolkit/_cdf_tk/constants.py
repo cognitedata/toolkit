@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+from typing_extensions import Literal, TypeAlias
+
 try:
     from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]
 except ModuleNotFoundError:
@@ -50,6 +52,8 @@ INDEX_PATTERN = re.compile("^[0-9]+\\.")
 # This is a regular expression that matches any non-word character or underscore
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 
 
 def clean_name(name: str) -> str:

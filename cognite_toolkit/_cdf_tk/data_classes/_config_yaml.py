@@ -12,7 +12,6 @@ from typing import Any, ClassVar, Literal, get_args
 
 import yaml
 from rich import print
-from typing_extensions import TypeAlias
 
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -21,6 +20,7 @@ from cognite_toolkit._cdf_tk.constants import (
     MODULE_PATH_SEP,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
+    EnvType,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
@@ -43,8 +43,6 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._version import __version__
 
 from ._base import ConfigCore, _load_version_variable
-
-EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
