@@ -33,8 +33,13 @@ from cognite_toolkit._cdf_tk.constants import (
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
     EnvType,
 )
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
-from cognite_toolkit._cdf_tk.data_classes._packages import Package, Packages, SelectableModule
+from cognite_toolkit._cdf_tk.data_classes import (
+    Environment,
+    InitConfigYAML,
+    ModuleResources,
+    Package,
+    Packages,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
@@ -78,7 +83,7 @@ class ModulesCommand(ToolkitCommand):
     def _create(
         self,
         organization_dir: Path,
-        selected_packages: dict[str, list[SelectableModule]],
+        selected_packages: Packages,
         environments: list[EnvType],
         mode: Literal["new", "clean", "update"] | None,
     ) -> None:
@@ -89,26 +94,32 @@ class ModulesCommand(ToolkitCommand):
 
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
-        selected_modules: list[str | Path] = []
-        for package, modules in selected_packages.items():
-            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package}[/]")
+        seen_modules: set[Path] = set()
+        selected_paths: set[Path] = set()
+        for package_name, package in selected_packages.items():
+            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
-            for module in modules:
-                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module}[/]")
-                target_dir = modules_root_dir / module.name
-                if (
-                    Path(target_dir).exists()
-                    and mode == "update"
-                    and questionary.confirm(
-                        f"{INDENT}Module {module} already exists in folder {target_dir}. Would you like to overwrite?",
-                        default=False,
-                    ).ask()
-                ):
-                    shutil.rmtree(target_dir)
-                else:
+            for module in package.modules:
+                if module.dir in seen_modules:
+                    # A module can be part of multiple packages
                     continue
-                shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns("default.*"))
-                selected_modules.append(module.name)
+                seen_modules.add(module.dir)
+                # Add the module and its parent paths to the selected paths, use to load the default.config.yaml
+                # files
+                selected_paths.update(module.parent_relative_paths)
+                selected_paths.add(module.relative_path)
+
+                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
+                target_dir = modules_root_dir / module.relative_path
+                if Path(target_dir).exists() and mode == "update":
+                    if questionary.confirm(
+                        f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
+                        default=False,
+                    ).ask():
+                        shutil.rmtree(target_dir)
+                    else:
+                        continue
+                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
             config_init = InitConfigYAML(
@@ -116,9 +127,9 @@ class ModulesCommand(ToolkitCommand):
                     name=environment,
                     project=f"<my-project-{environment}>",
                     build_type=environment,
-                    selected=selected_modules if len(selected_modules) > 0 else ["modules/"],
+                    selected=[f"{MODULES}/"],
                 )
-            ).load_selected_defaults(self._builtin_modules_path)
+            ).load_defaults(self._builtin_modules_path, selected_paths)
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
@@ -143,9 +154,8 @@ class ModulesCommand(ToolkitCommand):
         if select_all:
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
-            selected = {package.name: package.modules for package in packages}
             self._create(
-                organization_dir=organization_dir, selected_packages=selected, environments=["dev", "prod"], mode=mode
+                organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
             )
             return
 
@@ -208,8 +218,8 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def _select_packages(self, packages: Packages) -> dict[str, list[SelectableModule]]:
-        selected: dict[str, list[SelectableModule]] = {}
+    def _select_packages(self, packages: Packages) -> Packages:
+        selected = Packages()
         while True:
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
@@ -227,7 +237,7 @@ class ModulesCommand(ToolkitCommand):
                 instruction="Use arrow up/down and ⮐  to save",
                 choices=[
                     questionary.Choice(title=f"{package.title}: {package.description}", value=package)
-                    for package in packages
+                    for package in packages.values()
                 ],
                 pointer=POINTER,
                 style=custom_style_fancy,

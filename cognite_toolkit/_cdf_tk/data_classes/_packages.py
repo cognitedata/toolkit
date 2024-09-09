@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, Mapping, MutableMapping
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,3 +78,22 @@ class Packages(dict, MutableMapping[str, Package]):
                 if tag in collected:
                     collected[tag].modules.append(module)
         return cls(collected)
+
+    # The methods are overloads to provide type hints for the methods.
+    def items(self) -> ItemsView[str, Package]:
+        return super().items()
+
+    def keys(self) -> KeysView[str]:
+        return super().keys()
+
+    def values(self) -> ValuesView[Package]:
+        return self.values()
+
+    def __iter__(self) -> Iterator[str]:
+        yield from super().__iter__()
+
+    def __getitem__(self, package_name: str) -> Package:
+        return super().__getitem__(package_name)
+
+    def get(self, __key: str) -> Package:
+        return super().get(__key)
