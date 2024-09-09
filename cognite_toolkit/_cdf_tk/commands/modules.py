@@ -123,8 +123,8 @@ class ModulesCommand(ToolkitCommand):
     def init(
         self,
         organization_dir: Optional[Path] = None,
-        all: Optional[bool] = False,
-        clean: Optional[bool] = False,
+        select_all: bool = False,
+        clean: bool = False,
     ) -> None:
         if not organization_dir:
             organization_dir_raw = questionary.text(
@@ -138,7 +138,7 @@ class ModulesCommand(ToolkitCommand):
         modules_root_dir = organization_dir / MODULES
         packages = Packages().load(self._builtin_modules_path)
 
-        if all:
+        if select_all:
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
             self._create(
@@ -253,7 +253,7 @@ class ModulesCommand(ToolkitCommand):
         return selected
 
     @staticmethod
-    def _verify_clean(modules_root_dir: Path, clean: bool | None) -> Literal["new", "clean"]:
+    def _verify_clean(modules_root_dir: Path, clean: bool) -> Literal["new", "clean"]:
         if clean:
             return "clean"
         if not modules_root_dir.is_dir():

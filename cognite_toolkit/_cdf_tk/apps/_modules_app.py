@@ -55,7 +55,7 @@ class ModulesApp(typer.Typer):
         cmd.run(
             lambda: cmd.init(
                 organization_dir=organization_dir,
-                all=all,
+                select_all=all,
                 clean=clean,
             )
         )
