@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, Iterator, Mapping, MutableMapping, ValuesView, dict_items, dict_keys
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -80,13 +80,13 @@ class Packages(dict, MutableMapping[str, Package]):
         return cls(collected)
 
     # The methods are overloads to provide type hints for the methods.
-    def items(self) -> dict_items[str, Package]:
+    def items(self) -> ItemsView[str, Package]:  # type: ignore[override]
         return super().items()
 
-    def keys(self) -> dict_keys[str]:
+    def keys(self) -> KeysView[str]:  # type: ignore[override]
         return super().keys()
 
-    def values(self) -> ValuesView[Package]:
+    def values(self) -> ValuesView[Package]:  # type: ignore[override]
         return super().values()
 
     def __iter__(self) -> Iterator[str]:
@@ -94,6 +94,3 @@ class Packages(dict, MutableMapping[str, Package]):
 
     def __getitem__(self, package_name: str) -> Package:
         return super().__getitem__(package_name)
-
-    def get(self, __key: str) -> Package:
-        return super().get(__key)

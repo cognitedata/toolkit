@@ -70,16 +70,14 @@ class ModulesCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
 
-    def _build_tree(self, item: Packages | ModuleLocation, tree: Tree) -> None:
+    @staticmethod
+    def _build_tree(item: Packages | ModuleLocation, tree: Tree) -> None:
         if not isinstance(item, Packages):
             return
         for key, value in item.items():
             subtree = tree.add(key)
             for subvalue in value.modules:
-                if isinstance(subvalue, dict):
-                    self._build_tree(subvalue, subtree)
-                else:
-                    subtree.add(str(subvalue))
+                subtree.add(str(subvalue))
 
     def _create(
         self,
