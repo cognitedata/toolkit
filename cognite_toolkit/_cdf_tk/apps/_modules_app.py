@@ -27,16 +27,9 @@ class ModulesApp(typer.Typer):
     def init(
         self,
         organization_dir: Annotated[
-            Optional[str],
+            Optional[Path],
             typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
-            ),
-        ] = None,
-        arg_package: Annotated[
-            Optional[str],
-            typer.Option(
-                "--package",
-                help="Name of package to include",
             ),
         ] = None,
         all: Annotated[
@@ -52,7 +45,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-a",
-                help="Clean target 'modules' directory if it exists",
+                help="Clean target 'organization' directory if it exists",
             ),
         ] = False,
     ) -> None:
@@ -62,7 +55,6 @@ class ModulesApp(typer.Typer):
         cmd.run(
             lambda: cmd.init(
                 organization_dir=organization_dir,
-                arg_package=arg_package,
                 all=all,
                 clean=clean,
             )

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from importlib import resources
 from pathlib import Path
 from typing import Optional
 
@@ -16,6 +17,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
+import cognite_toolkit
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -27,7 +29,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 )
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
-    BUILTIN_MODULES_PATH,
     MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
 )
@@ -58,9 +59,12 @@ POINTER = INDENT + "▶"
 
 
 class ModulesCommand(ToolkitCommand):
-    def _copy_all(self, organization_dir_path: Path, clean: Optional[bool] = False) -> None:
-        source = BUILTIN_MODULES_PATH
-        destination = organization_dir_path / MODULES
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+        super().__init__(print_warning, skip_tracking, silent)
+        self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+
+    def _copy_all(self, organization_dir: Path, clean: Optional[bool] = False) -> None:
+        destination = organization_dir / MODULES
         if not clean:
             if destination.exists() and any(destination.iterdir()):
                 clean = questionary.confirm(
@@ -69,7 +73,7 @@ class ModulesCommand(ToolkitCommand):
                 ).ask()
         if clean:
             shutil.rmtree(destination, ignore_errors=True)
-        shutil.copytree(source, destination)
+        shutil.copytree(self._builtin_modules_path, destination)
         print(Panel(f"Modules have been prepared in {destination}.", style="green"))
 
     def _build_tree(self, item: dict | list, tree: Tree) -> None:
@@ -85,12 +89,12 @@ class ModulesCommand(ToolkitCommand):
 
     def _create(
         self,
-        organization_dir: str,
+        organization_dir: Path,
         selected_packages: dict[str, list[SelectableModule]],
         environments: list[str],
         mode: str | None,
     ) -> None:
-        modules_root_dir = Path(organization_dir) / MODULES
+        modules_root_dir = organization_dir / MODULES
         if mode == "clean":
             if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
@@ -125,35 +129,34 @@ class ModulesCommand(ToolkitCommand):
                     build_type="dev" if environment == "dev" else "prod",
                     selected=variable_sections if len(variable_sections) > 0 else ["empty"],
                 )
-            ).load_selected_defaults(BUILTIN_MODULES_PATH)
+            ).load_selected_defaults(self._builtin_modules_path)
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
     def init(
         self,
-        organization_dir: Optional[str] = None,
-        arg_package: Optional[str] = None,
+        organization_dir: Optional[Path] = None,
         all: Optional[bool] = False,
         clean: Optional[bool] = False,
     ) -> None:
-        packages = Packages().load(BUILTIN_MODULES_PATH)
+        packages = Packages().load(self._builtin_modules_path)
 
         mode = "new"
 
         if not organization_dir:
-            organization_dir = questionary.text(
+            organization_dir_raw = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
                 default="my_organization",
             ).ask()
-            if not organization_dir or organization_dir.strip() == "":
+            if not organization_dir_raw or organization_dir_raw.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
+            organization_dir = Path(organization_dir_raw)
 
-        organization_dir_path = Path(organization_dir)
-        modules_root_dir = Path(organization_dir) / MODULES
+        modules_root_dir = organization_dir / MODULES
 
         if all:
             print(Panel("instantiating all available modules"))
-            self._copy_all(organization_dir_path=organization_dir_path, clean=clean)
+            self._copy_all(organization_dir=organization_dir, clean=clean)
             return
 
         print("\n")
