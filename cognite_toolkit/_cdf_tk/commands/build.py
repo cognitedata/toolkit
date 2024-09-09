@@ -214,6 +214,7 @@ class BuildCommand(ToolkitCommand):
         state, built_modules = self.build_modules(
             modules.selected, build_dir, variables, module_names_by_variable_key, verbose, progress_bar
         )
+
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
         build_environment = config.create_build_environment(state.hash_by_source_path)
@@ -304,19 +305,19 @@ class BuildCommand(ToolkitCommand):
             module_warnings = len(self.warning_list) - warning_count
             warning_count = len(self.warning_list)
 
-            build.append(
-                BuiltModule(
-                    name=module.name,
-                    location=BuildLocationLazy(
-                        path=module.relative_path,
-                        absolute_path=module.dir,
-                    ),
-                    build_variables=module_variables,
-                    resources=built_resources,
-                    warning_count=module_warnings,
-                    status=built_status,
-                )
+            built_module = BuiltModule(
+                name=module.name,
+                location=BuildLocationLazy(
+                    path=module.relative_path,
+                    absolute_path=module.dir,
+                ),
+                build_variables=module_variables,
+                resources=built_resources,
+                warning_count=module_warnings,
+                status=built_status,
             )
+            build.append(built_module)
+            self.tracker.track_module_build(built_module)
         return state, build
 
     def _build_module(
