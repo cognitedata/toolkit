@@ -22,7 +22,7 @@ class ModulesApp(typer.Typer):
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf-tk modules --help[/] for more information.")
+            print("Use [bold yellow]cdf modules --help[/] for more information.")
 
     def init(
         self,
@@ -39,6 +39,22 @@ class ModulesApp(typer.Typer):
                 help="Name of package to include",
             ),
         ] = None,
+        all: Annotated[
+            bool,
+            typer.Option(
+                "--all",
+                "-a",
+                help="Copy all available templates.",
+            ),
+        ] = False,
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-a",
+                help="Clean target 'modules' directory if it exists",
+            ),
+        ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
@@ -47,6 +63,8 @@ class ModulesApp(typer.Typer):
             lambda: cmd.init(
                 organization_dir=organization_dir,
                 arg_package=arg_package,
+                all=all,
+                clean=clean,
             )
         )
 
