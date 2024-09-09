@@ -16,7 +16,7 @@ class RepoCommand(ToolkitCommand):
         self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
 
     def init(self, cwd: Path, verbose: bool = False) -> None:
-        if git_root := _cli_commands.git_root():
+        if (git_root := _cli_commands.git_root()) is None:
             if not _cli_commands.use_git():
                 self.warn(
                     MediumSeverityWarning("git is not installed. It is strongly recommended to use version control.")

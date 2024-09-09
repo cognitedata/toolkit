@@ -35,5 +35,5 @@ def has_uncommitted_changes() -> bool:
 def git_root() -> Path | None:
     with suppress(Exception):
         result = subprocess.run("git rev-parse --show-toplevel".split(), stdout=subprocess.PIPE)
-        return Path(result.stdout.decode().strip())
+        return Path(result.stdout.decode(encoding="utf-8").strip())
     return None
