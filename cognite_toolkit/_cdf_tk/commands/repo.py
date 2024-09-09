@@ -4,6 +4,7 @@ from pathlib import Path
 
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 
 from . import _cli_commands
@@ -26,13 +27,10 @@ class RepoCommand(ToolkitCommand):
             else:
                 self.warn(MediumSeverityWarning("Unknown error when trying to find git root."))
         if cwd != git_root:
-            self.warn(
-                MediumSeverityWarning(
-                    f"Current working directory is not the root of the git repository. "
-                    f"Please run this command from {git_root}."
-                )
+            raise ToolkitValueError(
+                f"Current working directory is not the root of the git repository. "
+                f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
             )
-            return None
 
         if verbose:
             self.console("Initializing git repository...")
