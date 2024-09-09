@@ -165,6 +165,15 @@
       "justMyCode": false
     },
     {
+      "name": "Python: build local",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": ["build", "--env", "local", "./my_organization"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: modules init",
       "type": "debugpy",
       "request": "launch",

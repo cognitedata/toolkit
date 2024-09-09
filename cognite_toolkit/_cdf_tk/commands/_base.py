@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -37,16 +36,10 @@ class ToolkitCommand:
         return self._print_warning and not self.silent
 
     def _track_command(self, result: str | Exception) -> None:
-        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
-            return
         self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        if (
-            not self.tracker.opted_in
-            and not self.tracker.opted_out
-            and not self.user_command.startswith("cdf-tk collect")
-        ):
+        if not self.tracker.opted_in and not self.tracker.opted_out and "collect" not in sys.argv:
             print(
                 "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
                 "and crash reports for the purposes of providing services of functions that are relevant "
