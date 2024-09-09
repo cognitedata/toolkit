@@ -74,10 +74,10 @@ class Tracker:
     def track_module_build(self, module: BuiltModule) -> None:
         event_information = {
             "module": module.name,
-            "location_path": str(module.location.path),
+            "location_path": module.location.path.as_posix(),
             "warning_count": module.warning_count,
             "status": module.status,
-            "resources": ",".join(sorted(module.resources.keys())),
+            **{resource_type: len(resource_build) for resource_type, resource_build in module.resources.items()},
         }
         self._track("moduleBuild", event_information)
 
