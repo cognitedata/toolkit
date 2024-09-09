@@ -53,11 +53,20 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
+        positional_args, optional_args = self._parse_sys_args()
         event_information = {
+            "userInput": self.user_command,
+            "toolkitVersion": __version__,
+            "$os": platform.system(),
+            "pythonVersion": platform.python_version(),
+            "CICD": self._cicd,
             "warningTotalCount": len(warning_list),
             **warning_details,
             "result": type(result).__name__ if isinstance(result, Exception) else result,
             "error": str(result) if isinstance(result, Exception) else "",
+            **positional_args,
+            **optional_args,
+            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.cdf.feature_flags.items()},
         }
 
         self._track(f"command{cmd.capitalize()}", event_information)
@@ -77,19 +86,6 @@ class Tracker:
             return
 
         distinct_id = self.get_distinct_id()
-        positional_args, optional_args = self._parse_sys_args()
-
-        event = {
-            "userInput": self.user_command,
-            "toolkitVersion": __version__,
-            "$os": platform.system(),
-            "pythonVersion": platform.python_version(),
-            "CICD": self._cicd,
-            **positional_args,
-            **optional_args,
-            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.cdf.feature_flags.items()},
-        }
-        event.update(event_information)
 
         def track() -> None:
             # If we are unable to connect to Mixpanel, we don't want to crash the program
