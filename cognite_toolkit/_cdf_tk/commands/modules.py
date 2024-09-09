@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.constants import (
 from cognite_toolkit._cdf_tk.data_classes import (
     Environment,
     InitConfigYAML,
+    ModuleLocation,
     ModuleResources,
     Package,
     Packages,
@@ -69,12 +70,12 @@ class ModulesCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
 
-    def _build_tree(self, item: dict | list, tree: Tree) -> None:
-        if not isinstance(item, dict):
+    def _build_tree(self, item: Packages | ModuleLocation, tree: Tree) -> None:
+        if not isinstance(item, Packages):
             return
         for key, value in item.items():
             subtree = tree.add(key)
-            for subvalue in value:
+            for subvalue in value.modules:
                 if isinstance(subvalue, dict):
                     self._build_tree(subvalue, subtree)
                 else:
@@ -251,7 +252,7 @@ class ModulesCommand(ToolkitCommand):
                         questionary.Choice(
                             title=selectable_module.title,
                             value=selectable_module,
-                            checked=True if selectable_module.name in selected.get(package.name, {}) else False,
+                            checked=True,
                         )
                         for selectable_module in package.modules
                     ],
@@ -262,7 +263,12 @@ class ModulesCommand(ToolkitCommand):
             else:
                 selection = package.modules
 
-            selected[package.name] = selection
+            selected[package.name] = Package(
+                name=package.name,
+                title=package.title,
+                description=package.description,
+                modules=selection,
+            )
         return selected
 
     @staticmethod

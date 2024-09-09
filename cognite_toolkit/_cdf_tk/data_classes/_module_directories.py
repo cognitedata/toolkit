@@ -70,6 +70,9 @@ class ModuleLocation:
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     """This is an internal representation of the module directories in a source directory.
