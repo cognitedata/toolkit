@@ -62,6 +62,20 @@ POINTER = INDENT + "▶"
 
 
 class ModulesCommand(ToolkitCommand):
+    def _copy_all(self, organization_dir_path: Path, clean: Optional[bool] = False) -> None:
+        source = BUILTIN_MODULES_PATH
+        destination = organization_dir_path / MODULES
+        if not clean:
+            if destination.exists() and any(destination.iterdir()):
+                clean = questionary.confirm(
+                    f"{INDENT}Directory {destination} already exists. Would you like to overwrite?",
+                    default=False,
+                ).ask()
+        if clean:
+            shutil.rmtree(destination, ignore_errors=True)
+        shutil.copytree(source, destination)
+        print(Panel(f"Modules have been prepared in {destination}.", style="green"))
+
     def _build_tree(self, item: dict | list, tree: Tree) -> None:
         if not isinstance(item, dict):
             return
@@ -81,7 +95,7 @@ class ModulesCommand(ToolkitCommand):
         mode: str | None,
     ) -> None:
         modules_root_dir = Path(organization_dir) / MODULES
-        if mode == "overwrite":
+        if mode == "clean":
             if modules_root_dir.is_dir():
                 print(f"{INDENT}[yellow]Clearing directory[/]")
                 shutil.rmtree(modules_root_dir)
@@ -90,10 +104,10 @@ class ModulesCommand(ToolkitCommand):
 
         variable_sections: list[str | Path] = []
         for package, modules in selected_packages.items():
-            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating {package}[/]")
+            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package}[/]")
 
             for module in modules:
-                print(f"{INDENT*2}[{'yellow' if mode == 'overwrite' else 'green'}]Creating module {module}[/]")
+                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module}[/]")
                 target_dir = modules_root_dir / module.name
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
@@ -116,7 +130,7 @@ class ModulesCommand(ToolkitCommand):
                     selected=variable_sections if len(variable_sections) > 0 else ["empty"],
                 )
             ).load_selected_defaults(BUILTIN_MODULES_PATH)
-            print(f"{INDENT}[{'yellow' if mode == 'overwrite' else 'green'}]Creating config.{environment}.yaml[/]")
+            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
@@ -124,7 +138,33 @@ class ModulesCommand(ToolkitCommand):
         if not dest.exists():
             shutil.copy(_cdf_toml_tmpl, dest)
 
-    def init(self, organization_dir: Optional[str] = None, arg_package: Optional[str] = None) -> None:
+    def init(
+        self,
+        organization_dir: Optional[str] = None,
+        arg_package: Optional[str] = None,
+        all: Optional[bool] = False,
+        clean: Optional[bool] = False,
+    ) -> None:
+        packages = Packages().load(BUILTIN_MODULES_PATH)
+
+        mode = "new"
+
+        if not organization_dir:
+            organization_dir = questionary.text(
+                "Which directory would you like to create templates in? (typically customer name)",
+                default="my_organization",
+            ).ask()
+            if not organization_dir or organization_dir.strip() == "":
+                raise ToolkitRequiredValueError("You must provide a directory name.")
+
+        organization_dir_path = Path(organization_dir)
+        modules_root_dir = Path(organization_dir) / MODULES
+
+        if all:
+            print(Panel("instantiating all available modules"))
+            self._copy_all(organization_dir_path=organization_dir_path, clean=clean)
+            return
+
         print("\n")
         print(
             Panel(
@@ -141,35 +181,25 @@ class ModulesCommand(ToolkitCommand):
             )
         )
 
-        packages = Packages().load(BUILTIN_MODULES_PATH)
+        if clean:
+            mode = "clean"
+        else:
+            if modules_root_dir.is_dir():
+                mode = questionary.select(
+                    f"Directory {modules_root_dir} already exists. What would you like to do?",
+                    choices=[
+                        questionary.Choice("Abort", "abort"),
+                        questionary.Choice("Overwrite (clean existing)", "clean"),
+                    ],
+                    pointer=POINTER,
+                    style=custom_style_fancy,
+                    instruction="use arrow up/down and " + "⮐ " + " to save",
+                ).ask()
+                if mode == "abort":
+                    print("Aborting...")
+                    raise typer.Exit()
 
-        mode = "new"
-
-        if not organization_dir:
-            organization_dir = questionary.text(
-                "Which directory would you like to create templates in? (typically customer name)",
-                default="my_organization",
-            ).ask()
-            if not organization_dir or organization_dir.strip() == "":
-                raise ToolkitRequiredValueError("You must provide a directory name.")
-
-        modules_root_dir = Path(organization_dir) / MODULES
-        if modules_root_dir.is_dir():
-            mode = questionary.select(
-                f"Directory {modules_root_dir} already exists. What would you like to do?",
-                choices=[
-                    questionary.Choice("Abort", "abort"),
-                    questionary.Choice("Overwrite (clean existing)", "overwrite"),
-                ],
-                pointer=POINTER,
-                style=custom_style_fancy,
-                instruction="use arrow up/down and " + "⮐ " + " to save",
-            ).ask()
-            if mode == "abort":
-                print("Aborting...")
-                raise typer.Exit()
-
-        print(f"  [{'yellow' if mode == 'overwrite' else 'green'}]Using directory [bold]{organization_dir}[/]")
+        print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
         selected: dict[str, list[SelectableModule]] = {}
 

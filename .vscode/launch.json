@@ -164,31 +164,25 @@
       "console": "integratedTerminal",
       "justMyCode": false
     },
-
-    {
-      "name": "Python: feature flag set",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": ["features", "set", "modules-cmd", "--enable"],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: feature flags reset",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": ["features", "reset"],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
     {
       "name": "Python: modules init",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": ["modules", "init"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Python: modules init --all",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules", 
+      "init", 
+      "--all",
+      "--clean"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
