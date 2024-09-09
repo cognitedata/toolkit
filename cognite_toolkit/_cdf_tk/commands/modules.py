@@ -141,8 +141,9 @@ class ModulesCommand(ToolkitCommand):
         if select_all:
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
+            selected = {package.name: package.modules for package in packages}
             self._create(
-                organization_dir=organization_dir, selected_packages={}, environments=["dev", "prod"], mode=mode
+                organization_dir=organization_dir, selected_packages=selected, environments=["dev", "prod"], mode=mode
             )
             return
 

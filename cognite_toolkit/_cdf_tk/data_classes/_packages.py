@@ -18,6 +18,9 @@ else:
 
 @dataclass
 class SelectableModule:
+    definition: ModuleToml
+    path: Path
+
     @property
     def name(self) -> str:
         return self.path.name
@@ -37,15 +40,15 @@ class SelectableModule:
     def __str__(self) -> str:
         return self.name
 
-    definition: ModuleToml
-    path: Path
-
 
 @dataclass
 class Package:
     """A package represents a bundle of modules.
     Args:
         name: the unique identifier of the package.
+        title: The display name of the package.
+        description: A description of the package.
+        modules: The modules that are part of the package.
     """
 
     name: str
@@ -82,15 +85,15 @@ class Packages(list, MutableSequence[Package]):
     @classmethod
     def load(
         cls,
-        path: Path,  # todo: relative to org dir
+        root_module_dir: Path,  # todo: relative to org dir
     ) -> Packages:
         """Loads the packages in the source directory.
 
         Args:
-            modules: The module directories to load the packages from.
+            root_module_dir: The module directories to load the packages from.
         """
 
-        package_definition_path = path / "package.toml"
+        package_definition_path = root_module_dir / "package.toml"
         if not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
         package_definitions = toml.loads(package_definition_path.read_text())["packages"]
@@ -100,9 +103,9 @@ class Packages(list, MutableSequence[Package]):
             if isinstance(package_definition, dict):
                 collected[package_name] = Package.load(package_name, package_definition)
 
-        module_directories = ModuleDirectories.load(path, set())
+        module_directories = ModuleDirectories.load(root_module_dir, set())
         selectable_modules = list(
-            {m for m in (cls.get_module(module.dir, path) for module in module_directories) if m is not None}
+            {m for m in (cls.get_module(module.dir, root_module_dir) for module in module_directories) if m is not None}
         )
         for selectable_module in selectable_modules:
             if selectable_module is None:
