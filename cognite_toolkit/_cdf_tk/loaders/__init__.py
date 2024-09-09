@@ -78,11 +78,10 @@ RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
-    "assets",
     "auth",
+    "classic",
     "data_models",
     "data_sets",
-    "labels",
     "locations",
     "transformations",
     "files",

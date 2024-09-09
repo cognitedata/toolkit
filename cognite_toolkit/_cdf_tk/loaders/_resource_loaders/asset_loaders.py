@@ -21,7 +21,7 @@ from .data_organization_loaders import DataSetsLoader, LabelLoader
 
 @final
 class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetList]):
-    folder_name = "assets"
+    folder_name = "classic"
     filename_pattern = r"^.*\.Asset$"  # Matches all yaml files whose stem ends with '.Asset'.
     filetypes = frozenset({"yaml", "yml", "csv", "parquet"})
     resource_cls = Asset
@@ -31,6 +31,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     kind = "Asset"
     dependencies = frozenset({DataSetsLoader, LabelLoader})
     _doc_url = "Assets/operation/createAssets"
+
+    @property
+    def display_name(self) -> str:
+        return self.kind
 
     @classmethod
     def get_id(cls, item: Asset | AssetWrite | dict) -> str:

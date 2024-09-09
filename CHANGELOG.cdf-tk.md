@@ -22,6 +22,7 @@ Changes are grouped as follows:
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
 - Support for `LocationFilter` in the `locations` folder.
+- Command `cdf modules list` to list all modules.
 
 ## Changed
 
@@ -30,6 +31,7 @@ Changes are grouped as follows:
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
 - Cognite_modules is removed and replaced with internal directory `_builtin_modules`.
   Modules can be copied into `modules` manually or through the `cdf modules init` command.
+- [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
 
 ### Fixed
 
