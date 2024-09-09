@@ -42,7 +42,7 @@ def build_tmp_path() -> Iterator[Path]:
 
 
 @pytest.fixture(scope="session")
-def local_tmp_repo_path() -> Path:
+def local_tmp_repo_path() -> Iterator[Path]:
     repo_path = TMP_FOLDER / "pytest-repo"
     repo_path.mkdir(exist_ok=True)
     RepoCommand(silent=True, skip_git_verify=True).init(repo_path)
