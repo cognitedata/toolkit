@@ -23,6 +23,7 @@ Changes are grouped as follows:
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
 - Support for `LocationFilter` in the `locations` folder.
 - Command `cdf modules list` to list all modules.
+- Command `cdf modules init --all` bypasses interactive mode and copies all available modules.
 
 ## Changed
 
