@@ -282,6 +282,7 @@ config.yaml
 demo_project/
 tests/tests_unit/pytest-project/
 my_project/
+my_organization/
 *.bck
 
 # Hide environments used for migration testing
