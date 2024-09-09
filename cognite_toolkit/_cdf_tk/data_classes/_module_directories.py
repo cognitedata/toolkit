@@ -131,8 +131,8 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                 ModuleLocation(
                     module,
                     organization_dir,
-                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     source_paths,
+                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     module_toml,
                 )
             )

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView, dict_items
+from collections.abc import Iterable, Iterator, Mapping, MutableMapping, ValuesView, dict_items, dict_keys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -83,7 +83,7 @@ class Packages(dict, MutableMapping[str, Package]):
     def items(self) -> dict_items[str, Package]:
         return super().items()
 
-    def keys(self) -> KeysView[str]:
+    def keys(self) -> dict_keys[str]:
         return super().keys()
 
     def values(self) -> ValuesView[Package]:
