@@ -21,12 +21,15 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, user_command: str) -> None:
+    def __init__(self, user_command: str, skip_tracking: bool) -> None:
         self.user_command = user_command
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
+        self.skip_tracking = self.opted_out or skip_tracking
 
-    def track_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
+    def track_cli_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
+        if self.skip_tracking:
+            return
         distinct_id = self.get_distinct_id()
         positional_args, optional_args = self._parse_sys_args()
         warning_count = Counter([type(w).__name__ for w in warning_list])
@@ -64,6 +67,8 @@ class Tracker:
             daemon=False,
         )
         thread.start()
+
+    def track_modul_command(self, module: BuiltModule) -> None: ...
 
     def get_distinct_id(self) -> str:
         cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"

@@ -34,8 +34,8 @@ class ToolkitCommand:
         else:
             self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(self.user_command)
-        self.skip_tracking = self.tracker.opted_out or skip_tracking
+        self.tracker = Tracker(self.user_command, skip_tracking)
+        self.skip_tracking =
 
     @property
     def print_warning(self) -> bool:
@@ -44,7 +44,7 @@ class ToolkitCommand:
     def _track_command(self, result: str | Exception) -> None:
         if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
             return
-        self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
+        self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
         if (
