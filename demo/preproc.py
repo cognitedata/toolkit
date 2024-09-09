@@ -24,7 +24,7 @@ def run() -> None:
         import yaml
 
         demo_config = yaml.safe_load(demo_config_path.read_text())
-        demo_config["environment"]["selected"] = "modules/"
+        demo_config["environment"]["selected"] = ["modules/"]
         destination_path.write_text(yaml.dump(demo_config))
         print(f"Updated {demo_config_path} to include all modules.")
     else:
