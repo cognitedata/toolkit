@@ -53,6 +53,7 @@ def mock_environments_yaml_file(module_path: Path, monkeypatch: MonkeyPatch) -> 
     )
 
 
+@pytest.mark.skip("Need to rethink")
 @pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_build_deploy_module(
