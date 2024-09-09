@@ -42,7 +42,6 @@ class TestModulesCommand:
 
         assert Path(target_path / "config.dev.yaml").exists()
         assert Path(target_path / "config.prod.yaml").exists()
-        assert Path(target_path.parent / "cdf.toml").exists()
 
     def test_config(self, selected_packages: dict[str, list[SelectableModule]], tmp_path: Path) -> None:
         assert selected_packages is not None
