@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp, RunApp
+from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
@@ -98,6 +98,7 @@ landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
+_app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")

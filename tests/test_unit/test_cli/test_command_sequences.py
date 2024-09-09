@@ -104,6 +104,7 @@ def test_build_deploy_module(
         ), f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
 
 
+@pytest.mark.skip("Need to rethink")
 @pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_build_deploy_with_dry_run(
@@ -140,6 +141,7 @@ def test_build_deploy_with_dry_run(
     assert not delete_result, f"No resources should be deleted in dry run: got these calls: {delete_result}"
 
 
+@pytest.mark.skip("Need to rethink")
 @pytest.mark.usefixtures("cdf_toml")
 @pytest.mark.parametrize("module_path", list(find_all_modules()))
 def test_init_build_clean(

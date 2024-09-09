@@ -1,9 +1,6 @@
 from __future__ import annotations
 
 import shutil
-import subprocess
-from contextlib import suppress
-from importlib import resources
 from pathlib import Path
 from typing import Optional
 
@@ -19,8 +16,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
-import cognite_toolkit
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
     UPDATE_MODULE_VERSION_DOCSTRING,
@@ -132,11 +128,6 @@ class ModulesCommand(ToolkitCommand):
             ).load_selected_defaults(BUILTIN_MODULES_PATH)
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
-
-        _cdf_toml_tmpl = Path(resources.files(cognite_toolkit.__name__)) / CDFToml.file_name_tmpl  # type: ignore[arg-type]
-        dest = Path(organization_dir).parent / CDFToml.file_name
-        if not dest.exists():
-            shutil.copy(_cdf_toml_tmpl, dest)
 
     def init(
         self,
@@ -428,31 +419,3 @@ class ModulesCommand(ToolkitCommand):
             )
 
         print(table)
-
-
-class CLICommands:
-    @classmethod
-    def use_poetry(cls) -> bool:
-        with suppress(Exception):
-            return shutil.which("poetry") is not None
-        return False
-
-    @classmethod
-    def use_git(cls) -> bool:
-        with suppress(Exception):
-            return shutil.which("git") is not None
-        return False
-
-    @classmethod
-    def has_initiated_repo(cls) -> bool:
-        with suppress(Exception):
-            result = subprocess.run("git rev-parse --is-inside-work-tree".split(), stdout=subprocess.PIPE)
-            return result.returncode == 0
-        return False
-
-    @classmethod
-    def has_uncommitted_changes(cls) -> bool:
-        with suppress(Exception):
-            result = subprocess.run("git diff --quiet".split(), stdout=subprocess.PIPE)
-            return result.returncode != 0
-        return False
