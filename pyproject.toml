@@ -14,8 +14,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-#cognite-sdk = {version = "^7.55.2", extras = ["pandas"]}
-cognite-sdk = {git = "https://github.com/cognitedata/cognite-sdk-python.git", branch = "add-missing-workflowtrigger-list"}
+cognite-sdk = {version = "^7.58.8", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"

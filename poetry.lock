@@ -369,16 +369,19 @@ name = "cognite-sdk"
 version = "7.58.8"
 description = "Cognite Python SDK"
 optional = false
-python-versions = "^3.8"
-files = []
-develop = false
+python-versions = "<4.0,>=3.8"
+files = [
+    {file = "cognite_sdk-7.58.8-py3-none-any.whl", hash = "sha256:07a8fee26776373d67fbfb57f0bef0a82eee41bdd7194d495647245e6f4d4da0"},
+    {file = "cognite_sdk-7.58.8.tar.gz", hash = "sha256:f3cef4e3029dfc66387494a490be89224dbfc4a226eea68b99238de6cbbc623f"},
+]
 
 [package.dependencies]
-msal = "^1"
+msal = ">=1,<2"
+pandas = {version = ">=2.1", optional = true, markers = "python_version >= \"3.9\" and (extra == \"pandas\" or extra == \"all\")"}
 protobuf = ">=4"
-requests = "^2"
-requests_oauthlib = "^1"
-typing_extensions = ">= 4"
+requests = ">=2,<3"
+requests_oauthlib = ">=1,<2"
+typing_extensions = ">=4"
 
 [package.extras]
 all = ["PyYAML (>=6.0,<7.0)", "geopandas (>=0.10,<0.14)", "geopandas (>=0.14)", "numpy (>=1.20,<1.25)", "numpy (>=1.25,<2.0)", "numpy (>=1.26,<2.0)", "pandas (>=1.4,<2.1)", "pandas (>=2.1)", "pip (>=20.0.0)", "shapely (>=1.7.0)", "sympy"]
@@ -389,12 +392,6 @@ pandas = ["pandas (>=1.4,<2.1)", "pandas (>=2.1)"]
 pyodide = ["pyodide-http (>=0.2.1,<0.3.0)", "tzdata (>=2024.1)"]
 sympy = ["sympy"]
 yaml = ["PyYAML (>=6.0,<7.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/cognitedata/cognite-sdk-python.git"
-reference = "add-missing-workflowtrigger-list"
-resolved_reference = "9c5e9e6225a4eb4a532d4add9f2e5c83df62070c"
 
 [[package]]
 name = "colorama"
@@ -2414,4 +2411,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "ab5bad18f4befa4491d4f33afc1e3a9922e7ef669e0534014eee8dc01c90653d"
+content-hash = "bba7aed13e3262b03b8dee8dbd535983ac3fc012b7400d896afd7779895a288b"
