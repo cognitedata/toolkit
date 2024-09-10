@@ -68,6 +68,7 @@ variables:
         3d_model_name: Valhall
         3d_dataset: ds_3d_oid
         external_root_id_asset: WMT:VAL
+        version: 0.0.1
 
         # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
         3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
