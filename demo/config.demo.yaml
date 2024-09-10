@@ -11,268 +11,268 @@ environment:
     - cdf_data_pipeline_asset_valhall
 
 variables:
+  modules:
+    # Globally defined variables are available to all submodules
+      # of the cognite_modules.
+    cdf_cluster: ${CDF_CLUSTER}
+    cicd_clientId: ${IDP_CLIENT_ID}
+    cicd_clientSecret: ${IDP_CLIENT_SECRET}
+    cicd_tokenUri: ${IDP_TOKEN_URL}
+    cdfProjectName: ${CDF_PROJECT}
+    # Optional: If idP requires providing the scopes
+    cicd_scopes:
+    - ${IDP_SCOPES}
+    # Optional: If idP requires providing the audience
+    cicd_audience: ${IDP_AUDIENCE}
+    # Seven minutes past each hour
+    scheduleHourly: 7 * * * *
+    # Every fifteen minutes
+    scheduleQuarterly: 0/15 * * * *
+    # Daily at 1:35 AM
+    scheduleDaily: 35 1 * * *
 
-  # Globally defined variables are available to all submodules
-    # of the cognite_modules.
-  cdf_cluster: ${CDF_CLUSTER}
-  cicd_clientId: ${IDP_CLIENT_ID}
-  cicd_clientSecret: ${IDP_CLIENT_SECRET}
-  cicd_tokenUri: ${IDP_TOKEN_URL}
-  cdfProjectName: ${CDF_PROJECT}
-  # Optional: If idP requires providing the scopes
-  cicd_scopes:
-  - ${IDP_SCOPES}
-  # Optional: If idP requires providing the audience
-  cicd_audience: ${IDP_AUDIENCE}
-  # Seven minutes past each hour
-  scheduleHourly: 7 * * * *
-  # Every fifteen minutes
-  scheduleQuarterly: 0/15 * * * *
-  # Daily at 1:35 AM
-  scheduleDaily: 35 1 * * *
-  
-  cognite_modules:    
-    common:
-      cdf_auth_readwrite_all:
-        readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-        readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+    cognite_modules:
+      common:
+        cdf_auth_readwrite_all:
+          readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+          readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 
-    core:
-      cdf_apm_base:
-        apm_datamodel_space: APM_SourceData
-        apm_datamodel_version: '1'
+      core:
+        cdf_apm_base:
+          apm_datamodel_space: APM_SourceData
+          apm_datamodel_version: '1'
 
-    examples:
-      cdf_apm_simple_data_model:
-        # Values here are only valid for this module.
-        # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
-        # module. If you have changed the default values in that module, you need to change them here as well.
-        default_location: oid
-        source_asset: workmate
-        source_workorder: workmate
-        source_timeseries: pi
-        datamodel: apm_simple
-        space: sp_apm_simple
-        datamodel_version: '1'
-        view_Asset_version: '1'
-        view_WorkOrder_version: '1'
-        view_WorkItem_version: '1'
-        pause_transformations: true
+      examples:
+        cdf_apm_simple_data_model:
+          # Values here are only valid for this module.
+          # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
+          # module. If you have changed the default values in that module, you need to change them here as well.
+          default_location: oid
+          source_asset: workmate
+          source_workorder: workmate
+          source_timeseries: pi
+          datamodel: apm_simple
+          space: sp_apm_simple
+          datamodel_version: '1'
+          view_Asset_version: '1'
+          view_WorkOrder_version: '1'
+          view_WorkItem_version: '1'
+          pause_transformations: true
 
-      cdf_data_pipeline_asset_valhall:
-        # This is the configuration file used for the example data from The Open Industrial Data (oid)
-        #
-        # The data originates from a single compressor on Aker BP’s Valhall oil platform
-        # in the North Sea. Aker BP selected the first stage compressor on the Valhall
-        # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
-        # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
-        # location based on OID example data
-        location_name: oid
-        # specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
-        source_name: workmate
-        asset_dataset: ds_asset_oid
-        asset_raw_input_db: asset_oid_workmate
-        asset_raw_input_table: assets
-        pause_transformations: true
-        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        asset_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        cdf_data_pipeline_asset_valhall:
+          # This is the configuration file used for the example data from The Open Industrial Data (oid)
+          #
+          # The data originates from a single compressor on Aker BP’s Valhall oil platform
+          # in the North Sea. Aker BP selected the first stage compressor on the Valhall
+          # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+          # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
+          # location based on OID example data
+          location_name: oid
+          # specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+          source_name: workmate
+          asset_dataset: ds_asset_oid
+          asset_raw_input_db: asset_oid_workmate
+          asset_raw_input_table: assets
+          pause_transformations: true
+          # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+          asset_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
-      cdf_data_pipeline_3d_valhall:
+        cdf_data_pipeline_3d_valhall:
 
-        # location based on OID example data
-        location_name: oid
+          # location based on OID example data
+          location_name: oid
 
-        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
-        source_name: fileshare
-        3d_model_name: Valhall
-        3d_dataset: ds_3d_oid
-        external_root_id_asset: WMT:VAL
+          # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+          source_name: fileshare
+          3d_model_name: Valhall
+          3d_dataset: ds_3d_oid
+          external_root_id_asset: WMT:VAL
 
-        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        3d_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        3d_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+          # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+          3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          3d_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          3d_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
-      cdf_data_pipeline_files_valhall:
-        # This is the configuration file used for the example data from The Open Industrial Data (oid)
-        #
-        # The data originates from a single compressor on Aker BP’s Valhall oil platform
-        # in the North Sea. Aker BP selected the first stage compressor on the Valhall
-        # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
-        # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
-        version: 0.0.1
-        # location based on OID example data
-        location_name: oid
-        external_root_id_asset: WMT:VAL
-        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
-        source_name: fileshare
-        files_dataset: ds_files_oid
-        pause_transformations: true
-        files_raw_input_db: files_oid_fileshare
-        files_raw_input_table: files_metadata
-        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        files_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        files_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        files_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        cdf_data_pipeline_files_valhall:
+          # This is the configuration file used for the example data from The Open Industrial Data (oid)
+          #
+          # The data originates from a single compressor on Aker BP’s Valhall oil platform
+          # in the North Sea. Aker BP selected the first stage compressor on the Valhall
+          # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+          # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
+          version: 0.0.1
+          # location based on OID example data
+          location_name: oid
+          external_root_id_asset: WMT:VAL
+          # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+          source_name: fileshare
+          files_dataset: ds_files_oid
+          pause_transformations: true
+          files_raw_input_db: files_oid_fileshare
+          files_raw_input_table: files_metadata
+          # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+          files_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          files_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          files_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
-      cdf_data_pipeline_timeseries_valhall:
-        version: 0.0.1
-        # location based on OID example data
-        location_name: oid
-        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
-        source_name: opcua
-        timeseries_dataset: ds_timeseries_oid
-        external_root_id_asset: WMT:VAL
-        # configuration for local OPC-UA simulator ( not part of CDF)
-        opcua_endpoint_url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
-        opcua_id_prefix: "opc-ua:"
-        opcua_root_namespace_uri: http://www.prosysopc.com/OPCUA/SimulationNodes/
-        opcua_root_node_id: s=85/0:Simulation
-        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        timeseries_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        timeseries_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        timeseries_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        cdf_data_pipeline_timeseries_valhall:
+          version: 0.0.1
+          # location based on OID example data
+          location_name: oid
+          # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+          source_name: opcua
+          timeseries_dataset: ds_timeseries_oid
+          external_root_id_asset: WMT:VAL
+          # configuration for local OPC-UA simulator ( not part of CDF)
+          opcua_endpoint_url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
+          opcua_id_prefix: "opc-ua:"
+          opcua_root_namespace_uri: http://www.prosysopc.com/OPCUA/SimulationNodes/
+          opcua_root_node_id: s=85/0:Simulation
+          # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+          timeseries_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          timeseries_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          timeseries_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
-      cdf_functions_dummy:
-        example_secret: ${MY_SECRET}
-        default_location: oid
-        version: 0.0.1
+        cdf_functions_dummy:
+          example_secret: ${MY_SECRET}
+          default_location: oid
+          version: 0.0.1
 
-      cdf_oid_example_data:
-        # Only valid for this module, loads template variables from environment
-        #
-        # In the example below we are setting up a project based on the Open Industry Data (OID),
-        # that originates from the Valhall oil rig. Note that the location/site is NOT used
-        # to structure the data when on-boarding. The expectation is that a single source system
-        # and it's data pipeline may supply data for multiple locations/sites.
-        # The structuring of the data based on site/location should happen as part of processing
-        # the data in CDF, i.e. contextualisation.
-        #
-        # Each of data resource types have assigned the source system where the data originates from.
-        # This information will be used to construct RAW database names, and to create data sets in CDF,
-        # and can be used to control access.
-        default_location: oid
-        source_asset: workmate
-        source_event: workmate
-        source_workorder: workmate
-        source_files: fileshare
-        source_timeseries: pi
+        cdf_oid_example_data:
+          # Only valid for this module, loads template variables from environment
+          #
+          # In the example below we are setting up a project based on the Open Industry Data (OID),
+          # that originates from the Valhall oil rig. Note that the location/site is NOT used
+          # to structure the data when on-boarding. The expectation is that a single source system
+          # and it's data pipeline may supply data for multiple locations/sites.
+          # The structuring of the data based on site/location should happen as part of processing
+          # the data in CDF, i.e. contextualisation.
+          #
+          # Each of data resource types have assigned the source system where the data originates from.
+          # This information will be used to construct RAW database names, and to create data sets in CDF,
+          # and can be used to control access.
+          default_location: oid
+          source_asset: workmate
+          source_event: workmate
+          source_workorder: workmate
+          source_files: fileshare
+          source_timeseries: pi
 
-      example_pump_asset_hierarchy:
-        # Only valid for this module, loads template variables from environment
-        raw_db: pump_assets
-        data_set: src:lift_pump_stations
+        example_pump_asset_hierarchy:
+          # Only valid for this module, loads template variables from environment
+          raw_db: pump_assets
+          data_set: src:lift_pump_stations
+
+        my_example_module:
+          example_variable: demo_variable
+          workflow_external_id: demo_workflow
+          example_secret: '${ENVIRONMENT_SECRET}'
+
+      experimental:
+        cdf_asset_source_model:
+          # Only valid for this module, loads template variables from environment
+          model_space: sp_extended_source_data_models
+          instance_space: sp_cdf_template_instances
+          view_asset_version: '1'
+          data_model_version: '1'
+          root_asset_external_id: lift_pump_stations:root
+          data_set: ds_example_asset_source_data
+
+        example_pump_data_model:
+          # Only valid for this module, loads template variables from environment
+          model_space: sp_pump_model_space
+          instance_space: sp_pump_instance_space
+          source_model_space: sp_extended_source_data_models
+          source_model: ExtendedSourceData
+          view_Pump_version: '1'
+          view_LiftStation_version: '1'
+          data_model_version: '1'
+          data_model: PumpLiftStations
+          data_set: ds_example_pump_data
+
+      infield:
+        # The root asset external id should be
+        # set to different values for each location,
+        # but for demo purposes we are using the same value
+        first_location: oid
+        first_root_asset_external_id: WMT:VAL
+        second_location: oid2
+        second_root_asset_external_id: WMT:VAL
+        cdf_infield_common:
+          applicationsconfiguration_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+          apm_config_instance_space: APM_Config
+
+        cdf_infield_location:
+          # This default_location points to the location created by the cdf_oid_example_data module.
+          # When you create your own location by copying the cdf_oid_example_data module to
+          # set up data sets and groups, the below needs to refer to the location to define.
+          #
+          module_version: '1'
+          apm_datamodel_space: APM_SourceData
+          apm_app_config_external_id: default-infield-config-minimal
+          apm_config_instance_space: APM_Config
+          # RAW databases to load workorders and other workorder data from
+          # The below values point to the RAW database in the cdf_oid_example_data and should be
+          # changed if you want to load workorders from another RAW database.
+          source_asset: workmate
+          source_workorder: workmate
+          workorder_raw_db: workorder_oid_workmate
+          # The table name in the raw_db database that has workorder data
+          workorder_table_name: workorders
+          # the root asset for this location, needs to be updated for each location
+          # the following properties are required for
+          # infield and must be updated for each location
+          infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+          infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
+        cdf_infield_second_location:
+          # This default_location points to the location created by the cdf_oid_example_data module.
+          # When you create your own location by copying the cdf_oid_example_data module to
+          # set up data sets and groups, the below needs to refer to the location to define.
+          #
+          module_version: '1'
+          apm_datamodel_space: APM_SourceData
+          apm_app_config_external_id: default-infield-config-minimal
+          # RAW databases to load workorders and other workorder data from
+          # The below values point to the RAW database in the cdf_oid_example_data and should be
+          # changed if you want to load workorders from another RAW database.
+          source_asset: workmate
+          source_workorder: workmate
+          workorder_raw_db: workorder_oid_workmate
+          # The table name in the raw_db database that has workorder data
+          workorder_table_name: workorders
+          # the following properties are required for
+          # infield and must be updated for each location
+          infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+          infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+          infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+
+      inrobot:
+        first_root_asset_external_id: workmate
+        first_location: workmate
+        robot_1_dataset_ext_id: ds_robot_1
+        cdf_inrobot_common:
+          run_function_user_group_source_id: <change_me>
+          run_function_client_id: <change_me>
+          run_function_secret: <change_me>
+
+        cdf_inrobot_location:
+          inrobot_admin_first_location_source_id: <change_me>
+          inrobot_users_first_location_source_id: <change_me>
+          robot_1_first_location_source_id: <change_me>
+          three_d_model_name: <change_me>
+          three_d_type: <change_me>
+          three_d_model_id: <change_me>
+          three_d_revision_id: <change_me>
+
+    custom_modules:
 
       my_example_module:
-        example_variable: demo_variable
+        example_variable: demo_dataset # This is the variable that will be used in the module
         workflow_external_id: demo_workflow
         example_secret: '${ENVIRONMENT_SECRET}'
-
-    experimental:
-      cdf_asset_source_model:
-        # Only valid for this module, loads template variables from environment
-        model_space: sp_extended_source_data_models
-        instance_space: sp_cdf_template_instances
-        view_asset_version: '1'
-        data_model_version: '1'
-        root_asset_external_id: lift_pump_stations:root
-        data_set: ds_example_asset_source_data
-
-      example_pump_data_model:
-        # Only valid for this module, loads template variables from environment
-        model_space: sp_pump_model_space
-        instance_space: sp_pump_instance_space
-        source_model_space: sp_extended_source_data_models
-        source_model: ExtendedSourceData
-        view_Pump_version: '1'
-        view_LiftStation_version: '1'
-        data_model_version: '1'
-        data_model: PumpLiftStations
-        data_set: ds_example_pump_data
-
-    infield:
-      # The root asset external id should be
-      # set to different values for each location,
-      # but for demo purposes we are using the same value
-      first_location: oid
-      first_root_asset_external_id: WMT:VAL
-      second_location: oid2
-      second_root_asset_external_id: WMT:VAL
-      cdf_infield_common:
-        applicationsconfiguration_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-        apm_config_instance_space: APM_Config
-
-      cdf_infield_location:
-        # This default_location points to the location created by the cdf_oid_example_data module.
-        # When you create your own location by copying the cdf_oid_example_data module to
-        # set up data sets and groups, the below needs to refer to the location to define.
-        #
-        module_version: '1'
-        apm_datamodel_space: APM_SourceData
-        apm_app_config_external_id: default-infield-config-minimal
-        apm_config_instance_space: APM_Config
-        # RAW databases to load workorders and other workorder data from
-        # The below values point to the RAW database in the cdf_oid_example_data and should be
-        # changed if you want to load workorders from another RAW database.
-        source_asset: workmate
-        source_workorder: workmate
-        workorder_raw_db: workorder_oid_workmate
-        # The table name in the raw_db database that has workorder data
-        workorder_table_name: workorders
-        # the root asset for this location, needs to be updated for each location
-        # the following properties are required for
-        # infield and must be updated for each location
-        infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-        infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-
-      cdf_infield_second_location:
-        # This default_location points to the location created by the cdf_oid_example_data module.
-        # When you create your own location by copying the cdf_oid_example_data module to
-        # set up data sets and groups, the below needs to refer to the location to define.
-        #
-        module_version: '1'
-        apm_datamodel_space: APM_SourceData
-        apm_app_config_external_id: default-infield-config-minimal
-        # RAW databases to load workorders and other workorder data from
-        # The below values point to the RAW database in the cdf_oid_example_data and should be
-        # changed if you want to load workorders from another RAW database.
-        source_asset: workmate
-        source_workorder: workmate
-        workorder_raw_db: workorder_oid_workmate
-        # The table name in the raw_db database that has workorder data
-        workorder_table_name: workorders
-        # the following properties are required for
-        # infield and must be updated for each location
-        infield_location_checklist_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        infield_location_normal_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-        infield_location_template_admin_users_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        infield_location_viewer_users_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-
-    inrobot:
-      first_root_asset_external_id: workmate
-      first_location: workmate
-      robot_1_dataset_ext_id: ds_robot_1
-      cdf_inrobot_common:
-        run_function_user_group_source_id: <change_me>
-        run_function_client_id: <change_me>
-        run_function_secret: <change_me>
-
-      cdf_inrobot_location:
-        inrobot_admin_first_location_source_id: <change_me>
-        inrobot_users_first_location_source_id: <change_me>
-        robot_1_first_location_source_id: <change_me>
-        three_d_model_name: <change_me>
-        three_d_type: <change_me>
-        three_d_model_id: <change_me>
-        three_d_revision_id: <change_me>
-
-  custom_modules:
-    
-    my_example_module:
-      example_variable: demo_dataset # This is the variable that will be used in the module
-      workflow_external_id: demo_workflow
-      example_secret: '${ENVIRONMENT_SECRET}'
