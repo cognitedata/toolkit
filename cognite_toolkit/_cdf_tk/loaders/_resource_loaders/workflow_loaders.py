@@ -13,14 +13,19 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sized
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes import (
+    ClientCredentials,
     Workflow,
     WorkflowList,
+    WorkflowTrigger,
+    WorkflowTriggerCreate,
+    WorkflowTriggerCreateList,
+    WorkflowTriggerList,
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
@@ -28,8 +33,6 @@ from cognite.client.data_classes import (
     WorkflowVersionList,
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
-    WorkflowTrigger,
-    WorkflowTriggerList, WorkflowTriggerCreate,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -40,10 +43,12 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     load_yaml_inject_variables,
@@ -256,10 +261,108 @@ class WorkflowVersionLoader(
         )
         return spec
 
+
 @final
 class WorkflowTriggerLoader(
-    ResourceLoader[
-        str, WorkflowTriggerCreate, WorkflowTrigger, WorkflowTriggerCreateList, WorkflowTriggerList
-    ]
+    ResourceLoader[str, WorkflowTriggerCreate, WorkflowTrigger, WorkflowTriggerCreateList, WorkflowTriggerList]
 ):
-    ...
+    folder_name = "workflows"
+    filename_pattern = r"^.*WorkflowTrigger$"
+    resource_cls = WorkflowTrigger
+    resource_write_cls = WorkflowTriggerCreate
+    list_cls = WorkflowTriggerList
+    list_write_cls = WorkflowTriggerCreateList
+    kind = "WorkflowTrigger"
+    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
+
+    _doc_url = "Workflow-triggers/operation/createTriggers"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        super().__init__(client, build_dir)
+        self._authentication_by_id: dict[str, ClientCredentials] = {}
+
+    @classmethod
+    def get_id(cls, item: WorkflowTriggerCreate | WorkflowTrigger | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: WorkflowTriggerCreateList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return WorkflowOrchestrationAcl(
+            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            WorkflowOrchestrationAcl.Scope.All(),
+        )
+
+    def create(self, items: WorkflowTriggerCreateList) -> WorkflowTriggerList:
+        created = WorkflowTriggerList([])
+        for item in items:
+            credentials = self._authentication_by_id.get(item.external_id)
+            created.append(self.client.workflows.triggers.create(item, credentials))
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowTriggerList:
+        all_triggers = self.client.workflows.triggers.get_triggers(limit=-1)
+        lookup = set(ids)
+        return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
+
+    def update(self, items: WorkflowTriggerCreateList) -> Sized:
+        exising = self.client.workflows.triggers.get_triggers(limit=-1)
+        existing_lookup = {trigger.external_id: trigger for trigger in exising}
+        updated = WorkflowTriggerList([])
+        for item in items:
+            if item.external_id in existing_lookup:
+                self.client.workflows.triggers.delete(external_id=item.external_id)
+
+            credentials = self._authentication_by_id.get(item.external_id)
+            created = self.client.workflows.triggers.create(item, client_credentials=credentials)
+            updated.append(created)
+        return updated
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        successes = 0
+        for id in ids:
+            try:
+                self.client.workflows.triggers.delete(external_id=id)
+            except CogniteNotFoundError:
+                LowSeverityWarning(f"WorkflowTrigger {id} does not exist, skipping delete.").print_warning()
+            else:
+                successes += 1
+        return successes
+
+    def iterate(self) -> Iterable[WorkflowTrigger]:
+        return self.client.workflows.triggers.get_triggers(limit=-1)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires."""
+        if "workflowExternalId" in item:
+            yield WorkflowLoader, item["workflowExternalId"]
+
+            if "workflowVersion" in item:
+                yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> WorkflowTriggerCreateList:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        loaded = WorkflowTriggerCreateList([])
+        for item in raw_list:
+            if "authentication" in item:
+                raw_auth = item.pop("authentication")
+                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
+            loaded.append(WorkflowTriggerCreate.load(item))
+        return loaded

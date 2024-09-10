@@ -394,7 +394,7 @@ yaml = ["PyYAML (>=6.0,<7.0)"]
 type = "git"
 url = "https://github.com/cognitedata/cognite-sdk-python.git"
 reference = "add-missing-workflowtrigger-list"
-resolved_reference = "290acf1ec2dc9584db97e26dee3749aa8a2690e4"
+resolved_reference = "9c5e9e6225a4eb4a532d4add9f2e5c83df62070c"
 
 [[package]]
 name = "colorama"
