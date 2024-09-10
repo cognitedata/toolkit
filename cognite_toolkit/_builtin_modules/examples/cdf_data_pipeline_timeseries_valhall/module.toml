@@ -1,5 +1,5 @@
 [module]
-description = "CDF Data Pipeline Timeseries Valhall"
+title = "CDF Data Pipeline Timeseries Valhall"
 
 [packages]
 tags = [

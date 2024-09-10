@@ -1,5 +1,5 @@
 [module]
-description = "InRobot"
+title = "InRobot"
 
 [packages]
 tags = [

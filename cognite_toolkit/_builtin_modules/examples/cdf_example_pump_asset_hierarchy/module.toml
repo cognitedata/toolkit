@@ -1,5 +1,5 @@
 [module]
-description = "Example Asset Hierarchy"
+title = "Example Asset Hierarchy"
 
 [packages]
 tags = [

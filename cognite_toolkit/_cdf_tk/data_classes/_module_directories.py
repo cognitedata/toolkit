@@ -39,7 +39,7 @@ class ModuleLocation:
     def title(self) -> str | None:
         """The title of the module."""
         if self.definition:
-            return self.definition.description
+            return self.definition.title
         return None
 
     @property
