@@ -33,6 +33,7 @@ def bump(
         REPO_ROOT / "cdf.toml",
         *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
         *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
+        *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
     ]
     version = parse(__version__)
 
