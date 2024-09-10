@@ -14,7 +14,7 @@ else:
 @dataclass(frozen=True)
 class ModuleToml:
     filename: ClassVar[str] = "module.toml"
-    description: str | None
+    title: str | None
     tags: frozenset[str] = field(default_factory=frozenset)
 
     @classmethod
@@ -22,6 +22,6 @@ class ModuleToml:
         if isinstance(data, Path):
             return cls.load(toml.loads(data.read_text()))
         return cls(
-            description=data["module"].get("description"),
+            title=data["module"].get("title"),
             tags=frozenset(data["packages"].get("tags", set())),
         )

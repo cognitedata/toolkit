@@ -8,7 +8,7 @@ from pathlib import Path
 from packaging.version import Version
 from packaging.version import parse as parse_version
 
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
 
@@ -40,35 +40,91 @@ class ManualChange(Change):
         return ""
 
 
-class SystemYAMLMoved(AutomaticChange):
-    """The _system.yaml file is now expected to in the root of the project.
-Before it was expected to be in the cognite_modules folder.
-This change moves the file to the root of the project.
+class InitCommandReplaced(AutomaticChange):
+    """The `cdf-tk init` has been replaced by `cdf repo init` and `cdf modules init`.
+
+The `cdf repo init` command initializer the current directory with config and git files such as .gitignore.
+The `cdf modules init` has an interactive prompt for the user to select the modules to include.
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = False
+
+
+class SystemYAMLReplaced(AutomaticChange):
+    """The _system.yaml file is now replaced by cdf.toml in the cwd of the project.
 
 Before:
 ```bash
-    my_project/
-        cognite_modules/
-            _system.yaml
+    my_organization/
+        _system.yaml
 ```
 After:
 ```bash
-    my_project/
-        _system.yaml
+    cdf.toml
+    my_organization/
 ```
     """
 
-    deprecated_from = Version("0.2.0a3")
-    required_from = Version("0.2.0a3")
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir /  "cognite_modules" / "_system.yaml"
+        from cognite_toolkit._cdf_tk.commands import RepoCommand
+
+        system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
-            return set()
-        new_system_yaml = self._organization_dir / "_system.yaml"
-        system_yaml.rename(new_system_yaml)
-        return {system_yaml}
+            system_yaml = self._organization_dir / "cognite_modules" / "_system.yaml"
+            if not system_yaml.exists():
+                return set()
+        content = read_yaml_file(system_yaml)
+        current_version = content.get("cdf_toolkit_version", __version__)
+
+        cdf_toml_source = RepoCommand()._repo_files / "cdf.toml"
+        cdf_toml_content = cdf_toml_source.read_text()
+        cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
+
+        cdf_toml_path = Path.cwd() / "cdf.toml"
+        cdf_toml_path.write_text(cdf_toml_content)
+
+        return {cdf_toml_path}
+
+
+class ResourceFolderLabelsRenamed(AutomaticChange):
+    """The resource folder 'labels' have been renamed to 'classic'.
+
+Before:
+```bash
+    my_module/
+       labels/
+          my_labels.Label.yaml
+```
+After:
+```bash
+    my_module/
+       classic/
+          my_labels.Label.yaml
+```
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "labels":
+                    (module / "classic").mkdir(exist_ok=True)
+                    for files in resource_dir.rglob("*"):
+                        target = module / "classic" / files.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
+                        files.rename(target)
+                        changed.add(target)
+        return changed
 
 
 class RenamedModulesSection(AutomaticChange):
@@ -300,36 +356,41 @@ class UpdateModuleVersion(AutomaticChange):
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir / "_system.yaml"
-        if not system_yaml.exists():
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
             return set()
-        raw = safe_read(system_yaml)
-        new_system_yaml = []
+        raw = safe_read(cdf_toml)
+        new_cdf_toml = []
         changes: set[Path] = set()
-        # We do not parse the YAML file to avoid removing comments
+        # We do not parse the TOML file to avoid removing comments
+        is_after_module_section=False
         for line in raw.splitlines():
-            if line.startswith("cdf_toolkit_version:"):
-                new_line = f"cdf_toolkit_version: {__version__}"
-                new_system_yaml.append(new_line)
+            if line.startswith("[modules]"):
+                is_after_module_section = True
+            if line.startswith("version = ") and is_after_module_section:
+                new_line = f'version = "{__version__}"'
+                new_cdf_toml.append(new_line)
                 if new_line != line:
-                    changes.add(system_yaml)
+                    changes.add(cdf_toml)
             else:
-                new_system_yaml.append(line)
-        system_yaml.write_text("\n".join(new_system_yaml))
+                new_cdf_toml.append(line)
+        cdf_toml.write_text("\n".join(new_cdf_toml))
         return changes
 
 
-UPDATE_MODULE_VERSION_DOCSTRING = """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
+UPDATE_MODULE_VERSION_DOCSTRING = """In the cdf.toml file, the 'version' field in the 'module' section has been updated to the same version as the CLI.
 
-This change updated the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
+This change updated the 'version' field in the cdf.toml file to the same version as the CLI.
 
-In _system.yaml, before:
-```yaml
-cdf_toolkit_version: {module_version}
+In cdf.toml, before:
+```toml
+[modules]
+version = "{module_version}"
 ```
 After:
-```yaml
-cdf_toolkit_version: {cli_version}
+```toml
+[modules]
+version = "{cli_version}"
 ```
     """
 UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING

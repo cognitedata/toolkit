@@ -39,7 +39,7 @@ class ModuleLocation:
     def title(self) -> str | None:
         """The title of the module."""
         if self.definition:
-            return self.definition.description
+            return self.definition.title
         return None
 
     @property
@@ -125,14 +125,17 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
         for module, source_paths in iterate_modules(organization_dir):
             relative_module_dir = module.relative_to(organization_dir)
             module_toml: ModuleToml | None = None
+            tags: set[str] = set()
             if (module / ModuleToml.filename).exists():
                 module_toml = ModuleToml.load(module / ModuleToml.filename)
+                tags = set(module_toml.tags)
+
             module_locations.append(
                 ModuleLocation(
                     module,
                     organization_dir,
                     source_paths,
-                    cls._is_selected_module(relative_module_dir, user_selected_modules),
+                    cls._is_selected_module(relative_module_dir, user_selected_modules, tags),
                     module_toml,
                 )
             )
@@ -155,12 +158,17 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                 shutil.copy(source_file, absolute_file_path)
 
     @classmethod
-    def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:
+    def _is_selected_module(
+        cls, relative_module_dir: Path, user_selected: set[str | Path], module_tags: set[str]
+    ) -> bool:
         """Checks whether a module is selected by the user."""
         return (
             relative_module_dir.name in user_selected
             or relative_module_dir in user_selected
             or any(parent in user_selected for parent in relative_module_dir.parents)
+            # Check if the module has any tags that the user has selected,
+            # i.e., that the intersection of the module tags and the user selected tags is not empty.
+            or bool(module_tags & user_selected)
         )
 
     def as_path_by_name(self) -> dict[str, list[Path]]:

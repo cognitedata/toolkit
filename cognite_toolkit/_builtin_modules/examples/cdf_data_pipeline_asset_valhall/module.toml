@@ -1,5 +1,5 @@
 [module]
-description = "Data pipeline for Valhall"
+title = "Data pipeline for Valhall"
 
 [packages]
 tags = [
