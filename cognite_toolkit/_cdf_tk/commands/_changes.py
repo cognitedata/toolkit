@@ -321,7 +321,7 @@ class UpdateModuleVersion(AutomaticChange):
             if line.startswith("[modules]"):
                 is_after_module_section = True
             if line.startswith("version = ") and is_after_module_section:
-                new_line = f"version = {__version__}"
+                new_line = f'version = "{__version__}"'
                 new_cdf_toml.append(new_line)
                 if new_line != line:
                     changes.add(cdf_toml)
@@ -338,12 +338,12 @@ This change updated the 'version' field in the cdf.toml file to the same version
 In cdf.toml, before:
 ```toml
 [modules]
-version = {module_version}
+version = "{module_version}"
 ```
 After:
 ```toml
 [modules]
-version = {cli_version}
+version = "{cli_version}"
 ```
     """
 UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING
