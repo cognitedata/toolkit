@@ -1,5 +1,5 @@
 [module]
-title = "InRobot"
+title = "InRobot Common"
 
 [packages]
 tags = [

@@ -3,20 +3,20 @@ title = "Built-in Cognite packages"
 
 [packages.quickstart]
 title = "Quickstart"
-title = "Get started with Cognite Data Fusion in minutes."
+description = "Get started with Cognite Data Fusion in minutes."
 
 [packages.infield]
 title = "InField"
-title = "Put real-time data into the hands of every field worker."
+description = "Put real-time data into the hands of every field worker."
 
 [packages.inrobot]
 title = "InRobot"
-title = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
+description = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
 
-[packages.references]
-title = "References"
-title = "Reference files for all supported resource types"
+#[packages.references]
+#title = "References"
+#description = "Reference files for all supported resource types"
 
 [packages.examples]
 title = "Examples"
-title = "Examples of how to configure Cognite Data Fusion"
+description = "Examples of how to configure Cognite Data Fusion"
