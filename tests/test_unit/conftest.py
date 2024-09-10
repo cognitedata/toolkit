@@ -43,7 +43,8 @@ def build_tmp_path() -> Iterator[Path]:
 
 @pytest.fixture(scope="session")
 def local_tmp_repo_path() -> Iterator[Path]:
-    repo_path = TMP_FOLDER / "pytest-repo"
+    pidid = os.getpid()
+    repo_path = TMP_FOLDER / f"pytest-repo-{pidid}"
     repo_path.mkdir(exist_ok=True)
     RepoCommand(silent=True, skip_git_verify=True).init(repo_path)
     yield repo_path
@@ -140,8 +141,7 @@ def organization_dir(
     typer_context_without_cdf_tool: typer.Context,
     local_tmp_repo_path: Path,
 ) -> Path:
-    pidid = os.getpid()
-    organization_folder = f"pytest-org-{pidid}"
+    organization_folder = "pytest-org"
     organization_dir = local_tmp_repo_path / organization_folder
     ModulesCommand(silent=True).init(
         organization_dir,
@@ -158,8 +158,7 @@ def organization_dir_mutable(
     local_tmp_repo_path: Path,
 ) -> Path:
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""
-    pidid = os.getpid()
-    organization_dir = local_tmp_repo_path / f"pytest-org-{pidid}-mutable"
+    organization_dir = local_tmp_repo_path / "pytest-org-mutable"
 
     ModulesCommand(silent=True).init(
         organization_dir,
