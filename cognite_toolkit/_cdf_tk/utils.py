@@ -1207,7 +1207,6 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     if root_dir.name in ROOT_MODULES:
         yield from _iterate_modules(root_dir)
         return
-    # todo: BUILTIN_MODULES cannot be a ROOT_MODULE yet because that causes lots of duplicate modules.
     elif root_dir.name == BUILTIN_MODULES:
         yield from _iterate_modules(root_dir)
         return

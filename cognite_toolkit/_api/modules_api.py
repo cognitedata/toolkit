@@ -15,7 +15,7 @@ from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, Mo
 from cognite_toolkit._cdf import Common, clean, deploy
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.constants import MODULES, MODULES_PATH
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH, MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 from cognite_toolkit._cdf_tk.utils import iterate_modules
@@ -40,7 +40,7 @@ class ModulesAPI:
         if self._url is not None:
             raise NotImplementedError("Loading modules from a URL is not yet supported")
         else:
-            return MODULES_PATH
+            return BUILTIN_MODULES_PATH
 
     def _load_modules(self) -> None:
         organization_dir = self._source_dir()

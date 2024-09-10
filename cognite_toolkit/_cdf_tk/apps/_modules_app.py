@@ -27,16 +27,9 @@ class ModulesApp(typer.Typer):
     def init(
         self,
         organization_dir: Annotated[
-            Optional[str],
+            Optional[Path],
             typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
-            ),
-        ] = None,
-        arg_package: Annotated[
-            Optional[str],
-            typer.Option(
-                "--package",
-                help="Name of package to include",
             ),
         ] = None,
         all: Annotated[
@@ -52,7 +45,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-a",
-                help="Clean target 'modules' directory if it exists",
+                help="Clean target 'organization' directory if it exists",
             ),
         ] = False,
     ) -> None:
@@ -62,8 +55,7 @@ class ModulesApp(typer.Typer):
         cmd.run(
             lambda: cmd.init(
                 organization_dir=organization_dir,
-                arg_package=arg_package,
-                all=all,
+                select_all=all,
                 clean=clean,
             )
         )
@@ -75,7 +67,7 @@ class ModulesApp(typer.Typer):
             typer.Argument(
                 help="Directory path to project to upgrade with templates. Defaults to current directory.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
     ) -> None:
         cmd = ModulesCommand()
         cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir))
@@ -90,7 +82,7 @@ class ModulesApp(typer.Typer):
             typer.Argument(
                 help="Directory path to organization to list modules.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
             str,
             typer.Option(

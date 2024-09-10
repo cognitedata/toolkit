@@ -12,7 +12,7 @@ class TestRunAPI:
         self,
         cognite_toolkit: CogniteToolkit,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_config: CDFToolConfig,
+        cdf_tool_mock: CDFToolConfig,
     ) -> None:
         transformation = Transformation(
             name="Test transformation",

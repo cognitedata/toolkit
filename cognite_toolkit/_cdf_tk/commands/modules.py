@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import shutil
+from importlib import resources
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import questionary
 import typer
@@ -16,6 +17,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
 
+import cognite_toolkit
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -27,12 +29,18 @@ from cognite_toolkit._cdf_tk.commands._changes import (
 )
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
-    BUILTIN_MODULES_PATH,
     MODULES,
     SUPPORT_MODULE_UPGRADE_FROM_VERSION,
+    EnvType,
 )
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleResources
-from cognite_toolkit._cdf_tk.data_classes._packages import Packages, SelectableModule
+from cognite_toolkit._cdf_tk.data_classes import (
+    Environment,
+    InitConfigYAML,
+    ModuleLocation,
+    ModuleResources,
+    Package,
+    Packages,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
@@ -58,102 +66,96 @@ POINTER = INDENT + "▶"
 
 
 class ModulesCommand(ToolkitCommand):
-    def _copy_all(self, organization_dir_path: Path, clean: Optional[bool] = False) -> None:
-        source = BUILTIN_MODULES_PATH
-        destination = organization_dir_path / MODULES
-        if not clean:
-            if destination.exists() and any(destination.iterdir()):
-                clean = questionary.confirm(
-                    f"{INDENT}Directory {destination} already exists. Would you like to overwrite?",
-                    default=False,
-                ).ask()
-        if clean:
-            shutil.rmtree(destination, ignore_errors=True)
-        shutil.copytree(source, destination)
-        print(Panel(f"Modules have been prepared in {destination}.", style="green"))
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+        super().__init__(print_warning, skip_tracking, silent)
+        self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
 
-    def _build_tree(self, item: dict | list, tree: Tree) -> None:
-        if not isinstance(item, dict):
+    @staticmethod
+    def _build_tree(item: Packages | ModuleLocation, tree: Tree) -> None:
+        if not isinstance(item, Packages):
             return
         for key, value in item.items():
             subtree = tree.add(key)
-            for subvalue in value:
-                if isinstance(subvalue, dict):
-                    self._build_tree(subvalue, subtree)
-                else:
-                    subtree.add(str(subvalue))
+            for subvalue in value.modules:
+                subtree.add(str(subvalue))
 
     def _create(
         self,
-        organization_dir: str,
-        selected_packages: dict[str, list[SelectableModule]],
-        environments: list[str],
-        mode: str | None,
+        organization_dir: Path,
+        selected_packages: Packages,
+        environments: list[EnvType],
+        mode: Literal["new", "clean", "update"] | None,
     ) -> None:
-        modules_root_dir = Path(organization_dir) / MODULES
-        if mode == "clean":
-            if modules_root_dir.is_dir():
-                print(f"{INDENT}[yellow]Clearing directory[/]")
-                shutil.rmtree(modules_root_dir)
+        modules_root_dir = organization_dir / MODULES
+        if mode == "clean" and modules_root_dir.is_dir():
+            print(f"{INDENT}[yellow]Clearing directory[/]")
+            shutil.rmtree(modules_root_dir)
 
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
-        variable_sections: list[str | Path] = []
-        for package, modules in selected_packages.items():
-            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package}[/]")
+        seen_modules: set[Path] = set()
+        selected_paths: set[Path] = set()
+        for package_name, package in selected_packages.items():
+            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
-            for module in modules:
-                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module}[/]")
-                target_dir = modules_root_dir / module.name
+            for module in package.modules:
+                if module.dir in seen_modules:
+                    # A module can be part of multiple packages
+                    continue
+                seen_modules.add(module.dir)
+                # Add the module and its parent paths to the selected paths, use to load the default.config.yaml
+                # files
+                selected_paths.update(module.parent_relative_paths)
+                selected_paths.add(module.relative_path)
+
+                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
+                target_dir = modules_root_dir / module.relative_path
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
-                        f"{INDENT}Module {module} already exists in folder {target_dir}. Would you like to overwrite?",
+                        f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
                         default=False,
                     ).ask():
                         shutil.rmtree(target_dir)
                     else:
                         continue
-                variable_sections.append(module.name)
-                shutil.copytree(module.path, target_dir, ignore=shutil.ignore_patterns("default.*"))
+                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
-            # if mode == "update":
             config_init = InitConfigYAML(
                 Environment(
                     name=environment,
                     project=f"<my-project-{environment}>",
-                    build_type="dev" if environment == "dev" else "prod",
-                    selected=variable_sections if len(variable_sections) > 0 else ["empty"],
+                    build_type=environment,
+                    selected=[f"{MODULES}/"],
                 )
-            ).load_selected_defaults(BUILTIN_MODULES_PATH)
+            ).load_defaults(self._builtin_modules_path, selected_paths)
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
     def init(
         self,
-        organization_dir: Optional[str] = None,
-        arg_package: Optional[str] = None,
-        all: Optional[bool] = False,
-        clean: Optional[bool] = False,
+        organization_dir: Optional[Path] = None,
+        select_all: bool = False,
+        clean: bool = False,
     ) -> None:
-        packages = Packages().load(BUILTIN_MODULES_PATH)
-
-        mode = "new"
-
         if not organization_dir:
-            organization_dir = questionary.text(
+            organization_dir_raw = questionary.text(
                 "Which directory would you like to create templates in? (typically customer name)",
                 default="my_organization",
             ).ask()
-            if not organization_dir or organization_dir.strip() == "":
+            if not organization_dir_raw or organization_dir_raw.strip() == "":
                 raise ToolkitRequiredValueError("You must provide a directory name.")
+            organization_dir = Path(organization_dir_raw)
 
-        organization_dir_path = Path(organization_dir)
-        modules_root_dir = Path(organization_dir) / MODULES
+        modules_root_dir = organization_dir / MODULES
+        packages = Packages().load(self._builtin_modules_path)
 
-        if all:
-            print(Panel("instantiating all available modules"))
-            self._copy_all(organization_dir_path=organization_dir_path, clean=clean)
+        if select_all:
+            print(Panel("Instantiating all available modules"))
+            mode = self._verify_clean(modules_root_dir, clean)
+            self._create(
+                organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
+            )
             return
 
         print("\n")
@@ -171,29 +173,52 @@ class ModulesCommand(ToolkitCommand):
                 padding=(1, 2),
             )
         )
-
-        if clean:
-            mode = "clean"
-        else:
-            if modules_root_dir.is_dir():
-                mode = questionary.select(
-                    f"Directory {modules_root_dir} already exists. What would you like to do?",
-                    choices=[
-                        questionary.Choice("Abort", "abort"),
-                        questionary.Choice("Overwrite (clean existing)", "clean"),
-                    ],
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                    instruction="use arrow up/down and " + "⮐ " + " to save",
-                ).ask()
-                if mode == "abort":
-                    print("Aborting...")
-                    raise typer.Exit()
+        mode = self._verify_clean(modules_root_dir, clean)
 
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
-        selected: dict[str, list[SelectableModule]] = {}
+        selected = self._select_packages(packages)
 
+        if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+            print("Exiting...")
+            raise typer.Exit()
+
+        environments = questionary.checkbox(
+            "Which environments would you like to include?",
+            instruction="Use arrow up/down, press space to select item(s) and enter to save",
+            choices=[
+                questionary.Choice(title="dev", checked=True),
+                questionary.Choice(title="prod", checked=True),
+                questionary.Choice(title="staging", checked=False),
+            ],
+            qmark=INDENT,
+            pointer=POINTER,
+            style=custom_style_fancy,
+        ).ask()
+
+        self._create(organization_dir, selected, environments, mode)
+
+        print(
+            Panel(
+                f"""Modules have been prepared in [bold]{organization_dir}[/]. \nNext steps:
+    1. Run `cdf-tk auth verify --interactive to set up credentials.
+    2. Configure your project in the config files. Use cdf-tk build for assistance.
+    3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
+                style="green",
+            )
+        )
+
+        if "empty" in selected:
+            print(
+                Panel(
+                    "Please check out https://developer.cognite.com/sdks/toolkit/modules/ for guidance on writing custom modules",
+                )
+            )
+
+        raise typer.Exit()
+
+    def _select_packages(self, packages: Packages) -> Packages:
+        selected = Packages()
         while True:
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
@@ -206,28 +231,26 @@ class ModulesCommand(ToolkitCommand):
                 if not questionary.confirm("Would you like to make changes to the selection?", default=False).ask():
                     break
 
-            package_name = questionary.select(
+            package: Package = questionary.select(
                 "Which package would you like to include?",
                 instruction="Use arrow up/down and ⮐  to save",
                 choices=[
-                    questionary.Choice(title=f"{package.title}: {package.description}", value=package.name)
-                    for package in packages
+                    questionary.Choice(title=f"{package.title}: {package.description}", value=package)
+                    for package in packages.values()
                 ],
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
 
-            package = packages.get_by_name(package_name)
-
             if len(package.modules) > 1:
                 selection = questionary.checkbox(
-                    f"Which modules in {package_name} would you like to include?",
+                    f"Which modules in {package.name} would you like to include?",
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(
                             title=selectable_module.title,
                             value=selectable_module,
-                            checked=True if selectable_module.name in selected.get(package_name, {}) else False,
+                            checked=True,
                         )
                         for selectable_module in package.modules
                     ],
@@ -238,43 +261,34 @@ class ModulesCommand(ToolkitCommand):
             else:
                 selection = package.modules
 
-            selected[package_name] = selection
-
-        if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
-            print("Exiting...")
-            raise typer.Exit()
-        else:
-            environments = questionary.checkbox(
-                "Which environments would you like to include?",
-                instruction="Use arrow up/down, press space to select item(s) and enter to save",
-                choices=[
-                    questionary.Choice(title="dev", checked=True),
-                    questionary.Choice(title="prod", checked=True),
-                    questionary.Choice(title="staging", checked=False),
-                ],
-                qmark=INDENT,
-                pointer=POINTER,
-                style=custom_style_fancy,
-            ).ask()
-            self._create(organization_dir, selected, environments, mode)
-            print(
-                Panel(
-                    f"""Modules have been prepared in [bold]{organization_dir}[/]. \nNext steps:
-    1. Run `cdf-tk auth verify --interactive to set up credentials.
-    2. Configure your project in the config files. Use cdf-tk build for assistance.
-    3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
-                    style="green",
-                )
+            selected[package.name] = Package(
+                name=package.name,
+                title=package.title,
+                description=package.description,
+                modules=selection,
             )
+        return selected
 
-            if "empty" in selected:
-                print(
-                    Panel(
-                        "Please check out https://developer.cognite.com/sdks/toolkit/modules/ for guidance on writing custom modules",
-                    )
-                )
-
-        raise typer.Exit()
+    @staticmethod
+    def _verify_clean(modules_root_dir: Path, clean: bool) -> Literal["new", "clean"]:
+        if clean:
+            return "clean"
+        if not modules_root_dir.is_dir():
+            return "new"
+        user_selection = questionary.select(
+            f"Directory {modules_root_dir} already exists. What would you like to do?",
+            choices=[
+                questionary.Choice("Abort", "abort"),
+                questionary.Choice("Overwrite (clean existing)", "clean"),
+            ],
+            pointer=POINTER,
+            style=custom_style_fancy,
+            instruction="use arrow up/down and " + "⮐ " + " to save",
+        ).ask()
+        if user_selection == "abort":
+            print("Aborting...")
+            raise typer.Exit()
+        return "clean"
 
     def upgrade(self, organization_dir: Path, verbose: bool = False) -> Changes:
         module_version = self._get_module_version(organization_dir)
