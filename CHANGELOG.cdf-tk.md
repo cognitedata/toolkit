@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.0a1] - 2024-09-10
 
 ### Added
 
@@ -34,12 +34,19 @@ Changes are grouped as follows:
   Modules can be copied into `modules` manually or through the `cdf modules init` command.
 - [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
 
+## [0.2.20] - 2024-08-31
+
+### Fixed
+
+- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
+  redeployments of functions.
+
+## [0.2.19] - 2024-08-26
+
 ### Fixed
 
 - Views and DataModels with versions that are integers are only being redeployed if they have changed in the
   `cdf-tk deploy` command. They were earlier always redeployed.
-- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
-  redeployments of functions.
 
 ## [0.2.18] - 2024-08-22
 
