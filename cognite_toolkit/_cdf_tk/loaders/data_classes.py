@@ -135,7 +135,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
         return cls(
             space=resource["space"],
             external_id=resource["externalId"],
-            version=resource["version"],
+            version=str(resource["version"]),
             name=resource.get("name"),
             description=resource.get("description"),
             previous_version=resource.get("previousVersion"),
@@ -179,7 +179,7 @@ class GraphQLDataModel(_GraphQLDataModelCore):
         return cls(
             space=resource["space"],
             external_id=resource["externalId"],
-            version=resource["version"],
+            version=str(resource["version"]),
             is_global=resource["isGlobal"],
             last_updated_time=resource["lastUpdatedTime"],
             created_time=resource["createdTime"],
