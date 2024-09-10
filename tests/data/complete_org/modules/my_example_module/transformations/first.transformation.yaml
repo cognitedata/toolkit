@@ -1,0 +1,14 @@
+externalId: tr_first_transformation
+name: 'example:first:transformation'
+destination: 
+  type: 'assets'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  audience: {{cicd_audience}}

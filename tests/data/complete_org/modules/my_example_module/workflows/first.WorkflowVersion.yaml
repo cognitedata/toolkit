@@ -1,0 +1,30 @@
+workflowExternalId: wf_{{ workflow_external_id }}
+version: '1'
+workflowDefinition:
+  description: 'Execute tasks in sequence'
+  tasks:
+    - externalId: '{{ workflow_external_id }}_function_task'
+      type: 'function'
+      parameters:
+        function:
+          externalId: 'fn_first_function'
+          data: {}
+        isAsyncComplete: false
+      name: 'Task One'
+      description: Task One Ipsum lorem dolor sit amet
+      retries: 3
+      timeout: 3600
+      onFailure: 'abortWorkflow'
+    - externalId: '{{ workflow_external_id }}_transformation_task'
+      type: 'transformation'
+      parameters:
+        transformation:
+          externalId: 'tr_first_transformation'
+          concurrencyPolicy: fail
+      name: 'Task Two'
+      description: Task Two Ipsum lorem dolor sit amet
+      retries: 3
+      timeout: 3600
+      onFailure: 'skipTask'
+      dependsOn:
+        - externalId: '{{ workflow_external_id }}_function_task'

@@ -1,0 +1,2 @@
+externalId: wf_{{ workflow_external_id }}
+description: A workflow for processing data
