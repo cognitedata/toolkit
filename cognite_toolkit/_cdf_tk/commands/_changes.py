@@ -64,7 +64,7 @@ After:
 
         system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
-            system_yaml = self._organization_dir /  "cognite_modules" / "_system.yaml"
+            system_yaml = self._organization_dir / "cognite_modules" / "_system.yaml"
             if not system_yaml.exists():
                 return set()
         content = read_yaml_file(system_yaml)
