@@ -1,6 +1,8 @@
-import os
+import shutil
+import tempfile
 from collections import Counter, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -18,11 +20,9 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    Environment,
-    InitConfigYAML,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -47,7 +47,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, ORGANIZATION_FOR_TEST, PROJECT_FOR_TEST
+from tests.data import LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
@@ -215,28 +215,27 @@ def test_resource_types_is_up_to_date() -> None:
     assert not extra, f"Extra {extra=}"
 
 
+@contextmanager
+def tmp_org_directory() -> Iterator[Path]:
+    org_dir = Path(tempfile.mkdtemp(prefix="orgdir.", suffix=".tmp", dir=Path.cwd()))
+    try:
+        yield org_dir
+    finally:
+        shutil.rmtree(org_dir)
+
+
 def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
-    source_path = ORGANIZATION_FOR_TEST
-    with tmp_build_directory() as build_dir:
+    with tmp_org_directory() as organization_dir, tmp_build_directory() as build_dir:
+        ModulesCommand().init(organization_dir, select_all=True, clean=True)
         cdf_toml = CDFToml.load(REPO_ROOT)
-        config_init = InitConfigYAML(
-            Environment(
-                name="not used",
-                project=os.environ.get("CDF_PROJECT", "<not set>"),
-                build_type="dev",
-                selected=[],
-            )
-        ).load_defaults(source_path)
-        config = config_init.as_build_config()
+        config = BuildConfigYAML.load_from_directory(organization_dir, "dev")
         config.set_environment_variables()
-        # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
-        config.variables.pop("_cdf_tk", None)
         # Use path syntax to select all modules in the source directory
         config.environment.selected = [Path()]
 
         _, source_by_build_path = BuildCommand().build_config(
             build_dir=build_dir,
-            organization_dir=source_path,
+            organization_dir=organization_dir,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=True,

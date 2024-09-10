@@ -13,7 +13,6 @@ TRANSFORMATION_CLI = DATA_FOLDER / "transformation_cli"
 PROJECT_WITH_BAD_MODULES = DATA_FOLDER / "project_with_bad_modules"
 BUILD_CORE_MODEL = DATA_FOLDER / "build_core_model"
 BUILD_GROUP_WITH_UNKNOWN_ACL = DATA_FOLDER / "build_group_with_unknown_acl"
-ORGANIZATION_FOR_TEST = DATA_FOLDER / "organization_for_test"
 
 __all__ = [
     "DATA_FOLDER",
@@ -28,5 +27,4 @@ __all__ = [
     "PROJECT_WITH_BAD_MODULES",
     "BUILD_CORE_MODEL",
     "BUILD_GROUP_WITH_UNKNOWN_ACL",
-    "ORGANIZATION_FOR_TEST",
 ]

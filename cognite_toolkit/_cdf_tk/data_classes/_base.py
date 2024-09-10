@@ -23,9 +23,9 @@ class ConfigCore(ABC):
         return cls.filename.format(build_env=build_env)
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], source_path: Path, build_env: str) -> T_BuildConfig:
+    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str) -> T_BuildConfig:
         filename = cls.get_filename(build_env)
-        filepath = source_path / filename
+        filepath = organization_dir / filename
         filepath = filepath if filepath.is_file() else Path.cwd() / filename
         if not filepath.is_file():
             raise ToolkitFileNotFoundError(f"{filename!r} does not exist.")
