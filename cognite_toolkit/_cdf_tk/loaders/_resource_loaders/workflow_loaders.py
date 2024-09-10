@@ -281,6 +281,10 @@ class WorkflowTriggerLoader(
         super().__init__(client, build_dir)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
+    @property
+    def display_name(self) -> str:
+        return "workflow.triggers"
+
     @classmethod
     def get_id(cls, item: WorkflowTriggerCreate | WorkflowTrigger | dict) -> str:
         if isinstance(item, dict):
@@ -343,6 +347,15 @@ class WorkflowTriggerLoader(
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
+        # Removed by the SDK
+        spec.add(
+            ParameterSpec(
+                ("triggerRule", "triggerType"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
         return spec
 
     @classmethod
