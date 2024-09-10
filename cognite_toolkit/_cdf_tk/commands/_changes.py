@@ -118,8 +118,10 @@ After:
         for module, source_files in iterate_modules(self._organization_dir):
             for resource_dir in module.iterdir():
                 if resource_dir.name == "labels":
+                    (module / "classic").mkdir(exist_ok=True)
                     for files in resource_dir.rglob("*"):
                         target = module / "classic" / files.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
                         files.rename(target)
                         changed.add(target)
         return changed
