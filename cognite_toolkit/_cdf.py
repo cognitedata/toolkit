@@ -210,19 +210,38 @@ def common(
         ),
     ] = False,
 ) -> None:
-    """The cdf-tk tool is used to build and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.
-
-    Each of the main commands has a separate help, e.g. `cdf-tk build --help` or `cdf-tk deploy --help`.
-
-    You can find the documation at https://developer.cognite.com/sdks/toolkit/
-    and the template reference documentation at https://developer.cognite.com/sdks/toolkit/references/configs
+    """
+    Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
+    Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
     """
     if ctx.invoked_subcommand is None:
         print(
-            "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
+            Panel(
+                "\n".join(
+                    [
+                        "The Cognite Data Fusion Toolkit supports configuration of CDF projects from the command line or in CI/CD pipelines.",
+                        "",
+                        "[bold]Setup:[/]",
+                        "1. Run [underline]cdf repo init[/] [italic]<directory name>[/] to set up a work directory.",
+                        "2. Run [underline]cdf modules init[/] [italic]<directory name>[/] to initialise configuration modules.",
+                        "",
+                        "[bold]Configuration steps:[/]",
+                        "3. Run [underline]cdf build[/] [italic]<directory name>[/] to verify the configuration for your project. Repeat for as many times as needed.",
+                        "   Tip:[underline]cdf modules list[/] [italic]<directory name>[/] gives an overview of all your modules and their status.",
+                        "",
+                        "[bold]Deployment steps:[/]",
+                        "4. Commit the [italic]<directory name>[/] to version control",
+                        "5. Run [underline]cdf auth verify --interactive[/] to check that you have access to the relevant CDF project. ",
+                        "    or [underline]cdf auth verify[/] if you have a .env file",
+                        "6. Run [underline]cdf deploy --dry-run[/] to simulate the deployment of the configuration to the CDF project. Review the report provided.",
+                        "7. Run [underline]cdf deploy[/] to deploy the configuration to the CDF project.",
+                    ]
+                ),
+                title="Getting started",
+                style="green",
+                padding=(1, 2),
+            )
         )
-        print("[bold yellow]Usage:[/] cdf-tk [OPTIONS] COMMAND [ARGS]...")
-        print("       Use --help for more information.")
         return
     if override_env:
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
@@ -491,7 +510,7 @@ def collect(
 def auth_main(ctx: typer.Context) -> None:
     """Test, validate, and configure authentication and authorization for CDF projects."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk auth --help[/] for more information.")
+        print("Use [bold yellow]cdf auth --help[/] for more information.")
     return None
 
 
@@ -589,7 +608,7 @@ def auth_verify(
 def describe_main(ctx: typer.Context) -> None:
     """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
+        print("Use [bold yellow]cdf describe --help[/] for more information.")
     return None
 
 
@@ -625,7 +644,7 @@ def describe_datamodel_cmd(
 def pull_main(ctx: typer.Context) -> None:
     """Commands to download resource configurations from CDF into the module directory."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
+        print("Use [bold yellow]cdf pull --help[/] for more information.")
 
 
 @pull_app.command("transformation")
@@ -764,7 +783,7 @@ def pull_node_cmd(
 def dump_main(ctx: typer.Context) -> None:
     """Commands to dump resource configurations from CDF into a temporary directory."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+        print("Use [bold yellow]cdf dump --help[/] for more information.")
     return None
 
 
@@ -1023,7 +1042,7 @@ def feature_flag_main(ctx: typer.Context) -> None:
                 "\nDo not enable a flag unless you are familiar with what it does.[/]"
             )
         )
-        print("Use [bold yellow]cdf-tk features list[/] available feature flags")
+        print("Use [bold yellow]cdf features list[/] available feature flags")
         print(
             f"Use [bold yellow]the section cdf.feature_flags in {CDFToml.file_name!r}[/] to enable or disable feature flags."
         )
@@ -1042,7 +1061,7 @@ def feature_flag_list() -> None:
 def user_main(ctx: typer.Context) -> None:
     """Commands to give information about the toolkit."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk user --help[/] to see available commands.")
+        print("Use [bold yellow]cdf user --help[/] to see available commands.")
     return None
 
 

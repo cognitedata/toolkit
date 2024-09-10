@@ -201,10 +201,7 @@ class ModulesCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"""Modules have been prepared in [bold]{organization_dir}[/]. \nNext steps:
-    1. Run `cdf-tk auth verify --interactive to set up credentials.
-    2. Configure your project in the config files. Use cdf-tk build for assistance.
-    3. Run `cdf-tk deploy --dry-run` to verify the deployment.""",
+                f"Modules have been prepared in [bold]{organization_dir}[/].",
                 style="green",
             )
         )
