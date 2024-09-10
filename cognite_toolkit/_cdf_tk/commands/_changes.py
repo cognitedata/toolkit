@@ -40,35 +40,44 @@ class ManualChange(Change):
         return ""
 
 
-class SystemYAMLMoved(AutomaticChange):
-    """The _system.yaml file is now expected to in the root of the project.
-Before it was expected to be in the cognite_modules folder.
-This change moves the file to the root of the project.
+class SystemYAMLReplaced(AutomaticChange):
+    """The _system.yaml file is now replaced by cdf.toml in the cwd of the project.
 
 Before:
 ```bash
-    my_project/
-        cognite_modules/
-            _system.yaml
+    my_organization/
+        _system.yaml
 ```
 After:
 ```bash
-    my_project/
-        _system.yaml
+    cdf.toml
+    my_organization/
 ```
     """
 
-    deprecated_from = Version("0.2.0a3")
-    required_from = Version("0.2.0a3")
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir /  "cognite_modules" / "_system.yaml"
+        from cognite_toolkit._cdf_tk.commands import RepoCommand
+
+        system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
-            return set()
-        new_system_yaml = self._organization_dir / "_system.yaml"
-        system_yaml.rename(new_system_yaml)
-        return {system_yaml}
+            system_yaml = self._organization_dir /  "cognite_modules" / "_system.yaml"
+            if not system_yaml.exists():
+                return set()
+        content = read_yaml_file(system_yaml)
+        current_version = content.get("cdf_toolkit_version", __version__)
+
+        cdf_toml_source = RepoCommand()._repo_files / "cdf.toml"
+        cdf_toml_content = cdf_toml_source.read_text()
+        cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
+
+        cdf_toml_path = Path.cwd() / "cdf.toml"
+        cdf_toml_path.write_text(cdf_toml_content)
+
+        return {cdf_toml_path}
 
 
 class RenamedModulesSection(AutomaticChange):
