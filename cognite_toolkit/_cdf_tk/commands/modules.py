@@ -27,7 +27,6 @@ from cognite_toolkit._cdf_tk.commands._changes import (
     ManualChange,
     UpdateModuleVersion,
 )
-from cognite_toolkit._cdf_tk.commands._cli_commands import CLICommands
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     MODULES,
