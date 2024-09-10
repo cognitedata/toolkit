@@ -25,25 +25,25 @@ class RepoCommand(ToolkitCommand):
 
     def init(self, cwd: Path, verbose: bool = False) -> None:
         if not self.skip_git_verify:
-            if (git_root := _cli_commands.git_root()) is None:
-                if not _cli_commands.use_git():
-                    self.warn(
-                        MediumSeverityWarning(
-                            "git is not installed. It is strongly recommended to use version control."
-                        )
-                    )
-                elif not _cli_commands.has_initiated_repo():
+            if _cli_commands.use_git():
+                if not _cli_commands.has_initiated_repo():
                     self.warn(MediumSeverityWarning("git repository not initiated. Did you forget to run `git init`?"))
                 else:
-                    self.warn(MediumSeverityWarning("Unknown error when trying to find git root."))
-            if cwd != git_root:
-                raise ToolkitValueError(
-                    f"Current working directory is not the root of the git repository. "
-                    f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
+                    git_root = _cli_commands.git_root()
+                    if git_root is None:
+                        self.warn(MediumSeverityWarning("Unknown error when trying to find git root."))
+                    elif cwd != git_root:
+                        raise ToolkitValueError(
+                            f"Current working directory is not the root of the git repository. "
+                            f"Please run this command from {git_root.as_posix()!r}."  # type: ignore [union-attr]
+                        )
+            else:
+                self.warn(
+                    MediumSeverityWarning("git is not installed. It is strongly recommended to use version control.")
                 )
 
         if verbose:
-            self.console("Initializing git repository...")
+            self.console("Initializing toolkit repository...")
 
         for file in self._repo_files.rglob("*"):
             destination = cwd / file.relative_to(self._repo_files)
