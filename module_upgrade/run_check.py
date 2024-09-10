@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import contextlib
 import os
 import platform
@@ -9,6 +10,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
+# Hack to make the script work as running cdf modules upgrade
+sys.argv = ["cdf", "modules", "upgrade"]
+
 import yaml
 from dotenv import load_dotenv
 from packaging.version import Version
@@ -17,8 +21,8 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._changes import ManualChange
-from cognite_toolkit._cdf_tk.commands._cli_commands import CLICommands
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path

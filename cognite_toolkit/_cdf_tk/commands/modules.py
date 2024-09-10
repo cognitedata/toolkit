@@ -18,6 +18,7 @@ from rich.table import Table
 from rich.tree import Tree
 
 import cognite_toolkit
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
@@ -363,7 +364,10 @@ class ModulesCommand(ToolkitCommand):
                 elif isinstance(change, AutomaticChange):
                     print("The following files have been changed:")
                     for file in changed_files:
-                        print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
+                        if file.is_relative_to(organization_dir):
+                            print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
+                        else:
+                            print(Markdown(f"  - {file.as_posix()}"))
             if changed_files or not change.has_file_changes or verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
             print(Rule())
@@ -392,14 +396,22 @@ class ModulesCommand(ToolkitCommand):
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        if (system_yaml := project_path / "_system.yaml").exists():
+        cdf_toml = CDFToml.load()
+        # After `0.3.0` the version is in the CDF TOML file
+        if cdf_toml.is_loaded_from_file and cdf_toml.modules.version:
+            return parse_version(cdf_toml.modules.version)
+
+        elif (system_yaml := project_path / "_system.yaml").exists():
             # From 0.2.0a3 we have the _system.yaml on the root of the project
             content = read_yaml_file(system_yaml)
-        elif (system_yaml := project_path / BUILTIN_MODULES / "_system.yaml").exists():
+        elif (system_yaml := project_path / "cognite_modules" / "_system.yaml").exists():
             # Up to 0.2.0a2 we have the _system.yaml in the cognite_modules folder
             content = read_yaml_file(system_yaml)
         else:
-            raise ToolkitRequiredValueError("No system.yaml file found in project.")
+            raise ToolkitRequiredValueError(
+                "No 'cdf.toml' or '_system.yaml' file found in project."
+                "This is needed to determine the version of the modules."
+            )
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
     def list(self, organization_dir: Path, build_env_name: str) -> None:
