@@ -145,8 +145,7 @@ def organization_dir(
     organization_dir = local_tmp_repo_path / organization_folder
     ModulesCommand(silent=True).init(
         organization_dir,
-        arg_package=None,
-        all=True,
+        select_all=True,
         clean=True,
     )
 
@@ -164,8 +163,7 @@ def organization_dir_mutable(
 
     ModulesCommand(silent=True).init(
         organization_dir,
-        arg_package=None,
-        all=True,
+        select_all=True,
         clean=True,
     )
 
