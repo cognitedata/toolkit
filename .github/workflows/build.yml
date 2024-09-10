@@ -131,8 +131,7 @@ jobs:
       - name: "Not collect metrics"
         run: cdf collect opt-out
       - name: Initialize project
-        # The old way of setting up a project does not exists any more.
-        run: cdf modules init --all
+        run: cdf modules init demo_project --clean --all
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py --modules all
       - name: "Build the templates"
