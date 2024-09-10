@@ -42,8 +42,8 @@ class CLIConfig:
         if not sources:
             directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
             raise ToolkitMissingModulesError(
-                f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
-                f"{organization_dir.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+                f"Could not find the modules directory.\nExpected to find one of the following directories inside {organization_dir.name}\n"
+                f"{organization_dir.name}\n{directories}\n   ┗ {ROOT_MODULES[-1]}"
             )
         return sources
 
