@@ -74,6 +74,7 @@ class CDFToml:
 
     cdf: CLIConfig
     modules: ModulesConfig
+    is_loaded_from_file: bool = False
 
     @classmethod
     def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> CDFToml:
@@ -93,12 +94,16 @@ class CDFToml:
                 modules = ModulesConfig.load(raw["modules"])
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-            instance = cls(cdf=cdf, modules=modules)
+            instance = cls(cdf=cdf, modules=modules, is_loaded_from_file=True)
             if use_singleton:
                 _CDF_TOML = instance
             return instance
         else:
-            return cls(cdf=CLIConfig(cwd), modules=ModulesConfig.load({"version": _version.__version__}))
+            return cls(
+                cdf=CLIConfig(cwd),
+                modules=ModulesConfig.load({"version": _version.__version__}),
+                is_loaded_from_file=False,
+            )
 
 
 _CDF_TOML: CDFToml | None = None

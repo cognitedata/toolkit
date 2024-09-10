@@ -143,7 +143,7 @@ def run_modules_upgrade(
     # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, project_path, dirs_exist_ok=True)
 
-    with chdir(TEST_DIR_ROOT):
+    with chdir(project_init):
         modules = ModulesCommand(print_warning=False)
         # This is to allow running the function with having uncommitted changes in the repository.
         with patch.object(CLICommands, "has_uncommitted_changes", lambda: False):
