@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a2] - 2024-09-10
+
+### Fixed
+
+- Running `cdf repo init` now creates a `cdf.toml` with the correct version.
+
 ## [0.3.0a1] - 2024-09-10
 
 ### Added
