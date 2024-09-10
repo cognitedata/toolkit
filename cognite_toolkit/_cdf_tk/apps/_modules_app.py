@@ -67,7 +67,7 @@ class ModulesApp(typer.Typer):
             typer.Argument(
                 help="Directory path to project to upgrade with templates. Defaults to current directory.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
     ) -> None:
         cmd = ModulesCommand()
         cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir))
@@ -82,7 +82,7 @@ class ModulesApp(typer.Typer):
             typer.Argument(
                 help="Directory path to organization to list modules.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
             str,
             typer.Option(

@@ -113,20 +113,20 @@ class BuildCommand(ToolkitCommand):
     def execute(
         self,
         verbose: bool,
-        source_path: Path,
+        organization_dir: Path,
         build_dir: Path,
         build_env_name: str,
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> None:
-        if not source_path.is_dir():
-            raise ToolkitNotADirectoryError(str(source_path))
+        if not organization_dir.is_dir():
+            raise ToolkitNotADirectoryError(str(organization_dir))
 
         cdf_toml = CDFToml.load()
-        sources = cdf_toml.cdf.get_root_module_paths()
-        config = BuildConfigYAML.load_from_directory(source_path, build_env_name)
+        sources = cdf_toml.cdf.get_root_module_paths(organization_dir)
+        config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
 
-        directory_name = "current directory" if source_path == Path(".") else f"project '{source_path!s}'"
+        directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
         print(
             Panel(
@@ -142,7 +142,7 @@ class BuildCommand(ToolkitCommand):
 
         self.build_config(
             build_dir=build_dir,
-            organization_dir=source_path,
+            organization_dir=organization_dir,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=not no_clean,

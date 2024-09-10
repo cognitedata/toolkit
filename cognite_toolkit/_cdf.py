@@ -265,7 +265,7 @@ def build(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = CDF_TOML.cdf.organization_dir,
+    ] = CDF_TOML.cdf.default_organization_dir,
     build_dir: Annotated[
         str,
         typer.Option(
@@ -646,7 +646,7 @@ def pull_transformation_cmd(
             help="Where to find the destination module templates.",
             allow_dash=True,
         ),
-    ] = CDF_TOML.cdf.organization_dir,
+    ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -716,7 +716,7 @@ def pull_node_cmd(
             help="Where to find the modules.",
             allow_dash=True,
         ),
-    ] = CDF_TOML.cdf.organization_dir,
+    ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
         str,
         typer.Option(

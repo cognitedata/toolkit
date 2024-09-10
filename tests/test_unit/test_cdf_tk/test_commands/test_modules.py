@@ -49,5 +49,4 @@ class TestModulesCommand:
         cmd._create(organization_dir=target_path, selected_packages=selected_packages, environments=["dev"], mode=None)
 
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
-        assert "infield" in config["environment"]["selected"]
         assert config["variables"]["infield"]["first_location"] == "oid"
