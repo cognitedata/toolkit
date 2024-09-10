@@ -45,7 +45,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--clean",
                 "-a",
-                help="Clean target 'organization' directory if it exists",
+                help="Clean target directory if it exists",
             ),
         ] = False,
     ) -> None:
