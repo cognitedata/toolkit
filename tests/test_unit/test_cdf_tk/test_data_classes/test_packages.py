@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import patch
 
 from pytest import raises
@@ -14,12 +15,15 @@ class TestPackages:
         packages = Packages.load(BUILTIN_MODULES_PATH)
         assert packages is not None
         assert len(packages) == 5
-        assert len(packages[0].modules) > 0
-        assert any(module.name == "infield" for module in packages[0].modules)
+        assert "infield" in packages
+        infield = packages["infield"]
+        assert len(infield.modules) > 0
+        assert "cdf_infield_common" in infield.module_names
+        assert "cdf_infield_location" in infield.module_names
 
     def test_fail_on_invalid_tag(self) -> None:
-        def mock_toml_load(path):
-            return ModuleToml("description", ["invalid_tag", "tag2"])
+        def mock_toml_load(path: Path) -> ModuleToml:
+            return ModuleToml("description", frozenset(["invalid_tag", "tag2"]))
 
         with patch("cognite_toolkit._cdf_tk.data_classes._module_toml.ModuleToml.load", side_effect=mock_toml_load):
             # Test the overridden behavior

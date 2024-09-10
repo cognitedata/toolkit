@@ -5,7 +5,7 @@ from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, Mu
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
 
 from ._module_directories import ModuleDirectories, ModuleLocation
 
@@ -29,6 +29,11 @@ class Package:
     title: str
     description: str | None = None
     modules: list[ModuleLocation] = field(default_factory=list)
+
+    @property
+    def module_names(self) -> set[str]:
+        """The names of the modules in the package."""
+        return {module.name for module in self.modules}
 
     @classmethod
     def load(cls, name: str, package_definition: dict) -> Package:
@@ -77,6 +82,8 @@ class Packages(dict, MutableMapping[str, Package]):
             for tag in module.definition.tags:
                 if tag in collected:
                     collected[tag].modules.append(module)
+                else:
+                    raise ToolkitValueError(f"Module {module.name} has an unknown tag {tag}")
         return cls(collected)
 
     # The methods are overloads to provide type hints for the methods.

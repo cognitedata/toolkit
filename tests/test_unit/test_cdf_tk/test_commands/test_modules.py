@@ -7,17 +7,16 @@ import yaml
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes._packages import Packages, SelectableModule
+from cognite_toolkit._cdf_tk.data_classes import Packages
 
 
 @pytest.fixture(scope="session")
-def selected_packages() -> dict[str, list[SelectableModule]]:
-    available = Packages.load(BUILTIN_MODULES_PATH)[0]
-    return {available.name: available.modules}
+def selected_packages() -> Packages:
+    return Packages.load(BUILTIN_MODULES_PATH)
 
 
 class TestModulesCommand:
-    def test_modules_command(self, selected_packages: dict[str, list[SelectableModule]], tmp_path: Path) -> None:
+    def test_modules_command(self, selected_packages: Packages, tmp_path: Path) -> None:
         assert selected_packages is not None
 
         target_path = tmp_path / "repo_root"
@@ -28,9 +27,7 @@ class TestModulesCommand:
         assert Path(target_path).exists()
         assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()
 
-    def test_modules_command_with_env(
-        self, selected_packages: dict[str, list[SelectableModule]], tmp_path: Path
-    ) -> None:
+    def test_modules_command_with_env(self, selected_packages: Packages, tmp_path: Path) -> None:
         assert selected_packages is not None
 
         target_path = tmp_path / "repo_root"
@@ -43,7 +40,7 @@ class TestModulesCommand:
         assert Path(target_path / "config.dev.yaml").exists()
         assert Path(target_path / "config.prod.yaml").exists()
 
-    def test_config(self, selected_packages: dict[str, list[SelectableModule]], tmp_path: Path) -> None:
+    def test_config(self, selected_packages: Packages, tmp_path: Path) -> None:
         assert selected_packages is not None
 
         target_path = tmp_path / "repo_root"
