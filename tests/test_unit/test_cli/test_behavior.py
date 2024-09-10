@@ -101,7 +101,7 @@ def test_pull_transformation(
         organization_dir_mutable
         / "modules"
         / "examples"
-        / "example_pump_asset_hierarchy"
+        / "cdf_example_pump_asset_hierarchy"
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
