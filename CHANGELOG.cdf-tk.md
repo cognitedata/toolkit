@@ -22,17 +22,24 @@ Changes are grouped as follows:
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
 - Support for `LocationFilter` in the `locations` folder.
+- Command `cdf repo init` to initialize the repository with `.gitignore`, `.env`, and the new
+  Toolkit configuration file `cdf.toml`
 - Command `cdf modules list` to list all modules.
-- Command `cdf modules init --all` bypasses interactive mode and copies all available modules.
+- Command `cdf modules init` to setup modules. This is interactive and will guide you through selecting the
+  modules you want to use. You can bypass the interactive mode by using the `--all` flag. which
+  will select all modules, similar to the previous `cdf-tk init` command.
+- Command `cdf modules upgrade` to upgrade all modules automatically.
 
 ## Changed
 
 - The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
   This enables multiple schedules with the same cron expression for the same function.
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
-- Cognite_modules is removed and replaced with internal directory `_builtin_modules`.
-  Modules can be copied into `modules` manually or through the `cdf modules init` command.
 - [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
+
+## Removed
+
+- [BREAKING] The command `cdf-tk init` it now replaced by `cdf repo init` and `cdf modules init`.
 
 ## [0.2.20] - 2024-08-31
 
