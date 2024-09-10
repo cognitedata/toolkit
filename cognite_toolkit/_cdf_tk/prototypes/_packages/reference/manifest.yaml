@@ -1,2 +1,4 @@
-"title": "All supported resources as reference"
-"modules": {"workflow": {}, "transformations": {}, "functions": {}, "groups": {}}
+title: 'References: reference yaml files for the supported resources'
+modules:
+  references:
+    title: Reference files

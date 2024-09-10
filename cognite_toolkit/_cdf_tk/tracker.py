@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import platform
 import sys
 import tempfile
@@ -9,9 +10,12 @@ from collections import Counter
 from contextlib import suppress
 from functools import cached_property
 from pathlib import Path
+from typing import Any
 
 from mixpanel import Consumer, Mixpanel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.data_classes._build_info import BuiltModule
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__
@@ -20,14 +24,28 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, user_command: str) -> None:
-        self.user_command = user_command
+    def __init__(self, skip_tracking: bool = False) -> None:
+        self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
+        self.skip_tracking = self.opted_out or skip_tracking
+        self._cdf_toml = CDFToml.load()
 
-    def track_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> None:
-        distinct_id = self.get_distinct_id()
-        positional_args, optional_args = self._parse_sys_args()
+    @cached_property
+    def _opt_status(self) -> str:
+        if self._opt_status_file.exists():
+            return self._opt_status_file.read_text()
+        return ""
+
+    @property
+    def opted_out(self) -> bool:
+        return self._opt_status == "opted-out"
+
+    @property
+    def opted_in(self) -> bool:
+        return self._opt_status == "opted-in"
+
+    def track_cli_command(self, warning_list: WarningList[ToolkitWarning], result: str | Exception, cmd: str) -> bool:
         warning_count = Counter([type(w).__name__ for w in warning_list])
 
         warning_details: dict[str, str | int] = {}
@@ -35,25 +53,47 @@ class Tracker:
             warning_details[f"warningMostCommon{no}Count"] = count
             warning_details[f"warningMostCommon{no}Name"] = warning
 
+        positional_args, optional_args = self._parse_sys_args()
+        event_information = {
+            "userInput": self.user_command,
+            "toolkitVersion": __version__,
+            "$os": platform.system(),
+            "pythonVersion": platform.python_version(),
+            "CICD": self._cicd,
+            "warningTotalCount": len(warning_list),
+            **warning_details,
+            "result": type(result).__name__ if isinstance(result, Exception) else result,
+            "error": str(result) if isinstance(result, Exception) else "",
+            **positional_args,
+            **optional_args,
+            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.cdf.feature_flags.items()},
+        }
+
+        return self._track(f"command{cmd.capitalize()}", event_information)
+
+    def track_module_build(self, module: BuiltModule) -> bool:
+        event_information = {
+            "module": module.name,
+            "location_path": module.location.path.as_posix(),
+            "warning_count": module.warning_count,
+            "status": module.status,
+            **{resource_type: len(resource_build) for resource_type, resource_build in module.resources.items()},
+        }
+        return self._track("moduleBuild", event_information)
+
+    def _track(self, event_name: str, event_information: dict[str, Any]) -> bool:
+        if self.skip_tracking or not self.opted_in or "PYTEST_CURRENT_TEST" in os.environ:
+            return False
+
+        distinct_id = self.get_distinct_id()
+
         def track() -> None:
             # If we are unable to connect to Mixpanel, we don't want to crash the program
             with suppress(ConnectionError):
                 self.mp.track(
                     distinct_id,
-                    f"command{cmd.capitalize()}",
-                    {
-                        "userInput": self.user_command,
-                        "toolkitVersion": __version__,
-                        "warningTotalCount": len(warning_list),
-                        **warning_details,
-                        "result": type(result).__name__ if isinstance(result, Exception) else result,
-                        "error": str(result) if isinstance(result, Exception) else "",
-                        "$os": platform.system(),
-                        "pythonVersion": platform.python_version(),
-                        "CICD": self._cicd,
-                        **positional_args,
-                        **optional_args,
-                    },
+                    event_name,
+                    event_information,
                 )
 
         thread = threading.Thread(
@@ -61,6 +101,7 @@ class Tracker:
             daemon=False,
         )
         thread.start()
+        return True
 
     def get_distinct_id(self) -> str:
         cache = Path(tempfile.gettempdir()) / "tk-distinct-id.bin"
@@ -117,17 +158,3 @@ class Tracker:
 
     def disable(self) -> None:
         self._opt_status_file.write_text("opted-out")
-
-    @cached_property
-    def _opt_status(self) -> str:
-        if self._opt_status_file.exists():
-            return self._opt_status_file.read_text()
-        return ""
-
-    @property
-    def opted_out(self) -> bool:
-        return self._opt_status == "opted-out"
-
-    @property
-    def opted_in(self) -> bool:
-        return self._opt_status == "opted-in"

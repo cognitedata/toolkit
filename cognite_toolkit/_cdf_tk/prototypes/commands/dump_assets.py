@@ -11,12 +11,12 @@ from typing import Any, Literal, cast
 import pandas as pd
 import questionary
 import yaml
-from cognite.client import CogniteClient
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
 from rich.progress import Progress, TaskID
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
-from cognite_toolkit._cdf_tk.prototypes.resource_loaders import AssetLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.asset_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
 
 
@@ -68,14 +68,14 @@ class DumpAssetsCommand(ToolkitCommand):
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
 
         hierarchies, data_sets = self._select_hierarchy_and_data_set(
-            ToolGlobals.client, hierarchy, data_set, interactive
+            ToolGlobals.toolkit_client, hierarchy, data_set, interactive
         )
         if not hierarchies and not data_sets:
             raise ToolkitValueError("No hierarchy or data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
-                retrieved = ToolGlobals.client.data_sets.retrieve_multiple(external_ids=list(missing))
+                retrieved = ToolGlobals.toolkit_client.data_sets.retrieve_multiple(external_ids=list(missing))
             except CogniteAPIError as e:
                 raise ToolkitMissingResourceError(f"Failed to retrieve data sets {data_sets}: {e}")
 
@@ -83,7 +83,7 @@ class DumpAssetsCommand(ToolkitCommand):
 
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
-        total_assets = ToolGlobals.client.assets.aggregate_count(
+        total_assets = ToolGlobals.toolkit_client.assets.aggregate_count(
             filter=AssetFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
@@ -96,15 +96,15 @@ class DumpAssetsCommand(ToolkitCommand):
             retrieved_assets = progress.add_task("Retrieving assets", total=total_assets)
             write_to_file = progress.add_task("Writing assets to file(s)", total=total_assets)
 
-            asset_iterator = ToolGlobals.client.assets(
+            asset_iterator = ToolGlobals.toolkit_client.assets(
                 chunk_size=1000,
                 asset_subtree_external_ids=hierarchies or None,
                 data_set_external_ids=data_sets or None,
                 limit=limit,
             )
             asset_iterator = self._log_retrieved(asset_iterator, progress, retrieved_assets)
-            grouped_assets = self._group_assets(asset_iterator, ToolGlobals.client, hierarchies, data_sets)
-            writeable = self._to_write(grouped_assets, ToolGlobals.client, expand_metadata=True)
+            grouped_assets = self._group_assets(asset_iterator, ToolGlobals.toolkit_client, hierarchies, data_sets)
+            writeable = self._to_write(grouped_assets, ToolGlobals.toolkit_client, expand_metadata=True)
 
             count = 0
             if format_ == "yaml":
@@ -142,14 +142,18 @@ class DumpAssetsCommand(ToolkitCommand):
         print(f"Dumped {count:,} assets to {output_dir}")
 
         if self._used_labels:
-            labels = ToolGlobals.client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
+            labels = ToolGlobals.toolkit_client.labels.retrieve(
+                external_id=list(self._used_labels), ignore_unknown_ids=True
+            )
             if labels:
                 to_dump_dicts = labels.as_write().dump()
                 for label in to_dump_dicts:
                     if "dataSetId" in label:
                         data_set_id = label.pop("dataSetId")
                         self._used_data_sets.add(data_set_id)
-                        label["dataSetExternalId"] = self._get_data_set_external_id(ToolGlobals.client, data_set_id)
+                        label["dataSetExternalId"] = self._get_data_set_external_id(
+                            ToolGlobals.toolkit_client, data_set_id
+                        )
 
                 file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
                 file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -192,16 +196,16 @@ class DumpAssetsCommand(ToolkitCommand):
                 yield group, df
 
     @lru_cache
-    def get_assets_choice_count_by_dataset(self, item_id: int, client: CogniteClient) -> int:
+    def get_assets_choice_count_by_dataset(self, item_id: int, client: ToolkitClient) -> int:
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.assets.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
 
     @lru_cache
-    def get_asset_choice_count_by_root_id(self, item_id: int, client: CogniteClient) -> int:
+    def get_asset_choice_count_by_root_id(self, item_id: int, client: ToolkitClient) -> int:
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.assets.aggregate_count(advanced_filter=Equals("rootId", item_id))
 
-    def _create_choice(self, item_id: int, item: Asset | DataSetWrite, client: CogniteClient) -> questionary.Choice:
+    def _create_choice(self, item_id: int, item: Asset | DataSetWrite, client: ToolkitClient) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
@@ -232,7 +236,7 @@ class DumpAssetsCommand(ToolkitCommand):
         return choice.title.casefold()  # superior to lower case like `ß>ss` in German
 
     def _select_hierarchy_and_data_set(
-        self, client: CogniteClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
+        self, client: ToolkitClient, hierarchy: list[str] | None, data_set: list[str] | None, interactive: bool
     ) -> tuple[list[str], list[str]]:
         if not interactive:
             return hierarchy or [], data_set or []
@@ -297,7 +301,7 @@ class DumpAssetsCommand(ToolkitCommand):
                     print("No data set selected.")
         return list(hierarchies), list(data_sets)
 
-    def _get_available_data_sets(self, client: CogniteClient) -> dict[int, DataSetWrite]:
+    def _get_available_data_sets(self, client: ToolkitClient) -> dict[int, DataSetWrite]:
         if self._available_data_sets is None:
             self.data_set_by_id.update({item.id: item.as_write() for item in client.data_sets})
             # filter out data sets without external_id
@@ -306,7 +310,7 @@ class DumpAssetsCommand(ToolkitCommand):
             }
         return self._available_data_sets
 
-    def _get_available_hierarchies(self, client: CogniteClient) -> dict[int, Asset]:
+    def _get_available_hierarchies(self, client: ToolkitClient) -> dict[int, Asset]:
         if self._available_hierarchies is None:
             self._available_hierarchies = {}
             for item in client.assets(root=True):
@@ -319,19 +323,19 @@ class DumpAssetsCommand(ToolkitCommand):
     def _group_assets(
         self,
         assets: Iterator[AssetList],
-        client: CogniteClient,
+        client: ToolkitClient,
         hierarchies: list[str] | None,
         data_sets: list[str] | None,
     ) -> Iterator[tuple[str, AssetList]]:
         key: Callable[[Asset], int | tuple[int, int]]
-        lookup: Callable[[CogniteClient, int | tuple[int, int]], str]
+        lookup: Callable[[ToolkitClient, int | tuple[int, int]], str]
 
         if hierarchies and data_sets:
 
             def key(a: Asset) -> tuple[int, int]:
                 return a.root_id or 0, a.data_set_id or 0
 
-            def lookup(c: CogniteClient, group: tuple[int, int]) -> str:  # type: ignore[misc]
+            def lookup(c: ToolkitClient, group: tuple[int, int]) -> str:  # type: ignore[misc]
                 return f"{self._get_asset_external_id(c, group[0])}.{self._get_data_set_external_id(c, group[1])}"
         elif hierarchies and not data_sets:
 
@@ -352,7 +356,7 @@ class DumpAssetsCommand(ToolkitCommand):
                 yield lookup(client, group), AssetList(list(hierarchy_asset))
 
     def _to_write(
-        self, assets: Iterator[tuple[str, AssetList]], client: CogniteClient, expand_metadata: bool
+        self, assets: Iterator[tuple[str, AssetList]], client: ToolkitClient, expand_metadata: bool
     ) -> Iterator[tuple[str, list[dict[str, Any]]]]:
         for group, asset_list in assets:
             write_assets: list[dict[str, Any]] = []
@@ -376,7 +380,7 @@ class DumpAssetsCommand(ToolkitCommand):
                 write_assets.append(write)
             yield group, write_assets
 
-    def _get_asset_external_id(self, client: CogniteClient, root_id: int) -> str:
+    def _get_asset_external_id(self, client: ToolkitClient, root_id: int) -> str:
         if root_id in self.asset_external_id_by_id:
             return self.asset_external_id_by_id[root_id]
         try:
@@ -390,7 +394,7 @@ class DumpAssetsCommand(ToolkitCommand):
         self.asset_external_id_by_id[root_id] = asset.external_id
         return asset.external_id
 
-    def _get_data_set_external_id(self, client: CogniteClient, data_set_id: int) -> str:
+    def _get_data_set_external_id(self, client: ToolkitClient, data_set_id: int) -> str:
         if data_set_id in self.data_set_by_id:
             return cast(str, self.data_set_by_id[data_set_id].external_id)
         try:

@@ -84,11 +84,6 @@ from cognite.client.data_classes import (
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
 )
-
-# WorkflowVersion,
-# WorkflowVersionList,
-# WorkflowVersionUpsert,
-# WorkflowVersionUpsertList,
 from cognite.client.data_classes.data_modeling import (
     Container,
     ContainerApply,
@@ -117,6 +112,22 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
     TransformationNotificationWriteList,
+)
+
+from cognite_toolkit._cdf_tk.client.data_classes import (
+    robotics,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
+    LocationFilter,
+    LocationFilterList,
+    LocationFilterWrite,
+    LocationFilterWriteList,
+)
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
 )
 
 from .data_classes import APIResource, Method
@@ -245,7 +256,7 @@ API_RESOURCES = [
         list_cls=FunctionSchedulesList,
         _write_list_cls=FunctionScheduleWriteList,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create_function_schedule_api")],
+            "create": [Method(api_class_method="create", mock_class_method="create")],
         },
     ),
     APIResource(
@@ -517,6 +528,94 @@ API_RESOURCES = [
             "retrieve": [
                 Method(api_class_method="__iter__", mock_class_method="iterate_values"),
             ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.data_postprocessing",
+        resource_cls=robotics.DataPostProcessing,
+        list_cls=robotics.DataPostProcessingList,
+        _write_cls=robotics.DataPostProcessingWrite,
+        _write_list_cls=robotics.DataPostProcessingWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.frames",
+        resource_cls=robotics.Frame,
+        list_cls=robotics.FrameList,
+        _write_cls=robotics.FrameWrite,
+        _write_list_cls=robotics.FrameWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.locations",
+        resource_cls=robotics.Location,
+        list_cls=robotics.LocationList,
+        _write_cls=robotics.LocationWrite,
+        _write_list_cls=robotics.LocationWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.maps",
+        resource_cls=robotics.Map,
+        list_cls=robotics.MapList,
+        _write_cls=robotics.MapWrite,
+        _write_list_cls=robotics.MapWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="robotics.capabilities",
+        resource_cls=robotics.RobotCapability,
+        list_cls=robotics.RobotCapabilityList,
+        _write_cls=robotics.RobotCapabilityWrite,
+        _write_list_cls=robotics.RobotCapabilityWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="location_filters",
+        resource_cls=LocationFilter,
+        list_cls=LocationFilterList,
+        _write_cls=LocationFilterWrite,
+        _write_list_cls=LocationFilterWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="data_modeling.graphql",
+        resource_cls=GraphQLDataModel,
+        list_cls=GraphQLDataModelList,
+        _write_cls=GraphQLDataModelWrite,
+        _write_list_cls=GraphQLDataModelWriteList,
+        methods={
+            "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
         },
     ),
 ]

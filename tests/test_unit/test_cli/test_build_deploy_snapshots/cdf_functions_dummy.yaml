@@ -19,7 +19,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 7fa52b1c41592ce05d8cc1534b43b8122be7978539620274a2fe88d5b0e37c7e
+    cdf-toolkit-function-hash: 9a15c7293dccc78a8a1bcbcbd3c045fd7455f38876313b99b33b207ac23584d3
   name: test2
 FunctionSchedule:
 - cronExpression: 0 8 * * *
@@ -28,6 +28,7 @@ FunctionSchedule:
     dinner: 'today: steak and red wine'
     lunch: 'today: greek salad and water'
   description: Run every day at 8am UTC
+  functionExternalId: fn_example_repeater
   name: daily-8am-utc
 - cronExpression: 0 20 * * *
   data:
@@ -35,4 +36,5 @@ FunctionSchedule:
     dinner: 'tomorrow: steak and red wine'
     lunch: 'tomorrow: greek salad and water'
   description: Run every day at 8pm UTC
+  functionExternalId: fn_example_repeater
   name: daily-8pm-utc

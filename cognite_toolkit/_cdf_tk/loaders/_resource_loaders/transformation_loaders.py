@@ -68,12 +68,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
-)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -126,6 +120,10 @@ class TransformationLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
@@ -146,24 +144,6 @@ class TransformationLoader(
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
                         yield DataModelLoader, DataModelId.load(data_model)
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    cls.folder_name,
-                    "externalId",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("tr"):
-            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "externalId", identifier, "tr_"))
-        return warning_list
 
     def _are_equal(
         self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
@@ -374,6 +354,10 @@ class TransformationScheduleLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
@@ -452,6 +436,14 @@ class TransformationNotificationLoader(
             return f"{item['transformationExternalId']}{cls._split_character}{item['destination']}"
 
         return f"{item.transformation_external_id}{cls._split_character}{item.destination}"
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        transformation_id, destination = id.split(cls._split_character, maxsplit=1)
+        return {
+            "transformationExternalId": transformation_id,
+            "destination": destination,
+        }
 
     @classmethod
     def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:

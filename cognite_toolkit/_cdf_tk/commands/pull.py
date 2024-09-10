@@ -15,8 +15,9 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,
@@ -370,7 +371,7 @@ class TextFileDifference(UserList):
 class PullCommand(ToolkitCommand):
     def execute(
         self,
-        source_dir: str,
+        organization_dir: Path,
         id_: T_ID,
         env: str,
         dry_run: bool,
@@ -382,15 +383,12 @@ class PullCommand(ToolkitCommand):
             ]
         ],
     ) -> None:
-        if source_dir is None:
-            source_dir = "../"
-        source_path = Path(source_dir)
-        if not source_path.is_dir():
-            raise ToolkitNotADirectoryError(str(source_path))
+        if not organization_dir.is_dir():
+            raise ToolkitNotADirectoryError(str(organization_dir))
 
         with tmp_build_directory() as build_dir:
-            system_config = SystemYAML.load_from_directory(source_path, env)
-            config = BuildConfigYAML.load_from_directory(source_path, env)
+            cdf_toml = CDFToml.load(organization_dir)
+            config = BuildConfigYAML.load_from_directory(organization_dir, env)
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
@@ -399,14 +397,14 @@ class PullCommand(ToolkitCommand):
             print(
                 Panel.fit(
                     f"[bold]Building all modules found in {config.filepath} (not only the modules under "
-                    f"'selected_modules_and_packages') from {source_path}...[/]"
+                    f"'selected_modules_and_packages') from {organization_dir}...[/]"
                 )
             )
-            source_by_build_path = BuildCommand().build_config(
+            _, source_by_build_path = BuildCommand().build_config(
                 build_dir=build_dir,
-                source_dir=source_path,
+                organization_dir=organization_dir,
                 config=config,
-                system_config=system_config,
+                packages=cdf_toml.modules.packages,
                 clean=True,
                 verbose=False,
             )
@@ -428,12 +426,12 @@ class PullCommand(ToolkitCommand):
                         break
             if len(selected) == 0:
                 raise ToolkitMissingResourceError(
-                    f"No {loader.display_name} with external id {id_} found in the current configuration in {source_dir}."
+                    f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
                 )
             elif len(selected) >= 2:
                 files = "\n".join(map(str, selected.keys()))
                 raise ToolkitDuplicatedResourceError(
-                    f"Multiple {loader.display_name} with {id_} found in {source_dir}. Delete all but one and try again. "
+                    f"Multiple {loader.display_name} with {id_} found in {organization_dir}. Delete all but one and try again. "
                     f"Files: {files}"
                 )
             build_file, local_resource = next(iter(selected.items()))
@@ -464,7 +462,7 @@ class PullCommand(ToolkitCommand):
             if dry_run:
                 print(
                     f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
-                    f"'{source_file.relative_to(source_dir)}'."
+                    f"'{source_file.relative_to(organization_dir)}'."
                 )
 
             if verbose:
@@ -481,7 +479,7 @@ class PullCommand(ToolkitCommand):
                     f.write(new_content)
                 print(
                     f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
-                    f"'{source_file.relative_to(source_dir)}'."
+                    f"'{source_file.relative_to(organization_dir)}'."
                 )
 
             for filepath, content in extra_files.items():
@@ -501,11 +499,11 @@ class PullCommand(ToolkitCommand):
                 if dry_run:
                     if has_changed:
                         print(
-                            f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(source_dir)}'."
+                            f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
                         )
                     else:
                         print(
-                            f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' has not changed, "
+                            f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
                             "thus no update would have been done."
                         )
 
@@ -521,6 +519,6 @@ class PullCommand(ToolkitCommand):
                 if not dry_run and has_changed:
                     with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
                         f.write(content)
-                    print(f"[bold green]INFO:[/] File '{filepath.relative_to(source_dir)}' updated.")
+                    print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
 
         print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")

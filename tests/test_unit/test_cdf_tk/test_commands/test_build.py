@@ -14,7 +14,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -44,7 +43,7 @@ class TestBuildCommand:
             BuildCommand(print_warning=False).execute(
                 verbose=False,
                 build_dir=tmp_path,
-                source_path=data.PROJECT_WITH_BAD_MODULES,
+                organization_dir=data.PROJECT_WITH_BAD_MODULES,
                 build_env_name="no_module",
                 no_clean=False,
             )
@@ -54,7 +53,7 @@ class TestBuildCommand:
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.PROJECT_WITH_BAD_MODULES,
+            organization_dir=data.PROJECT_WITH_BAD_MODULES,
             build_env_name="ill_module",
             no_clean=False,
         )
@@ -68,14 +67,12 @@ class TestBuildCommand:
         )
 
     def test_custom_project_no_warnings(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        setup_robotics_loaders.setup_robotics_loaders()
-
         cmd = BuildCommand(print_warning=False)
         monkeypatch.setenv("CDF_PROJECT", "some-project")
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.PROJECT_NO_COGNITE_MODULES,
+            organization_dir=data.PROJECT_NO_COGNITE_MODULES,
             build_env_name="dev",
             no_clean=False,
         )
@@ -136,10 +133,10 @@ tableName: myTable
 
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
-    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment):
+    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment) -> None:
         state = _BuildState()
         cmd = BuildCommand(print_warning=False)
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
-        yaml_warnings = cmd.validate(raw_yaml, source_path, destination, state, {}, False)
+        yaml_warnings, *_ = cmd.validate(raw_yaml, source_path, destination, state, {})
         assert not yaml_warnings

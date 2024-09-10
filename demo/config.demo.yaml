@@ -5,62 +5,39 @@ environment:
   # This should be a used to specify which modules and packages to deploy locally and in the GitHub Action.
   # You can have multiple deploy commands.
   # Order is important.
-  selected_modules_and_packages:
+  selected:
     - cdf_auth_readwrite_all
-    - cdf_demo_infield
     - cdf_oid_example_data
     - cdf_data_pipeline_asset_valhall
-    - my_example_module
 
 variables:
+  modules:
+    # Globally defined variables are available to all submodules
+      # of the cognite_modules.
+    cdf_cluster: ${CDF_CLUSTER}
+    cicd_clientId: ${IDP_CLIENT_ID}
+    cicd_clientSecret: ${IDP_CLIENT_SECRET}
+    cicd_tokenUri: ${IDP_TOKEN_URL}
+    cdfProjectName: ${CDF_PROJECT}
+    # Optional: If idP requires providing the scopes
+    cicd_scopes:
+    - ${IDP_SCOPES}
+    # Optional: If idP requires providing the audience
+    cicd_audience: ${IDP_AUDIENCE}
+    # Seven minutes past each hour
+    scheduleHourly: 7 * * * *
+    # Every fifteen minutes
+    scheduleQuarterly: 0/15 * * * *
+    # Daily at 1:35 AM
+    scheduleDaily: 35 1 * * *
 
-  # Globally defined variables are available to all submodules
-    # of the cognite_modules.
-  cdf_cluster: ${CDF_CLUSTER}
-  cicd_clientId: ${IDP_CLIENT_ID}
-  cicd_clientSecret: ${IDP_CLIENT_SECRET}
-  cicd_tokenUri: ${IDP_TOKEN_URL}
-  cdfProjectName: ${CDF_PROJECT}
-  # Optional: If idP requires providing the scopes
-  cicd_scopes:
-  - ${IDP_SCOPES}
-  # Optional: If idP requires providing the audience
-  cicd_audience: ${IDP_AUDIENCE}
-  # Seven minutes past each hour
-  scheduleHourly: 7 * * * *
-  # Every fifteen minutes
-  scheduleQuarterly: 0/15 * * * *
-  # Daily at 1:35 AM
-  scheduleDaily: 35 1 * * *
-  
-  cognite_modules:    
     common:
       cdf_auth_readwrite_all:
         readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
         readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 
-    core:
-      cdf_apm_base:
-        apm_datamodel_space: APM_SourceData
-        apm_datamodel_version: '1'
 
     examples:
-      cdf_apm_simple_data_model:
-        # Values here are only valid for this module.
-        # The raw database values here point to the RAW data loaded in the cdf_oid_example_data
-        # module. If you have changed the default values in that module, you need to change them here as well.
-        default_location: oid
-        source_asset: workmate
-        source_workorder: workmate
-        source_timeseries: pi
-        datamodel: apm_simple
-        space: sp_apm_simple
-        datamodel_version: '1'
-        view_Asset_version: '1'
-        view_WorkOrder_version: '1'
-        view_WorkItem_version: '1'
-        pause_transformations: true
-
       cdf_data_pipeline_asset_valhall:
         # This is the configuration file used for the example data from The Open Industrial Data (oid)
         #
@@ -91,6 +68,7 @@ variables:
         3d_model_name: Valhall
         3d_dataset: ds_3d_oid
         external_root_id_asset: WMT:VAL
+        version: 0.0.1
 
         # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
         3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
@@ -137,11 +115,6 @@ variables:
         timeseries_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         timeseries_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
-      cdf_functions_dummy:
-        example_secret: ${MY_SECRET}
-        default_location: oid
-        version: 0.0.1
-
       cdf_oid_example_data:
         # Only valid for this module, loads template variables from environment
         #
@@ -162,37 +135,10 @@ variables:
         source_files: fileshare
         source_timeseries: pi
 
-      example_pump_asset_hierarchy:
+      cdf_example_pump_asset_hierarchy:
         # Only valid for this module, loads template variables from environment
         raw_db: pump_assets
         data_set: src:lift_pump_stations
-
-      my_example_module:
-        example_variable: demo_variable
-        workflow_external_id: demo_workflow
-        example_secret: '${ENVIRONMENT_SECRET}'
-
-    experimental:
-      cdf_asset_source_model:
-        # Only valid for this module, loads template variables from environment
-        model_space: sp_extended_source_data_models
-        instance_space: sp_cdf_template_instances
-        view_asset_version: '1'
-        data_model_version: '1'
-        root_asset_external_id: lift_pump_stations:root
-        data_set: ds_example_asset_source_data
-
-      example_pump_data_model:
-        # Only valid for this module, loads template variables from environment
-        model_space: sp_pump_model_space
-        instance_space: sp_pump_instance_space
-        source_model_space: sp_extended_source_data_models
-        source_model: ExtendedSourceData
-        view_Pump_version: '1'
-        view_LiftStation_version: '1'
-        data_model_version: '1'
-        data_model: PumpLiftStations
-        data_set: ds_example_pump_data
 
     infield:
       # The root asset external id should be
@@ -272,9 +218,3 @@ variables:
         three_d_model_id: <change_me>
         three_d_revision_id: <change_me>
 
-  custom_modules:
-    
-    my_example_module:
-      example_variable: demo_dataset # This is the variable that will be used in the module
-      workflow_external_id: demo_workflow
-      example_secret: '${ENVIRONMENT_SECRET}'

@@ -1,0 +1,10 @@
+[modules]
+# This is the version of the modules. It should not be changed manually.
+# It will be updated by the 'cdf module upgrade' command.
+version = "0.3.0a1"
+
+[modules.packages]
+some_package = [
+    "a_module",
+    "child_module",
+]

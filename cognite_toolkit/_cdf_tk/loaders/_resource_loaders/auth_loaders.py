@@ -47,10 +47,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -120,6 +116,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return item.name
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"name": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         from .data_organization_loaders import DataSetsLoader
         from .datamodel_loaders import SpaceLoader
@@ -160,23 +160,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
                                 yield loader, id_
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            if identifier == "applications-configuration":
-                if verbose:
-                    print(
-                        "      [bold green]INFO:[/] the group applications-configuration does not follow the "
-                        "recommended '_' based namespacing because Infield expects this specific name."
-                    )
-            else:
-                warning_list.append(NamespacingConventionWarning(filepath, cls.folder_name, "name", identifier, "_"))
-        elif not identifier.startswith("gp"):
-            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "gp_"))
-        return warning_list
 
     @staticmethod
     def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
@@ -423,22 +406,8 @@ class SecurityCategoryLoader(
         return cast(str, item.name)
 
     @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    cls.folder_name,
-                    "name",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("sc_"):
-            warning_list.append(PrefixConventionWarning(filepath, cls.folder_name, "name", identifier, "sc_"))
-        return warning_list
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"name": id}
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:

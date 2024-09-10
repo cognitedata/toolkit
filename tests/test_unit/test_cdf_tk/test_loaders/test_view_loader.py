@@ -1,4 +1,5 @@
 from collections.abc import Hashable
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -8,7 +9,7 @@ from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestViewLoader:
@@ -61,11 +62,11 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_update_view_with_interface(self, cognite_client_approval: ApprovalCogniteClient):
+    def test_update_view_with_interface(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),
             "prop1",
@@ -112,7 +113,7 @@ class TestViewLoader:
             implements=[interface.as_id()],
         )
         # Simulating that the interface and child_cdf are available in CDF
-        cognite_client_approval.append(dm.View, [interface, child_cdf])
+        toolkit_client_approval.append(dm.View, [interface, child_cdf])
 
         loader = ViewLoader.create_loader(cdf_tool, None)
         cmd = DeployCommand(print_warning=False)
@@ -123,6 +124,44 @@ class TestViewLoader:
         assert len(to_create) == 0
         assert len(to_change) == 0
         assert len(unchanged) == 1
+
+    def test_unchanged_view_int_version(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
+        loader = ViewLoader.create_loader(cdf_tool_mock, None)
+        raw_file = """- space: sp_space
+  externalId: my_view
+  version: 1"""
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = raw_file
+
+        local_view: dm.ViewApplyList = loader.load_resource(file, cdf_tool_mock, False)
+
+        cdf_view = dm.View(
+            space="sp_space",
+            external_id="my_view",
+            version="1",
+            last_updated_time=1,
+            created_time=1,
+            description=None,
+            name=None,
+            filter=None,
+            implements=None,
+            writable=True,
+            used_for="node",
+            is_global=False,
+            properties={},
+        )
+
+        toolkit_client_approval.append(dm.View, [cdf_view])
+
+        cmd = DeployCommand(print_warning=False)
+
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(local_view, loader)
+
+        assert len(to_create) == 0, "No views should be created"
+        assert len(to_change) == 0, "No views should be changed"
+        assert len(unchanged) == 1, "One view should be unchanged"
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -180,7 +219,7 @@ class TestViewLoader:
 
         assert list(actual) == expected
 
-    def test_are_equal_version_int(self, cdf_tool_config: CDFToolConfig) -> None:
+    def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
         local_view = dm.ViewApply.load("""space: sp_space
 externalId: my_view
 version: 1""")
@@ -200,7 +239,7 @@ version: 1""")
             properties={},
         )
 
-        loader = ViewLoader.create_loader(cdf_tool_config, None)
+        loader = ViewLoader.create_loader(cdf_tool_mock, None)
 
         _, local_dumped, cdf_dumped = loader.are_equal(local_view, cdf_view, return_dumped=True)
 

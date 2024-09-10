@@ -7,6 +7,6 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 class CogniteToolkit:
     def __init__(self, url: str | None = None):
-        self.client = CDFToolConfig().client
+        self.client = CDFToolConfig().toolkit_client
         self.modules = ModulesAPI(self.client.config.project, url)
         self.run = RunAPI(self.client)

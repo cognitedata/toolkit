@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 from collections.abc import Iterator
@@ -9,13 +8,14 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from cognite.client.testing import monkeypatch_cognite_client
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import Common, main_init
+from cognite_toolkit._cdf import Common
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.constants import REPO_ROOT
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.constants import REPO_ROOT, chdir
+from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -23,37 +23,17 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
 
 
-@contextlib.contextmanager
-def chdir(new_dir: Path) -> Iterator[None]:
-    """
-    Change directory to new_dir and return to the original directory when exiting the context.
-
-    Args:
-        new_dir: The new directory to change to.
-
-    """
-    current_working_dir = Path.cwd()
-    os.chdir(new_dir)
-
-    try:
-        yield
-
-    finally:
-        os.chdir(current_working_dir)
-
-
 @pytest.fixture
-def cognite_client_approval() -> ApprovalCogniteClient:
-    with monkeypatch_cognite_client() as client:
-        approval_client = ApprovalCogniteClient(client)
+def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
+    with monkeypatch_toolkit_client() as toolkit_client:
+        approval_client = ApprovalToolkitClient(toolkit_client)
         yield approval_client
 
 
 @pytest.fixture(scope="session")
-def build_tmp_path() -> Path:
+def build_tmp_path() -> Iterator[Path]:
     pidid = os.getpid()
     build_folder = TMP_FOLDER / f"build-{pidid}"
-
     if build_folder.exists():
         shutil.rmtree(build_folder, ignore_errors=True)
         build_folder.mkdir(exist_ok=True)
@@ -62,27 +42,20 @@ def build_tmp_path() -> Path:
 
 
 @pytest.fixture(scope="session")
-def local_tmp_project_path_immutable() -> Path:
+def local_tmp_repo_path() -> Iterator[Path]:
     pidid = os.getpid()
-    project_path = TMP_FOLDER / f"pytest-project-{pidid}"
-    project_path.mkdir(exist_ok=True)
-    yield project_path
-    shutil.rmtree(project_path, ignore_errors=True)
+    repo_path = TMP_FOLDER / f"pytest-repo-{pidid}"
+    repo_path.mkdir(exist_ok=True)
+    RepoCommand(silent=True, skip_git_verify=True).init(repo_path)
+    yield repo_path
+    shutil.rmtree(repo_path, ignore_errors=True)
 
 
 @pytest.fixture
-def local_tmp_project_path_mutable() -> Path:
-    pidid = os.getpid()
-    project_path = TMP_FOLDER / f"pytest-project-mutable-{pidid}"
-    if project_path.exists():
-        shutil.rmtree(project_path, ignore_errors=True)
-    project_path.mkdir(exist_ok=True)
-    yield project_path
-    shutil.rmtree(project_path, ignore_errors=True)
-
-
-@pytest.fixture
-def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_mock(
+    toolkit_client_approval: ApprovalToolkitClient,
+    monkeypatch: MonkeyPatch,
+) -> Iterator[CDFToolConfig]:
     environment_variables = {
         "LOGIN_FLOW": "client_credentials",
         "CDF_PROJECT": "pytest-project",
@@ -104,9 +77,19 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = cognite_client_approval.mock_client
-        cdf_tool.client = cognite_client_approval.mock_client
-        cdf_tool.toolkit_client = cognite_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        cdf_tool.client = toolkit_client_approval.mock_client
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+        cdf_tool._login_flow = "client_credentials"
+        cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]
+        cdf_tool._credentials_args = {
+            "client_id": "dummy-123",
+            "client_secret": "dummy-secret",
+            "token_url": "dummy-url",
+        }
+        cdf_tool._project = "pytest-project"
+        cdf_tool._client_name = "pytest"
+        cdf_tool._cdf_url = "https://bluefield.cognitedata.com"
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42
@@ -121,7 +104,7 @@ def cdf_tool_config(cognite_client_approval: ApprovalCogniteClient, monkeypatch:
 
 
 @pytest.fixture
-def cdf_tool_config_real(cognite_client_approval: ApprovalCogniteClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("CDF_CLUSTER", "bluefield")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
@@ -132,20 +115,20 @@ def cdf_tool_config_real(cognite_client_approval: ApprovalCogniteClient, monkeyp
 
 
 @pytest.fixture
-def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
+def typer_context(cdf_tool_mock: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
         verbose=False,
         override_env=True,
         cluster="pytest",
         project="pytest-project",
-        mockToolGlobals=cdf_tool_config,
+        mockToolGlobals=cdf_tool_mock,
     )
     return context
 
 
 @pytest.fixture(scope="session")
-def typer_context_no_cdf_tool_config() -> typer.Context:
+def typer_context_without_cdf_tool() -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
         verbose=False, override_env=True, cluster="pytest", project="pytest-project", mockToolGlobals=None
@@ -154,42 +137,52 @@ def typer_context_no_cdf_tool_config() -> typer.Context:
 
 
 @pytest.fixture(scope="session")
-def init_project(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_immutable: Path) -> Path:
-    main_init(
-        typer_context_no_cdf_tool_config,
-        dry_run=False,
-        upgrade=False,
-        git_branch=None,
-        init_dir=str(local_tmp_project_path_immutable),
-        no_backup=True,
+def organization_dir(
+    typer_context_without_cdf_tool: typer.Context,
+    local_tmp_repo_path: Path,
+) -> Path:
+    organization_folder = "pytest-org"
+    organization_dir = local_tmp_repo_path / organization_folder
+    ModulesCommand(silent=True).init(
+        organization_dir,
+        select_all=True,
         clean=True,
     )
-    return local_tmp_project_path_immutable
+
+    return organization_dir
 
 
 @pytest.fixture
-def init_project_mutable(typer_context_no_cdf_tool_config: typer.Context, local_tmp_project_path_mutable: Path) -> Path:
-    main_init(
-        typer_context_no_cdf_tool_config,
-        dry_run=False,
-        upgrade=False,
-        git_branch=None,
-        init_dir=str(local_tmp_project_path_mutable),
-        no_backup=True,
+def organization_dir_mutable(
+    typer_context_without_cdf_tool: typer.Context,
+    local_tmp_repo_path: Path,
+) -> Path:
+    """This is used in tests were the source module files are modified. For example, cdf pull commands."""
+    organization_dir = local_tmp_repo_path / "pytest-org-mutable"
+
+    ModulesCommand(silent=True).init(
+        organization_dir,
+        select_all=True,
         clean=True,
     )
-    return local_tmp_project_path_mutable
+
+    return organization_dir
 
 
 @pytest.fixture
 def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
     capture = PrintCapture()
     toolkit_path = REPO_ROOT / "cognite_toolkit"
+    builtin_modules_path = toolkit_path / "_cdf_tk" / "_packages"
     monkeypatch.setattr("cognite_toolkit._cdf.print", capture)
 
     # Monkeypatch all print functions in the toolkit automatically
     for folder in ["_cdf_tk", "_api"]:
         for py_file in (toolkit_path / folder).rglob("*.py"):
+            if py_file.is_relative_to(builtin_modules_path):
+                # Don't monkeypatch the function code of the
+                # builtin modules
+                continue
             file_path = py_file.relative_to(toolkit_path)
             module_path = f"{'.'.join(['cognite_toolkit', *file_path.parts[:-1]])}.{file_path.stem}"
             try:
@@ -197,5 +190,7 @@ def capture_print(monkeypatch: MonkeyPatch) -> PrintCapture:
             except AttributeError:
                 # The module does not have a print function
                 continue
+            except ImportError:
+                raise
 
     return capture

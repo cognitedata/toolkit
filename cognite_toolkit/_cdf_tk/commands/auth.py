@@ -20,7 +20,6 @@ from time import sleep
 from typing import cast
 
 import questionary
-from cognite.client import CogniteClient
 from cognite.client.data_classes.capabilities import (
     Capability,
     FunctionsAcl,
@@ -34,7 +33,8 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -72,7 +72,7 @@ class AuthCommand(ToolkitCommand):
         if group_file is None:
             template_dir = cast(Path, resources.files("cognite_toolkit"))
             group_path = template_dir.joinpath(
-                Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
+                Path(f"./{BUILTIN_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
             )
         else:
             group_path = Path(group_file)
@@ -111,7 +111,7 @@ class AuthCommand(ToolkitCommand):
         self.check_identity_provider(ToolGlobals, cdf_project)
 
         try:
-            principal_groups = ToolGlobals.client.iam.groups.list()
+            principal_groups = ToolGlobals.toolkit_client.iam.groups.list()
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
@@ -138,7 +138,7 @@ class AuthCommand(ToolkitCommand):
         self.check_principal_groups(principal_groups, admin_write_group)
 
         missing_capabilities = self.check_has_toolkit_required_capabilities(
-            ToolGlobals.client, token_inspection, admin_write_group, cdf_project, admin_write_group.name
+            ToolGlobals.toolkit_client, token_inspection, admin_write_group, cdf_project, admin_write_group.name
         )
         print("---------------------")
         has_added_capabilities = False
@@ -164,7 +164,7 @@ class AuthCommand(ToolkitCommand):
                     )
             elif to_create:
                 created = self.upsert_group(
-                    ToolGlobals.client, to_create, to_delete, principal_groups, interactive, cdf_project
+                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, interactive, cdf_project
                 )
                 has_added_capabilities = True
 
@@ -179,7 +179,7 @@ class AuthCommand(ToolkitCommand):
                     )
                 )
 
-        self.check_function_service_status(ToolGlobals.client, dry_run, has_added_capabilities)
+        self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
     def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
         print("[bold]Checking current service principal/application and environment configurations...[/]")
@@ -200,7 +200,7 @@ class AuthCommand(ToolkitCommand):
             # Using the token/inspect endpoint to check if the client has access to the project.
             # The response also includes access rights, which can be used to check if the client has the
             # correct access for what you want to do.
-            token_inspection = ToolGlobals.client.iam.token.inspect()
+            token_inspection = ToolGlobals.toolkit_client.iam.token.inspect()
             if token_inspection is None or len(token_inspection.capabilities) == 0:
                 raise AuthorizationError(
                     "Valid authentication token, but it does not give any access rights."
@@ -273,7 +273,7 @@ class AuthCommand(ToolkitCommand):
 
     def check_identity_provider(self, ToolGlobals: CDFToolConfig, cdf_project: str) -> None:
         print("Checking identity provider settings...")
-        project_info = ToolGlobals.client.get(f"/api/v1/projects/{cdf_project}").json()
+        project_info = ToolGlobals.toolkit_client.get(f"/api/v1/projects/{cdf_project}").json()
         oidc = project_info.get("oidcConfiguration", {})
         if "https://login.windows.net" in oidc.get("tokenUrl"):
             tenant_id = oidc.get("tokenUrl").split("/")[-3]
@@ -356,7 +356,7 @@ class AuthCommand(ToolkitCommand):
 
     def check_has_toolkit_required_capabilities(
         self,
-        client: CogniteClient,
+        client: ToolkitClient,
         token_inspection: TokenInspection,
         admin_group: GroupWrite,
         cdf_project: str,
@@ -448,7 +448,7 @@ class AuthCommand(ToolkitCommand):
 
     def upsert_group(
         self,
-        client: CogniteClient,
+        client: ToolkitClient,
         to_create: GroupWrite,
         to_delete: Group | None,
         principal_groups: GroupList,
@@ -515,7 +515,7 @@ class AuthCommand(ToolkitCommand):
         )
         return created
 
-    def check_function_service_status(self, client: CogniteClient, dry_run: bool, has_added_capabilities: bool) -> None:
+    def check_function_service_status(self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool) -> None:
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, [FunctionsAcl.Action.Read], has_added_capabilities)
         if not has_function_read_access:
@@ -557,7 +557,7 @@ class AuthCommand(ToolkitCommand):
         return None
 
     def has_function_rights(
-        self, client: CogniteClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool
+        self, client: ToolkitClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool
     ) -> bool:
         t0 = time.perf_counter()
         while not (

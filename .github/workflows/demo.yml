@@ -15,6 +15,7 @@ jobs:
         IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
         IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
         IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+        LOGIN_FLOW: client_credentials
     name: Loadmaster
     steps:
       - uses: actions/checkout@v4
@@ -32,9 +33,11 @@ jobs:
       - name: Install cdf-tk
         run: pip install .
       - name: Initialize project
-        run: cdf-tk init demo_project
+        run: cdf modules init demo_project --clean --all
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py
+      - name: "Not collect metrics"
+        run: cdf collect opt-out
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo ./demo_project
       # be careful, this works as promised

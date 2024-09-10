@@ -1,0 +1,7 @@
+[module]
+title = "Data pipeline for Valhall"
+
+[packages]
+tags = [
+    "examples",
+]

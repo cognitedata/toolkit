@@ -13,8 +13,11 @@
 # limitations under the License.
 from __future__ import annotations
 
+import re
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from graphlib import CycleError, TopologicalSorter
 from pathlib import Path
 from time import sleep
 from typing import Any, cast, final
@@ -50,6 +53,7 @@ from cognite.client.data_classes.data_modeling import (
     ViewApplyList,
     ViewList,
 )
+from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.data_classes.data_modeling.ids import (
     ContainerId,
     DataModelId,
@@ -63,17 +67,24 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import NodeApplyListWithCall
-from cognite_toolkit._cdf_tk.tk_warnings import (
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
+from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
+from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.loaders._base_loaders import (
+    ResourceContainerLoader,
+    ResourceLoader,
 )
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+    NodeApplyListWithCall,
+)
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    GraphQLParser,
+    calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
     retrieve_view_ancestors,
@@ -118,30 +129,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return item.space
 
     @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    "space",
-                    "space",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("sp_"):
-            if identifier in {"cognite_app_data", "APM_SourceData", "APM_Config"}:
-                if verbose:
-                    print(
-                        f"      [bold green]INFO:[/] the space {identifier} does not follow the recommended '_' based "
-                        "namespacing because Infield expects this specific name."
-                    )
-            else:
-                warning_list.append(PrefixConventionWarning(filepath, "space", "space", identifier, "sp_"))
-        return warning_list
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"space": id}
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
         return self.client.data_modeling.spaces.apply(items)
@@ -251,6 +240,10 @@ class ContainerLoader(
                 raise KeyError(*missing)
             return ContainerId(space=item["space"], external_id=item["externalId"])
         return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: ContainerId) -> dict[str, Any]:
+        return id.dump(include_type=False)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -460,8 +453,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
-        return item.as_id()
+            return ViewId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+
+        return ViewId(item.space, item.external_id, str(item.version))
+
+    @classmethod
+    def dump_id(cls, id: ViewId) -> dict[str, Any]:
+        return id.dump(include_type=False)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -472,7 +470,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 if not isinstance(parent, dict):
                     continue
                 if parent.get("type") == "view" and in_dict(["space", "externalId", "version"], parent):
-                    yield ViewLoader, ViewId(parent["space"], parent["externalId"], parent["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(parent["space"], parent["externalId"], str(v) if (v := parent.get("version")) else None),
+                    )
         for prop in item.get("properties", {}).values():
             if (container := prop.get("container", {})) and container.get("type") == "container":
                 if in_dict(("space", "externalId"), container):
@@ -480,7 +481,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             for key, dct_ in [("source", prop), ("edgeSource", prop), ("source", prop.get("through", {}))]:
                 if source := dct_.get(key, {}):
                     if source.get("type") == "view" and in_dict(("space", "externalId", "version"), source):
-                        yield ViewLoader, ViewId(source["space"], source["externalId"], source["version"])
+                        yield (
+                            ViewLoader,
+                            ViewId(
+                                source["space"], source["externalId"], str(v) if (v := source.get("version")) else None
+                            ),
+                        )
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
@@ -664,8 +670,12 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return DataModelId(space=item["space"], external_id=item["externalId"], version=item["version"])
-        return item.as_id()
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+        return DataModelId(item.space, item.external_id, str(item.version))
+
+    @classmethod
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
+        return id.dump(include_type=False)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -673,7 +683,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             yield SpaceLoader, item["space"]
         for view in item.get("views", []):
             if in_dict(("space", "externalId"), view):
-                yield ViewLoader, ViewId(view["space"], view["externalId"], view.get("version"))
+                yield (
+                    ViewLoader,
+                    ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
+                )
 
     def _are_equal(
         self, local: DataModelApply, cdf_resource: DataModel, return_dumped: bool = False
@@ -787,13 +800,24 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return item.as_id()
 
     @classmethod
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
+        return id.dump()
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "space" in item:
             yield SpaceLoader, item["space"]
         for source in item.get("sources", []):
             if (identifier := source.get("source")) and isinstance(identifier, dict):
                 if identifier.get("type") == "view" and in_dict(("space", "externalId", "version"), identifier):
-                    yield ViewLoader, ViewId(identifier["space"], identifier["externalId"], identifier["version"])
+                    yield (
+                        ViewLoader,
+                        ViewId(
+                            identifier["space"],
+                            identifier["externalId"],
+                            str(v) if (v := identifier.get("version")) else None,
+                        ),
+                    )
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
@@ -908,3 +932,186 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
             )
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
+
+
+class GraphQLLoader(
+    ResourceContainerLoader[
+        DataModelId, GraphQLDataModelWrite, GraphQLDataModel, GraphQLDataModelWriteList, GraphQLDataModelList
+    ]
+):
+    folder_name = "data_models"
+    filename_pattern = r"^.*GraphQLSchema"
+    resource_cls = GraphQLDataModel
+    resource_write_cls = GraphQLDataModelWrite
+    list_cls = GraphQLDataModelList
+    list_write_cls = GraphQLDataModelWriteList
+    kind = "GraphQLSchema"
+    dependencies = frozenset({SpaceLoader, ContainerLoader})
+    item_name = "views"
+    _doc_url = "Data-models/operation/createDataModels"
+    _hash_name = "CDFToolkitHash:"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
+        super().__init__(client, build_dir)
+        self._graphql_filepath_cache: dict[DataModelId, Path] = {}
+        self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
+        self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
+
+    @property
+    def display_name(self) -> str:
+        return "GraphQL schemas"
+
+    @classmethod
+    def get_id(cls, item: GraphQLDataModelWrite | GraphQLDataModel | dict) -> DataModelId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId", "version"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return DataModelId(space=item["space"], external_id=item["externalId"], version=str(item["version"]))
+        return DataModelId(item.space, item.external_id, str(item.version))
+
+    @classmethod
+    def dump_id(cls, id: DataModelId) -> dict[str, Any]:
+        return id.dump(include_type=False)
+
+    @classmethod
+    def get_required_capability(cls, items: GraphQLDataModelWriteList) -> Capability | list[Capability]:
+        if not items:
+            return []
+        return DataModelsAcl(
+            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+        )
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+
+    def _are_equal(
+        self, local: GraphQLDataModelWrite, cdf_resource: GraphQLDataModel, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_graphql_file = self._get_graphql_content(local.as_id())
+
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        local_dumped["graphql_file"] = calculate_str_or_file_hash(local_graphql_file)[:8]
+
+        description = cdf_resource.description or ""
+        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
+            cdf_dumped["graphql_file"] = match.group(3)
+            description = description[: -len(match.group(2))]
+            cdf_dumped["description"] = description
+        else:
+            cdf_dumped["graphql_file"] = ""
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GraphQLDataModelWriteList:
+        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_list = raw if isinstance(raw, list) else [raw]
+        models = GraphQLDataModelWriteList._load(raw_list)
+
+        # Find the GraphQL files adjacent to the DML files
+        for model in models:
+            if model.dml is not None:
+                expected_filename = model.dml
+            else:
+                expected_filename = (
+                    f'{INDEX_PATTERN.sub("", filepath.stem.removesuffix(self.kind).removesuffix("."))}.graphql'
+                )
+
+            graphql_file = next(
+                (f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(expected_filename)), None
+            )
+            if graphql_file is None:
+                raise ToolkitFileNotFoundError(
+                    f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
+                )
+            model_id = model.as_id()
+            self._graphql_filepath_cache[model_id] = graphql_file
+            parser = GraphQLParser(safe_read(graphql_file), model_id)
+            for view in parser.get_views():
+                self._datamodels_by_view_id[view].add(model_id)
+            self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
+        return models
+
+    def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+        creation_order = self._topological_sort(items)
+
+        created_list: list[DMLApplyResult] = []
+        for item in creation_order:
+            item_id = item.as_id()
+            graphql_file_content = self._get_graphql_content(item_id)
+
+            # Add hash to description
+            description = item.description or ""
+            hash_ = calculate_str_or_file_hash(graphql_file_content)[:8]
+            suffix = f"{self._hash_name}{hash_}"
+            if len(description) + len(suffix) > 1024:
+                print(LowSeverityWarning(f"Description is above limit for {item_id}. Truncating..."))
+                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
+            description += f" {suffix}"
+
+            created = self.client.data_modeling.graphql.apply_dml(
+                item.as_id(),
+                dml=graphql_file_content,
+                name=item.name,
+                description=description,
+                previous_version=item.previous_version,
+            )
+            created_list.append(created)
+        return created_list
+
+    def _get_graphql_content(self, data_model_id: DataModelId) -> str:
+        filepath = self._graphql_filepath_cache.get(data_model_id)
+        if filepath is None:
+            raise ToolkitFileNotFoundError(f"Could not find the GraphQL file for {data_model_id}")
+        return safe_read(filepath)
+
+    def retrieve(self, ids: SequenceNotStr[DataModelId]) -> GraphQLDataModelList:
+        result = self.client.data_modeling.data_models.retrieve(list(ids), inline_views=False)
+        return GraphQLDataModelList([GraphQLDataModel._load(d.dump()) for d in result])
+
+    def update(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
+        retrieved = self.retrieve(ids)
+        views = {view for dml in retrieved for view in dml.views or []}
+        deleted = len(self.client.data_modeling.data_models.delete(list(ids)))
+        deleted += len(self.client.data_modeling.views.delete(list(views)))
+        return deleted
+
+    def iterate(self) -> Iterable[GraphQLDataModel]:
+        return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
+
+    def count(self, ids: SequenceNotStr[DataModelId]) -> int:
+        retrieved = self.retrieve(ids)
+        return sum(len(d.views or []) for d in retrieved)
+
+    def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
+        return self.delete(ids)
+
+    def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
+        to_sort = {item.as_id(): item for item in items}
+        dependencies: dict[DataModelId, set[DataModelId]] = {}
+        for item in items:
+            item_id = item.as_id()
+            dependencies[item_id] = set()
+            for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
+                if isinstance(dependency, DataModelId) and dependency in to_sort:
+                    dependencies[item_id].add(dependency)
+                elif isinstance(dependency, ViewId):
+                    for model_id in self._datamodels_by_view_id.get(dependency, set()):
+                        if model_id in to_sort:
+                            dependencies[item_id].add(model_id)
+        try:
+            return [to_sort[item_id] for item_id in TopologicalSorter(dependencies).static_order()]
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cannot create GraphQL schemas. Cycle detected between models {e.args} using the @import directive.",
+                *e.args[1:],
+            )

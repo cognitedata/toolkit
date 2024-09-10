@@ -23,9 +23,35 @@ class BuildVariable:
     """
 
     key: str
-    value: str | int | float | bool | list[str | int | float | bool] | dict[str, str | int | float | bool]
+    value: str | int | float | bool | tuple[str | int | float | bool]
     is_selected: bool
     location: Path
+
+    @property
+    def value_variable(self) -> str | int | float | bool | list[str | int | float | bool]:
+        """Returns the value of the variable as a variable."""
+        if isinstance(self.value, tuple):
+            # Convert the tuple back to a list to make it JSON serializable
+            return list(self.value)
+        else:
+            return self.value
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "value": self.value_variable,
+            "is_selected": self.is_selected,
+            "location": self.location.as_posix(),
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> BuildVariable:
+        if isinstance(data["value"], list):
+            # Convert the list to a tuple to make it hashable
+            value = tuple(data["value"])
+        else:
+            value = data["value"]
+        return cls(data["key"], value, data["is_selected"], Path(data["location"]))
 
 
 class BuildVariables(tuple, Sequence[BuildVariable]):
@@ -48,7 +74,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         return BuildVariables([variable for variable in self if variable.is_selected])
 
     @classmethod
-    def load(
+    def load_raw(
         cls,
         raw_variable: dict[str, Any],
         available_modules: set[Path],
@@ -67,9 +93,15 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     # Remove this check to support variables with dictionary values.
                     continue
                 else:
-                    variables.append(BuildVariable(key, value, path in selected_modules, path))
+                    hashable_values = tuple(value) if isinstance(value, list) else value
+                    variables.append(BuildVariable(key, hashable_values, path in selected_modules, path))
 
         return cls(variables)
+
+    @classmethod
+    def load(cls, data: list[dict[str, Any]]) -> BuildVariables:
+        """Loads the variables from a dictionary."""
+        return cls([BuildVariable.load(variable) for variable in data])
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
@@ -83,7 +115,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
-            replace = variable.value
+            replace = variable.value_variable
             _core_patter = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
@@ -111,3 +143,6 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         if isinstance(index, slice):
             return BuildVariables(super().__getitem__(index))
         return super().__getitem__(index)
+
+    def dump(self) -> list[dict[str, Any]]:
+        return [variable.dump() for variable in self]

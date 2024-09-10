@@ -3,12 +3,19 @@ from __future__ import annotations
 import abc
 import importlib
 import inspect
+import re
 import typing
 from collections import Counter
 from typing import Any, get_type_hints
 
 from cognite.client.data_classes import TransformationScheduleWrite
 from cognite.client.data_classes.capabilities import UnknownAcl
+from cognite.client.data_classes.data_modeling.typed_instances import (
+    TypedEdge,
+    TypedEdgeApply,
+    TypedNode,
+    TypedNodeApply,
+)
 
 
 class _TypeHints:
@@ -28,6 +35,10 @@ class _TypeHints:
         to_check = [resource_cls]
         while to_check:
             cls_ = to_check.pop()
+            if cls_ in {TypedEdge, TypedNode, TypedEdgeApply, TypedNodeApply}:
+                # These classes are abstract, but are not marked as such as they use  Mixin pattern
+                continue
+
             to_check.extend(cls_.__subclasses__())
             is_base_class = inspect.isclass(cls_) and any(base is abc.ABC for base in cls_.__bases__)
             # UnknownAcl is a special case, it is concrete class, but cannot be instantiated easily
@@ -124,8 +135,12 @@ class _TypeHints:
             return typing.Union[tuple(alternatives)]
         elif annotation.startswith("dict[") and annotation.endswith("]"):
             if Counter(annotation)[","] > 1:
-                key, rest = annotation[5:-1].split(",", 1)
-                return dict[key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)]  # type: ignore[misc]
+                # Regex pattern to split on the first comma not inside square brackets
+                pattern = r",(?!(?:[^\[]*\[[^\]]*\])*[^\]]*\])"
+                key, rest = re.split(pattern, annotation[5:-1], maxsplit=1)
+                key_hint = cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars)
+                value_hint = cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
+                return dict[key_hint, value_hint]  # type: ignore[misc, valid-type]
             key, value = annotation[5:-1].split(",")
             return dict[  # type: ignore[misc]
                 cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),

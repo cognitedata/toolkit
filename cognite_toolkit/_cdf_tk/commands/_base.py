@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -26,33 +25,28 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
-        self.print_warning = print_warning
-        if len(sys.argv) > 1:
-            self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
-        else:
-            self.user_command = "cdf-tk"
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+        self._print_warning = print_warning
+        self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(self.user_command)
-        self.skip_tracking = self.tracker.opted_out or skip_tracking
+        self.tracker = Tracker(skip_tracking)
+
+    @property
+    def print_warning(self) -> bool:
+        return self._print_warning and not self.silent
 
     def _track_command(self, result: str | Exception) -> None:
-        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
-            return
-        self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
+        self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        if (
-            not self.tracker.opted_in
-            and not self.tracker.opted_out
-            and not self.user_command.startswith("cdf-tk collect")
-        ):
+        is_collect_command = len(sys.argv) >= 2 and "collect" == sys.argv[1]
+        if not self.tracker.opted_in and not self.tracker.opted_out and not is_collect_command:
             print(
                 "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
                 "and crash reports for the purposes of providing services of functions that are relevant "
                 "to use of the CLI tool and product improvements. "
-                "To remove this message run 'cdf-tk collect opt-in', "
-                "or to stop collecting usage information run 'cdf-tk collect opt-out'."
+                "To remove this message run 'cdf collect opt-in', "
+                "or to stop collecting usage information run 'cdf collect opt-out'."
             )
 
         try:
@@ -68,6 +62,10 @@ class ToolkitCommand:
         self.warning_list.append(warning)
         if self.print_warning:
             warning.print_warning()
+
+    def console(self, message: str, prefix: str = "[bold green]INFO:[/] ") -> None:
+        if not self.silent:
+            print(f"{prefix}{message}")
 
     def _load_files(
         self,

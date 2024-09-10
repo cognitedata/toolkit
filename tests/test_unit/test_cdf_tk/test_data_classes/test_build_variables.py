@@ -23,7 +23,7 @@ composite: 'some_prefix_{{ my_composite }}'
 prefix_text: {{ my_prefix_text }}
 suffix_text: {{ my_suffix_text }}
 """
-        variables = BuildVariables.load(
+        variables = BuildVariables.load_raw(
             {
                 "my_text": "some text",
                 "my_bool": True,
@@ -62,7 +62,7 @@ suffix_text: {{ my_suffix_text }}
 
     def test_replace_not_preserve_type(self) -> None:
         source_yaml = """dataset_id('{{dataset_external_id}}')"""
-        variables = BuildVariables.load(
+        variables = BuildVariables.load_raw(
             {
                 "dataset_external_id": "ds_external_id",
             },

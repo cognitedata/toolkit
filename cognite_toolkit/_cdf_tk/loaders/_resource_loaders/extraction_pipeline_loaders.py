@@ -47,10 +47,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
-    NamespacingConventionWarning,
-    PrefixConventionWarning,
-    WarningList,
-    YAMLFileWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -104,6 +100,10 @@ class ExtractionPipelineLoader(
         return item.external_id
 
     @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         seen_databases: set[str] = set()
         if "dataSetExternalId" in item:
@@ -116,32 +116,6 @@ class ExtractionPipelineLoader(
                         yield RawDatabaseLoader, RawDatabaseTable(db_name=db)
                     if "tableName" in entry:
                         yield RawTableLoader, RawDatabaseTable._load(entry)
-
-    @classmethod
-    def check_identifier_semantics(cls, identifier: str, filepath: Path, verbose: bool) -> WarningList[YAMLFileWarning]:
-        warning_list = WarningList[YAMLFileWarning]()
-        parts = identifier.split("_")
-        if len(parts) < 2:
-            warning_list.append(
-                NamespacingConventionWarning(
-                    filepath,
-                    "extraction pipeline",
-                    "externalId",
-                    identifier,
-                    "_",
-                )
-            )
-        elif not identifier.startswith("ep_"):
-            warning_list.append(
-                PrefixConventionWarning(
-                    filepath,
-                    "extraction pipeline",
-                    "externalId",
-                    identifier,
-                    "ep_",
-                )
-            )
-        return warning_list
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -262,6 +236,10 @@ class ExtractionPipelineConfigLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

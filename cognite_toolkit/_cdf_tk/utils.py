@@ -25,7 +25,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, Sequence, ValuesView
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -33,7 +33,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, get_args, ove
 
 import typer
 import yaml
-from cognite.client import ClientConfig, CogniteClient
+from cognite.client import ClientConfig
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes import CreatedSession
@@ -44,15 +44,15 @@ from cognite.client.data_classes.capabilities import (
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
 )
-from cognite.client.data_classes.data_modeling import View, ViewId
+from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
-from cognite.client.testing import CogniteClientMock
 from rich import print
 from rich.prompt import Confirm, Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, ROOT_MODULES, URL
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILTIN_MODULES, ROOT_MODULES, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -378,7 +378,7 @@ class CDFToolConfig:
     """Configurations for how to store data in CDF
 
     Properties:
-        client: active CogniteClient
+        toolkit_client: active ToolkitClient
     Functions:
         verify_client: verify that the client has correct credentials and specified access capabilities
         verify_dataset: verify that the data set exists and that the client has access to it
@@ -421,8 +421,9 @@ class CDFToolConfig:
         self._cdf_url: str | None = None
         self._scopes: list[str] = []
         self._audience: str | None = None
+        self._token_url: str | None = None
+        self._credentials_args: dict[str, Any] = {}
         self._credentials_provider: CredentialProvider | None = None
-        self._client: CogniteClient | None = None
         self._toolkit_client: ToolkitClient | None = None
 
         global_config.disable_pypi_version_check = True
@@ -434,18 +435,19 @@ class CDFToolConfig:
         auth_vars = AuthVariables.from_env(self._environ)
         if not skip_initialization:
             self.initialize_from_auth_variables(auth_vars)
+        self._login_flow = auth_vars.login_flow
 
     def _initialize_in_browser(self) -> None:
         try:
-            self._client = CogniteClient()
+            self._toolkit_client = ToolkitClient()
         except Exception as e:
             raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
 
         if self._cluster or self._project:
             print("[bold yellow]Warning[/] Cluster and project are arguments ignored when running in the browser.")
-        self._cluster = self._client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
-        self._project = self._client.config.project
-        self._cdf_url = self._client.config.base_url
+        self._cluster = self._toolkit_client.config.base_url.removeprefix("https://").split(".", maxsplit=1)[0]
+        self._project = self._toolkit_client.config.project
+        self._cdf_url = self._toolkit_client.config.base_url
 
     def initialize_from_auth_variables(self, auth: AuthVariables) -> None:
         """Initialize the CDFToolConfig from the AuthVariables and returns whether it was successful or not."""
@@ -462,7 +464,8 @@ class CDFToolConfig:
         if auth.login_flow == "token":
             if not auth.token:
                 raise AuthenticationError("Login flow=token is set but no CDF_TOKEN is not provided.")
-            self._credentials_provider = Token(auth.token)
+            self._credentials_args = dict(token=auth.token)
+            self._credentials_provider = Token(**self._credentials_args)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
@@ -471,11 +474,12 @@ class CDFToolConfig:
                     "Login flow=interactive is set but missing required authentication "
                     "variables: IDP_CLIENT_ID and IDP_TENANT_ID (or IDP_AUTHORITY_URL). Cannot authenticate the client."
                 )
-            self._credentials_provider = OAuthInteractive(
+            self._credentials_args = dict(
                 authority_url=auth.authority_url,
                 client_id=auth.client_id,
                 scopes=self._scopes,
             )
+            self._credentials_provider = OAuthInteractive(**self._credentials_args)
         elif auth.login_flow == "client_credentials" or auth.login_flow is None:
             if auth.login_flow is None:
                 print(
@@ -493,18 +497,18 @@ class CDFToolConfig:
                     "variables: IDP_CLIENT_ID, IDP_CLIENT_SECRET and IDP_TENANT_ID (or IDP_TOKEN_URL). "
                     "Cannot authenticate the client."
                 )
-
-            self._credentials_provider = OAuthClientCredentials(
+            self._credentials_args = dict(
                 token_url=auth.token_url,
                 client_id=auth.client_id,
                 client_secret=auth.client_secret,
                 scopes=self._scopes,
                 audience=self._audience,
             )
+            self._credentials_provider = OAuthClientCredentials(**self._credentials_args)
         else:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
-
-        self._client = CogniteClient(
+        self._token_url = auth.token_url
+        self._toolkit_client = ToolkitClient(
             ClientConfig(
                 client_name=self._client_name,
                 base_url=self._cdf_url,
@@ -565,16 +569,9 @@ class CDFToolConfig:
         )
 
     @property
-    def client(self) -> CogniteClient:
-        if self._client is None:
-            raise ValueError("Client is not initialized.")
-        return self._client
-
-    @property
     def toolkit_client(self) -> ToolkitClient:
         if self._toolkit_client is None:
-            client = self.client
-            self._toolkit_client = ToolkitClient(client._config)
+            raise ValueError("ToolkitClient is not initialized.")
         return self._toolkit_client
 
     @property
@@ -625,7 +622,7 @@ class CDFToolConfig:
     def _token_inspection(self) -> TokenInspection:
         if self._cache.token_inspect is None:
             try:
-                self._cache.token_inspect = self.client.iam.token.inspect()
+                self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
             except CogniteAPIError as e:
                 raise AuthorizationError(
                     f"Don't seem to have any access rights. {e}\n"
@@ -636,7 +633,7 @@ class CDFToolConfig:
 
     def verify_authorization(
         self, capabilities: Capability | Sequence[Capability], action: str | None = None
-    ) -> CogniteClient:
+    ) -> ToolkitClient:
         """Verify that the client has correct credentials and required access rights
 
         Args:
@@ -644,10 +641,10 @@ class CDFToolConfig:
             action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
 
         Returns:
-            CogniteClient: Verified client with access rights
+            ToolkitClient: Verified client with access rights
         """
         token_inspect = self._token_inspection
-        missing_capabilities = self.client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        missing_capabilities = self.toolkit_client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
         if missing_capabilities:
             missing = "  - \n".join(repr(c) for c in missing_capabilities)
             first_sentence = "Don't have correct access rights"
@@ -661,7 +658,7 @@ class CDFToolConfig:
                 f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
                 "and ensure that you have setup authentication for the CDF toolkit correctly."
             )
-        return self.client
+        return self.toolkit_client
 
     def verify_dataset(
         self, data_set_external_id: str, skip_validation: bool = False, action: str | None = None
@@ -692,7 +689,7 @@ class CDFToolConfig:
         )
 
         try:
-            data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+            data_set = self.toolkit_client.data_sets.retrieve(external_id=data_set_external_id)
         except CogniteAPIError as e:
             raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
 
@@ -729,7 +726,7 @@ class CDFToolConfig:
             ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()), action
         )
         try:
-            pipeline = self.client.extraction_pipelines.retrieve(external_id=external_id)
+            pipeline = self.toolkit_client.extraction_pipelines.retrieve(external_id=external_id)
         except CogniteAPIError as e:
             raise ResourceRetrievalError(f"Failed to retrieve extraction pipeline {external_id}: {e}")
 
@@ -771,7 +768,7 @@ class CDFToolConfig:
             SecurityCategoriesAcl([SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()), action
         )
 
-        all_security_categories = self.client.iam.security_categories.list(limit=-1)
+        all_security_categories = self.toolkit_client.iam.security_categories.list(limit=-1)
         self._cache.security_categories_by_name.update(
             {sc.name: sc.id for sc in all_security_categories if sc.id and sc.name}
         )
@@ -817,7 +814,7 @@ class CDFToolConfig:
 
         self.verify_authorization(AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()), action)
 
-        missing_assets = self.client.assets.retrieve_multiple(
+        missing_assets = self.toolkit_client.assets.retrieve_multiple(
             external_ids=missing_external_ids, ignore_unknown_ids=True
         )
 
@@ -838,35 +835,46 @@ class CDFToolConfig:
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["list"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"], validate: bool = True
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["dict"]
+    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"], validate: bool = True
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
-    filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+    filepath: Path | str,
+    variables: dict[str, str | None],
+    required_return_type: Literal["any", "list", "dict"] = "any",
+    validate: bool = True,
 ) -> dict[str, Any] | list[dict[str, Any]]:
-    content = filepath.read_text()
+    if isinstance(filepath, str):
+        content = filepath
+    else:
+        content = filepath.read_text()
     for key, value in variables.items():
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
-    for match in re.finditer(r"\$\{([^}]+)\}", content):
-        environment_variable = match.group(1)
-        MediumSeverityWarning(
-            f"Variable {environment_variable} is not set in the environment. It is expected in {filepath.name}."
-        ).print_warning()
+    if validate:
+        for match in re.finditer(r"\$\{([^}]+)\}", content):
+            environment_variable = match.group(1)
+            suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
+            MediumSeverityWarning(
+                f"Variable {environment_variable} is not set in the environment.{suffix}"
+            ).print_warning()
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
@@ -928,23 +936,12 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     return config_data
 
 
-def resolve_relative_path(path: Path, base_path: Path | str) -> Path:
-    """
-    This is useful if we provide a relative path to some resource in a config file.
-    """
-    if path.is_absolute():
-        raise ValueError(f"Path {path} is not relative.")
-
-    if isinstance(base_path, str):
-        base_path = Path(base_path)
-
-    if not base_path.is_dir():
-        base_path = base_path.parent
-
-    return (base_path / path).resolve()
-
-
-def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None = None) -> str:
+def calculate_directory_hash(
+    directory: Path,
+    exclude_prefixes: set[str] | None = None,
+    ignore_files: set[str] | None = None,
+    shorten: bool = False,
+) -> str:
     sha256_hash = hashlib.sha256()
 
     # Walk through each file in the directory
@@ -952,6 +949,8 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
         if filepath.is_dir():
             continue
         if exclude_prefixes and any(filepath.name.startswith(prefix) for prefix in exclude_prefixes):
+            continue
+        if ignore_files and filepath.suffix in ignore_files:
             continue
         relative_path = filepath.relative_to(directory)
         sha256_hash.update(relative_path.as_posix().encode("utf-8"))
@@ -961,7 +960,10 @@ def calculate_directory_hash(directory: Path, exclude_prefixes: set[str] | None 
                 # Get rid of Windows line endings to make the hash consistent across platforms.
                 sha256_hash.update(chunk.replace(b"\r\n", b"\n"))
 
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
 def calculate_secure_hash(item: dict[str, Any]) -> str:
@@ -971,20 +973,23 @@ def calculate_secure_hash(item: dict[str, Any]) -> str:
     return sha256_hash.hexdigest()
 
 
-def calculate_str_or_file_hash(content: str | Path) -> str:
+def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
         content = content.read_text(encoding="utf-8")
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
-    return sha256_hash.hexdigest()
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
 
 
-def get_oneshot_session(client: CogniteClient) -> CreatedSession | None:
+def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
     # Special case as this utility function may be called with a new client created in code,
     # it's hard to mock it in tests.
-    if isinstance(client, CogniteClientMock):
+    if isinstance(client, ToolkitClientMock):
         bearer = "123"
     else:
         (_, bearer) = client.config.credentials.authorization_header()
@@ -1126,7 +1131,7 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
         return super().values()
 
 
-def retrieve_view_ancestors(client: CogniteClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
+def retrieve_view_ancestors(client: ToolkitClient, parents: list[ViewId], cache: dict[ViewId, View]) -> list[View]:
     """Retrieves all ancestors of a view.
 
     This will mutate the cache that is passed in, and return a list of views that are the ancestors of the views in the parents list.
@@ -1200,6 +1205,9 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
 
     """
     if root_dir.name in ROOT_MODULES:
+        yield from _iterate_modules(root_dir)
+        return
+    elif root_dir.name == BUILTIN_MODULES:
         yield from _iterate_modules(root_dir)
         return
     for root_module in ROOT_MODULES:
@@ -1338,3 +1346,181 @@ def get_cicd_environment() -> str:
         return "azure"
 
     return "local"
+
+
+class GraphQLParser:
+    _token_pattern = re.compile(r"\w+|[^\w\s]")
+
+    def __init__(self, raw: str, data_model_id: DataModelId) -> None:
+        self.raw = raw
+        self.data_model_id = data_model_id
+        self._entities: list[_Entity] | None = None
+
+    def get_views(self) -> set[ViewId]:
+        return {
+            ViewId(self.data_model_id.space, entity.identifier)
+            for entity in self._get_entities()
+            if not entity.is_imported
+        }
+
+    def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
+        dependencies: set[ViewId | DataModelId] = set()
+        for entity in self._get_entities():
+            view_directive: _ViewDirective | None = None
+            is_dependency = False
+            for directive in entity.directives:
+                if isinstance(directive, _Import):
+                    if directive.data_model:
+                        dependencies.add(directive.data_model)
+                        break
+                    is_dependency = True
+                elif isinstance(directive, _ViewDirective):
+                    view_directive = directive
+            if is_dependency and view_directive:
+                dependencies.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            elif is_dependency:
+                # Todo: Warning Likely invalid directive
+                ...
+        return dependencies
+
+    def _get_entities(self) -> list[_Entity]:
+        if self._entities is None:
+            self._entities = self._parse()
+        return self._entities
+
+    def _parse(self) -> list[_Entity]:
+        entities: list[_Entity] = []
+        entity: _Entity | None = None
+        last_class: Literal["type", "interface"] | None = None
+
+        parentheses: list[str] = []
+
+        directive_tokens: _DirectiveTokens | None = None
+        is_directive_start: bool = False
+        for token in self._token_pattern.findall(self.raw):
+            if token in "({[<":
+                parentheses.append(token)
+            elif token in ")}]>":
+                parentheses.pop()
+
+            is_end_of_entity = bool(parentheses and parentheses[0] == "{")
+
+            if entity and is_end_of_entity:
+                # End of entity definition
+                if directive_tokens and (directive := directive_tokens.create()):
+                    entity.directives.append(directive)
+                directive_tokens = None
+                entities.append(entity)
+                entity = None
+            elif entity is not None:
+                if directive_tokens is not None and (not parentheses or token == "@"):
+                    # End of directive
+                    if directive := directive_tokens.create():
+                        entity.directives.append(directive)
+                    directive_tokens = None
+                    if token == "@":
+                        is_directive_start = True
+                elif directive_tokens:
+                    # Gather the content of the directive
+                    directive_tokens.append(token)
+                elif token == "@":
+                    is_directive_start = True
+                elif is_directive_start and token in ("import", "view"):
+                    directive_tokens = _DirectiveTokens([token])
+                    is_directive_start = False
+                elif is_directive_start:
+                    # Not a directive we care about
+                    is_directive_start = False
+
+            elif token in ("type", "interface"):
+                # Next token starts a new entity definition
+                last_class = token
+            elif last_class is not None:
+                # Start of a new entity definition
+                entity = _Entity(identifier=token, class_=last_class)
+                last_class = None
+        return entities
+
+
+class _DirectiveTokens(list, MutableSequence[str]):
+    def create(self) -> _Directive | None:
+        return _Directive.load(self)
+
+
+@dataclass
+class _Directive:
+    # This pattern ignores commas inside }
+    SPLIT_ON_COMMA_PATTERN = re.compile(r",(?![^{]*\})")
+
+    @classmethod
+    def load(cls, content: list[str]) -> _Directive | None:
+        key, *content = content
+        raw_string = "".join(content).removeprefix("(").removesuffix(")")
+        data = typing.cast(dict[str, Any], cls._create_args(raw_string))
+        if key == "import":
+            return _Import._load(data)
+        if key == "view":
+            return _ViewDirective._load(data)
+        return None
+
+    @classmethod
+    def _create_args(cls, string: str) -> dict[str, Any] | str:
+        if "," not in string:
+            return string
+        output: dict[str, Any] = {}
+        if string[0] == "{" and string[-1] == "}":
+            string = string[1:-1]
+        for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
+            stripped = pair.strip()
+            if not stripped or ":" not in stripped:
+                continue
+            key, value = cls._clean(*stripped.split(":", maxsplit=1))
+            output[key] = cls._create_args(value)
+        return output
+
+    @classmethod
+    def _clean(cls, *args: Any) -> Any:
+        return tuple(arg.removeprefix('"').removesuffix('"').removeprefix('"').removesuffix('"') for arg in args)
+
+    @classmethod
+    @abstractmethod
+    def _load(cls, data: dict[str, Any]) -> _Directive: ...
+
+
+@dataclass
+class _ViewDirective(_Directive):
+    space: str | None = None
+    external_id: str | None = None
+    version: str | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _ViewDirective:
+        return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
+
+
+@dataclass
+class _Import(_Directive):
+    data_model: DataModelId | None = None
+
+    @classmethod
+    def _load(cls, data: dict[str, Any]) -> _Import:
+        if "dataModel" in data:
+            return _Import(data_model=DataModelId.load(data["dataModel"]))
+        return _Import()
+
+
+@dataclass
+class _Entity:
+    identifier: str
+    class_: Literal["type", "interface"]
+    directives: list[_Directive] = field(default_factory=list)
+
+    @property
+    def is_imported(self) -> bool:
+        return any(isinstance(directive, _Import) for directive in self.directives)

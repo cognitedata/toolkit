@@ -3,7 +3,7 @@ import os
 import pytest
 
 from cognite_toolkit._api import CogniteToolkit
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture
@@ -34,7 +34,7 @@ def set_environment_variables() -> None:
 
 
 @pytest.fixture
-def cognite_toolkit(cognite_client_approval: ApprovalCogniteClient, set_environment_variables: None) -> CogniteToolkit:
+def cognite_toolkit(toolkit_client_approval: ApprovalToolkitClient, set_environment_variables: None) -> CogniteToolkit:
     toolkit = CogniteToolkit()
-    toolkit.client = cognite_client_approval.client
+    toolkit.client = toolkit_client_approval.client
     return toolkit

@@ -13,9 +13,10 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, ModuleMetaList
 from cognite_toolkit._cdf import Common, clean, deploy
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES, COGNITE_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML, SystemYAML
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH, MODULES
+from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 from cognite_toolkit._cdf_tk.utils import iterate_modules
 
@@ -39,18 +40,18 @@ class ModulesAPI:
         if self._url is not None:
             raise NotImplementedError("Loading modules from a URL is not yet supported")
         else:
-            return COGNITE_MODULES_PATH
+            return BUILTIN_MODULES_PATH
 
     def _load_modules(self) -> None:
-        source_dir = self._source_dir()
+        organization_dir = self._source_dir()
 
-        system_yaml = SystemYAML.load_from_directory(source_dir.parent, self._build_env)
-        default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(source_dir)
+        cdf_toml = CDFToml.load(organization_dir.parent)
+        default_config = InitConfigYAML(_DUMMY_ENVIRONMENT).load_defaults(organization_dir)
 
-        for module, _ in iterate_modules(source_dir):
+        for module, _ in iterate_modules(organization_dir):
             module_packages = {
                 package_name
-                for package_name, package_modules in system_yaml.packages.items()
+                for package_name, package_modules in cdf_toml.modules.packages.items()
                 if module.name in package_modules
             }
             self.__module_by_name[module.name] = ModuleMeta._load(
@@ -64,9 +65,9 @@ class ModulesAPI:
         return self.__module_by_name
 
     def _build(self, modules: Sequence[ModuleMeta], verbose: bool) -> None:
-        variables: dict[str, Any] = {COGNITE_MODULES: {}}
+        variables: dict[str, Any] = {MODULES: {}}
         for module in modules:
-            key_parent_path = (COGNITE_MODULES, *module._source.relative_to(self._source_dir()).parts)
+            key_parent_path = (MODULES, *module._source.relative_to(self._source_dir()).parts)
             for variable in module.variables.values():
                 key_path = (*key_parent_path, variable.name)
                 current = variables
@@ -88,7 +89,7 @@ class ModulesAPI:
             self._build_dir,
             self._source_dir().parent,
             config,
-            system_config=SystemYAML.load_from_directory(self._source_dir().parent, self._build_env),
+            packages=CDFToml.load(self._source_dir().parent).modules.packages,
             clean=True,
             verbose=verbose,
         )

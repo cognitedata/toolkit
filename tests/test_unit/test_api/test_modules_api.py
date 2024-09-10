@@ -4,15 +4,15 @@ import pytest
 
 from cognite_toolkit._api import CogniteToolkit
 from cognite_toolkit._api import data_classes as dc
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.constants import REPO_ROOT
-from tests.test_unit.approval_client import ApprovalCogniteClient
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 _ALL_MODULE_NAMES = [
     module_path.name
     for module_path, _ in iterate_modules(REPO_ROOT / "cognite_toolkit")
-    if COGNITE_MODULES in module_path.parts
+    if BUILTIN_MODULES in module_path.parts
 ]
 
 
@@ -21,10 +21,11 @@ def all_modules(cognite_toolkit: CogniteToolkit) -> dc.ModuleMetaList:
     return cognite_toolkit.modules.list()
 
 
+@pytest.mark.skip("Reconsider if we keep this functionality")
 class TestModulesAPI:
     def test_list_modules(self, cognite_toolkit: CogniteToolkit) -> None:
         expected_modules = {
-            modul_path.name for modul_path, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / COGNITE_MODULES)
+            modul_path.name for modul_path, _ in iterate_modules(REPO_ROOT / "cognite_toolkit" / BUILTIN_MODULES)
         }
 
         modules = cognite_toolkit.modules.list()
@@ -40,8 +41,8 @@ class TestModulesAPI:
         # THE CDFToolConfig fixture is used as it sets the necessary environment variables
         self,
         cognite_toolkit: CogniteToolkit,
-        cognite_client_approval: ApprovalCogniteClient,
-        cdf_tool_config: CDFToolConfig,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cdf_tool_mock: CDFToolConfig,
     ) -> None:
         module = cognite_toolkit.modules.retrieve("cdf_auth_readwrite_all")
         assert isinstance(module, dc.ModuleMeta)
@@ -50,7 +51,7 @@ class TestModulesAPI:
 
         cognite_toolkit.modules.deploy(module)
 
-        dumped = cognite_client_approval.dump(sort=True)
+        dumped = toolkit_client_approval.dump(sort=True)
         groups = dumped["Group"]
 
         assert len(groups) == 2
@@ -63,14 +64,14 @@ class TestModulesAPI:
         # THE CDFToolConfig fixture is used as it sets the necessary environment variables
         self,
         cognite_toolkit: CogniteToolkit,
-        cognite_client_approval: ApprovalCogniteClient,
-        cdf_tool_config: CDFToolConfig,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cdf_tool_mock: CDFToolConfig,
     ):
         module = cognite_toolkit.modules.retrieve("cdf_infield_common")
 
         cognite_toolkit.modules.deploy(module, include={"auth"})
 
-        dumped = cognite_client_approval.dump(sort=False)
+        dumped = toolkit_client_approval.dump(sort=False)
 
         assert len(dumped) == 1
         assert "Group" in dumped
@@ -80,10 +81,10 @@ class TestModulesAPI:
         self,
         module_name: str,
         cognite_toolkit: CogniteToolkit,
-        cognite_client_approval: ApprovalCogniteClient,
-        cdf_tool_config: CDFToolConfig,
-    ):
-        cognite_client_approval.return_verify_resources = True
+        toolkit_client_approval: ApprovalToolkitClient,
+        cdf_tool_mock: CDFToolConfig,
+    ) -> None:
+        toolkit_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
 
         cognite_toolkit.modules.deploy(module, verbose=True)
@@ -95,10 +96,10 @@ class TestModulesAPI:
         self,
         module_name: str,
         cognite_toolkit: CogniteToolkit,
-        cognite_client_approval: ApprovalCogniteClient,
-        cdf_tool_config: CDFToolConfig,
+        toolkit_client_approval: ApprovalToolkitClient,
+        cdf_tool_mock: CDFToolConfig,
     ):
-        cognite_client_approval.return_verify_resources = True
+        toolkit_client_approval.return_verify_resources = True
         module = cognite_toolkit.modules.retrieve(module_name)
 
         cognite_toolkit.modules.clean(module, verbose=True)

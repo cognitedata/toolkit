@@ -10,46 +10,14 @@ from pathlib import Path
 from typing import Annotated, NoReturn, Optional, Union
 
 import typer
+from cognite.client.config import global_config
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands.featureflag import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
-
-if FeatureFlag.is_enabled(Flags.ASSETS):
-    from cognite_toolkit._cdf_tk.prototypes import setup_asset_loader
-
-    setup_asset_loader.setup_asset_loader()
-
-# TODO: above my head to implement setup_asset_loader.py. Which `_modify` steps to implement?
-# if FeatureFlag.is_enabled(Flags.TIMESERIES):
-#     from cognite_toolkit._cdf_tk.prototypes import setup_timeseries_loader
-
-#     setup_timeseries_loader.setup_timeseries_loader()
-
-
-if FeatureFlag.is_enabled(Flags.MODEL_3D):
-    from cognite_toolkit._cdf_tk.prototypes import setup_3D_loader
-
-    setup_3D_loader.setup_model_3d_loader()
-
-if FeatureFlag.is_enabled(Flags.FUN_SCHEDULE):
-    from cognite_toolkit._cdf_tk.prototypes import modify_function_schedule
-
-    modify_function_schedule.modify_function_schedule_loader()
-
-if FeatureFlag.is_enabled(Flags.ROBOTICS):
-    from cognite_toolkit._cdf_tk.prototypes import setup_robotics_loaders
-
-    setup_robotics_loaders.setup_robotics_loaders()
-
-if FeatureFlag.is_enabled(Flags.NO_NAMING):
-    from cognite_toolkit._cdf_tk.prototypes import turn_off_naming_check
-
-    turn_off_naming_check.do()
-
+from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
     BuildCommand,
@@ -60,12 +28,6 @@ from cognite_toolkit._cdf_tk.commands import (
     DumpCommand,
     FeatureFlagCommand,
     PullCommand,
-    RunFunctionCommand,
-    RunTransformationCommand,
-)
-from cognite_toolkit._cdf_tk.data_classes import (
-    ProjectDirectoryInit,
-    ProjectDirectoryUpgrade,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -73,11 +35,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidSettingsError,
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     NodeLoader,
     TransformationLoader,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -96,6 +60,12 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         # of transactions for performance monitoring.
         traces_sample_rate=1.0,
     )
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
+
+CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
     pretty_exceptions_short=False,
@@ -118,36 +88,28 @@ except AttributeError as e:
 _app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-run_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-feature_flag_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
+feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
-
+modules_app = ModulesApp(**default_typer_kws)  # type: ignore [arg-type]
+landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
 _app.add_typer(describe_app, name="describe")
-_app.add_typer(run_app, name="run")
+_app.add_typer(RunApp(**default_typer_kws), name="run")
+_app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
+_app.add_typer(modules_app, name="modules")
+_app.command("init")(landing_app.main_init)
 
 
 def app() -> NoReturn:
     # --- Main entry point ---
     # Users run 'app()' directly, but that doesn't allow us to control excepton handling:
     try:
-        if FeatureFlag.is_enabled(Flags.MODULES_CMD):
-            from cognite_toolkit._cdf_tk.prototypes.landing_app import Landing
-            from cognite_toolkit._cdf_tk.prototypes.modules_app import Modules
-
-            # original init is replaced with the modules subapp
-            modules_app = Modules(**default_typer_kws)  # type: ignore [arg-type]
-            _app.add_typer(modules_app, name="modules")
-            _app.command("init")(Landing().main_init)
-        else:
-            _app.command("init")(main_init)
-
         if FeatureFlag.is_enabled(Flags.IMPORT_CMD):
             from cognite_toolkit._cdf_tk.prototypes.import_app import import_app
 
@@ -248,19 +210,38 @@ def common(
         ),
     ] = False,
 ) -> None:
-    """The cdf-tk tool is used to build and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.
-
-    Each of the main commands has a separate help, e.g. `cdf-tk build --help` or `cdf-tk deploy --help`.
-
-    You can find the documation at https://developer.cognite.com/sdks/toolkit/
-    and the template reference documentation at https://developer.cognite.com/sdks/toolkit/references/configs
+    """
+    Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
+    Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
     """
     if ctx.invoked_subcommand is None:
         print(
-            "[bold]A tool to manage and deploy Cognite Data Fusion project configurations from the command line or through CI/CD pipelines.[/]"
+            Panel(
+                "\n".join(
+                    [
+                        "The Cognite Data Fusion Toolkit supports configuration of CDF projects from the command line or in CI/CD pipelines.",
+                        "",
+                        "[bold]Setup:[/]",
+                        "1. Run [underline]cdf repo init[/] [italic]<directory name>[/] to set up a work directory.",
+                        "2. Run [underline]cdf modules init[/] [italic]<directory name>[/] to initialise configuration modules.",
+                        "",
+                        "[bold]Configuration steps:[/]",
+                        "3. Run [underline]cdf build[/] [italic]<directory name>[/] to verify the configuration for your project. Repeat for as many times as needed.",
+                        "   Tip:[underline]cdf modules list[/] [italic]<directory name>[/] gives an overview of all your modules and their status.",
+                        "",
+                        "[bold]Deployment steps:[/]",
+                        "4. Commit the [italic]<directory name>[/] to version control",
+                        "5. Run [underline]cdf auth verify --interactive[/] to check that you have access to the relevant CDF project. ",
+                        "    or [underline]cdf auth verify[/] if you have a .env file",
+                        "6. Run [underline]cdf deploy --dry-run[/] to simulate the deployment of the configuration to the CDF project. Review the report provided.",
+                        "7. Run [underline]cdf deploy[/] to deploy the configuration to the CDF project.",
+                    ]
+                ),
+                title="Getting started",
+                style="green",
+                padding=(1, 2),
+            )
         )
-        print("[bold yellow]Usage:[/] cdf-tk [OPTIONS] COMMAND [ARGS]...")
-        print("       Use --help for more information.")
         return
     if override_env:
         print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
@@ -297,13 +278,13 @@ def common(
 @_app.command("build")
 def build(
     ctx: typer.Context,
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
             help="Where to find the module templates to build from",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.default_organization_dir,
     build_dir: Annotated[
         str,
         typer.Option(
@@ -319,7 +300,7 @@ def build(
             "-e",
             help="The name of the environment to build",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     no_clean: Annotated[
         bool,
         typer.Option(
@@ -350,7 +331,7 @@ def build(
     cmd.run(
         lambda: cmd.execute(
             verbose or ctx.obj.verbose,
-            Path(source_dir),
+            Path(organization_dir),
             Path(build_dir),
             build_env_name,
             no_clean,
@@ -529,7 +510,7 @@ def collect(
 def auth_main(ctx: typer.Context) -> None:
     """Test, validate, and configure authentication and authorization for CDF projects."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk auth --help[/] for more information.")
+        print("Use [bold yellow]cdf auth --help[/] for more information.")
     return None
 
 
@@ -623,90 +604,11 @@ def auth_verify(
     )
 
 
-def main_init(
-    ctx: typer.Context,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    upgrade: Annotated[
-        bool,
-        typer.Option(
-            "--upgrade",
-            "-u",
-            help="Will upgrade templates in place without overwriting existing config.yaml and other files.",
-        ),
-    ] = False,
-    git_branch: Annotated[
-        Optional[str],
-        typer.Option(
-            "--git",
-            "-g",
-            help="Will download the latest templates from the git repository branch specified. Use `main` to get the very latest templates.",
-        ),
-    ] = None,
-    no_backup: Annotated[
-        bool,
-        typer.Option(
-            "--no-backup",
-            help="Will skip making a backup before upgrading.",
-        ),
-    ] = False,
-    clean: Annotated[
-        bool,
-        typer.Option(
-            "--clean",
-            help="Will delete the new_project directory before starting.",
-        ),
-    ] = False,
-    init_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Directory path to project to initialize or upgrade with templates.",
-        ),
-    ] = "new_project",
-) -> None:
-    """Initialize or upgrade a new CDF project with templates."""
-    project_dir: Union[ProjectDirectoryUpgrade, ProjectDirectoryInit]
-    if upgrade:
-        project_dir = ProjectDirectoryUpgrade(Path.cwd() / f"{init_dir}", dry_run)
-        if project_dir.cognite_module_version == current_version:
-            print("No changes to the toolkit detected.")
-            typer.Exit()
-    else:
-        project_dir = ProjectDirectoryInit(Path.cwd() / f"{init_dir}", dry_run)
-
-    verbose = ctx.obj.verbose
-
-    project_dir.set_source(git_branch)
-
-    project_dir.create_project_directory(clean)
-
-    if isinstance(project_dir, ProjectDirectoryUpgrade):
-        project_dir.do_backup(no_backup, verbose)
-
-    project_dir.print_what_to_copy()
-
-    project_dir.copy(verbose)
-
-    project_dir.upsert_config_yamls(clean)
-
-    if not dry_run:
-        print(Panel(project_dir.done_message()))
-
-    if isinstance(project_dir, ProjectDirectoryUpgrade):
-        project_dir.print_manual_steps()
-
-
 @describe_app.callback(invoke_without_command=True)
 def describe_main(ctx: typer.Context) -> None:
     """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk describe --help[/] for more information.")
+        print("Use [bold yellow]cdf describe --help[/] for more information.")
     return None
 
 
@@ -738,140 +640,11 @@ def describe_datamodel_cmd(
     cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
-@run_app.callback(invoke_without_command=True)
-def run_main(ctx: typer.Context) -> None:
-    """Commands to execute processes in CDF, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk run --help[/] for more information.")
-
-
-@run_app.command("transformation")
-def run_transformation_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the transformation to run.",
-        ),
-    ],
-) -> None:
-    """This command will run the specified transformation using a one-time session."""
-    cmd = RunTransformationCommand()
-    cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
-
-
-@run_app.command("function")
-def run_function_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the function to run.",
-        ),
-    ],
-    payload: Annotated[
-        Optional[str],
-        typer.Option(
-            "--payload",
-            "-p",
-            help='Payload to send to the function, remember to escape " with \\.',
-        ),
-    ] = None,
-    follow: Annotated[
-        bool,
-        typer.Option(
-            "--follow",
-            "-f",
-            help="Use follow to wait for results of function.",
-        ),
-    ] = False,
-    local: Annotated[
-        bool,
-        typer.Option(
-            "--local",
-            "-l",
-            help="Run the function locally in a virtual environment.",
-        ),
-    ] = False,
-    rebuild_env: Annotated[
-        bool,
-        typer.Option(
-            "--rebuild-env",
-            "-r",
-            help="Rebuild the virtual environment.",
-        ),
-    ] = False,
-    no_cleanup: Annotated[
-        bool,
-        typer.Option(
-            "--no-cleanup",
-            "-n",
-            help="Do not delete the temporary build directory.",
-        ),
-    ] = False,
-    source_dir: Annotated[
-        Optional[str],
-        typer.Argument(
-            help="Where to find the module templates to build from",
-        ),
-    ] = None,
-    schedule: Annotated[
-        Optional[str],
-        typer.Option(
-            "--schedule",
-            "-s",
-            help="Run the function locally with the credentials from the schedule specified with the cron expression.",
-        ),
-    ] = None,
-    build_env_name: Annotated[
-        str,
-        typer.Option(
-            "--env",
-            "-e",
-            help="Build environment to build for",
-        ),
-    ] = "dev",
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will run the specified function using a one-time session."""
-    cmd = RunFunctionCommand()
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk run function --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            external_id,
-            payload,
-            follow,
-            local,
-            rebuild_env,
-            no_cleanup,
-            source_dir,
-            schedule,
-            build_env_name,
-            verbose or ctx.obj.verbose,
-        )
-    )
-
-
 @pull_app.callback(invoke_without_command=True)
 def pull_main(ctx: typer.Context) -> None:
     """Commands to download resource configurations from CDF into the module directory."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk pull --help[/] for more information.")
+        print("Use [bold yellow]cdf pull --help[/] for more information.")
 
 
 @pull_app.command("transformation")
@@ -886,13 +659,13 @@ def pull_transformation_cmd(
             help="External id of the transformation to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the destination module templates.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -900,7 +673,7 @@ def pull_transformation_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -924,7 +697,7 @@ def pull_transformation_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             external_id,
             env,
             dry_run,
@@ -956,13 +729,13 @@ def pull_node_cmd(
             help="External id of the node to pull.",
         ),
     ],
-    source_dir: Annotated[
-        str,
+    organization_dir: Annotated[
+        Path,
         typer.Argument(
-            help="Where to find the destination module templates (project directory).",
+            help="Where to find the modules.",
             allow_dash=True,
         ),
-    ] = "./",
+    ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
         str,
         typer.Option(
@@ -970,7 +743,7 @@ def pull_node_cmd(
             "-e",
             help="Environment to use.",
         ),
-    ] = "dev",
+    ] = CDF_TOML.cdf.default_env,
     dry_run: Annotated[
         bool,
         typer.Option(
@@ -995,7 +768,7 @@ def pull_node_cmd(
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
-            source_dir,
+            organization_dir,
             NodeId(space, external_id),
             env,
             dry_run,
@@ -1010,7 +783,7 @@ def pull_node_cmd(
 def dump_main(ctx: typer.Context) -> None:
     """Commands to dump resource configurations from CDF into a temporary directory."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk dump --help[/] for more information.")
+        print("Use [bold yellow]cdf dump --help[/] for more information.")
     return None
 
 
@@ -1269,8 +1042,9 @@ def feature_flag_main(ctx: typer.Context) -> None:
                 "\nDo not enable a flag unless you are familiar with what it does.[/]"
             )
         )
+        print("Use [bold yellow]cdf features list[/] available feature flags")
         print(
-            "Use [bold yellow]cdf-tk features list[/] or [bold yellow]cdf-tk features set <flag> --enabled/--disabled[/]"
+            f"Use [bold yellow]the section cdf.feature_flags in {CDFToml.file_name!r}[/] to enable or disable feature flags."
         )
     return None
 
@@ -1280,63 +1054,21 @@ def feature_flag_list() -> None:
     """List all available feature flags."""
 
     cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.list())
-
-
-@feature_flag_app.command("set")
-def feature_flag_set(
-    flag: Annotated[
-        str,
-        typer.Argument(
-            help="Which flag to set",
-        ),
-    ],
-    enable: Annotated[
-        bool,
-        typer.Option(
-            "--enable",
-            "-e",
-            help="Enable the flag.",
-        ),
-    ] = False,
-    disable: Annotated[
-        bool,
-        typer.Option(
-            "--disable",
-            help="Disable the flag.",
-        ),
-    ] = False,
-) -> None:
-    """Enable or disable a feature flag."""
-
-    cmd = FeatureFlagCommand()
-    if enable and disable:
-        raise ToolkitValidationError("Cannot enable and disable a flag at the same time.")
-    if not enable and not disable:
-        raise ToolkitValidationError("Must specify either --enable or --disable.")
-    cmd.run(lambda: cmd.set(flag, enable))
-
-
-@feature_flag_app.command("reset")
-def feature_flag_reset() -> None:
-    """Reset all feature flags to their default values."""
-
-    cmd = FeatureFlagCommand()
-    cmd.run(lambda: cmd.reset())
+    cmd.run(cmd.list)
 
 
 @user_app.callback(invoke_without_command=True)
 def user_main(ctx: typer.Context) -> None:
     """Commands to give information about the toolkit."""
     if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf-tk user --help[/] to see available commands.")
+        print("Use [bold yellow]cdf user --help[/] to see available commands.")
     return None
 
 
 @user_app.command("info")
 def user_info() -> None:
     """Print information about user"""
-    tracker = Tracker("".join(sys.argv[1:]))
+    tracker = Tracker()
     print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
 
 

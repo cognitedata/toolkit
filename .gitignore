@@ -282,6 +282,7 @@ config.yaml
 demo_project/
 tests/tests_unit/pytest-project/
 my_project/
+my_organization/
 *.bck
 
 # Hide environments used for migration testing
@@ -289,9 +290,12 @@ my_project/
 module_upgrade/tmp*
 
 cognite_toolkit/config.local.yaml
-**/functions/**/common
 **/.venv*
 .venv.*
 build.*
 cognite_toolkit/.env.*
 module_upgrade/project_inits
+function_local_venvs/
+tests/data/run_data/build_info.dev.yaml
+orgdir*
+module_upgrade/cdf.toml

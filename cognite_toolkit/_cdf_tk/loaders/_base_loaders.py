@@ -18,7 +18,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.tk_warnings import WarningList, YAMLFileWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 T_ID = TypeVar("T_ID", bound=Hashable)
@@ -30,7 +29,7 @@ class Loader(ABC):
     """This is the base class for all loaders
 
     Args:
-        client (CogniteClient): The client to use for interacting with the CDF API.
+        client (ToolkitClient): The client to use for interacting with the CDF API.
         build_dir (Path): The path to the build directory
 
     Class attributes:
@@ -52,7 +51,7 @@ class Loader(ABC):
     _doc_url: str = ""
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        self.client: ToolkitClient = client
+        self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
@@ -160,6 +159,11 @@ class ResourceLoader(
 
     @classmethod
     @abstractmethod
+    def dump_id(cls, id: T_ID) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    @classmethod
+    @abstractmethod
     def get_required_capability(cls, items: T_CogniteResourceList) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
@@ -188,13 +192,6 @@ class ResourceLoader(
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         return read_parameter_from_init_type_hints(cls.resource_write_cls).as_camel_case()
-
-    @classmethod
-    def check_identifier_semantics(
-        cls, identifier: T_ID, filepath: Path, verbose: bool
-    ) -> WarningList[YAMLFileWarning]:
-        """This should be overwritten in subclasses to check the semantics of the identifier."""
-        return WarningList[YAMLFileWarning]()
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

@@ -101,6 +101,7 @@ FunctionSchedule:
     WorkflowExtId: wf_oid_files_annotation
     WorkflowVersion: 1
   description: Run every 30 minute
+  functionExternalId: fn_workflow_files_oid_fileshare_annotation
   name: every 30 min
 Group:
 - capabilities:

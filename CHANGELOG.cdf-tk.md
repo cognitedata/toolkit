@@ -15,7 +15,51 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a1] - 2024-09-10
+
+### Added
+
+- Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
+  `Frame`, and `Location`). These loaders were earlier available as feature preview.
+- Support for `LocationFilter` in the `locations` folder.
+- Command `cdf repo init` to initialize the repository with `.gitignore`, `.env`, and the new
+  Toolkit configuration file `cdf.toml`
+- Command `cdf modules list` to list all modules.
+- Command `cdf modules init` to setup modules. This is interactive and will guide you through selecting the
+  modules you want to use. You can bypass the interactive mode by using the `--all` flag. which
+  will select all modules, similar to the previous `cdf-tk init` command.
+- Command `cdf modules upgrade` to upgrade all modules automatically.
+
+## Changed
+
+- The resource `FunctionSchedule` is not uniquely identified by `name` instead of `cronExpression` by the Toolkit.
+  This enables multiple schedules with the same cron expression for the same function.
+- The Toolkit no longer gives warnings for naming conventions that are not followed.
+- [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
+
+## Removed
+
+- [BREAKING] The command `cdf-tk init` it now replaced by `cdf repo init` and `cdf modules init`.
+
+## [0.2.20] - 2024-08-31
+
+### Fixed
+
+- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
+  redeployments of functions.
+
+## [0.2.19] - 2024-08-26
+
+### Fixed
+
+- Views and DataModels with versions that are integers are only being redeployed if they have changed in the
+  `cdf-tk deploy` command. They were earlier always redeployed.
+
 ## [0.2.18] - 2024-08-22
+
+### Added
+
+- Location Filter support
 
 ### Fixed
 

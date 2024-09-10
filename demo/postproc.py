@@ -21,17 +21,17 @@ def run() -> None:
     ToolGlobals = CDFToolConfig()
     try:
         print("Running tr_asset_oid_workmate_asset_hierarchy_example...")
-        ToolGlobals.client.transformations.run(
+        ToolGlobals.toolkit_client.transformations.run(
             transformation_external_id="tr_asset_oid_workmate_asset_hierarchy_example"
         )
         print("Running tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities...")
-        ToolGlobals.client.transformations.run(
+        ToolGlobals.toolkit_client.transformations.run(
             transformation_external_id="tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities"
         )
         # Wait until assets are in the hierarchy
         time.sleep(10.0)
         print("Running tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm...")
-        ToolGlobals.client.transformations.run(
+        ToolGlobals.toolkit_client.transformations.run(
             transformation_external_id="tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm"
         )
     except Exception as e:
