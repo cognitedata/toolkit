@@ -21,7 +21,7 @@ else:
 
 @dataclass
 class CLIConfig:
-    organization_dir: Path
+    default_organization_dir: Path
     default_env: str = "dev"
     feature_flags: dict[str, bool] = field(default_factory=dict)
 
@@ -29,20 +29,21 @@ class CLIConfig:
     def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
         organization_dir = cwd / raw["organization_dir"] if "organization_dir" in raw else Path.cwd()
         return cls(
-            organization_dir=organization_dir,
+            default_organization_dir=organization_dir,
             default_env=raw.get("default_env", "dev"),
             feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
         )
 
-    def get_root_module_paths(self) -> list[Path]:
+    def get_root_module_paths(self, organization_dir: Path | None) -> list[Path]:
+        organization_dir = organization_dir or self.default_organization_dir
         sources = [
-            module_dir for root_module in ROOT_MODULES if (module_dir := self.organization_dir / root_module).exists()
+            module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
         ]
         if not sources:
             directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
             raise ToolkitMissingModulesError(
                 f"Could not find the source modules directory.\nExpected to find one of the following directories\n"
-                f"{self.organization_dir.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
+                f"{organization_dir.name}\n{directories}\n   ┗  {ROOT_MODULES[-1]}"
             )
         return sources
 

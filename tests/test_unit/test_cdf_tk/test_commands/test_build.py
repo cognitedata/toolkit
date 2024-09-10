@@ -43,7 +43,7 @@ class TestBuildCommand:
             BuildCommand(print_warning=False).execute(
                 verbose=False,
                 build_dir=tmp_path,
-                source_path=data.PROJECT_WITH_BAD_MODULES,
+                organization_dir=data.PROJECT_WITH_BAD_MODULES,
                 build_env_name="no_module",
                 no_clean=False,
             )
@@ -53,7 +53,7 @@ class TestBuildCommand:
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.PROJECT_WITH_BAD_MODULES,
+            organization_dir=data.PROJECT_WITH_BAD_MODULES,
             build_env_name="ill_module",
             no_clean=False,
         )
@@ -72,7 +72,7 @@ class TestBuildCommand:
         cmd.execute(
             verbose=False,
             build_dir=tmp_path,
-            source_path=data.PROJECT_NO_COGNITE_MODULES,
+            organization_dir=data.PROJECT_NO_COGNITE_MODULES,
             build_env_name="dev",
             no_clean=False,
         )

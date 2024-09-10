@@ -1,0 +1,8 @@
+[module]
+description = "InField"
+
+[packages]
+tags = [
+    "infield",
+    "quickstart"
+]

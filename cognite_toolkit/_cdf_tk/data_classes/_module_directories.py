@@ -11,6 +11,8 @@ from typing import SupportsIndex, overload
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
 
+from ._module_toml import ModuleToml
+
 
 @dataclass(frozen=True)
 class ModuleLocation:
@@ -24,13 +26,21 @@ class ModuleLocation:
 
     dir: Path
     source_absolute_path: Path
-    is_selected: bool
     source_paths: list[Path]
+    is_selected: bool = False
+    definition: ModuleToml | None = None
 
     @property
     def name(self) -> str:
         """The name of the module."""
         return self.dir.name
+
+    @property
+    def title(self) -> str | None:
+        """The title of the module."""
+        if self.definition:
+            return self.definition.description
+        return None
 
     @property
     def relative_path(self) -> Path:
@@ -59,6 +69,9 @@ class ModuleLocation:
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
@@ -96,7 +109,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def load(
         cls,
         organization_dir: Path,
-        user_selected_modules: set[str | Path],
+        user_selected_modules: set[str | Path] | None = None,
     ) -> ModuleDirectories:
         """Loads the modules in the source directory.
 
@@ -105,16 +118,22 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             user_selected_modules: The modules selected by the user either by name or by path.
 
         """
+        # Assume all modules are selected if no selection is given.
+        user_selected_modules = user_selected_modules or {Path("")}
 
         module_locations: list[ModuleLocation] = []
         for module, source_paths in iterate_modules(organization_dir):
             relative_module_dir = module.relative_to(organization_dir)
+            module_toml: ModuleToml | None = None
+            if (module / ModuleToml.filename).exists():
+                module_toml = ModuleToml.load(module / ModuleToml.filename)
             module_locations.append(
                 ModuleLocation(
                     module,
                     organization_dir,
-                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     source_paths,
+                    cls._is_selected_module(relative_module_dir, user_selected_modules),
+                    module_toml,
                 )
             )
 

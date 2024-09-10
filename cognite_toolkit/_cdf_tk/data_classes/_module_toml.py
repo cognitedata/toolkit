@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, ClassVar
 
 if sys.version_info >= (3, 11):
     import toml
@@ -10,15 +11,17 @@ else:
     import tomli as toml
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModuleToml:
+    filename: ClassVar[str] = "module.toml"
     description: str | None
-    tags: list[str] = field(default_factory=list)
+    tags: frozenset[str] = field(default_factory=frozenset)
 
     @classmethod
-    def load(cls, manifest_path: Path) -> ModuleToml:
-        manifest = toml.loads(manifest_path.read_text())
+    def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
+        if isinstance(data, Path):
+            return cls.load(toml.loads(data.read_text()))
         return cls(
-            description=manifest["module"].get("description"),
-            tags=manifest["packages"]["tags"],
+            description=data["module"].get("description"),
+            tags=frozenset(data["packages"].get("tags", set())),
         )
