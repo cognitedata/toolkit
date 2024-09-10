@@ -1,5 +1,5 @@
 [module]
-description = "Example data for CDF OID"
+title = "Example data for CDF OID"
 
 [packages]
 tags = [

@@ -14,7 +14,7 @@ class TestPackages:
     def test_load(self) -> None:
         packages = Packages.load(BUILTIN_MODULES_PATH)
         assert packages is not None
-        assert len(packages) == 5
+        assert len(packages) == 4
         assert "infield" in packages
         infield = packages["infield"]
         assert len(infield.modules) > 0

@@ -1,5 +1,5 @@
 [module]
-description = "InField"
+title = "InField Common"
 
 [packages]
 tags = [
