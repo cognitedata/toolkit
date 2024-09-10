@@ -364,7 +364,10 @@ class ModulesCommand(ToolkitCommand):
                 elif isinstance(change, AutomaticChange):
                     print("The following files have been changed:")
                     for file in changed_files:
-                        print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
+                        if file.is_relative_to(organization_dir):
+                            print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
+                        else:
+                            print(Markdown(f"  - {file.as_posix()}"))
             if changed_files or not change.has_file_changes or verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
             print(Rule())

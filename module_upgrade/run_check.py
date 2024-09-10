@@ -1,3 +1,4 @@
+# ruff: noqa: E402
 import contextlib
 import os
 import platform
@@ -8,6 +9,9 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
+
+# Hack to make the script work as running cdf modules upgrade
+sys.argv = ["cdf", "modules", "upgrade"]
 
 import yaml
 from dotenv import load_dotenv
