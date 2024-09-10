@@ -57,7 +57,7 @@ class ModulesConfig:
     def load(cls, raw: dict[str, Any]) -> ModulesConfig:
         version = raw["version"]
         packages = raw.get("packages", {})
-        if version != _version.__version__:
+        if version != _version.__version__ and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"]):
             raise ToolkitVersionError(
                 f"The version of the modules ({version}) does not match the version of the installed CLI "
                 f"({_version.__version__}). Please either run `cdf-tk modules upgrade` to upgrade the modules OR "
@@ -74,6 +74,7 @@ class CDFToml:
 
     cdf: CLIConfig
     modules: ModulesConfig
+    is_loaded_from_file: bool = False
 
     @classmethod
     def load(cls, cwd: Path | None = None, use_singleton: bool = True) -> CDFToml:
@@ -93,12 +94,16 @@ class CDFToml:
                 modules = ModulesConfig.load(raw["modules"])
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-            instance = cls(cdf=cdf, modules=modules)
+            instance = cls(cdf=cdf, modules=modules, is_loaded_from_file=True)
             if use_singleton:
                 _CDF_TOML = instance
             return instance
         else:
-            return cls(cdf=CLIConfig(cwd), modules=ModulesConfig.load({"version": _version.__version__}))
+            return cls(
+                cdf=CLIConfig(cwd),
+                modules=ModulesConfig.load({"version": _version.__version__}),
+                is_loaded_from_file=False,
+            )
 
 
 _CDF_TOML: CDFToml | None = None
