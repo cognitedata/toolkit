@@ -13,7 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable, Sized
+from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
@@ -316,7 +316,7 @@ class WorkflowTriggerLoader(
         lookup = set(ids)
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
-    def update(self, items: WorkflowTriggerCreateList) -> Sized:
+    def update(self, items: WorkflowTriggerCreateList) -> WorkflowTriggerList:
         exising = self.client.workflows.triggers.get_triggers(limit=-1)
         existing_lookup = {trigger.external_id: trigger for trigger in exising}
         updated = WorkflowTriggerList([])
