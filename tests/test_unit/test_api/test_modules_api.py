@@ -21,7 +21,6 @@ def all_modules(cognite_toolkit: CogniteToolkit) -> dc.ModuleMetaList:
     return cognite_toolkit.modules.list()
 
 
-@pytest.mark.skip("Need to rethink")
 class TestModulesAPI:
     def test_list_modules(self, cognite_toolkit: CogniteToolkit) -> None:
         expected_modules = {

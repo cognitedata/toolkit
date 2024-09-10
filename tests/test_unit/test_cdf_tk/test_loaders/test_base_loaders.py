@@ -297,8 +297,7 @@ class TestResourceLoaders:
         # the 'get_write_cls_parameter_spec' must be updated in the loader. See, for example, the DataModelLoader.
         assert sorted(extra) == []
 
-    @pytest.mark.skip("messes up pytest discovery")
-    # @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
+    @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:
         if loader_cls is LocationFilterLoader:
             # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
