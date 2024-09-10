@@ -1,4 +1,4 @@
-workflowExternalId: wf_{{ workflow_external_id }}
+workflowExternalId: {{ workflow_external_id }}
 version: '1'
 workflowDefinition:
   description: 'Execute tasks in sequence'
