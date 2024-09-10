@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
     MODULE_PATH_SEP,
+    MODULES,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
     EnvType,
@@ -428,7 +429,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
-                key_path = (self._variables, *parts, key)
+                if len(parts) >= 1 and parts[0] in ROOT_MODULES:
+                    key_path = (self._variables, *parts, key)
+                else:
+                    key_path = (self._variables, MODULES, *parts, key)
                 local_file_path = (*parts, key)
                 if key_path in self:
                     self[key_path].default_value = value
