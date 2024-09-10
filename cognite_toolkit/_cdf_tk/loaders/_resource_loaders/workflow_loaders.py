@@ -28,6 +28,8 @@ from cognite.client.data_classes import (
     WorkflowVersionList,
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
+    WorkflowTrigger,
+    WorkflowTriggerList, WorkflowTriggerCreate,
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -253,3 +255,11 @@ class WorkflowVersionLoader(
             )
         )
         return spec
+
+@final
+class WorkflowTriggerLoader(
+    ResourceLoader[
+        str, WorkflowTriggerCreate, WorkflowTrigger, WorkflowTriggerCreateList, WorkflowTriggerList
+    ]
+):
+    ...
