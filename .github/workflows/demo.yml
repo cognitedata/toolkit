@@ -32,7 +32,7 @@ jobs:
       - name: Install cdf-tk
         run: pip install .
       - name: Initialize project
-        run: python ./demo/old_init.py
+        run: cdf modules init demo_project --clean --all
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py
       - name: "Not collect metrics"
