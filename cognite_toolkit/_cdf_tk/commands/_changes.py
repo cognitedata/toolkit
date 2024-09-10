@@ -40,6 +40,18 @@ class ManualChange(Change):
         return ""
 
 
+class InitCommandReplaced(AutomaticChange):
+    """The `cdf-tk init` has been replaced by `cdf repo init` and `cdf modules init`.
+
+The `cdf repo init` command initializer the current directory with config and git files such as .gitignore.
+The `cdf modules init` has an interactive prompt for the user to select the modules to include.
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = False
+
+
 class SystemYAMLReplaced(AutomaticChange):
     """The _system.yaml file is now replaced by cdf.toml in the cwd of the project.
 
