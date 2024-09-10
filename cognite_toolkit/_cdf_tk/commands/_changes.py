@@ -8,7 +8,7 @@ from pathlib import Path
 from packaging.version import Version
 from packaging.version import parse as parse_version
 
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
 
@@ -90,6 +90,39 @@ After:
         cdf_toml_path.write_text(cdf_toml_content)
 
         return {cdf_toml_path}
+
+
+class ResourceFolderLabelsRenamed(AutomaticChange):
+    """The resource folder 'labels' have been renamed to 'classic'.
+
+Before:
+```bash
+    my_module/
+       labels/
+          my_labels.Label.yaml
+```
+After:
+```bash
+    my_module/
+       classic/
+          my_labels.Label.yaml
+```
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "labels":
+                    for files in resource_dir.rglob("*"):
+                        target = module / "classic" / files.relative_to(resource_dir)
+                        files.rename(target)
+                        changed.add(target)
+        return changed
 
 
 class RenamedModulesSection(AutomaticChange):
