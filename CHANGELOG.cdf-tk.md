@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- LocationFilter did not load subclasses properly. This is now fixed.
+
 ## [0.3.0a2] - 2024-09-10
 
 ### Fixed
