@@ -180,7 +180,9 @@ if __name__ == "__main__":
         }
 
         if len(function_builds_by_identifier) == 0:
-            raise ToolkitMissingResourceError("No functions found in modules.")
+            raise ToolkitMissingResourceError(
+                "No functions found in modules. Suggest running `cdf modules list` to verify."
+            )
 
         if external_id is None:
             # Interactive mode
