@@ -145,7 +145,7 @@ default_organization_dir = "{organization_dir.name}""",
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
-            print(f"{INDENT}[yellow]'cdf.toml' file already exists skipping creation.")
+            print(f"{INDENT}[yellow]cdf.toml file already exists skipping creation.")
         else:
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
