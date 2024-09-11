@@ -1,0 +1,22 @@
+# The dir with the function code should have the same name
+# and externalId as the function itself as defined below.
+- name: 'first:example:function'
+  externalId: 'fn_first_function'
+  owner: 'Anonymous'
+  description: 'Returns the input data, secrets, and function info.'
+  metadata:
+    version: '1'
+  secrets:
+    mysecret: '{{example_secret}}'
+  envVars:
+    # The below two environment variables are set by the Toolkit
+    ENV_TYPE: '${CDF_BUILD_TYPE}'
+    CDF_ENV: '${CDF_ENVIRON}'
+  # Number of cores, not available in Azure
+  #cpu: 0.25
+  # Not available in Azure
+  #memory: 1
+  runtime: 'py311'
+  functionPath: './src/handler.py'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: 'ds_timeseries_{{example_variable}}'
