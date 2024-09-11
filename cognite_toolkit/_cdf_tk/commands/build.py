@@ -301,8 +301,10 @@ class BuildCommand(ToolkitCommand):
                 built_resources = self._build_module(
                     module, build_dir, module_variables, module_names_by_variable_key, state, verbose
                 )
-            except ToolkitError as e:
-                built_status = type(e).__name__
+            except ToolkitError as err:
+                print(f"  [bold red]Failed Building:([/][red]: {module.name}")
+                print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+                built_status = type(err).__name__
                 built_resources = {}
             else:
                 built_status = "Success"

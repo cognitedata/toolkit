@@ -133,6 +133,22 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
+        cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
+        if organization_dir != Path.cwd():
+            cdf_toml_content = cdf_toml_content.replace(
+                "#<PLACEHOLDER>",
+                f"""
+default_organization_dir = "{organization_dir.name}""",
+            )
+        else:
+            cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            print(f"{INDENT}[yellow]cdf.toml file already exists skipping creation.")
+        else:
+            destination.write_text(cdf_toml_content, encoding="utf-8")
+
     def init(
         self,
         organization_dir: Optional[Path] = None,
@@ -140,13 +156,15 @@ class ModulesCommand(ToolkitCommand):
         clean: bool = False,
     ) -> None:
         if not organization_dir:
-            organization_dir_raw = questionary.text(
-                "Which directory would you like to create templates in? (typically customer name)",
-                default="my_organization",
-            ).ask()
-            if not organization_dir_raw or organization_dir_raw.strip() == "":
-                raise ToolkitRequiredValueError("You must provide a directory name.")
-            organization_dir = Path(organization_dir_raw)
+            new_line = "\n    "
+            message = (
+                f"Which directory would you like to create templates in? (default: current directory){new_line}"
+                f"HINT It is recommended to use an organization directory if you use the{new_line}repository for more than Toolkit. "
+                f"If this repository is only used for Toolkit,{new_line}it is recommended to use the current directory "
+                f"(assumed to be the{new_line}root of the repository):"
+            )
+            organization_dir_raw = questionary.text(message=message, default="").ask()
+            organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
         packages = Packages().load(self._builtin_modules_path)
