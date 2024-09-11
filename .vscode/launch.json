@@ -24,35 +24,36 @@
       "justMyCode": false
     },
     {
-      "name": "cdf functions run local",
+      "name": "cdf run function local",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
         "--verbose",
         "--override-env",
-        "modules",
-        "build",
-        "--build-dir=build",
+        "run",
+        "function",
+        "live",
         "--env=local",
+        "-o",
         "./cognite_toolkit/"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
     },
     {
-      "name": "cdf modules build",
+      "name": "Python: deploy --dry-run",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
-        "--override-env",
-        "modules",
-        "build",
-        "--build-dir=build",
+        "deploy",
+        "--dry-run",
+        //"--drop",
+        //"--drop-data",
         "--env=local",
-        "./cognite_toolkit/"
+        //"--include=transformations",
+        "./build"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
