@@ -137,13 +137,20 @@ class ModulesCommand(ToolkitCommand):
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
-                f"""\n
+                f"""
 default_organization_dir = "{organization_dir.name}""",
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
 
-        (Path.cwd() / CDFToml.file_name).write_text(cdf_toml_content)
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            if questionary.confirm(
+                f"{INDENT}[yellow]'cdf.toml' file already exists in {destination}. Would you like to overwrite?[/]"
+            ).ask():
+                destination.write_text(cdf_toml_content, encoding="utf-8")
+        else:
+            destination.write_text(cdf_toml_content, encoding="utf-8")
 
     def init(
         self,
