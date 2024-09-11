@@ -86,9 +86,7 @@ class AuthVariables:
     cluster: str | None = field(
         metadata=dict(env_name="CDF_CLUSTER", display_name="CDF cluster", example="westeurope-1")
     )
-    project: str | None = field(
-        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project name", example="publicdata")
-    )
+    project: str | None = field(metadata=dict(env_name="CDF_PROJECT", display_name="CDF project", example="publicdata"))
     cdf_url: str | None = field(
         default=None,
         metadata=dict(env_name="CDF_URL", display_name="CDF URL", example="https://CDF_CLUSTER.cognitedata.com"),
