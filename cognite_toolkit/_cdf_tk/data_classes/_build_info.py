@@ -419,7 +419,7 @@ class ModuleResources:
     """
 
     def __init__(self, organization_dir: Path, build_env: str) -> None:
-        self._organization_gir = organization_dir
+        self._organization_dir = organization_dir
         self._build_env = build_env
         self._build_info: BuildInfo
         try:
@@ -431,11 +431,11 @@ class ModuleResources:
 
     @cached_property
     def _current_modules(self) -> ModuleDirectories:
-        return ModuleDirectories.load(self._organization_gir, {Path("")})
+        return ModuleDirectories.load(self._organization_dir, {Path("")})
 
     @cached_property
     def _current_variables(self) -> BuildVariables:
-        config_yaml = BuildConfigYAML.load_from_directory(self._organization_gir, self._build_env)
+        config_yaml = BuildConfigYAML.load_from_directory(self._organization_dir, self._build_env)
         return BuildVariables.load_raw(
             config_yaml.variables, self._current_modules.available_paths, self._current_modules.selected.available_paths
         )
@@ -447,13 +447,13 @@ class ModuleResources:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}
             ):
-                self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
+                self._build_info = BuildInfo.rebuild(self._organization_dir, self._build_env, needs_rebuild)
         return self._build_info.modules.modules.get_resources(id_type, resource_dir, kind)
 
     def list(self) -> BuiltModuleList:
         # Check if the build info is up to date
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(self._current_modules, self._current_variables):
-                self._build_info = BuildInfo.rebuild(self._organization_gir, self._build_env, needs_rebuild)
+                self._build_info = BuildInfo.rebuild(self._organization_dir, self._build_env, needs_rebuild)
             self._has_rebuilt = True
         return self._build_info.modules.modules

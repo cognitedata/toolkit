@@ -15,6 +15,21 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a3] - 2024-09-11
+
+### Fixed
+
+- LocationFilter did not load subclasses properly. This is now fixed.
+- When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+
+### Changed
+
+- In the commands `build` and `pull`, `modules upgrade` and `modules list`,  `organization-dir` is now an
+  optional argument `--organization-dir` and `-o` instead of positional argument. This is to have consistent
+  behavior with other commands.
+- The config filed `cdf.toml` is now created with `cdf modules init` instead of `cdf repo init`.
+- In `cdf.toml` the `organization_dir` is renamed `default_organization_dir`.
+
 ## [0.3.0a2] - 2024-09-10
 
 ### Fixed
