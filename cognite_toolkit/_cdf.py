@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
+# ruff: noqa: E402
 import contextlib
 import os
 import sys
@@ -11,6 +12,11 @@ from typing import Annotated, NoReturn, Optional, Union
 
 import typer
 from cognite.client.config import global_config
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
+
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from dotenv import load_dotenv
 from rich import print
