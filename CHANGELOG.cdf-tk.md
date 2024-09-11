@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- LocationFilter did not load subclasses properly. This is now fixed.
 - When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
 
 ### Changed

@@ -294,6 +294,7 @@ cognite_toolkit/config.local.yaml
 .venv.*
 build.*
 cognite_toolkit/.env.*
+cognite_toolkit/modules/*
 module_upgrade/project_inits
 function_local_venvs/
 tests/data/run_data/build_info.dev.yaml
