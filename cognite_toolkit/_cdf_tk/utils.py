@@ -84,10 +84,10 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token", "interactive"]
 @dataclass
 class AuthVariables:
     cluster: str | None = field(
-        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", example="westeurope-1")
+        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF cluster", example="westeurope-1")
     )
     project: str | None = field(
-        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", example="publicdata")
+        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project name", example="publicdata")
     )
     cdf_url: str | None = field(
         default=None,
