@@ -25,6 +25,7 @@ Changes are grouped as follows:
 
 - In the commands `build` and `pull`, `organization-dir` is now an optional argument `--organization-dir` and `-o`
   instead of positional argument. This is to have consistent behavior with other commands.
+- The config filed `cdf.toml` is now created with `cdf modules init` instead of `cdf repo init`.
 
 ## [0.3.0a2] - 2024-09-10
 
