@@ -140,13 +140,17 @@ class ModulesCommand(ToolkitCommand):
         clean: bool = False,
     ) -> None:
         if not organization_dir:
+            new_line = "\n    "
+            hint = (
+                f"HINT It is recommended to use an organization directory if you use the{new_line}repository for more than Toolkit. "
+                f"It this repo is only used for Toolkit,{new_line}it is recommended to use the current directory "
+                f"(assumed to be the{new_line}root of the repository)."
+            )
             organization_dir_raw = questionary.text(
-                "Which directory would you like to create templates in? (typically customer name)",
-                default="my_organization",
+                f"Which directory would you like to create templates in? (default: current directory){new_line}{hint}",
+                default="",
             ).ask()
-            if not organization_dir_raw or organization_dir_raw.strip() == "":
-                raise ToolkitRequiredValueError("You must provide a directory name.")
-            organization_dir = Path(organization_dir_raw)
+            organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
         packages = Packages().load(self._builtin_modules_path)
