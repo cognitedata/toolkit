@@ -133,6 +133,18 @@ class ModulesCommand(ToolkitCommand):
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
+        cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
+        if organization_dir != Path.cwd():
+            cdf_toml_content = cdf_toml_content.replace(
+                "#<PLACEHOLDER>",
+                f"""\n
+default_organization_dir = "{organization_dir.name}""",
+            )
+        else:
+            cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+
+        (Path.cwd() / CDFToml.file_name).write_text(cdf_toml_content)
+
     def init(
         self,
         organization_dir: Optional[Path] = None,
