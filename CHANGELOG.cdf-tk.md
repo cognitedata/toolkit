@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+
 ## [0.3.0a3] - 2024-09-11
 
 ### Fixed
