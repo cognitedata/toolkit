@@ -145,10 +145,7 @@ default_organization_dir = "{organization_dir.name}""",
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
-            if questionary.confirm(
-                f"{INDENT}[yellow]'cdf.toml' file already exists in {destination}. Would you like to overwrite?[/]"
-            ).ask():
-                destination.write_text(cdf_toml_content, encoding="utf-8")
+            print(f"{INDENT}[yellow]'cdf.toml' file already exists skipping creation.")
         else:
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
