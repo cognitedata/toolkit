@@ -27,7 +27,9 @@ class CLIConfig:
 
     @classmethod
     def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
-        default_organization_dir = cwd / raw["default_organization_dir"] if "organization_dir" in raw else Path.cwd()
+        default_organization_dir = (
+            cwd / raw["default_organization_dir"] if "default_organization_dir" in raw else Path.cwd()
+        )
         return cls(
             default_organization_dir=default_organization_dir,
             default_env=raw.get("default_env", "dev"),
