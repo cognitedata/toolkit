@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     ContainerLoader,
@@ -119,8 +119,9 @@ class BuildCommand(ToolkitCommand):
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> None:
-        if not organization_dir.is_dir():
-            raise ToolkitNotADirectoryError(str(organization_dir))
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
         if not cdf_toml.is_loaded_from_file:
