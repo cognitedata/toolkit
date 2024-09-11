@@ -286,9 +286,10 @@ def build(
     ctx: typer.Context,
     organization_dir: Annotated[
         Path,
-        typer.Argument(
+        typer.Option(
+            "--organization-dir",
+            "-o",
             help="Where to find the module templates to build from",
-            allow_dash=True,
         ),
     ] = CDF_TOML.cdf.default_organization_dir,
     build_dir: Annotated[
@@ -667,9 +668,10 @@ def pull_transformation_cmd(
     ],
     organization_dir: Annotated[
         Path,
-        typer.Argument(
-            help="Where to find the destination module templates.",
-            allow_dash=True,
+        typer.Option(
+            "--organization-dir",
+            "-o",
+            help="Where to find the module templates to build from",
         ),
     ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
@@ -737,9 +739,10 @@ def pull_node_cmd(
     ],
     organization_dir: Annotated[
         Path,
-        typer.Argument(
-            help="Where to find the modules.",
-            allow_dash=True,
+        typer.Option(
+            "--organization-dir",
+            "-o",
+            help="Where to find the module templates to build from",
         ),
     ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[

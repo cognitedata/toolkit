@@ -1,6 +1,4 @@
 [cdf]
-
-default_organization_dir = "pytest-org
 default_env = "dev"
 
 [modules]
