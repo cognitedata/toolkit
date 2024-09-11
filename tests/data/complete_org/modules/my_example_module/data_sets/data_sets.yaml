@@ -1,0 +1,8 @@
+- externalId: ds_timeseries_{{example_variable}}
+  name: Example dataset.
+  description: This is an example dataset used to demonstrate how to create a custom module 
+    in the Cognite Data Fusion Toolkit.
+- externalId: ds_labels_{{example_variable}}
+  name: Example dataset.
+  description: This is an example dataset used to demonstrate how to create a custom module 
+    in the Cognite Data Fusion Toolkit.

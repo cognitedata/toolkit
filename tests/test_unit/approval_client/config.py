@@ -77,6 +77,10 @@ from cognite.client.data_classes import (
     TransformationWriteList,
     Workflow,
     WorkflowList,
+    WorkflowTrigger,
+    WorkflowTriggerCreate,
+    WorkflowTriggerCreateList,
+    WorkflowTriggerList,
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
@@ -616,6 +620,19 @@ API_RESOURCES = [
         _write_list_cls=GraphQLDataModelWriteList,
         methods={
             "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
+        },
+    ),
+    APIResource(
+        api_name="workflows.triggers",
+        resource_cls=WorkflowTrigger,
+        list_cls=WorkflowTriggerList,
+        _write_cls=WorkflowTriggerCreate,
+        _write_list_cls=WorkflowTriggerCreateList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="get_triggers", mock_class_method="return_values"),
+            ],
         },
     ),
 ]

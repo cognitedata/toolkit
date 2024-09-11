@@ -1,0 +1,8 @@
+- externalId: label_pump
+  name: Pump
+  description: Pump label
+  dataSetExternalId: ds_labels_{{example_variable}}
+- externalId: label_flow
+  name: Flows
+  description: Labels used for relationships that represent flows
+  dataSetExternalId: ds_labels_{{example_variable}}
