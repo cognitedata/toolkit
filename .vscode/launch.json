@@ -42,16 +42,18 @@
       "justMyCode": false
     },
     {
-      "name": "cdf modules init",
+      "name": "Python: deploy --dry-run",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
-        "--override-env",
-        "modules",
-        "init",
-        "./cognite_toolkit/"
+        "deploy",
+        "--dry-run",
+        //"--drop",
+        //"--drop-data",
+        "--env=local",
+        //"--include=transformations",
+        "./build"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
