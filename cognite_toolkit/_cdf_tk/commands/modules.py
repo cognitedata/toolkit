@@ -153,15 +153,13 @@ default_organization_dir = "{organization_dir.name}""",
     ) -> None:
         if not organization_dir:
             new_line = "\n    "
-            hint = (
+            message = (
+                f"Which directory would you like to create templates in? (default: current directory){new_line}"
                 f"HINT It is recommended to use an organization directory if you use the{new_line}repository for more than Toolkit. "
-                f"It this repo is only used for Toolkit,{new_line}it is recommended to use the current directory "
-                f"(assumed to be the{new_line}root of the repository)."
+                f"If this repository is only used for Toolkit,{new_line}it is recommended to use the current directory "
+                f"(assumed to be the{new_line}root of the repository):"
             )
-            organization_dir_raw = questionary.text(
-                f"Which directory would you like to create templates in? (default: current directory){new_line}{hint}",
-                default="",
-            ).ask()
+            organization_dir_raw = questionary.text(message=message, default="").ask()
             organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
