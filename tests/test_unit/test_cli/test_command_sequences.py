@@ -17,6 +17,7 @@ from pytest import MonkeyPatch
 from cognite_toolkit._cdf import build, clean, deploy
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
+from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -168,3 +169,44 @@ def test_init_build_clean(
     )
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
+
+
+def test_build_deploy_complete_org(
+    build_tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    typer_context: typer.Context,
+    data_regression,
+) -> None:
+    build(
+        typer_context,
+        organization_dir=COMPLETE_ORG,
+        build_dir=str(build_tmp_path),
+        build_env_name="dev",
+        no_clean=False,
+    )
+    deploy(
+        typer_context,
+        build_dir=str(build_tmp_path),
+        build_env_name="dev",
+        interactive=False,
+        drop=True,
+        dry_run=False,
+        include=[],
+    )
+
+    not_mocked = toolkit_client_approval.not_mocked_calls()
+    assert not not_mocked, (
+        f"The following APIs have been called without being mocked: {not_mocked}, "
+        "Please update the list _API_RESOURCES in tests/approval_client.py"
+    )
+
+    dump = toolkit_client_approval.dump()
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{COMPLETE_ORG.name}.yaml")
+
+    for group_calls in toolkit_client_approval.auth_create_group_calls():
+        lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
+        assert (
+            not lost_capabilities
+        ), f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
