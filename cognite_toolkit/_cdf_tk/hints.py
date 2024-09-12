@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from abc import abstractmethod
 from pathlib import Path
 from typing import Any
@@ -96,4 +97,37 @@ def verify_module_directory(organization_dir: Path, build_env_name: str) -> None
             raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")
         raise ToolkitFileNotFoundError(f"Could not find the {config_path.as_posix()!r} file.")
 
-    raise ValueError()
+    # Search for the modules directory
+    candidate_org = next(
+        (
+            path
+            for path in organization_dir.iterdir()
+            if path.is_dir() and any((path / sub).exists() for sub in ROOT_MODULES)
+        ),
+        None,
+    )
+    print(panel)
+    if candidate_org is not None:
+        if candidate_org.is_relative_to(Path.cwd()):
+            candidate_rel = candidate_org.relative_to(Path.cwd())
+        else:
+            candidate_rel = candidate_org
+        user_arg = sys.argv
+        suggestion = ["cdf"]
+        skip_next = False
+        found = False
+        for arg in user_arg[1:]:
+            if arg in ("-o", "--organization-dir"):
+                suggestion.append(f"{arg} {candidate_rel}")
+                skip_next = True
+                found = True
+                continue
+            if skip_next:
+                skip_next = False
+                continue
+            suggestion.append(arg)
+        if not found:
+            suggestion.append(f"-o {candidate_rel}")
+
+        print(f"{Hint._lead_text} Did you mean to use the command: '{' '.join(suggestion)}'?")
+    raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")
