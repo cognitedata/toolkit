@@ -118,12 +118,23 @@ def create_project_init(version: str) -> None:
     else:
         old_version_script_dir = Path(f"{environment_directory}/bin/")
     with chdir(TEST_DIR_ROOT):
-        cmd = [
-            str(old_version_script_dir / "cdf-tk"),
-            "init",
-            f"{PROJECT_INIT_DIR.name}/{project_init.name}",
-            "--clean",
-        ]
+        version_parsed = parse_version(version)
+        if version_parsed >= parse_version("0.3.0a1"):
+            cmd = [
+                str(old_version_script_dir / "cdf"),
+                "modules",
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+                "--clean",
+                "--all",
+            ]
+        else:
+            cmd = [
+                str(old_version_script_dir / "cdf-tk"),
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+            ]
+
         output = subprocess.run(
             cmd,
             capture_output=True,
