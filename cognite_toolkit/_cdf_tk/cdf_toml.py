@@ -6,9 +6,8 @@ from pathlib import Path
 from typing import Any, ClassVar
 
 from cognite_toolkit import _version
-from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, clean_name
+from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMissingModulesError,
     ToolkitRequiredValueError,
     ToolkitVersionError,
 )
@@ -35,19 +34,6 @@ class CLIConfig:
             default_env=raw.get("default_env", "dev"),
             feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
         )
-
-    def get_root_module_paths(self, organization_dir: Path | None) -> list[Path]:
-        organization_dir = organization_dir or self.default_organization_dir
-        sources = [
-            module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
-        ]
-        if not sources:
-            directories = "\n".join(f"   ┣ {name}" for name in ROOT_MODULES[:-1])
-            raise ToolkitMissingModulesError(
-                f"Could not find the modules directory.\nExpected to find one of the following directories inside {organization_dir.name}\n"
-                f"{organization_dir.name}\n{directories}\n   ┗ {ROOT_MODULES[-1]}"
-            )
-        return sources
 
 
 @dataclass
