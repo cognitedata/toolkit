@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.utils import (
     iterate_modules,
     load_yaml_inject_variables,
     module_from_path,
-    quote_key_in_yaml,
+    quote_int_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
@@ -632,4 +632,4 @@ properties:
 class TestQuoteKeyInYAML:
     @pytest.mark.parametrize("raw, expected", list(quote_key_in_yaml_test_cases()))
     def test_quote_key_in_yaml(self, raw: str, expected: str) -> None:
-        assert quote_key_in_yaml(raw, key="version") == expected
+        assert quote_int_value_by_key_in_yaml(raw, key="version") == expected

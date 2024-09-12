@@ -1346,10 +1346,10 @@ def get_cicd_environment() -> str:
     return "local"
 
 
-def quote_key_in_yaml(content: str, key: str) -> str:
-    """Quote a key in a yaml string"""
+def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
     # This pattern will match the key if it is not already quoted
-    pattern = rf"^(\s*-?\s*)?{key}:\s*(?!.*['\":])(.+)$"
+    pattern = rf"^(\s*-?\s*)?{key}:\s*(?!.*['\":])([\d_]+)$"
     replacement = rf'\1{key}: "\2"'
 
     return re.sub(pattern, replacement, content, flags=re.MULTILINE)
