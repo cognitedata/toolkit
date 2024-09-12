@@ -613,6 +613,21 @@ version: "3_0_2"''',
         id="Two Data Models with double quoted version",
     )
 
+    version_prop = """
+externalId: CogniteSourceSystem
+properties:
+  version:
+    container:
+      externalId: CogniteSourceSystem
+      space: sp_core_model
+      type: container
+    """
+    yield pytest.param(
+        version_prop,
+        version_prop,
+        id="Version property untouched",
+    )
+
 
 class TestQuoteKeyInYAML:
     @pytest.mark.parametrize("raw, expected", list(quote_key_in_yaml_test_cases()))
