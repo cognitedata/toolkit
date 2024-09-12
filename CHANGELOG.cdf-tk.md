@@ -26,6 +26,8 @@ Changes are grouped as follows:
 
 - The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
 - The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
+- If the version of a `DataModel` or `View` was set to `1_0_0` in the resource file, Toolkit would send
+  it as `100` to the API. This is now fixed.
 
 ## [0.3.0a3] - 2024-09-11
 
