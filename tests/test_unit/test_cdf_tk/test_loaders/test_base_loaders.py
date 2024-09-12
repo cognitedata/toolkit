@@ -50,7 +50,7 @@ from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
-from tests.test_unit.utils import FakeCogniteResourceGenerator, mock_read_yaml_file
+from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 
@@ -140,11 +140,13 @@ class TestFormatConsistency:
         if isinstance(instance, TransformationSchedule):
             del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
-        mock_read_yaml_file({"dict.yaml": instance.dump()}, monkeypatch)
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = yaml.dump(instance.dump())
+        file.suffix = ".yaml"
+        file.name = "dict.yaml"
+        file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource(
-            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_mock, skip_validation=True
-        )
+        loaded = loader.load_resource(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -174,11 +176,13 @@ class TestFormatConsistency:
             for instance in instances:
                 del instance.id  # Client validation does not allow id and externalid to be set simultaneously
 
-        mock_read_yaml_file({"dict.yaml": instances.dump()}, monkeypatch)
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = yaml.dump(instances.dump())
+        file.suffix = ".yaml"
+        file.name = "dict.yaml"
+        file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource(
-            filepath=Path(loader.folder_name) / "dict.yaml", ToolGlobals=cdf_tool_mock, skip_validation=True
-        )
+        loaded = loader.load_resource(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"

@@ -190,6 +190,9 @@ class FakeCogniteResourceGenerator:
                 value = None
             elif name == "scene":
                 value = self.create_value(LocationFilterScene, var_name=name)
+            elif name == "version":
+                # Special case
+                value = random.choice(["v1", "v2", "v3"])
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 
