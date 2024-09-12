@@ -25,6 +25,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+- The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
 
 ## [0.3.0a3] - 2024-09-11
 
