@@ -33,6 +33,7 @@ Changes are grouped as follows:
 
 - LocationFilter did not load subclasses properly. This is now fixed.
 - When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+- The `cdf modules init` no longer creates an invalid `cdf.toml` file when the user uses an `organization-dir`.
 
 ### Changed
 
