@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
+    ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -52,7 +53,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     ContainerLoader,
@@ -119,20 +120,23 @@ class BuildCommand(ToolkitCommand):
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> None:
-        if not organization_dir.is_dir():
-            raise ToolkitNotADirectoryError(str(organization_dir))
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
         if not cdf_toml.is_loaded_from_file:
             raise ToolkitError(
-                "No 'cdf.toml' file found in the current directory. " "Please run 'cdf repo init' to create it"
+                "No 'cdf.toml' file found in the current directory. Please run 'cdf repo init' to create it"
             )
 
-        sources = cdf_toml.cdf.get_root_module_paths(organization_dir)
         config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
-        module_locations = "\n".join(f"  - Module directory '{source!s}'" for source in sources)
+        root_modules = [
+            module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
+        ]
+        module_locations = "\n".join(f"  - Module directory '{root_module!s}'" for root_module in root_modules)
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
