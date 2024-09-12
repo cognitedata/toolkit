@@ -135,7 +135,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str) -> None
         cdf_toml = CDFToml.load()
         if not cdf_toml.cdf.has_user_set_default_org:
             print(
-                f"{Hint._lead_text} You can specify a default_organization_dir = ...' in the [cdf] section of your "
+                f"{Hint._lead_text} You can specify a 'default_organization_dir = ...' in the '\[cdf]' section of your "
                 f"'{CDFToml.file_name}' file to avoid using the -o/--organization-dir argument"
             )
 
