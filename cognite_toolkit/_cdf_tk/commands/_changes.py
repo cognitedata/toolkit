@@ -40,6 +40,49 @@ class ManualChange(Change):
         return ""
 
 
+class RenamedOrganizationDirInCDFToml(AutomaticChange):
+    """In the cdf.toml file, the 'organization_dir' field in the 'cdf' section has been renamed to
+'default_organization_dir'.
+
+In cdf.toml, before:
+```toml
+[cdf]
+organization_dir = "my_organization"
+```
+After:
+```toml
+[cdf]
+default_organization_dir = "my_organization"
+```
+"""
+
+    deprecated_from = Version("0.3.0a3")
+    required_from = Version("0.3.0a3")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
+            return set()
+        raw = safe_read(cdf_toml)
+        new_cdf_toml = []
+        changes: set[Path] = set()
+        # We do not parse the TOML file to avoid removing comments
+        is_after_cdf_section=False
+        for line in raw.splitlines():
+            if line.startswith("[cdf]"):
+                is_after_cdf_section = True
+            if line.startswith("organization_dir = ") and is_after_cdf_section:
+                new_line = line.replace("organization_dir", "default_organization_dir")
+                new_cdf_toml.append(new_line)
+                if new_line != line:
+                    changes.add(cdf_toml)
+            else:
+                new_cdf_toml.append(line)
+        cdf_toml.write_text("\n".join(new_cdf_toml))
+        return changes
+
+
 class InitCommandReplaced(AutomaticChange):
     """The `cdf-tk init` has been replaced by `cdf repo init` and `cdf modules init`.
 

@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+
 # Hack to make the script work as running cdf modules upgrade
 sys.argv = ["cdf", "modules", "upgrade"]
 
@@ -118,22 +120,36 @@ def create_project_init(version: str) -> None:
     else:
         old_version_script_dir = Path(f"{environment_directory}/bin/")
     with chdir(TEST_DIR_ROOT):
-        cmd = [
-            str(old_version_script_dir / "cdf-tk"),
-            "init",
-            f"{PROJECT_INIT_DIR.name}/{project_init.name}",
-            "--clean",
-        ]
+        version_parsed = parse_version(version)
+        if version_parsed >= parse_version("0.3.0a1"):
+            cmd = [
+                str(old_version_script_dir / "cdf"),
+                "modules",
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+                "--clean",
+                "--all",
+            ]
+        else:
+            cmd = [
+                str(old_version_script_dir / "cdf-tk"),
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+            ]
+
         output = subprocess.run(
             cmd,
             capture_output=True,
             shell=True if platform.system() == "Windows" else False,
             env=modified_env_variables,
         )
-
         if output.returncode != 0:
             print(output.stderr.decode())
             raise ValueError(f"Failed to create project init for version {version}.")
+
+        cdf_toml_path = TEST_DIR_ROOT / CDFToml.file_name
+        if cdf_toml_path.exists():
+            shutil.move(cdf_toml_path, project_init / CDFToml.file_name)
 
     print(f"Project init for version {version} created.")
     with chdir(TEST_DIR_ROOT):

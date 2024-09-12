@@ -25,6 +25,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+- The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
 
 ## [0.3.0a3] - 2024-09-11
 
@@ -32,6 +33,7 @@ Changes are grouped as follows:
 
 - LocationFilter did not load subclasses properly. This is now fixed.
 - When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+- The `cdf modules init` no longer creates an invalid `cdf.toml` file when the user uses an `organization-dir`.
 
 ### Changed
 

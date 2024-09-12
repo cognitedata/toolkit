@@ -138,8 +138,8 @@ class ModulesCommand(ToolkitCommand):
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
-                f"""
-default_organization_dir = "{organization_dir.name}""",
+                f'''
+default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
