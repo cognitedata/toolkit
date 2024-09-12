@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- The `WorkflowTrigger` config files now supports `object` (`dict`) as a valid type for the
+  `data` field. This will automatically be converted to a `json` string when deploying the trigger.
+
 ### Fixed
 
 - The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
