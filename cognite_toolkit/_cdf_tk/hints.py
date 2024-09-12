@@ -8,6 +8,8 @@ from typing import Any
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+
 from .constants import MODULES, ROOT_MODULES, URL
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .loaders import LOADER_BY_FOLDER_NAME
@@ -130,4 +132,11 @@ def verify_module_directory(organization_dir: Path, build_env_name: str) -> None
             suggestion.append(f"-o {candidate_rel}")
 
         print(f"{Hint._lead_text} Did you mean to use the command: '{' '.join(suggestion)}'?")
+        cdf_toml = CDFToml.load()
+        if not cdf_toml.cdf.has_user_set_default_org:
+            print(
+                f"{Hint._lead_text} You can specify a default_organization_dir = ...' in the [cdf] section of your "
+                f"'{CDFToml.file_name}' file to avoid using the -o/--organization-dir argument"
+            )
+
     raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")

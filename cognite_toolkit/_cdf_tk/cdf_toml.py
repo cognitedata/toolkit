@@ -23,16 +23,17 @@ class CLIConfig:
     default_organization_dir: Path
     default_env: str = "dev"
     feature_flags: dict[str, bool] = field(default_factory=dict)
+    has_user_set_default_org: bool = False
 
     @classmethod
     def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
-        default_organization_dir = (
-            cwd / raw["default_organization_dir"] if "default_organization_dir" in raw else Path.cwd()
-        )
+        has_user_set_default_org = "default_organization_dir" in raw
+        default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
         return cls(
             default_organization_dir=default_organization_dir,
             default_env=raw.get("default_env", "dev"),
             feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
+            has_user_set_default_org=has_user_set_default_org,
         )
 
 
