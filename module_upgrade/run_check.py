@@ -10,6 +10,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+
 # Hack to make the script work as running cdf modules upgrade
 sys.argv = ["cdf", "modules", "upgrade"]
 
@@ -141,6 +143,23 @@ def create_project_init(version: str) -> None:
             shell=True if platform.system() == "Windows" else False,
             env=modified_env_variables,
         )
+        if parse_version("0.3.0a3") > version_parsed >= parse_version("0.3.0a1"):
+            cmd = [
+                str(old_version_script_dir / "cdf"),
+                "repo",
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+            ]
+            output = subprocess.run(
+                cmd,
+                capture_output=True,
+                shell=True if platform.system() == "Windows" else False,
+                env=modified_env_variables,
+            )
+
+        cdf_toml_path = TEST_DIR_ROOT / CDFToml.file_name
+        if cdf_toml_path.exists():
+            shutil.move(cdf_toml_path, project_init / CDFToml.file_name)
 
         if output.returncode != 0:
             print(output.stderr.decode())
