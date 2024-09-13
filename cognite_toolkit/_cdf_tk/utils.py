@@ -1355,6 +1355,11 @@ def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
     return re.sub(pattern, replacement, content, flags=re.MULTILINE)
 
 
+def stringify_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
+    raise NotImplementedError()
+
+
 class GraphQLParser:
     _token_pattern = re.compile(r"\w+|[^\w\s]")
 
