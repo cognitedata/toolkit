@@ -1363,12 +1363,27 @@ class GraphQLParser:
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 
-    def get_views(self) -> set[ViewId]:
-        return {
-            ViewId(self.data_model_id.space, entity.identifier)
-            for entity in self._get_entities()
-            if not entity.is_imported
-        }
+    def get_views(self, include_version: bool = False) -> set[ViewId]:
+        views: set[ViewId] = set()
+        for entity in self._get_entities():
+            if entity.is_imported:
+                continue
+            view_directive: _ViewDirective | None = None
+            for directive in entity.directives:
+                if isinstance(directive, _ViewDirective):
+                    view_directive = directive
+                    break
+            if view_directive:
+                views.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            else:
+                views.add(ViewId(self.data_model_id.space, entity.identifier))
+        return views
 
     def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
         dependencies: set[ViewId | DataModelId] = set()
@@ -1478,7 +1493,7 @@ class _Directive:
 
     @classmethod
     def _create_args(cls, string: str) -> dict[str, Any] | str:
-        if "," not in string:
+        if "," not in string and ":" not in string:
             return string
         output: dict[str, Any] = {}
         if string[0] == "{" and string[-1] == "}":

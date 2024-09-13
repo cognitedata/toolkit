@@ -514,6 +514,18 @@ type WorkCenterCategory {
         {ViewId("cdf_3d_schema", "Cdf3dConnectionProperties", "1")},
         id="Edge type",
     ),
+    pytest.param(
+        """type APM_User @view (version: "7") {
+  name: String
+  email: String
+  lastSeen: Timestamp
+  preferences: JSONObject
+}""",
+        DATA_MODEL,
+        {ViewId(SPACE, "APM_User", "7")},
+        set(),
+        id="Simple type with version",
+    ),
 ]
 
 
@@ -524,8 +536,10 @@ class TestGraphQLParser:
     ) -> None:
         parser = GraphQLParser(raw, data_model_id)
 
-        assert parser.get_views() == expected_views
-        assert parser.get_dependencies(include_version=True) == dependencies
+        actual_views = parser.get_views(include_version=True)
+        assert expected_views == actual_views
+        actual_dependencies = parser.get_dependencies(include_version=True)
+        assert dependencies == actual_dependencies
 
 
 def quote_key_in_yaml_test_cases() -> Iterable[ParameterSet]:
