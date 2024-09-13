@@ -4,4 +4,4 @@ project: project-loader-dev
 type: dev
 selected:
 - modules
-cdf_toolkit_version: 0.2.20
+cdf_toolkit_version: 0.2.21

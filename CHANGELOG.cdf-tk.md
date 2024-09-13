@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.21] - 2024-09-13
+
+### Fixed
+
+- Groups without metadata no longer triggers redeploy when running `cdf deploy`
+
 ## [0.2.20] - 2024-08-31
 
 ### Fixed
