@@ -31,14 +31,14 @@ ExtractionPipeline:
     tableName: assets
   source: workmate
 ExtractionPipelineConfig:
-- config: "databases:\n-   connection-string: DSN={MyPostgresDsn}\n    name: postgres\n\
-    \    type: odbc\nlogger:\n    console:\n        level: INFO\n    file:\n     \
-    \   level: INFO\n        path: file.log\nqueries:\n-   database: postgres\n  \
-    \  destination:\n        database: db-extractor\n        table: postgres\n   \
-    \     type: raw\n    incremental-field: id\n    initial-start: 0\n    name: test-postgres\n\
-    \    primary-key: '{id}'\n    query: \"SELECT\\n\\n  *\\nFROM\\n\\n  mytable\\\
-    nWHERE\\n\\n  {incremental_field} >= '{start_at}'\\n\\\n        ORDER BY\\n\\\
-    n  {incremental_field} ASC\\n\"\n"
+- config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
+    \ \"file.log\"\n# List of databases\ndatabases:\n  - type: odbc\n    name: postgres\n\
+    \    connection-string: \"DSN={MyPostgresDsn}\"\n# List of queries\nqueries:\n\
+    \  - name: test-postgres\n    database: postgres\n    query: >\n      SELECT\n\
+    \n        *\n      FROM\n\n        mytable\n      WHERE\n\n        {incremental_field}\
+    \ >= '{start_at}'\n      ORDER BY\n\n        {incremental_field} ASC\n    incremental-field:\
+    \ \"id\"\n    initial-start: 0\n    destination:\n      type: raw\n      database:\
+    \ \"db-extractor\"\n      table: \"postgres\"\n    primary-key: \"{id}\"\n"
   description: DB extractor config reading data from oid:workmate
   externalId: ep_src_asset_oid_workmate
 Group:
