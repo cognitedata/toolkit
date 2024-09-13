@@ -294,3 +294,4 @@ cognite_toolkit/config.local.yaml
 build.*
 cognite_toolkit/.env.*
 module_upgrade/project_inits
+function_local_venvs/
