@@ -148,7 +148,7 @@ class CoreApp(typer.Typer):
             Optional[list[str]],
             typer.Option(
                 "--selected",
-                "-s",
+                "-m",
                 help="Specify paths or names to the modules to build",
             ),
         ] = None,
