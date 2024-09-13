@@ -35,7 +35,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         return self.client.hosted_extractors.sources.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SourceList:
-        return self.client.hosted_extractors.sources.retrieve(external_ids=ids)
+        return self.client.hosted_extractors.sources.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: SourceWriteList) -> SourceList:
         return self.client.hosted_extractors.sources.update(items)
