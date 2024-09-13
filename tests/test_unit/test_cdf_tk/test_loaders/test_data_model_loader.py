@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -149,16 +151,31 @@ name: String}""",
             "WindTurbineModel",
         ]
 
+    def test_load_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
+        file = self._create_mock_file(
+            """type WindTurbine{
+            name: String}""",
+            "DG-COR-ALL-DMD",
+            "AssetHierarchyDOM",
+            "3_0_2",
+        )
+        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+
+        items = loader.load_resource(file, cdf_tool_mock, skip_validation=True)
+
+        assert len(items) == 1
+        assert items[0].version == "3_0_2"
+
     @staticmethod
-    def _create_mock_file(first_model: str, space: str, external_id: str) -> MagicMock:
+    def _create_mock_file(model: str, space: str, external_id: str, version: int | str = "v1") -> MagicMock:
         first_file = MagicMock(spec=Path)
         first_file.read_text.return_value = f"""space: {space}
 externalId: {external_id}
-version: v1
+version: {version}
 dml: model.graphql
 """
         first_model_file = MagicMock(spec=Path)
-        first_model_file.read_text.return_value = first_model
+        first_model_file.read_text.return_value = model
         first_model_file.name = "model.graphql"
         first_model_file.is_file.return_value = True
         first_file.parent.iterdir.return_value = [first_model_file]

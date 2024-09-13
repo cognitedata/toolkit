@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
@@ -137,8 +138,8 @@ class ModulesCommand(ToolkitCommand):
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",
-                f"""
-default_organization_dir = "{organization_dir.name}""",
+                f'''
+default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
@@ -430,6 +431,9 @@ default_organization_dir = "{organization_dir.name}""",
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
     def list(self, organization_dir: Path, build_env_name: str) -> None:
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
         modules = ModuleResources(organization_dir, build_env_name)
 
         table = Table(title=f"{build_env_name} {organization_dir.name} modules")

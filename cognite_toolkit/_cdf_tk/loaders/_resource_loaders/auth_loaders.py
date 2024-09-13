@@ -248,6 +248,13 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
 
+        # Remove metadata if it is empty to avoid false negatives
+        # as a result of cdf_resource.metadata = {} != local.metadata = None
+        if not local_dumped.get("metadata"):
+            local_dumped.pop("metadata", None)
+        if not cdf_dumped.get("metadata"):
+            cdf_dumped.pop("metadata", None)
+
         scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
 
         ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}

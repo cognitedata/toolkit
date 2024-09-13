@@ -15,12 +15,28 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a4] - 2024-09-13
+
+### Added
+
+- The `WorkflowTrigger` config files now supports `object` (`dict`) as a valid type for the
+  `data` field. This will automatically be converted to a `json` string when deploying the trigger.
+
+### Fixed
+
+- The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+- The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
+- If the version of a `DataModel` or `View` was set to `1_0_0` in the resource file, Toolkit would send
+  it as `100` to the API. This is now fixed.
+- Groups without metadata no longer triggers redeploy when running `cdf deploy`
+
 ## [0.3.0a3] - 2024-09-11
 
 ### Fixed
 
 - LocationFilter did not load subclasses properly. This is now fixed.
 - When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+- The `cdf modules init` no longer creates an invalid `cdf.toml` file when the user uses an `organization-dir`.
 
 ### Changed
 

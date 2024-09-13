@@ -87,6 +87,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
+    quote_int_value_by_key_in_yaml,
     retrieve_view_ancestors,
     safe_read,
 )
@@ -638,6 +639,19 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ViewApplyList:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        if isinstance(raw_yaml, list):
+            return ViewApplyList.load(raw_yaml)
+        else:
+            return ViewApplyList([self.resource_write_cls.load(raw_yaml)])
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -762,6 +776,19 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we need to add it manually.
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataModelApplyList:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        if isinstance(raw_yaml, list):
+            return DataModelApplyList.load(raw_yaml)
+        else:
+            return DataModelApplyList([self.resource_write_cls.load(raw_yaml)])
 
 
 @final
@@ -1010,7 +1037,14 @@ class GraphQLLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GraphQLDataModelWriteList:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
+        raw = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
         raw_list = raw if isinstance(raw, list) else [raw]
         models = GraphQLDataModelWriteList._load(raw_list)
 

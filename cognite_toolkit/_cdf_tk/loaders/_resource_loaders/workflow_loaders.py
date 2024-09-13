@@ -13,6 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
@@ -374,6 +375,8 @@ class WorkflowTriggerLoader(
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         loaded = WorkflowTriggerCreateList([])
         for item in raw_list:
+            if "data" in item and isinstance(item["data"], dict):
+                item["data"] = json.dumps(item["data"])
             if "authentication" in item:
                 raw_auth = item.pop("authentication")
                 self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
