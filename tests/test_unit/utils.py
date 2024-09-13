@@ -63,8 +63,12 @@ def mock_read_yaml_file(
         return read_yaml_file(filepath, expected_output)
 
     def fake_load_yaml_inject_variables(
-        filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+        filepath: Path | str,
+        variables: dict[str, str | None],
+        required_return_type: Literal["any", "list", "dict"] = "any",
     ) -> dict[str, Any] | list[dict[str, Any]]:
+        if isinstance(filepath, str):
+            return load_yaml_inject_variables(filepath, variables, required_return_type)
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = load_yaml_inject_variables(filepath, variables, required_return_type)

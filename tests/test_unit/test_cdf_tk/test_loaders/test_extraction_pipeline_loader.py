@@ -51,7 +51,7 @@ class TestExtractionPipelineDependencies:
 
     def test_load_extraction_pipeline_upsert_update_one(
         self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
         cdf_tool.client = toolkit_client_approval.mock_client
@@ -66,13 +66,12 @@ class TestExtractionPipelineDependencies:
             ),
         )
 
-        mock_read_yaml_file(
-            {"extraction_pipeline.config.yaml": yaml.CSafeLoader(self.config_yaml).get_data()}, monkeypatch
-        )
+        local_file = MagicMock(spec=Path)
+        local_file.read_text.return_value = self.config_yaml
 
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource(Path("extraction_pipeline.config.yaml"), cdf_tool, skip_validation=False)
+        resources = loader.load_resource(local_file, cdf_tool, skip_validation=False)
         to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
         assert len(to_create) == 0
         assert len(changed) == 1
