@@ -654,8 +654,8 @@ config:
         """externalId: MyModel
 config: |
   data:
-   debug: False
-   runAll: False""",
+    debug: False
+    runAll: False""",
         id="Stringify value under key 'config'",
     )
     input_ = """externalId: MyModel
