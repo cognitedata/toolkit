@@ -49,6 +49,9 @@ SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.20"
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
 
+# ApplicationName used in the ApplicationEntity
+APPLICATION_NAME = "CogniteToolkit"
+
 # This is a regular expression that matches any non-word character or underscore
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")

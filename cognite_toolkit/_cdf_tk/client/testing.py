@@ -7,6 +7,7 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitClient
 
+from .api.application_entities import ApplicationEntitiesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
@@ -43,6 +44,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
 
         self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
+
+        self.application_entities = MagicMock(spec_set=ApplicationEntitiesAPI)
 
 
 @contextmanager
