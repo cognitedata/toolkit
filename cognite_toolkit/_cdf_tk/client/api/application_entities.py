@@ -4,10 +4,8 @@ from collections.abc import Sequence
 from typing import Any, Literal, overload
 from urllib.parse import quote
 
-from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient, T
 from cognite.client._constants import DEFAULT_LIMIT_READ
-from cognite.client.config import ClientConfig
 from cognite.client.utils._concurrency import execute_tasks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -20,13 +18,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.application_entities import (
 
 
 class ApplicationEntitiesAPI(APIClient):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
-        super().__init__(config, api_version, cognite_client)
-        self._api_version = None
-        self._RESOURCE_PATH = f"/apps/v1/projects/{self._cognite_client.config.project}/storage/"
+    _RESOURCE_PATH = "/storage"
 
-    def _base_url(self, data_namespace: str, entity_set: str) -> str:
-        return f"{self._RESOURCE_PATH}{quote(data_namespace)}/{quote(entity_set)}"
+    def _resource_path(self, data_namespace: str, entity_set: str) -> str:
+        return f"{self._RESOURCE_PATH}/{quote(data_namespace)}/{quote(entity_set)}"
 
     @overload
     def create(self, item: ApplicationEntityWrite, data_namespace: str, entity_set: str) -> ApplicationEntity: ...
@@ -53,7 +48,7 @@ class ApplicationEntitiesAPI(APIClient):
         # Need to reimplement _create_multiple as that method assumes POST, while this method should use PUT
         is_single_item = not isinstance(item, Sequence)
         items = [item] if not isinstance(item, Sequence) else item
-        resource_path = self._base_url(data_namespace, entity_set)
+        resource_path = self._resource_path(data_namespace, entity_set)
         tasks = [
             (resource_path, task_items) for task_items in self._prepare_item_chunks(items, self._CREATE_LIMIT, None)
         ]
@@ -114,7 +109,7 @@ class ApplicationEntitiesAPI(APIClient):
             list_cls=ApplicationEntityList,
             resource_cls=ApplicationEntity,
             identifiers=IdentifierSequence.load(external_ids=external_id),
-            resource_path=f"{self._base_url(data_namespace, entity_set)}/byids",
+            resource_path=f"{self._resource_path(data_namespace, entity_set)}",
         )
 
     def delete(self, external_id: str | SequenceNotStr[str], data_namespace: str, entity_set: str) -> None:
@@ -129,11 +124,13 @@ class ApplicationEntitiesAPI(APIClient):
         self._delete_multiple(
             identifiers=IdentifierSequence.load(external_ids=external_id),
             wrap_ids=True,
-            resource_path=f"{self._base_url(data_namespace, entity_set)}/delete",
+            resource_path=f"{self._resource_path(data_namespace, entity_set)}",
         )
 
     def list(
         self,
+        data_namespace: str,
+        entity_set: str,
         visibility: Literal["public", "private"] | None = None,
         is_owned: bool | None = None,
         limit: int | None = DEFAULT_LIMIT_READ,
@@ -141,6 +138,8 @@ class ApplicationEntitiesAPI(APIClient):
         """List ApplicationEntities.
 
         Args:
+            data_namespace: The namespace of the data.
+            entity_set: The entity set of the data.
             visibility: The visibility of the ApplicationEntities.
             is_owned: Whether the ApplicationEntities are owned.
             limit: The maximum number of ApplicationEntities to return. Defaults to 100. Set to -1, float('inf') or None
@@ -160,7 +159,7 @@ class ApplicationEntitiesAPI(APIClient):
             method="POST",
             list_cls=ApplicationEntityList,
             resource_cls=ApplicationEntity,
-            url_path=f"{self._RESOURCE_PATH}/list",
+            resource_path=self._resource_path(data_namespace, entity_set),
             limit=limit,
             filter=filter_,
         )
