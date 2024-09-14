@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal, overload
+from typing import Any, Literal, overload
 from urllib.parse import quote
 
 from cognite.client import CogniteClient
-from cognite.client._api_client import APIClient
+from cognite.client._api_client import APIClient, T
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.config import ClientConfig
+from cognite.client.utils._concurrency import execute_tasks
+from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.application_entities import (
@@ -24,7 +26,7 @@ class ApplicationEntitiesAPI(APIClient):
         self._RESOURCE_PATH = f"/apps/v1/projects/{self._cognite_client.config.project}/storage/"
 
     def _base_url(self, data_namespace: str, entity_set: str) -> str:
-        return f"{self._RESOURCE_PATH}{quote(data_namespace)}/{quote(entity_set)}/"
+        return f"{self._RESOURCE_PATH}{quote(data_namespace)}/{quote(entity_set)}"
 
     @overload
     def create(self, item: ApplicationEntityWrite, data_namespace: str, entity_set: str) -> ApplicationEntity: ...
@@ -48,7 +50,43 @@ class ApplicationEntitiesAPI(APIClient):
             ApplicationEntity or ApplicationEntityList
 
         """
-        raise NotImplementedError
+        # Need to reimplement _create_multiple as that method assumes POST, while this method should use PUT
+        is_single_item = not isinstance(item, Sequence)
+        items = [item] if not isinstance(item, Sequence) else item
+        resource_path = self._base_url(data_namespace, entity_set)
+        tasks = [
+            (resource_path, task_items) for task_items in self._prepare_item_chunks(items, self._CREATE_LIMIT, None)
+        ]
+        summary = execute_tasks(
+            self._put,
+            tasks,
+            max_workers=self._config.max_workers,
+        )
+
+        def unwrap_element(el: T) -> ApplicationEntityWrite | T:
+            if isinstance(el, dict):
+                return ApplicationEntityWrite._load(el, cognite_client=self._cognite_client)
+            else:
+                return el
+
+        def str_format_element(el: T) -> str | dict | T:
+            if isinstance(el, ApplicationEntity):
+                dumped = el.dump()
+                if "external_id" in dumped:
+                    return dumped["external_id"]
+                return dumped
+            return el
+
+        summary.raise_compound_exception_if_failed_tasks(
+            task_unwrap_fn=lambda task: task[1]["items"],
+            task_list_element_unwrap_fn=unwrap_element,
+            str_format_element_fn=str_format_element,
+        )
+        created_resources = summary.joined_results(lambda res: res.json()["items"])
+
+        if is_single_item:
+            return ApplicationEntity._load(created_resources[0], cognite_client=self._cognite_client)
+        return ApplicationEntityList._load(created_resources, cognite_client=self._cognite_client)
 
     @overload
     def retrieve(self, external_id: str, data_namespace: str, entity_set: str) -> ApplicationEntity: ...
@@ -72,7 +110,12 @@ class ApplicationEntitiesAPI(APIClient):
             ApplicationEntity or ApplicationEntityList
 
         """
-        raise NotImplementedError()
+        return self._retrieve_multiple(
+            list_cls=ApplicationEntityList,
+            resource_cls=ApplicationEntity,
+            identifiers=IdentifierSequence.load(external_ids=external_id),
+            resource_path=f"{self._base_url(data_namespace, entity_set)}/byids",
+        )
 
     def delete(self, external_id: str | SequenceNotStr[str], data_namespace: str, entity_set: str) -> None:
         """Delete an ApplicationEntity.
@@ -83,7 +126,11 @@ class ApplicationEntitiesAPI(APIClient):
             entity_set: The entity set of the data.
 
         """
-        raise NotImplementedError()
+        self._delete_multiple(
+            identifiers=IdentifierSequence.load(external_ids=external_id),
+            wrap_ids=True,
+            resource_path=f"{self._base_url(data_namespace, entity_set)}/delete",
+        )
 
     def list(
         self,
@@ -103,4 +150,17 @@ class ApplicationEntitiesAPI(APIClient):
             ApplicationEntityList
 
         """
-        raise NotImplementedError()
+        filter_: dict[str, Any] = {}
+        if visibility is not None:
+            filter_["visibility"] = visibility
+        if is_owned is not None:
+            filter_["isOwned"] = is_owned
+
+        return self._list(
+            method="POST",
+            list_cls=ApplicationEntityList,
+            resource_cls=ApplicationEntity,
+            url_path=f"{self._RESOURCE_PATH}/list",
+            limit=limit,
+            filter=filter_,
+        )
