@@ -99,12 +99,13 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: TransformationWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = TransformationsAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else TransformationsAcl.Scope.All()
+        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()
+        if items is not None:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
@@ -340,7 +341,7 @@ class TransformationScheduleLoader(
         return "transformation.schedules"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: TransformationScheduleWriteList | None) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
@@ -446,7 +447,9 @@ class TransformationNotificationLoader(
         }
 
     @classmethod
-    def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: TransformationNotificationWriteList | None
+    ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []

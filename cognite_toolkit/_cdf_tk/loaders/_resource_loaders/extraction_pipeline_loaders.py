@@ -77,16 +77,15 @@ class ExtractionPipelineLoader(
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: ExtractionPipelineWriteList | None) -> Capability | list[Capability]:
         if not items:
             return []
-        data_set_id = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = (
-            ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
-            if data_set_id
-            else ExtractionPipelinesAcl.Scope.All()
+        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (
+            ExtractionPipelinesAcl.Scope.All()
         )
+        if items is not None:
+            if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
+                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
         return ExtractionPipelinesAcl(
             [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
@@ -226,7 +225,7 @@ class ExtractionPipelineConfigLoader(
         return "extraction_pipeline.config"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList | None) -> list[Capability]:
         # Access for extraction pipeline configs is checked by the extraction pipeline that is deployed
         # first, so we don't need to check for any capabilities here.
         return []

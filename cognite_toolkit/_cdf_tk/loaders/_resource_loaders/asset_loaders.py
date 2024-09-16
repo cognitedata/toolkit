@@ -49,15 +49,15 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: AssetWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: AssetWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-        scope = (
-            capabilities.AssetsAcl.Scope.DataSet(list(data_set_ids))
-            if data_set_ids
-            else capabilities.AssetsAcl.Scope.All()
+        scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (
+            capabilities.AssetsAcl.Scope.All()
         )
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = capabilities.AssetsAcl.Scope.DataSet(list(data_set_ids))
 
         return capabilities.AssetsAcl(
             [capabilities.AssetsAcl.Action.Read, capabilities.AssetsAcl.Action.Write],

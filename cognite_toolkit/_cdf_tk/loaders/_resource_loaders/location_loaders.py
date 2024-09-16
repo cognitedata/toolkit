@@ -41,8 +41,8 @@ class LocationFilterLoader(
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
     @classmethod
-    def get_required_capability(cls, items: LocationFilterWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: LocationFilterWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
         return LocationFiltersAcl(

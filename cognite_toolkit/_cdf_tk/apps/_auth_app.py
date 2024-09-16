@@ -56,14 +56,6 @@ class AuthApp(typer.Typer):
                 help="Whether to do a dry-run. This means that no changes to CDF will be made.",
             ),
         ] = False,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
     ) -> None:
         """Verify that the current user/service principal has the required capabilities to run the CDF Toolkit commands."""
         cmd = AuthCommand()
@@ -72,6 +64,5 @@ class AuthApp(typer.Typer):
             lambda: cmd.verify(
                 CDFToolConfig.from_context(ctx),
                 dry_run=dry_run,
-                verbose=verbose,
             )
         )

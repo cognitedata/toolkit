@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import time
+from collections import defaultdict
 from importlib import resources
 from pathlib import Path
 from time import sleep
@@ -33,6 +34,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -63,14 +65,106 @@ class AuthCommand(ToolkitCommand):
         if reader.messages:
             for message in reader.messages:
                 self.warn(MediumSeverityWarning(message))
+        ToolGlobals = CDFToolConfig(skip_initialization=True)
+        ToolGlobals.initialize_from_auth_variables(auth_vars)
+        self.verify(ToolGlobals, dry_run)
 
     def verify(
         self,
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
-        verbose: bool,
     ) -> None:
-        raise NotImplementedError()
+        # Todo Move closer to use
+        loaders_by_capability = self._get_capabilities_by_loader(ToolGlobals)
+
+        if ToolGlobals.project is None:
+            raise AuthorizationError("CDF_PROJECT is not set.")
+        cdf_project = ToolGlobals.project
+        token_inspection = self.check_has_any_access(ToolGlobals)
+
+        self.check_has_project_access(token_inspection, cdf_project)
+
+        print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
+
+        self.check_has_group_access(ToolGlobals)
+
+        self.check_identity_provider(ToolGlobals, cdf_project)
+
+        try:
+            principal_groups = ToolGlobals.toolkit_client.iam.groups.list()
+        except CogniteAPIError as e:
+            raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
+
+        admin_write_group = GroupWrite(
+            name="gp_admin_read_write",
+            capabilities=list(loaders_by_capability),
+        )
+
+        print(
+            Panel(
+                "The Cognite Toolkit expects the following:\n"
+                " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
+                "only ONE CDF Group.\n"
+                f" - This group [red]must[/red] be named {admin_write_group.name!r}.\n"
+                f" - The group {admin_write_group.name!r} [red]must[/red] have capabilities to "
+                f"all resources the Toolkit is managing\n"
+                " - All he capabilities [yellow]should[/yellow] be scoped to all resources.",
+                title="Toolkit Access Group",
+                expand=False,
+            )
+        )
+        Prompt.ask("Press enter key to continue...")
+
+        self.check_principal_groups(principal_groups, admin_write_group)
+
+        missing_capabilities = self.check_has_toolkit_required_capabilities(
+            ToolGlobals.toolkit_client, token_inspection, admin_write_group, cdf_project, admin_write_group.name
+        )
+        print("---------------------")
+        has_added_capabilities = False
+        if missing_capabilities:
+            to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
+
+            created: Group | None = None
+            if dry_run:
+                if not to_create and not to_delete:
+                    print("No groups  would have been made or modified.")
+                elif to_create and not to_delete:
+                    print(
+                        f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+                    )
+                elif to_create and to_create:
+                    print(
+                        f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+                    )
+            elif to_create:
+                created = self.upsert_group(
+                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, True, cdf_project
+                )
+                has_added_capabilities = True
+
+            must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
+            if must_switch_principal and created:
+                print(
+                    Panel(
+                        f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
+                        f"to the principal with source-id {created.source_id!r}.",
+                        title="Switch Principal",
+                        expand=False,
+                    )
+                )
+
+        self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
+
+    def _get_capabilities_by_loader(self, ToolGlobals: CDFToolConfig) -> dict[Capability, list[str]]:
+        loaders_by_capability = defaultdict(list)
+        for loader_cls in loaders.RESOURCE_LOADER_LIST:
+            loader = loader_cls.create_loader(ToolGlobals, None)
+            capability = loader_cls.get_required_capability(None)
+            capabilities = capability if isinstance(capability, list) else [capability]
+            for cap in capabilities:
+                loaders_by_capability[cap].append(loader.display_name)
+        return loaders_by_capability
 
     def execute(
         self,

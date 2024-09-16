@@ -60,14 +60,16 @@ class RawDatabaseLoader(
         return "raw.databases"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: RawTableList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        tables_by_database = defaultdict(list)
-        for item in items:
-            tables_by_database[item.db_name].append(item.table_name)
+        scope: RawTableList.All | RawTableList.Table = RawTableList.All()
+        if items:
+            tables_by_database = defaultdict(list)
+            for item in items:
+                tables_by_database[item.db_name].append(item.table_name)
 
-        scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
 
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 
@@ -176,14 +178,16 @@ class RawTableLoader(
         return "raw.tables"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: RawTableList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        tables_by_database = defaultdict(list)
-        for item in items:
-            tables_by_database[item.db_name].append(item.table_name)
+        scope: RawTableList.All | RawTableList.Table = RawTableList.All()
+        if items:
+            tables_by_database = defaultdict(list)
+            for item in items:
+                tables_by_database[item.db_name].append(item.table_name)
 
-        scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
+            scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
 
         return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
 

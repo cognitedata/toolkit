@@ -113,8 +113,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return "spaces"
 
     @classmethod
-    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability] | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: SpaceApplyList | None) -> list[Capability] | list[Capability]:
+        if not items and items is not None:
             return []
         return [
             DataModelsAcl(
@@ -225,12 +225,14 @@ class ContainerLoader(
         return "containers"
 
     @classmethod
-    def get_required_capability(cls, items: ContainerApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ContainerApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -440,12 +442,14 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ViewApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -670,12 +674,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return "data models"
 
     @classmethod
-    def get_required_capability(cls, items: DataModelApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: DataModelApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -809,12 +815,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: NodeApplyListWithCall | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod
@@ -1002,12 +1010,14 @@ class GraphQLLoader(
         return id.dump(include_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: GraphQLDataModelWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: GraphQLDataModelWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod

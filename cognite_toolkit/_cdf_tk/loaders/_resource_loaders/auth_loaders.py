@@ -101,7 +101,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
-    def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: GroupWriteList | None) -> Capability | list[Capability]:
         if not items:
             return []
         return GroupsAcl(
@@ -417,7 +417,7 @@ class SecurityCategoryLoader(
         return {"name": id}
 
     @classmethod
-    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: SecurityCategoryWriteList | None) -> Capability | list[Capability]:
         if not items:
             return []
         return SecurityCategoriesAcl(

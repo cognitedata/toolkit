@@ -80,8 +80,8 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowUpsertList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: WorkflowUpsertList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
@@ -162,8 +162,8 @@ class WorkflowVersionLoader(
         return "workflow.versions"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: WorkflowVersionUpsertList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
@@ -297,8 +297,8 @@ class WorkflowTriggerLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowTriggerCreateList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: WorkflowTriggerCreateList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return WorkflowOrchestrationAcl(
             [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
