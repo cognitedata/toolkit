@@ -65,7 +65,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
     @classmethod
     def get_required_capability(cls, items: DataSetWriteList | None) -> Capability | list[Capability]:
-        if not items:
+        if not items and items is not None:
             return []
         return DataSetsAcl(
             [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],

@@ -78,7 +78,7 @@ class ExtractionPipelineLoader(
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineWriteList | None) -> Capability | list[Capability]:
-        if not items:
+        if not items and items is not None:
             return []
         scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
             ExtractionPipelinesAcl.Scope.All()

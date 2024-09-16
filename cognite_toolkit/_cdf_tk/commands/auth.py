@@ -74,9 +74,6 @@ class AuthCommand(ToolkitCommand):
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
     ) -> None:
-        # Todo Move closer to use
-        loaders_by_capability = self._get_capabilities_by_loader(ToolGlobals)
-
         if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
         cdf_project = ToolGlobals.project
@@ -95,9 +92,10 @@ class AuthCommand(ToolkitCommand):
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
+        capability_by_id, loaders_by_capability_id = self._get_capabilities_by_loader(ToolGlobals)
         admin_write_group = GroupWrite(
             name="gp_admin_read_write",
-            capabilities=list(loaders_by_capability),
+            capabilities=list(capability_by_id.values()),
         )
 
         print(
@@ -156,15 +154,22 @@ class AuthCommand(ToolkitCommand):
 
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
-    def _get_capabilities_by_loader(self, ToolGlobals: CDFToolConfig) -> dict[Capability, list[str]]:
-        loaders_by_capability = defaultdict(list)
+    @staticmethod
+    def _get_capabilities_by_loader(
+        ToolGlobals: CDFToolConfig,
+    ) -> tuple[dict[frozenset[tuple], Capability], dict[frozenset[tuple], list[str]]]:
+        loaders_by_capability_id: dict[frozenset[tuple], list[str]] = defaultdict(list)
+        capability_by_id: dict[frozenset[tuple], Capability] = {}
         for loader_cls in loaders.RESOURCE_LOADER_LIST:
             loader = loader_cls.create_loader(ToolGlobals, None)
             capability = loader_cls.get_required_capability(None)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
-                loaders_by_capability[cap].append(loader.display_name)
-        return loaders_by_capability
+                id_ = frozenset(cap.as_tuples())
+                loaders_by_capability_id[id_].append(loader.display_name)
+                if id_ not in capability_by_id:
+                    capability_by_id[id_] = cap
+        return capability_by_id, loaders_by_capability_id
 
     def execute(
         self,

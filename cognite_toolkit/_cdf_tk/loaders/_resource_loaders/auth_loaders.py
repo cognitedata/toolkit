@@ -418,7 +418,7 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(cls, items: SecurityCategoryWriteList | None) -> Capability | list[Capability]:
-        if not items:
+        if not items and items is not None:
             return []
         return SecurityCategoriesAcl(
             actions=[
