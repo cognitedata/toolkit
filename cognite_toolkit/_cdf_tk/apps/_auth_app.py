@@ -1,7 +1,9 @@
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from rich import print
+
+from cognite_toolkit._cdf_tk.commands import AuthCommand
 
 
 class AuthApp(typer.Typer):
@@ -18,7 +20,14 @@ class AuthApp(typer.Typer):
 
     def init(
         self,
-        verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run. This means that no changes to CDF will be made.",
+            ),
+        ] = False,
     ) -> None:
         """Creates the authorization for a user/service principal to run the CDF Toolkit commands.
 
@@ -28,7 +37,12 @@ class AuthApp(typer.Typer):
         "projectsAcl": ["LIST", "READ"],
         "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
         """
-        print("Auth setup")
+        cmd = AuthCommand()
+        cmd.run(
+            lambda: cmd.init(
+                dry_run=dry_run,
+            )
+        )
 
     def verify(
         self,

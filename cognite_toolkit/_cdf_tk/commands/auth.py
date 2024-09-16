@@ -49,12 +49,23 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig, safe_read
+from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig, safe_read
 
 from ._base import ToolkitCommand
 
 
 class AuthCommand(ToolkitCommand):
+    def init(self, dry_run: bool = False) -> None:
+        auth_vars = AuthVariables.from_env()
+
+        reader = AuthReader(auth_vars, False)
+        auth_vars = reader.from_user()
+        if reader.messages:
+            print("\n".join(reader.messages))
+        print("  [bold green]OK[/]")
+
+        # ToolGlobals.initialize_from_auth_variables(auth_vars)
+
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
@@ -182,17 +193,18 @@ class AuthCommand(ToolkitCommand):
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
     def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
-        print("[bold]Checking current service principal/application and environment configurations...[/]")
-        auth_vars = AuthVariables.from_env()
-        if interactive:
-            result = auth_vars.from_interactive_with_validation(verbose)
-        else:
-            result = auth_vars.validate(verbose)
-        if result.messages:
-            print("\n".join(result.messages))
-        print("  [bold green]OK[/]")
-        ToolGlobals.initialize_from_auth_variables(auth_vars)
-        return auth_vars
+        raise NotImplementedError()
+        # print("[bold]Checking current service principal/application and environment configurations...[/]")
+        # auth_vars = AuthVariables.from_env()
+        # if interactive:
+        #     result = auth_vars.from_interactive_with_validation(verbose)
+        # else:
+        #     result = auth_vars.validate(verbose)
+        # if result.messages:
+        #     print("\n".join(result.messages))
+        # print("  [bold green]OK[/]")
+        # ToolGlobals.initialize_from_auth_variables(auth_vars)
+        # return auth_vars
 
     def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
         print("Checking basic project configuration...")

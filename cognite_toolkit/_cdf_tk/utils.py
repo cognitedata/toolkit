@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -29,8 +30,9 @@ from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequ
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, get_args, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, overload
 
+import questionary
 import typer
 import yaml
 from cognite.client import ClientConfig
@@ -47,8 +49,9 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
+from questionary import Choice
 from rich import print
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -79,6 +82,13 @@ logger = logging.getLogger(__name__)
 
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "interactive"]
+
+
+LOGIN_FLOW_DESCRIPTION = {
+    "client_credentials": "Setup a service principal with client credentials",
+    "interactive": "Login using the browser with your user credentials",
+    "token": "Use a Token directly to authenticate",
+}
 
 
 @dataclass
@@ -156,9 +166,9 @@ class AuthVariables:
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
         if self.cluster:
-            self._set_cluster_defaults()
+            self.set_cluster_defaults()
         if self.tenant_id:
-            self._set_token_id_defaults()
+            self.set_token_id_defaults()
         if self.token and self.login_flow != "token":
             print(
                 f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
@@ -166,18 +176,32 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
-    def _set_token_id_defaults(self) -> None:
+    def set_token_id_defaults(self) -> None:
         self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
         self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
 
-    def _set_cluster_defaults(self) -> None:
+    def set_cluster_defaults(self) -> None:
         self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
         self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
         self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
-    @classmethod
-    def login_flow_options(cls) -> list[str]:
-        return list(get_args(LoginFlow))
+    @property
+    def is_complete(self) -> bool:
+        if self.cdf_url is None:
+            return False
+        if self.login_flow == "token":
+            return self.token is not None
+        elif self.login_flow == "interactive":
+            return self.client_id is not None and self.tenant_id is not None and self.scopes is not None
+        elif self.login_flow == "client_credentials":
+            return (
+                self.client_id is not None
+                and self.client_secret is not None
+                and self.token_url is not None
+                and self.scopes is not None
+                and self.audience is not None
+            )
+        return False
 
     @classmethod
     def from_env(cls, override: dict[str, Any] | None = None) -> AuthVariables:
@@ -188,66 +212,12 @@ class AuthVariables:
                 args[field_.name] = override.get(env_name, os.environ.get(env_name))
         return cls(**args)
 
-    def validate(self, verbose: bool) -> AuthReaderValidation:
-        return self._read_and_validate(verbose, skip_prompt=True)
-
-    def from_interactive_with_validation(self, verbose: bool = False) -> AuthReaderValidation:
-        return self._read_and_validate(verbose, skip_prompt=False)
-
-    def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
-        reader = AuthReaderValidation(self, verbose, skip_prompt)
-        self.cluster = reader.prompt_user("cluster")
-        self._set_cluster_defaults()
-        self.project = reader.prompt_user("project")
-        if not (self.cluster and self.project):
-            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
-            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
-        self.cdf_url = reader.prompt_user("cdf_url", expected=f"https://{self.cluster}.cognitedata.com")
-        self.login_flow = reader.prompt_user("login_flow", choices=self.login_flow_options())  # type: ignore[assignment]
-        if self.login_flow == "token":
-            if new_token := reader.prompt_user("token", password=True):
-                self.token = new_token
-            else:
-                print("  Keeping existing token.")
-        elif self.login_flow in ("client_credentials", "interactive"):
-            self.tenant_id = reader.prompt_user("tenant_id")
-            self._set_token_id_defaults()
-            self.client_id = reader.prompt_user("client_id")
-            if self.login_flow == "client_credentials":
-                if new_secret := reader.prompt_user("client_secret", password=True):
-                    self.client_secret = new_secret
-                else:
-                    print("  Keeping existing client secret.")
-
-            self.token_url = reader.prompt_user("token_url")
-            self.scopes = reader.prompt_user("scopes")
-            if self.login_flow == "interactive":
-                self.authority_url = reader.prompt_user("authority_url")
-            if self.login_flow == "client_credentials":
-                self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
-        else:
-            raise AuthenticationError(f"The login flow {self.login_flow} is not supported")
-
-        if not skip_prompt:
-            if Path(".env").exists():
-                print(
-                    "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
-                )
-            write = Confirm.ask(
-                "Do you want to save these to .env file for next time ? ",
-                choices=["y", "n"],
-            )
-            if write:
-                Path(".env").write_text(self.create_dotenv_file())
-
-        return reader
-
     def create_dotenv_file(self) -> str:
         lines = [
             "# .env file generated by cognite-toolkit",
+            self._write_var("login_flow"),
             self._write_var("cluster"),
             self._write_var("project"),
-            self._write_var("login_flow"),
         ]
         if self.login_flow == "token":
             lines += [
@@ -296,7 +266,7 @@ class AuthVariables:
         return f"{field_['env_name']}={value}"
 
 
-class AuthReaderValidation:
+class AuthReader:
     """Reads and validate the auth variables
 
     Args:
@@ -308,11 +278,80 @@ class AuthReaderValidation:
     """
 
     def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
-        self._auth_vars = auth_vars
+        self.auth_vars = auth_vars
         self.status: Literal["ok", "warning"] = "ok"
         self.messages: list[str] = []
         self.verbose = verbose
         self.skip_prompt = skip_prompt
+
+    def from_user(self) -> AuthVariables:
+        auth_vars = self.auth_vars
+        if auth_vars.is_complete:
+            print("Auth variables are already set.")
+            if not questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask():
+                return auth_vars
+        login_flow = questionary.select(
+            "Choose the login flow",
+            choices=[
+                Choice(title=f"{flow}: {description}", value=flow)
+                for flow, description in LOGIN_FLOW_DESCRIPTION.items()
+            ],
+        ).ask()
+        auth_vars.login_flow = login_flow
+        print("Default values in parentheses. Press Enter to keep current value")
+        auth_vars.cluster = self.prompt_user("cluster")
+        auth_vars.project = self.prompt_user("project")
+        auth_vars.set_cluster_defaults()
+        if not (auth_vars.cluster and auth_vars.project):
+            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
+            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
+        if login_flow == "token":
+            auth_vars.token = self.prompt_user("token")
+        elif login_flow == "client_credentials":
+            auth_vars.client_id = self.prompt_user("client_id")
+            if new_secret := self.prompt_user("client_secret", password=True):
+                auth_vars.client_secret = new_secret
+            else:
+                print("  Keeping existing client secret.")
+        elif login_flow == "interactive":
+            auth_vars.client_id = self.prompt_user("client_id")
+
+        if login_flow in ("client_credentials", "interactive"):
+            auth_vars.tenant_id = self.prompt_user("tenant_id")
+            auth_vars.set_token_id_defaults()
+
+        default_variables = ["cdf_url"]
+        if login_flow == "client_credentials":
+            default_variables.extend(["scopes", "audience"])
+        elif login_flow == "interactive":
+            default_variables.extend(["scopes", "authority_url"])
+        print("The below variables are the defaults,")
+        for field_name in default_variables:
+            current_value = getattr(self.auth_vars, field_name)
+            metadata = _auth_field_by_name[field_name].metadata
+            print(f"  {metadata['env_name']}={current_value}")
+        if questionary.confirm("Do you want to change any of these variables?", default=False).ask():
+            for field_name in default_variables:
+                setattr(auth_vars, field_name, self.prompt_user(field_name))
+
+        new_env_file = auth_vars.create_dotenv_file()
+        if Path(".env").exists():
+            existing = Path(".env").read_text()
+            if existing == new_env_file:
+                print("No changes to .env file.")
+            print(MediumSeverityWarning(".env file already exists").get_message())
+            filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
+
+            if questionary.confirm(
+                f"Do you want to overwrite the existing .env file? the existing will be renamed to {filename}",
+                default=False,
+            ):
+                shutil.move(".env", filename)
+                Path(".env").write_text(new_env_file)
+        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
+            Path(".env").write_text(new_env_file)
+
+        return auth_vars
 
     def prompt_user(
         self,
@@ -322,13 +361,13 @@ class AuthReaderValidation:
         expected: str | None = None,
     ) -> str | None:
         try:
-            current_value = getattr(self._auth_vars, field_name)
+            current_value = getattr(self.auth_vars, field_name)
             field_ = _auth_field_by_name[field_name]
             metadata = field_.metadata
             example = (
                 metadata["example"]
-                .replace("CDF_CLUSTER", self._auth_vars.cluster or "<cluster>")
-                .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
+                .replace("CDF_CLUSTER", self.auth_vars.cluster or "<cluster>")
+                .replace("IDP_TENANT_ID", self.auth_vars.tenant_id or "<tenant_id>")
             )
             display_name = metadata["display_name"]
             default = current_value or (field_.default if isinstance(field_.default, str) else None)
@@ -346,11 +385,12 @@ class AuthReaderValidation:
             extra_args["password"] = password
 
         if password and current_value:
-            prompt = f"You have set {display_name}, change it? (press Enter to keep current value)"
-        elif example == default:
-            prompt = f"{display_name}? "
+            prompt = f"You have set {display_name}, change it?"
+        elif example == default or (not example):
+            prompt = f"{display_name}?"
         else:
-            prompt = f"{display_name} (e.g. [italic]{example}[/])? "
+            prompt = f"{display_name}, e.g., [italic]{example}[/]?"
+
         response: str | None
         if self.skip_prompt:
             response = default
