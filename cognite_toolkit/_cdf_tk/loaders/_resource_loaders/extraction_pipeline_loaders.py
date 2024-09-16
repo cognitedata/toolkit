@@ -51,6 +51,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     load_yaml_inject_variables,
+    safe_read,
+    stringify_value_by_key_in_yaml,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -249,15 +251,18 @@ class ExtractionPipelineConfigLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
-        resources = load_yaml_inject_variables(filepath, {})
+        # The config is expected to be a string that is parsed as a YAML on the server side.
+        # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
+        raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
+        resources = load_yaml_inject_variables(raw_str, {})
         if isinstance(resources, dict):
             resources = [resources]
 
         for resource in resources:
             config_raw = resource.get("config")
-            if isinstance(config_raw, (dict, list)):
+            if isinstance(config_raw, str):
                 try:
-                    resource["config"] = yaml.safe_dump(config_raw, indent=4)
+                    yaml.safe_load(config_raw)
                 except yaml.YAMLError as e:
                     print(
                         HighSeverityWarning(

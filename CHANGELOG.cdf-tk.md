@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
+  typically an object/dict, which caused loss of information. This is because
+  `yaml.safe_dump(yaml.safe_load(config)) != config` as, for example, special YAML tags are lost.
+
 ## [0.3.0a4] - 2024-09-13
 
 ### Added

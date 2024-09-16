@@ -66,16 +66,21 @@ ExtractionPipeline:
   name: src:3d:oid:fileshare
   source: fileshare
 ExtractionPipelineConfig:
-- config: "data:\n    3dDataSetExtId: ds_3d_oid\n    3dModelName: Valhall\n    assetRootExtId:\
-    \ WMT:VAL\n    debug: false\n    keepOldMapping: false\n    matchThreshold: 0.75\n\
-    \    rawTableBad: contextualization_bad\n    rawTableGood: contextualization_good\n\
-    \    rawTableManual: contextualization_manual_input\n    rawdb: 3d_oid_fileshare\n\
-    \    runAll: false\n"
+- config: "data:\n  debug: False\n  runAll: False\n  rawdb: '3d_oid_fileshare'\n \
+    \ rawTableGood: 'contextualization_good'\n  rawTableBad: 'contextualization_bad'\n\
+    \  rawTableManual: 'contextualization_manual_input'\n  assetRootExtId: WMT:VAL\n\
+    \  3dDataSetExtId: 'ds_3d_oid'\n  3dModelName: Valhall\n  matchThreshold: 0.75\n\
+    \  keepOldMapping: False\n"
   externalId: ep_ctx_3d_oid_fileshare_annotation
-- config: "cognite:\n    data-set:\n        external-id: ds-3d:valhall\nfiles:\n \
-    \   extensions:\n    - .zip\n    file-provider:\n        path: c:/tmp/files\n\
-    \        type: local\nlogger:\n    console:\n        level: INFO\n    file:\n\
-    \        level: INFO\n        path: c:/tmp/file.log\n"
+- config: "logger:\n  # Logging to console/terminal. Remove or comment out to disable\
+    \ terminal\n  # logging\n  console:\n    level: INFO\n\n  # Logging to file. Include\
+    \ to enable file logging\n  file:\n    level: INFO\n    path: \"c:/tmp/file.log\"\
+    \n\ncognite:\n  # Data set to attach uploaded files to. Either use CDF IDs (integers)\
+    \ or\n  # user-given external ids (strings)\n  data-set:\n    external-id: ds-3d:valhall\n\
+    \n# Information about files to extract\nfiles:\n  extensions:\n    - .zip\n\n\
+    \  # Information about file provider\n  file-provider:\n    type: local\n\n  \
+    \  # For local files: Absolute or relative path to directory to watch\n    path:\
+    \ c:/tmp/files"
   externalId: ep_src_3d_oid_fileshare
 Function:
 - description: Contextualization of 3d model and asset data for oid:fileshare

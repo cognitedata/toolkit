@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     module_from_path,
     quote_int_value_by_key_in_yaml,
+    stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
@@ -643,7 +644,53 @@ properties:
     )
 
 
+def stringify_value_by_key_in_yaml_test_cases() -> Iterable[ParameterSet]:
+    yield pytest.param(
+        """externalId: MyModel
+config:
+  data:
+    debug: False
+    runAll: False""",
+        """externalId: MyModel
+config: |
+  data:
+    debug: False
+    runAll: False""",
+        id="Stringify value under key 'config'",
+    )
+    input_ = """externalId: MyModel
+config: |
+  data:
+   debug: False
+   runAll: False"""
+    yield pytest.param(input_, input_, id="Stringified value untouched")
+
+    yield pytest.param(
+        """config:
+  data:
+   debug: False
+   runAll: False
+externalId: MyModel""",
+        """config: |
+  data:
+   debug: False
+   runAll: False
+externalId: MyModel""",
+        id="Stringify value under key 'config' when it is not the first key",
+    )
+
+    input_ = """externalId: MyModel
+config: another_string"""
+    yield pytest.param(input_, input_, id="Stringified value untouched when it is not a dictionary")
+
+
 class TestQuoteKeyInYAML:
     @pytest.mark.parametrize("raw, expected", list(quote_key_in_yaml_test_cases()))
     def test_quote_key_in_yaml(self, raw: str, expected: str) -> None:
         assert quote_int_value_by_key_in_yaml(raw, key="version") == expected
+
+    @pytest.mark.parametrize("raw, expected", list(stringify_value_by_key_in_yaml_test_cases()))
+    def test_stringify_value_by_key_in_yaml(self, raw: str, expected: str) -> None:
+        actual = stringify_value_by_key_in_yaml(raw, key="config")
+        assert actual == expected
+        assert yaml.safe_load(actual) == yaml.safe_load(expected)
