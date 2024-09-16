@@ -4,6 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
 class AuthApp(typer.Typer):
@@ -46,6 +47,31 @@ class AuthApp(typer.Typer):
 
     def verify(
         self,
+        ctx: typer.Context,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run. This means that no changes to CDF will be made.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Verify that the current user/service principal has the required capabilities to run the CDF Toolkit commands."""
-        print("Auth verify")
+        cmd = AuthCommand()
+
+        cmd.run(
+            lambda: cmd.verify(
+                CDFToolConfig.from_context(ctx),
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )

@@ -63,7 +63,14 @@ class AuthCommand(ToolkitCommand):
         if reader.messages:
             for message in reader.messages:
                 self.warn(MediumSeverityWarning(message))
-        print("  [bold green]OK[/]")
+
+    def verify(
+        self,
+        ToolGlobals: CDFToolConfig,
+        dry_run: bool,
+        verbose: bool,
+    ) -> None:
+        raise NotImplementedError()
 
     def execute(
         self,
