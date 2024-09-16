@@ -99,26 +99,43 @@ ExtractionPipeline:
   name: src:timeseries:oid:opcua
   source: opcua
 ExtractionPipelineConfig:
-- config: "data:\n    assetRootExtIds:\n    - WMT:VAL\n    debug: false\n    matchThreshold:\
-    \ 0.75\n    rawTableBad: contextualization_bad\n    rawTableGood: contextualization_good\n\
-    \    rawTableManual: contextualization_manual_input\n    rawdb: timeseries_oid_opcua\n\
-    \    runAll: false\n    timeSeriesDataSetExtId: ds_timeseries_oid\n    timeSeriesPrefix:\n\
-    \    - pi_\n    - opc-ua\n"
+- config: "data:\n  debug: False\n  runAll: False\n  rawdb: 'timeseries_oid_opcua'\n\
+    \  rawTableGood: 'contextualization_good'\n  rawTableBad: 'contextualization_bad'\n\
+    \  rawTableManual: 'contextualization_manual_input'\n  timeSeriesPrefix: [pi_,\
+    \ opc-ua]\n  timeSeriesDataSetExtId: 'ds_timeseries_oid'\n  assetRootExtIds: [WMT:VAL]\n\
+    \  matchThreshold: 0.75\n"
   externalId: ep_ctx_timeseries_oid_opcua_asset
-- config: "cognite:\n    cdf-chunking:\n        data-point-time-series: 500\n    \
-    \    data-points: 10000\n    data-set-external-id: ds_timeseries_oid\n    debug:\
-    \ false\n    host: ${CDF_URL}\n    non-finite-replacement: null\n    project:\
-    \ ${CDF_PROJECT}\nextraction:\n    auto-rebrowse-period: 1m\n    data-types:\n\
-    \        allow-string-variables: true\n        auto-identify-types: true\n   \
-    \     expand-node-ids: true\n    enable-audit-discovery: true\n    id-prefix:\
-    \ 'opc-ua:'\n    root-node:\n        namespace-uri: http://www.prosysopc.com/OPCUA/SimulationNodes/\n\
-    \        node-id: s=85/0:Simulation\nsource:\n    browse-nodes-chunk: 100\n  \
-    \  browse-throttling:\n        max-node-parallelism: 1000\n    endpoint-url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer\n\
-    \    force-restart: true\n    keep-alive-interval: 50000\n    queue-length: 10\n\
-    \    retries:\n        initial-delay: 2s\n        max-delay: 20s\n        max-tries:\
-    \ 10\n        retry-status-codes:\n        - 2150694912\n        - 2148007936\n\
-    \        timeout: 0\n    sampling-interval: 0\n    subscription-chunk: 1000\n\
-    version: 1\n"
+- config: "# Version of the config schema\nversion: 1\n\nsource:\n    # The URL of\
+    \ the OPC-UA server to connect to\n    endpoint-url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer\n\
+    \    force-restart: true\n    browse-nodes-chunk: 100\n    subscription-chunk:\
+    \ 1000\n    keep-alive-interval: 50000\n    sampling-interval: 0\n    queue-length:\
+    \ 10\n    browse-throttling:\n        max-node-parallelism: 1000\n    retries:\n\
+    \        timeout: 0\n        max-tries: 10\n        max-delay: 20s\n        initial-delay:\
+    \ 2s\n        retry-status-codes:\n            - 2150694912\n            - 2148007936\n\
+    cognite:\n    # The project to connect to in the API, uses the environment variable\
+    \ COGNITE_PROJECT.\n    project: ${CDF_PROJECT}\n    host: ${CDF_URL}\n\n    #\
+    \ If this is set to true, credentials can be left out, and the extractor\n   \
+    \ # will read data without pushing it to CDF.\n    debug: false\n    non-finite-replacement:\n\
+    \    data-set-external-id: 'ds_timeseries_oid'\n    cdf-chunking:\n        data-point-time-series:\
+    \ 500\n        data-points: 10000\n\nextraction:\n    # Global prefix for externalId\
+    \ in destinations. Should be unique to prevent name conflicts.\n    id-prefix:\
+    \ \"opc-ua:\"\n\n    # Source node in the OPC-UA server. Leave empty to use the\
+    \ top level Objects node.\n    # If root-nodes is set, this is added to the list\
+    \ of root nodes.\n    root-node:\n        # Full name of the namespace of the\
+    \ root node.\n        namespace-uri: http://www.prosysopc.com/OPCUA/SimulationNodes/\n\
+    \        # Id of the root node, on the form \"i=123\" or \"s=stringid\" etc.\n\
+    \        node-id: s=85/0:Simulation\n\n    # Time in minutes between each call\
+    \ to browse the OPC-UA directory, then push new nodes to destinations.\n    #\
+    \ Note that this is a heavy operation, so this number should not be set too low.\n\
+    \    # Alternatively, use N[timeunit] where timeunit is w, d, h, m, s or ms.\n\
+    \    auto-rebrowse-period: 1m\n    # Enable using audit events to discover new\
+    \ nodes. If this is set to true, the client will expect AuditAddNodes/AuditAddReferences\n\
+    \    # events on the server node. These will be used to add new nodes automatically,\
+    \ by recursively browsing from each given ParentId.\n    enable-audit-discovery:\
+    \ true\n\n    # Config for how OPC-UA data-types are mapped to destinations\n\
+    \    data-types:\n        # Add full JSON node-ids to data pushed to Raw. TypeDefintionId,\
+    \ ParentNodeId, NodeId and DataTypeId.\n        expand-node-ids: true\n      \
+    \  allow-string-variables: true\n        auto-identify-types: true\n"
   externalId: ep_src_timeseries_oid_opcua
 Function:
 - cpu: 0.6

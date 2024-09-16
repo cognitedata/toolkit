@@ -15,6 +15,45 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
+  typically an object/dict, which caused loss of information. This is because
+  `yaml.safe_dump(yaml.safe_load(config)) != config` as, for example, special YAML tags are lost.
+
+## [0.3.0a4] - 2024-09-13
+
+### Added
+
+- The `WorkflowTrigger` config files now supports `object` (`dict`) as a valid type for the
+  `data` field. This will automatically be converted to a `json` string when deploying the trigger.
+
+### Fixed
+
+- The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+- The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
+- If the version of a `DataModel` or `View` was set to `1_0_0` in the resource file, Toolkit would send
+  it as `100` to the API. This is now fixed.
+- Groups without metadata no longer triggers redeploy when running `cdf deploy`
+
+## [0.3.0a3] - 2024-09-11
+
+### Fixed
+
+- LocationFilter did not load subclasses properly. This is now fixed.
+- When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+- The `cdf modules init` no longer creates an invalid `cdf.toml` file when the user uses an `organization-dir`.
+
+### Changed
+
+- In the commands `build` and `pull`, `modules upgrade` and `modules list`,  `organization-dir` is now an
+  optional argument `--organization-dir` and `-o` instead of positional argument. This is to have consistent
+  behavior with other commands.
+- The config filed `cdf.toml` is now created with `cdf modules init` instead of `cdf repo init`.
+- In `cdf.toml` the `organization_dir` is renamed `default_organization_dir`.
+
 ## [0.3.0a2] - 2024-09-10
 
 ### Fixed

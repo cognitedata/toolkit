@@ -2,7 +2,7 @@ from collections.abc import Hashable
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Group, GroupWrite
+from cognite.client.data_classes import Group, GroupWrite, GroupWriteList
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import (
@@ -76,7 +76,7 @@ class TestGroupLoader:
 
     def test_unchanged_new_group(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
-    ):
+    ) -> None:
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=True
@@ -201,3 +201,45 @@ class TestGroupLoader:
         actual_dependent_items = GroupLoader.get_dependent_items(item)
 
         assert list(actual_dependent_items) == expected
+
+    def test_unchanged_new_group_without_metadata(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+    ) -> None:
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        local_group = GroupWrite.load("""name: gp_no_metadata
+sourceId: 123
+capabilities:
+- assetsAcl:
+    actions:
+    - READ
+    scope:
+      all: {}
+""")
+        cdf_group = Group.load("""name: gp_no_metadata
+sourceId: 123
+capabilities:
+- assetsAcl:
+    actions:
+    - READ
+    scope:
+      all: {}
+metadata: {}
+id: 3760258445038144
+isDeleted: false
+deletedTime: -1
+""")
+
+        # Simulate that one group is is already in CDF
+        toolkit_client_approval.append(
+            Group,
+            [cdf_group],
+        )
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
+            GroupWriteList([local_group]),
+            loader,
+        )
+
+        assert len(to_create) == 0
+        assert len(to_change) == 0
+        assert len(unchanged) == 1

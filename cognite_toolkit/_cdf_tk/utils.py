@@ -84,11 +84,9 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token", "interactive"]
 @dataclass
 class AuthVariables:
     cluster: str | None = field(
-        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", example="westeurope-1")
+        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF cluster", example="westeurope-1")
     )
-    project: str | None = field(
-        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", example="publicdata")
-    )
+    project: str | None = field(metadata=dict(env_name="CDF_PROJECT", display_name="CDF project", example="publicdata"))
     cdf_url: str | None = field(
         default=None,
         metadata=dict(env_name="CDF_URL", display_name="CDF URL", example="https://CDF_CLUSTER.cognitedata.com"),
@@ -1348,6 +1346,22 @@ def get_cicd_environment() -> str:
     return "local"
 
 
+def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
+    # This pattern will match the key if it is not already quoted
+    pattern = rf"^(\s*-?\s*)?{key}:\s*(?!.*['\":])([\d_]+)$"
+    replacement = rf'\1{key}: "\2"'
+
+    return re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+
+def stringify_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
+    pattern = rf"^{key}:\s*$"
+    replacement = rf"{key}: |"
+    return re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+
 class GraphQLParser:
     _token_pattern = re.compile(r"\w+|[^\w\s]")
 
@@ -1356,12 +1370,27 @@ class GraphQLParser:
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 
-    def get_views(self) -> set[ViewId]:
-        return {
-            ViewId(self.data_model_id.space, entity.identifier)
-            for entity in self._get_entities()
-            if not entity.is_imported
-        }
+    def get_views(self, include_version: bool = False) -> set[ViewId]:
+        views: set[ViewId] = set()
+        for entity in self._get_entities():
+            if entity.is_imported:
+                continue
+            view_directive: _ViewDirective | None = None
+            for directive in entity.directives:
+                if isinstance(directive, _ViewDirective):
+                    view_directive = directive
+                    break
+            if view_directive:
+                views.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            else:
+                views.add(ViewId(self.data_model_id.space, entity.identifier))
+        return views
 
     def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
         dependencies: set[ViewId | DataModelId] = set()
@@ -1471,7 +1500,7 @@ class _Directive:
 
     @classmethod
     def _create_args(cls, string: str) -> dict[str, Any] | str:
-        if "," not in string:
+        if "," not in string and ":" not in string:
             return string
         output: dict[str, Any] = {}
         if string[0] == "{" and string[-1] == "}":

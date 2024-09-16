@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitNotSupported,
 )
+from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
 from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
@@ -104,6 +105,10 @@ if __name__ == "__main__":
         schedule: str | None = None,
         wait: bool = False,
     ) -> bool:
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
+
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
@@ -179,6 +184,11 @@ if __name__ == "__main__":
             build.identifier: build for build in resources.list_resources(str, "functions", FunctionLoader.kind)
         }
 
+        if len(function_builds_by_identifier) == 0:
+            raise ToolkitMissingResourceError(
+                "No functions found in modules. Suggest running `cdf modules list` to verify."
+            )
+
         if external_id is None:
             # Interactive mode
             external_id = questionary.select(
@@ -240,6 +250,11 @@ if __name__ == "__main__":
             if _RUNNING_IN_BROWSER:
                 raise ToolkitNotSupported("This functionality is not supported in a browser environment.")
             raise
+
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
+
         resources = ModuleResources(organization_dir, build_env_name)
         function_build = self._get_function(external_id, resources)
 

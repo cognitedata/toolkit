@@ -1,0 +1,9 @@
+externalId: my_subscription
+name: My Subscription
+description: All timeseries with externalId starting with ts_value
+partitionCount: 1
+filter:
+  prefix:
+    property:
+    - externalId
+    value: ts_value

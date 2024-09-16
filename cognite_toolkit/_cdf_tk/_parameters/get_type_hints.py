@@ -10,7 +10,7 @@ from typing import Any, get_type_hints
 
 from cognite.client.data_classes import TransformationScheduleWrite
 from cognite.client.data_classes.capabilities import UnknownAcl
-from cognite.client.data_classes.data_modeling.typed_instances import (
+from cognite.client.data_classes.data_modeling.instances import (
     TypedEdge,
     TypedEdgeApply,
     TypedNode,

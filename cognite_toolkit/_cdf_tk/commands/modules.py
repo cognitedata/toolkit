@@ -43,6 +43,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from cognite_toolkit._version import __version__
@@ -141,6 +142,22 @@ class ModulesCommand(ToolkitCommand):
                     config_init.dump_yaml_with_comments()
                 )
 
+        cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
+        if organization_dir != Path.cwd():
+            cdf_toml_content = cdf_toml_content.replace(
+                "#<PLACEHOLDER>",
+                f'''
+default_organization_dir = "{organization_dir.name}"''',
+            )
+        else:
+            cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            print(f"{INDENT}[yellow]cdf.toml file already exists skipping creation.")
+        else:
+            destination.write_text(cdf_toml_content, encoding="utf-8")
+
     def init(
         self,
         organization_dir: Optional[Path] = None,
@@ -148,13 +165,15 @@ class ModulesCommand(ToolkitCommand):
         clean: bool = False,
     ) -> None:
         if not organization_dir:
-            organization_dir_raw = questionary.text(
-                "Which directory would you like to create templates in? (typically customer name)",
-                default="my_organization",
-            ).ask()
-            if not organization_dir_raw or organization_dir_raw.strip() == "":
-                raise ToolkitRequiredValueError("You must provide a directory name.")
-            organization_dir = Path(organization_dir_raw)
+            new_line = "\n    "
+            message = (
+                f"Which directory would you like to create templates in? (default: current directory){new_line}"
+                f"HINT It is recommended to use an organization directory if you use the{new_line}repository for more than Toolkit. "
+                f"If this repository is only used for Toolkit,{new_line}it is recommended to use the current directory "
+                f"(assumed to be the{new_line}root of the repository):"
+            )
+            organization_dir_raw = questionary.text(message=message, default="").ask()
+            organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
         packages = Packages().load(self._builtin_modules_path)
@@ -434,6 +453,9 @@ class ModulesCommand(ToolkitCommand):
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
     def list(self, organization_dir: Path, build_env_name: str) -> None:
+        if organization_dir in {Path("."), Path("./")}:
+            organization_dir = Path.cwd()
+        verify_module_directory(organization_dir, build_env_name)
         modules = ModuleResources(organization_dir, build_env_name)
 
         table = Table(title=f"{build_env_name} {organization_dir.name} modules")

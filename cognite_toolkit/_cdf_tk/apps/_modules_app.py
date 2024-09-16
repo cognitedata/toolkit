@@ -65,8 +65,10 @@ class ModulesApp(typer.Typer):
         self,
         organization_dir: Annotated[
             Path,
-            typer.Argument(
-                help="Directory path to project to upgrade with templates. Defaults to current directory.",
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
     ) -> None:
@@ -94,8 +96,10 @@ class ModulesApp(typer.Typer):
         self,
         organization_dir: Annotated[
             Path,
-            typer.Argument(
-                help="Directory path to organization to list modules.",
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
