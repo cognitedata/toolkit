@@ -52,7 +52,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def get_required_capability(cls, items: AssetWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (
+        scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
             capabilities.AssetsAcl.Scope.All()
         )
         if items:

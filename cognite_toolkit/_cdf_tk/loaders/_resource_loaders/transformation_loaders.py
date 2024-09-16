@@ -102,7 +102,7 @@ class TransformationLoader(
     def get_required_capability(cls, items: TransformationWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()
+        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
         if items is not None:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))

@@ -183,7 +183,7 @@ class LabelLoader(
     def get_required_capability(cls, items: LabelDefinitionWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.LabelsAcl.Scope.All | capabilities.LabelsAcl.Scope.DataSet = (
+        scope: capabilities.LabelsAcl.Scope.All | capabilities.LabelsAcl.Scope.DataSet = (  # type: ignore[valid-type]
             capabilities.LabelsAcl.Scope.All()
         )
         if items:

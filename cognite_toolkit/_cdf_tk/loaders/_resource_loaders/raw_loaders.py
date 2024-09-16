@@ -63,7 +63,7 @@ class RawDatabaseLoader(
     def get_required_capability(cls, items: RawTableList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: RawTableList.All | RawTableList.Table = RawTableList.All()
+        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database = defaultdict(list)
             for item in items:
@@ -181,7 +181,7 @@ class RawTableLoader(
     def get_required_capability(cls, items: RawTableList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: RawTableList.All | RawTableList.Table = RawTableList.All()
+        scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             tables_by_database = defaultdict(list)
             for item in items:

@@ -54,7 +54,7 @@ class ThreeDModelLoader(
     def get_required_capability(cls, items: ThreeDModelWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: capabilities.ThreeDAcl.Scope.All | capabilities.ThreeDAcl.Scope.DataSet = (
+        scope: capabilities.ThreeDAcl.Scope.All | capabilities.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
             capabilities.ThreeDAcl.Scope.All()
         )
         if items:

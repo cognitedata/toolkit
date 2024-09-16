@@ -124,8 +124,8 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: FrameWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: FrameWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [

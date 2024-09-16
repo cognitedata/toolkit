@@ -74,7 +74,7 @@ class FileMetadataLoader(
     def get_required_capability(cls, items: FileMetadataWriteList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()
+        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = FilesAcl.Scope.DataSet(list(data_set_ids))
