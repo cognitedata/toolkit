@@ -59,12 +59,11 @@ class AuthCommand(ToolkitCommand):
         auth_vars = AuthVariables.from_env()
 
         reader = AuthReader(auth_vars, False)
-        auth_vars = reader.from_user()
+        _ = reader.from_user()
         if reader.messages:
-            print("\n".join(reader.messages))
+            for message in reader.messages:
+                self.warn(MediumSeverityWarning(message))
         print("  [bold green]OK[/]")
-
-        # ToolGlobals.initialize_from_auth_variables(auth_vars)
 
     def execute(
         self,

@@ -338,14 +338,15 @@ class AuthReader:
         if Path(".env").exists():
             existing = Path(".env").read_text()
             if existing == new_env_file:
-                print("No changes to .env file.")
-            print(MediumSeverityWarning(".env file already exists").get_message())
+                print("Identical '.env' file already exist.")
+                return auth_vars
+            MediumSeverityWarning("'.env' file already exists").print_warning()
             filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
 
             if questionary.confirm(
-                f"Do you want to overwrite the existing .env file? the existing will be renamed to {filename}",
+                f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
                 default=False,
-            ):
+            ).ask():
                 shutil.move(".env", filename)
                 Path(".env").write_text(new_env_file)
         elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
