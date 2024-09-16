@@ -22,6 +22,8 @@ class AuthApp(typer.Typer):
     ) -> None:
         """Creates the authorization for a user/service principal to run the CDF Toolkit commands.
 
+        This will prompt the user to log in and optionally store the credentials in a .env file.
+
         Needed capabilities for bootstrapping:
         "projectsAcl": ["LIST", "READ"],
         "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
