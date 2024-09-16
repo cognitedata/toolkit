@@ -41,7 +41,7 @@
       "justMyCode": false
     },
     {
-      "name": "cdf modules build",
+      "name": "cdf modules init",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
@@ -49,10 +49,23 @@
         "--verbose",
         "--override-env",
         "modules",
-        "build",
-        "--build-dir=build",
-        "--env=local",
-        "./cognite_toolkit/"
+        "init",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf modules add",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--verbose",
+        "--override-env",
+        "modules",
+        "add",
+        "-o", 
+        "acme"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

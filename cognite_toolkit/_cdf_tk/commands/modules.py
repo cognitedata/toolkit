@@ -122,16 +122,24 @@ class ModulesCommand(ToolkitCommand):
                 shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns("default.*"))
 
         for environment in environments:
-            config_init = InitConfigYAML(
-                Environment(
-                    name=environment,
-                    project=f"<my-project-{environment}>",
-                    build_type=environment,
-                    selected=[f"{MODULES}/"],
+            if mode == "update":
+                config_init = InitConfigYAML.load_existing(
+                    (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
                 )
-            ).load_defaults(self._builtin_modules_path, selected_paths)
-            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
-            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+                pass
+            else:
+                config_init = InitConfigYAML(
+                    Environment(
+                        name=environment,
+                        project=f"<my-project-{environment}>",
+                        build_type=environment,
+                        selected=[f"{MODULES}/"],
+                    )
+                ).load_defaults(self._builtin_modules_path, selected_paths)
+                print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
+                (Path(organization_dir) / f"config.{environment}.yaml").write_text(
+                    config_init.dump_yaml_with_comments()
+                )
 
     def init(
         self,
@@ -215,8 +223,16 @@ class ModulesCommand(ToolkitCommand):
 
         raise typer.Exit()
 
-    def _select_packages(self, packages: Packages) -> Packages:
+    def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
+        if existing_module_names is None:
+            adding_to_existing = False
+        else:
+            adding_to_existing = True
+            for item in packages.values():
+                item.modules = [module for module in item.modules if module.name not in existing_module_names]
+
         selected = Packages()
+
         while True:
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
@@ -229,20 +245,26 @@ class ModulesCommand(ToolkitCommand):
                 if not questionary.confirm("Would you like to make changes to the selection?", default=False).ask():
                     break
 
+            if not any([len(package.modules) > 0 for package in packages.values()]):
+                print("No more modules available.")
+                break
+
             package: Package = questionary.select(
-                "Which package would you like to include?",
+                "Which package would you like to use?",
                 instruction="Use arrow up/down and ⮐  to save",
                 choices=[
-                    questionary.Choice(title=f"{package.title}: {package.description}", value=package)
-                    for package in packages.values()
+                    questionary.Choice(
+                        title=f"{package.title}: {package.description} ({len(package.modules)})", value=package
+                    )
+                    for package in [package for package in packages.values() if len(package.modules) > 0]
                 ],
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
 
-            if len(package.modules) > 1:
+            if len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0):
                 selection = questionary.checkbox(
-                    f"Which modules in {package.name} would you like to include?",
+                    f"Which modules in {package.name} would you like to add?",
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
                     choices=[
                         questionary.Choice(
@@ -442,3 +464,17 @@ class ModulesCommand(ToolkitCommand):
             )
 
         print(table)
+
+    def add(self, organization_dir: Path) -> None:
+        modules_root_dir = organization_dir / MODULES
+        if not modules_root_dir.is_dir():
+            print(f"Modules directory {modules_root_dir} is not found. Check path")
+            return
+
+        existing_modules = [module.name for module in ModuleResources(organization_dir, "dev").list()]
+        available_packages = Packages().load(self._builtin_modules_path)
+
+        added_packages = self._select_packages(available_packages, existing_modules)
+
+        environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
+        self._create(organization_dir, added_packages, environments, "update")
