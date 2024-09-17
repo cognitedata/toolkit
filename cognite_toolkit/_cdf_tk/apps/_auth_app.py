@@ -38,7 +38,7 @@ class AuthApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Creates the authorization for a user/service principal to run the CDF Toolkit commands.
+        """Sets the OIDC parameters required to authenticate and authorize the Cognite Toolkit in Cognite Data Fusion.
 
         This will prompt the user to log in and optionally store the credentials in a .env file.
 
@@ -71,11 +71,11 @@ class AuthApp(typer.Typer):
                 "--no-prompt",
                 "-np",
                 help="Whether to skip the prompt to continue. This is useful for CI/CD pipelines."
-                "If you passe this flag, the command will exit with 1 if the user/service principal does not have the required capabilities.",
+                "If you include this flag, the execution will stop if the user or service principal does not have the required capabilities.",
             ),
         ] = False,
     ) -> None:
-        """Verify that the current user/service principal has the required capabilities to run the CDF Toolkit commands."""
+        """Verify that the current user or service principal has the required capabilities to run the CDF Toolkit commands."""
         cmd = AuthCommand()
 
         cmd.run(

@@ -133,8 +133,7 @@ class AuthCommand(ToolkitCommand):
         has_added_capabilities = False
         if missing_capabilities and not is_interactive:
             raise AuthorizationError(
-                "The service principal/application does not have the required capabilities to run the Toolkit with "
-                "all resources supported by Toolkit"
+                "The service principal/application does not have the required capabilities for the Toolkit to function properly"
             )
         elif missing_capabilities:
             to_create, to_delete = self.upsert_toolkit_group_interactive(
