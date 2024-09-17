@@ -40,13 +40,8 @@ jobs:
         run: cdf collect opt-out
       - name: "Build the templates"
         run: cdf-tk build --build-dir=./build --env=demo -o ./demo_project
-      # be careful, this works as promised
-#      - name: "Delete existing resources including data"
-#        run: |
-#          cdf-tk clean --env=demo ./build --include data_models
-      - name: "Allow some time for data modeling to finish syncing of deletions"
-        run: |
-          sleep 30
+      - name: "Verify and create access rights"
+        run: cdf auth verify --no-prompt
       - name: "Deploy the templates"
         run: |
           cdf-tk deploy --drop --env=demo ./build

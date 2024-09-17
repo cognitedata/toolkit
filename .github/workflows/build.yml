@@ -137,6 +137,8 @@ jobs:
         run: python ./demo/preproc.py --modules all
       - name: "Build the templates"
         run: cdf build --build-dir=./build --env=demo -o ./demo_project
+      - name: "Verify and create access rights"
+        run: cdf auth verify --no-prompt
       - name: "Test clean --dry-run"
         run: |
           cdf clean --env=demo ./build --dry-run
