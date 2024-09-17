@@ -92,10 +92,17 @@ class AuthCommand(ToolkitCommand):
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
-        capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
+        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
         admin_write_group = GroupWrite(
             name="gp_admin_read_write",
-            capabilities=capabilities,
+            capabilities=[
+                *loader_capabilities,
+                # Add project ACL to be able to list and read projects, as the
+                ProjectsAcl(
+                    [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
+                    ProjectsAcl.Scope.All(),
+                ),
+            ],
         )
 
         print(
@@ -508,7 +515,10 @@ class AuthCommand(ToolkitCommand):
             admin_group.capabilities or [],
             project=cdf_project,
         )
+
         if missing_capabilities:
+            missing_capabilities = self._merge_capabilities(missing_capabilities)
+
             for s in sorted(map(str, missing_capabilities)):
                 self.warn(MissingCapabilityWarning(s))
 
@@ -523,6 +533,19 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         return missing_capabilities
+
+    @staticmethod
+    def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
+        """Merges capabilities that have the same ACL and Scope"""
+        actions_by_scope_and_cls: dict[tuple[type[Capability], Capability.Scope], set[Capability.Action]] = defaultdict(
+            set
+        )
+        for capability in capability_list:
+            actions_by_scope_and_cls[(type(capability), capability.scope)].update(capability.actions)
+        return [
+            cap_cls(actions=list(actions), scope=scope, allow_unknown=False)
+            for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
+        ]
 
     def upsert_toolkit_group_interactive(
         self, principal_groups: GroupList, admin_group: GroupWrite
