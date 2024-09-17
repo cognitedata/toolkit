@@ -134,7 +134,7 @@ class AuthCommand(ToolkitCommand):
         has_added_capabilities = False
         if missing_capabilities:
             to_create, to_delete = self.upsert_toolkit_group_interactive(
-                principal_groups, admin_write_group, missing_capabilities
+                principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
             )
 
             created: Group | None = None
@@ -288,7 +288,9 @@ class AuthCommand(ToolkitCommand):
         has_added_capabilities = False
         if missing_capabilities:
             if interactive:
-                to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group, [])
+                to_create, to_delete = self.upsert_toolkit_group_interactive(
+                    principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
+                )
             else:
                 to_create, to_delete = self.upsert_toolkit_group(
                     principal_groups, admin_write_group, update_group, create_group
@@ -548,7 +550,7 @@ class AuthCommand(ToolkitCommand):
         ]
 
     def upsert_toolkit_group_interactive(
-        self, principal_groups: GroupList, admin_group: GroupWrite, missing_capabilities: list[Capability]
+        self, principal_groups: GroupList, admin_group: GroupWrite, client: ToolkitClient, cdf_project: str
     ) -> tuple[GroupWrite | None, Group | None]:
         update_candidates = [group for group in principal_groups if group.name == admin_group.name]
         has_candidates = len(update_candidates) > 0
@@ -574,6 +576,14 @@ class AuthCommand(ToolkitCommand):
                 update_group = update_candidates[0]
 
         if update_group is not None:
+            # We need to recalculate the missing capabilities as the missing capabilities for service principal
+            # (if it has access to multiple groups) may be different from the ones missing in this group
+            missing_capabilities = client.iam.compare_capabilities(
+                admin_group.capabilities or [],
+                update_group.capabilities or [],
+                project=cdf_project,
+            )
+            missing_capabilities = self._merge_capabilities(missing_capabilities)
             new_admin_group = GroupWrite.load(update_group.dump())
             if new_admin_group.capabilities is None:
                 new_admin_group.capabilities = (admin_group.capabilities or []).copy()
