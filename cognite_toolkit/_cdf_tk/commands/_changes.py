@@ -39,6 +39,7 @@ class ManualChange(Change):
     def instructions(self, files: set[Path]) -> str:
         return ""
 
+
 class AuthVerifySplit(AutomaticChange):
     """The `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`.
 
@@ -50,6 +51,7 @@ In addition, the `cdf auth verify` command will only verify the capabilities wit
     deprecated_from = Version("0.3.0a4")
     required_from = Version("0.3.0a4")
     has_file_changes = False
+
 
 class RenamedOrganizationDirInCDFToml(AutomaticChange):
     """In the cdf.toml file, the 'organization_dir' field in the 'cdf' section has been renamed to

@@ -17,6 +17,15 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Changed
+
+- [BREAKING] The command `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`. The `init` command
+  is used to initialize the authentication, and the `verify` command is used to verify the authentication. The `init`
+  command will by default run the `verify` command after the initialization unless a `--no-verify` flag is set. In
+  addition, the two commands have been reworked to be more user-friendly. They are now interactive (no longer
+  requires a `--interactive` flag) and have no longer supports passing in a custom Group file. Instead, they are
+  intended to only set up and verify a service principal for the Toolkit.
+
 ### Fixed
 
 - The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
