@@ -21,12 +21,20 @@ class AuthApp(typer.Typer):
 
     def init(
         self,
+        no_verify: Annotated[
+            bool,
+            typer.Option(
+                "--no-verify",
+                "-v",
+                help="Whether to skip the verification of the capabilities after the initialization.",
+            ),
+        ] = False,
         dry_run: Annotated[
             bool,
             typer.Option(
                 "--dry-run",
                 "-r",
-                help="Whether to do a dry-run. This means that no changes to CDF will be made.",
+                help="If you verify, and you pass this flag no changes to CDF will be made.",
             ),
         ] = False,
     ) -> None:
@@ -41,6 +49,7 @@ class AuthApp(typer.Typer):
         cmd = AuthCommand()
         cmd.run(
             lambda: cmd.init(
+                no_verify=no_verify,
                 dry_run=dry_run,
             )
         )
