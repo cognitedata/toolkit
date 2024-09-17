@@ -133,12 +133,14 @@ class AuthCommand(ToolkitCommand):
         print("---------------------")
         has_added_capabilities = False
         if missing_capabilities:
-            to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
+            to_create, to_delete = self.upsert_toolkit_group_interactive(
+                principal_groups, admin_write_group, missing_capabilities
+            )
 
             created: Group | None = None
             if dry_run:
                 if not to_create and not to_delete:
-                    print("No groups  would have been made or modified.")
+                    print("No groups would have been made or modified.")
                 elif to_create and not to_delete:
                     print(
                         f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
@@ -154,8 +156,6 @@ class AuthCommand(ToolkitCommand):
                         to_delete.capabilities,  # type: ignore[arg-type]
                         project=cdf_project,
                     )
-                    print(to_create.capabilities)
-                    print(to_delete.capabilities)
                     print(adding)
                     print(removing)
                     print(
@@ -288,7 +288,7 @@ class AuthCommand(ToolkitCommand):
         has_added_capabilities = False
         if missing_capabilities:
             if interactive:
-                to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
+                to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group, [])
             else:
                 to_create, to_delete = self.upsert_toolkit_group(
                     principal_groups, admin_write_group, update_group, create_group
@@ -548,9 +548,8 @@ class AuthCommand(ToolkitCommand):
         ]
 
     def upsert_toolkit_group_interactive(
-        self, principal_groups: GroupList, admin_group: GroupWrite
+        self, principal_groups: GroupList, admin_group: GroupWrite, missing_capabilities: list[Capability]
     ) -> tuple[GroupWrite | None, Group | None]:
-        new_admin_group = GroupWrite.load(admin_group.dump())
         update_candidates = [group for group in principal_groups if group.name == admin_group.name]
         has_candidates = len(update_candidates) > 0
         update_group: Group | None = None
@@ -574,19 +573,24 @@ class AuthCommand(ToolkitCommand):
             elif len(update_candidates) == 1:
                 update_group = update_candidates[0]
 
-            if update_group is not None:
-                new_admin_group.source_id = update_group.source_id
-                return new_admin_group, update_group
+        if update_group is not None:
+            new_admin_group = GroupWrite.load(update_group.dump())
+            if new_admin_group.capabilities is None:
+                new_admin_group.capabilities = (admin_group.capabilities or []).copy()
+            else:
+                new_admin_group.capabilities.extend(missing_capabilities)
+            return new_admin_group, update_group
 
         prefix = f"No {admin_group.name} exists. " if not has_candidates else ""
         if not questionary.confirm(
-            f"{prefix}Do you want to create a new group for running the toolkit " "with the capabilities?",
+            f"{prefix}Do you want to create a new group for running the toolkit with the capabilities?",
             default=True,
-        ):
+        ).ask():
             return None, None
         new_source_id = str(
             Prompt.ask("What is the source id for the new group (typically a group id in the identity provider)?")
         )
+        new_admin_group = GroupWrite.load(admin_group.dump())
         new_admin_group.source_id = new_source_id
         return new_admin_group, None
 
