@@ -44,8 +44,6 @@ jobs:
 #      - name: "Delete existing resources including data"
 #        run: |
 #          cdf-tk clean --env=demo ./build --include data_models
-      - name: "Verify and create access rights"
-        run: cdf-tk auth verify
       - name: "Allow some time for data modeling to finish syncing of deletions"
         run: |
           sleep 30
