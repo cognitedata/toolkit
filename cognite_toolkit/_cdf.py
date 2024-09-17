@@ -25,7 +25,6 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.apps import AuthApp, LandingApp, ModulesApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
-    AuthCommand,
     BuildCommand,
     CleanCommand,
     CollectCommand,
@@ -92,7 +91,6 @@ except AttributeError as e:
     )
 
 _app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
@@ -511,104 +509,6 @@ def collect(
     """Collect usage information for the toolkit."""
     cmd = CollectCommand()
     cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
-
-
-@auth_app.callback(invoke_without_command=True)
-def auth_main(ctx: typer.Context) -> None:
-    """Test, validate, and configure authentication and authorization for CDF projects."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf auth --help[/] for more information.")
-    return None
-
-
-@auth_app.command("verify")
-def auth_verify(
-    ctx: typer.Context,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    interactive: Annotated[
-        bool,
-        typer.Option(
-            "--interactive",
-            "-i",
-            help="Will run the verification in interactive mode, prompting for input. Used to bootstrap a new project."
-            "If this mode is selected the --update-group and --create-group options will be ignored.",
-        ),
-    ] = False,
-    group_file: Annotated[
-        Optional[str],
-        typer.Option(
-            "--group-file",
-            "-f",
-            help="Path to group yaml configuration file to use for group verification. "
-            "Defaults to admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.",
-        ),
-    ] = None,
-    update_group: Annotated[
-        int,
-        typer.Option(
-            "--update-group",
-            "-u",
-            help="If --interactive is not set. Used to update an existing group with the configurations."
-            "Set to the group id or 1 to update the default write-all group.",
-        ),
-    ] = 0,
-    create_group: Annotated[
-        Optional[str],
-        typer.Option(
-            "--create-group",
-            "-c",
-            help="If --interactive is not set. Used to create a new group with the configurations."
-            "Set to the source id of the new group.",
-        ),
-    ] = None,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """When you have the necessary information about your identity provider configuration,
-    you can use this command to configure the tool and verify that the token has the correct access rights to the project.
-    It can also create a group with the correct access rights, defaulting to write-all group
-    meant for an admin/CICD pipeline.
-
-    As a minimum, you need the CDF project name, the CDF cluster, an identity provider token URL, and a service account client ID
-    and client secret (or an OAuth2 token set in CDF_TOKEN environment variable).
-
-    Needed capabilities for bootstrapping:
-    "projectsAcl": ["LIST", "READ"],
-    "groupsAcl": ["LIST", "READ", "CREATE", "UPDATE", "DELETE"]
-
-    The default bootstrap group configuration is admin.readwrite.group.yaml from the cdf_auth_readwrite_all common module.
-    """
-    cmd = AuthCommand()
-    with contextlib.redirect_stdout(None):
-        # Remove the Error message from failing to load the config
-        # This is verified in check_auth
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            ToolGlobals,
-            dry_run,
-            interactive,
-            group_file,
-            update_group,
-            create_group,
-            verbose or ctx.obj.verbose,
-        )
-    )
 
 
 @describe_app.callback(invoke_without_command=True)

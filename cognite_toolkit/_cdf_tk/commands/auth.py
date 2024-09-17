@@ -15,10 +15,7 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from importlib import resources
-from pathlib import Path
 from time import sleep
-from typing import cast
 
 import questionary
 from cognite.client.data_classes.capabilities import (
@@ -36,14 +33,11 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
     ResourceRetrievalError,
-    ToolkitFileNotFoundError,
-    ToolkitInvalidSettingsError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -51,7 +45,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig, safe_read
+from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig
 
 from ._base import ToolkitCommand
 
@@ -190,148 +184,6 @@ class AuthCommand(ToolkitCommand):
                 for cap_tuple in cap.as_tuples():
                     loaders_by_capability_tuple[cap_tuple].append(loader.display_name)
         return list(capability_by_id.values()), loaders_by_capability_tuple
-
-    def execute(
-        self,
-        ToolGlobals: CDFToolConfig,
-        dry_run: bool,
-        interactive: bool,
-        group_file: str | None,
-        update_group: int,
-        create_group: str | None,
-        verbose: bool,
-    ) -> None:
-        # TODO: Check if groupsAcl.UPDATE does nothing?
-        if create_group is not None and update_group != 0:
-            raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
-
-        if group_file is None:
-            template_dir = cast(Path, resources.files("cognite_toolkit"))
-            group_path = template_dir.joinpath(
-                Path(f"./{BUILTIN_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
-            )
-        else:
-            group_path = Path(group_file)
-        self.check_auth(
-            ToolGlobals,
-            admin_group_file=group_path,
-            update_group=update_group,
-            create_group=create_group,
-            interactive=interactive,
-            dry_run=dry_run,
-            verbose=verbose,
-        )
-
-    def check_auth(
-        self,
-        ToolGlobals: CDFToolConfig,
-        admin_group_file: Path,
-        update_group: int = 0,
-        create_group: str | None = None,
-        interactive: bool = False,
-        dry_run: bool = False,
-        verbose: bool = False,
-    ) -> None:
-        auth_vars = self.initialize_client(ToolGlobals, interactive, verbose)
-        if auth_vars.project is None:
-            raise AuthorizationError("CDF_PROJECT is not set.")
-        cdf_project = auth_vars.project
-        token_inspection = self.check_has_any_access(ToolGlobals)
-
-        self.check_has_project_access(token_inspection, cdf_project)
-
-        print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
-
-        self.check_has_group_access(ToolGlobals)
-
-        self.check_identity_provider(ToolGlobals, cdf_project)
-
-        try:
-            principal_groups = ToolGlobals.toolkit_client.iam.groups.list()
-        except CogniteAPIError as e:
-            raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
-
-        if not admin_group_file.exists():
-            raise ToolkitFileNotFoundError(f"Group config file does not exist: {admin_group_file.as_posix()}")
-        admin_write_group = GroupWrite.load(safe_read(admin_group_file))
-
-        print(
-            Panel(
-                "The Cognite Toolkit expects the following:\n"
-                " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
-                "only ONE CDF Group.\n"
-                f" - This group [red]must[/red] be named {admin_write_group.name!r}.\n"
-                f" - The group {admin_write_group.name!r} [red]must[/red] have capabilities to "
-                f"all resources the Toolkit is managing\n"
-                " - All he capabilities [yellow]should[/yellow] be scoped to all resources.",
-                title="Toolkit Access Group",
-                expand=False,
-            )
-        )
-        if interactive:
-            Prompt.ask("Press enter key to continue...")
-
-        self.check_principal_groups(principal_groups, admin_write_group)
-
-        missing_capabilities = self.check_has_toolkit_required_capabilities(
-            ToolGlobals.toolkit_client, token_inspection, admin_write_group, cdf_project, admin_write_group.name, {}
-        )
-        print("---------------------")
-        has_added_capabilities = False
-        if missing_capabilities:
-            if interactive:
-                to_create, to_delete = self.upsert_toolkit_group_interactive(
-                    principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
-                )
-            else:
-                to_create, to_delete = self.upsert_toolkit_group(
-                    principal_groups, admin_write_group, update_group, create_group
-                )
-
-            created: Group | None = None
-            if dry_run:
-                if not to_create and not to_delete:
-                    print("No groups  would have been made or modified.")
-                elif to_create and not to_delete:
-                    print(
-                        f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
-                    )
-                elif to_create and to_create:
-                    print(
-                        f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
-                    )
-            elif to_create:
-                created = self.upsert_group(
-                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, interactive, cdf_project
-                )
-                has_added_capabilities = True
-
-            must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
-            if must_switch_principal and created:
-                print(
-                    Panel(
-                        f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
-                        f"to the principal with source-id {created.source_id!r}.",
-                        title="Switch Principal",
-                        expand=False,
-                    )
-                )
-
-        self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
-
-    def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
-        raise NotImplementedError()
-        # print("[bold]Checking current service principal/application and environment configurations...[/]")
-        # auth_vars = AuthVariables.from_env()
-        # if interactive:
-        #     result = auth_vars.from_interactive_with_validation(verbose)
-        # else:
-        #     result = auth_vars.validate(verbose)
-        # if result.messages:
-        #     print("\n".join(result.messages))
-        # print("  [bold green]OK[/]")
-        # ToolGlobals.initialize_from_auth_variables(auth_vars)
-        # return auth_vars
 
     def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
         print("Checking basic project configuration...")
