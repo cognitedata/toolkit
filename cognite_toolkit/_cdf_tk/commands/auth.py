@@ -151,17 +151,9 @@ class AuthCommand(ToolkitCommand):
                         to_create.capabilities,  # type: ignore[arg-type]
                         project=cdf_project,
                     )
-                    removing = ToolGlobals.toolkit_client.iam.compare_capabilities(
-                        to_create.capabilities,  # type: ignore[arg-type]
-                        to_delete.capabilities,  # type: ignore[arg-type]
-                        project=cdf_project,
-                    )
-                    print(adding)
-                    print(removing)
-                    print(
-                        f"Would have updated group {to_create.name} "
-                        f"with {len(adding)} new capabilities and removing {len(removing)} capabilities."
-                    )
+                    adding = self._merge_capabilities(adding)
+                    capability_str = "capabilities" if len(adding) > 1 else "capability"
+                    print(f"Would have updated group {to_create.name} with {len(adding)} new {capability_str}.")
             elif to_create:
                 created = self.upsert_group(
                     ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, True, cdf_project
@@ -579,8 +571,8 @@ class AuthCommand(ToolkitCommand):
             # We need to recalculate the missing capabilities as the missing capabilities for service principal
             # (if it has access to multiple groups) may be different from the ones missing in this group
             missing_capabilities = client.iam.compare_capabilities(
-                admin_group.capabilities or [],
                 update_group.capabilities or [],
+                admin_group.capabilities or [],
                 project=cdf_project,
             )
             missing_capabilities = self._merge_capabilities(missing_capabilities)
@@ -697,7 +689,7 @@ class AuthCommand(ToolkitCommand):
                     f"such that you don't have a duplicated group in your CDF project."
                 )
         print(
-            f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name} with {len(created.capabilities or [])} capabilities."
+            f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
         )
         return created
 
