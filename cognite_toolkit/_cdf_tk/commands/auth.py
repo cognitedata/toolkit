@@ -68,7 +68,10 @@ class AuthCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
+        no_prompt: bool = False,
     ) -> None:
+        # More readable variable in the code
+        is_interactive = not no_prompt
         if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
         cdf_project = ToolGlobals.project
@@ -113,7 +116,8 @@ class AuthCommand(ToolkitCommand):
                 expand=False,
             )
         )
-        Prompt.ask("Press enter key to continue...")
+        if is_interactive:
+            Prompt.ask("Press enter key to continue...")
 
         self.check_principal_groups(principal_groups, admin_write_group)
 
@@ -127,7 +131,12 @@ class AuthCommand(ToolkitCommand):
         )
         print("---------------------")
         has_added_capabilities = False
-        if missing_capabilities:
+        if missing_capabilities and not is_interactive:
+            raise AuthorizationError(
+                "The service principal/application does not have the required capabilities to run the Toolkit with "
+                "all resources supported by Toolkit"
+            )
+        elif missing_capabilities:
             to_create, to_delete = self.upsert_toolkit_group_interactive(
                 principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
             )

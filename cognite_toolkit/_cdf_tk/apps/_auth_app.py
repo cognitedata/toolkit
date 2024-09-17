@@ -25,7 +25,7 @@ class AuthApp(typer.Typer):
             bool,
             typer.Option(
                 "--no-verify",
-                "-v",
+                "-nv",
                 help="Whether to skip the verification of the capabilities after the initialization.",
             ),
         ] = False,
@@ -65,6 +65,15 @@ class AuthApp(typer.Typer):
                 help="Whether to do a dry-run. This means that no changes to CDF will be made.",
             ),
         ] = False,
+        no_prompt: Annotated[
+            bool,
+            typer.Option(
+                "--no-prompt",
+                "-np",
+                help="Whether to skip the prompt to continue. This is useful for CI/CD pipelines."
+                "If you passe this flag, the command will exit with 1 if the user/service principal does not have the required capabilities.",
+            ),
+        ] = False,
     ) -> None:
         """Verify that the current user/service principal has the required capabilities to run the CDF Toolkit commands."""
         cmd = AuthCommand()
@@ -73,5 +82,6 @@ class AuthApp(typer.Typer):
             lambda: cmd.verify(
                 CDFToolConfig.from_context(ctx),
                 dry_run=dry_run,
+                no_prompt=no_prompt,
             )
         )
