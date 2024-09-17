@@ -50,3 +50,20 @@ class TestModulesCommand:
 
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
         assert config["variables"]["modules"]["infield"]["first_location"] == "oid"
+
+    def test_adding(self, selected_packages: Packages, tmp_path: Path) -> None:
+        target_path = tmp_path / "repo_root"
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+
+        first_batch = Packages({"infield": selected_packages["infield"]})
+        second_batch = Packages({"quickstart": selected_packages["inrobot"]})
+
+        cmd._create(organization_dir=target_path, selected_packages=first_batch, environments=["qa"], mode=None)
+        cmd._create(organization_dir=target_path, selected_packages=second_batch, environments=["qa"], mode="update")
+
+        config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
+        assert config["variables"]["modules"]["infield"]["first_location"] is not None
+        assert (target_path / "modules" / "infield" / "cdf_infield_common").is_dir()
+
+        assert config["variables"]["modules"]["inrobot"]["first_location"] is not None
+        assert (target_path / "modules" / "inrobot" / "cdf_inrobot_common").is_dir()

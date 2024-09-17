@@ -126,7 +126,7 @@ class ModulesCommand(ToolkitCommand):
             if mode == "update":
                 config_init = InitConfigYAML.load_existing(
                     (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
-                )
+                ).load_defaults(self._builtin_modules_path, selected_paths)
                 pass
             else:
                 config_init = InitConfigYAML(
@@ -137,10 +137,8 @@ class ModulesCommand(ToolkitCommand):
                         selected=[f"{MODULES}/"],
                     )
                 ).load_defaults(self._builtin_modules_path, selected_paths)
-                print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
-                (Path(organization_dir) / f"config.{environment}.yaml").write_text(
-                    config_init.dump_yaml_with_comments()
-                )
+            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
+            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
         if organization_dir != Path.cwd():
