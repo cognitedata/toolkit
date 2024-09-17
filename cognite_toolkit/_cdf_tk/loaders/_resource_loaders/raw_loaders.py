@@ -71,7 +71,7 @@ class RawDatabaseLoader(
 
             scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
 
-        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List], scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
@@ -189,7 +189,7 @@ class RawTableLoader(
 
             scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
 
-        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], scope)  # type: ignore[arg-type]
+        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write, RawAcl.Action.List], scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:

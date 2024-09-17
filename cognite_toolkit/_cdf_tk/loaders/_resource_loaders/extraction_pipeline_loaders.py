@@ -26,6 +26,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
 )
 from cognite.client.data_classes.extractionpipelines import (
@@ -226,9 +227,15 @@ class ExtractionPipelineConfigLoader(
 
     @classmethod
     def get_required_capability(cls, items: ExtractionPipelineConfigWriteList | None) -> list[Capability]:
-        # Access for extraction pipeline configs is checked by the extraction pipeline that is deployed
-        # first, so we don't need to check for any capabilities here.
-        return []
+        if not items and items is not None:
+            return []
+
+        return [
+            ExtractionConfigsAcl(
+                [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
+                ExtractionConfigsAcl.Scope.All(),
+            )
+        ]
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite | dict) -> str:

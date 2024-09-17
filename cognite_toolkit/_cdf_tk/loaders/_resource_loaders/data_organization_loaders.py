@@ -68,7 +68,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         if not items and items is not None:
             return []
         return DataSetsAcl(
-            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
+            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write, DataSetsAcl.Action.Owner],
             DataSetsAcl.Scope.All(),
         )
 

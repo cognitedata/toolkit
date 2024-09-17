@@ -102,10 +102,16 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @classmethod
     def get_required_capability(cls, items: GroupWriteList | None) -> Capability | list[Capability]:
-        if not items:
+        if not items and items is not None:
             return []
         return GroupsAcl(
-            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            [
+                GroupsAcl.Action.Read,
+                GroupsAcl.Action.List,
+                GroupsAcl.Action.Create,
+                GroupsAcl.Action.Delete,
+                GroupsAcl.Action.Update,
+            ],
             GroupsAcl.Scope.All(),
         )
 
