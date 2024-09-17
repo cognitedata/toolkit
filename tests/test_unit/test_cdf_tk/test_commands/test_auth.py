@@ -101,7 +101,7 @@ class TestAuthCommand:
         cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
 
-        cmd.verify(cdf_tool_config, False)
+        cmd.verify(cdf_tool_config, False, no_prompt=True)
 
         assert list(cmd.warning_list) == []
 
@@ -126,7 +126,7 @@ class TestAuthCommand:
         cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
 
-        cmd.verify(cdf_tool_config, False)
+        cmd.verify(cdf_tool_config, False, no_prompt=True)
 
         assert len(cmd.warning_list) == len(expected_warnings)
         assert set(cmd.warning_list) == set(expected_warnings)
@@ -148,7 +148,7 @@ class TestAuthCommand:
         # the approval_client
         cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
-        cmd.verify(cdf_tool_config, False)
+        cmd.verify(cdf_tool_config, False, no_prompt=True)
 
         assert len(cmd.warning_list) == 1
         assert set(cmd.warning_list) == {
@@ -180,7 +180,7 @@ class TestAuthCommand:
         cdf_tool_config.verify_authorization.side_effect = mock_verify_client
         cmd = AuthCommand(print_warning=False)
         with pytest.raises(AuthorizationError) as e:
-            cmd.verify(cdf_tool_config, False)
+            cmd.verify(cdf_tool_config, False, no_prompt=True)
 
         assert len(cmd.warning_list) == 1
         assert set(cmd.warning_list) == {
