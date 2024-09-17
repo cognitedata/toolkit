@@ -154,7 +154,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
-            print(f"{INDENT}[yellow]cdf.toml file already exists skipping creation.")
+            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
         else:
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
@@ -488,15 +488,12 @@ default_organization_dir = "{organization_dir.name}"''',
         print(table)
 
     def add(self, organization_dir: Path) -> None:
-        modules_root_dir = organization_dir / MODULES
-        if not modules_root_dir.is_dir():
-            print(f"Modules directory {modules_root_dir} is not found. Check path")
-            return
+        verify_module_directory(organization_dir, "dev")
 
-        existing_modules = [module.name for module in ModuleResources(organization_dir, "dev").list()]
+        existing_module_names = [module.name for module in ModuleResources(organization_dir, "dev").list()]
         available_packages = Packages().load(self._builtin_modules_path)
 
-        added_packages = self._select_packages(available_packages, existing_modules)
+        added_packages = self._select_packages(available_packages, existing_module_names)
 
         environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
         self._create(organization_dir, added_packages, environments, "update")
