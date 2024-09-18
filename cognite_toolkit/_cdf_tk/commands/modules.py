@@ -127,7 +127,6 @@ class ModulesCommand(ToolkitCommand):
                 config_init = InitConfigYAML.load_existing(
                     (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
                 ).load_defaults(self._builtin_modules_path, selected_paths)
-                pass
             else:
                 config_init = InitConfigYAML(
                     Environment(
