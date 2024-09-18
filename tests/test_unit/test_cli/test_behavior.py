@@ -51,7 +51,8 @@ def test_inject_custom_environmental_variables(
     app.build(
         typer_context,
         organization_dir=organization_dir,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -276,7 +277,8 @@ def test_build_custom_project(
     app.build(
         typer_context,
         organization_dir=PROJECT_NO_COGNITE_MODULES,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -299,7 +301,8 @@ def test_build_project_selecting_parent_path(
     app.build(
         typer_context,
         organization_dir=PROJECT_FOR_TEST,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -349,7 +352,8 @@ def test_build_project_with_only_top_level_variables(
     app.build(
         typer_context,
         organization_dir=PROJECT_NO_COGNITE_MODULES,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="top_level_variables",
         no_clean=False,
     )
