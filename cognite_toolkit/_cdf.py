@@ -224,7 +224,7 @@ def pull_transformation_cmd(
         ),
     ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",
@@ -293,7 +293,7 @@ def pull_node_cmd(
         ),
     ] = CDF_TOML.cdf.default_organization_dir,
     env: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             "--env",
             "-e",

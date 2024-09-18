@@ -23,7 +23,8 @@ class ConfigCore(ABC):
         return cls.filename.format(build_env=build_env)
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str) -> T_BuildConfig:
+    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str | None) -> T_BuildConfig:
+        build_env = build_env or "dev"
         filename = cls.get_filename(build_env)
         filepath = organization_dir / filename
         filepath = filepath if filepath.is_file() else Path.cwd() / filename
@@ -38,6 +39,11 @@ class ConfigCore(ABC):
     @classmethod
     @abstractmethod
     def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load_default(cls: type[T_BuildConfig], organization_dir: Path) -> T_BuildConfig:
         raise NotImplementedError
 
 

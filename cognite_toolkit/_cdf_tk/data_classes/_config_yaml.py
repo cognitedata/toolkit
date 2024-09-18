@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
+    DEFAULT_ENV,
     MODULE_PATH_SEP,
     MODULES,
     ROOT_MODULES,
@@ -53,7 +54,7 @@ _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 class Environment:
     name: str = "dev"
     project: str = field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
-    build_type: EnvType = "dev"
+    build_type: EnvType = DEFAULT_ENV  # type: ignore[assignment]
     selected: list[str | Path] = field(default_factory=lambda: [Path(MODULES)])
 
     def __post_init__(self) -> None:
@@ -235,6 +236,10 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
                 else:
                     print(f"    {module}")
         return selected_modules
+
+    @classmethod
+    def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
+        return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
 
 
 @dataclass

@@ -21,7 +21,7 @@ else:
 @dataclass
 class CLIConfig:
     default_organization_dir: Path
-    default_env: str = "dev"
+    default_env: str | None = None
     feature_flags: dict[str, bool] = field(default_factory=dict)
     has_user_set_default_org: bool = False
 

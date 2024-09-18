@@ -134,7 +134,7 @@ class BuildCommand(ToolkitCommand):
             config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
         else:
             # Loads the default environment
-            config = BuildConfigYAML(filepath=organization_dir / BuildConfigYAML.get_filename("default"))
+            config = BuildConfigYAML.load_default(organization_dir)
 
         if selected:
             config.environment.selected = config.environment.load_selected(selected, organization_dir)
