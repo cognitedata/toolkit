@@ -66,7 +66,7 @@ class Tracker:
             "error": str(result) if isinstance(result, Exception) else "",
             **positional_args,
             **optional_args,
-            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.cdf.feature_flags.items()},
+            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.feature_flags.items()},
         }
 
         return self._track(f"command{cmd.capitalize()}", event_information)

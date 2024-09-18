@@ -42,5 +42,5 @@ class FeatureFlag:
         if not fflag:
             return False
 
-        user_settings = CDFToml.load().cdf.feature_flags
+        user_settings = CDFToml.load().feature_flags
         return user_settings.get(clean_name(fflag.name), False)
