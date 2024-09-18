@@ -41,11 +41,6 @@ class ConfigCore(ABC):
     def load(cls: type[T_BuildConfig], data: dict[str, Any], build_env: str, filepath: Path) -> T_BuildConfig:
         raise NotImplementedError
 
-    @classmethod
-    @abstractmethod
-    def load_default(cls: type[T_BuildConfig], organization_dir: Path) -> T_BuildConfig:
-        raise NotImplementedError
-
 
 T_BuildConfig = TypeVar("T_BuildConfig", bound=ConfigCore)
 
