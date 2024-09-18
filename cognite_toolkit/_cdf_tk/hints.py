@@ -98,7 +98,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
         module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
     ]
     config_path = organization_dir / config_file
-    if root_modules and config_path.is_file() and build_env_name is not None:
+    if root_modules and (config_path.is_file() or build_env_name is None):
         return
     if root_modules or (config_path.is_file() or build_env_name is None):
         print(panel)
