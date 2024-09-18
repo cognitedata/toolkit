@@ -53,6 +53,10 @@ from cognite.client.data_classes import (
     SecurityCategoryList,
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
+    Sequence,
+    SequenceList,
+    SequenceWrite,
+    SequenceWriteList,
     Table,
     TableList,
     TableWrite,
@@ -626,6 +630,19 @@ API_RESOURCES = [
         _write_list_cls=GraphQLDataModelWriteList,
         methods={
             "create": [Method(api_class_method="apply_dml", mock_class_method="apply_dml")],
+        },
+    ),
+    APIResource(
+        api_name="sequences",
+        resource_cls=Sequence,
+        list_cls=SequenceList,
+        _write_cls=SequenceWrite,
+        _write_list_cls=SequenceWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
         },
     ),
     APIResource(

@@ -7,7 +7,17 @@ from pathlib import Path
 from typing import Any, final
 
 import pandas as pd
-from cognite.client.data_classes import Asset, AssetList, AssetWrite, AssetWriteList, capabilities
+from cognite.client.data_classes import (
+    Asset,
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
+    Sequence,
+    SequenceList,
+    SequenceWrite,
+    SequenceWriteList,
+    capabilities,
+)
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -175,5 +185,107 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
         ):
             local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+
+@final
+class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteList, SequenceList]):
+    folder_name = "classic"
+    filename_pattern = r"^.*\.Sequence$"
+    resource_cls = Sequence
+    resource_write_cls = SequenceWrite
+    list_cls = SequenceList
+    list_write_cls = SequenceWriteList
+    kind = "Sequence"
+    dependencies = frozenset({DataSetsLoader, AssetLoader})
+    _doc_url = "Sequences/operation/createSequence"
+
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
+    @classmethod
+    def get_id(cls, item: Sequence | SequenceWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("Sequence must have external_id")
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: SequenceWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+        scope: Any = capabilities.SequencesAcl.Scope.All()
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = capabilities.SequencesAcl.Scope.DataSet(list(data_set_ids))
+
+        return capabilities.SequencesAcl(
+            [capabilities.SequencesAcl.Action.Read, capabilities.SequencesAcl.Action.Write],
+            scope,  # type: ignore[arg-type]
+        )
+
+    def create(self, items: SequenceWriteList) -> SequenceList:
+        return self.client.sequences.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SequenceList:
+        return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: SequenceWriteList) -> SequenceList:
+        return self.client.sequences.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.sequences.delete(external_id=ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.sequences.delete(external_id=existing)
+            return len(existing)
+        else:
+            return len(ids)
+
+    def iterate(self) -> Iterable[Sequence]:
+        return iter(self.client.sequences)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("assetExternalId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("assetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        if "assetExternalId" in item:
+            yield AssetLoader, item["assetExternalId"]
+
+    def _are_equal(
+        self, local: SequenceWrite, cdf_resource: Sequence, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+
+        # Remove metadata if it is empty to avoid false negatives
+        # as a result of cdf_resource.metadata = {} != local.metadata = None
+        if not local_dumped.get("metadata"):
+            local_dumped.pop("metadata", None)
+        if not cdf_dumped.get("metadata"):
+            cdf_dumped.pop("metadata", None)
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
