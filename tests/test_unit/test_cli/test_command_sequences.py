@@ -14,7 +14,7 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.apps._core_app import CoreApp
+from cognite_toolkit._cdf_tk.apps import CoreApp
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.data import COMPLETE_ORG

@@ -17,7 +17,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._version import __version__ as current_version
 
@@ -185,7 +184,7 @@ class CoreApp(typer.Typer):
         cmd = BuildCommand()
         cmd.run(
             lambda: cmd.execute(
-                verbose or ctx.obj.verbose,
+                verbose,
                 Path(organization_dir),
                 Path(build_dir),
                 build_env_name,
@@ -256,8 +255,6 @@ class CoreApp(typer.Typer):
         cmd = DeployCommand(print_warning=True)
         include = _process_include(include)
         ToolGlobals = CDFToolConfig.from_context(ctx)
-        if ctx.obj.verbose:
-            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
         cmd.run(
             lambda: cmd.execute(
                 ToolGlobals,
@@ -267,7 +264,7 @@ class CoreApp(typer.Typer):
                 drop,
                 drop_data,
                 include,
-                verbose or ctx.obj.verbose,
+                verbose,
             )
         )
 
@@ -319,8 +316,6 @@ class CoreApp(typer.Typer):
         cmd = CleanCommand(print_warning=True)
         include = _process_include(include)
         ToolGlobals = CDFToolConfig.from_context(ctx)
-        if ctx.obj.verbose:
-            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
         cmd.run(
             lambda: cmd.execute(
                 ToolGlobals,
@@ -328,7 +323,7 @@ class CoreApp(typer.Typer):
                 build_env_name,
                 dry_run,
                 include,
-                verbose or ctx.obj.verbose,
+                verbose,
             )
         )
 

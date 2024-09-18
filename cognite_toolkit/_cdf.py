@@ -37,7 +37,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     TransformationLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitDeprecationWarning
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -247,8 +246,6 @@ def auth_verify(
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
         ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk auth verify --verbose").get_message())
     cmd.run(
         lambda: cmd.execute(
             ToolGlobals,
@@ -257,7 +254,7 @@ def auth_verify(
             group_file,
             update_group,
             create_group,
-            verbose or ctx.obj.verbose,
+            verbose,
         )
     )
 
@@ -351,8 +348,6 @@ def pull_transformation_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified transformation and update its YAML file in the module folder"""
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull transformation --verbose").get_message())
     cmd = PullCommand()
     cmd.run(
         lambda: cmd.execute(
@@ -360,7 +355,7 @@ def pull_transformation_cmd(
             external_id,
             env,
             dry_run,
-            verbose or ctx.obj.verbose,
+            verbose,
             CDFToolConfig.from_context(ctx),
             TransformationLoader,
         )
@@ -422,8 +417,6 @@ def pull_node_cmd(
     ] = False,
 ) -> None:
     """This command will pull the specified node and update its YAML file in the module folder."""
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk pull node --verbose").get_message())
 
     cmd = PullCommand()
     cmd.run(
@@ -432,7 +425,7 @@ def pull_node_cmd(
             NodeId(space, external_id),
             env,
             dry_run,
-            verbose or ctx.obj.verbose,
+            verbose,
             CDFToolConfig.from_context(ctx),
             NodeLoader,
         )
@@ -502,15 +495,13 @@ def dump_datamodel_cmd(
 ) -> None:
     """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
     cmd = DumpCommand()
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump datamodel --verbose").get_message())
     cmd.run(
         lambda: cmd.execute(
             CDFToolConfig.from_context(ctx),
             DataModelId(space, external_id, version),
             Path(output_dir),
             clean,
-            verbose or ctx.obj.verbose,
+            verbose,
         )
     )
 
@@ -587,8 +578,6 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
     ) -> None:
         """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand()
-        if ctx.obj.verbose:
-            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump asset --verbose").get_message())
         cmd.run(
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
@@ -599,7 +588,7 @@ if FeatureFlag.is_enabled(Flags.ASSETS):
                 clean_,
                 limit,
                 format_,  # type: ignore [arg-type]
-                verbose or ctx.obj.verbose,
+                verbose,
             )
         )
 
@@ -676,8 +665,6 @@ if FeatureFlag.is_enabled(Flags.TIMESERIES_DUMP):
     ) -> None:
         """This command will dump the selected timeseries as yaml to the folder specified, defaults to /tmp."""
         cmd = DumpTimeSeriesCommand()
-        if ctx.obj.verbose:
-            print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk dump timeseries --verbose").get_message())
         cmd.run(
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
@@ -687,7 +674,7 @@ if FeatureFlag.is_enabled(Flags.TIMESERIES_DUMP):
                 clean_,
                 limit,
                 format_,  # type: ignore [arg-type]
-                verbose or ctx.obj.verbose,
+                verbose,
             )
         )
 
