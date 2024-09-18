@@ -58,6 +58,13 @@ LabelDefinition:
   name: Pump
 SecurityCategory:
 - name: sc_demo_category
+Source:
+- eventHubName: The name of the event hub
+  externalId: my_eventhub
+  host: my_eventhub
+  keyName: The name of the key
+  keyValue: SuperSecretKeyValue
+  type: eventhub
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom
