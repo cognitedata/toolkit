@@ -8,7 +8,7 @@ from cognite.client.data_classes.capabilities import Capability, HostedExtractor
 from cognite.client.data_classes.hosted_extractors import Source, SourceList, SourceWrite, SourceWriteList
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 
 
@@ -20,6 +20,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     list_cls = SourceList
     list_write_cls = SourceWriteList
     kind = "Source"
+    _doc_base_url: str = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "HostedExtractors/operation/createSource"
 
     @property
@@ -65,7 +66,11 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        return super().get_write_cls_parameter_spec()
+        spec = super().get_write_cls_parameter_spec()
+        # Used by the SDK to determine the class to load the resource into.
+        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
+        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
+        return spec
 
     def _are_equal(
         self, local: SourceWrite, cdf_resource: Source, return_dumped: bool = False
