@@ -240,9 +240,8 @@ default_organization_dir = "{organization_dir.name}"''',
         raise typer.Exit()
 
     def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
-        if existing_module_names is None:
-            adding_to_existing = False
-        else:
+        adding_to_existing = False
+        if existing_module_names is not None:
             adding_to_existing = True
             for item in packages.values():
                 item.modules = [module for module in item.modules if module.name not in existing_module_names]
