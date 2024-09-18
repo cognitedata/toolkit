@@ -21,6 +21,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
+    HOSTED_EXTRACTORS: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for deploying hosted extractors",
+    }
 
 
 class FeatureFlag:

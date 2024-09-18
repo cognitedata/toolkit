@@ -85,7 +85,7 @@ class CleanCommand(ToolkitCommand):
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
 
-        existing_resources = loader.retrieve(loader.get_ids(loaded_resources)).as_write()
+        existing_resources = loader.retrieve(loader.get_ids(loaded_resources))
         nr_of_existing = len(existing_resources)
 
         if drop:

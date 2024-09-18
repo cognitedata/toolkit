@@ -173,6 +173,13 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
+        if is_abstract:
+            subclasses = all_concrete_subclasses(resource_cls)
+            if not subclasses:
+                raise ValueError(f"Cannot create instance of abstract class {resource_cls.__name__}")
+            resource_cls = self._random.choice(subclasses)
+
         signature = inspect.signature(resource_cls.__init__)
         type_hint_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
 

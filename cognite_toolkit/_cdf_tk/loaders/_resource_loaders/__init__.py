@@ -6,6 +6,7 @@ from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, Extract
 from .file_loader import FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
+from .hosted_extractors import HostedExtractorSourceLoader
 from .location_loaders import LocationFilterLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .robotics_loaders import (
@@ -55,4 +56,5 @@ __all__ = [
     "RoboticLocationLoader",
     "RoboticsDataPostProcessingLoader",
     "GraphQLLoader",
+    "HostedExtractorSourceLoader",
 ]
