@@ -30,17 +30,5 @@ class Flags(Enum):
 class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
-    def is_enabled(flag: str | Flags) -> bool:
-        if isinstance(flag, str):
-            try:
-                fflag = Flags[flag.upper().replace("-", "_")]
-            except KeyError:
-                return False
-        else:
-            fflag = flag
-
-        if not fflag:
-            return False
-
-        user_settings = CDFToml.load().feature_flags
-        return user_settings.get(clean_name(fflag.name), False)
+    def is_enabled(flag: Flags) -> bool:
+        return CDFToml.load().feature_flags.get(clean_name(flag.name), False)
