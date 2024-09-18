@@ -142,13 +142,21 @@ class CoreApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         build_dir: Annotated[
-            str,
+            Path,
             typer.Option(
                 "--build-dir",
                 "-b",
                 help="Where to save the built module files",
             ),
-        ] = "./build",
+        ] = Path("./build"),
+        selected: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--selected",
+                "-s",
+                help="Specify paths or names to the modules to build",
+            ),
+        ] = None,
         build_env_name: Annotated[
             str,
             typer.Option(
@@ -185,8 +193,9 @@ class CoreApp(typer.Typer):
         cmd.run(
             lambda: cmd.execute(
                 verbose,
-                Path(organization_dir),
-                Path(build_dir),
+                organization_dir,
+                build_dir,
+                selected,
                 build_env_name,
                 no_clean,
                 ToolGlobals,

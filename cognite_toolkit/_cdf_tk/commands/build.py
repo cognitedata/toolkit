@@ -116,6 +116,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
         organization_dir: Path,
         build_dir: Path,
+        selected: list[str] | None,
         build_env_name: str,
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
