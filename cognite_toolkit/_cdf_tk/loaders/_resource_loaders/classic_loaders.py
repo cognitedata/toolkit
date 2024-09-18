@@ -199,7 +199,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
     list_write_cls = SequenceWriteList
     kind = "Sequence"
     dependencies = frozenset({DataSetsLoader, AssetLoader})
-    _doc_url = "Sequences/operation/createSequences"
+    _doc_url = "Sequences/operation/createSequence"
 
     @property
     def display_name(self) -> str:
