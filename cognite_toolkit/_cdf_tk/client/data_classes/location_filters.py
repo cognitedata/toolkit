@@ -168,7 +168,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         output = super().dump(camel_case)
         if self.data_models:
             output["dataModels" if camel_case else "data_models"] = [
-                data_model.dump(camel_case) for data_model in self.data_models
+                data_model.dump(camel_case, include_type=False) for data_model in self.data_models
             ]
         if self.scene:
             output["scene"] = self.scene.dump(camel_case)
