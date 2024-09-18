@@ -47,6 +47,15 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
+LabelDefinition:
+- dataSetId: 42
+  description: Labels used for relationships that represent flows
+  externalId: label_flow
+  name: Flows
+- dataSetId: 42
+  description: Pump label
+  externalId: label_pump
+  name: Pump
 SecurityCategory:
 - name: sc_demo_category
 TimeSeries:
