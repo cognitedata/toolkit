@@ -78,8 +78,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         secret_hash = "cdf-toolkit-secret-hash"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionWriteList) -> list[Capability] | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: FunctionWriteList | None) -> list[Capability] | list[Capability]:
+        if not items and items is not None:
             return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
@@ -279,8 +279,8 @@ class FunctionScheduleLoader(
         return "function.schedules"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionScheduleWriteList) -> list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: FunctionScheduleWriteList | None) -> list[Capability]:
+        if not items and items is not None:
             return []
         return [
             FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
