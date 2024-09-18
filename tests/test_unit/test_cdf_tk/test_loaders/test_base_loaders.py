@@ -207,11 +207,6 @@ class TestFormatConsistency:
 def test_resource_types_is_up_to_date() -> None:
     expected = set(LOADER_BY_FOLDER_NAME.keys())
     actual = set(ResourceTypes.__args__)
-    new_prototype_resource_types = {"assets", "robotics", "3dmodels"}
-    # The prototype may or may not be turned on, so we include them always.
-    # This is an issue as we run the tests in parallel and the prototype may not be loaded.
-    expected.update(new_prototype_resource_types)
-    actual.update(new_prototype_resource_types)
 
     missing = expected - actual
     extra = actual - expected
