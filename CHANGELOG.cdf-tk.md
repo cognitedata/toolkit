@@ -25,6 +25,8 @@ Changes are grouped as follows:
   [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
   fixed in a future release.
 - Added support for resource type `Sequence` in the `classic` folder.
+- Added parameter `--selected` to the `cdf build` command to overwrite the `selected` in the `config.[env].yaml` file.
+- Made the `config.[env].yaml` optional when running the `cdf build command.
 
 ### Changed
 
