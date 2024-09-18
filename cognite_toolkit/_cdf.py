@@ -245,7 +245,7 @@ def auth_verify(
     with contextlib.redirect_stdout(None):
         # Remove the Error message from failing to load the config
         # This is verified in check_auth
-        ToolGlobals = CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project, skip_initialization=True)
+        ToolGlobals = CDFToolConfig(skip_initialization=True)
     cmd.run(
         lambda: cmd.execute(
             ToolGlobals,
