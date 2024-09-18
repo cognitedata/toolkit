@@ -136,7 +136,9 @@ class ModulesCommand(ToolkitCommand):
                         selected=[f"{MODULES}/"],
                     )
                 ).load_defaults(self._builtin_modules_path, selected_paths)
-            print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating config.{environment}.yaml[/]")
+            print(
+                f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]{'Updating' if mode == 'update' else 'Creating'} config.{environment}.yaml[/]"
+            )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
