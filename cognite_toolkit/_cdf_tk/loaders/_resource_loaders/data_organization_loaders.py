@@ -64,11 +64,11 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     _doc_url = "Data-sets/operation/createDataSets"
 
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: DataSetWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataSetsAcl(
-            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write],
+            [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write, DataSetsAcl.Action.Owner],
             DataSetsAcl.Scope.All(),
         )
 
@@ -180,15 +180,15 @@ class LabelLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: LabelDefinitionWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: LabelDefinitionWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-        scope = (
-            capabilities.LabelsAcl.Scope.DataSet(list(data_set_ids))
-            if data_set_ids
-            else capabilities.LabelsAcl.Scope.All()
+        scope: capabilities.LabelsAcl.Scope.All | capabilities.LabelsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            capabilities.LabelsAcl.Scope.All()
         )
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = capabilities.LabelsAcl.Scope.DataSet(list(data_set_ids))
 
         return capabilities.LabelsAcl(
             [capabilities.LabelsAcl.Action.Read, capabilities.LabelsAcl.Action.Write],

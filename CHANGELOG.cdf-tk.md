@@ -18,11 +18,20 @@ Changes are grouped as follows:
 ## TBD
 
 ### Added
-
+- The new `cdf modules add` subcommand lets users add modules to an existing modules directory.
 - [Feature Preview] Support for resource type Hosted Extractor Source. This should be in the `hosted_extractors` folder,
   and the file needs to be suffixed with `.Source.yaml`, for example, `my_eventhub.Source.yaml`.
   [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
   fixed in a future release.
+
+### Changed
+
+- [BREAKING] The command `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`. The `init` command
+  is used to initialize the auth parameters, and the `verify` command is used to verify that required privileges are
+  set. The `init` command will by default run the `verify` command after the initialization unless a `--no-verify`
+  flag is set. In addition, the two commands have been reworked to be more user-friendly. They are now interactive
+  (no longer requires a `--interactive` flag) and have no longer supports passing in a custom Group file. Instead,
+  they are intended to only set up and verify a service principal for the Toolkit.
 
 ### Fixed
 
