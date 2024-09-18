@@ -24,7 +24,7 @@ Install the Toolkit by running:
 pip install cognite-toolkit
 ```
 
-Then run `cdf-tk --help` to get started with the interactive command-line tool.
+Then run `cdf --help` to get started with the interactive command-line tool.
 
 ## For more information
 

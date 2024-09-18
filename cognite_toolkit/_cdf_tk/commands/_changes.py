@@ -40,6 +40,19 @@ class ManualChange(Change):
         return ""
 
 
+class AuthVerifySplit(AutomaticChange):
+    """The `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`.
+
+The `cdf auth init` command initializes the authorization for a user/service principal to run the CDF Toolkit commands,
+it will by default also verify the capabilities after the initialization. Thus it replaces the `cdf auth verify` command.
+In addition, the `cdf auth verify` command will only verify the capabilities without initializing the authorization.
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
 class DeployCleanInteractiveFlagRemoved(AutomaticChange):
     """The `--interactive` flag has been removed from the `cdf deploy` and `cdf clean` commands.
     """

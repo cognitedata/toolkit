@@ -53,6 +53,10 @@ from cognite.client.data_classes import (
     SecurityCategoryList,
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
+    Sequence,
+    SequenceList,
+    SequenceWrite,
+    SequenceWriteList,
     Table,
     TableList,
     TableWrite,
@@ -111,6 +115,12 @@ from cognite.client.data_classes.data_modeling import (
     ViewList,
 )
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
+from cognite.client.data_classes.hosted_extractors import (
+    Source,
+    SourceList,
+    SourceWrite,
+    SourceWriteList,
+)
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.data_classes.transformations.notifications import (
@@ -623,6 +633,19 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="sequences",
+        resource_cls=Sequence,
+        list_cls=SequenceList,
+        _write_cls=SequenceWrite,
+        _write_list_cls=SequenceWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="workflows.triggers",
         resource_cls=WorkflowTrigger,
         list_cls=WorkflowTriggerList,
@@ -632,6 +655,19 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="get_triggers", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="hosted_extractors.sources",
+        resource_cls=Source,
+        list_cls=SourceList,
+        _write_cls=SourceWrite,
+        _write_list_cls=SourceWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),

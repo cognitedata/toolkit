@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict, load_yaml_inject_variables
 
-from .asset_loaders import AssetLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
 
@@ -41,8 +41,8 @@ class LocationFilterLoader(
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
     @classmethod
-    def get_required_capability(cls, items: LocationFilterWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: LocationFilterWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
         return LocationFiltersAcl(
