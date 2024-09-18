@@ -18,6 +18,7 @@ Changes are grouped as follows:
 ## TBD
 
 ### Added
+
 - The new `cdf modules add` subcommand lets users add modules to an existing modules directory.
 - [Feature Preview] Support for resource type Hosted Extractor Source. This should be in the `hosted_extractors` folder,
   and the file needs to be suffixed with `.Source.yaml`, for example, `my_eventhub.Source.yaml`.
