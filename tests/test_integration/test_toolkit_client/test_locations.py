@@ -1,7 +1,6 @@
-import contextlib
-
 import pytest
-from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
+from cognite.client.data_classes.data_modeling import DataModel, DataModelApply, Space, ViewId
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
@@ -42,14 +41,26 @@ def existing_location_filter(toolkit_client: ToolkitClient) -> LocationFilter:
         return created
 
 
-class TestLocationFilterAPI:
-    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient) -> None:
-        location_filter = LocationFilterWrite(
-            name="loc",
-            external_id=SESSION_EXTERNAL_ID,
-            parent_id=f"loc_par_{SESSION_EXTERNAL_ID}",
+@pytest.fixture(scope="session")
+def my_data_model(toolkit_client: ToolkitClient, toolkit_space: Space) -> DataModel:
+    data_model = toolkit_client.data_modeling.data_models.apply(
+        DataModelApply(
+            space=toolkit_space.space,
+            external_id="LocationFilterTest",
+            version="v1",
+            views=[ViewId("cdf_cdm", "CogniteTimeSeries", "v1")],
         )
-        with contextlib.suppress(CogniteAPIError):  # Should be CogniteDuplicatedError, but API throws 500 ATM
+    )
+    return data_model
+
+
+class TestLocationFilterAPI:
+    def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, my_data_model: DataModel) -> None:
+        location_filter = LocationFilterWrite(
+            name="loc", external_id=SESSION_EXTERNAL_ID, data_models=[my_data_model.as_id()]
+        )
+        created: LocationFilter | None = None
+        try:
             created = toolkit_client.location_filters.create(location_filter)
             assert isinstance(created, LocationFilter)
             assert created.as_write().dump() == location_filter.dump()
@@ -60,8 +71,14 @@ class TestLocationFilterAPI:
 
             toolkit_client.location_filters.delete(created.id)
 
-            with pytest.raises(CogniteNotFoundError):
+            with pytest.raises(CogniteAPIError):
                 toolkit_client.location_filters.retrieve(created.id)
+        finally:
+            if created:
+                try:
+                    toolkit_client.location_filters.delete(created.id)
+                except CogniteAPIError:
+                    pass
 
     def test_list_location_filters(
         self, toolkit_client: ToolkitClient, existing_location_filter: LocationFilter
