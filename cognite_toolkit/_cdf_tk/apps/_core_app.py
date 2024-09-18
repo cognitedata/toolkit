@@ -42,7 +42,7 @@ def _version_callback(value: bool) -> None:
 class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
-        self.callback(invoke_without_command=True)(self.command)
+        self.callback(invoke_without_command=True)(self.common)
         self.command()(self.build)
         self.command()(self.deploy)
         self.command()(self.clean)
@@ -175,7 +175,7 @@ class CoreApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Build configuration files from the module templates to a local build directory."""
+        """Build configuration files from the modules to the build directory."""
         ToolGlobals: Union[CDFToolConfig, None] = None
         with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
             # Remove the Error message from failing to load the config
@@ -252,6 +252,7 @@ class CoreApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
+        """Deploys the configuration files in the build directory to the CDF project."""
         cmd = DeployCommand(print_warning=True)
         include = _process_include(include)
         ToolGlobals = CDFToolConfig.from_context(ctx)
@@ -313,7 +314,7 @@ class CoreApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
+        """Cleans the resources in the build directory from the CDF project."""
         # Override cluster and project from the options/env variables
         cmd = CleanCommand(print_warning=True)
         include = _process_include(include)
