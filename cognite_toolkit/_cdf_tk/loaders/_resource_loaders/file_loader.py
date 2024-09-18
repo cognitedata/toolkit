@@ -45,8 +45,8 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
 )
 
-from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
 

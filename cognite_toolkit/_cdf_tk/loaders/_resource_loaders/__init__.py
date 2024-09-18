@@ -1,5 +1,5 @@
-from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import ContainerLoader, DataModelLoader, GraphQLLoader, NodeLoader, SpaceLoader, ViewLoader
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader

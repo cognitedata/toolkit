@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader, DataSetsLoader, FunctionScheduleLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.asset_loaders import AssetLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.robotics_loaders import (
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
