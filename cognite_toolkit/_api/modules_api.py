@@ -12,7 +12,7 @@ import typer
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._api.data_classes import _DUMMY_ENVIRONMENT, ModuleMeta, ModuleMetaList
-from cognite_toolkit._cdf import Common, clean, deploy
+from cognite_toolkit._cdf_tk.apps._core_app import Common, CoreApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH, MODULES
@@ -97,12 +97,9 @@ class ModulesAPI:
     def _create_context(self, verbose: bool) -> typer.Context:
         context = MagicMock(spec=typer.Context)
         context.obj = Common(
-            verbose=verbose,
             # This means that any variables found in an .env file will NOT override the current environment variables.
             override_env=False,
             # These are only for CLI override, they are picked up from environment or .env file or context in pyodide notebook.
-            cluster=None,
-            project=None,
             mockToolGlobals=None,
         )
         return context
@@ -117,12 +114,11 @@ class ModulesAPI:
         modules = [module] if isinstance(module, ModuleMeta) else module
         self._build(modules, verbose)
         ctx = self._create_context(verbose)
-
-        deploy(
+        app = CoreApp()
+        app.deploy(
             ctx=ctx,
             build_dir=str(self._build_dir),
             build_env_name=self._build_env,
-            interactive=False,
             drop=False,
             drop_data=False,
             dry_run=dry_run,
@@ -139,12 +135,11 @@ class ModulesAPI:
         modules = [module] if isinstance(module, ModuleMeta) else module
         self._build(modules, verbose)
         ctx = self._create_context(verbose)
-
-        clean(
+        app = CoreApp()
+        app.clean(
             ctx=ctx,
             build_dir=str(self._build_dir),
             build_env_name=self._build_env,
-            interactive=False,
             dry_run=dry_run,
             include=list(include) if include is not None else None,
         )

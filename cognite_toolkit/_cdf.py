@@ -4,11 +4,9 @@
 import contextlib
 import os
 import sys
-from collections.abc import Sequence
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, NoReturn, Optional, Union
+from typing import Annotated, NoReturn, Optional
 
 import typer
 from cognite.client.config import global_config
@@ -18,18 +16,14 @@ global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
 
 from cognite.client.data_classes.data_modeling import DataModelId, NodeId
-from dotenv import load_dotenv
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import LandingApp, ModulesApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.apps import CoreApp, LandingApp, ModulesApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     AuthCommand,
-    BuildCommand,
-    CleanCommand,
     CollectCommand,
-    DeployCommand,
     DescribeCommand,
     DumpCommand,
     FeatureFlagCommand,
@@ -37,13 +31,9 @@ from cognite_toolkit._cdf_tk.commands import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
-    ToolkitFileNotFoundError,
-    ToolkitInvalidSettingsError,
-    ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     NodeLoader,
     TransformationLoader,
 )
@@ -67,9 +57,6 @@ if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lowe
         traces_sample_rate=1.0,
     )
 
-# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
-global_config.disable_pypi_version_check = True
-global_config.silence_feature_preview_warnings = True
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -91,14 +78,13 @@ except AttributeError as e:
         f"This was triggered by the error: {e!r}"
     )
 
-_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+_app = CoreApp(**default_typer_kws)
 auth_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
-modules_app = ModulesApp(**default_typer_kws)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(auth_app, name="auth")
@@ -108,7 +94,7 @@ _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(pull_app, name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
-_app.add_typer(modules_app, name="modules")
+_app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
 
 
@@ -165,341 +151,6 @@ def app() -> NoReturn:
         raise SystemExit(1)
 
     raise SystemExit(0)
-
-
-_AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
-
-
-# Common parameters handled in common callback
-@dataclass
-class Common:
-    override_env: bool
-    verbose: bool
-    cluster: Union[str, None]
-    project: Union[str, None]
-    mockToolGlobals: Union[CDFToolConfig, None]
-
-
-def _version_callback(value: bool) -> None:
-    if value:
-        typer.echo(f"CDF-Toolkit version: {current_version}.")
-        raise typer.Exit()
-
-
-@_app.callback(invoke_without_command=True)
-def common(
-    ctx: typer.Context,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            help="Turn on to get more verbose output when running the commands",
-        ),
-    ] = False,
-    override_env: Annotated[
-        bool,
-        typer.Option(
-            help="Load the .env file in this or the parent directory, but also override currently set environment variables",
-        ),
-    ] = False,
-    env_path: Annotated[
-        Optional[str],
-        typer.Option(
-            help="Path to .env file to load. Defaults to .env in current or parent directory.",
-        ),
-    ] = None,
-    version: Annotated[
-        bool,
-        typer.Option(
-            "--version",
-            help="See which version of the tooklit and the templates are installed.",
-            callback=_version_callback,
-        ),
-    ] = False,
-) -> None:
-    """
-    Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
-    Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
-    """
-    if ctx.invoked_subcommand is None:
-        print(
-            Panel(
-                "\n".join(
-                    [
-                        "The Cognite Data Fusion Toolkit supports configuration of CDF projects from the command line or in CI/CD pipelines.",
-                        "",
-                        "[bold]Setup:[/]",
-                        "1. Run [underline]cdf repo init[/] [italic]<directory name>[/] to set up a work directory.",
-                        "2. Run [underline]cdf modules init[/] [italic]<directory name>[/] to initialise configuration modules.",
-                        "",
-                        "[bold]Configuration steps:[/]",
-                        "3. Run [underline]cdf build[/] [italic]<directory name>[/] to verify the configuration for your project. Repeat for as many times as needed.",
-                        "   Tip:[underline]cdf modules list[/] [italic]<directory name>[/] gives an overview of all your modules and their status.",
-                        "",
-                        "[bold]Deployment steps:[/]",
-                        "4. Commit the [italic]<directory name>[/] to version control",
-                        "5. Run [underline]cdf auth verify --interactive[/] to check that you have access to the relevant CDF project. ",
-                        "    or [underline]cdf auth verify[/] if you have a .env file",
-                        "6. Run [underline]cdf deploy --dry-run[/] to simulate the deployment of the configuration to the CDF project. Review the report provided.",
-                        "7. Run [underline]cdf deploy[/] to deploy the configuration to the CDF project.",
-                    ]
-                ),
-                title="Getting started",
-                style="green",
-                padding=(1, 2),
-            )
-        )
-        return
-    if override_env:
-        print("  [bold yellow]WARNING:[/] Overriding environment variables with values from .env file...")
-
-    if env_path is not None:
-        if not (dotenv_file := Path(env_path)).is_file():
-            raise ToolkitFileNotFoundError(env_path)
-
-    else:
-        if not (dotenv_file := Path.cwd() / ".env").is_file():
-            if not (dotenv_file := Path.cwd().parent / ".env").is_file():
-                print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
-
-    if dotenv_file.is_file():
-        if verbose:
-            try:
-                path_str = dotenv_file.relative_to(Path.cwd())
-            except ValueError:
-                path_str = dotenv_file.absolute()
-            print(f"Loading .env file: {path_str!s}.")
-        has_loaded = load_dotenv(dotenv_file, override=override_env)
-        if not has_loaded:
-            print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
-
-    ctx.obj = Common(
-        verbose=verbose,
-        override_env=override_env,
-        cluster=None,
-        project=None,
-        mockToolGlobals=None,
-    )
-
-
-@_app.command("build")
-def build(
-    ctx: typer.Context,
-    organization_dir: Annotated[
-        Path,
-        typer.Option(
-            "--organization-dir",
-            "-o",
-            help="Where to find the module templates to build from",
-        ),
-    ] = CDF_TOML.cdf.default_organization_dir,
-    build_dir: Annotated[
-        str,
-        typer.Option(
-            "--build-dir",
-            "-b",
-            help="Where to save the built module files",
-        ),
-    ] = "./build",
-    build_env_name: Annotated[
-        str,
-        typer.Option(
-            "--env",
-            "-e",
-            help="The name of the environment to build",
-        ),
-    ] = CDF_TOML.cdf.default_env,
-    no_clean: Annotated[
-        bool,
-        typer.Option(
-            "--no-clean",
-            "-c",
-            help="Whether not to delete the build directory before building the configurations",
-        ),
-    ] = False,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """Build configuration files from the module templates to a local build directory."""
-    ToolGlobals: Union[CDFToolConfig, None] = None
-    with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
-        # Remove the Error message from failing to load the config
-        # This is verified in check_auth
-        ToolGlobals = CDFToolConfig()
-
-    cmd = BuildCommand()
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk build --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            verbose or ctx.obj.verbose,
-            Path(organization_dir),
-            Path(build_dir),
-            build_env_name,
-            no_clean,
-            ToolGlobals,
-        )
-    )
-
-
-@_app.command("deploy")
-def deploy(
-    ctx: typer.Context,
-    build_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Where to find the module templates to deploy from. Defaults to current directory.",
-            allow_dash=True,
-        ),
-    ] = "./build",
-    build_env_name: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env",
-            "-e",
-            help="CDF project environment to use for deployment. This is optional and "
-            "if passed it is used to verify against the build environment",
-        ),
-    ] = None,
-    interactive: Annotated[
-        bool,
-        typer.Option(
-            "--interactive",
-            "-i",
-            help="Whether to use interactive mode when deciding which modules to deploy.",
-        ),
-    ] = False,
-    drop: Annotated[
-        bool,
-        typer.Option(
-            "--drop",
-            "-d",
-            help="Whether to drop existing configurations, drop per resource if present.",
-        ),
-    ] = False,
-    drop_data: Annotated[
-        bool,
-        typer.Option(
-            "--drop-data",
-            help="Whether to drop existing data in data model containers and spaces.",
-        ),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    include: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "--include",
-            help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
-        ),
-    ] = None,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    cmd = DeployCommand(print_warning=True)
-    include = _process_include(include, interactive)
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk deploy --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            ToolGlobals,
-            build_dir,
-            build_env_name,
-            dry_run,
-            drop,
-            drop_data,
-            include,
-            verbose or ctx.obj.verbose,
-        )
-    )
-
-
-@_app.command("clean")
-def clean(
-    ctx: typer.Context,
-    build_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Where to find the module templates to clean from. Defaults to ./build directory.",
-            allow_dash=True,
-        ),
-    ] = "./build",
-    build_env_name: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env",
-            "-e",
-            help="CDF project environment to use for cleaning. This is optional and "
-            "if passed it is used to verify against the build environment",
-        ),
-    ] = None,
-    interactive: Annotated[
-        bool,
-        typer.Option(
-            "--interactive",
-            "-i",
-            help="Whether to use interactive mode when deciding which resource types to clean.",
-        ),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present",
-        ),
-    ] = False,
-    include: Annotated[
-        Optional[list[str]],
-        typer.Option(
-            "--include",
-            help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
-        ),
-    ] = None,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """Clean up a CDF environment as set in environments.yaml restricted to the entities in the configuration files in the build directory."""
-    # Override cluster and project from the options/env variables
-    cmd = CleanCommand(print_warning=True)
-    include = _process_include(include, interactive)
-    ToolGlobals = CDFToolConfig.from_context(ctx)
-    if ctx.obj.verbose:
-        print(ToolkitDeprecationWarning("cdf-tk --verbose", "cdf-tk clean --verbose").get_message())
-    cmd.run(
-        lambda: cmd.execute(
-            ToolGlobals,
-            build_dir,
-            build_env_name,
-            dry_run,
-            include,
-            verbose or ctx.obj.verbose,
-        )
-    )
 
 
 @_app.command("collect", hidden=True)
@@ -1079,36 +730,6 @@ def user_info() -> None:
     """Print information about user"""
     tracker = Tracker()
     print(f"ID={tracker.get_distinct_id()!r}\nnow={datetime.now(timezone.utc).isoformat(timespec='seconds')!r}")
-
-
-def _process_include(include: Optional[list[str]], interactive: bool) -> list[str]:
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        raise ToolkitValidationError(
-            f"Invalid resource types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    if interactive:
-        include = _select_data_types(include)
-    return include
-
-
-def _select_data_types(include: Sequence[str]) -> list[str]:
-    mapping: dict[int, str] = {}
-    for i, datatype in enumerate(include):
-        print(f"[bold]{i})[/] {datatype}")
-        mapping[i] = datatype
-    print("\na) All")
-    print("q) Quit")
-    answer = input("Select resource types to include: ")
-    if answer.casefold() == "a":
-        return list(include)
-    elif answer.casefold() == "q":
-        raise SystemExit(0)
-    else:
-        try:
-            return [mapping[int(answer)]]
-        except ValueError:
-            raise ToolkitInvalidSettingsError(f"Invalid selection: {answer}")
 
 
 if __name__ == "__main__":
