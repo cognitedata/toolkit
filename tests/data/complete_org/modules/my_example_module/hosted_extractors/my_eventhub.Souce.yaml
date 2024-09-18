@@ -1,0 +1,6 @@
+type: eventhub
+externalId: my_eventhub
+host: my_eventhub
+eventHubName: The name of the event hub
+keyName: The name of the key
+keyValue: SuperSecretKeyValue
