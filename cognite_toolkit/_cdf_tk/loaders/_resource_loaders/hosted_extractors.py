@@ -20,8 +20,8 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     list_cls = SourceList
     list_write_cls = SourceWriteList
     kind = "Source"
-    _doc_base_url: str = "https://api-docs.cognite.com/20230101-alpha/tag/"
-    _doc_url = "HostedExtractors/operation/createSource"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
+    _doc_url = "Sources/operation/create_sources"
 
     @property
     def display_name(self) -> str:
@@ -76,6 +76,8 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         self, local: SourceWrite, cdf_resource: Source, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
+        # Source does not have .as_write method as there are secrets in the write object
+        # which are not returned by the API.
         cdf_dumped = cdf_resource.dump()
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
