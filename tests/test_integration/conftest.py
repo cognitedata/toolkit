@@ -3,6 +3,7 @@ import os
 import pytest
 from cognite.client import ClientConfig, CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -45,3 +46,8 @@ def toolkit_client(cognite_client: CogniteClient) -> ToolkitClient:
 @pytest.fixture(scope="session")
 def cdf_tool_config(cognite_client: CogniteClient) -> CDFToolConfig:
     return CDFToolConfig()
+
+
+@pytest.fixture(scope="session")
+def toolkit_space(cognite_client: CogniteClient) -> Space:
+    return cognite_client.data_modeling.spaces.apply(SpaceApply(space="toolkit_test_space"))
