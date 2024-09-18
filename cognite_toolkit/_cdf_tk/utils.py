@@ -581,7 +581,7 @@ class CDFToolConfig:
         if ctx.obj.mockToolGlobals is not None:
             return ctx.obj.mockToolGlobals
         else:
-            return CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+            return CDFToolConfig()
 
     def environment_variables(self) -> dict[str, str | None]:
         return {**self._environ.copy(), **os.environ}

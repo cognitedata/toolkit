@@ -10,7 +10,8 @@ from cognite.client.data_classes import GroupWrite, Transformation, Transformati
 from pytest import MonkeyPatch
 from typer import Context
 
-from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf import dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.apps import CoreApp
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
@@ -46,19 +47,18 @@ def test_inject_custom_environmental_variables(
         monkeypatch,
     )
     monkeypatch.setenv("MY_ENVIRONMENT_VARIABLE", "my_environment_variable_value")
-
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
         organization_dir=organization_dir,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
-    deploy(
+    app.deploy(
         typer_context,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
-        interactive=False,
         drop=True,
         dry_run=False,
         include=[],
@@ -272,9 +272,10 @@ def test_build_custom_project(
         "transformations",
         "robotics",
     }
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
+        organization_dir=PROJECT_NO_COGNITE_MODULES,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -294,9 +295,10 @@ def test_build_project_selecting_parent_path(
     typer_context: Context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_FOR_TEST),
+        organization_dir=PROJECT_FOR_TEST,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
@@ -315,11 +317,11 @@ def test_deploy_group_with_unknown_acl(
     typer_context: Context,
     toolkit_client_approval: ApprovalToolkitClient,
 ) -> None:
-    deploy(
+    app = CoreApp()
+    app.deploy(
         typer_context,
         build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
         build_env_name="dev",
-        interactive=False,
         drop=False,
         dry_run=False,
         include=None,
@@ -343,9 +345,10 @@ def test_build_project_with_only_top_level_variables(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
+        organization_dir=PROJECT_NO_COGNITE_MODULES,
         build_dir=str(build_tmp_path),
         build_env_name="top_level_variables",
         no_clean=False,

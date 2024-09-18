@@ -53,6 +53,35 @@ In addition, the `cdf auth verify` command will only verify the capabilities wit
     has_file_changes = False
 
 
+class DeployCleanInteractiveFlagRemoved(AutomaticChange):
+    """The `--interactive` flag has been removed from the `cdf deploy` and `cdf clean` commands.
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
+class SharedVerboseFlagRemoved(AutomaticChange):
+    """The shared `--verbose` flag been removed. Now each command has its own `--verbose` flag.
+
+For example, before:
+```bash
+    cdf --verbose deploy
+```
+
+After:
+```bash
+    cdf deploy --verbose
+```
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
+
 class RenamedOrganizationDirInCDFToml(AutomaticChange):
     """In the cdf.toml file, the 'organization_dir' field in the 'cdf' section has been renamed to
 'default_organization_dir'.

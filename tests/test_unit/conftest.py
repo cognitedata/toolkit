@@ -10,7 +10,7 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import Common
+from cognite_toolkit._cdf_tk.apps._core_app import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -118,10 +118,7 @@ def cdf_tool_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: M
 def typer_context(cdf_tool_mock: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
-        verbose=False,
         override_env=True,
-        cluster="pytest",
-        project="pytest-project",
         mockToolGlobals=cdf_tool_mock,
     )
     return context
@@ -130,9 +127,7 @@ def typer_context(cdf_tool_mock: CDFToolConfig) -> typer.Context:
 @pytest.fixture(scope="session")
 def typer_context_without_cdf_tool() -> typer.Context:
     context = MagicMock(spec=typer.Context)
-    context.obj = Common(
-        verbose=False, override_env=True, cluster="pytest", project="pytest-project", mockToolGlobals=None
-    )
+    context.obj = Common(override_env=True, mockToolGlobals=None)
     return context
 
 
