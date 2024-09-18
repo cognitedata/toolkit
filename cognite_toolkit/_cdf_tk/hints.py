@@ -65,22 +65,29 @@ class ModuleDefinition(Hint):
         return cls._to_hint(lines)
 
 
-def verify_module_directory(organization_dir: Path, build_env_name: str) -> None:
+def verify_module_directory(organization_dir: Path, build_env_name: str | None) -> None:
     from .data_classes import BuildConfigYAML
 
-    config_file = BuildConfigYAML.get_filename(build_env_name)
+    config_file = BuildConfigYAML.get_filename(build_env_name or "MISSING")
 
     if organization_dir != Path.cwd():
+        if build_env_name:
+            content = f"  ┣ {MODULES}/\n" f"  ┗ {config_file}\n"
+        else:
+            content = f"  ┗ {MODULES}\n"
+
         panel = Panel(
-            f"Toolkit expects the following structure:\n"
-            f"{organization_dir!s}/\n"
-            f"  ┣ {MODULES}/\n"
-            f"  ┗ {config_file}\n",
+            f"Toolkit expects the following structure:\n" f"{organization_dir!s}/\n{content}",
             expand=False,
         )
     else:
+        if build_env_name:
+            content = f"\n  {MODULES}/\n  {config_file}\n"
+        else:
+            content = f"\n  {MODULES}\n"
+
         panel = Panel(
-            f"Toolkit expects the following structure:\n" f"  {MODULES}/\n" f"  {config_file}\n",
+            f"Toolkit expects the following structure:{content}",
             expand=False,
         )
     if not organization_dir.is_dir():
@@ -91,13 +98,16 @@ def verify_module_directory(organization_dir: Path, build_env_name: str) -> None
         module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
     ]
     config_path = organization_dir / config_file
-    if root_modules and config_path.is_file():
+    if root_modules and config_path.is_file() and build_env_name is not None:
         return
-    if root_modules or config_path.is_file():
+    if root_modules or (config_path.is_file() or build_env_name is None):
         print(panel)
         if not root_modules:
             raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")
-        raise ToolkitFileNotFoundError(f"Could not find the {config_path.as_posix()!r} file.")
+        if build_env_name is None:
+            return
+        else:
+            raise ToolkitFileNotFoundError(f"Could not find the {config_path.as_posix()!r} file.")
 
     # Search for the modules directory
     candidate_org = next(

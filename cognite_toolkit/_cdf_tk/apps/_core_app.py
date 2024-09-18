@@ -158,7 +158,7 @@ class CoreApp(typer.Typer):
             ),
         ] = None,
         build_env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",
