@@ -45,8 +45,8 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
 )
 
-from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
 
@@ -71,12 +71,13 @@ class FileMetadataLoader(
         return "file_metadata"
 
     @classmethod
-    def get_required_capability(cls, items: FileMetadataWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: FileMetadataWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = FilesAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else FilesAcl.Scope.All()
+        scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = FilesAcl.Scope.DataSet(list(data_set_ids))
 
         return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)  # type: ignore[arg-type]
 

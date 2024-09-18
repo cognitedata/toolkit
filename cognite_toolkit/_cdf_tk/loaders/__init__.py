@@ -32,11 +32,13 @@ from ._resource_loaders import (
     GroupAllScopedLoader,
     GroupLoader,
     GroupResourceScopedLoader,
+    HostedExtractorSourceLoader,
     LabelLoader,
     LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
+    SequenceLoader,
     SpaceLoader,
     TimeSeriesLoader,
     TransformationLoader,
@@ -52,9 +54,11 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeAlias
 
-_EXCLUDED_LOADERS = set()
+_EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
+if not FeatureFlag.is_enabled(Flags.HOSTED_EXTRACTORS):
+    _EXCLUDED_LOADERS.add(HostedExtractorSourceLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -82,6 +86,7 @@ ResourceTypes: TypeAlias = Literal[
     "classic",
     "data_models",
     "data_sets",
+    "hosted_extractors",
     "locations",
     "transformations",
     "files",
@@ -107,6 +112,7 @@ __all__ = [
     "GroupAllScopedLoader",
     "GroupResourceScopedLoader",
     "NodeLoader",
+    "SequenceLoader",
     "DataModelLoader",
     "DataSetsLoader",
     "SpaceLoader",
@@ -135,6 +141,7 @@ __all__ = [
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "HostedExtractorSourceLoader",
     "get_loader",
     "LOADER_BY_FOLDER_NAME",
     "LOADER_LIST",

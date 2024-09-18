@@ -63,8 +63,12 @@ def mock_read_yaml_file(
         return read_yaml_file(filepath, expected_output)
 
     def fake_load_yaml_inject_variables(
-        filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+        filepath: Path | str,
+        variables: dict[str, str | None],
+        required_return_type: Literal["any", "list", "dict"] = "any",
     ) -> dict[str, Any] | list[dict[str, Any]]:
+        if isinstance(filepath, str):
+            return load_yaml_inject_variables(filepath, variables, required_return_type)
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = load_yaml_inject_variables(filepath, variables, required_return_type)
@@ -82,7 +86,7 @@ def mock_read_yaml_file(
         "cognite_toolkit._cdf_tk.loaders._base_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     for module in [
-        "asset_loaders",
+        "classic_loaders",
         "auth_loaders",
         "data_organization_loaders",
         "datamodel_loaders",
@@ -169,6 +173,13 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
+        if is_abstract:
+            subclasses = all_concrete_subclasses(resource_cls)
+            if not subclasses:
+                raise ValueError(f"Cannot create instance of abstract class {resource_cls.__name__}")
+            resource_cls = self._random.choice(subclasses)
+
         signature = inspect.signature(resource_cls.__init__)
         type_hint_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
 

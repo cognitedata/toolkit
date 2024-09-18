@@ -63,8 +63,8 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MapWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: MapWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [
@@ -124,8 +124,8 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: FrameWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: FrameWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [
@@ -185,8 +185,8 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: LocationWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: LocationWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [
@@ -250,8 +250,8 @@ class RoboticsDataPostProcessingLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: DataPostProcessingWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: DataPostProcessingWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [
@@ -325,8 +325,8 @@ class RobotCapabilityLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: RobotCapabilityWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: RobotCapabilityWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
             [

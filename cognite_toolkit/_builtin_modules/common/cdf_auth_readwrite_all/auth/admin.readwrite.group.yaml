@@ -141,3 +141,9 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - sequencesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}

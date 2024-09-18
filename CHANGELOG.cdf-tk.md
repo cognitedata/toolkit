@@ -15,6 +15,40 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a5] - 2024-09-18
+
+### Added
+
+- The new `cdf modules add` subcommand lets users add modules to an existing modules directory.
+- [Feature Preview] Support for resource type Hosted Extractor Source. This should be in the `hosted_extractors` folder,
+  and the file needs to be suffixed with `.Source.yaml`, for example, `my_eventhub.Source.yaml`.
+  [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
+  fixed in a future release.
+- Added support for resource type `Sequence` in the `classic` folder.
+
+### Changed
+
+- [BREAKING] The command `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`. The `init` command
+  is used to initialize the auth parameters, and the `verify` command is used to verify that required privileges are
+  set. The `init` command will by default run the `verify` command after the initialization unless a `--no-verify`
+  flag is set. In addition, the two commands have been reworked to be more user-friendly. They are now interactive
+  (no longer requires a `--interactive` flag) and have no longer supports passing in a custom Group file. Instead,
+  they are intended to only set up and verify a service principal for the Toolkit.
+
+### Fixed
+
+- The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
+  typically an object/dict, which caused loss of information. This is because
+  `yaml.safe_dump(yaml.safe_load(config)) != config` as, for example, special YAML tags are lost.
+- Deploying a `LocationFilter` with a data model no longer returns a `400` error.
+
+### Removed
+
+- The `--interactive` flag from the `cdf deploy` and `cdf clean` commands.
+- The shared flags `--verbose`. This has been deprecated and has been replaced by `--verbose` on each individual
+  command. For example, before you could write `cdf --verbose build --env dev`, now you should write
+  `cdf build --env dev --verbose`.
+
 ## [0.3.0a4] - 2024-09-13
 
 ### Added

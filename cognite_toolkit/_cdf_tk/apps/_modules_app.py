@@ -18,6 +18,7 @@ class ModulesApp(typer.Typer):
         self.command()(self.init)
         self.command()(self.upgrade)
         self.command()(self.list)
+        self.command()(self.add)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
@@ -76,6 +77,20 @@ class ModulesApp(typer.Typer):
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
+
+    def add(
+        self,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Path to project directory with the modules. This is used to search for available functions.",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+    ) -> None:
+        cmd = ModulesCommand()
+        cmd.run(lambda: cmd.add(organization_dir=organization_dir))
 
     def list(
         self,
