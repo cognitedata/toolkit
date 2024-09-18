@@ -42,18 +42,31 @@
       "justMyCode": false
     },
     {
-      "name": "Python: deploy --dry-run",
+      "name": "cdf modules init",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "deploy",
-        "--dry-run",
-        //"--drop",
-        //"--drop-data",
-        "--env=local",
-        //"--include=transformations",
-        "./build"
+        "--verbose",
+        "--override-env",
+        "modules",
+        "init",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf modules add",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "--verbose",
+        "--override-env",
+        "modules",
+        "add",
+        "-o", 
+        "acme"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

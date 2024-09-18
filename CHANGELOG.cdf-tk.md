@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- The new `cdf modules add` subcommand lets users add modules to an existing modules directory.
+
 ### Fixed
 
 - The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
