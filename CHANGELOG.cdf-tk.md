@@ -24,6 +24,7 @@ Changes are grouped as follows:
   and the file needs to be suffixed with `.Source.yaml`, for example, `my_eventhub.Source.yaml`.
   [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
   fixed in a future release.
+- Added support for resource type `Sequence` in the `classic` folder.
 
 ### Changed
 

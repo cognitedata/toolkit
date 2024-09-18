@@ -58,6 +58,19 @@ LabelDefinition:
   name: Pump
 SecurityCategory:
 - name: sc_demo_category
+Sequence:
+- columns:
+  - description: Epoch time
+    externalId: mySequenceTime
+    name: Time
+    valueType: Double
+  - description: The value of the sequence
+    externalId: mySequenceValue
+    name: value
+    valueType: Double
+  description: A sequence of numbers
+  externalId: mySequence
+  name: mySequence
 Source:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
