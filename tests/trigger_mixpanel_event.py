@@ -69,4 +69,5 @@ DEMO_MODULE = BuiltModule(
 )
 
 if __name__ == "__main__":
-    track_module_build()
+    # track_module_build()
+    track_cli_command()

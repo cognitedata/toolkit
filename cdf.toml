@@ -14,6 +14,9 @@ import-cmd = true
 modules-app = true
 hosted-extractors = true
 
+[plugins]
+null = true
+
 [modules]
 # This is the version of the modules. It should not be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
