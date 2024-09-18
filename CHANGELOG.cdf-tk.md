@@ -45,7 +45,7 @@ Changes are grouped as follows:
 
 - The `--interactive` flag from the `cdf deploy` and `cdf clean` commands.
 - The shared flags `--verbose`. This has been deprecated and has been replaced by `--verbose` on each individual
-  command. For example, before you could write `cdf --vebose build --env dev`, now you should write
+  command. For example, before you could write `cdf --verbose build --env dev`, now you should write
   `cdf build --env dev --verbose`.
 
 ## [0.3.0a4] - 2024-09-13
