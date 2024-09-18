@@ -14,7 +14,7 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import build, clean, deploy
+from cognite_toolkit._cdf_tk.apps._core_app import CoreApp
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
 from tests.data import COMPLETE_ORG
@@ -64,19 +64,19 @@ def test_build_deploy_module(
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
+    app = CoreApp()
 
-    build(
+    app.build(
         typer_context,
         organization_dir=organization_dir,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
-    deploy(
+    app.deploy(
         typer_context,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
-        interactive=False,
         drop=True,
         dry_run=False,
         include=[],
@@ -110,18 +110,18 @@ def test_build_deploy_with_dry_run(
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
         organization_dir=organization_dir,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
-    deploy(
+    app.deploy(
         typer_context,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
-        interactive=False,
         drop=True,
         dry_run=True,
         include=[],
@@ -146,18 +146,18 @@ def test_init_build_clean(
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
         organization_dir=organization_dir,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
-    clean(
+    app.clean(
         typer_context,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
-        interactive=False,
         dry_run=False,
         include=[],
     )
@@ -179,18 +179,18 @@ def test_build_deploy_complete_org(
     typer_context: typer.Context,
     data_regression,
 ) -> None:
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
         organization_dir=COMPLETE_ORG,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
         no_clean=False,
     )
-    deploy(
+    app.deploy(
         typer_context,
         build_dir=str(build_tmp_path),
         build_env_name="dev",
-        interactive=False,
         drop=True,
         dry_run=False,
         include=[],
