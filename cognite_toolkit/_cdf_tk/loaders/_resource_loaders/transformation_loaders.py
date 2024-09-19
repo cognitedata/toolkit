@@ -267,7 +267,7 @@ class TransformationLoader(
         return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: TransformationWriteList) -> TransformationList:
-        return self.client.transformations.update(items)
+        return self.client.transformations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -387,7 +387,7 @@ class TransformationScheduleLoader(
         return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
-        return self.client.transformations.schedules.update(items)
+        return self.client.transformations.schedules.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         try:
