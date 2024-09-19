@@ -100,8 +100,6 @@ class CDFToml:
             return cls(
                 cdf=CLIConfig(cwd),
                 modules=ModulesConfig.load({"version": _version.__version__}),
-                feature_flags={},
-                plugins={},
                 is_loaded_from_file=False,
             )
 
