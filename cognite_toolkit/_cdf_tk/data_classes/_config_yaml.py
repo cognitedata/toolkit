@@ -278,7 +278,7 @@ class BuildEnvironment(Environment):
         for file, hash_ in self.hash_by_source_file.items():
             if file.suffix in {".csv", ".parquet"}:
                 # When we copy over the source files we use utf-8 encoding, which can change the file hash.
-                # Thus we skip checking the hash for these file types.
+                # Thus, we skip checking the hash for these file types.
                 continue
 
             if not file.exists():

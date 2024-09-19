@@ -125,10 +125,6 @@ class BuildCommand(ToolkitCommand):
         verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
-        if not cdf_toml.is_loaded_from_file:
-            raise ToolkitError(
-                "No 'cdf.toml' file found in the current directory. Please run 'cdf repo init' to create it"
-            )
 
         config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
 
