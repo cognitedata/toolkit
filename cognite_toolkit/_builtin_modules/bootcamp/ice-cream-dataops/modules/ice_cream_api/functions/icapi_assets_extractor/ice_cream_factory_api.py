@@ -1,6 +1,6 @@
 from typing import Dict, Union
 
-from requests import adapters, Response, Session
+from requests import Response, Session, adapters
 
 
 class IceCreamFactoryAPI:
@@ -32,6 +32,6 @@ class IceCreamFactoryAPI:
         """
         Get a dataframe for all sites from the Ice Cream API's site/{city}/csv endpoint
         """
-        response = self.get_response(headers={}, url_suffix=f"site/all/csv")
+        response = self.get_response(headers={}, url_suffix="site/all/csv")
 
         return response.text

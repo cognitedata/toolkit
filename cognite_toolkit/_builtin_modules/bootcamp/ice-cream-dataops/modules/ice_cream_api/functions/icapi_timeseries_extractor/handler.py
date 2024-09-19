@@ -1,10 +1,8 @@
-from typing import Dict
 from threading import Event
 
 from cognite.client import CogniteClient
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.statestore import AbstractStateStore
-
 from config import Config
 from ice_cream_factory_api import IceCreamFactoryAPI
 
@@ -21,7 +19,7 @@ def run_extractor(
     if not data_set:
         stop_event.set()
         print(f"Data set {config.extractor.data_set_ext_id} not found")
-    
+
     for ts in time_series:
         ts.data_set_id = data_set.id
 
@@ -42,6 +40,6 @@ def handle(client: CogniteClient = None, data = None):
         run_handle=run_extractor,
     ) as extractor:
         extractor.run()
-    
+
 if __name__ == "__main__":
     handle()

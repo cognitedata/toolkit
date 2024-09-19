@@ -1,10 +1,8 @@
 from typing import Dict, Union
 
-from cognite.client.data_classes import TimeSeries
 import orjson
-from requests import adapters
-from requests import Response
-from requests import Session
+from cognite.client.data_classes import TimeSeries
+from requests import Response, Session, adapters
 
 
 class IceCreamFactoryAPI:
@@ -39,7 +37,7 @@ class IceCreamFactoryAPI:
         response = self.get_response(headers={}, url_suffix="timeseries/oee")
 
         timeseries = orjson.loads(response.content)
-        
+
         timeseries = [TimeSeries(**ts) for ts in timeseries]
 
         return timeseries

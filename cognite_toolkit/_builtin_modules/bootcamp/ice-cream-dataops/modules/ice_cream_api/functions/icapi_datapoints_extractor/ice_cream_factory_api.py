@@ -1,7 +1,7 @@
 from typing import Dict, Union
 
 import orjson
-from requests import adapters, Response, Session
+from requests import Response, Session, adapters
 
 
 class IceCreamFactoryAPI:

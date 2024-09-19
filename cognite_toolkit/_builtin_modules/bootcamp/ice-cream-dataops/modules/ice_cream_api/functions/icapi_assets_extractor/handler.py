@@ -1,11 +1,10 @@
 from io import StringIO
 from threading import Event
 
+import pandas
 from cognite.client import CogniteClient
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.statestore import AbstractStateStore
-import pandas
-
 from config import Config
 from ice_cream_factory_api import IceCreamFactoryAPI
 
@@ -21,7 +20,7 @@ def run_extractor(
         sep=",",
         usecols=["name", "external_id", "description", "metadata", "parent_external_id"]
     )
-    
+
     client.raw.rows.insert_dataframe(
         dataframe=sites_df,
         db_name=config.extractor.dest.database,

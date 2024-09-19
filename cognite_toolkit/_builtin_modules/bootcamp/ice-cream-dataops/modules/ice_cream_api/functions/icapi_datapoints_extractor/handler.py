@@ -1,13 +1,12 @@
+import os
 from ast import literal_eval
 from datetime import datetime, timedelta, timezone
-import os
 from threading import Event
 
 from cognite.client import CogniteClient
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.statestore import AbstractStateStore
 from cognite.extractorutils.uploader import TimeSeriesUploadQueue
-
 from config import Config
 from ice_cream_factory_api import IceCreamFactoryAPI
 
@@ -38,9 +37,9 @@ def run_extractor(
 
     now = datetime.now(timezone.utc).timestamp() * 1000
     increment = timedelta(seconds=7200).total_seconds() * 1000
-    
+
     ice_cream_api = IceCreamFactoryAPI(base_url=config.extractor.api_url)
-    
+
     upload_queue = TimeSeriesUploadQueue(
         client,
         post_upload_function=states.post_upload_handler(),
@@ -49,7 +48,7 @@ def run_extractor(
         thread_name="Timeseries Upload Queue",
     )
 
-    for site in config.extractor.sites:       
+    for site in config.extractor.sites:
         print(f"Getting TimeSeries for {site}")
         time_series = get_timeseries_for_site(client, site, config)
 
@@ -66,7 +65,7 @@ def run_extractor(
         for ts in time_series:
             # figure out the window of datapoints to pull
             if not config.extractor.backfill:
-                latest = latest_dps[ts.external_id][0] if ts.external_id in latest_dps and latest_dps[ts.external_id] else None
+                latest = latest_dps[ts.external_id][0] if latest_dps.get(ts.external_id) else None
                 start = latest if latest else now - increment
             else:
                 start = now - timedelta(hours=config.extractor.hours).total_seconds() * 1000
