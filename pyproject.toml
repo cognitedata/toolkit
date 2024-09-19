@@ -43,7 +43,7 @@ twine = "^5.0.0"
 toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^5.0.0"
-setuptools = "^74.0.0"
+setuptools = "^75.0.0"
 fastparquet = "^2024.5.0"
 
 [tool.poetry.scripts]

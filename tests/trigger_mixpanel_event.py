@@ -23,6 +23,10 @@ def track_cli_command() -> None:
         # To ensure that cdf.toml is loaded correctly
         _ = CDFToml.load()
         tracker = Tracker()
+        # This is overwriting opt-out status, for testing purposes only
+        tracker._opt_status = "opted-in"
+        tracker.skip_tracking = False
+
         is_sent = tracker.track_cli_command(WarningList([]), "Success", "test")
         if is_sent:
             print("Event sent")
