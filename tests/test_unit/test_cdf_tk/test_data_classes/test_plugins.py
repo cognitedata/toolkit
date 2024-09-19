@@ -14,7 +14,9 @@ def non_singleton_cdf_toml() -> None:
 
 class TestPlugins:
     def test_list_all(self) -> None:
-        assert len(Plugins.list()) == 2
+        plugins = Plugins.list()
+        assert "graphql" in plugins
+        assert "dump" in plugins
 
     def test_plugin_disabled(self) -> None:
         assert not Plugin.is_enabled(Plugins.dump)

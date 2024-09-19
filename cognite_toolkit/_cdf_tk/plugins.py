@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import clean_name
 
 
 @dataclass
@@ -13,8 +14,7 @@ class Plugin:
 
     @staticmethod
     def is_enabled(plugin: Plugin) -> bool:
-        user_settings = CDFToml.load()
-        return user_settings.plugins.get(plugin.name, False)
+        return CDFToml.load().plugins.get(clean_name(plugin.name), False)
 
 
 class Plugins(Enum):
