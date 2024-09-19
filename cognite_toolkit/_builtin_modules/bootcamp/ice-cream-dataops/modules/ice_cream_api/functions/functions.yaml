@@ -1,0 +1,15 @@
+- name: Ice Cream API Assets Extractor
+  externalId: icapi_assets_extractor
+  owner: Bootcamp Team
+  description: Extracts Asset data from the Ice Cream API
+  metadata:
+    version: "1.0"
+  runtime: py311
+  functionPath: ./handler.py
+  envVars:
+    CDF_PROJECT: {{ CDF_PROJECT }}
+    CDF_URL: {{ CDF_URL }}
+    IDP_TENANT_ID: {{ IDP_TENANT_ID }}
+    IDP_CLIENT_ID: {{ icapi_extractors_client_id }}
+    IDP_CLIENT_SECRET: {{ icapi_extractors_client_secret }}
+    IDP_SCOPES: {{ IDP_SCOPES }}
