@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.0a5] - 2024-09-18
 
 ### Added
 
@@ -42,6 +42,7 @@ Changes are grouped as follows:
 - The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
   typically an object/dict, which caused loss of information. This is because
   `yaml.safe_dump(yaml.safe_load(config)) != config` as, for example, special YAML tags are lost.
+- Deploying a `LocationFilter` with a data model no longer returns a `400` error.
 
 ### Removed
 
