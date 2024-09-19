@@ -1,18 +1,27 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import Enum
-from functools import lru_cache
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 
-class Plugins(Enum):
-    NULL = (0,)
-    GRAPHQL = (1,)
-
-
+@dataclass
 class Plugin:
+    name: str
+    description: str
+
     @staticmethod
-    @lru_cache(typed=True)
-    def is_enabled(plugin: Plugins) -> bool:
-        return CDFToml.load().plugins.get(str(plugin), False)
+    def is_enabled(plugin: Plugin) -> bool:
+        user_settings = CDFToml.load()
+        return user_settings.plugins.get(plugin.name, False)
+
+
+class Plugins(Enum):
+    dump = Plugin("dump_assets", "plugin for Dump command to retrieve Asset resources from CDF")
+    graphql = Plugin("graphql", "GraphQL plugin")
+
+    @staticmethod
+    def list() -> dict[str, bool]:
+        res = {plugin.name: Plugin.is_enabled(plugin.value) for plugin in Plugins}
+        return res
