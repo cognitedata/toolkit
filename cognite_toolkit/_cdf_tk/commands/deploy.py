@@ -13,7 +13,12 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILD_ENVIRONMENT_FILE,
+    HINT_LEAD_TEXT,
+    HINT_LEAD_TEXT_LEN,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
 )
@@ -111,11 +116,16 @@ class DeployCommand(ToolkitCommand):
                     folder_has_supported_files = True
                     selected_loaders[loader_cls] = loader_cls.dependencies
             if not folder_has_supported_files:
+                kinds = [loader_cls.kind for loader_cls in loader_classes]
+                yaml_file = next((build_dir / folder_name).glob("*.yaml"), None)
+                suggestion = ""
+                if yaml_file:
+                    suggestion = f"\n{' '*HINT_LEAD_TEXT_LEN}For example: '{yaml_file.stem}.{kinds[0]}.yaml'."
                 self.warn(
                     MediumSeverityWarning(
                         f"No supported files found in {folder_name!r} folder. Skipping...\n"
-                        f"[blue]HINT: [/blue] All resource in the {folder_name!r} folder are expected to have suffix: "
-                        f"{humanize_collection([loader_cls.kind for loader_cls in loader_classes])!r}."
+                        f"{HINT_LEAD_TEXT}All resource in the {folder_name!r} folder are expected to have suffix: "
+                        f"{humanize_collection(kinds)!r}.{suggestion}"
                     )
                 )
 
