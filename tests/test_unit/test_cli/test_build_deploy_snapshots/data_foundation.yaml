@@ -126,7 +126,7 @@ Group:
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write
-  sourceId: '{{readwrite_source_id}}'
+  sourceId: <NotSet>
 - capabilities:
   - projectsAcl:
       actions:
@@ -270,4 +270,4 @@ Group:
   metadata:
     origin: cdf-project-templates
   name: gp_admin_readonly
-  sourceId: '{{readonly_source_id}}'
+  sourceId: <NotSet>
