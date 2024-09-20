@@ -8,9 +8,9 @@ from pathlib import Path
 from yaml import YAMLError
 
 if sys.version_info >= (3, 11):
-    from toml import TomlDecodeError
+    from tomllib import TOMLDecodeError
 else:
-    from tomli import TOMLDecodeError as TomlDecodeError
+    from tomli import TOMLDecodeError
 
 
 class ToolkitError(Exception):
@@ -119,7 +119,7 @@ class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
 
 
-class ToolkitTOMLFormatError(TomlDecodeError, ToolkitValidationError): ...
+class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError): ...
 
 
 class ToolkitInvalidParameterNameError(ToolkitValidationError):

@@ -15,10 +15,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
 
 if sys.version_info >= (3, 11):
     import tomllib
-    from toml.decoder import TomlDecodeError
+    from tomllib import TOMLDecodeError
 else:
     import tomli as tomllib
-    from tomli import TOMLDecodeError as TomlDecodeError
+    from tomli import TOMLDecodeError
 
 
 @dataclass
@@ -114,11 +114,8 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
     content = file_path.read_text(encoding="utf-8")
     try:
         return tomllib.loads(content)
-    except TomlDecodeError as e:
-        if sys.version_info >= (3, 11):
-            raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e.msg!s}", e.doc, e.pos) from e
-        else:
-            raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e!s}")
+    except TOMLDecodeError as e:
+        raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e!s}")
 
 
 _CDF_TOML: CDFToml | None = None
