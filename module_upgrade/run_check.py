@@ -12,6 +12,12 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+from cognite.client.config import global_config
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
+
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 # Hack to make the script work as running cdf modules upgrade
