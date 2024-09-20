@@ -69,7 +69,8 @@ def test_build_deploy_module(
     app.build(
         typer_context,
         organization_dir=organization_dir,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -114,7 +115,8 @@ def test_build_deploy_with_dry_run(
     app.build(
         typer_context,
         organization_dir=organization_dir,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -150,7 +152,8 @@ def test_init_build_clean(
     app.build(
         typer_context,
         organization_dir=organization_dir,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -183,7 +186,8 @@ def test_build_deploy_complete_org(
     app.build(
         typer_context,
         organization_dir=COMPLETE_ORG,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )

@@ -44,6 +44,7 @@ class TestBuildCommand:
                 verbose=False,
                 build_dir=tmp_path,
                 organization_dir=data.PROJECT_WITH_BAD_MODULES,
+                selected=None,
                 build_env_name="no_module",
                 no_clean=False,
             )
@@ -54,6 +55,7 @@ class TestBuildCommand:
             verbose=False,
             build_dir=tmp_path,
             organization_dir=data.PROJECT_WITH_BAD_MODULES,
+            selected=None,
             build_env_name="ill_module",
             no_clean=False,
         )
@@ -73,6 +75,7 @@ class TestBuildCommand:
             verbose=False,
             build_dir=tmp_path,
             organization_dir=data.PROJECT_NO_COGNITE_MODULES,
+            selected=None,
             build_env_name="dev",
             no_clean=False,
         )

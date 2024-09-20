@@ -106,7 +106,7 @@ class ThreeDModelLoader(
                 # We cannot change the name of a 3D model as we use it as the identifier
                 # Note this is expected
                 updates.append(update)
-        return self.client.three_d.models.update(updates)
+        return self.client.three_d.models.update(updates, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         models = self.retrieve(ids)

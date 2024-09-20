@@ -172,7 +172,8 @@ class ExtractionPipelineLoader(
         return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
-        return self.client.extraction_pipelines.update(items)
+        # Bug in SDK overload so need the ignore.
+        return self.client.extraction_pipelines.update(items, mode="replace")  # type: ignore[call-overload]
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         id_list = list(ids)

@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
     BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
+    DEFAULT_ENV,
     MODULE_PATH_SEP,
     MODULES,
     ROOT_MODULES,
@@ -51,10 +52,10 @@ _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
 @dataclass
 class Environment:
-    name: str
-    project: str
-    build_type: EnvType
-    selected: list[str | Path]
+    name: str = "dev"
+    project: str = field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
+    build_type: EnvType = DEFAULT_ENV  # type: ignore[assignment]
+    selected: list[str | Path] = field(default_factory=lambda: [Path(MODULES)])
 
     def __post_init__(self) -> None:
         if self.build_type not in _AVAILABLE_ENV_TYPES:
@@ -83,10 +84,23 @@ class Environment:
             name=build_name,
             project=data["project"],
             build_type=build_type,
-            selected=[
-                Path(selected) if MODULE_PATH_SEP in selected else selected for selected in data["selected"] or []
-            ],
+            selected=cls.load_selected(data.get("selected")),
         )
+
+    @classmethod
+    def load_selected(cls, raw: list[str] | None, organization_dir: Path | None = None) -> list[str | Path]:
+        cleaned = (selected.replace("\\", "/") for selected in raw or [])
+        all_selected: Iterable[str | Path] = (
+            Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
+        )
+        if organization_dir:
+            all_selected = (
+                selected.relative_to(organization_dir)
+                if isinstance(selected, Path) and selected.is_relative_to(organization_dir)
+                else selected
+                for selected in all_selected
+            )
+        return list(all_selected)
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -108,11 +122,11 @@ class Environment:
 
 @dataclass
 class ConfigYAMLCore(ABC):
-    environment: Environment
+    environment: Environment = field(default_factory=Environment)
 
 
 @dataclass
-class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
+class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
     filename: ClassVar[str] = "config.{build_env}.yaml"
@@ -223,10 +237,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
                     print(f"    {module}")
         return selected_modules
 
+    @classmethod
+    def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
+        return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
+
 
 @dataclass
 class BuildEnvironment(Environment):
-    cdf_toolkit_version: str
+    cdf_toolkit_version: str = __version__
     hash_by_source_file: dict[Path, str] = field(default_factory=dict)
 
     @classmethod

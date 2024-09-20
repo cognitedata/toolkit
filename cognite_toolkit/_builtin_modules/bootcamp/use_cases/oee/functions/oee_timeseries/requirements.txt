@@ -1,0 +1,5 @@
+arrow
+pandas
+pydantic
+retry
+cognite-sdk

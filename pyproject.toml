@@ -14,7 +14,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.9"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.60.0", extras = ["pandas"]}
+cognite-sdk = {version = "^7.62.0", extras = ["pandas"]}
 cognite-extractor-utils = ">=7"
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
@@ -85,6 +85,9 @@ exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py",
             "cognite_toolkit/cognite_modules/inrobot/*",
             "tests/data/_builtin_modules/*",
             "cognite_toolkit/_builtin_modules/*"]
+
+[tool.ruff.lint]
+exclude = ["cognite_toolkit/_builtin_modules/*"]
 
 [build-system]
 requires = ["poetry-core"]

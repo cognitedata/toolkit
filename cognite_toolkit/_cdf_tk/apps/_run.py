@@ -76,7 +76,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",
@@ -133,7 +133,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",
