@@ -3,8 +3,7 @@
 # It will be updated by the 'cdf module upgrade' command.
 version = "0.3.0a5"
 
-[modules.packages]
-some_package = [
-    "a_module",
-    "child_module",
-]
+[plugins]
+graphql = true
+dump_assets = false
+unknown = false

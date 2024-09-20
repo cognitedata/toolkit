@@ -21,8 +21,7 @@ else:
 @dataclass
 class CLIConfig:
     default_organization_dir: Path
-    default_env: str | None = None
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    default_env: str = "dev"
     has_user_set_default_org: bool = False
 
     @classmethod
@@ -31,8 +30,7 @@ class CLIConfig:
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
         return cls(
             default_organization_dir=default_organization_dir,
-            default_env=raw.get("default_env"),
-            feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
+            default_env=raw.get("default_env", "dev"),
             has_user_set_default_org=has_user_set_default_org,
         )
 
@@ -63,6 +61,9 @@ class CDFToml:
 
     cdf: CLIConfig
     modules: ModulesConfig
+    feature_flags: dict[str, bool] = field(default_factory=dict)
+    plugins: dict[str, bool] = field(default_factory=dict)
+
     is_loaded_from_file: bool = False
 
     @classmethod
@@ -83,7 +84,15 @@ class CDFToml:
                 modules = ModulesConfig.load(raw["modules"])
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-            instance = cls(cdf=cdf, modules=modules, is_loaded_from_file=True)
+
+            if "feature_flags" in raw:
+                feature_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+            if "plugins" in raw:
+                plugins = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+
+            instance = cls(
+                cdf=cdf, modules=modules, feature_flags=feature_flags, plugins=plugins, is_loaded_from_file=True
+            )
             if use_singleton:
                 _CDF_TOML = instance
             return instance
@@ -91,6 +100,8 @@ class CDFToml:
             return cls(
                 cdf=CLIConfig(cwd),
                 modules=ModulesConfig.load({"version": _version.__version__}),
+                feature_flags={},
+                plugins={},
                 is_loaded_from_file=False,
             )
 
