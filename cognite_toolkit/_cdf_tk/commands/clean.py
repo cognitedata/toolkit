@@ -11,7 +11,12 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, HINT_LEAD_TEXT, HINT_LEAD_TEXT_LEN
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILD_ENVIRONMENT_FILE,
+    HINT_LEAD_TEXT,
+    HINT_LEAD_TEXT_LEN,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
 )
@@ -231,14 +236,27 @@ class CleanCommand(ToolkitCommand):
                 "One or more source files have been modified since the last build. " "Please rebuild the project."
             )
 
-        Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
+        environment_vars = ""
+        if not _RUNNING_IN_BROWSER:
+            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+
+        action = ""
+        if dry_run:
+            action = "(dry-run) "
+
+        print(
+            Panel(
+                f"[bold]Cleaning {action}[/]resource from CDF project {ToolGlobals._project} based "
+                f"on resource files in {build_dir} directory."
+                f"{environment_vars}",
+                expand=False,
+            )
+        )
 
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
         selected_loaders = self.get_selected_loaders(build_dir, include)
-
-        print(ToolGlobals.as_string())
 
         results = DeployResults([], "clean", dry_run=dry_run)
 
