@@ -141,6 +141,15 @@ class ModulesCommand(ToolkitCommand):
             )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
+        cdf_toml_content = self.create_cdf_toml(organization_dir)
+
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
+        else:
+            destination.write_text(cdf_toml_content, encoding="utf-8")
+
+    def create_cdf_toml(self, organization_dir: Path) -> str:
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
@@ -150,12 +159,7 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
-
-        destination = Path.cwd() / CDFToml.file_name
-        if destination.exists():
-            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
-        else:
-            destination.write_text(cdf_toml_content, encoding="utf-8")
+        return cdf_toml_content
 
     def init(
         self,
@@ -404,7 +408,7 @@ default_organization_dir = "{organization_dir.name}"''',
                             print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
                         else:
                             print(Markdown(f"  - {file.as_posix()}"))
-            if changed_files or not change.has_file_changes or verbose:
+            if verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
             print(Rule())
 

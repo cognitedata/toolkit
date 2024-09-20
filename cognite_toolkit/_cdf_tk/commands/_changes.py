@@ -8,7 +8,6 @@ from pathlib import Path
 from packaging.version import Version
 from packaging.version import parse as parse_version
 
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -158,6 +157,8 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
+        # Avoid circular import
+        from .modules import ModulesCommand
 
         system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
@@ -167,8 +168,7 @@ After:
         content = read_yaml_file(system_yaml)
         current_version = content.get("cdf_toolkit_version", __version__)
 
-        cdf_toml_source = BUILTIN_MODULES_PATH / "cdf.toml"
-        cdf_toml_content = cdf_toml_source.read_text()
+        cdf_toml_content = ModulesCommand(skip_tracking=True).create_cdf_toml(self._organization_dir)
         cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
 
         cdf_toml_path = Path.cwd() / "cdf.toml"
