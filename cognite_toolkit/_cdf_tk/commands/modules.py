@@ -344,6 +344,10 @@ default_organization_dir = "{organization_dir.name}"''',
             )
             return Changes()
 
+        if cli_version == module_version:
+            print("The modules are already at the same version as the CLI.")
+            return Changes()
+
         if module_version < Version(SUPPORT_MODULE_UPGRADE_FROM_VERSION):
             print(
                 f"The modules upgrade command is not supported for versions below {SUPPORT_MODULE_UPGRADE_FROM_VERSION}."
