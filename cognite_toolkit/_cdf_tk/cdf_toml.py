@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
+from rich import print
+
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -115,7 +117,13 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
     try:
         return tomllib.loads(content)
     except TOMLDecodeError as e:
-        raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e!s}")
+        if file_path.is_relative_to(Path.cwd()):
+            file_path = file_path.relative_to(Path.cwd())
+        err = ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()!r}: {e!s}")
+        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+        # We read the CDF.TML file from the module level, so the app has not been loaded yet.
+        # Therefore, we raise SystemExit to stop the execution
+        raise SystemExit(1)
 
 
 _CDF_TOML: CDFToml | None = None
