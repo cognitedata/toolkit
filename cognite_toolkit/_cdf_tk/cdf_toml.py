@@ -85,10 +85,10 @@ class CDFToml:
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
 
-            feature_flags = (
-                {clean_name(k): v for k, v in raw["feature_flags"].items()} if "feature_flags" in raw else {}
-            )
-            plugins = {clean_name(k): v for k, v in raw["plugins"].items()} if "plugins" in raw else {}
+            if "feature_flags" in raw:
+                feature_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+            if "plugins" in raw:
+                plugins = {clean_name(k): v for k, v in raw["feature_flags"].items()}
 
             instance = cls(
                 cdf=cdf, modules=modules, feature_flags=feature_flags, plugins=plugins, is_loaded_from_file=True
@@ -100,6 +100,8 @@ class CDFToml:
             return cls(
                 cdf=CLIConfig(cwd),
                 modules=ModulesConfig.load({"version": _version.__version__}),
+                feature_flags={},
+                plugins={},
                 is_loaded_from_file=False,
             )
 

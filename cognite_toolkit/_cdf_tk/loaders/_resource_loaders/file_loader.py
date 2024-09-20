@@ -209,7 +209,7 @@ class FileMetadataLoader(
         return self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: FileMetadataWriteList) -> FileMetadataList:
-        return self.client.files.update(items)
+        return self.client.files.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))

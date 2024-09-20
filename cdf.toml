@@ -4,7 +4,7 @@
 # when you log in to Cognite Data Fusion.
 # Note any string without white-space is allowed.
 default_organization_dir = "cognite_toolkit"
-default_env = "dev"
+#default_env = "dev"
 
 [feature_flags]
 graphql = true

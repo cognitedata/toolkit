@@ -1,0 +1,118 @@
+- name: Run calculations every 10 minutes for last hour of data
+  cronExpression: "5-59/10 * * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Oslo
+      - Hannover
+      - Nuremberg
+      - Marseille
+      - Houston
+      - Sao Paulo
+      - Kuala Lumpur
+      - Chicago
+      - Rotterdam
+      - London
+    lookback_minutes: 60
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Oslo)
+  cronExpression: "0 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Oslo
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Nuremberg)
+  cronExpression: "1 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Nuremberg
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Marseille)
+  cronExpression: "2 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Marseille
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Houston)
+  cronExpression: "3 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Houston
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Sao Paulo)
+  cronExpression: "4 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Sao Paulo
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Kuala Lumpur)
+  cronExpression: "5 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Kuala Lumpur
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Chicago)
+  cronExpression: "6 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Chicago
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (Rotterdam)
+  cronExpression: "7 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - Rotterdam
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}
+
+- name: Run calculations once a day for 30 days history (London)
+  cronExpression: "8 1 * * *"
+  functionExternalId: oee_timeseries
+  data:
+    sites:
+      - London
+    lookback_minutes: 7200
+  authentication:
+    clientId: {{ data_pipeline_oee_client_id }}
+    clientSecret: {{ data_pipeline_oee_client_secret }}

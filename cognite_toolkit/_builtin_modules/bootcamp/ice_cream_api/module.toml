@@ -1,0 +1,7 @@
+[module]
+title = "Ice Cream API"
+
+[packages]
+tags = [
+    "bootcamp",
+]
