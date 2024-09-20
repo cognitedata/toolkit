@@ -595,7 +595,7 @@ class CDFToolConfig:
         envs = ""
         for e in environment:
             envs += f"  {e}={environment[e]}\n"
-        return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
+        return f"CDF Project {self._project} in cluster {self._cluster}:\n{envs}"
 
     def __str__(self) -> str:
         environment = self._environ.copy()

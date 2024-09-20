@@ -96,11 +96,20 @@ class DeployCommand(ToolkitCommand):
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-
-        print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_.name}...[/]", expand=False))
-
+        environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            print(ToolGlobals.as_string())
+            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+
+        action = ""
+        if dry_run:
+            action = "(dry-run) "
+
+        print(
+            Panel(
+                f"[bold]Deploying {action}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                expand=False,
+            )
+        )
 
         selected_loaders = self._clean_command.get_selected_loaders(build_dir, include)
 
