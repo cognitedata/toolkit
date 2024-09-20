@@ -9,13 +9,16 @@ from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitTOMLFormatError,
     ToolkitVersionError,
 )
 
 if sys.version_info >= (3, 11):
     import tomllib
+    from toml.decoder import TomlDecodeError
 else:
     import tomli as tomllib
+    from tomli import TOMLDecodeError as TomlDecodeError
 
 
 @dataclass
@@ -76,8 +79,7 @@ class CDFToml:
         cwd = cwd or Path.cwd()
         file_path = cwd / cls.file_name
         if file_path.exists():
-            # TOML files are required to be UTF-8 encoded
-            raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
+            raw = _read_toml(file_path)
 
             # No required fields in the cdf section
             cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
@@ -105,6 +107,15 @@ class CDFToml:
                 plugins={},
                 is_loaded_from_file=False,
             )
+
+
+def _read_toml(file_path: Path) -> dict[str, Any]:
+    # TOML files are required to be UTF-8 encoded
+    content = file_path.read_text(encoding="utf-8")
+    try:
+        return tomllib.loads(content)
+    except TomlDecodeError as e:
+        raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e.msg!s}", e.doc, e.pos) from e
 
 
 _CDF_TOML: CDFToml | None = None

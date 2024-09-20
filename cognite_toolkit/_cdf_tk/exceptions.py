@@ -10,7 +10,7 @@ from yaml import YAMLError
 if sys.version_info >= (3, 11):
     from toml import TomlDecodeError
 else:
-    from tomli import TomlDecodeError
+    from tomli import TOMLDecodeError as TomlDecodeError
 
 
 class ToolkitError(Exception):
