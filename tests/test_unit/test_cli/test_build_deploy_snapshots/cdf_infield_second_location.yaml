@@ -485,8 +485,8 @@ Transformation:
     tokenUri: dummy
 TransformationSchedule:
 - externalId: tr_asset_oid2_workmate_infield_sync_assets_from_hierarchy_to_apm
-  interval: 7 * * * *
+  interval: '{{scheduleHourly}}'
   isPaused: false
 - externalId: tr_workorder_oid2_workmate_infield_sync_workorders_to_apm_activities
-  interval: 7 * * * *
+  interval: '{{scheduleHourly}}'
   isPaused: false
