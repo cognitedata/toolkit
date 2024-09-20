@@ -20,3 +20,7 @@ description = "Capture and integrate a broad spectrum of robotics inspection dat
 [packages.examples]
 title = "Examples"
 description = "Examples of how to configure Cognite Data Fusion"
+
+[packages.bootcamp]
+title = "Bootcamp"
+description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
