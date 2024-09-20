@@ -16,6 +16,7 @@ from cognite.client.data_classes._base import (
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import DEFAULT_ENV
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes, get_loader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
@@ -312,14 +313,19 @@ class BuildInfo(ConfigCore):
         return cls(filepath, ModulesInfo.load(data["modules"]))
 
     @classmethod
-    def rebuild(cls, organization_dir: Path, build_env: str, needs_rebuild: set[Path] | None = None) -> BuildInfo:
+    def rebuild(
+        cls, organization_dir: Path, build_env: str | None, needs_rebuild: set[Path] | None = None
+    ) -> BuildInfo:
         # To avoid circular imports
         # Ideally, this class should be in a separate module
         from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 
         with tmp_build_directory() as build_dir:
             cdf_toml = CDFToml.load()
-            config = BuildConfigYAML.load_from_directory(organization_dir, build_env)
+            if build_env is None:
+                config = BuildConfigYAML.load_default(organization_dir)
+            else:
+                config = BuildConfigYAML.load_from_directory(organization_dir, build_env)
             config.set_environment_variables()
             # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
             config.variables.pop("_cdf_tk", None)
@@ -340,10 +346,10 @@ class BuildInfo(ConfigCore):
             )
 
         new_build = cls(
-            filepath=organization_dir / cls.get_filename(build_env),
+            filepath=organization_dir / cls.get_filename(build_env or DEFAULT_ENV),
             modules=ModulesInfo(version=_version.__version__, modules=build),
         )
-        if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env)):
+        if needs_rebuild is not None and (existing := cls._get_existing(organization_dir, build_env or DEFAULT_ENV)):
             # Merge the existing modules with the new modules
             new_modules_by_path = {module.location.path: module for module in new_build.modules.modules}
             existing_modules_by_path = {module.location.path: module for module in existing.modules.modules}
@@ -418,7 +424,7 @@ class ModuleResources:
     latest changes in the source directory.
     """
 
-    def __init__(self, organization_dir: Path, build_env: str) -> None:
+    def __init__(self, organization_dir: Path, build_env: str | None) -> None:
         self._organization_dir = organization_dir
         self._build_env = build_env
         self._build_info: BuildInfo

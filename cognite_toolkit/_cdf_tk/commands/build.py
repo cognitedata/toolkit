@@ -116,7 +116,8 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
         organization_dir: Path,
         build_dir: Path,
-        build_env_name: str,
+        selected: list[str] | None,
+        build_env_name: str | None,
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
     ) -> None:
@@ -129,8 +130,14 @@ class BuildCommand(ToolkitCommand):
             raise ToolkitError(
                 "No 'cdf.toml' file found in the current directory. Please run 'cdf repo init' to create it"
             )
+        if build_env_name:
+            config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
+        else:
+            # Loads the default environment
+            config = BuildConfigYAML.load_default(organization_dir)
 
-        config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
+        if selected:
+            config.environment.selected = config.environment.load_selected(selected, organization_dir)
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [

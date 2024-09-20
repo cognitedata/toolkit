@@ -21,7 +21,7 @@ else:
 @dataclass
 class CLIConfig:
     default_organization_dir: Path
-    default_env: str = "dev"
+    default_env: str | None = None
     feature_flags: dict[str, bool] = field(default_factory=dict)
     has_user_set_default_org: bool = False
 
@@ -31,7 +31,7 @@ class CLIConfig:
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
         return cls(
             default_organization_dir=default_organization_dir,
-            default_env=raw.get("default_env", "dev"),
+            default_env=raw.get("default_env"),
             feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
             has_user_set_default_org=has_user_set_default_org,
         )

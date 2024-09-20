@@ -450,7 +450,7 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         return parse_version(content.get("cdf_toolkit_version", "0.0.0"))
 
-    def list(self, organization_dir: Path, build_env_name: str) -> None:
+    def list(self, organization_dir: Path, build_env_name: str | None) -> None:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
