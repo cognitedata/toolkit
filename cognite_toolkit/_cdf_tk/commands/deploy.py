@@ -47,6 +47,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    humanize_collection,
     read_yaml_file,
     to_diff,
 )
@@ -100,13 +101,24 @@ class DeployCommand(ToolkitCommand):
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())
 
-        selected_loaders = {
-            loader_cls: loader_cls.dependencies
-            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and (build_dir / folder_name).is_dir()
-            for loader_cls in loader_classes
-            if loader_cls.any_supported_files(build_dir / folder_name)
-        }
+        selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
+            if folder_name not in include or not (build_dir / folder_name).is_dir():
+                continue
+            folder_has_supported_files = False
+            for loader_cls in loader_classes:
+                if loader_cls.any_supported_files(build_dir / folder_name):
+                    folder_has_supported_files = True
+                    selected_loaders[loader_cls] = loader_cls.dependencies
+            if not folder_has_supported_files:
+                self.warn(
+                    MediumSeverityWarning(
+                        f"No supported files found in {folder_name!r} folder. Skipping...\n"
+                        f"[blue]HINT: [/blue] All resource in the {folder_name!r} folder are expected to have suffix: "
+                        f"{humanize_collection([loader_cls.kind for loader_cls in loader_classes])!r}."
+                    )
+                )
+
         results = DeployResults([], "deploy", dry_run=dry_run)
 
         ordered_loaders: list[type[Loader]] = []
@@ -391,9 +403,9 @@ class DeployCommand(ToolkitCommand):
                     f"{len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
                 )
             )
-        # except Exception as e:
-        #     print(Panel(traceback.format_exc()))
-        #     raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
+        except Exception as e:
+            print(Panel(traceback.format_exc()))
+            raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
         else:
             return len(created) if created is not None else 0
         return 0
