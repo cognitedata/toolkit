@@ -25,7 +25,7 @@ def test_deploy_core_model(cdf_tool_config: CDFToolConfig) -> None:
 
     deploy_command.execute(
         cdf_tool_config,
-        build_dir_raw=str(data.BUILD_CORE_MODEL),
+        build_dir=data.BUILD_CORE_MODEL,
         build_env_name="dev",
         dry_run=False,
         drop=True,
