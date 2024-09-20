@@ -95,7 +95,7 @@ class CDFToml:
             if "feature_flags" in raw:
                 feature_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
             if "plugins" in raw:
-                plugins = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+                plugins = {clean_name(k): v for k, v in raw["plugins"].items()}
 
             instance = cls(
                 cdf=cdf, modules=modules, feature_flags=feature_flags, plugins=plugins, is_loaded_from_file=True

@@ -432,7 +432,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load(use_singleton=False)
         # After `0.3.0` the version is in the CDF TOML file
         if cdf_toml.is_loaded_from_file and cdf_toml.modules.version:
             return parse_version(cdf_toml.modules.version)

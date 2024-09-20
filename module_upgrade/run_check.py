@@ -175,6 +175,9 @@ def run_modules_upgrade(
     project_init = PROJECT_INIT_DIR / f"project_{previous_version!s}"
     # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, project_path, dirs_exist_ok=True)
+    if previous_version >= parse_version("0.3.0a1"):
+        # Move out the CDF.toml file to use
+        shutil.move(project_path / CDFToml.file_name, TEST_DIR_ROOT / CDFToml.file_name)
 
     with chdir(TEST_DIR_ROOT):
         modules = ModulesCommand(print_warning=False)
