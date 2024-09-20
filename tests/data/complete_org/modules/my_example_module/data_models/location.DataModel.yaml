@@ -5,3 +5,4 @@ views:
   - space: cdf_cdm
     externalId: CogniteFile
     version: v1
+    type: view

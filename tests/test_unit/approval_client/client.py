@@ -748,7 +748,14 @@ class ApprovalToolkitClient:
                 if sort:
 
                     def sort_key(v: dict[str, Any]) -> str:
-                        for identifier_name in ["externalId", "external_id", "dbName", "name", "workflowExternalId"]:
+                        for identifier_name in [
+                            "externalId",
+                            "external_id",
+                            "dbName",
+                            "space",
+                            "name",
+                            "workflowExternalId",
+                        ]:
                             if identifier_name in v:
                                 return v[identifier_name]
                         if "dbName" in v and "name" in v and isinstance(v["name"], list):

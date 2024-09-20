@@ -391,9 +391,9 @@ class DeployCommand(ToolkitCommand):
                     f"{len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
                 )
             )
-        except Exception as e:
-            print(Panel(traceback.format_exc()))
-            raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
+        # except Exception as e:
+        #     print(Panel(traceback.format_exc()))
+        #     raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
         else:
             return len(created) if created is not None else 0
         return 0
