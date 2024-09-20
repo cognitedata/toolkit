@@ -1,0 +1,7 @@
+externalId: DataModelLocationFilter
+name: LocationFilter for DataModel
+description: LocationFilter for DataModel
+dataModels:
+  space: DataModelSpace
+  externalId: DataModelLocation
+  version: v1
