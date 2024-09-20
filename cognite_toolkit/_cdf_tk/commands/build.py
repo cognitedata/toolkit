@@ -91,6 +91,7 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
     get_cicd_environment,
+    humanize_collection,
     module_from_path,
     read_yaml_content,
     resource_folder_from_path,
@@ -844,7 +845,14 @@ class BuildCommand(ToolkitCommand):
                 core, kind = source_path.stem.rsplit(".", 1)
                 match = difflib.get_close_matches(kind, [loader.kind for loader in folder_loaders])
                 if match:
-                    suggestion = f"{core}.{match[0]}{source_path.suffix}"
+                    suggested_name = f"{core}.{match[0]}{source_path.suffix}"
+                    suggestion = f"Did you mean to call the file {suggested_name!r}?"
+            else:
+                kinds = [loader.kind for loader in folder_loaders]
+                if len(kinds) == 1:
+                    suggestion = f"Did you mean to call the file '{source_path.stem}.{kinds[0]}{source_path.suffix}'?"
+                else:
+                    suggestion = f"All files in the {resource_folder!r} folder must have a file extension that matches the resource type. Supported types are: {humanize_collection(kinds)}."
             self.warn(UnknownResourceTypeWarning(source_path, suggestion))
             return None
         elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):

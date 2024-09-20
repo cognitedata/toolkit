@@ -77,7 +77,7 @@ class UnknownResourceTypeWarning(YAMLFileWarning):
     def get_message(self) -> str:
         msg = f"{type(self).__name__}: In file {self.filepath.as_posix()!r}."
         if self.suggestion:
-            msg += f" Did you mean to call the file {self.suggestion!r}?"
+            msg += f"\n[blue]HINT: [/blue]{self.suggestion}"
         return msg
 
 

@@ -26,7 +26,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
+from collections.abc import Collection, ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -1401,6 +1401,21 @@ def stringify_value_by_key_in_yaml(content: str, key: str) -> str:
     pattern = rf"^{key}:\s*$"
     replacement = rf"{key}: |"
     return re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+
+def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) -> str:
+    if not collection:
+        return ""
+    elif len(collection) == 1:
+        return str(next(iter(collection)))
+
+    strings = (str(item) for item in collection)
+    if sort:
+        sequence = sorted(strings)
+    else:
+        sequence = list(strings)
+
+    return f"{', '.join(sequence[:-1])} and {sequence[-1]}"
 
 
 class GraphQLParser:
