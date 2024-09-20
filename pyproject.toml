@@ -86,6 +86,9 @@ exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py",
             "tests/data/_builtin_modules/*",
             "cognite_toolkit/_builtin_modules/*"]
 
+[tool.ruff.lint]
+exclude = ["cognite_toolkit/_builtin_modules/*"]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
