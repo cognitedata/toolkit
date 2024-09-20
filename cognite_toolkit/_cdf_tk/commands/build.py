@@ -16,7 +16,6 @@ from typing import Any, cast
 
 import pandas as pd
 import yaml
-from cognite.client._api.functions import validate_function_folder
 from rich import print
 from rich.panel import Panel
 from rich.progress import track
@@ -90,7 +89,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
-    get_cicd_environment,
     humanize_collection,
     module_from_path,
     read_yaml_content,
@@ -360,7 +358,7 @@ class BuildCommand(ToolkitCommand):
 
             if resource_directory_name == FunctionLoader.folder_name:
                 self._validate_function_directory(state, directory_files, module.dir)
-                self.validate_and_copy_function_directory_to_build(
+                self.copy_function_directory_to_build(
                     resource_files_build_folder=build_folder,
                     state=state,
                     module_dir=module.dir,
@@ -566,7 +564,7 @@ class BuildCommand(ToolkitCommand):
             data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
         destination.write_text(data.to_csv())
 
-    def validate_and_copy_function_directory_to_build(
+    def copy_function_directory_to_build(
         self,
         resource_files_build_folder: list[Path],
         state: _BuildState,
@@ -589,24 +587,6 @@ class BuildCommand(ToolkitCommand):
                     f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
                 )
             shutil.copytree(function_dir, destination)
-            if function_path:
-                try:
-                    # Run validations on the function using the SDK's validation function
-                    validate_function_folder(
-                        root_path=destination.as_posix(),
-                        function_path=function_path,
-                        skip_folder_validation=False,
-                    )
-                except Exception as e:
-                    if get_cicd_environment() == "local":
-                        # This warning is only relevant when running locally
-                        self.warn(
-                            MediumSeverityWarning(
-                                f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
-                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
-                                "installed in your current, local python environment."
-                            )
-                        )
 
             # Clean up cache files
             for subdir in destination.iterdir():
