@@ -115,7 +115,10 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
     try:
         return tomllib.loads(content)
     except TomlDecodeError as e:
-        raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e.msg!s}", e.doc, e.pos) from e
+        if sys.version_info >= (3, 11):
+            raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e.msg!s}", e.doc, e.pos) from e
+        else:
+            raise ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()}: {e!s}")
 
 
 _CDF_TOML: CDFToml | None = None
