@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
+  command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
+  Validation of the function code is expected to be handled by `cdf run function local`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added
