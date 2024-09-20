@@ -15,6 +15,7 @@ from unittest.mock import patch
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
 # Hack to make the script work as running cdf modules upgrade
+original_argv = sys.argv
 sys.argv = ["cdf", "modules", "upgrade"]
 
 import yaml
@@ -48,7 +49,7 @@ logging.basicConfig(
 
 
 def run() -> None:
-    only_first = len(sys.argv) > 1 and sys.argv[1] == "--only-first"
+    only_first = len(original_argv) > 1 and original_argv[1] == "--only-first"
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
