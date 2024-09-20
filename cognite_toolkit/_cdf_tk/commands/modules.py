@@ -374,6 +374,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 f"Found {len(changes)} changes from {module_version} to {cli_version}",
                 title="Upgrade Modules",
                 style="green",
+                expand=False,
             )
         )
 
@@ -434,7 +435,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 "If you are not satisfied with the changes, you can use `git checkout -- <file>` to revert "
                 "a file or `git checkout .` to revert all changes."
             )
-        print(Panel("\n".join(summary), title="Upgrade Complete", style=color))
+        print(Panel("\n".join(summary), title="Upgrade Complete", style=color, expand=False))
         return changes
 
     @staticmethod
