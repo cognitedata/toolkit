@@ -13,6 +13,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
+from rich.progress import track
 from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
@@ -377,7 +378,8 @@ default_organization_dir = "{organization_dir.name}"''',
         )
 
         total_changed: set[Path] = set()
-        for change in changes:
+        iterable = changes if verbose else track(changes, description="Applying changes")
+        for change in iterable:
             color = "green"
             changed_files: set[Path] = set()
             if change.has_file_changes:
@@ -388,20 +390,21 @@ default_organization_dir = "{organization_dir.name}"''',
                 elif isinstance(change, ManualChange):
                     changed_files = change.needs_to_change()
                     color = "red" if changed_files else "green"
-            print(
-                Panel(
-                    f"Change: {type(change).__name__}",
-                    style=color,
-                    expand=False,
+            if verbose:
+                print(
+                    Panel(
+                        f"Change: {type(change).__name__}",
+                        style=color,
+                        expand=False,
+                    )
                 )
-            )
-            if not changed_files and change.has_file_changes:
-                suffix = "have been changed" if isinstance(change, AutomaticChange) else "need to be changed"
-                print(f"No files {suffix}.")
+                if not changed_files and change.has_file_changes:
+                    suffix = "have been changed" if isinstance(change, AutomaticChange) else "need to be changed"
+                    print(f"No files {suffix}.")
             else:
                 if isinstance(change, ManualChange):
                     print(Markdown(change.instructions(changed_files)))
-                elif isinstance(change, AutomaticChange):
+                elif isinstance(change, AutomaticChange) and verbose:
                     print("The following files have been changed:")
                     for file in changed_files:
                         if file.is_relative_to(organization_dir):
@@ -410,7 +413,7 @@ default_organization_dir = "{organization_dir.name}"''',
                             print(Markdown(f"  - {file.as_posix()}"))
             if verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
-            print(Rule())
+                print(Rule())
 
         use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All automatic changes have been applied."]

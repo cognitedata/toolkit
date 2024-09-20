@@ -76,7 +76,7 @@ class ModulesApp(typer.Typer):
             typer.Option(
                 "--verbose",
                 "-v",
-                help="Print more information.",
+                help="Print details of each change applied in the upgrade process.",
             ),
         ] = False,
     ) -> None:
