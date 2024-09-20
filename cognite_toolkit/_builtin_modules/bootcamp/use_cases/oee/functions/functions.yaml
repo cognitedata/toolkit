@@ -1,5 +1,5 @@
-- name: <name>
-  externalId: <externalId>
+- name: OEE TimeSeries
+  externalId: oee_timeseries
   owner: CDF Bootcamp Team
   description: Function to calculate OEE
   metadata:
