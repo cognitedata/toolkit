@@ -16,8 +16,6 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
-    HINT_LEAD_TEXT,
-    HINT_LEAD_TEXT_LEN,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -31,7 +29,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     UploadFileError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     DataLoader,
     DeployResults,
     Loader,
@@ -52,7 +49,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    humanize_collection,
     read_yaml_file,
     to_diff,
 )
@@ -106,28 +102,7 @@ class DeployCommand(ToolkitCommand):
         if not _RUNNING_IN_BROWSER:
             print(ToolGlobals.as_string())
 
-        selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
-        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
-            if folder_name not in include or not (build_dir / folder_name).is_dir():
-                continue
-            folder_has_supported_files = False
-            for loader_cls in loader_classes:
-                if loader_cls.any_supported_files(build_dir / folder_name):
-                    folder_has_supported_files = True
-                    selected_loaders[loader_cls] = loader_cls.dependencies
-            if not folder_has_supported_files:
-                kinds = [loader_cls.kind for loader_cls in loader_classes]
-                yaml_file = next((build_dir / folder_name).glob("*.yaml"), None)
-                suggestion = ""
-                if yaml_file:
-                    suggestion = f"\n{' '*HINT_LEAD_TEXT_LEN}For example: '{yaml_file.stem}.{kinds[0]}.yaml'."
-                self.warn(
-                    MediumSeverityWarning(
-                        f"No supported files found in {folder_name!r} folder. Skipping...\n"
-                        f"{HINT_LEAD_TEXT}All resource in the {folder_name!r} folder are expected to have suffix: "
-                        f"{humanize_collection(kinds)!r}.{suggestion}"
-                    )
-                )
+        selected_loaders = self._clean_command.get_selected_loaders(build_dir, include)
 
         results = DeployResults([], "deploy", dry_run=dry_run)
 
