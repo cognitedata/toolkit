@@ -13,7 +13,10 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILD_ENVIRONMENT_FILE,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
 )
@@ -26,7 +29,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     UploadFileError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     DataLoader,
     DeployResults,
     Loader,
@@ -92,19 +94,23 @@ class DeployCommand(ToolkitCommand):
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-
-        print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_.name}...[/]", expand=False))
-
+        environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            print(ToolGlobals.as_string())
+            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
 
-        selected_loaders = {
-            loader_cls: loader_cls.dependencies
-            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and (build_dir / folder_name).is_dir()
-            for loader_cls in loader_classes
-            if loader_cls.any_supported_files(build_dir / folder_name)
-        }
+        action = ""
+        if dry_run:
+            action = "(dry-run) "
+
+        print(
+            Panel(
+                f"[bold]Deploying {action}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                expand=False,
+            )
+        )
+
+        selected_loaders = self._clean_command.get_selected_loaders(build_dir, include)
+
         results = DeployResults([], "deploy", dry_run=dry_run)
 
         ordered_loaders: list[type[Loader]] = []

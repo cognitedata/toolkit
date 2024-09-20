@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping
 from graphlib import CycleError
 from pathlib import Path
 
 from yaml import YAMLError
+
+if sys.version_info >= (3, 11):
+    from tomllib import TOMLDecodeError
+else:
+    from tomli import TOMLDecodeError
 
 
 class ToolkitError(Exception):
@@ -111,6 +117,9 @@ class ToolkitCycleError(CycleError, ToolkitValidationError):
 
 class ToolkitYAMLFormatError(YAMLError, ToolkitValidationError):
     pass
+
+
+class ToolkitTOMLFormatError(TOMLDecodeError, ToolkitValidationError): ...
 
 
 class ToolkitInvalidParameterNameError(ToolkitValidationError):

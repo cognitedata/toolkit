@@ -1,0 +1,8 @@
+space: DataModelSpace
+externalId: DataModelLocation
+version: v1
+views:
+  - space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+    type: view

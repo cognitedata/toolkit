@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 class FeatureFlagCommand(ToolkitCommand):
     @staticmethod
     def list() -> None:
-        user_settings = CDFToml.load().cdf.feature_flags
+        user_settings = CDFToml.load().feature_flags
         table = Table(title="feature flags")
         table.add_column("Name", justify="left")
         table.add_column("Description", justify="left")

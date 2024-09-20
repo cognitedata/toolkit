@@ -15,7 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.0a6] - 2024-09-20
+
+### Added
+
+- Added flag `--modules`/`-m` to select which modules to build in the `cdf build` command.
+- The `cdf build` command no longer requires `config.[env].yaml` to be present. If it is not present, the Toolkit
+  will use the default values for the environment.
 
 ### Fixed
 

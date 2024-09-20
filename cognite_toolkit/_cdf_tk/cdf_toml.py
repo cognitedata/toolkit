@@ -1,28 +1,34 @@
 from __future__ import annotations
 
+import re
 import sys
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
+
+from rich import print
 
 from cognite_toolkit import _version
 from cognite_toolkit._cdf_tk.constants import clean_name
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitTOMLFormatError,
     ToolkitVersionError,
 )
 
 if sys.version_info >= (3, 11):
     import tomllib
+    from tomllib import TOMLDecodeError
 else:
     import tomli as tomllib
+    from tomli import TOMLDecodeError
 
 
 @dataclass
 class CLIConfig:
     default_organization_dir: Path
-    default_env: str | None = None
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    default_env: str = "dev"
     has_user_set_default_org: bool = False
 
     @classmethod
@@ -31,8 +37,7 @@ class CLIConfig:
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
         return cls(
             default_organization_dir=default_organization_dir,
-            default_env=raw.get("default_env"),
-            feature_flags={clean_name(k): v for k, v in raw.get("feature_flags", {}).items()},
+            default_env=raw.get("default_env", "dev"),
             has_user_set_default_org=has_user_set_default_org,
         )
 
@@ -63,6 +68,9 @@ class CDFToml:
 
     cdf: CLIConfig
     modules: ModulesConfig
+    feature_flags: dict[str, bool] = field(default_factory=dict)
+    plugins: dict[str, bool] = field(default_factory=dict)
+
     is_loaded_from_file: bool = False
 
     @classmethod
@@ -75,15 +83,23 @@ class CDFToml:
         cwd = cwd or Path.cwd()
         file_path = cwd / cls.file_name
         if file_path.exists():
-            # TOML files are required to be UTF-8 encoded
-            raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
+            raw = _read_toml(file_path)
+
             # No required fields in the cdf section
             cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
             try:
                 modules = ModulesConfig.load(raw["modules"])
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-            instance = cls(cdf=cdf, modules=modules, is_loaded_from_file=True)
+
+            if "feature_flags" in raw:
+                feature_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+            if "plugins" in raw:
+                plugins = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+
+            instance = cls(
+                cdf=cdf, modules=modules, feature_flags=feature_flags, plugins=plugins, is_loaded_from_file=True
+            )
             if use_singleton:
                 _CDF_TOML = instance
             return instance
@@ -91,14 +107,49 @@ class CDFToml:
             return cls(
                 cdf=CLIConfig(cwd),
                 modules=ModulesConfig.load({"version": _version.__version__}),
+                feature_flags={},
+                plugins={},
                 is_loaded_from_file=False,
             )
+
+
+def _read_toml(file_path: Path) -> dict[str, Any]:
+    # TOML files are required to be UTF-8 encoded
+    content = file_path.read_text(encoding="utf-8")
+    try:
+        return tomllib.loads(content)
+    except TOMLDecodeError as e:
+        if file_path.is_relative_to(Path.cwd()):
+            file_path = file_path.relative_to(Path.cwd())
+        extra = ""
+        with suppress(Exception):
+            # If any errors is raised here, we ignore it and continue
+            if result := re.search(r"\(at line (\d+), column (\d+)\)", str(e)):
+                line_no = int(result.group(1))
+                column_location = int(result.group(2))
+                lines = content.splitlines()
+                line = lines[line_no - 1]
+                prefix = "\n    [blue]HINT: [/blue]"
+                if column_location >= len(line):
+                    extra = f"{prefix}This is near the end of the line '{line}'"
+                elif column_location == 0:
+                    extra = f"{prefix}This is near the beginning of the line '{line}'"
+                else:
+                    extra = f"{prefix}This is near the '{line[:column_location]}' in '{line[column_location:]}'"
+
+        err = ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()!r}: {e!s}{extra}")
+        print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+        # We read the CDF.TML file from the module level, so the app has not been loaded yet.
+        # Therefore, we raise SystemExit to stop the execution
+        raise SystemExit(1)
 
 
 _CDF_TOML: CDFToml | None = None
 
 if __name__ == "__main__":
+    from pprint import pprint
+
     # This is a test to quickly check that the code works.
     # also useful to check that when you change cdf.toml it is loaded correctly
     _ROOT = Path(__file__).parent.parent.parent
-    print(CDFToml.load(_ROOT))
+    pprint(CDFToml.load(_ROOT))  # noqa: T203

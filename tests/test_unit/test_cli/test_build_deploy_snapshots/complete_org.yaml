@@ -1,3 +1,12 @@
+DataModel:
+- externalId: DataModelLocation
+  space: DataModelSpace
+  version: v1
+  views:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
 DataSet:
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
@@ -56,6 +65,14 @@ LabelDefinition:
   description: Pump label
   externalId: label_pump
   name: Pump
+LocationFilter:
+- dataModels:
+  - externalId: DataModelLocation
+    space: DataModelSpace
+    version: v1
+  description: LocationFilter for DataModel
+  externalId: DataModelLocationFilter
+  name: LocationFilter for DataModel
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
@@ -78,6 +95,8 @@ Source:
   keyName: The name of the key
   keyValue: SuperSecretKeyValue
   type: eventhub
+Space:
+- space: DataModelSpace
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom

@@ -54,6 +54,8 @@ INDEX_PATTERN = re.compile("^[0-9]+\\.")
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
 
+HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
+HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 
 
