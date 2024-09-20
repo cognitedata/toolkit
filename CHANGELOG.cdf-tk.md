@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a6] - 2024-09-20
+
+### Added
+
+- Added flag `--modules`/`-m` to select which modules to build in the `cdf build` command.
+- The `cdf build` command no longer requires `config.[env].yaml` to be present. If it is not present, the Toolkit
+  will use the default values for the environment.
+
+### Fixed
+
+- If you removed `metadata` in any resource file, the Toolkit would not update this change in CDF. This is now fixed.
+
 ## [0.3.0a5] - 2024-09-18
 
 ### Added
@@ -25,6 +37,8 @@ Changes are grouped as follows:
   [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
   fixed in a future release.
 - Added support for resource type `Sequence` in the `classic` folder.
+- Added parameter `--selected` to the `cdf build` command to overwrite the `selected` in the `config.[env].yaml` file.
+- Made the `config.[env].yaml` optional when running the `cdf build command.
 
 ### Changed
 

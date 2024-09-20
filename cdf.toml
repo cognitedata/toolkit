@@ -4,9 +4,9 @@
 # when you log in to Cognite Data Fusion.
 # Note any string without white-space is allowed.
 default_organization_dir = "cognite_toolkit"
-default_env = "dev"
+#default_env = "dev"
 
-[cdf.feature_flags]
+[feature_flags]
 graphql = true
 asset-dump = true
 timeseries-dump = true
@@ -14,7 +14,12 @@ import-cmd = true
 modules-app = true
 hosted-extractors = true
 
+[plugins]
+run = true
+pull = true
+dump = true
+
 [modules]
 # This is the version of the modules. It should not be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
-version = "0.3.0a5"
+version = "0.3.0a6"

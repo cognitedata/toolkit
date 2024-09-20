@@ -81,7 +81,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: AssetWriteList) -> AssetList:
-        return self.client.assets.update(items)
+        return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
@@ -238,7 +238,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: SequenceWriteList) -> SequenceList:
-        return self.client.sequences.update(items)
+        return self.client.sequences.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:

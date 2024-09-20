@@ -1,0 +1,35 @@
+cognite:
+  extraction_pipeline:
+    external-id: ep_icapi_datapoints
+  host: ${CDF_URL}
+  idp-authentication:
+    client-id: ${IDP_CLIENT_ID}
+    scopes:
+    - ${IDP_SCOPES}
+    secret: ${IDP_CLIENT_SECRET}
+    tenant: ${IDP_TENANT_ID}
+  project: ${CDF_PROJECT}
+extractor:
+  api_url: https://ice-cream-factory.inso-internal.cognite.ai
+  backfill: false
+  data_set_ext_id: ds_icapi
+  hours: 1
+  sites:
+  - Houston
+  - Oslo
+  - Kuala Lumpur
+  - Hannover
+  - Nuremberg
+  - Marseille
+  - Sao Paulo
+  - Chicago
+  - Rotterdam
+  - London
+  state_store:
+    raw:
+      database: State Store
+      table: icapi_datapoints_extractor
+logger:
+  console:
+    level: INFO
+type: local

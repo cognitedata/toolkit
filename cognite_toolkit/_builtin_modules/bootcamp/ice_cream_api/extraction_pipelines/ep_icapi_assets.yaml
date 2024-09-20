@@ -1,0 +1,8 @@
+externalId: ep_icapi_assets
+name: Ice Cream API Assets
+description: Assets source extraction pipeline for the Ice Cream API
+rawTables:
+  - dbName: ice_cream_api
+    tableName: icapi_assets_extractor
+source: Ice Cream API
+dataSetExternalId: {{ icapi_ds_external_id }}
