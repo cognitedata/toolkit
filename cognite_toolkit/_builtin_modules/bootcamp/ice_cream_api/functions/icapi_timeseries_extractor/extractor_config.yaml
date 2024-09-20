@@ -1,0 +1,23 @@
+extractor:
+  data_set_ext_id: ds_icapi
+
+  api_url: https://ice-cream-factory.inso-internal.cognite.ai
+
+cognite:
+  host: ${CDF_URL}
+  project: ${CDF_PROJECT}
+
+  idp-authentication:
+    tenant: ${IDP_TENANT_ID}
+
+    client-id: ${IDP_CLIENT_ID}
+    secret: ${IDP_CLIENT_SECRET}
+    scopes:
+      - ${IDP_SCOPES}
+
+  extraction_pipeline:
+    external-id: ep_icapi_timeseries
+
+logger:
+  console:
+    level: INFO

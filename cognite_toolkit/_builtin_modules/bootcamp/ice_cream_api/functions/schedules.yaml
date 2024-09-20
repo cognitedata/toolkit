@@ -1,0 +1,15 @@
+- name: Frontfill every 10 minutes last hour of data (streamer)
+  functionExternalId: icapi_datapoints_extractor
+  cronExpression: "*/10 * * * *"
+  authentication:
+    clientId: {{ icapi_extractors_client_id }}
+    clientSecret: {{ icapi_extractors_client_secret }}
+- name: Backfill once a day for the last 30 days (gap filling)
+  functionExternalId: icapi_datapoints_extractor
+  cronExpression: "0 0 * * *"
+  data:
+    backfill: True
+    hours: 720
+  authentication:
+    clientId: {{ icapi_extractors_client_id }}
+    clientSecret: {{ icapi_extractors_client_secret }}
