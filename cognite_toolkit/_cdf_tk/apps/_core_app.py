@@ -147,7 +147,7 @@ class CoreApp(typer.Typer):
         selected: Annotated[
             Optional[list[str]],
             typer.Option(
-                "--selected",
+                "--modules",
                 "-m",
                 help="Specify paths or names to the modules to build",
             ),
