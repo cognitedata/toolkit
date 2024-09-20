@@ -397,12 +397,12 @@ Group:
   name: gp_infield_oid2_viewers
   sourceId: <change_me>
 Space:
-- description: Space for Infield Location App Data
-  name: sp:infield:oid2:app_data
-  space: sp_infield_oid2_app_data
 - description: Space for Infield Location Source Data
   name: sp:infield:oid2:source
   space: sp_asset_oid2_source
+- description: Space for Infield Location App Data
+  name: sp:infield:oid2:app_data
+  space: sp_infield_oid2_app_data
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
