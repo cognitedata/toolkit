@@ -373,7 +373,7 @@ class PullCommand(ToolkitCommand):
         self,
         organization_dir: Path,
         id_: T_ID,
-        env: str,
+        env: str | None,
         dry_run: bool,
         verbose: bool,
         ToolGlobals: CDFToolConfig,

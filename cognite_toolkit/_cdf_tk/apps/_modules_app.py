@@ -103,7 +103,7 @@ class ModulesApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 help="Build environment to use.",

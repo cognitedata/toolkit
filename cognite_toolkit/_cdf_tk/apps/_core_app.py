@@ -116,11 +116,6 @@ class CoreApp(typer.Typer):
                     print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
 
         if dotenv_file.is_file():
-            try:
-                path_str = dotenv_file.relative_to(Path.cwd())
-            except ValueError:
-                path_str = dotenv_file.absolute()
-            print(f"Loading .env file: {path_str!s}.")
             has_loaded = load_dotenv(dotenv_file, override=override_env)
             if not has_loaded:
                 print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
@@ -149,8 +144,16 @@ class CoreApp(typer.Typer):
                 help="Where to save the built module files",
             ),
         ] = Path("./build"),
+        selected: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--modules",
+                "-m",
+                help="Specify paths or names to the modules to build",
+            ),
+        ] = None,
         build_env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",
@@ -187,6 +190,7 @@ class CoreApp(typer.Typer):
                 verbose,
                 organization_dir,
                 build_dir,
+                selected,
                 build_env_name,
                 no_clean,
                 ToolGlobals,
