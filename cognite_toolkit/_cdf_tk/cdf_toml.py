@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import re
 import sys
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -119,7 +121,23 @@ def _read_toml(file_path: Path) -> dict[str, Any]:
     except TOMLDecodeError as e:
         if file_path.is_relative_to(Path.cwd()):
             file_path = file_path.relative_to(Path.cwd())
-        err = ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()!r}: {e!s}")
+        extra = ""
+        with suppress(Exception):
+            # If any errors is raised here, we ignore it and continue
+            if result := re.search(r"\(at line (\d+), column (\d+)\)", str(e)):
+                line_no = int(result.group(1))
+                column_location = int(result.group(2))
+                lines = content.splitlines()
+                line = lines[line_no - 1]
+                prefix = "\n    [blue]HINT: [/blue]"
+                if column_location >= len(line):
+                    extra = f"{prefix}This is near the end of the line '{line}'"
+                elif column_location == 0:
+                    extra = f"{prefix}This is near the beginning of the line '{line}'"
+                else:
+                    extra = f"{prefix}This is near the '{line[:column_location]}' in '{line[column_location:]}'"
+
+        err = ToolkitTOMLFormatError(f"Error reading {file_path.as_posix()!r}: {e!s}{extra}")
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         # We read the CDF.TML file from the module level, so the app has not been loaded yet.
         # Therefore, we raise SystemExit to stop the execution
