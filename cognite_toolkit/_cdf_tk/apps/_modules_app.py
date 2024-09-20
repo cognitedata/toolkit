@@ -71,9 +71,17 @@ class ModulesApp(typer.Typer):
                 help="Where to find the module templates to build from",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Print more information.",
+            ),
+        ] = False,
     ) -> None:
         cmd = ModulesCommand()
-        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir))
+        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose))
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
