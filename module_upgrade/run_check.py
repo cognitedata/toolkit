@@ -1,5 +1,6 @@
 # ruff: noqa: E402
 import contextlib
+import logging
 import os
 import platform
 import shutil
@@ -7,6 +8,7 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
@@ -33,6 +35,16 @@ from cognite_toolkit._version import __version__
 TEST_DIR_ROOT = Path(__file__).resolve().parent
 PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
 PROJECT_INIT_DIR.mkdir(exist_ok=True)
+
+TODAY = date.today()
+
+logging.basicConfig(
+    filename=f"module_upgrade_{TODAY.strftime('%Y-%m-%d')}.log",
+    filemode="w",
+    format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+    level=logging.INFO,
+)
 
 
 def run() -> None:
@@ -168,7 +180,7 @@ def run_modules_upgrade(
         # This is to allow running the function with having uncommitted changes in the repository.
         with patch.object(CLICommands, "has_uncommitted_changes", lambda: False):
             changes = modules.upgrade(project_path)
-
+        logging.info(f"Changes for version {previous_version!s} to {__version__}: {len(changes)}")
         delete_modules_requiring_manual_changes(changes)
 
         # Update the config file to run include all modules.
@@ -188,7 +200,7 @@ def run_modules_upgrade(
                 pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
 
         build = BuildCommand(print_warning=False)
-        build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)
+        build.execute(False, project_path, build_path, selected=None, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
@@ -209,6 +221,7 @@ def run_modules_upgrade(
             style="green",
         )
     )
+    logging.info(f"Module upgrade for version {previous_version!s} to {__version__} completed successfully.")
 
 
 def delete_modules_requiring_manual_changes(changes):
