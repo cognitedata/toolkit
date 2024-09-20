@@ -128,7 +128,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         )
 
     def update(self, items: DataSetWriteList) -> DataSetList:
-        return self.client.data_sets.update(items)
+        return self.client.data_sets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
