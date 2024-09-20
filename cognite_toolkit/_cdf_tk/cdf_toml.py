@@ -78,6 +78,7 @@ class CDFToml:
         if file_path.exists():
             # TOML files are required to be UTF-8 encoded
             raw = tomllib.loads(file_path.read_text(encoding="utf-8"))
+
             # No required fields in the cdf section
             cdf = CLIConfig.load(raw["cdf"], cwd) if "cdf" in raw else CLIConfig(cwd)
             try:
@@ -109,7 +110,9 @@ class CDFToml:
 _CDF_TOML: CDFToml | None = None
 
 if __name__ == "__main__":
+    from pprint import pprint
+
     # This is a test to quickly check that the code works.
     # also useful to check that when you change cdf.toml it is loaded correctly
     _ROOT = Path(__file__).parent.parent.parent
-    print(CDFToml.load(_ROOT))
+    pprint(CDFToml.load(_ROOT))  # noqa: T203
