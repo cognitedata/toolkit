@@ -173,8 +173,8 @@ After:
 
         cdf_toml_path = Path.cwd() / "cdf.toml"
         cdf_toml_path.write_text(cdf_toml_content)
-
-        return {cdf_toml_path}
+        system_yaml.unlink()
+        return {cdf_toml_path, system_yaml}
 
 
 class ResourceFolderLabelsRenamed(AutomaticChange):
