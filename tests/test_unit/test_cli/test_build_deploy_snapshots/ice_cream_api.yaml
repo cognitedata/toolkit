@@ -1,3 +1,9 @@
+DataSet:
+- description: Data set for the Ice Cream API
+  externalId: ds_icapi
+  metadata: {}
+  name: Ice Cream API
+  writeProtected: false
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -39,6 +45,40 @@ Function:
     cdf-toolkit-function-hash: b93fcc662a72ef68fc2685071bff42dc30a7653973bc5eb7834131f32276d8f5
     version: '1.0'
   name: Ice Cream API Assets Extractor
+  owner: Bootcamp Team
+  runtime: py311
+- description: Extracts DataPoints data from the Ice Cream API
+  envVars:
+    CDF_PROJECT: <YOUR CDF PROJECT>
+    CDF_URL: https://westeurope-1.cognitedata.com
+    IDP_CLIENT_ID: ${ICAPI_EXTRACTORS_CLIENT_ID}
+    IDP_CLIENT_SECRET: ${ICAPI_EXTRACTORS_CLIENT_SECRET}
+    IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
+    IDP_TENANT_ID: dummy
+  externalId: icapi_datapoints_extractor
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: e31d696ec50967e3c9b046f1356acf7bc546ec32ba7a04959c118dce2ed5d690
+    version: '1.0'
+  name: Ice Cream API DataPoints Extractor
+  owner: Bootcamp Team
+  runtime: py311
+- description: Extracts TimeSeries data from the Ice Cream API
+  envVars:
+    CDF_PROJECT: <YOUR CDF PROJECT>
+    CDF_URL: https://westeurope-1.cognitedata.com
+    IDP_CLIENT_ID: ${ICAPI_EXTRACTORS_CLIENT_ID}
+    IDP_CLIENT_SECRET: ${ICAPI_EXTRACTORS_CLIENT_SECRET}
+    IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
+    IDP_TENANT_ID: dummy
+  externalId: icapi_timeseries_extractor
+  fileId: -1
+  functionPath: ./handler.py
+  metadata:
+    cdf-toolkit-function-hash: e0c14ac2815a54d83cf649390abfce8748752ac5e5ca3da6df2738efc6354757
+    version: '1.0'
+  name: Ice Cream API TimeSeries Extractor
   owner: Bootcamp Team
   runtime: py311
 FunctionSchedule:

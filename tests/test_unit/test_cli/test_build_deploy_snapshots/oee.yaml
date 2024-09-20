@@ -5,13 +5,13 @@ DataSet:
   writeProtected: false
 Function:
 - description: Function to calculate OEE
-  externalId: <externalId>
+  externalId: oee_timeseries
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+    cdf-toolkit-function-hash: 6ea778bd850ab2a9f39ac75bfeb4e0affc761d22154e4696452da30a6f60e243
     version: '1.0'
-  name: <name>
+  name: OEE TimeSeries
   owner: CDF Bootcamp Team
   runtime: py311
 FunctionSchedule:
