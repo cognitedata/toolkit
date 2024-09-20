@@ -1,0 +1,7 @@
+[module]
+title = "Bootcamp Data Foundation"
+
+[packages]
+tags = [
+    "bootcamp",
+]
