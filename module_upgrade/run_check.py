@@ -55,7 +55,8 @@ logging.basicConfig(
 
 
 def run() -> None:
-    only_first = len(original_argv) > 1 and original_argv[1] == "--only-first"
+    only_earliest = len(original_argv) > 1 and original_argv[1] == "--earliest"
+    only_latest = len(original_argv) > 1 and original_argv[1] == "--latest"
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
@@ -76,8 +77,10 @@ def run() -> None:
             title="cdf-tk module upgrade",
         )
     )
-    if only_first:
+    if only_earliest:
         versions = versions[-1:]
+    elif only_latest:
+        versions = versions[:1]
     for version in versions:
         with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
             run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
@@ -178,6 +181,10 @@ def create_project_init(version: str) -> None:
 def run_modules_upgrade(
     previous_version: Version, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
 ) -> None:
+    if (TEST_DIR_ROOT / CDFToml.file_name).exists():
+        # Cleanup after previous run
+        (TEST_DIR_ROOT / CDFToml.file_name).unlink()
+
     project_init = PROJECT_INIT_DIR / f"project_{previous_version!s}"
     # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, project_path, dirs_exist_ok=True)
