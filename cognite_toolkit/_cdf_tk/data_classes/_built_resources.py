@@ -260,7 +260,7 @@ class DeployedResourceList(BuiltResourceList[T_ID]):
             index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
             if index is None:
                 continue
-            path = Path("/".join(resource.location.path.parts[:index + 1]))
+            path = Path("/".join(resource.location.path.parts[: index + 1]))
             output.add(path)
 
         return output

@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
-    UploadFileError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
@@ -422,7 +421,6 @@ class DeployCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult:
-
         prefix = "Would upload" if dry_run else "Uploading"
         print(f"[bold]{prefix} {loader.display_name} files to CDF...[/]")
 
@@ -436,7 +434,7 @@ class DeployCommand(ToolkitCommand):
 
         if datapoints != 0:
             return DatapointDeployResult(
-                loader.display_name, points=datapoints, uploaded=len(file_counts), item_name=loader.item_name
+                loader.display_name, points=datapoints, uploaded=file_counts, item_name=loader.item_name
             )
         else:
-            return UploadDeployResult(loader.display_name, uploaded=len(file_counts), item_name=loader.item_name)
+            return UploadDeployResult(loader.display_name, uploaded=file_counts, item_name=loader.item_name)

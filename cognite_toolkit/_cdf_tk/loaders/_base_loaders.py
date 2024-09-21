@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar, overload, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -334,9 +334,9 @@ class DataLoader(Loader, ABC):
     def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
-    def _find_data_files(self, directory: Path | None = None) -> list[Path]:
-        return [path for path in directory.rglob("*")
-                if path.is_file() and
-                path.name not in EXCL_FILES
-                and self.is_supported_file(path)
-                ]
+    def _find_data_files(self, directory: Path) -> list[Path]:
+        return [
+            path
+            for path in directory.rglob("*")
+            if path.is_file() and path.name not in EXCL_FILES and self.is_supported_file(path)
+        ]
