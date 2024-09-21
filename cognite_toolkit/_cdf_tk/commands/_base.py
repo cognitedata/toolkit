@@ -8,7 +8,7 @@ from typing import Any
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
@@ -90,10 +90,6 @@ class ToolkitCommand:
                 raise ToolkitTypeError(
                     f"Failed to load {filepath.name} with {loader.display_name}. Wrong type {e!r}"
                 ) from e
-            except Exception as e:
-                raise ToolkitYAMLFormatError(
-                    f"Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}."
-                )
             if resource is None:
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue
