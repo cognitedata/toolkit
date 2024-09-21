@@ -31,34 +31,41 @@ class DatapointsLoader(DataLoader):
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
     def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
-        if datafile.suffix == ".csv":
-            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-            file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-            data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-            data.index = pd.DatetimeIndex(data.index)
-        elif datafile.suffix == ".parquet":
-            data = pd.read_parquet(datafile, engine="pyarrow")
-        else:
-            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
-        timeseries_ids = list(data.columns)
-        if len(timeseries_ids) == 1:
-            ts_str = timeseries_ids[0]
-        elif len(timeseries_ids) <= 10:
-            ts_str = str(timeseries_ids)
-        else:
-            ts_str = f"{len(timeseries_ids):,} timeseries"
+        if not self.folder_name in state.deployed_resources:
+            return
 
-        if dry_run:
-            return (
-                f" Would insert '{len(data):,}x{len(data.columns):,}' datapoints from '{datafile!s}' into {ts_str}",
-                len(data) * len(data.columns),
-            )
-        else:
-            self.client.time_series.data.insert_dataframe(data)
+        resource_directories = state.deployed_resources[self.folder_name].get_resource_directories(self.folder_name)
 
-            return f" Inserted '{len(data):,}x{len(data.columns):,}' datapoints from '{datafile!s}' into {ts_str}", len(
-                data
-            ) * len(data.columns)
+        for resource_dir in resource_directories:
+            for datafile in self._find_data_files(resource_dir):
+                if datafile.suffix == ".csv":
+                    # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                    file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                    data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
+                    data.index = pd.DatetimeIndex(data.index)
+                elif datafile.suffix == ".parquet":
+                    data = pd.read_parquet(datafile, engine="pyarrow")
+                else:
+                    raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+                timeseries_ids = list(data.columns)
+                if len(timeseries_ids) == 1:
+                    ts_str = timeseries_ids[0]
+                elif len(timeseries_ids) <= 10:
+                    ts_str = str(timeseries_ids)
+                else:
+                    ts_str = f"{len(timeseries_ids):,} timeseries"
+
+                if dry_run:
+                    yield (
+                        f" Would insert '{len(data):,}x{len(data.columns):,}' datapoints from '{datafile!s}' into {ts_str}",
+                        len(data) * len(data.columns),
+                    )
+                else:
+                    self.client.time_series.data.insert_dataframe(data)
+
+                    yield f" Inserted '{len(data):,}x{len(data.columns):,}' datapoints from '{datafile!s}' into {ts_str}", len(
+                        data
+                    ) * len(data.columns)
 
 
 @final

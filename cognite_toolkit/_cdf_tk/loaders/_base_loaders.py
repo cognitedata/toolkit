@@ -334,9 +334,9 @@ class DataLoader(Loader, ABC):
     def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
-    def _find_data_files(self, module_dir: Path | None = None) -> list[Path]:
-        return [path for path in module_dir.rglob("*")
-                    if path.is_file() and
-                    path.name not in EXCL_FILES
-                    and self.is_supported_file(path)
+    def _find_data_files(self, directory: Path | None = None) -> list[Path]:
+        return [path for path in directory.rglob("*")
+                if path.is_file() and
+                path.name not in EXCL_FILES
+                and self.is_supported_file(path)
                 ]

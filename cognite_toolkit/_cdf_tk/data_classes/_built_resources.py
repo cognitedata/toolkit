@@ -253,3 +253,14 @@ class DeployedResourceList(BuiltResourceList[T_ID]):
     @classmethod
     def load(cls, data: list[dict[str, Any]], resource_folder: str) -> DeployedResourceList[T_ID]:
         return cls([DeployedResource.load(resource_data, resource_folder) for resource_data in data])
+
+    def get_resource_directories(self, resource_folder: str) -> set[Path]:
+        output: set[Path] = set()
+        for resource in self:
+            index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
+            if index is None:
+                continue
+            path = Path("/".join(resource.location.path.parts[:index + 1]))
+            output.add(path)
+
+        return output
