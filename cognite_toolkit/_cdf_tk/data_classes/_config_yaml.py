@@ -191,7 +191,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             build_type=self.environment.build_type,
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
-            hash_by_source_file=hash_by_source_file or {},
+            built_resources=hash_by_source_file or {},
         )
 
     def get_selected_modules(
@@ -245,7 +245,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 @dataclass
 class BuildEnvironment(Environment):
     cdf_toolkit_version: str = __version__
-    hash_by_source_file: dict[Path, str] = field(default_factory=dict)
+    built_resources: dict[Path, str] = field(default_factory=dict)
 
     @classmethod
     def load(
@@ -267,7 +267,7 @@ class BuildEnvironment(Environment):
                 build_type=data["type"],
                 selected=data["selected"],
                 cdf_toolkit_version=version,
-                hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
+                built_resources={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
             )
         except KeyError:
             raise ToolkitEnvError(
@@ -278,8 +278,8 @@ class BuildEnvironment(Environment):
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version
-        if self.hash_by_source_file:
-            output["source_files"] = {str(file): hash_ for file, hash_ in self.hash_by_source_file.items()}
+        if self.built_resources:
+            output["source_files"] = {str(file): hash_ for file, hash_ in self.built_resources.items()}
         return output
 
     def dump_to_file(self, build_dir: Path) -> None:
@@ -293,7 +293,7 @@ class BuildEnvironment(Environment):
 
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
-        for file, hash_ in self.hash_by_source_file.items():
+        for file, hash_ in self.built_resources.items():
             if file.suffix in {".csv", ".parquet"}:
                 # When we copy over the source files we use utf-8 encoding, which can change the file hash.
                 # Thus, we skip checking the hash for these file types.

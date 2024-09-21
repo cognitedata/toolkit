@@ -5,7 +5,6 @@ from ._build_info import (
     BuiltResource,
     BuiltResourceFull,
     BuiltResourceList,
-    ModuleResources,
     SourceLocation,
     SourceLocationEager,
     SourceLocationLazy,
@@ -20,6 +19,7 @@ from ._config_yaml import (
     InitConfigYAML,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
+from ._module_resources import ModuleResources
 from ._packages import Package, Packages
 
 __all__ = [
