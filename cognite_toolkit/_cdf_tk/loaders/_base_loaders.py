@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Generic, Literal, TypeVar, overload
+from typing import Any, Generic, Literal, TypeVar, overload, TYPE_CHECKING
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -18,7 +18,11 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes import DeployEnvironment
 
 T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
@@ -327,5 +331,12 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
+    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
+
+    def _find_data_files(self, module_dir: Path | None = None) -> list[Path]:
+        return [path for path in module_dir.rglob("*")
+                    if path.is_file() and
+                    path.name not in EXCL_FILES
+                    and self.is_supported_file(path)
+                ]

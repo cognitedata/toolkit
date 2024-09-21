@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import io
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import final
+from typing import final, TYPE_CHECKING, cast
 
 import pandas as pd
 import yaml
@@ -17,17 +18,19 @@ from ._base_loaders import DataLoader
 from ._resource_loaders import FileMetadataLoader, RawDatabaseLoader, RawTableLoader, TimeSeriesLoader
 from .data_classes import RawDatabaseTable
 
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes import DeployEnvironment
 
 @final
 class DatapointsLoader(DataLoader):
     item_name = "datapoints"
-    folder_name = "timeseries_datapoints"
+    folder_name = "timeseries"
     kind = "Datapoints"
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
-    def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
+    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if datafile.suffix == ".csv":
             # The replacement is used to ensure that we read exactly the same file on Windows and Linux
             file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
@@ -77,7 +80,7 @@ class FileLoader(DataLoader):
         self.meta_data_list = FileMetadataWriteList([])
         self.has_loaded_metadata = False
 
-    def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
+    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if not self.has_loaded_metadata:
             meta_loader = FileMetadataLoader(self.client, self.resource_build_path and self.resource_build_path.parent)
             yaml_files = list(datafile.parent.glob("*.yml")) + list(datafile.parent.glob("*.yaml"))
@@ -112,55 +115,57 @@ class RawFileLoader(DataLoader):
     dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
     _doc_url = "Raw/operation/postRows"
 
+
+
     @property
     def display_name(self) -> str:
         return "raw.rows"
 
-    def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
-        pattern = re.compile(rf"{datafile.stem}\.(yml|yaml)$")
-        metadata_file = next((filepath for filepath in datafile.parent.glob("*") if pattern.match(filepath.name)), None)
-        if metadata_file is not None:
-            raw = yaml.safe_load(safe_read(metadata_file))
-            if isinstance(raw, dict):
-                metadata = RawDatabaseTable.load(raw)
-            elif isinstance(raw, list):
-                raise ValueError(f"Array/list format currently not supported for uploading {self.display_name}.")
+    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+        if not self.folder_name in state.deployed_resources:
+            return
+
+        for resource in state.deployed_resources[self.folder_name]:
+            if resource.kind != RawTableLoader.kind:
+                continue
+            table = cast(RawDatabaseTable, resource.identifier)
+            datafile = next((resource.location.path.with_suffix(f".{file_type}") for file_type in self.filetypes), None)
+            if datafile is None:
+                # No adjacent data file found
+                continue
+
+            if datafile.suffix == ".csv":
+                # The replacement is used to ensure that we read exactly the same file on Windows and Linux
+                file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
+                data = pd.read_csv(io.StringIO(file_content), dtype=str)
+                data.fillna("", inplace=True)
+                if not data.columns.empty and data.columns[0] == "key":
+                    print(f"Setting index to 'key' for {datafile.name}")
+                    data.set_index("key", inplace=True)
+            elif datafile.suffix == ".parquet":
+                data = pd.read_parquet(datafile, engine="pyarrow")
             else:
-                raise ValueError(f"Invalid format on metadata for {datafile.name}")
-        else:
-            raise ValueError(f"Missing metadata file for {datafile.name}. It should be named {datafile.stem}.yaml")
+                raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
 
-        if datafile.suffix == ".csv":
-            # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-            file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-            data = pd.read_csv(io.StringIO(file_content), dtype=str)
-            data.fillna("", inplace=True)
-            if not data.columns.empty and data.columns[0] == "key":
-                print(f"Setting index to 'key' for {datafile.name}")
-                data.set_index("key", inplace=True)
-        elif datafile.suffix == ".parquet":
-            data = pd.read_parquet(datafile, engine="pyarrow")
-        else:
-            raise ValueError(f"Unsupported file type {datafile.suffix} for {datafile.name}")
+            if data.empty:
+                yield (
+                    f" No rows to insert from '{datafile!s}' into {table!r}.",
+                    0,
+                )
 
-        if data.empty:
-            return (
-                f" No rows to insert from '{datafile!s}' into database={metadata.db_name!r}, table={metadata.table_name!r}.",
-                0,
+            if dry_run:
+                yield (
+                    f" Would insert {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' "
+                    f"into {table!r}."
+                ), len(data)
+
+            if table.table_name is None:
+                # This should never happen
+                raise ValueError(f"Missing table name for {datafile.name}")
+            self.client.raw.rows.insert_dataframe(
+                db_name=table.db_name, table_name=table.table_name, dataframe=data, ensure_parent=False
             )
-
-        if dry_run:
-            return (
-                f" Would insert {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' "
-                f"into database={metadata.db_name!r}, table={metadata.table_name!r}."
+            yield (
+                f" Inserted {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' "
+                f"into {table!r}."
             ), len(data)
-
-        if metadata.table_name is None:
-            raise ValueError(f"Missing table name for {datafile.name}")
-        self.client.raw.rows.insert_dataframe(
-            db_name=metadata.db_name, table_name=metadata.table_name, dataframe=data, ensure_parent=False
-        )
-        return (
-            f" Inserted {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' "
-            f"into database={metadata.db_name!r}, table={metadata.table_name!r}."
-        ), len(data)
