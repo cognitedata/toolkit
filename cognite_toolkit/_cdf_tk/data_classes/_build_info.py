@@ -36,8 +36,8 @@ from ._module_directories import ModuleDirectories
 
 
 @dataclass
-class BuildLocation:
-    """This represents the location of a build resource in a directory structure.
+class SourceLocation:
+    """This represents the location of a built resource in a module structure.
 
     Args:
         path: The relative path to the resource from the project directory.
@@ -58,15 +58,15 @@ class BuildLocation:
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> BuildLocation:
-        return BuildLocationEager(
+    def load(cls, data: dict[str, Any]) -> SourceLocation:
+        return SourceLocationEager(
             path=Path(data["path"]),
             _hash=data["hash"],
         )
 
 
 @dataclass
-class BuildLocationLazy(BuildLocation):
+class SourceLocationLazy(SourceLocation):
     absolute_path: Path
 
     @cached_property
@@ -78,7 +78,7 @@ class BuildLocationLazy(BuildLocation):
 
 
 @dataclass
-class BuildLocationEager(BuildLocation):
+class SourceLocationEager(SourceLocation):
     _hash: str
 
     @property
@@ -87,13 +87,14 @@ class BuildLocationEager(BuildLocation):
 
 
 @dataclass
-class ResourceBuildInfo(Generic[T_ID]):
+class BuiltResource(Generic[T_ID]):
     identifier: T_ID
-    location: BuildLocation
+    location: SourceLocation
     kind: str
+    destination: Path | None
 
     @classmethod
-    def load(cls, data: dict[str, Any], resource_folder: str) -> ResourceBuildInfo:
+    def load(cls, data: dict[str, Any], resource_folder: str) -> BuiltResource:
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         kind = data["kind"]
@@ -101,28 +102,33 @@ class ResourceBuildInfo(Generic[T_ID]):
         identifier = loader.get_id(data["identifier"])
 
         return cls(
-            location=BuildLocation.load(data["location"]),
+            location=SourceLocation.load(data["location"]),
             kind=kind,
             identifier=identifier,
+            destination=Path(data["destination"]) if "destination" in data else None,
         )
 
-    def dump(self, resource_folder: str) -> dict[str, Any]:
+    def dump(self, resource_folder: str, include_destination: bool = False) -> dict[str, Any]:
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         loader = cast(ResourceLoader, get_loader(resource_folder, self.kind))
         dumped = loader.dump_id(self.identifier)
 
-        return {
+        output = {
             "identifier": dumped,
             "location": self.location.dump(),
             "kind": self.kind,
         }
+        if include_destination and self.destination:
+            output["destination"] = self.destination.as_posix()
+        return output
 
-    def create_full(self, module: BuiltModule, resource_dir: str) -> ResourceBuildInfoFull[T_ID]:
-        return ResourceBuildInfoFull(
+    def create_full(self, module: BuiltModule, resource_dir: str) -> BuiltResourceFull[T_ID]:
+        return BuiltResourceFull(
             identifier=self.identifier,
             location=self.location,
             kind=self.kind,
+            destination=self.destination,
             build_variables=module.build_variables,
             module_name=module.name,
             module_location=module.location.path,
@@ -131,7 +137,7 @@ class ResourceBuildInfo(Generic[T_ID]):
 
 
 @dataclass
-class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
+class BuiltResourceFull(BuiltResource[T_ID]):
     build_variables: BuildVariables
     module_name: str
     module_location: Path
@@ -172,23 +178,23 @@ class ResourceBuildInfoFull(ResourceBuildInfo[T_ID]):
         return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
-class ResourceBuiltList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[T_ID]):
+class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ResourceBuildInfo[T_ID]] | None = None) -> None:
+    def __init__(self, collection: Collection[BuiltResource[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ResourceBuildInfo[T_ID]]:
+    def __iter__(self) -> Iterator[BuiltResource[T_ID]]:
         return super().__iter__()
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfo[T_ID]: ...
+    def __getitem__(self, index: SupportsIndex) -> BuiltResource[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuiltList[T_ID]: ...
+    def __getitem__(self, index: slice) -> BuiltResourceList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfo[T_ID] | ResourceBuiltList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltResource[T_ID] | BuiltResourceList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuiltList[T_ID](super().__getitem__(index))
+            return BuiltResourceList[T_ID](super().__getitem__(index))
         return super().__getitem__(index)
 
     @property
@@ -196,32 +202,32 @@ class ResourceBuiltList(list, MutableSequence[ResourceBuildInfo[T_ID]], Generic[
         return [resource.identifier for resource in self]
 
 
-class ResourceBuiltFullList(ResourceBuiltList[T_ID]):
+class BuiltFullResourceList(BuiltResourceList[T_ID]):
     # Implemented to get correct type hints
-    def __init__(self, collection: Collection[ResourceBuildInfoFull[T_ID]] | None = None) -> None:
+    def __init__(self, collection: Collection[BuiltResourceFull[T_ID]] | None = None) -> None:
         super().__init__(collection or [])
 
-    def __iter__(self) -> Iterator[ResourceBuildInfoFull[T_ID]]:
-        return cast(Iterator[ResourceBuildInfoFull[T_ID]], super().__iter__())
+    def __iter__(self) -> Iterator[BuiltResourceFull[T_ID]]:
+        return cast(Iterator[BuiltResourceFull[T_ID]], super().__iter__())
 
     @overload
-    def __getitem__(self, index: SupportsIndex) -> ResourceBuildInfoFull[T_ID]: ...
+    def __getitem__(self, index: SupportsIndex) -> BuiltResourceFull[T_ID]: ...
 
     @overload
-    def __getitem__(self, index: slice) -> ResourceBuiltFullList[T_ID]: ...
+    def __getitem__(self, index: slice) -> BuiltFullResourceList[T_ID]: ...
 
-    def __getitem__(self, index: SupportsIndex | slice, /) -> ResourceBuildInfoFull[T_ID] | ResourceBuiltFullList[T_ID]:
+    def __getitem__(self, index: SupportsIndex | slice, /) -> BuiltResourceFull[T_ID] | BuiltFullResourceList[T_ID]:
         if isinstance(index, slice):
-            return ResourceBuiltFullList[T_ID](super().__getitem__(index))
-        return cast(ResourceBuildInfoFull[T_ID], super().__getitem__(index))
+            return BuiltFullResourceList[T_ID](super().__getitem__(index))
+        return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
 
 
 @dataclass
 class BuiltModule:
     name: str
-    location: BuildLocation
+    location: SourceLocation
     build_variables: BuildVariables
-    resources: dict[str, ResourceBuiltList]
+    resources: dict[str, BuiltResourceList]
     warning_count: int
     status: str
 
@@ -229,10 +235,10 @@ class BuiltModule:
     def load(cls, data: dict[str, Any]) -> BuiltModule:
         return cls(
             name=data["name"],
-            location=BuildLocation.load(data["location"]),
+            location=SourceLocation.load(data["location"]),
             build_variables=BuildVariables.load(data["build_variables"]),
             resources={
-                key: ResourceBuiltList([ResourceBuildInfo.load(resource_data, key) for resource_data in resources_data])
+                key: BuiltResourceList([BuiltResource.load(resource_data, key) for resource_data in resources_data])
                 for key, resources_data in data["resources"].items()
             },
             warning_count=data.get("warning_count", 0),
@@ -272,8 +278,8 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             return BuiltModuleList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> ResourceBuiltFullList[T_ID]:
-        return ResourceBuiltFullList[T_ID](
+    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> BuiltFullResourceList[T_ID]:
+        return BuiltFullResourceList[T_ID](
             [
                 resource.create_full(module, resource_dir)
                 for module in self
@@ -448,7 +454,7 @@ class ModuleResources:
 
     def list_resources(
         self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str
-    ) -> ResourceBuiltFullList[T_ID]:
+    ) -> BuiltFullResourceList[T_ID]:
         if not self._has_rebuilt:
             if needs_rebuild := self._build_info.compare_modules(
                 self._current_modules, self._current_variables, {resource_dir}

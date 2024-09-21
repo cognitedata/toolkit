@@ -29,15 +29,15 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildLocationEager,
-    BuildLocationLazy,
     BuildVariables,
     BuiltModule,
     BuiltModuleList,
+    BuiltResource,
+    BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
-    ResourceBuildInfo,
-    ResourceBuiltList,
+    SourceLocationEager,
+    SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -317,7 +317,7 @@ class BuildCommand(ToolkitCommand):
 
             built_module = BuiltModule(
                 name=module.name,
-                location=BuildLocationLazy(
+                location=SourceLocationLazy(
                     path=module.relative_path,
                     absolute_path=module.dir,
                 ),
@@ -338,9 +338,9 @@ class BuildCommand(ToolkitCommand):
         module_names_by_variable_key: dict[str, list[str]],
         state: _BuildState,
         verbose: bool,
-    ) -> dict[str, ResourceBuiltList]:
+    ) -> dict[str, BuiltResourceList]:
         files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
-        build_resources: dict[str, ResourceBuiltList] = defaultdict(ResourceBuiltList)
+        build_resources: dict[str, BuiltResourceList] = defaultdict(BuiltResourceList)
         for resource_directory_name, directory_files in files_by_resource_directory.items():
             build_folder: list[Path] = []
             for source_path in directory_files.resource_files:
@@ -419,7 +419,7 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> ResourceBuiltList:
+    ) -> BuiltResourceList:
         if verbose:
             self.console(f"Processing {source_path.name}")
 
@@ -427,7 +427,7 @@ class BuildCommand(ToolkitCommand):
 
         content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content, shorten=True)
-        location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
+        location = SourceLocationEager(source_path, state.hash_by_source_path[source_path])
 
         content = variables.replace(content, source_path.suffix)
 
@@ -442,7 +442,9 @@ class BuildCommand(ToolkitCommand):
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return ResourceBuiltList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
+        return BuiltResourceList(
+            [BuiltResource(identifier, location, kind, destination_path) for identifier in identifiers]
+        )
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
