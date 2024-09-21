@@ -1,7 +1,10 @@
-from ._build_info import (
-    BuiltFullResourceList,
+from ._build_variables import BuildVariable, BuildVariables
+from ._built_modules import (
     BuiltModule,
     BuiltModuleList,
+)
+from ._built_resources import (
+    BuiltFullResourceList,
     BuiltResource,
     BuiltResourceFull,
     BuiltResourceList,
@@ -9,7 +12,6 @@ from ._build_info import (
     SourceLocationEager,
     SourceLocationLazy,
 )
-from ._build_variables import BuildVariable, BuildVariables
 from ._config_yaml import (
     BuildConfigYAML,
     BuildEnvironment,

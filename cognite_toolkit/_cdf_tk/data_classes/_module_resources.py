@@ -18,8 +18,9 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._base import ConfigCore
-from ._build_info import BuiltFullResourceList, BuiltModule, BuiltModuleList
 from ._build_variables import BuildVariables
+from ._built_modules import BuiltModule, BuiltModuleList
+from ._built_resources import BuiltFullResourceList
 from ._config_yaml import BuildConfigYAML
 from ._module_directories import ModuleDirectories
 
