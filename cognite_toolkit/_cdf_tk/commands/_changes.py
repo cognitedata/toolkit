@@ -7,6 +7,7 @@ from pathlib import Path
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
+from rich import print
 
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
@@ -38,6 +39,46 @@ class ManualChange(Change):
 
     def instructions(self, files: set[Path]) -> str:
         return ""
+
+class ResourceFolderTimeSeriesDatapointsReoved(AutomaticChange):
+    """The resource folder 'timeseries_datapoints' have been removed.
+
+The `csv` and `parquet` files that were previously stored in the `timeseries_datapoints` folder
+should be moved to the `timeseries` folder.
+
+Before:
+```bash
+    my_module/
+       timeseries_datapoints/
+          my_datapoints.Datapoints.csv
+```
+After:
+```bash
+    my_module/
+       timeseries/
+          my_datapoints.Datapoints.csv
+```
+    """
+
+    deprecated_from = Version("0.3.0a7")
+    required_from = Version("0.3.0a7")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "timeseries_datapoints":
+                    (module / "timeseries").mkdir(exist_ok=True)
+                    for filepath in resource_dir.rglob("*"):
+                        target = module / "timeseries" / filepath.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
+                        if target.exists():
+                            print(f'  [bold red]ERROR ([/][red] Cannot move file [/][bold red]{filepath}[/][red] to [/][bold red]{target}[/][red]): File already exists')
+                            continue
+                        filepath.rename(target)
+                        changed.add(target)
+        return changed
 
 
 class AuthVerifySplit(AutomaticChange):
@@ -79,7 +120,6 @@ After:
     deprecated_from = Version("0.3.0a4")
     required_from = Version("0.3.0a4")
     has_file_changes = False
-
 
 
 class RenamedOrganizationDirInCDFToml(AutomaticChange):
