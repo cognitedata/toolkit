@@ -160,6 +160,7 @@ class DeployCommand(ToolkitCommand):
             result = self.deploy_resources(
                 loader_instance,
                 ToolGlobals=ToolGlobals,
+                state=deploy_state,
                 dry_run=dry_run,
                 has_done_drop=drop,
                 has_dropped_data=drop_data,
@@ -179,6 +180,7 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: Loader,
         ToolGlobals: CDFToolConfig,
+        state: DeployEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
@@ -187,7 +189,7 @@ class DeployCommand(ToolkitCommand):
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(loader, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
         elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, ToolGlobals, dry_run, verbose)
+            return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
         else:
             raise ValueError(f"Unsupported loader type {type(loader)}.")
 
@@ -416,26 +418,25 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: DataLoader,
         ToolGlobals: CDFToolConfig,
+        state: DeployEnvironment,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult:
-        filepaths = loader.find_files()
 
         prefix = "Would upload" if dry_run else "Uploading"
-        print(f"[bold]{prefix} {len(filepaths)} data {loader.display_name} files to CDF...[/]")
+        print(f"[bold]{prefix} {loader.display_name} files to CDF...[/]")
+
         datapoints = 0
-        for filepath in filepaths:
-            try:
-                message, file_datapoints = loader.upload(filepath, ToolGlobals, dry_run)
-            except Exception as e:
-                print(Panel(traceback.format_exc()))
-                raise UploadFileError(f"Failed to upload {filepath.name}. Error: {e!r}.") from e
+        file_counts = 0
+        for message, file_datapoints in loader.upload(state, ToolGlobals, dry_run):
             if verbose:
                 print(message)
             datapoints += file_datapoints
+            file_counts += 1
+
         if datapoints != 0:
             return DatapointDeployResult(
-                loader.display_name, points=datapoints, uploaded=len(filepaths), item_name=loader.item_name
+                loader.display_name, points=datapoints, uploaded=len(file_counts), item_name=loader.item_name
             )
         else:
-            return UploadDeployResult(loader.display_name, uploaded=len(filepaths), item_name=loader.item_name)
+            return UploadDeployResult(loader.display_name, uploaded=len(file_counts), item_name=loader.item_name)

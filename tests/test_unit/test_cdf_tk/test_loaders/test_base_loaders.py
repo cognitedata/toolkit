@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_fr
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
-    BuildConfigYAML,
+    BuildConfigYAML, DeployEnvironment,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -75,7 +75,7 @@ def test_loader_class(
 
     cmd = DeployCommand(print_warning=False)
     loader = loader_cls.create_loader(cdf_tool, LOAD_DATA)
-    cmd.deploy_resources(loader, cdf_tool, dry_run=False)
+    cmd.deploy_resources(loader, cdf_tool, DeployEnvironment(), dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
@@ -98,7 +98,7 @@ class TestDeployResources:
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, dry_run=False)
+        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, DeployEnvironment(), dry_run=False)
 
         views = toolkit_client_approval.dump(sort=False)["View"]
 
