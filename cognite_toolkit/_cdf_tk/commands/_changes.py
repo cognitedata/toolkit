@@ -40,7 +40,7 @@ class ManualChange(Change):
     def instructions(self, files: set[Path]) -> str:
         return ""
 
-class ResourceFolderTimeSeriesDatapointsReoved(AutomaticChange):
+class ResourceFolderTimeSeriesDatapointsRemoved(AutomaticChange):
     """The resource folder 'timeseries_datapoints' have been removed.
 
 The `csv` and `parquet` files that were previously stored in the `timeseries_datapoints` folder
