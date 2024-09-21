@@ -8,6 +8,8 @@ from ._built_resources import (
     BuiltResource,
     BuiltResourceFull,
     BuiltResourceList,
+    DeployedResource,
+    DeployedResourceList,
     SourceLocation,
     SourceLocationEager,
     SourceLocationLazy,
@@ -49,4 +51,6 @@ __all__ = [
     "SourceLocationLazy",
     "BuiltFullResourceList",
     "BuiltResourceFull",
+    "DeployedResource",
+    "DeployedResourceList",
 ]

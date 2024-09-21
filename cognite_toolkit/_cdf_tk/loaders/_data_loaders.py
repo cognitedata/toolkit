@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, cast, final
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
-from cognite_toolkit._cdf_tk.data_classes._built_resources import DeployedResource
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 
 from ._base_loaders import DataLoader
@@ -16,7 +15,7 @@ from ._resource_loaders import FileMetadataLoader, RawDatabaseLoader, RawTableLo
 from .data_classes import RawDatabaseTable
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import DeployEnvironment
+    from cognite_toolkit._cdf_tk.data_classes import DeployedResource, DeployEnvironment
 
 
 @final
