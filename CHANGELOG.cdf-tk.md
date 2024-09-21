@@ -22,6 +22,8 @@ Changes are grouped as follows:
 - The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
   command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
   Validation of the function code is expected to be handled by `cdf run function local`.
+- [BREAKING] The resource folder `timeseries_datapoints` is removed and `csv` and `parquet` files with
+  datapoints are no expected to be in the `timeseries` folder.
 
 ### Removed
 
