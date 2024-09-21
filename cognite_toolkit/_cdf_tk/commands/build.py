@@ -354,7 +354,7 @@ class BuildCommand(ToolkitCommand):
 
         safe_write(destination_path, content)
 
-        file_warnings, identifiers, kind = self.validate(content, source_path, destination_path)
+        file_warnings, identifiers_kind_pairs = self.validate(content, source_path, destination_path)
 
         if file_warnings:
             self.warning_list.extend(file_warnings)
@@ -363,7 +363,7 @@ class BuildCommand(ToolkitCommand):
                 print(str(file_warnings))
 
         return BuiltResourceList(
-            [BuiltResource(identifier, location, kind, destination_path) for identifier in identifiers]
+            [BuiltResource(identifier, location, kind, destination_path) for identifier, kind in identifiers_kind_pairs]
         )
 
     @staticmethod
@@ -593,7 +593,7 @@ class BuildCommand(ToolkitCommand):
         content: str,
         source_path: Path,
         destination: Path,
-    ) -> tuple[WarningList[FileReadWarning], list[Hashable], str]:
+    ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
@@ -617,7 +617,7 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return warning_list, [], "Unknown"
+            return warning_list, []
 
         try:
             parsed = yaml.safe_load(content)
@@ -630,7 +630,7 @@ class BuildCommand(ToolkitCommand):
 
         loader = self._get_loader(resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
-            return warning_list, [], "Unknown"
+            return warning_list, []
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
@@ -642,31 +642,33 @@ class BuildCommand(ToolkitCommand):
         else:
             items = [parsed] if is_dict_item else parsed
 
-        identifiers: list[Hashable] = []
+        identifier_kind_pairs: list[tuple[Hashable, str]] = []
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
             identifier: Any | None = None
+            # Raw Tables and Raw Databases can have different loaders in the same file.
+            item_loader = loader
             try:
-                identifier = loader.get_id(item)
+                identifier = item_loader.get_id(item)
             except KeyError as error:
-                warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+                if loader is RawTableLoader:
+                    try:
+                        identifier = RawDatabaseLoader.get_id(item)
+                        item_loader = RawDatabaseLoader
+                    except KeyError:
+                        warning_list.append(
+                            MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args)
+                        )
+                else:
+                    warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
-                identifiers.append(identifier)
-                if first_seen := self._state.ids_by_resource_type[loader].get(identifier):
-                    if loader is not RawDatabaseLoader:
-                        # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
-                        warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                identifier_kind_pairs.append((identifier, item_loader.kind))
+                if first_seen := self._state.ids_by_resource_type[item_loader].get(identifier):
+                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
                 else:
-                    self._state.ids_by_resource_type[loader][identifier] = source_path
-
-                if loader is RawDatabaseLoader:
-                    # We might also have Raw Tables that is in the same file.
-                    with contextlib.suppress(KeyError):
-                        table_id = RawTableLoader.get_id(item)
-                        if table_id not in self._state.ids_by_resource_type[RawTableLoader]:
-                            self._state.ids_by_resource_type[RawTableLoader][table_id] = source_path
+                    self._state.ids_by_resource_type[item_loader][identifier] = source_path
 
                 for dependency in loader.get_dependent_items(item):
                     self._state.dependencies_by_required[dependency].append((identifier, source_path))
@@ -678,7 +680,7 @@ class BuildCommand(ToolkitCommand):
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
             warning_list.extend(data_set_warnings)
 
-        return warning_list, identifiers, loader.kind
+        return warning_list, identifier_kind_pairs
 
     def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
         api_spec: ParameterSpecSet | None = None
@@ -723,7 +725,7 @@ class BuildCommand(ToolkitCommand):
             return None
         elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
             # Multiple raw loaders load from the same file.
-            return RawDatabaseLoader
+            return RawTableLoader
         elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
             # There are two group loaders, one for resource scoped and one for all scoped.
             return GroupLoader
