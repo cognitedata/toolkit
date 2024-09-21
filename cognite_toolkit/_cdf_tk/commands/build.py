@@ -519,9 +519,9 @@ class BuildCommand(ToolkitCommand):
     ) -> dict[str, str | None]:
         function_path_by_external_id: dict[str, str | None] = {}
         for built_resource in built_resources:
-            if built_resource.kind != FunctionLoader.kind:
+            if built_resource.kind != FunctionLoader.kind or built_resource.destination is None:
                 continue
-            source_file = built_resource.location.path
+            source_file = built_resource.destination
             try:
                 raw_content = read_yaml_content(safe_read(source_file))
             except yaml.YAMLError as e:
