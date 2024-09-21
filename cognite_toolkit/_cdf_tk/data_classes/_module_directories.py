@@ -9,9 +9,7 @@ from pathlib import Path
 from typing import SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
@@ -70,8 +68,8 @@ class ModuleLocation:
         """The resource directories in the module."""
         return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
 
-    @cached_property
-    def source_paths_by_resource_folder(self) -> dict[str, list[Path]]:
+    @property
+    def _source_paths_by_resource_folder_and_not_resource_directory(self) -> tuple[dict[str, list[Path]], set[str]]:
         """The source paths grouped by resource folder."""
         source_paths_by_resource_folder = defaultdict(list)
         not_resource_directory: set[str] = set()
@@ -86,6 +84,12 @@ class ModuleLocation:
                 continue
             if filepath.is_file():
                 source_paths_by_resource_folder[resource_folder].append(filepath)
+        return source_paths_by_resource_folder, not_resource_directory
+
+    @cached_property
+    def source_paths_by_resource_folder(self) -> dict[str, list[Path]]:
+        """The source paths grouped by resource folder."""
+        source_paths_by_resource_folder, _ = self._source_paths_by_resource_folder_and_not_resource_directory
 
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> tuple[int, int, str]:
@@ -106,12 +110,12 @@ class ModuleLocation:
             # The custom key 'sort_key' is to get the sort on integer and not the string.
             filepaths.sort(key=sort_key)
 
-        if not_resource_directory:
-            LowSeverityWarning(
-                f"Module {self.dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
-            ).print_warning()
-
         return source_paths_by_resource_folder
+
+    @cached_property
+    def not_resource_directories(self) -> set[str]:
+        """The directories in the module that are not resource directories."""
+        return self._source_paths_by_resource_folder_and_not_resource_directory[1]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"

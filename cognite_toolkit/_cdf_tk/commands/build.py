@@ -294,6 +294,13 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
     ) -> dict[str, BuiltResourceList]:
         build_resources_by_folder: dict[str, BuiltResourceList] = {}
+        if not_resource_directory := module.not_resource_directories:
+            self.warn(
+                LowSeverityWarning(
+                    f"Module {module.dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
+                )
+            )
+
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
             build_plugin = {
                 FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=verbose),
