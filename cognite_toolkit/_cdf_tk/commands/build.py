@@ -312,10 +312,6 @@ class BuildCommand(ToolkitCommand):
                     source_path, destination, module_variables, build_plugin, verbose
                 )
 
-                # Todo: Remove when state is removed
-                self._state.hash_by_source_path[source_path] = built_resources[0].location.hash
-                self._state.source_by_build_path[destination] = source_path
-
                 built_resource_list.extend(built_resources)
 
             if resource_name == FunctionLoader.folder_name:
@@ -340,6 +336,9 @@ class BuildCommand(ToolkitCommand):
         content = safe_read(source_path)
 
         location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+        # Todo: Remove when state is removed
+        self._state.hash_by_source_path[source_path] = location.hash
+        self._state.source_by_build_path[destination_path] = source_path
 
         content = variables.replace(content, source_path.suffix)
         if build_plugin is not None and source_path.suffix.lower() in {".yaml", ".yml"}:
