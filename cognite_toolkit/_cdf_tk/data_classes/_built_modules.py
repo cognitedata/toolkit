@@ -81,3 +81,10 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
                 if resource.kind == kind
             ]
         )
+
+    def as_resources_by_folder(self) -> dict[str, BuiltResourceList[T_ID]]:
+        resources_by_folder: dict[str, BuiltResourceList[T_ID]] = {}
+        for module in self:
+            for resource_dir, resources in module.resources.items():
+                resources_by_folder.setdefault(resource_dir, BuiltResourceList()).extend(resources)
+        return resources_by_folder

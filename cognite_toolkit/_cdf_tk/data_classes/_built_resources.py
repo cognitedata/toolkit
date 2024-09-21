@@ -195,6 +195,13 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
     def identifiers(self) -> list[T_ID]:
         return [resource.identifier for resource in self]
 
+    @classmethod
+    def load(cls, data: list[dict[str, Any]], resource_folder: str) -> BuiltResourceList[T_ID]:
+        return cls([BuiltResource.load(resource_data, resource_folder) for resource_data in data])
+
+    def dump(self, resource_folder: str, include_destination: bool = False) -> list[dict[str, Any]]:
+        return [resource.dump(resource_folder, include_destination) for resource in self]
+
 
 class BuiltFullResourceList(BuiltResourceList[T_ID]):
     # Implemented to get correct type hints

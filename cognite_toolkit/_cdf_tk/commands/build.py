@@ -225,7 +225,7 @@ class BuildCommand(ToolkitCommand):
 
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
-        build_environment = config.create_build_environment(state.hash_by_source_path)
+        build_environment = config.create_build_environment(built_modules)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             self.console(f"Build complete. Files are located in {build_dir!s}/")
