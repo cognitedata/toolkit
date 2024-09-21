@@ -11,7 +11,7 @@ from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 
 from ._base_loaders import DataLoader
-from ._resource_loaders import FileMetadataLoader, RawDatabaseLoader, RawTableLoader, TimeSeriesLoader
+from ._resource_loaders import FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 from .data_classes import RawDatabaseTable
 
 if TYPE_CHECKING:
@@ -128,7 +128,7 @@ class RawFileLoader(DataLoader):
     folder_name = "raw"
     filetypes = frozenset({"csv", "parquet"})
     kind = "Raw"
-    dependencies = frozenset({RawDatabaseLoader, RawTableLoader})
+    dependencies = frozenset({RawTableLoader})
     _doc_url = "Raw/operation/postRows"
 
     @property

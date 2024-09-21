@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
+    DataLoader,
     DataSetsLoader,
     DeployResults,
     ResourceContainerLoader,
@@ -306,6 +307,11 @@ class CleanCommand(ToolkitCommand):
                 if loader_cls.any_supported_files(build_dir / folder_name):
                     folder_has_supported_files = True
                     selected_loaders[loader_cls] = loader_cls.dependencies
+                elif issubclass(loader_cls, DataLoader):
+                    # Data Loaders are always included, as they will have
+                    # the files in the module folder and not the build folder.
+                    selected_loaders[loader_cls] = loader_cls.dependencies
+
             if not folder_has_supported_files:
                 kinds = [loader_cls.kind for loader_cls in loader_classes]
                 yaml_file = next((build_dir / folder_name).glob("*.yaml"), None)

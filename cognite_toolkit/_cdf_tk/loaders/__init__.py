@@ -79,6 +79,7 @@ del _loader  # cleanup module namespace
 LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
+RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
@@ -146,4 +147,5 @@ __all__ = [
     "LOADER_LIST",
     "RESOURCE_LOADER_LIST",
     "RESOURCE_CONTAINER_LOADER_LIST",
+    "RESOURCE_DATA_LOADER_LIST",
 ]

@@ -325,6 +325,7 @@ class BuildCommand(ToolkitCommand):
                 self._validate_function_directory(built_resource_list, module=module)
                 self.copy_function_directory_to_build(built_resource_list, module.dir, build_dir)
 
+            build_resources_by_folder[resource_name] = built_resource_list
         return build_resources_by_folder
 
     def _build_resources(
