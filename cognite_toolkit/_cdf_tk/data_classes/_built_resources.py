@@ -48,14 +48,14 @@ class SourceLocation:
     def dump(self) -> dict[str, Any]:
         return {
             "path": self.path.as_posix(),
-            "hash": self.hash,
+            "hash": str(self.hash),
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> SourceLocation:
         return SourceLocationEager(
             path=Path(data["path"]),
-            _hash=data["hash"],
+            _hash=str(data["hash"]),
         )
 
 

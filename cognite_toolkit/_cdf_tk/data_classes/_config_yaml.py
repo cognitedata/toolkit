@@ -291,6 +291,7 @@ class BuildEnvironment(Environment):
             output["built_resources"] = {
                 resource_folder: resources.dump(resource_folder, include_destination=True)
                 for resource_folder, resources in self.built_resources.items()
+                if resources
             }
         return output
 
