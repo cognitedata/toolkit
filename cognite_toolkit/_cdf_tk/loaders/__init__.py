@@ -91,7 +91,6 @@ ResourceTypes: TypeAlias = Literal[
     "transformations",
     "files",
     "timeseries",
-    "timeseries_datapoints",
     "extraction_pipelines",
     "functions",
     "raw",

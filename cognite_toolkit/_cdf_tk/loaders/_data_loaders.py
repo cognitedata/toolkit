@@ -27,6 +27,10 @@ class DatapointsLoader(DataLoader):
     dependencies = frozenset({TimeSeriesLoader})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
 
+    @property
+    def display_name(self) -> str:
+        return "timeseries.datapoints"
+
     def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.deployed_resources:
             return
