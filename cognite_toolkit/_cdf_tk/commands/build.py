@@ -346,7 +346,6 @@ class BuildCommand(ToolkitCommand):
 
         location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
         # Todo: Remove when state is removed
-        self._state.hash_by_source_path[source_path] = location.hash
         self._state.source_by_build_path[destination_path] = source_path
 
         content = variables.replace(content, source_path.suffix)
@@ -754,7 +753,6 @@ class _BuildState:
     """
 
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
-    hash_by_source_path: dict[Path, str] = field(default_factory=dict)
     index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
     index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
