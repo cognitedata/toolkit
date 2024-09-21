@@ -28,6 +28,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     FilesAcl,
 )
+from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -213,3 +214,19 @@ class FileMetadataLoader(
         spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False))
 
         return spec
+
+
+@final
+class CogniteFileLoader(ResourceContainerLoader[NodeId]):
+    template_pattern = "$FILENAME"
+    item_name = "file contents"
+    folder_name = "files"
+    filename_pattern = r"^.*\.CogniteFile"  # Matches all yaml files whose stem ends with '.CogniteFile'.
+    kind = "CogniteFile"
+    dependencies = frozenset({GroupAllScopedLoader})
+
+    _doc_url = "Files/operation/initFileUpload"
+
+    @property
+    def display_name(self) -> str:
+        return "cognite_file"
