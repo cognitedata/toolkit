@@ -346,11 +346,11 @@ class BuildCommand(ToolkitCommand):
             for source_path in directory_files.resource_files:
                 destination = state.create_destination_path(source_path, resource_directory_name, module.dir, build_dir)
 
-                resource_info = self._replace_variables_validate_to_build_directory(
+                built_resources = self._build_resources(
                     source_path, destination, module_variables, state, module_names_by_variable_key, verbose
                 )
                 build_folder.append(destination)
-                build_resources[resource_directory_name].extend(resource_info)
+                build_resources[resource_directory_name].extend(built_resources)
 
             if resource_directory_name == FunctionLoader.folder_name:
                 self._validate_function_directory(state, directory_files, module.dir)
@@ -411,7 +411,7 @@ class BuildCommand(ToolkitCommand):
                     )
                 )
 
-    def _replace_variables_validate_to_build_directory(
+    def _build_resources(
         self,
         source_path: Path,
         destination_path: Path,
