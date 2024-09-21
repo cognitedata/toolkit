@@ -143,7 +143,14 @@ class RawFileLoader(DataLoader):
             if resource.kind != RawTableLoader.kind:
                 continue
             table = cast(RawDatabaseTable, resource.identifier)
-            datafile = next((resource.location.path.with_suffix(f".{file_type}") for file_type in self.filetypes), None)
+            datafile = next(
+                (
+                    resource.location.path.with_suffix(f".{file_type}")
+                    for file_type in self.filetypes
+                    if (resource.location.path.with_suffix(f".{file_type}").exists())
+                ),
+                None,
+            )
             if datafile is None:
                 # No adjacent data file found
                 continue
