@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     HINT_LEAD_TEXT_LEN,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
-    BuildEnvironment,
+    DeployEnvironment,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
@@ -225,9 +225,11 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
             )
-        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
-        build_.set_environment_variables()
-        errors = build_.check_source_files_changed()
+        clean_state = DeployEnvironment.load(
+            read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean"
+        )
+        clean_state.set_environment_variables()
+        errors = clean_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:

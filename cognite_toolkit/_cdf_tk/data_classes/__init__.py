@@ -17,6 +17,7 @@ from ._config_yaml import (
     BuildEnvironment,
     ConfigEntry,
     ConfigYAMLs,
+    DeployEnvironment,
     Environment,
     InitConfigYAML,
 )
@@ -30,6 +31,7 @@ __all__ = [
     "BuildConfigYAML",
     "Environment",
     "BuildEnvironment",
+    "DeployEnvironment",
     "ConfigEntry",
     "ModuleLocation",
     "ModuleDirectories",

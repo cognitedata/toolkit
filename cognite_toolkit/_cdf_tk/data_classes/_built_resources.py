@@ -5,7 +5,7 @@ from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -88,7 +88,7 @@ class BuiltResource(Generic[T_ID]):
     destination: Path | None
 
     @classmethod
-    def load(cls, data: dict[str, Any], resource_folder: str) -> BuiltResource:
+    def load(cls: type[T_BuiltResource], data: dict[str, Any], resource_folder: str) -> T_BuiltResource:
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         kind = data["kind"]
@@ -128,6 +128,9 @@ class BuiltResource(Generic[T_ID]):
             module_location=module.location.path,
             resource_dir=resource_dir,
         )
+
+
+T_BuiltResource = TypeVar("T_BuiltResource", bound=BuiltResource)
 
 
 @dataclass
@@ -170,6 +173,11 @@ class BuiltResourceFull(BuiltResource[T_ID]):
         """
         loader = loader or get_loader(self.resource_dir, self.kind)  # type: ignore[assignment]
         return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
+
+
+@dataclass
+class DeployedResource(BuiltResource[T_ID]):
+    deployed: bool = False
 
 
 class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
@@ -221,3 +229,27 @@ class BuiltFullResourceList(BuiltResourceList[T_ID]):
         if isinstance(index, slice):
             return BuiltFullResourceList[T_ID](super().__getitem__(index))
         return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
+
+
+class DeployedResourceList(BuiltResourceList[T_ID]):
+    # Implemented to get correct type hints
+    def __init__(self, collection: Collection[DeployedResource[T_ID]] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def __iter__(self) -> Iterator[DeployedResource[T_ID]]:
+        return cast(Iterator[DeployedResource[T_ID]], super().__iter__())
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> DeployedResource[T_ID]: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> DeployedResourceList[T_ID]: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> DeployedResource[T_ID] | DeployedResourceList[T_ID]:
+        if isinstance(index, slice):
+            return DeployedResourceList[T_ID](super().__getitem__(index))
+        return cast(DeployedResource[T_ID], super().__getitem__(index))
+
+    @classmethod
+    def load(cls, data: list[dict[str, Any]], resource_folder: str) -> DeployedResourceList[T_ID]:
+        return cls([DeployedResource.load(resource_data, resource_folder) for resource_data in data])

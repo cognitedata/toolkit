@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
-    BuildEnvironment,
+    DeployEnvironment,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -83,11 +83,11 @@ class DeployCommand(ToolkitCommand):
                 "Did you forget to run `cdf-tk build` first?"
             )
 
-        build_ = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
+        deploy_state = DeployEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
 
-        build_.set_environment_variables()
+        deploy_state.set_environment_variables()
 
-        errors = build_.check_source_files_changed()
+        errors = deploy_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
@@ -154,6 +154,7 @@ class DeployCommand(ToolkitCommand):
 
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
+
         for loader_cls in ordered_loaders:
             loader_instance = loader_cls.create_loader(ToolGlobals, build_dir)
             result = self.deploy_resources(
