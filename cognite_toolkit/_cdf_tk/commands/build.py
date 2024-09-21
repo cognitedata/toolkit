@@ -67,6 +67,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     SpaceLoader,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -664,6 +665,11 @@ class BuildCommand(ToolkitCommand):
                     warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
+                if item_loader is RawTableLoader:
+                    database = RawDatabaseTable(identifier.db_name)
+                    if database not in self._state.ids_by_resource_type[RawDatabaseLoader]:
+                        self._state.ids_by_resource_type[RawDatabaseLoader][database] = source_path
+
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self._state.ids_by_resource_type[item_loader].get(identifier):
                     warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
