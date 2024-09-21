@@ -182,6 +182,7 @@ class RawFileLoader(DataLoader):
                     ),
                     len(data),
                 )
+                continue
 
             if table.table_name is None:
                 # This should never happen

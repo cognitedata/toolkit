@@ -27,6 +27,8 @@ Changes are grouped as follows:
 
 - CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
   be timeshifted to today when running `cdf build`
+- FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
+  simplify the pattern.
 
 ## [0.3.0a6] - 2024-09-20
 
