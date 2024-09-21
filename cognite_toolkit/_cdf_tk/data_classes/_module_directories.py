@@ -8,8 +8,11 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
 
@@ -66,6 +69,49 @@ class ModuleLocation:
     def resource_directories(self) -> set[str]:
         """The resource directories in the module."""
         return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
+
+    @cached_property
+    def source_paths_by_resource_folder(self) -> dict[str, list[Path]]:
+        """The source paths grouped by resource folder."""
+        source_paths_by_resource_folder = defaultdict(list)
+        not_resource_directory: set[str] = set()
+        for filepath in self.source_paths:
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                relative_to_module = filepath.relative_to(self.dir)
+                is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
+                if not is_file_in_resource_folder:
+                    not_resource_directory.add(relative_to_module.parts[0])
+                continue
+            if filepath.is_file():
+                source_paths_by_resource_folder[resource_folder].append(filepath)
+
+        # Sort to support 1., 2. etc prefixes
+        def sort_key(p: Path) -> tuple[int, int, str]:
+            first = {
+                ".yaml": 0,
+                ".yml": 0,
+            }.get(p.suffix.lower(), 1)
+            # We ensure that the YAML files are sorted before other files.
+            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
+            # with the same name as a .yaml file gets the same index as the .yaml file.
+            if result := INDEX_PATTERN.search(p.stem):
+                return first, int(result.group()[:-1]), p.name
+            else:
+                return first, len(filepaths) + 1, p.name
+
+        for filepaths in source_paths_by_resource_folder.values():
+            # The builder of a module can control the order that resources are deployed by prefixing a number
+            # The custom key 'sort_key' is to get the sort on integer and not the string.
+            filepaths.sort(key=sort_key)
+
+        if not_resource_directory:
+            LowSeverityWarning(
+                f"Module {self.dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
+            ).print_warning()
+
+        return source_paths_by_resource_folder
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
