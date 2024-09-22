@@ -29,6 +29,7 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
 )
 from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -214,6 +215,9 @@ class FileMetadataLoader(
         spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False))
 
         return spec
+
+
+CogniteFileApply
 
 
 @final
