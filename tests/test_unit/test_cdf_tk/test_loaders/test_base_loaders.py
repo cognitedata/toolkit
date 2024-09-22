@@ -15,6 +15,7 @@ from cognite.client.data_classes import (
     TransformationSchedule,
 )
 from cognite.client.data_classes.data_modeling import Edge, Node
+from cognite.client.data_classes.hosted_extractors import Destination
 from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
@@ -127,7 +128,7 @@ class TestFormatConsistency:
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
-        elif loader.resource_cls in [Edge, Node]:
+        elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
         elif Loader in [GroupResourceScopedLoader]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
@@ -159,7 +160,7 @@ class TestFormatConsistency:
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
             pytest.skip("Skipped loaders that require secondary files")
-        elif loader.resource_cls in [Edge, Node]:
+        elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
         elif Loader in [GroupResourceScopedLoader]:
             pytest.skip(f"Skipping {loader.resource_cls} because it requires scoped capabilities")
@@ -276,6 +277,7 @@ class TestResourceLoaders:
         resource_dump = resource.dump(camel_case=True)
         # These are handled by the toolkit
         resource_dump.pop("dataSetId", None)
+        resource_dump.pop("targetDataSetId", None)
         resource_dump.pop("fileId", None)
         resource_dump.pop("assetIds", None)
         resource_dump.pop("assetId", None)

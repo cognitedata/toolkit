@@ -10,6 +10,12 @@ DataModel:
 DataSet:
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
+  externalId: ds_extraction
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
   externalId: ds_labels_foo
   metadata: {}
   name: Example dataset.
@@ -30,6 +36,11 @@ DatapointSubscription:
       value: ts_value
   name: My Subscription
   partitionCount: 1
+Destination:
+- credentials:
+    nonce: '123'
+  externalId: EventHubTarget
+  targetDataSetId: 42
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
