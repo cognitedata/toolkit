@@ -67,6 +67,16 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
+Job:
+- config:
+    topicFilter: my_topic
+  destinationId: EventHubTarget
+  externalId: myJob
+  format:
+    compression: gzip
+    encoding: utf16
+    type: value
+  sourceId: my_eventhub
 LabelDefinition:
 - dataSetId: 42
   description: Labels used for relationships that represent flows

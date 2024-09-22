@@ -120,6 +120,10 @@ from cognite.client.data_classes.hosted_extractors import (
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
+    Job,
+    JobList,
+    JobWrite,
+    JobWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -681,6 +685,19 @@ API_RESOURCES = [
         list_cls=DestinationList,
         _write_cls=DestinationWrite,
         _write_list_cls=DestinationWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="hosted_extractors.jobs",
+        resource_cls=Job,
+        list_cls=JobList,
+        _write_cls=JobWrite,
+        _write_list_cls=JobWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
