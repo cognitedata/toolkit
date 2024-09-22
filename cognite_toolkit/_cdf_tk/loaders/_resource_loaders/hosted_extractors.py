@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -12,6 +12,10 @@ from cognite.client.data_classes.hosted_extractors import (
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
+    Job,
+    JobList,
+    JobWrite,
+    JobWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -185,3 +189,80 @@ class HostedExtractorDestinationLoader(
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
+
+
+class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
+    folder_name = "hosted_extractors"
+    filename_pattern = r".*\.Job$"  # Matches all yaml files whose stem ends with '.Job'.
+    resource_cls = Job
+    resource_write_cls = JobWrite
+    list_cls = JobList
+    list_write_cls = JobWriteList
+    kind = "Job"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
+    _doc_url = "Jobs/operation/create_jobs"
+
+    @property
+    def display_name(self) -> str:
+        return "Hosted Extractor Job"
+
+    @classmethod
+    def get_id(cls, item: JobWrite | Job | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: JobWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        return HostedExtractorsAcl(
+            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            HostedExtractorsAcl.Scope.All(),
+        )
+
+    def create(self, items: JobWriteList) -> JobList:
+        return self.client.hosted_extractors.jobs.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> JobList:
+        return self.client.hosted_extractors.jobs.retrieve(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: JobWriteList) -> JobList:
+        return self.client.hosted_extractors.jobs.update(items, mode="replace")
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        self.client.hosted_extractors.jobs.delete(ids, ignore_unknown_ids=True)
+        return len(ids)
+
+    def iterate(self) -> Iterable[Job]:
+        return iter(self.client.hosted_extractors.jobs)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Used by the SDK to determine the class to load
+        spec.add(
+            ParameterSpec(
+                (
+                    "format",
+                    "type",
+                ),
+                frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "sourceId" in item:
+            yield HostedExtractorSourceLoader, item["sourceId"]
+        if "destinationId" in item:
+            yield HostedExtractorDestinationLoader, item["destinationId"]
