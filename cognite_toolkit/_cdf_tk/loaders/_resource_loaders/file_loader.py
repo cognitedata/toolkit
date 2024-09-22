@@ -34,7 +34,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -64,6 +64,10 @@ class FileMetadataLoader(
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
+    filename_pattern = (
+        # Matches all yaml files except file names whose stem ends with `.CogniteFile`.
+        r"^(?!.*\.CogniteFile)$"
+    )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
@@ -331,6 +335,17 @@ class CogniteFileLoader(
         self.client.files.delete(id=existing_meta.as_ids())
         self.create(existing_node.as_write())
         return len(existing_meta)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Removed by the SDK
+        spec.add(ParameterSpec(("instanceType",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        # Sources are used when writing to the API.
+        spec.add(ParameterSpec(("sources",), frozenset({"list"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("sources", ANYTHING), frozenset({"list"}), is_required=False, _is_nullable=False))
+        return spec
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
