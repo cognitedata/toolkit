@@ -116,6 +116,10 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.extractionpipelines import ExtractionPipelineConfigList
 from cognite.client.data_classes.hosted_extractors import (
+    Destination,
+    DestinationList,
+    DestinationWrite,
+    DestinationWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -664,6 +668,19 @@ API_RESOURCES = [
         list_cls=SourceList,
         _write_cls=SourceWrite,
         _write_list_cls=SourceWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="hosted_extractors.destinations",
+        resource_cls=Destination,
+        list_cls=DestinationList,
+        _write_cls=DestinationWrite,
+        _write_list_cls=DestinationWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [

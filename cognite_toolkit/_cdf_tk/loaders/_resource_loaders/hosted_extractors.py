@@ -12,7 +12,6 @@ from cognite.client.data_classes.hosted_extractors import (
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
-    SessionWrite,
     Source,
     SourceList,
     SourceWrite,
@@ -139,22 +138,12 @@ class HostedExtractorDestinationLoader(
         )
 
     def create(self, items: DestinationWriteList) -> DestinationList:
-        self._set_credentials(items)
-
         return self.client.hosted_extractors.destinations.create(items)
-
-    def _set_credentials(self, items: DestinationWriteList) -> None:
-        for item in items:
-            credentials = self._authentication_by_id.get(self.get_id(item))
-            if credentials:
-                created = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
-                item.credentials = SessionWrite(created.nonce)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DestinationList:
         return self.client.hosted_extractors.destinations.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: DestinationWriteList) -> DestinationList:
-        self._set_credentials(items)
         return self.client.hosted_extractors.destinations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -170,9 +159,14 @@ class HostedExtractorDestinationLoader(
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         loaded = DestinationWriteList([])
         for item in raw_list:
-            if "authentication" in item:
-                raw_auth = item.pop("authentication")
-                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
+            if "credentials" in item:
+                raw_auth = item.pop("credentials")
+                credentials = ClientCredentials._load(raw_auth)
+                if skip_validation:
+                    item["credentials"] = {"nonce": "dummy_nonce"}
+                else:
+                    session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                    item["credentials"] = {"nonce": session.nonce}
             if item.get("targetDataSetExternalId") is not None:
                 ds_external_id = item.pop("targetDataSetExternalId")
                 item["targetDataSetId"] = ToolGlobals.verify_dataset(
@@ -182,3 +176,12 @@ class HostedExtractorDestinationLoader(
                 )
             loaded.append(DestinationWrite.load(item))
         return loaded
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Handled by Toolkit
+        spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
+        spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
+        return spec
