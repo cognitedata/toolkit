@@ -10,6 +10,7 @@ import string
 import sys
 import types
 import typing
+from datetime import date, datetime
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
 
@@ -374,6 +375,10 @@ class FakeCogniteResourceGenerator:
                     [self._random.randint(1, 1704067200000) for _ in range(self._max_list_dict_items)],
                     dtype="datetime64[ms]",
                 )
+            elif type_ == datetime:
+                return datetime.fromtimestamp(self._random.randint(1, 1704067200))
+            elif type_ == date:
+                return date.fromtimestamp(self._random.randint(1, 1704067200))
             else:
                 raise ValueError(f"Unknown type {type_} {type(type_)}. {self._error_msg}")
 
