@@ -18,7 +18,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, NodeId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, LandingApp, ModulesApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, LandingApp, ModulesApp, RepoApp, RunApp, DumpApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
@@ -78,7 +78,6 @@ except AttributeError as e:
 _app = CoreApp(**default_typer_kws)
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
@@ -88,7 +87,7 @@ _app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(pull_app, name="pull")
-_app.add_typer(dump_app, name="dump")
+_app.add_typer(DumpApp(**default_typer_kws), name="dump")
 _app.add_typer(feature_flag_app, name="features")
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
@@ -331,254 +330,6 @@ def pull_node_cmd(
             NodeLoader,
         )
     )
-
-
-@dump_app.callback(invoke_without_command=True)
-def dump_main(ctx: typer.Context) -> None:
-    """Commands to dump resource configurations from CDF into a temporary directory."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf dump --help[/] for more information.")
-    return None
-
-
-@dump_app.command("datamodel")
-def dump_datamodel_cmd(
-    ctx: typer.Context,
-    space: Annotated[
-        str,
-        typer.Option(
-            "--space",
-            "-s",
-            prompt=True,
-            help="Space where the datamodel to pull can be found.",
-        ),
-    ],
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the datamodel to pull.",
-        ),
-    ],
-    version: Annotated[
-        Optional[str],
-        typer.Option(
-            "--version",
-            "-v",
-            help="Version of the datamodel to pull.",
-        ),
-    ] = None,
-    clean: Annotated[
-        bool,
-        typer.Option(
-            "--clean",
-            "-c",
-            help="Delete the output directory before pulling the datamodel.",
-        ),
-    ] = False,
-    output_dir: Annotated[
-        str,
-        typer.Argument(
-            help="Where to dump the datamodel YAML files.",
-            allow_dash=True,
-        ),
-    ] = "tmp",
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-    cmd = DumpCommand()
-    cmd.run(
-        lambda: cmd.execute(
-            CDFToolConfig.from_context(ctx),
-            DataModelId(space, external_id, version),
-            Path(output_dir),
-            clean,
-            verbose,
-        )
-    )
-
-
-if FeatureFlag.is_enabled(Flags.ASSETS):
-    from cognite_toolkit._cdf_tk.prototypes.commands import DumpAssetsCommand
-
-    @dump_app.command("asset")
-    def dump_asset_cmd(
-        ctx: typer.Context,
-        hierarchy: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--hierarchy",
-                "-h",
-                help="Hierarchy to dump.",
-            ),
-        ] = None,
-        data_set: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--data-set",
-                "-d",
-                help="Data set to dump.",
-            ),
-        ] = None,
-        interactive: Annotated[
-            bool,
-            typer.Option(
-                "--interactive",
-                "-i",
-                help="Will prompt you to select which assets hierarchies to dump.",
-            ),
-        ] = False,
-        output_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to dump the asset YAML files.",
-                allow_dash=True,
-            ),
-        ] = Path("tmp"),
-        format_: Annotated[
-            str,
-            typer.Option(
-                "--format",
-                "-f",
-                help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
-            ),
-        ] = "csv",
-        clean_: Annotated[
-            bool,
-            typer.Option(
-                "--clean",
-                "-c",
-                help="Delete the output directory before pulling the assets.",
-            ),
-        ] = False,
-        limit: Annotated[
-            Optional[int],
-            typer.Option(
-                "--limit",
-                "-l",
-                help="Limit the number of assets to dump.",
-            ),
-        ] = None,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
-        cmd = DumpAssetsCommand()
-        cmd.run(
-            lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
-                hierarchy,
-                data_set,
-                interactive,
-                output_dir,
-                clean_,
-                limit,
-                format_,  # type: ignore [arg-type]
-                verbose,
-            )
-        )
-
-
-if FeatureFlag.is_enabled(Flags.TIMESERIES_DUMP):
-    from cognite_toolkit._cdf_tk.prototypes.commands import DumpTimeSeriesCommand
-
-    @dump_app.command("timeseries")
-    def dump_timeseries_cmd(
-        ctx: typer.Context,
-        time_series_list: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--timeseries",
-                "-t",
-                help="Timeseries to dump.",
-            ),
-        ] = None,
-        data_set: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--data-set",
-                "-d",
-                help="Data set to dump.",
-            ),
-        ] = None,
-        interactive: Annotated[
-            bool,
-            typer.Option(
-                "--interactive",
-                "-i",
-                help="Will prompt you to select which timeseries to dump.",
-            ),
-        ] = False,
-        output_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to dump the timeseries YAML files.",
-                allow_dash=True,
-            ),
-        ] = Path("tmp"),
-        format_: Annotated[
-            str,
-            typer.Option(
-                "--format",
-                "-f",
-                help="Format to dump the timeseries in. Supported formats: yaml, csv, and parquet.",
-            ),
-        ] = "csv",
-        clean_: Annotated[
-            bool,
-            typer.Option(
-                "--clean",
-                "-c",
-                help="Delete the output directory before pulling the timeseries.",
-            ),
-        ] = False,
-        limit: Annotated[
-            Optional[int],
-            typer.Option(
-                "--limit",
-                "-l",
-                help="Limit the number of timeseries to dump.",
-            ),
-        ] = None,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """This command will dump the selected timeseries as yaml to the folder specified, defaults to /tmp."""
-        cmd = DumpTimeSeriesCommand()
-        cmd.run(
-            lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
-                data_set,
-                interactive,
-                output_dir,
-                clean_,
-                limit,
-                format_,  # type: ignore [arg-type]
-                verbose,
-            )
-        )
-
 
 @feature_flag_app.callback(invoke_without_command=True)
 def feature_flag_main(ctx: typer.Context) -> None:

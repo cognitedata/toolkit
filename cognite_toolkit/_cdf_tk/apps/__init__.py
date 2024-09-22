@@ -4,5 +4,6 @@ from ._landing_app import LandingApp
 from ._modules_app import ModulesApp
 from ._repo_app import RepoApp
 from ._run import RunApp
+from .dump_app import DumpApp
 
-__all__ = ["CoreApp", "AuthApp", "LandingApp", "ModulesApp", "RunApp", "RepoApp"]
+__all__ = ["CoreApp", "AuthApp", "LandingApp", "ModulesApp", "RunApp", "RepoApp", "DumpApp"]
