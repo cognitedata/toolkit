@@ -9,24 +9,26 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
 
+import questionary
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuiltFullResourceList,
+    ModuleResources,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedResourceError,
     ToolkitMissingResourceError,
-    ToolkitNotADirectoryError,
 )
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, safe_read, tmp_build_directory
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, safe_read
 
+from ..hints import verify_module_directory
 from ._base import ToolkitCommand
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
@@ -372,7 +374,7 @@ class PullCommand(ToolkitCommand):
     def execute(
         self,
         organization_dir: Path,
-        id_: T_ID,
+        id_: T_ID | None,
         env: str | None,
         dry_run: bool,
         verbose: bool,
@@ -383,142 +385,136 @@ class PullCommand(ToolkitCommand):
             ]
         ],
     ) -> None:
-        if not organization_dir.is_dir():
-            raise ToolkitNotADirectoryError(str(organization_dir))
+        verify_module_directory(organization_dir, env)
+        # The id_type is only used for type hints, so it is safe to ignore the type here
+        local_resources: BuiltFullResourceList = ModuleResources(organization_dir, env).list_resources(
+            None, Loader.folder_name, Loader.kind
+        )
+        loader = Loader.create_loader(ToolGlobals, None)
 
-        with tmp_build_directory() as build_dir:
-            cdf_toml = CDFToml.load(organization_dir)
-            config = BuildConfigYAML.load_from_directory(organization_dir, env)
-            config.set_environment_variables()
-            # Todo Remove once the new modules in `_cdf_tk/prototypes/_packages` are finished.
-            config.variables.pop("_cdf_tk", None)
-            # Use path syntax to select all modules in the source directory
-            config.environment.selected = [Path("")]
+        if id_ is None:
+            selected_id = questionary.select(
+                f"Select a {loader.display_name} to pull",
+                choices=local_resources.identifiers,
+            )
+        elif id_ not in local_resources.identifiers:
+            raise ToolkitMissingResourceError(
+                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
+            )
+        else:
+            selected_id = id_
+
+        return
+
+        resource_files = loader.find_files()
+        resource_by_file = {
+            file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files
+        }
+        selected: dict[Path, T_WriteClass] = {}
+        for file, resources in resource_by_file.items():
+            if not isinstance(resources, Sequence):
+                if loader.get_id(resources) == id_:  # type: ignore[arg-type]
+                    selected[file] = resources  # type: ignore[assignment]
+                continue
+            for resource in resources:
+                if loader.get_id(resource) == id_:
+                    selected[file] = resource
+                    break
+        if len(selected) == 0:
+            raise ToolkitMissingResourceError(
+                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
+            )
+        elif len(selected) >= 2:
+            files = "\n".join(map(str, selected.keys()))
+            raise ToolkitDuplicatedResourceError(
+                f"Multiple {loader.display_name} with {id_} found in {organization_dir}. Delete all but one and try again. "
+                f"Files: {files}"
+            )
+        build_file, local_resource = next(iter(selected.items()))
+
+        print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
+
+        resource_id = loader.get_id(local_resource)
+        cdf_resources = loader.retrieve([resource_id])
+        if not cdf_resources:
+            raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
+
+        cdf_resource = cdf_resources[0].as_write()
+        if cdf_resource == local_resource:
+            print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
+            return
+
+        source_file = source_by_build_path[build_file]
+
+        cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
+
+        # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
+        resource = ResourceYAMLDifference.load(safe_read(build_file), safe_read(source_file))
+        resource.update_cdf_resource(cdf_dumped)
+
+        resource.display(title=f"Resource differences for {loader.display_name} {id_}")
+        new_content = resource.dump_yaml_with_comments()
+
+        if dry_run:
             print(
-                Panel.fit(
-                    f"[bold]Building all modules found in {config.filepath} (not only the modules under "
-                    f"'selected_modules_and_packages') from {organization_dir}...[/]"
-                )
-            )
-            _, source_by_build_path = BuildCommand().build_config(
-                build_dir=build_dir,
-                organization_dir=organization_dir,
-                config=config,
-                packages=cdf_toml.modules.packages,
-                clean=True,
-                verbose=False,
+                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
+                f"'{source_file.relative_to(organization_dir)}'."
             )
 
-            loader = Loader.create_loader(ToolGlobals, build_dir)
-            resource_files = loader.find_files()
-            resource_by_file = {
-                file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files
-            }
-            selected: dict[Path, T_WriteClass] = {}
-            for file, resources in resource_by_file.items():
-                if not isinstance(resources, Sequence):
-                    if loader.get_id(resources) == id_:  # type: ignore[arg-type]
-                        selected[file] = resources  # type: ignore[assignment]
-                    continue
-                for resource in resources:
-                    if loader.get_id(resource) == id_:
-                        selected[file] = resource
-                        break
-            if len(selected) == 0:
-                raise ToolkitMissingResourceError(
-                    f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
+        if verbose:
+            old_content = safe_read(source_file)
+            print(
+                Panel(
+                    "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
+                    title=f"Updates to file {source_file.name!r}",
                 )
-            elif len(selected) >= 2:
-                files = "\n".join(map(str, selected.keys()))
-                raise ToolkitDuplicatedResourceError(
-                    f"Multiple {loader.display_name} with {id_} found in {organization_dir}. Delete all but one and try again. "
-                    f"Files: {files}"
-                )
-            build_file, local_resource = next(iter(selected.items()))
+            )
 
-            print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
+        if not dry_run:
+            with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                f.write(new_content)
+            print(
+                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
+                f"'{source_file.relative_to(organization_dir)}'."
+            )
 
-            resource_id = loader.get_id(local_resource)
-            cdf_resources = loader.retrieve([resource_id])
-            if not cdf_resources:
-                raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
+        for filepath, content in extra_files.items():
+            if not filepath.exists():
+                print(f"[bold red]ERROR:[/] {filepath} does not exist.")
+                continue
 
-            cdf_resource = cdf_resources[0].as_write()
-            if cdf_resource == local_resource:
-                print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
-                return
+            build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
+            if not build_extra_file.exists():
+                print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
+                continue
 
-            source_file = source_by_build_path[build_file]
+            file_diffs = TextFileDifference.load(safe_read(build_extra_file), safe_read(filepath))
+            file_diffs.update_cdf_content(content)
 
-            cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
-
-            # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
-            resource = ResourceYAMLDifference.load(safe_read(build_file), safe_read(source_file))
-            resource.update_cdf_resource(cdf_dumped)
-
-            resource.display(title=f"Resource differences for {loader.display_name} {id_}")
-            new_content = resource.dump_yaml_with_comments()
-
+            has_changed = any(line.is_added or line.is_changed for line in file_diffs)
             if dry_run:
-                print(
-                    f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
-                    f"'{source_file.relative_to(organization_dir)}'."
-                )
+                if has_changed:
+                    print(
+                        f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
+                    )
+                else:
+                    print(
+                        f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
+                        "thus no update would have been done."
+                    )
 
             if verbose:
-                old_content = safe_read(source_file)
+                old_content = safe_read(filepath)
                 print(
                     Panel(
-                        "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
-                        title=f"Updates to file {source_file.name!r}",
+                        "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
+                        title=f"Difference between local and CDF resource {filepath.name!r}",
                     )
                 )
 
-            if not dry_run:
-                with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-                    f.write(new_content)
-                print(
-                    f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
-                    f"'{source_file.relative_to(organization_dir)}'."
-                )
-
-            for filepath, content in extra_files.items():
-                if not filepath.exists():
-                    print(f"[bold red]ERROR:[/] {filepath} does not exist.")
-                    continue
-
-                build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
-                if not build_extra_file.exists():
-                    print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
-                    continue
-
-                file_diffs = TextFileDifference.load(safe_read(build_extra_file), safe_read(filepath))
-                file_diffs.update_cdf_content(content)
-
-                has_changed = any(line.is_added or line.is_changed for line in file_diffs)
-                if dry_run:
-                    if has_changed:
-                        print(
-                            f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
-                        )
-                    else:
-                        print(
-                            f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
-                            "thus no update would have been done."
-                        )
-
-                if verbose:
-                    old_content = safe_read(filepath)
-                    print(
-                        Panel(
-                            "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
-                            title=f"Difference between local and CDF resource {filepath.name!r}",
-                        )
-                    )
-
-                if not dry_run and has_changed:
-                    with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-                        f.write(content)
-                    print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
+            if not dry_run and has_changed:
+                with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                    f.write(content)
+                print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
 
         print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
