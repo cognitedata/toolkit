@@ -100,7 +100,7 @@ class ApprovalToolkitClient:
 
         # Set the side effect of the MagicMock to the real method
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
-        self.mock_client.iam.session.create.return_value = CreatedSession(
+        self.mock_client.iam.sessions.create.return_value = CreatedSession(
             id=1234, status="READY", nonce="123", type="CLIENT_CREDENTIALS", client_id="12345-12345-12345-12345"
         )
         # Set functions to be activated
@@ -902,6 +902,8 @@ class ApprovalToolkitClient:
                         sub_method = getattr(method, sub_method_name)
                         if isinstance(sub_method, MagicMock) and sub_method.call_count:
                             not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
+        # This is mocked in the __init__
+        not_mocked.pop("iam.sessions.create", None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
