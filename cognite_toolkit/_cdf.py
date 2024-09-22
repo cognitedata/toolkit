@@ -14,27 +14,22 @@ from cognite.client.config import global_config
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
 
-from cognite.client.data_classes.data_modeling import DataModelId, NodeId
+from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, LandingApp, ModulesApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, LandingApp, ModulesApp, PullApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
     DescribeCommand,
     DumpCommand,
     FeatureFlagCommand,
-    PullCommand,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.loaders import (
-    NodeLoader,
-    TransformationLoader,
-)
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -77,7 +72,6 @@ except AttributeError as e:
 
 _app = CoreApp(**default_typer_kws)
 describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
-pull_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 dump_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
@@ -87,7 +81,7 @@ _app.add_typer(AuthApp(**default_typer_kws), name="auth")
 _app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
-_app.add_typer(pull_app, name="pull")
+_app.add_typer(PullApp(**default_typer_kws), name="pull")
 _app.add_typer(dump_app, name="dump")
 _app.add_typer(feature_flag_app, name="features")
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
@@ -194,143 +188,6 @@ def describe_datamodel_cmd(
     name and datamodel name."""
     cmd = DescribeCommand()
     cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
-
-
-@pull_app.callback(invoke_without_command=True)
-def pull_main(ctx: typer.Context) -> None:
-    """Commands to download resource configurations from CDF into the module directory."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf pull --help[/] for more information.")
-
-
-@pull_app.command("transformation")
-def pull_transformation_cmd(
-    ctx: typer.Context,
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the transformation to pull.",
-        ),
-    ],
-    organization_dir: Annotated[
-        Path,
-        typer.Option(
-            "--organization-dir",
-            "-o",
-            help="Where to find the module templates to build from",
-        ),
-    ] = CDF_TOML.cdf.default_organization_dir,
-    env: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env",
-            "-e",
-            help="Environment to use.",
-        ),
-    ] = CDF_TOML.cdf.default_env,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will pull the specified transformation and update its YAML file in the module folder"""
-    cmd = PullCommand()
-    cmd.run(
-        lambda: cmd.execute(
-            organization_dir,
-            external_id,
-            env,
-            dry_run,
-            verbose,
-            CDFToolConfig.from_context(ctx),
-            TransformationLoader,
-        )
-    )
-
-
-@pull_app.command("node")
-def pull_node_cmd(
-    ctx: typer.Context,
-    space: Annotated[
-        str,
-        typer.Option(
-            "--space",
-            "-s",
-            prompt=True,
-            help="Space where the node to pull can be found.",
-        ),
-    ],
-    external_id: Annotated[
-        str,
-        typer.Option(
-            "--external-id",
-            "-e",
-            prompt=True,
-            help="External id of the node to pull.",
-        ),
-    ],
-    organization_dir: Annotated[
-        Path,
-        typer.Option(
-            "--organization-dir",
-            "-o",
-            help="Where to find the module templates to build from",
-        ),
-    ] = CDF_TOML.cdf.default_organization_dir,
-    env: Annotated[
-        Optional[str],
-        typer.Option(
-            "--env",
-            "-e",
-            help="Environment to use.",
-        ),
-    ] = CDF_TOML.cdf.default_env,
-    dry_run: Annotated[
-        bool,
-        typer.Option(
-            "--dry-run",
-            "-r",
-            help="Whether to do a dry-run, do dry-run if present.",
-        ),
-    ] = False,
-    verbose: Annotated[
-        bool,
-        typer.Option(
-            "--verbose",
-            "-v",
-            help="Turn on to get more verbose output when running the command",
-        ),
-    ] = False,
-) -> None:
-    """This command will pull the specified node and update its YAML file in the module folder."""
-
-    cmd = PullCommand()
-    cmd.run(
-        lambda: cmd.execute(
-            organization_dir,
-            NodeId(space, external_id),
-            env,
-            dry_run,
-            verbose,
-            CDFToolConfig.from_context(ctx),
-            NodeLoader,
-        )
-    )
 
 
 @dump_app.callback(invoke_without_command=True)
