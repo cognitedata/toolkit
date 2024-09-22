@@ -3,5 +3,6 @@ sourceId: my_eventhub
 destinationId: EventHubTarget
 format:
   type: value
+  encoding: utf16
 config:
   topicFilter: "my_topic"
