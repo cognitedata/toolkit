@@ -5,7 +5,16 @@ from functools import lru_cache
 from typing import Any
 
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
-from cognite.client.data_classes.hosted_extractors import Source, SourceList, SourceWrite, SourceWriteList
+from cognite.client.data_classes.hosted_extractors import (
+    Destination,
+    DestinationList,
+    DestinationWrite,
+    DestinationWriteList,
+    Source,
+    SourceList,
+    SourceWrite,
+    SourceWriteList,
+)
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
@@ -81,3 +90,57 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         cdf_dumped = cdf_resource.dump()
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+
+class HostedExtractorDestinationLoader(
+    ResourceLoader[str, DestinationWrite, Destination, DestinationWriteList, DestinationList]
+):
+    folder_name = "hosted_extractors"
+    filename_pattern = r".*\.Destination$"  # Matches all yaml files whose stem ends with '.Destination'.
+    resource_cls = Destination
+    resource_write_cls = DestinationWrite
+    list_cls = DestinationList
+    list_write_cls = DestinationWriteList
+    kind = "Destination"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
+    _doc_url = "Destinations/operation/create_destinations"
+
+    @property
+    def display_name(self) -> str:
+        return "Hosted Extractor Destination"
+
+    @classmethod
+    def get_id(cls, item: DestinationWrite | Destination | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: DestinationWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        return HostedExtractorsAcl(
+            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            HostedExtractorsAcl.Scope.All(),
+        )
+
+    def create(self, items: DestinationWriteList) -> DestinationList:
+        return self.client.hosted_extractors.destinations.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> DestinationList:
+        return self.client.hosted_extractors.destinations.retrieve(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: DestinationWriteList) -> DestinationList:
+        return self.client.hosted_extractors.destinations.update(items, mode="replace")
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        self.client.hosted_extractors.destinations.delete(ids, ignore_unknown_ids=True)
+        return len(ids)
+
+    def iterate(self) -> Iterable[Destination]:
+        return iter(self.client.hosted_extractors.destinations)
