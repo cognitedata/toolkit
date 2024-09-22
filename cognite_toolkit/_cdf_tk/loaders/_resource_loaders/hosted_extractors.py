@@ -258,6 +258,15 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
                 _is_nullable=False,
             )
         )
+        spec.add(
+            ParameterSpec(
+                ("config", "incrementalLoad", "type"), frozenset({"str"}), is_required=True, _is_nullable=False
+            )
+        )
+        spec.add(
+            ParameterSpec(("config", "pagination", "type"), frozenset({"str"}), is_required=True, _is_nullable=False)
+        )
+
         return spec
 
     @classmethod
