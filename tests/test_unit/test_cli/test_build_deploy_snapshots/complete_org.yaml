@@ -73,6 +73,77 @@ LocationFilter:
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
+Node:
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      fileCategory: Document
+      isUploaded: null
+      mimeType: text/plain
+      name: anotherfile.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: I
+      sourceId: null
+      sourceModifiedTime: 2024-01-01 00:00:00+00:00
+      sourceModifiedUser: Myself
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      status: Active
+      tags: null
+      uploadedTime: null
+    source:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_nodes
+- externalId: MyVanillaFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      isUploaded: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: MySelf
+      sourceId: null
+      sourceModifiedTime: 2021-01-01 00:00:00+00:00
+      sourceModifiedUser: Me
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+      uploadedTime: null
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
@@ -97,6 +168,8 @@ Source:
   type: eventhub
 Space:
 - space: DataModelSpace
+- space: sp_nodes
+- space: sp_schema
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom
