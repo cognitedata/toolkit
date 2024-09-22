@@ -526,7 +526,7 @@ description: Original description
             assert retrieved[0].name == "My file"
             assert retrieved[0].description == "Original description"
 
-            update = ExtendableCogniteFileApply.load(file.dump(context="local"))
+            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
             update.description = "Updated description"
 
             updated = loader.update(ExtendableCogniteFileApplyList([update]))
@@ -561,8 +561,11 @@ fileCategory: Document
             created = loader.create(ExtendableCogniteFileApplyList([file]))
             assert len(created) == 1
 
-            update = ExtendableCogniteFileApply._load(file.dump())
+            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
+            # Ensure serialization and deserialization works
+            assert update.name == "MyExtendedFile"
             assert update.extra_properties is not None
+            assert update.extra_properties["fileCategory"] == "Document"
             update.extra_properties["status"] = "Inactive"
 
             updated = loader.update(ExtendableCogniteFileApplyList([update]))
@@ -570,6 +573,8 @@ fileCategory: Document
 
             retrieved = loader.retrieve([file.as_id()])
             assert len(retrieved) == 1
+            assert retrieved[0].name == "MyExtendedFile"
+            assert retrieved[0].extra_properties is not None
             assert retrieved[0].extra_properties["status"] == "Inactive"
         finally:
             loader.delete([file.as_id()])

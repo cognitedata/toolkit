@@ -15,6 +15,7 @@ There are three types of classes in this module made with different motivations:
 
 from __future__ import annotations
 
+import itertools
 from abc import ABC
 from collections import UserDict
 from collections.abc import Collection, Iterable
@@ -38,6 +39,7 @@ from cognite.client.data_classes.data_modeling import (
 )
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.client.data_classes.data_modeling.core import DataModelingSchemaResource
+from cognite.client.utils._text import to_camel_case
 from rich.table import Table
 
 
@@ -378,18 +380,32 @@ class ExtendableCogniteFileApply(CogniteFileApply):
         source["properties"].pop("extra_properties", None)
         if context == "api":
             if self.node_source is not None:
-                source["properties"]["source"] = self.node_source.dump(include_type=True)
+                source["source"] = self.node_source.dump(include_type=True)
             if self.extra_properties is not None:
                 source["properties"].update(self.extra_properties)
         else:
             output.pop("sources", None)
             output.update(source["properties"])
+            if self.node_source is not None:
+                output["nodeSource" if camel_case else "node_source"] = self.node_source.dump(include_type=False)
+            if self.extra_properties is not None:
+                output.update(self.extra_properties)
         return output
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFileApply:
         base_props = cls._load_base_properties(resource)
         properties = cls._load_properties(resource)
+        loaded_keys = {to_camel_case(p) for p in itertools.chain(base_props.keys(), properties.keys())} | {
+            "instanceType",
+            "isUploaded",
+            "uploadedTime",
+        }
+        if "nodeSource" in resource:
+            properties["node_source"] = ViewId.load(resource["nodeSource"])
+            loaded_keys.add("nodeSource")
+        if extra_keys := (set(resource) - loaded_keys):
+            properties["extra_properties"] = {key: resource[key] for key in extra_keys}
 
         return cls(**base_props, **properties)
 
