@@ -29,12 +29,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import DataModelLoader, DataSetsLoader, FunctionScheduleLoader, LabelLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.robotics_loaders import (
+from cognite_toolkit._cdf_tk.loaders import (
+    AssetLoader,
+    CogniteFileLoader,
+    DataModelLoader,
+    DatapointSubscriptionLoader,
+    DataSetsLoader,
+    FunctionScheduleLoader,
+    LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
+)
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    ExtendableCogniteFileApply,
+    ExtendableCogniteFileApplyList,
 )
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -382,6 +390,15 @@ def schema_space(toolkit_client: ToolkitClient) -> dm.Space:
 
 
 @pytest.fixture(scope="module")
+def instance_space(toolkit_client: ToolkitClient) -> dm.Space:
+    return toolkit_client.data_modeling.spaces.apply(
+        dm.SpaceApply(
+            space=f"sp_instances_{RUN_UNIQUE_ID}",
+        )
+    )
+
+
+@pytest.fixture(scope="module")
 def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
@@ -452,3 +469,30 @@ class TestDataModelLoader:
             assert updated[0].views == [view_list[0]]
         finally:
             loader.delete([my_model.as_id()])
+
+
+class TestCogniteFileLoader:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
+        loader = CogniteFileLoader(toolkit_client, None)
+        file = ExtendableCogniteFileApply(
+            space=instance_space.space,
+            external_id=f"tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}",
+            name="My file",
+            description="Original description",
+        )
+
+        try:
+            created = loader.create(ExtendableCogniteFileApplyList([file]))
+            assert len(created) == 1
+
+            update = ExtendableCogniteFileApply.load(file.dump())
+            update.description = "Updated description"
+
+            updated = loader.update(ExtendableCogniteFileApplyList([update]))
+            assert len(updated) == 1
+
+            retrieved = loader.retrieve([file.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].description == update.description
+        finally:
+            loader.delete([file.as_id()])

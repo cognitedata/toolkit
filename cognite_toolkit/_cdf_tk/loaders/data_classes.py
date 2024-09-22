@@ -334,6 +334,17 @@ class ExtendableCogniteFileApply(CogniteFileApply):
         self.node_source = node_source
         self.extra_properties = extra_properties
 
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case)
+        source = output["sources"][0]
+        source["properties"].pop("node_source", None)
+        source["properties"].pop("extra_properties", None)
+        if self.node_source is not None:
+            source["properties"]["source"] = self.node_source.dump(include_type=True)
+        if self.extra_properties is not None:
+            source["properties"].update(self.extra_properties)
+        return output
+
 
 class ExtendableCogniteFile(CogniteFile):
     def __init__(

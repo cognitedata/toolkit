@@ -29,7 +29,7 @@ from cognite.client.data_classes.capabilities import (
     DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -281,11 +281,11 @@ class CogniteFileLoader(
             ),
         ]
 
-    def create(self, items: ExtendableCogniteFileApplyList) -> ExtendableCogniteFileList:
+    def create(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(
             nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
         )
-        return created
+        return created.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> ExtendableCogniteFileList:
         items = self.client.data_modeling.instances.retrieve_nodes(  # type: ignore[call-overload]
@@ -294,9 +294,9 @@ class CogniteFileLoader(
         )
         return ExtendableCogniteFileList(items)
 
-    def update(self, items: ExtendableCogniteFileApplyList) -> ExtendableCogniteFileList:
+    def update(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
         updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
-        return updated
+        return updated.nodes
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
         try:
