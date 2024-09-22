@@ -393,48 +393,23 @@ class PullCommand(ToolkitCommand):
         loader = Loader.create_loader(ToolGlobals, None)
 
         if id_ is None:
-            selected_id = questionary.select(
+            resource_id = questionary.select(
                 f"Select a {loader.display_name} to pull",
                 choices=local_resources.identifiers,
-            )
+            ).ask()
         elif id_ not in local_resources.identifiers:
             raise ToolkitMissingResourceError(
                 f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
             )
         else:
-            selected_id = id_
+            resource_id = id_
 
-        return
+        print(f"[bold]Pulling {loader.display_name} {resource_id!r}...[/]")
 
-        resource_files = loader.find_files()
-        resource_by_file = {
-            file: loader.load_resource(file, ToolGlobals, skip_validation=True) for file in resource_files
-        }
-        selected: dict[Path, T_WriteClass] = {}
-        for file, resources in resource_by_file.items():
-            if not isinstance(resources, Sequence):
-                if loader.get_id(resources) == id_:  # type: ignore[arg-type]
-                    selected[file] = resources  # type: ignore[assignment]
-                continue
-            for resource in resources:
-                if loader.get_id(resource) == id_:
-                    selected[file] = resource
-                    break
-        if len(selected) == 0:
-            raise ToolkitMissingResourceError(
-                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
-            )
-        elif len(selected) >= 2:
-            files = "\n".join(map(str, selected.keys()))
-            raise ToolkitDuplicatedResourceError(
-                f"Multiple {loader.display_name} with {id_} found in {organization_dir}. Delete all but one and try again. "
-                f"Files: {files}"
-            )
-        build_file, local_resource = next(iter(selected.items()))
+        built_local = next(r for r in local_resources if r.identifier == resource_id)
 
-        print(f"[bold]Pulling {loader.display_name} {id_}...[/]")
-
-        resource_id = loader.get_id(local_resource)
+        local_resource = loader.load_resource(filepath, ToolGlobals, skip_validation=True)
+        local_resource = local.load_resource(ToolGlobals.environment_variables(), loader)
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:
             raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
@@ -443,9 +418,7 @@ class PullCommand(ToolkitCommand):
         if cdf_resource == local_resource:
             print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
             return
-
-        source_file = source_by_build_path[build_file]
-
+        source_file = built_local.location.path
         cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)
 
         # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
