@@ -334,16 +334,64 @@ class ExtendableCogniteFileApply(CogniteFileApply):
         self.node_source = node_source
         self.extra_properties = extra_properties
 
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+    def dump(self, camel_case: bool = True, context: Literal["api", "local"] = "api") -> dict[str, Any]:
+        """Dumps the object to a dictionary.
+
+        Args:
+            camel_case: Whether to use camel case or not.
+            context: If 'api', the output is for the API and will match the Node API schema. If 'local', the output is
+                for a YAML file and all properties are  on the same level as the node properties. See below
+
+        Example:
+            >>> node = ExtendableCogniteFileApply(space="space", external_id="external_id", name="name")
+            >>> node.dump(camel_case=True, context="api")
+            {
+                "space": "space",
+                "externalId": "external_id",
+                "sources": [
+                    {
+                        "source": {
+                            "space": "cdf_cdm",
+                            "externalId": "CogniteFile",
+                            "version": "v1",
+                            "type": "view"
+                        }
+                        "properties": {
+                            "name": "name"
+                        }
+                    }
+                ]
+            }
+            >>> node.dump(camel_case=True, context="local")
+            {
+                "space": "space",
+                "external_id": "external_id",
+                "name": "name",
+            }
+
+        Returns:
+
+        """
         output = super().dump(camel_case)
         source = output["sources"][0]
         source["properties"].pop("node_source", None)
         source["properties"].pop("extra_properties", None)
-        if self.node_source is not None:
-            source["properties"]["source"] = self.node_source.dump(include_type=True)
-        if self.extra_properties is not None:
-            source["properties"].update(self.extra_properties)
+        if context == "api":
+            if self.node_source is not None:
+                source["properties"]["source"] = self.node_source.dump(include_type=True)
+            if self.extra_properties is not None:
+                source["properties"].update(self.extra_properties)
+        else:
+            output.pop("sources", None)
+            output.update(source["properties"])
         return output
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFileApply:
+        base_props = cls._load_base_properties(resource)
+        properties = cls._load_properties(resource)
+
+        return cls(**base_props, **properties)
 
 
 class ExtendableCogniteFile(CogniteFile):
@@ -403,6 +451,19 @@ class ExtendableCogniteFile(CogniteFile):
             deleted_time=deleted_time,
         )
         self.extra_properties = extra_properties
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFile:
+        base_props = cls._load_base_properties(resource)
+        all_properties = resource.get("properties", {})
+        # There should only be one source in one view
+        if all_properties:
+            view_props = next(iter(all_properties.values()))
+            node_props = next(iter(view_props.values()))
+            properties = cls._load_properties(node_props)
+        else:
+            properties = {}
+        return cls(**base_props, **properties)
 
     def as_write(self) -> ExtendableCogniteFileApply:
         return ExtendableCogniteFileApply(
