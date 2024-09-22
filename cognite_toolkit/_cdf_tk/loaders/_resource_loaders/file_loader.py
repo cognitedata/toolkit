@@ -288,6 +288,9 @@ class CogniteFileLoader(
         return created.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> ExtendableCogniteFileList:
+        # Todo: Problem, if you extend the CogniteFiles with a custom view, we need to know
+        #   the ID of the custom view to retrieve data from it. This is not possible with the current
+        #   structure. Need to reconsider how to handle this.
         items = self.client.data_modeling.instances.retrieve_nodes(  # type: ignore[call-overload]
             nodes=ids,
             node_cls=ExtendableCogniteFile,

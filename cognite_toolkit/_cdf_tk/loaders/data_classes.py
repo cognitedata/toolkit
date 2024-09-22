@@ -469,6 +469,10 @@ class ExtendableCogniteFile(CogniteFile):
         self.extra_properties = extra_properties
 
     @classmethod
+    def get_source(cls) -> ViewId:
+        return ViewId(space="cdf_cdm", external_id="CogniteFile", version="v1")
+
+    @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> ExtendableCogniteFile:
         base_props = cls._load_base_properties(resource)
         all_properties = resource.get("properties", {})
