@@ -12,6 +12,7 @@ from typing import Any, Union
 import questionary
 import yaml
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
+from questionary import Choice
 from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -395,7 +396,7 @@ class PullCommand(ToolkitCommand):
         if id_ is None:
             resource_id = questionary.select(
                 f"Select a {loader.display_name} to pull",
-                choices=local_resources.identifiers,
+                choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r.identifier) for r in local_resources],
             ).ask()
         elif id_ not in local_resources.identifiers:
             raise ToolkitMissingResourceError(

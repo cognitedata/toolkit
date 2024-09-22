@@ -83,6 +83,7 @@ class PullApp(typer.Typer):
         )
 
     def pull_node_cmd(
+        self,
         ctx: typer.Context,
         node_id: Annotated[
             Optional[list[str]],
