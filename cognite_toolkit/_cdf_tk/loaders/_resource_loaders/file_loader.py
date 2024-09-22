@@ -26,10 +26,10 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    DataModelInstancesAcl,
     FilesAcl,
 )
-from cognite.client.data_classes.data_modeling import NodeId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -39,14 +39,22 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    ExtendableCogniteFile,
+    ExtendableCogniteFileApply,
+    ExtendableCogniteFileApplyList,
+    ExtendableCogniteFileList,
+)
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    in_dict,
     load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
+from .datamodel_loaders import SpaceLoader, ViewLoader
 
 
 @final
@@ -217,20 +225,119 @@ class FileMetadataLoader(
         return spec
 
 
-CogniteFileApply
-
-
 @final
-class CogniteFileLoader(ResourceContainerLoader[NodeId]):
+class CogniteFileLoader(
+    ResourceContainerLoader[
+        NodeId,
+        ExtendableCogniteFileApply,
+        ExtendableCogniteFile,
+        ExtendableCogniteFileApplyList,
+        ExtendableCogniteFileList,
+    ]
+):
     template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     filename_pattern = r"^.*\.CogniteFile"  # Matches all yaml files whose stem ends with '.CogniteFile'.
     kind = "CogniteFile"
-    dependencies = frozenset({GroupAllScopedLoader})
+    resource_cls = ExtendableCogniteFile
+    resource_write_cls = ExtendableCogniteFileApply
+    list_cls = ExtendableCogniteFileList
+    list_write_cls = ExtendableCogniteFileApplyList
+    dependencies = frozenset({GroupAllScopedLoader, SpaceLoader, ViewLoader})
 
     _doc_url = "Files/operation/initFileUpload"
 
     @property
     def display_name(self) -> str:
         return "cognite_file"
+
+    @classmethod
+    def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
+        if isinstance(item, dict):
+            if missing := tuple(k for k in {"space", "externalId"} if k not in item):
+                # We need to raise a KeyError with all missing keys to get the correct error message.
+                raise KeyError(*missing)
+            return NodeId(space=item["space"], external_id=item["externalId"])
+        return item.as_id()
+
+    @classmethod
+    def dump_id(cls, id: NodeId) -> dict[str, Any]:
+        return id.dump(include_instance_type=False)
+
+    @classmethod
+    def get_required_capability(cls, items: ExtendableCogniteFileApplyList | None) -> list[Capability]:
+        if not items and items is not None:
+            return []
+        scope: DataModelInstancesAcl.Scope.All | DataModelInstancesAcl.Scope.SpaceID = DataModelInstancesAcl.Scope.All()  # type: ignore[valid-type]
+        if items:
+            if spaces := {item.space for item in items}:
+                scope = DataModelInstancesAcl.Scope.SpaceID(list(spaces))
+        return [
+            FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()),
+            DataModelInstancesAcl(
+                [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],  # type: ignore[valid-type]
+                scope,  # type: ignore[arg-type]
+            ),
+        ]
+
+    def create(self, items: ExtendableCogniteFileApplyList) -> ExtendableCogniteFileList:
+        created = self.client.data_modeling.instances.apply(
+            nodes=items, replace=False, skip_on_version_conflict=True, auto_create_direct_relations=True
+        )
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[NodeId]) -> ExtendableCogniteFileList:
+        items = self.client.data_modeling.instances.retrieve_nodes(  # type: ignore[call-overload]
+            nodes=ids,
+            node_cls=ExtendableCogniteFile,
+        )
+        return ExtendableCogniteFileList(items)
+
+    def update(self, items: ExtendableCogniteFileApplyList) -> ExtendableCogniteFileList:
+        updated = self.client.data_modeling.instances.apply(nodes=items, replace=True)
+        return updated
+
+    def delete(self, ids: SequenceNotStr[NodeId]) -> int:
+        try:
+            deleted = self.client.data_modeling.instances.delete(nodes=list(ids))
+        except CogniteAPIError as e:
+            if "not exist" in e.message and "space" in e.message.lower():
+                return 0
+            raise e
+        return len(deleted.nodes)
+
+    def iterate(self) -> Iterable[ExtendableCogniteFile]:
+        raise NotImplementedError("")
+        # return iter(self.client.data_modeling.instances)
+
+    def count(self, ids: SequenceNotStr[NodeId]) -> int:
+        return sum(
+            [
+                bool(n.is_uploaded or False)
+                for n in self.client.data_modeling.instances.retrieve_nodes(nodes=ids, node_cls=ExtendableCogniteFile)  # type: ignore[call-overload]
+            ]
+        )
+
+    def drop_data(self, ids: SequenceNotStr[NodeId]) -> int:
+        existing_meta = self.client.files.retrieve_multiple(instance_ids=list(ids), ignore_unknown_ids=True)
+        existing_node = self.retrieve(ids)
+
+        # File and FileMetadata is tightly coupled, so we need to delete the metadata and recreate it
+        # without the source set to delete the file.
+        self.client.files.delete(id=existing_meta.as_ids())
+        self.create(existing_node.as_write())
+        return len(existing_meta)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "space" in item:
+            yield SpaceLoader, item["space"]
+        if "nodeSource" in item:
+            if in_dict(("space", "externalId", "type"), item["nodeSource"]):
+                yield ViewLoader, ViewId.load(item["nodeSource"])

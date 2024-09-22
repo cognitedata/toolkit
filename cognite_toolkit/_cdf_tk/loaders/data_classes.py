@@ -19,6 +19,7 @@ from abc import ABC
 from collections import UserDict
 from collections.abc import Collection, Iterable
 from dataclasses import dataclass
+from datetime import datetime
 from functools import total_ordering
 from typing import Any, Literal
 
@@ -28,7 +29,14 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, NodeApply, NodeApplyList, ViewId
+from cognite.client.data_classes.data_modeling import (
+    DataModelId,
+    DirectRelationReference,
+    NodeApply,
+    NodeApplyList,
+    ViewId,
+)
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFile, CogniteFileApply
 from cognite.client.data_classes.data_modeling.core import DataModelingSchemaResource
 from rich.table import Table
 
@@ -274,6 +282,152 @@ class NodeApplyListWithCall(CogniteResourceList[NodeApply]):
                 return {**self.api_call.dump(camel_case), "nodes": nodes}
         else:
             return nodes
+
+
+class ExtendableCogniteFileApply(CogniteFileApply):
+    def __init__(
+        self,
+        space: str,
+        external_id: str,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
+        source_id: str | None = None,
+        source_context: str | None = None,
+        source: DirectRelationReference | tuple[str, str] | None = None,
+        source_created_time: datetime | None = None,
+        source_updated_time: datetime | None = None,
+        source_created_user: str | None = None,
+        source_updated_user: str | None = None,
+        assets: list[DirectRelationReference | tuple[str, str]] | None = None,
+        mime_type: str | None = None,
+        directory: str | None = None,
+        category: DirectRelationReference | tuple[str, str] | None = None,
+        existing_version: int | None = None,
+        type: DirectRelationReference | tuple[str, str] | None = None,
+        node_source: ViewId | None = None,
+        extra_properties: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            space=space,
+            external_id=external_id,
+            name=name,
+            description=description,
+            tags=tags,
+            aliases=aliases,
+            source_id=source_id,
+            source_context=source_context,
+            source=source,
+            source_created_time=source_created_time,
+            source_updated_time=source_updated_time,
+            source_created_user=source_created_user,
+            source_updated_user=source_updated_user,
+            assets=assets,
+            mime_type=mime_type,
+            directory=directory,
+            category=category,
+            existing_version=existing_version,
+            type=type,
+        )
+        self.node_source = node_source
+        self.extra_properties = extra_properties
+
+
+class ExtendableCogniteFile(CogniteFile):
+    def __init__(
+        self,
+        space: str,
+        external_id: str,
+        version: int,
+        last_updated_time: int,
+        created_time: int,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[str] | None = None,
+        aliases: list[str] | None = None,
+        source_id: str | None = None,
+        source_context: str | None = None,
+        source: DirectRelationReference | None = None,
+        source_created_time: datetime | None = None,
+        source_updated_time: datetime | None = None,
+        source_created_user: str | None = None,
+        source_updated_user: str | None = None,
+        assets: list[DirectRelationReference] | None = None,
+        mime_type: str | None = None,
+        directory: str | None = None,
+        is_uploaded: bool | None = None,
+        uploaded_time: datetime | None = None,
+        category: DirectRelationReference | None = None,
+        type: DirectRelationReference | None = None,
+        deleted_time: int | None = None,
+        extra_properties: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(
+            space=space,
+            external_id=external_id,
+            version=version,
+            last_updated_time=last_updated_time,
+            created_time=created_time,
+            name=name,
+            description=description,
+            tags=tags,
+            aliases=aliases,
+            source_id=source_id,
+            source_context=source_context,
+            source=source,
+            source_created_time=source_created_time,
+            source_updated_time=source_updated_time,
+            source_created_user=source_created_user,
+            source_updated_user=source_updated_user,
+            assets=assets,
+            mime_type=mime_type,
+            directory=directory,
+            is_uploaded=is_uploaded,
+            uploaded_time=uploaded_time,
+            category=category,
+            type=type,
+            deleted_time=deleted_time,
+        )
+        self.extra_properties = extra_properties
+
+    def as_write(self) -> ExtendableCogniteFileApply:
+        return ExtendableCogniteFileApply(
+            space=self.space,
+            external_id=self.external_id,
+            name=self.name,
+            description=self.description,
+            tags=self.tags,
+            aliases=self.aliases,
+            source_id=self.source_id,
+            source_context=self.source_context,
+            source=self.source,
+            source_created_time=self.source_created_time,
+            source_updated_time=self.source_updated_time,
+            source_created_user=self.source_created_user,
+            source_updated_user=self.source_updated_user,
+            assets=self.assets,  # type: ignore[arg-type]
+            mime_type=self.mime_type,
+            directory=self.directory,
+            category=self.category,
+            existing_version=self.version,
+            type=self.type,
+            node_source=None,
+            extra_properties=self.extra_properties,
+        )
+
+
+class ExtendableCogniteFileApplyList(CogniteResourceList[ExtendableCogniteFileApply]):
+    _RESOURCE = ExtendableCogniteFileApply
+
+
+class ExtendableCogniteFileList(WriteableCogniteResourceList[ExtendableCogniteFileApply, ExtendableCogniteFile]):
+    _RESOURCE = ExtendableCogniteFile
+
+    def as_write(self) -> ExtendableCogniteFileApplyList:
+        return ExtendableCogniteFileApplyList([model.as_write() for model in self.data])
 
 
 @total_ordering
