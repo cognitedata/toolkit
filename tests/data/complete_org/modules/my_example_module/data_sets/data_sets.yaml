@@ -6,3 +6,7 @@
   name: Example dataset.
   description: This is an example dataset used to demonstrate how to create a custom module 
     in the Cognite Data Fusion Toolkit.
+- externalId: ds_extraction
+  name: Example dataset.
+  description: This is an example dataset used to demonstrate how to create a custom module 
+      in the Cognite Data Fusion Toolkit.

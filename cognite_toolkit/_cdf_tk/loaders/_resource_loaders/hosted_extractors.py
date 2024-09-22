@@ -2,14 +2,17 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
+from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
 from cognite.client.data_classes.hosted_extractors import (
     Destination,
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
+    SessionWrite,
     Source,
     SourceList,
     SourceWrite,
@@ -18,7 +21,9 @@ from cognite.client.data_classes.hosted_extractors import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
 class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, SourceWriteList, SourceList]):
@@ -105,6 +110,10 @@ class HostedExtractorDestinationLoader(
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
 
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        super().__init__(client, build_dir)
+        self._authentication_by_id: dict[str, ClientCredentials] = {}
+
     @property
     def display_name(self) -> str:
         return "Hosted Extractor Destination"
@@ -130,12 +139,22 @@ class HostedExtractorDestinationLoader(
         )
 
     def create(self, items: DestinationWriteList) -> DestinationList:
+        self._set_credentials(items)
+
         return self.client.hosted_extractors.destinations.create(items)
+
+    def _set_credentials(self, items: DestinationWriteList) -> None:
+        for item in items:
+            credentials = self._authentication_by_id.get(self.get_id(item))
+            if credentials:
+                created = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                item.credentials = SessionWrite(created.nonce)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> DestinationList:
         return self.client.hosted_extractors.destinations.retrieve(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: DestinationWriteList) -> DestinationList:
+        self._set_credentials(items)
         return self.client.hosted_extractors.destinations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
@@ -144,3 +163,22 @@ class HostedExtractorDestinationLoader(
 
     def iterate(self) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
+        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        loaded = DestinationWriteList([])
+        for item in raw_list:
+            if "authentication" in item:
+                raw_auth = item.pop("authentication")
+                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
+            if item.get("targetDataSetExternalId") is not None:
+                ds_external_id = item.pop("targetDataSetExternalId")
+                item["targetDataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id,
+                    skip_validation,
+                    action="replace targetDataSetExternalId with targetDataSetId in hosted extractor destination",
+                )
+            loaded.append(DestinationWrite.load(item))
+        return loaded
