@@ -22,11 +22,15 @@ Changes are grouped as follows:
 - The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
   command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
   Validation of the function code is expected to be handled by `cdf run function local`.
+- [BREAKING] The resource folder `timeseries_datapoints` is removed and `csv` and `parquet` files with
+  datapoints are now expected to be in the `timeseries` folder.
 
 ### Removed
 
 - CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
   be timeshifted to today when running `cdf build`
+- FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
+  simplify the pattern.
 
 ## [0.3.0a7] - 2024-09-18
 

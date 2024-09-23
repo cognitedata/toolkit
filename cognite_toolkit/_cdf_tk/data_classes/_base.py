@@ -52,16 +52,16 @@ def _load_version_variable(data: dict[str, Any], file_name: str) -> str:
         err_msg = f"System variables are missing required field 'cdf_toolkit_version' in {file_name!s}. {{}}"
         if file_name == BUILD_ENVIRONMENT_FILE:
             raise ToolkitVersionError(
-                err_msg.format("Rerun `cdf-tk build` to build the modules again and create it correctly.")
+                err_msg.format("Rerun `cdf build` to build the modules again and create it correctly.")
             )
         raise ToolkitVersionError(
-            err_msg.format("Run `cdf-tk init --upgrade` to initialize the modules again to create a correct file.")
+            err_msg.format("Run `cdf modules upgrade` to initialize the modules again to create a correct file.")
         )
 
     if cdf_tk_version != _version.__version__:
         raise ToolkitVersionError(
             f"The version of the modules ({cdf_tk_version}) does not match the version of the installed CLI "
-            f"({_version.__version__}). Please either run `cdf-tk init --upgrade` to upgrade the modules OR "
+            f"({_version.__version__}). Please either run `cdf modules upgrade` to upgrade the modules OR "
             f"run `pip install cognite-toolkit=={cdf_tk_version}` to downgrade cdf-tk CLI."
         )
     return cdf_tk_version
