@@ -3,7 +3,7 @@ from .classic_loaders import AssetLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import ContainerLoader, DataModelLoader, GraphQLLoader, NodeLoader, SpaceLoader, ViewLoader
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
-from .file_loader import FileMetadataLoader
+from .file_loader import CogniteFileLoader, FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
 from .hosted_extractors import HostedExtractorDestinationLoader, HostedExtractorJobLoader, HostedExtractorSourceLoader
@@ -34,6 +34,7 @@ __all__ = [
     "ContainerLoader",
     "ViewLoader",
     "FileMetadataLoader",
+    "CogniteFileLoader",
     "FunctionLoader",
     "FunctionScheduleLoader",
     "TimeSeriesLoader",

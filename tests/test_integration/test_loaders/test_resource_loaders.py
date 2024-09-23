@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     LabelDefinitionWrite,
     filters,
 )
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
     DatapointSubscriptionWriteList,
@@ -29,12 +30,20 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import DataModelLoader, DataSetsLoader, FunctionScheduleLoader, LabelLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import DatapointSubscriptionLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.robotics_loaders import (
+from cognite_toolkit._cdf_tk.loaders import (
+    AssetLoader,
+    CogniteFileLoader,
+    DataModelLoader,
+    DatapointSubscriptionLoader,
+    DataSetsLoader,
+    FunctionScheduleLoader,
+    LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
+)
+from cognite_toolkit._cdf_tk.loaders.data_classes import (
+    ExtendableCogniteFileApply,
+    ExtendableCogniteFileApplyList,
 )
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -382,6 +391,15 @@ def schema_space(toolkit_client: ToolkitClient) -> dm.Space:
 
 
 @pytest.fixture(scope="module")
+def instance_space(toolkit_client: ToolkitClient) -> dm.Space:
+    return toolkit_client.data_modeling.spaces.apply(
+        dm.SpaceApply(
+            space=f"sp_instances_{RUN_UNIQUE_ID}",
+        )
+    )
+
+
+@pytest.fixture(scope="module")
 def a_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
     return toolkit_client.data_modeling.containers.apply(
         dm.ContainerApply(
@@ -452,3 +470,112 @@ class TestDataModelLoader:
             assert updated[0].views == [view_list[0]]
         finally:
             loader.delete([my_model.as_id()])
+
+
+@pytest.fixture
+def custom_file_container(toolkit_client: ToolkitClient, schema_space: dm.Space) -> dm.Container:
+    return toolkit_client.data_modeling.containers.apply(
+        dm.ContainerApply(
+            name=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            space=schema_space.space,
+            external_id=f"container_test_resource_loaders_{RUN_UNIQUE_ID}",
+            properties={
+                "status": dm.ContainerProperty(type=dm.Text()),
+                "fileCategory": dm.ContainerProperty(type=dm.Text()),
+            },
+        )
+    )
+
+
+@pytest.fixture
+def cognite_file_extension(
+    toolkit_client: ToolkitClient, custom_file_container: dm.Container, schema_space: dm.Space
+) -> dm.View:
+    container = custom_file_container.as_id()
+    return toolkit_client.data_modeling.views.apply(
+        dm.ViewApply(
+            space=schema_space.space,
+            external_id="CogniteFileExtension",
+            version="v1",
+            implements=[CogniteFileApply.get_source()],
+            properties={
+                "status": dm.MappedPropertyApply(container=container, container_property_identifier="status"),
+                "fileCategory": dm.MappedPropertyApply(
+                    container=container, container_property_identifier="fileCategory"
+                ),
+            },
+        )
+    )
+
+
+class TestCogniteFileLoader:
+    def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
+        loader = CogniteFileLoader(toolkit_client, None)
+        # Loading from YAML to test the loading of extra properties as well
+        file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
+externalId: tmp_test_create_update_delete_file_{RUN_UNIQUE_ID}
+name: My file
+description: Original description
+""")
+        try:
+            created = loader.create(ExtendableCogniteFileApplyList([file]))
+            assert len(created) == 1
+
+            retrieved = loader.retrieve([file.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].name == "My file"
+            assert retrieved[0].description == "Original description"
+
+            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
+            update.description = "Updated description"
+
+            updated = loader.update(ExtendableCogniteFileApplyList([update]))
+            assert len(updated) == 1
+
+            retrieved = loader.retrieve([file.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].description == "Updated description"
+            assert retrieved[0].name == "My file"
+        finally:
+            loader.delete([file.as_id()])
+
+    @pytest.mark.skip("For now, we do not support creating extensions")
+    def test_create_update_retrieve_delete_extension(
+        self, toolkit_client: ToolkitClient, cognite_file_extension: dm.View, instance_space: dm.Space
+    ) -> None:
+        loader = CogniteFileLoader(toolkit_client, None)
+        view_id = cognite_file_extension.as_id()
+        # Loading from YAML to test the loading of extra properties as well
+        file = ExtendableCogniteFileApply.load(f"""space: {instance_space.space}
+externalId: tmp_test_create_update_delete_file_extension_{RUN_UNIQUE_ID}
+name: MyExtendedFile
+description: Original description
+nodeSource:
+  space: {view_id.space}
+  externalId: {view_id.external_id}
+  version: {view_id.version}
+  type: view
+status: Active
+fileCategory: Document
+""")
+        try:
+            created = loader.create(ExtendableCogniteFileApplyList([file]))
+            assert len(created) == 1
+
+            update = ExtendableCogniteFileApply._load(file.dump(context="local"))
+            # Ensure serialization and deserialization works
+            assert update.name == "MyExtendedFile"
+            assert update.extra_properties is not None
+            assert update.extra_properties["fileCategory"] == "Document"
+            update.extra_properties["status"] = "Inactive"
+
+            updated = loader.update(ExtendableCogniteFileApplyList([update]))
+            assert len(updated) == 1
+
+            retrieved = loader.retrieve([file.as_id()])
+            assert len(retrieved) == 1
+            assert retrieved[0].name == "MyExtendedFile"
+            assert retrieved[0].extra_properties is not None
+            assert retrieved[0].extra_properties["status"] == "Inactive"
+        finally:
+            loader.delete([file.as_id()])
