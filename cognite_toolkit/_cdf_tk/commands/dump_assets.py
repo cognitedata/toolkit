@@ -51,7 +51,6 @@ class DumpAssetsCommand(ToolkitCommand):
         ToolGlobals: CDFToolConfig,
         hierarchy: list[str] | None,
         data_set: list[str] | None,
-        interactive: bool,
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
@@ -66,9 +65,9 @@ class DumpAssetsCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-
+        is_interactive = hierarchy is None and data_set is None
         hierarchies, data_sets = self._select_hierarchy_and_data_set(
-            ToolGlobals.toolkit_client, hierarchy, data_set, interactive
+            ToolGlobals.toolkit_client, hierarchy, data_set, is_interactive
         )
         if not hierarchies and not data_sets:
             raise ToolkitValueError("No hierarchy or data set provided")

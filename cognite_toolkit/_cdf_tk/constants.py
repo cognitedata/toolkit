@@ -10,6 +10,7 @@ except ModuleNotFoundError:
 # This is the default config located locally in each module.
 # The environment file:
 
+TOOLKIT_SERVICE_PRINCIPAL_NAME = "cognite_toolkit_service_principal"
 
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.

@@ -56,7 +56,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         data_set: list[str] | None,
-        interactive: bool,
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
@@ -71,8 +70,8 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-
-        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, interactive)
+        is_interactive = not data_set
+        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, is_interactive)
         if not data_sets:
             raise ToolkitValueError("No data set provided")
 
@@ -181,14 +180,12 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
 
-    def _create_choice(self, item_id: int, item: DataSetWrite, client: ToolkitClient) -> questionary.Choice:
+    def _create_choice(self, item_id: int, item: DataSetWrite, ts_count: int) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
         `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
         """
-
-        ts_count = self.get_timeseries_choice_count_by_dataset(item_id, client)
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
@@ -242,9 +239,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     "Select a data set listed as 'name (external_id) [count]'",
                     choices=sorted(
                         [
-                            self._create_choice(item_id, item, client)
+                            self._create_choice(item_id, item, ts_count)
                             for (item_id, item) in _available_data_sets.items()
-                            if item.external_id not in data_sets
+                            if (ts_count := self.get_timeseries_choice_count_by_dataset(item_id, client))
+                            and item.external_id not in data_sets
                         ],
                         # sorted cannot find the proper overload
                         key=self._get_choice_title,

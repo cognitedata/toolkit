@@ -8,10 +8,7 @@ default_organization_dir = "cognite_toolkit"
 
 [feature_flags]
 graphql = true
-asset-dump = true
-timeseries-dump = true
 import-cmd = true
-modules-app = true
 hosted-extractors = true
 
 [plugins]
