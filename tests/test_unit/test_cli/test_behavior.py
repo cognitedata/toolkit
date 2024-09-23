@@ -10,8 +10,7 @@ from cognite.client.data_classes import GroupWrite, Transformation, Transformati
 from pytest import MonkeyPatch
 from typer import Context
 
-from cognite_toolkit._cdf import pull_transformation_cmd
-from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp
+from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
@@ -132,7 +131,8 @@ def test_pull_transformation(
     read_transformation = Transformation.load(loaded.dump())
     toolkit_client_approval.append(Transformation, read_transformation)
 
-    pull_transformation_cmd(
+    app = PullApp()
+    app.pull_transformation_cmd(
         typer_context,
         organization_dir=organization_dir_mutable,
         external_id=read_transformation.external_id,
