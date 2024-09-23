@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, Union
 
 import typer
 from cognite.client.data_classes.data_modeling import NodeId
@@ -128,7 +128,7 @@ class PullApp(typer.Typer):
         """This command will pull the specified node and update its YAML file in the module folder."""
 
         cmd = PullCommand()
-        node_id_: NodeId | None = None
+        node_id_: Union[NodeId, None] = None
         if node_id is not None:
             if len(node_id) != 2:
                 raise ToolkitRequiredValueError("Node id should be two strings a space and external id.")
