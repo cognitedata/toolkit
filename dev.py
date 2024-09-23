@@ -5,6 +5,7 @@ from pathlib import Path
 
 import typer
 from packaging.version import Version, parse
+from rich import print
 
 from cognite_toolkit._version import __version__
 
@@ -71,9 +72,11 @@ def bump(
     changelog = CHANGELOG.read_text()
     template_changelog = TEMPLATE_CHANGELOG.read_text()
     if TBD_HEADING not in changelog and TBD_HEADING not in template_changelog:
-        raise ValueError(
-            f"There are no changes to release. The changelog does not contain a TBD section: {TBD_HEADING}."
+        print(
+            f"  [bold red]ERROR [/][red]There are no changes to release[/][bold red]:[/]"
+            f" The changelogs do not contain a TBD section: {TBD_HEADING}."
         )
+        raise SystemExit(1)
 
     today = date.today().strftime("%Y-%m-%d")
     new_heading = f"## [{new_version}] - {today}"
