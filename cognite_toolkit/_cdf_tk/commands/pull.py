@@ -7,6 +7,7 @@ from collections import UserList
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
+from unittest.mock import MagicMock
 
 import questionary
 import yaml
@@ -22,9 +23,10 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, safe_read
 
@@ -410,8 +412,31 @@ class PullCommand(ToolkitCommand):
         print(f"[bold]Pulling {loader.display_name} {resource_id!r}...[/]")
 
         built_local = next(r for r in local_resources if r.identifier == resource_id)
+        if sum(1 for r in local_resources if r.location.path == built_local.location.path) > 1:
+            raise ToolkitValueError(f"Pull of {loader.display_name} only supports one resource per file.")
 
-        local_resource = built_local.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
+        local_resource_dict = built_local.load_resource_dict(ToolGlobals.environment_variables(), validate=True)
+
+        filepath_mock = MagicMock(spec=Path)
+        filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
+        filepath_mock.stem.return_value = "hack"
+        filepath_mock.name = "hack.yaml"
+
+        if Loader is TransformationLoader:
+            # Todo Hack to pass in the local resource_dict
+            query_file = Path(built_local.location.path.with_suffix(".sql"))
+            if query_file.exists():
+                query_content = built_local.build_variables.replace(safe_read(query_file))
+                query_mock_file = MagicMock(spec=Path)
+                query_mock_file.read_text.return_value = query_content
+
+                def _get_query_file(*args: Any, **kwargs: Any) -> Path:
+                    return query_mock_file
+
+                loader._get_query_file = _get_query_file  # type: ignore[attr-defined]
+
+        local_resource = loader.load_resource(filepath_mock, ToolGlobals, skip_validation=False)
+
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:
             raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
@@ -423,9 +448,7 @@ class PullCommand(ToolkitCommand):
         source_file = built_local.location.path
 
         # Todo: How to load the resource correctly with for example the .sql included in the resource.
-        cdf_dumped, extra_files = loader.dump_resource(
-            cdf_resource, source_file, loader.resource_write_cls.load(local_resource)
-        )
+        cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)  # type: ignore[arg-type]
 
         # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
         built_content = built_local.build_variables.replace(safe_read(source_file))
@@ -458,43 +481,46 @@ class PullCommand(ToolkitCommand):
                 f"'{source_file.relative_to(organization_dir)}'."
             )
 
-        for filepath, content in extra_files.items():
-            if not filepath.exists():
-                print(f"[bold red]ERROR:[/] {filepath} does not exist.")
-                continue
-            raise NotImplementedError("Extra files are not yet supported.")
-            # build_extra_file = Path(build_dir / loader.folder_name / filepath.name)
-            # if not build_extra_file.exists():
-            #     print(f"[bold red]ERROR:[/] {build_extra_file} does not exist.")
-            #     continue
-            #
-            # file_diffs = TextFileDifference.load(safe_read(build_extra_file), safe_read(filepath))
-            # file_diffs.update_cdf_content(content)
-            #
-            # has_changed = any(line.is_added or line.is_changed for line in file_diffs)
-            # if dry_run:
-            #     if has_changed:
-            #         print(
-            #             f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
-            #         )
-            #     else:
-            #         print(
-            #             f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
-            #             "thus no update would have been done."
-            #         )
-            #
-            # if verbose:
-            #     old_content = safe_read(filepath)
-            #     print(
-            #         Panel(
-            #             "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
-            #             title=f"Difference between local and CDF resource {filepath.name!r}",
-            #         )
-            #     )
-            #
-            # if not dry_run and has_changed:
-            #     with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-            #         f.write(content)
-            #     print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
+        if Loader is TransformationLoader:
+            query_file = Path(built_local.location.path.with_suffix(".sql"))
+            query_content2: str | None = None
+            if query_file.exists():
+                query_content2 = built_local.build_variables.replace(safe_read(query_file))
+
+            for filepath, content in extra_files.items():
+                if not filepath.exists():
+                    print(f"[bold red]ERROR:[/] {filepath} does not exist.")
+                    continue
+                if query_content2 is None:
+                    continue
+
+                file_diffs = TextFileDifference.load(query_content2, safe_read(filepath))
+                file_diffs.update_cdf_content(content)
+
+                has_changed = any(line.is_added or line.is_changed for line in file_diffs)
+                if dry_run:
+                    if has_changed:
+                        print(
+                            f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
+                        )
+                    else:
+                        print(
+                            f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
+                            "thus no update would have been done."
+                        )
+
+                if verbose:
+                    old_content = safe_read(filepath)
+                    print(
+                        Panel(
+                            "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
+                            title=f"Difference between local and CDF resource {filepath.name!r}",
+                        )
+                    )
+
+                if not dry_run and has_changed:
+                    with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
+                        f.write(content)
+                    print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
 
         print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
