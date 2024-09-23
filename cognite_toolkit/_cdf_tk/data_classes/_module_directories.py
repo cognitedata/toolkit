@@ -69,10 +69,11 @@ class ModuleLocation:
         return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
 
     @property
-    def _source_paths_by_resource_folder_and_not_resource_directory(self) -> tuple[dict[str, list[Path]], set[str]]:
+    def _source_paths_by_resource_folder(self) -> tuple[dict[str, list[Path]], set[str]]:
         """The source paths grouped by resource folder."""
         source_paths_by_resource_folder = defaultdict(list)
-        not_resource_directory: set[str] = set()
+        # The directories in the module that are not resource directories.
+        invalid_resource_directory: set[str] = set()
         for filepath in self.source_paths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
@@ -80,16 +81,16 @@ class ModuleLocation:
                 relative_to_module = filepath.relative_to(self.dir)
                 is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
                 if not is_file_in_resource_folder:
-                    not_resource_directory.add(relative_to_module.parts[0])
+                    invalid_resource_directory.add(relative_to_module.parts[0])
                 continue
             if filepath.is_file():
                 source_paths_by_resource_folder[resource_folder].append(filepath)
-        return source_paths_by_resource_folder, not_resource_directory
+        return source_paths_by_resource_folder, invalid_resource_directory
 
     @cached_property
     def source_paths_by_resource_folder(self) -> dict[str, list[Path]]:
         """The source paths grouped by resource folder."""
-        source_paths_by_resource_folder, _ = self._source_paths_by_resource_folder_and_not_resource_directory
+        source_paths_by_resource_folder, _ = self._source_paths_by_resource_folder
 
         # Sort to support 1., 2. etc prefixes
         def sort_key(p: Path) -> tuple[int, int, str]:
@@ -115,7 +116,7 @@ class ModuleLocation:
     @cached_property
     def not_resource_directories(self) -> set[str]:
         """The directories in the module that are not resource directories."""
-        return self._source_paths_by_resource_folder_and_not_resource_directory[1]
+        return self._source_paths_by_resource_folder[1]
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
