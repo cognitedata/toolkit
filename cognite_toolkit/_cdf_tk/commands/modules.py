@@ -13,6 +13,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
+from rich.progress import track
 from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
@@ -141,6 +142,15 @@ class ModulesCommand(ToolkitCommand):
             )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
+        cdf_toml_content = self.create_cdf_toml(organization_dir)
+
+        destination = Path.cwd() / CDFToml.file_name
+        if destination.exists():
+            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
+        else:
+            destination.write_text(cdf_toml_content, encoding="utf-8")
+
+    def create_cdf_toml(self, organization_dir: Path) -> str:
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
@@ -150,12 +160,7 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
-
-        destination = Path.cwd() / CDFToml.file_name
-        if destination.exists():
-            print(f"{INDENT}[yellow]cdf.toml file already exists. Skipping creation.")
-        else:
-            destination.write_text(cdf_toml_content, encoding="utf-8")
+        return cdf_toml_content
 
     def init(
         self,
@@ -339,6 +344,10 @@ default_organization_dir = "{organization_dir.name}"''',
             )
             return Changes()
 
+        if cli_version == module_version:
+            print("The modules are already at the same version as the CLI.")
+            return Changes()
+
         if module_version < Version(SUPPORT_MODULE_UPGRADE_FROM_VERSION):
             print(
                 f"The modules upgrade command is not supported for versions below {SUPPORT_MODULE_UPGRADE_FROM_VERSION}."
@@ -369,11 +378,13 @@ default_organization_dir = "{organization_dir.name}"''',
                 f"Found {len(changes)} changes from {module_version} to {cli_version}",
                 title="Upgrade Modules",
                 style="green",
+                expand=False,
             )
         )
 
         total_changed: set[Path] = set()
-        for change in changes:
+        iterable = changes if verbose else track(changes, description="Applying changes")
+        for change in iterable:
             color = "green"
             changed_files: set[Path] = set()
             if change.has_file_changes:
@@ -384,29 +395,30 @@ default_organization_dir = "{organization_dir.name}"''',
                 elif isinstance(change, ManualChange):
                     changed_files = change.needs_to_change()
                     color = "red" if changed_files else "green"
-            print(
-                Panel(
-                    f"Change: {type(change).__name__}",
-                    style=color,
-                    expand=False,
+            if verbose:
+                print(
+                    Panel(
+                        f"Change: {type(change).__name__}",
+                        style=color,
+                        expand=False,
+                    )
                 )
-            )
-            if not changed_files and change.has_file_changes:
-                suffix = "have been changed" if isinstance(change, AutomaticChange) else "need to be changed"
-                print(f"No files {suffix}.")
+                if not changed_files and change.has_file_changes:
+                    suffix = "have been changed" if isinstance(change, AutomaticChange) else "need to be changed"
+                    print(f"No files {suffix}.")
             else:
                 if isinstance(change, ManualChange):
                     print(Markdown(change.instructions(changed_files)))
-                elif isinstance(change, AutomaticChange):
+                elif isinstance(change, AutomaticChange) and verbose:
                     print("The following files have been changed:")
                     for file in changed_files:
                         if file.is_relative_to(organization_dir):
                             print(Markdown(f"  - {file.relative_to(organization_dir).as_posix()}"))
                         else:
                             print(Markdown(f"  - {file.as_posix()}"))
-            if changed_files or not change.has_file_changes or verbose:
+            if verbose:
                 print(Markdown(change.__doc__ or "Missing description."))
-            print(Rule())
+                print(Rule())
 
         use_git = CLICommands.use_git() and CLICommands.has_initiated_repo()
         summary = ["All automatic changes have been applied."]
@@ -427,12 +439,12 @@ default_organization_dir = "{organization_dir.name}"''',
                 "If you are not satisfied with the changes, you can use `git checkout -- <file>` to revert "
                 "a file or `git checkout .` to revert all changes."
             )
-        print(Panel("\n".join(summary), title="Upgrade Complete", style=color))
+        print(Panel("\n".join(summary), title="Upgrade Complete", style=color, expand=False))
         return changes
 
     @staticmethod
     def _get_module_version(project_path: Path) -> Version:
-        cdf_toml = CDFToml.load()
+        cdf_toml = CDFToml.load(use_singleton=False)
         # After `0.3.0` the version is in the CDF TOML file
         if cdf_toml.is_loaded_from_file and cdf_toml.modules.version:
             return parse_version(cdf_toml.modules.version)

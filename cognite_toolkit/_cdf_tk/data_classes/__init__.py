@@ -8,8 +8,6 @@ from ._built_resources import (
     BuiltResource,
     BuiltResourceFull,
     BuiltResourceList,
-    DeployedResource,
-    DeployedResourceList,
     SourceLocation,
     SourceLocationEager,
     SourceLocationLazy,
@@ -19,7 +17,6 @@ from ._config_yaml import (
     BuildEnvironment,
     ConfigEntry,
     ConfigYAMLs,
-    DeployEnvironment,
     Environment,
     InitConfigYAML,
 )
@@ -33,7 +30,6 @@ __all__ = [
     "BuildConfigYAML",
     "Environment",
     "BuildEnvironment",
-    "DeployEnvironment",
     "ConfigEntry",
     "ModuleLocation",
     "ModuleDirectories",
@@ -51,6 +47,4 @@ __all__ = [
     "SourceLocationLazy",
     "BuiltFullResourceList",
     "BuiltResourceFull",
-    "DeployedResource",
-    "DeployedResourceList",
 ]
