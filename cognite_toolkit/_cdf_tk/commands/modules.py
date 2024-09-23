@@ -210,6 +210,10 @@ default_organization_dir = "{organization_dir.name}"''',
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
         selected = self._select_packages(packages)
+        if "bootcamp" in selected:
+            if questionary.confirm("Would you like to continue with creation?", default=True).ask():
+                self._create(Path.cwd() / "ice-cream-dataops", selected, ["dev", "prod"], mode)
+            raise typer.Exit()
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
