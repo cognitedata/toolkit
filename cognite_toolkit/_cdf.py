@@ -15,19 +15,17 @@ global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
 
 from rich import print
-from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, ModulesApp, PullApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
-    FeatureFlagCommand,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
-from cognite_toolkit._cdf_tk.plugins import Plugin, Plugins
+from cognite_toolkit._cdf_tk.plugins import Plugins
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
@@ -68,21 +66,21 @@ except AttributeError as e:
     )
 
 _app = CoreApp(**default_typer_kws)
-feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
+
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-if Plugin.is_enabled(Plugins.run.value):
+if Plugins.run.value.is_enabled():
     _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
-if Plugin.is_enabled(Plugins.pull.value):
+if Plugins.pull.value.is_enabled():
     _app.add_typer(PullApp(**default_typer_kws), name="pull")
 
-if Plugin.is_enabled(Plugins.dump.value):
+if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
-_app.add_typer(feature_flag_app, name="features")
+
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
 
@@ -151,31 +149,6 @@ def collect(
     """Collect usage information for the toolkit."""
     cmd = CollectCommand()
     cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
-
-
-@feature_flag_app.callback(invoke_without_command=True)
-def feature_flag_main(ctx: typer.Context) -> None:
-    """Commands to enable and disable feature flags for the toolkit."""
-    if ctx.invoked_subcommand is None:
-        print(
-            Panel(
-                "[yellow]Warning: enabling feature flags may have undesired side effects."
-                "\nDo not enable a flag unless you are familiar with what it does.[/]"
-            )
-        )
-        print("Use [bold yellow]cdf features list[/] available feature flags")
-        print(
-            f"Use [bold yellow]the section cdf.feature_flags in {CDFToml.file_name!r}[/] to enable or disable feature flags."
-        )
-    return None
-
-
-@feature_flag_app.command("list")
-def feature_flag_list() -> None:
-    """List all available feature flags."""
-
-    cmd = FeatureFlagCommand()
-    cmd.run(cmd.list)
 
 
 @user_app.callback(invoke_without_command=True)
