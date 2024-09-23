@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+from cognite_toolkit._cdf_tk.plugins import Plugin, Plugins
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
     sentry_exception_filter,
@@ -72,12 +73,15 @@ user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-ty
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-_app.add_typer(RunApp(**default_typer_kws), name="run")
+if Plugin.is_enabled(Plugins.run.value):
+    _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
-_app.add_typer(PullApp(**default_typer_kws), name="pull")
-# Todo: Add plugin flag when plugin bug is fixed.
-# if Plugin.is_enabled(Plugins.dump.value):
-_app.add_typer(DumpApp(**default_typer_kws), name="dump")
+
+if Plugin.is_enabled(Plugins.pull.value):
+    _app.add_typer(PullApp(**default_typer_kws), name="pull")
+
+if Plugin.is_enabled(Plugins.dump.value):
+    _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 _app.add_typer(feature_flag_app, name="features")
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
