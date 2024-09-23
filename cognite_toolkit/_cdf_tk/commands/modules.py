@@ -290,7 +290,9 @@ default_organization_dir = "{organization_dir.name}"''',
                 style=custom_style_fancy,
             ).ask()
 
-            if len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0):
+            if package.name != "bootcamp" and (
+                len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)
+            ):
                 selection = questionary.checkbox(
                     f"Which modules in {package.name} would you like to add?",
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
