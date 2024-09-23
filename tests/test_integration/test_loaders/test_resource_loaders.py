@@ -539,7 +539,7 @@ description: Original description
         finally:
             loader.delete([file.as_id()])
 
-    @pytest.mark.skip("How to handle retrieve with custom source?")
+    @pytest.mark.skip("For now, we do not support creating extensions")
     def test_create_update_retrieve_delete_extension(
         self, toolkit_client: ToolkitClient, cognite_file_extension: dm.View, instance_space: dm.Space
     ) -> None:
