@@ -77,3 +77,7 @@ jobs:
           git add -A
           git commit -m 'Prepare ${{ env.version }}'
           git push -u origin "prepare-${{ env.version }}"
+
+      - name: Run Migration Tests
+        run: |
+          python module_upgrade/run_check.py --earliest --latest
