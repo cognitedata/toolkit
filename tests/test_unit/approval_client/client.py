@@ -48,7 +48,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
 from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
-from cognite.client.data_classes.iam import GroupWrite, ProjectSpec, TokenInspection
+from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
@@ -100,6 +100,9 @@ class ApprovalToolkitClient:
 
         # Set the side effect of the MagicMock to the real method
         self.mock_client.iam.compare_capabilities.side_effect = IAMAPI.compare_capabilities
+        self.mock_client.iam.sessions.create.return_value = CreatedSession(
+            id=1234, status="READY", nonce="123", type="CLIENT_CREDENTIALS", client_id="12345-12345-12345-12345"
+        )
         # Set functions to be activated
         self.mock_client.functions.status.return_value = FunctionsStatus(status="activated")
         self.mock_client.functions._zip_and_upload_folder.return_value = -1
@@ -899,6 +902,8 @@ class ApprovalToolkitClient:
                         sub_method = getattr(method, sub_method_name)
                         if isinstance(sub_method, MagicMock) and sub_method.call_count:
                             not_mocked[f"{api_name}.{method_name}.{sub_method_name}"] += sub_method.call_count
+        # This is mocked in the __init__
+        not_mocked.pop("iam.sessions.create", None)
         return dict(not_mocked)
 
     def auth_create_group_calls(self) -> Iterable[AuthGroupCalls]:
