@@ -118,7 +118,7 @@ class DumpCommand(ToolkitCommand):
 
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
             space=selected_space, all_versions=False, limit=-1
-        )
+        ).as_ids()
 
         if not data_models:
             raise ToolkitMissingResourceError(f"No data models found in space {selected_space}")
@@ -127,20 +127,23 @@ class DumpCommand(ToolkitCommand):
             "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_models]
         ).ask()
 
-        if not questionary.confirm(
-            f"Would you like to select a different version than {selected_data_model.version} of the data model",
-            default=False,
-        ).ask():
-            return selected_data_model
-
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
             space=selected_space, all_versions=True, limit=-1
-        )
+        ).as_ids()
         data_model_versions = [
             model.version
             for model in data_models
             if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
+            and model.version is not None
         ]
+        if (
+            len(data_model_versions) == 1
+            or not questionary.confirm(
+                f"Would you like to select a different version than {selected_data_model.version} of the data model",
+                default=False,
+            ).ask()
+        ):
+            return selected_data_model
 
         selected_version = questionary.select("Which version would you like to dump?", data_model_versions).ask()
         return DataModelId(selected_space, selected_data_model.external_id, selected_version)
