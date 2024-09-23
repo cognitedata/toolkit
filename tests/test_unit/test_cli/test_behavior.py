@@ -58,7 +58,7 @@ def test_inject_custom_environmental_variables(
     )
     app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,
@@ -323,7 +323,7 @@ def test_deploy_group_with_unknown_acl(
     app = CoreApp()
     app.deploy(
         typer_context,
-        build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
+        build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
         drop=False,
         dry_run=False,

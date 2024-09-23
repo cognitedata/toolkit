@@ -7,8 +7,7 @@ from typing import final
 
 import pandas as pd
 import yaml
-from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList, capabilities
-from cognite.client.data_classes.capabilities import Capability, FilesAcl, RawAcl, TimeSeriesAcl
+from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
@@ -27,15 +26,6 @@ class DatapointsLoader(DataLoader):
     filetypes = frozenset({"csv", "parquet"})
     dependencies = frozenset({TimeSeriesLoader})
     _doc_url = "Time-series/operation/postMultiTimeSeriesDatapoints"
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        scope: capabilities.AllScope | capabilities.DataSetScope = TimeSeriesAcl.Scope.All()
-
-        return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
-            scope,
-        )
 
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         if datafile.suffix == ".csv":
@@ -87,13 +77,6 @@ class FileLoader(DataLoader):
         self.meta_data_list = FileMetadataWriteList([])
         self.has_loaded_metadata = False
 
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability | list[Capability]:
-        scope: capabilities.AllScope | capabilities.DataSetScope
-        scope = FilesAcl.Scope.All()
-
-        return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)
-
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         if not self.has_loaded_metadata:
             meta_loader = FileMetadataLoader(self.client, self.resource_build_path and self.resource_build_path.parent)
@@ -132,10 +115,6 @@ class RawFileLoader(DataLoader):
     @property
     def display_name(self) -> str:
         return "raw.rows"
-
-    @classmethod
-    def get_required_capability(cls, ToolGlobals: CDFToolConfig) -> Capability:
-        return RawAcl([RawAcl.Action.Read, RawAcl.Action.Write], RawAcl.Scope.All())
 
     def upload(self, datafile: Path, ToolGlobals: CDFToolConfig, dry_run: bool) -> tuple[str, int]:
         pattern = re.compile(rf"{datafile.stem}\.(yml|yaml)$")

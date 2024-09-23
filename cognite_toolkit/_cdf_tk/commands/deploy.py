@@ -64,7 +64,7 @@ class DeployCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        build_dir_raw: str,
+        build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         drop: bool,
@@ -72,8 +72,6 @@ class DeployCommand(ToolkitCommand):
         include: list[str],
         verbose: bool,
     ) -> None:
-        # Override cluster and project from the options/env variables
-        build_dir: Path = Path(build_dir_raw)
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"

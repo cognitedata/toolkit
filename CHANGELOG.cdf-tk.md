@@ -15,6 +15,25 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Changed
+
+- The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
+  command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
+  Validation of the function code is expected to be handled by `cdf run function local`.
+
+### Removed
+
+- CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
+  be timeshifted to today when running `cdf build`
+
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added

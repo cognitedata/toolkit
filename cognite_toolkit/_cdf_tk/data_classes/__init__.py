@@ -1,16 +1,17 @@
-from ._build_info import (
-    BuildLocation,
-    BuildLocationEager,
-    BuildLocationLazy,
+from ._build_variables import BuildVariable, BuildVariables
+from ._built_modules import (
     BuiltModule,
     BuiltModuleList,
-    ModuleResources,
-    ResourceBuildInfo,
-    ResourceBuildInfoFull,
-    ResourceBuiltFullList,
-    ResourceBuiltList,
 )
-from ._build_variables import BuildVariable, BuildVariables
+from ._built_resources import (
+    BuiltFullResourceList,
+    BuiltResource,
+    BuiltResourceFull,
+    BuiltResourceList,
+    SourceLocation,
+    SourceLocationEager,
+    SourceLocationLazy,
+)
 from ._config_yaml import (
     BuildConfigYAML,
     BuildEnvironment,
@@ -20,6 +21,7 @@ from ._config_yaml import (
     InitConfigYAML,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
+from ._module_resources import ModuleResources
 from ._packages import Package, Packages
 
 __all__ = [
@@ -36,13 +38,13 @@ __all__ = [
     "Package",
     "Packages",
     "ModuleResources",
-    "BuildLocation",
-    "ResourceBuildInfo",
-    "ResourceBuiltList",
+    "SourceLocation",
+    "BuiltResource",
+    "BuiltResourceList",
     "BuiltModule",
     "BuiltModuleList",
-    "BuildLocationEager",
-    "BuildLocationLazy",
-    "ResourceBuiltFullList",
-    "ResourceBuildInfoFull",
+    "SourceLocationEager",
+    "SourceLocationLazy",
+    "BuiltFullResourceList",
+    "BuiltResourceFull",
 ]
