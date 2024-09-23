@@ -15,32 +15,6 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 def file_metadata_config_cases() -> Iterable[ParameterSet]:
     data_set_mapping = {"ds_files": 42}
     yield pytest.param(
-        """- externalId: sharepointABC_$FILENAME
-  dataSetExternalId: ds_files
-  source: sharepointABC
-""",
-        ["text.txt", "text2.txt"],
-        data_set_mapping,
-        FileMetadataWriteList(
-            [
-                FileMetadataWrite(
-                    external_id="sharepointABC_text.txt",
-                    source="sharepointABC",
-                    name="text.txt",
-                    data_set_id=42,
-                ),
-                FileMetadataWrite(
-                    external_id="sharepointABC_text2.txt",
-                    source="sharepointABC",
-                    name="text2.txt",
-                    data_set_id=42,
-                ),
-            ]
-        ),
-        id="File template format",
-    )
-
-    yield pytest.param(
         """externalId: sharepointABC
 name: A file.txt
 dataSetExternalId: ds_files

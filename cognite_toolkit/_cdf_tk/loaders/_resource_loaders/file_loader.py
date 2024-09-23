@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import annotations
 
-import json
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
@@ -34,9 +33,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
@@ -109,42 +106,10 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> FileMetadataWrite | FileMetadataWriteList:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> FileMetadataWriteList:
         loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
-        file_to_upload_by_source_name: dict[str, Path] = {
-            INDEX_PATTERN.sub("", file.name): file
-            for file in filepath.parent.glob("*")
-            if file.suffix not in {".yaml", ".yml"}
-        }
-
-        is_file_template = (
-            isinstance(loaded, list) and len(loaded) == 1 and "$FILENAME" in loaded[0].get("externalId", "")
-        )
-        if isinstance(loaded, list) and is_file_template:
-            print(f"  [bold green]INFO:[/] File pattern detected in {filepath.name}, expanding to all files in folder.")
-            template = loaded[0]
-            template_prefix, template_suffix = "", ""
-            if "name" in template and "$FILENAME" in template["name"]:
-                template_prefix, template_suffix = template["name"].split("$FILENAME", maxsplit=1)
-            loaded_list: list[dict[str, Any]] = []
-            for source_name, file in file_to_upload_by_source_name.items():
-                # Deep Copy
-                new_file = json.loads(json.dumps(template))
-
-                # We modify the filename in the build command, we clean the name here to get the original filename
-                filename_in_module = source_name.removeprefix(template_prefix).removesuffix(template_suffix)
-                new_file["name"] = source_name
-                new_file["externalId"] = new_file["externalId"].replace("$FILENAME", filename_in_module)
-                loaded_list.append(new_file)
-
-        elif isinstance(loaded, dict):
-            loaded_list = [loaded]
-        else:
-            # Is List
-            loaded_list = loaded
+        loaded_list = [loaded] if isinstance(loaded, dict) else loaded
 
         for resource in loaded_list:
             if resource.get("dataSetExternalId") is not None:
@@ -166,11 +131,7 @@ class FileMetadataLoader(
                     action="replace assetExternalIds with assetIds in file metadata",
                 )
 
-        files_metadata: FileMetadataWriteList = FileMetadataWriteList.load(loaded_list)
-        for meta in files_metadata:
-            if meta.name and meta.name not in file_to_upload_by_source_name:
-                raise ToolkitFileNotFoundError(f"Could not find file {meta.name} referenced in filepath {filepath}")
-        return files_metadata
+        return FileMetadataWriteList._load(loaded_list)
 
     def _are_equal(
         self, local: FileMetadataWrite, cdf_resource: FileMetadata, return_dumped: bool = False
