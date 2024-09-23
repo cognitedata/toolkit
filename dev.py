@@ -1,5 +1,6 @@
 """This is a small CLI used to develop Toolkit."""
 
+from datetime import date
 from pathlib import Path
 
 import typer
@@ -8,6 +9,9 @@ from packaging.version import Version, parse
 from cognite_toolkit._version import __version__
 
 REPO_ROOT = Path(__file__).parent
+CHANGELOG = REPO_ROOT / "docs" / "CHANGELOG.md"
+TEMPLATE_CHANGELOG = REPO_ROOT / "docs" / "CHANGELOG.templates.md"
+TBD_HEADING = "## TBD"
 
 bump_app = typer.Typer(
     add_completion=False,
@@ -62,6 +66,40 @@ def bump(
         new_version = Version(f"{version.major}.{version.minor}.{version.micro}{suffix}")
     else:
         raise typer.BadParameter("You must specify one of major, minor, patch, alpha, or beta.")
+
+    # Update Changelog
+    changelog = CHANGELOG.read_text()
+    template_changelog = TEMPLATE_CHANGELOG.read_text()
+    if TBD_HEADING not in changelog and TBD_HEADING in template_changelog:
+        raise ValueError(
+            f"There are no changes to release. The changelog does not contain a TBD section: {TBD_HEADING}."
+        )
+
+    today = date.today().strftime("%Y-%m-%d")
+    new_heading = f"## [{new_version}] - {today}"
+
+    for content, file, name in [
+        (changelog, CHANGELOG, "cdf CLI"),
+        (template_changelog, TEMPLATE_CHANGELOG, "templates"),
+    ]:
+        if TBD_HEADING in content:
+            content = content.replace(TBD_HEADING, new_heading)
+            file.write_text(content)
+            if verbose:
+                typer.echo(f"Updated {file.name!r} changelog with new heading: {new_heading}.")
+        else:
+            new_changelog = changelog.splitlines()
+            has_added_entry = False
+            for line in content.splitlines():
+                if not has_added_entry and line.startswith("##"):
+                    new_changelog.append(new_heading)
+                    new_changelog.append("")
+                    new_changelog.append(f"No changes to {name}.")
+                    new_changelog.append("")
+                    has_added_entry = True
+
+                new_changelog.append(line)
+            file.write_text("\n".join(new_changelog))
 
     for file in version_files:
         file.write_text(file.read_text().replace(str(version), str(new_version), 1))
