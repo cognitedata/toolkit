@@ -20,7 +20,7 @@ class DumpCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        data_model_id: DataModelId,
+        data_model_id: DataModelId | None,
         output_dir: Path,
         clean: bool,
         verbose: bool,

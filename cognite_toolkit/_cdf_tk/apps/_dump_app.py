@@ -26,47 +26,31 @@ class DumpApp(typer.Typer):
     def dump_datamodel_cmd(
         self,
         ctx: typer.Context,
-        space: Annotated[
-            str,
-            typer.Option(
-                "--space",
-                "-s",
-                prompt=True,
-                help="Space where the datamodel to pull can be found.",
-            ),
-        ],
-        external_id: Annotated[
-            str,
-            typer.Option(
-                "--external-id",
-                "-e",
-                prompt=True,
-                help="External id of the datamodel to pull.",
-            ),
-        ],
-        version: Annotated[
-            Optional[str],
-            typer.Option(
-                "--version",
-                "-v",
-                help="Version of the datamodel to pull.",
-            ),
+        data_model_id: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
+                     "Note that version is optional and defaults to the latest published version. If nothing is provided,"
+                     "an interactive prompt will be shown to select the data model.",
+            )
         ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the datamodel files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
         clean: Annotated[
             bool,
             typer.Option(
                 "--clean",
                 "-c",
-                help="Delete the output directory before pulling the datamodel.",
+                help="Delete the output directory before dumping the datamodel.",
             ),
         ] = False,
-        output_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to dump the datamodel YAML files.",
-                allow_dash=True,
-            ),
-        ] = Path("tmp"),
         verbose: Annotated[
             bool,
             typer.Option(
@@ -77,6 +61,9 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
+
+
+
         cmd = DumpCommand()
         cmd.run(
             lambda: cmd.execute(
@@ -104,24 +91,10 @@ class DumpApp(typer.Typer):
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump.",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted"
+                     "to select which assets to dump",
             ),
         ] = None,
-        interactive: Annotated[
-            bool,
-            typer.Option(
-                "--interactive",
-                "-i",
-                help="Will prompt you to select which assets hierarchies to dump.",
-            ),
-        ] = False,
-        output_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to dump the asset YAML files.",
-                allow_dash=True,
-            ),
-        ] = Path("tmp"),
         format_: Annotated[
             str,
             typer.Option(
@@ -130,14 +103,6 @@ class DumpApp(typer.Typer):
                 help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
             ),
         ] = "csv",
-        clean_: Annotated[
-            bool,
-            typer.Option(
-                "--clean",
-                "-c",
-                help="Delete the output directory before pulling the assets.",
-            ),
-        ] = False,
         limit: Annotated[
             Optional[int],
             typer.Option(
@@ -146,6 +111,23 @@ class DumpApp(typer.Typer):
                 help="Limit the number of assets to dump.",
             ),
         ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the asset files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the asset.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -155,16 +137,15 @@ class DumpApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected assets as yaml to the folder specified, defaults to /tmp."""
+        """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand()
         cmd.run(
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
                 hierarchy,
                 data_set,
-                interactive,
                 output_dir,
-                clean_,
+                clean,
                 limit,
                 format_,  # type: ignore [arg-type]
                 verbose,
@@ -174,37 +155,14 @@ class DumpApp(typer.Typer):
     def dump_timeseries_cmd(
         self,
         ctx: typer.Context,
-        time_series_list: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--timeseries",
-                "-t",
-                help="Timeseries to dump.",
-            ),
-        ] = None,
         data_set: Annotated[
             Optional[list[str]],
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump.",
+                help="Data set to dump. If not provided, the user will be prompted to select which timeseries to dump.",
             ),
         ] = None,
-        interactive: Annotated[
-            bool,
-            typer.Option(
-                "--interactive",
-                "-i",
-                help="Will prompt you to select which timeseries to dump.",
-            ),
-        ] = False,
-        output_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to dump the timeseries YAML files.",
-                allow_dash=True,
-            ),
-        ] = Path("tmp"),
         format_: Annotated[
             str,
             typer.Option(
@@ -213,14 +171,6 @@ class DumpApp(typer.Typer):
                 help="Format to dump the timeseries in. Supported formats: yaml, csv, and parquet.",
             ),
         ] = "csv",
-        clean_: Annotated[
-            bool,
-            typer.Option(
-                "--clean",
-                "-c",
-                help="Delete the output directory before pulling the timeseries.",
-            ),
-        ] = False,
         limit: Annotated[
             Optional[int],
             typer.Option(
@@ -229,6 +179,23 @@ class DumpApp(typer.Typer):
                 help="Limit the number of timeseries to dump.",
             ),
         ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the timeseries files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the timeseries.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -238,7 +205,7 @@ class DumpApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will dump the selected timeseries as yaml to the folder specified, defaults to /tmp."""
+        """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpTimeSeriesCommand()
         cmd.run(
             lambda: cmd.execute(
