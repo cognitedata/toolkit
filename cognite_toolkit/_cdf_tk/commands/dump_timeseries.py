@@ -180,14 +180,12 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
 
-    def _create_choice(self, item_id: int, item: DataSetWrite, client: ToolkitClient) -> questionary.Choice:
+    def _create_choice(self, item_id: int, item: DataSetWrite, ts_count: int) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
         `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
         """
-
-        ts_count = self.get_timeseries_choice_count_by_dataset(item_id, client)
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
@@ -241,9 +239,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     "Select a data set listed as 'name (external_id) [count]'",
                     choices=sorted(
                         [
-                            self._create_choice(item_id, item, client)
+                            self._create_choice(item_id, item, ts_count)
                             for (item_id, item) in _available_data_sets.items()
-                            if item.external_id not in data_sets
+                            if (ts_count := self.get_timeseries_choice_count_by_dataset(item_id, client))
+                            and item.external_id not in data_sets
                         ],
                         # sorted cannot find the proper overload
                         key=self._get_choice_title,
