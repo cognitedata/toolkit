@@ -7,15 +7,9 @@ from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
-from cognite.client.data_classes._base import (
-    T_CogniteResourceList,
-    T_WritableCogniteResource,
-    T_WriteClass,
-)
-
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import get_loader
-from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_str_or_file_hash,
@@ -153,26 +147,6 @@ class BuiltResourceFull(BuiltResource[T_ID]):
                 if loader.get_id(item) == self.identifier:
                     return item
         raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.location.path}")
-
-    def load_resource(
-        self,
-        environment_variables: dict[str, str | None],
-        loader: type[
-            ResourceLoader[
-                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-            ]
-        ]
-        | None = None,
-    ) -> T_WriteClass:
-        """Load the resource from the build info.
-
-        Args:
-            environment_variables: The environment variables to inject into the resource file.
-            loader: The loader to use to load the resource. If not provided, the loader will be inferred from the resource directory and kind.
-                The motivation to explicitly provide the loader is to get the correct type hints.
-        """
-        loader = loader or get_loader(self.resource_dir, self.kind)  # type: ignore[assignment]
-        return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
 class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
