@@ -70,7 +70,7 @@ def bump(
     # Update Changelog
     changelog = CHANGELOG.read_text()
     template_changelog = TEMPLATE_CHANGELOG.read_text()
-    if TBD_HEADING not in changelog and TBD_HEADING in template_changelog:
+    if TBD_HEADING not in changelog and TBD_HEADING not in template_changelog:
         raise ValueError(
             f"There are no changes to release. The changelog does not contain a TBD section: {TBD_HEADING}."
         )
