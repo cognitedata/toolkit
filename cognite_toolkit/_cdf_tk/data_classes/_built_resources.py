@@ -175,11 +175,6 @@ class BuiltResourceFull(BuiltResource[T_ID]):
         return loader.resource_write_cls.load(self.load_resource_dict(environment_variables))  # type: ignore[misc, union-attr]
 
 
-@dataclass
-class DeployedResource(BuiltResource[T_ID]):
-    deployed: bool = False
-
-
 class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
     # Implemented to get correct type hints
     def __init__(self, collection: Collection[BuiltResource[T_ID]] | None = None) -> None:
@@ -210,6 +205,17 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
     def dump(self, resource_folder: str, include_destination: bool = False) -> list[dict[str, Any]]:
         return [resource.dump(resource_folder, include_destination) for resource in self]
 
+    def get_resource_directories(self, resource_folder: str) -> set[Path]:
+        output: set[Path] = set()
+        for resource in self:
+            index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
+            if index is None:
+                continue
+            path = Path("/".join(resource.location.path.parts[: index + 1]))
+            output.add(path)
+
+        return output
+
 
 class BuiltFullResourceList(BuiltResourceList[T_ID]):
     # Implemented to get correct type hints
@@ -229,38 +235,3 @@ class BuiltFullResourceList(BuiltResourceList[T_ID]):
         if isinstance(index, slice):
             return BuiltFullResourceList[T_ID](super().__getitem__(index))
         return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
-
-
-class DeployedResourceList(BuiltResourceList[T_ID]):
-    # Implemented to get correct type hints
-    def __init__(self, collection: Collection[DeployedResource[T_ID]] | None = None) -> None:
-        super().__init__(collection or [])
-
-    def __iter__(self) -> Iterator[DeployedResource[T_ID]]:
-        return cast(Iterator[DeployedResource[T_ID]], super().__iter__())
-
-    @overload
-    def __getitem__(self, index: SupportsIndex) -> DeployedResource[T_ID]: ...
-
-    @overload
-    def __getitem__(self, index: slice) -> DeployedResourceList[T_ID]: ...
-
-    def __getitem__(self, index: SupportsIndex | slice, /) -> DeployedResource[T_ID] | DeployedResourceList[T_ID]:
-        if isinstance(index, slice):
-            return DeployedResourceList[T_ID](super().__getitem__(index))
-        return cast(DeployedResource[T_ID], super().__getitem__(index))
-
-    @classmethod
-    def load(cls, data: list[dict[str, Any]], resource_folder: str) -> DeployedResourceList[T_ID]:
-        return cls([DeployedResource.load(resource_data, resource_folder) for resource_data in data])
-
-    def get_resource_directories(self, resource_folder: str) -> set[Path]:
-        output: set[Path] = set()
-        for resource in self:
-            index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
-            if index is None:
-                continue
-            path = Path("/".join(resource.location.path.parts[: index + 1]))
-            output.add(path)
-
-        return output
