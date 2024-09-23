@@ -20,6 +20,8 @@ Changes are grouped as follows:
 ### Added
 
 - Dump for `Assets` and `TimeSeries` with `cdf dump asset` and `cdf dump timeseries` commands.
+- Support for Hosted Extractors `Destination` and `Job`.
+- Support for `CogniteFile`.
 
 ### Changed
 
@@ -39,6 +41,7 @@ Changes are grouped as follows:
   simplify the pattern.
 - [BREAKING] The command `cdf describe` is removed. This functionality was not used and thus removing it to simplify
   the Toolkit and to focus on the core functionality.
+- [BREAKING] Support for api parameters in `Node` resource is removed.
 
 ## [0.3.0a7] - 2024-09-18
 
