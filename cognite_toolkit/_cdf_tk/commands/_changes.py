@@ -40,6 +40,63 @@ class ManualChange(Change):
     def instructions(self, files: set[Path]) -> str:
         return ""
 
+class NodeAPICallParametersNoLongerSupported(AutomaticChange):
+    """Setting API call parameters in the 'node' section of the config files is no longer supported.
+
+This is now handled correctly by the CDF Toolkit and should be removed from the config files.
+
+For example, in data_models/my_node.node.yaml, before:
+```yaml
+replace: true
+nodes:
+ - space: node_space
+   externalId: default_infield_config_minimal
+```
+After:
+```yaml
+- space: node_space
+  externalId: default_infield_config_minimal
+```
+    """
+
+    deprecated_from = Version("0.3.0b1")
+    required_from = Version("0.3.0b1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        from cognite_toolkit._cdf_tk.utils import resource_folder_from_path
+
+        api_call_parameters = {
+            "skipOnVersionConflict", "replace", "autoCreateDirectRelations"
+        }
+
+        changed: set[Path] = set()
+        resource_yaml: Path
+        for resource_yaml in self._organization_dir.glob("*.yaml"):
+            try:
+                resource_folder = resource_folder_from_path(resource_yaml)
+            except ValueError:
+                continue
+            if resource_folder == "data_models" and resource_yaml.stem.casefold().endswith("node"):
+                content = safe_read(resource_yaml)
+                has_api_call_parameters = False
+                new_content:  list[str] = []
+                for line in content.splitlines():
+                    if any(line.startswith(parameter) for parameter in api_call_parameters):
+                        has_api_call_parameters = True
+                        continue
+                    if (line.startswith("nodes:") or line.startswith("node:")) and has_api_call_parameters:
+                        continue
+                    if has_api_call_parameters:
+                        indent = len(line) - len(line.lstrip())
+                        line = line[indent:]
+                    new_content.append(line)
+                if has_api_call_parameters:
+                    changed.add(resource_yaml)
+                    resource_yaml.write_text("\n".join(new_content))
+
+        return changed
+
 
 class ResourceFolderTimeSeriesDatapointsRemoved(AutomaticChange):
     """The resource folder 'timeseries_datapoints' have been removed.
