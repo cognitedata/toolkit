@@ -76,7 +76,7 @@ class ToolkitCommand:
         ToolGlobals: CDFToolConfig,
         skip_validation: bool,
     ) -> T_CogniteResourceList:
-        loaded_resources = loader.create_empty_of(loader.list_write_cls([]))
+        loaded_resources = loader.list_write_cls([])
         for filepath in filepaths:
             try:
                 resource = loader.load_resource(filepath, ToolGlobals, skip_validation)

@@ -42,6 +42,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelList,
     Node,
     NodeApply,
+    NodeApplyList,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -78,7 +79,6 @@ from cognite_toolkit._cdf_tk.loaders.data_classes import (
     GraphQLDataModelList,
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
-    NodeApplyListWithCall,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -798,14 +798,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
     list_cls = NodeList
-    list_write_cls = NodeApplyListWithCall
+    list_write_cls = NodeApplyList
     kind = "Node"
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
@@ -815,7 +815,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyListWithCall | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: NodeApplyList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return DataModelInstancesAcl(
@@ -856,10 +856,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    @classmethod
-    def create_empty_of(cls, items: NodeApplyListWithCall) -> NodeApplyListWithCall:
-        return NodeApplyListWithCall([], items.api_call)
-
     def _are_equal(
         self, local: NodeApply, cdf_resource: Node, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
@@ -891,9 +887,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        return NodeApplyListWithCall._load(raw, cognite_client=self.client)
+        raw_list = raw if isinstance(raw, list) else [raw]
+        return NodeApplyList._load(raw_list, cognite_client=self.client)
 
     def dump_resource(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
@@ -919,19 +916,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
         return dumped, {}
 
-    def create(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
-        if not isinstance(items, NodeApplyListWithCall):
-            raise ValueError("Unexpected node format file format")
-
-        api_call_args = items.api_call.dump(camel_case=False) if items.api_call else {}
-        result = self.client.data_modeling.instances.apply(nodes=items, **api_call_args)
+    def create(self, items: NodeApplyList) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=items, auto_create_direct_relations=True, replace=False
+        )
         return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
-        return self.create(items)
+    def update(self, items: NodeApplyList) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=items, auto_create_direct_relations=False, replace=True
+        )
+        return result.nodes
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
         try:

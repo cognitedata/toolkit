@@ -1,30 +1,26 @@
-autoCreateDirectRelations: true
-skipOnVersionConflict: false
-replace: true
-nodes:
-  - space: {{space}}
-    externalId: default-inrobot-config-toolkit
-    sources:
-      - source:
-          space: {{space}}
-          externalId: Alert
-          version: 1
-          type: view
-        properties:
-          featureConfiguration:
-            rootLocationConfigurations:
-              - assetExternalId: root-asset-ext-id-location
-                appDataInstanceSpace: sp_location_app_data
-                sourceDataInstanceSpace: sp_location_source_data
-          customerDataSpaceId: APM_SourceData # Space where the customer's data model lives
-          customerDataSpaceVersion: "1" # this is really the customer data model version
-          name: InRobot APM Config
-  - space: {{space}}
-    externalId: random_alert_node
-    sources:
-      - source:
-          space: {{space}}
-          externalId: Alert
-          version: 1
-          type: view
-        properties: {{ a_key }}
+- space: {{space}}
+  externalId: default-inrobot-config-toolkit
+  sources:
+    - source:
+        space: {{space}}
+        externalId: Alert
+        version: 1
+        type: view
+      properties:
+        featureConfiguration:
+          rootLocationConfigurations:
+            - assetExternalId: root-asset-ext-id-location
+              appDataInstanceSpace: sp_location_app_data
+              sourceDataInstanceSpace: sp_location_source_data
+        customerDataSpaceId: APM_SourceData # Space where the customer's data model lives
+        customerDataSpaceVersion: "1" # this is really the customer data model version
+        name: InRobot APM Config
+- space: {{space}}
+  externalId: random_alert_node
+  sources:
+    - source:
+        space: {{space}}
+        externalId: Alert
+        version: 1
+        type: view
+      properties: {{ a_key }}
