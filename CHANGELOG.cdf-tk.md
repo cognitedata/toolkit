@@ -23,6 +23,12 @@ Changes are grouped as follows:
   command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
   Validation of the function code is expected to be handled by `cdf run function local`.
 
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added
