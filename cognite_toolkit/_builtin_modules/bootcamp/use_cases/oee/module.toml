@@ -1,7 +1,0 @@
-[module]
-title = "OEE Use Case"
-
-[packages]
-tags = [
-    "bootcamp",
-]
