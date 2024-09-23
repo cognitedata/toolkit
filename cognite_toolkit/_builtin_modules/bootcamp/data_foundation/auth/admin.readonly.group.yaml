@@ -1,0 +1,144 @@
+name: 'gp_admin_readonly'
+sourceId: '{{readonly_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - projectsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - datasetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - extractionPipelinesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - extractionRunsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - filePipelinesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - documentFeedbackAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - hostedExtractorsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - geospatialAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - workflowOrchestrationAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
