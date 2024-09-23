@@ -4,7 +4,7 @@ on:
   pull_request:
 
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.10'
 jobs:
   lint:
     name: Run linters
@@ -51,8 +51,8 @@ jobs:
       fail-fast: false
       matrix:
         python-version:
-          - "3.9"
-          # Skipping 3.10 and 3.11 as we assume it is covered by 3.9 and 3.12
+          - "3.10"
+          # Skipping  3.11 as we assume it is covered by 3.10 and 3.12
           - "3.12"
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
