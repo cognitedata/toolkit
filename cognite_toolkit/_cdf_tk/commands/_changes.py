@@ -198,7 +198,8 @@ After:
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        from cognite_toolkit._cdf_tk.commands import RepoCommand
+        # Avoid circular import
+        from .modules import ModulesCommand
 
         system_yaml = self._organization_dir / "_system.yaml"
         if not system_yaml.exists():
@@ -208,14 +209,13 @@ After:
         content = read_yaml_file(system_yaml)
         current_version = content.get("cdf_toolkit_version", __version__)
 
-        cdf_toml_source = RepoCommand()._repo_files / "cdf.toml"
-        cdf_toml_content = cdf_toml_source.read_text()
+        cdf_toml_content = ModulesCommand(skip_tracking=True).create_cdf_toml(self._organization_dir)
         cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
 
         cdf_toml_path = Path.cwd() / "cdf.toml"
         cdf_toml_path.write_text(cdf_toml_content)
-
-        return {cdf_toml_path}
+        system_yaml.unlink()
+        return {cdf_toml_path, system_yaml}
 
 
 class ResourceFolderLabelsRenamed(AutomaticChange):
