@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
+    DataLoader,
     DataSetsLoader,
     DeployResults,
     ResourceContainerLoader,
@@ -225,9 +226,9 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
             )
-        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
-        build_.set_environment_variables()
-        errors = build_.check_source_files_changed()
+        clean_state = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
+        clean_state.set_environment_variables()
+        errors = clean_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
@@ -304,6 +305,11 @@ class CleanCommand(ToolkitCommand):
                 if loader_cls.any_supported_files(build_dir / folder_name):
                     folder_has_supported_files = True
                     selected_loaders[loader_cls] = loader_cls.dependencies
+                elif issubclass(loader_cls, DataLoader):
+                    # Data Loaders are always included, as they will have
+                    # the files in the module folder and not the build folder.
+                    selected_loaders[loader_cls] = loader_cls.dependencies
+
             if not folder_has_supported_files:
                 kinds = [loader_cls.kind for loader_cls in loader_classes]
                 yaml_file = next((build_dir / folder_name).glob("*.yaml"), None)

@@ -5,7 +5,7 @@ from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -88,7 +88,7 @@ class BuiltResource(Generic[T_ID]):
     destination: Path | None
 
     @classmethod
-    def load(cls, data: dict[str, Any], resource_folder: str) -> BuiltResource:
+    def load(cls: type[T_BuiltResource], data: dict[str, Any], resource_folder: str) -> T_BuiltResource:
         from cognite_toolkit._cdf_tk.loaders import ResourceLoader, get_loader
 
         kind = data["kind"]
@@ -128,6 +128,9 @@ class BuiltResource(Generic[T_ID]):
             module_location=module.location.path,
             resource_dir=resource_dir,
         )
+
+
+T_BuiltResource = TypeVar("T_BuiltResource", bound=BuiltResource)
 
 
 @dataclass
@@ -201,6 +204,17 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
 
     def dump(self, resource_folder: str, include_destination: bool = False) -> list[dict[str, Any]]:
         return [resource.dump(resource_folder, include_destination) for resource in self]
+
+    def get_resource_directories(self, resource_folder: str) -> set[Path]:
+        output: set[Path] = set()
+        for resource in self:
+            index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
+            if index is None:
+                continue
+            path = Path("/".join(resource.location.path.parts[: index + 1]))
+            output.add(path)
+
+        return output
 
 
 class BuiltFullResourceList(BuiltResourceList[T_ID]):
