@@ -88,7 +88,7 @@ def bump(
             if verbose:
                 typer.echo(f"Updated {file.name!r} changelog with new heading: {new_heading}.")
         else:
-            new_changelog = changelog.splitlines()
+            new_changelog: list[str] = []
             has_added_entry = False
             for line in content.splitlines():
                 if not has_added_entry and line.startswith("##"):
