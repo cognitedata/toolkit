@@ -26,6 +26,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 
@@ -92,6 +93,9 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     def _are_equal(
         self, local: SourceWrite, cdf_resource: Source, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        HighSeverityWarning(
+            "Destinations will always be considered different, and thus will always be redeployed."
+        ).print_warning()
         local_dumped = local.dump()
         # Source does not have .as_write method as there are secrets in the write object
         # which are not returned by the API.
@@ -189,6 +193,21 @@ class HostedExtractorDestinationLoader(
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
+
+    def _are_equal(
+        self, local: DestinationWrite, cdf_resource: Destination, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        """This can be overwritten in subclasses that require special comparison logic.
+
+        For example, TransformationWrite has OIDC credentials that will not be returned
+        by the retrieve method, and thus needs special handling.
+        """
+        HighSeverityWarning(
+            "Destinations will always be considered different, and thus will always be redeployed."
+        ).print_warning()
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.dump()
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
