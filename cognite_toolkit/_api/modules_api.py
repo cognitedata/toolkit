@@ -117,7 +117,7 @@ class ModulesAPI:
         app = CoreApp()
         app.deploy(
             ctx=ctx,
-            build_dir=str(self._build_dir),
+            build_dir=self._build_dir,
             build_env_name=self._build_env,
             drop=False,
             drop_data=False,
@@ -138,7 +138,7 @@ class ModulesAPI:
         app = CoreApp()
         app.clean(
             ctx=ctx,
-            build_dir=str(self._build_dir),
+            build_dir=self._build_dir,
             build_env_name=self._build_env,
             dry_run=dry_run,
             include=list(include) if include is not None else None,

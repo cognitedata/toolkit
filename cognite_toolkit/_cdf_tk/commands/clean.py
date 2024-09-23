@@ -215,13 +215,12 @@ class CleanCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        build_dir_raw: str,
+        build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         include: list[str],
         verbose: bool,
     ) -> None:
-        build_dir = Path(build_dir_raw)
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
