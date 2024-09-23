@@ -93,6 +93,7 @@ LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "in
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
     "interactive": "Login using the browser with your user credentials",
+    "device_code": "Login using the browser with your user credentials using device code flow",
     "token": "Use a Token directly to authenticate",
 }
 
