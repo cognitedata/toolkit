@@ -10,7 +10,7 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
-from .constants import MODULES, ROOT_MODULES, URL
+from .constants import HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .loaders import LOADER_BY_FOLDER_NAME
 from .utils import find_directory_with_subdirectories
@@ -18,7 +18,7 @@ from .utils import find_directory_with_subdirectories
 
 class Hint:
     _indent = " " * 5
-    _lead_text = "[bold blue]HINT[/bold blue] "
+    _lead_text = HINT_LEAD_TEXT
 
     @classmethod
     @abstractmethod

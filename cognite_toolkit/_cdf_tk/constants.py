@@ -45,7 +45,7 @@ ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 MODULES_PATH = ROOT_PATH / MODULES
 BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
-SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.20"
+SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
@@ -54,6 +54,8 @@ INDEX_PATTERN = re.compile("^[0-9]+\\.")
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
 
+HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
+HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 
 

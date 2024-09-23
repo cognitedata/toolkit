@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added
