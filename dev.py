@@ -9,8 +9,8 @@ from packaging.version import Version, parse
 from cognite_toolkit._version import __version__
 
 REPO_ROOT = Path(__file__).parent
-CHANGELOG = REPO_ROOT / "docs" / "CHANGELOG.md"
-TEMPLATE_CHANGELOG = REPO_ROOT / "docs" / "CHANGELOG.templates.md"
+CHANGELOG = REPO_ROOT / "CHANGELOG.md"
+TEMPLATE_CHANGELOG = REPO_ROOT / "CHANGELOG.templates.md"
 TBD_HEADING = "## TBD"
 
 bump_app = typer.Typer(
