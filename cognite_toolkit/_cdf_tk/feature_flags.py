@@ -9,21 +9,11 @@ from cognite_toolkit._cdf_tk.constants import clean_name
 
 
 class Flags(Enum):
-    MODULES_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the modules management subapp"}
     INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
     IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}
-    ASSETS: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the support for loading assets"}
-    TIMESERIES_DUMP: ClassVar[dict[str, Any]] = {
-        "visible": True,
-        "description": "Enables the support to dump timeseries",
-    }
     GRAPHQL: ClassVar[dict[str, Any]] = {
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
-    }
-    HOSTED_EXTRACTORS: ClassVar[dict[str, Any]] = {
-        "visible": True,
-        "description": "Enables the support for deploying hosted extractors",
     }
 
 

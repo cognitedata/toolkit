@@ -20,8 +20,11 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
+    AssetLoader,
+    CogniteFileLoader,
     ContainerLoader,
     DataModelLoader,
+    DatapointSubscriptionLoader,
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
@@ -32,16 +35,26 @@ from ._resource_loaders import (
     GroupAllScopedLoader,
     GroupLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
+    HostedExtractorJobLoader,
     HostedExtractorSourceLoader,
     LabelLoader,
     LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
+    RobotCapabilityLoader,
+    RoboticFrameLoader,
+    RoboticLocationLoader,
+    RoboticMapLoader,
+    RoboticsDataPostProcessingLoader,
+    SecurityCategoryLoader,
     SequenceLoader,
     SpaceLoader,
+    ThreeDModelLoader,
     TimeSeriesLoader,
     TransformationLoader,
+    TransformationNotificationLoader,
     TransformationScheduleLoader,
     ViewLoader,
     WorkflowLoader,
@@ -57,8 +70,6 @@ else:
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
-if not FeatureFlag.is_enabled(Flags.HOSTED_EXTRACTORS):
-    _EXCLUDED_LOADERS.add(HostedExtractorSourceLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -79,6 +90,7 @@ del _loader  # cleanup module namespace
 LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
+RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
 
 ResourceTypes: TypeAlias = Literal[
     "3dmodels",
@@ -91,7 +103,6 @@ ResourceTypes: TypeAlias = Literal[
     "transformations",
     "files",
     "timeseries",
-    "timeseries_datapoints",
     "extraction_pipelines",
     "functions",
     "raw",
@@ -141,10 +152,24 @@ __all__ = [
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "ThreeDModelLoader",
+    "RobotCapabilityLoader",
+    "RoboticFrameLoader",
+    "RoboticLocationLoader",
+    "RoboticMapLoader",
+    "RoboticsDataPostProcessingLoader",
+    "TransformationNotificationLoader",
+    "SecurityCategoryLoader",
+    "AssetLoader",
+    "CogniteFileLoader",
+    "DatapointSubscriptionLoader",
+    "HostedExtractorJobLoader",
+    "HostedExtractorDestinationLoader",
     "HostedExtractorSourceLoader",
     "get_loader",
     "LOADER_BY_FOLDER_NAME",
     "LOADER_LIST",
     "RESOURCE_LOADER_LIST",
     "RESOURCE_CONTAINER_LOADER_LIST",
+    "RESOURCE_DATA_LOADER_LIST",
 ]

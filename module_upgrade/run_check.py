@@ -222,7 +222,7 @@ def run_modules_upgrade(
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
             cdf_tool_config,
-            str(build_path),
+            build_path,
             build_env_name="dev",
             dry_run=True,
             drop=False,

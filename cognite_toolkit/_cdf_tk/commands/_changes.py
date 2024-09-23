@@ -7,6 +7,7 @@ from pathlib import Path
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
+from rich import print
 
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
@@ -38,6 +39,106 @@ class ManualChange(Change):
 
     def instructions(self, files: set[Path]) -> str:
         return ""
+
+class NodeAPICallParametersNoLongerSupported(AutomaticChange):
+    """Setting API call parameters in the 'node' section of the config files is no longer supported.
+
+This is now handled correctly by the CDF Toolkit and should be removed from the config files.
+
+For example, in data_models/my_node.node.yaml, before:
+```yaml
+replace: true
+nodes:
+ - space: node_space
+   externalId: default_infield_config_minimal
+```
+After:
+```yaml
+- space: node_space
+  externalId: default_infield_config_minimal
+```
+    """
+
+    deprecated_from = Version("0.3.0b1")
+    required_from = Version("0.3.0b1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        from cognite_toolkit._cdf_tk.utils import resource_folder_from_path
+
+        api_call_parameters = {
+            "skipOnVersionConflict", "replace", "autoCreateDirectRelations"
+        }
+
+        changed: set[Path] = set()
+        resource_yaml: Path
+        for resource_yaml in self._organization_dir.rglob("*.yaml"):
+            try:
+                resource_folder = resource_folder_from_path(resource_yaml)
+            except ValueError:
+                continue
+            if resource_folder == "data_models" and resource_yaml.stem.casefold().endswith("node"):
+                content = safe_read(resource_yaml)
+                has_api_call_parameters = False
+                new_content:  list[str] = []
+                indent: int | None = None
+                for line in content.splitlines():
+                    if any(line.startswith(parameter) for parameter in api_call_parameters):
+                        has_api_call_parameters = True
+                        continue
+                    if (line.startswith("nodes:") or line.startswith("node:")) and has_api_call_parameters:
+                        continue
+                    if has_api_call_parameters and indent is None:
+                        indent = len(line) - len(line.lstrip())
+                    if has_api_call_parameters and indent is not None:
+                        line = line[indent:]
+                    new_content.append(line)
+                if has_api_call_parameters:
+                    changed.add(resource_yaml)
+                    resource_yaml.write_text("\n".join(new_content))
+
+        return changed
+
+
+class ResourceFolderTimeSeriesDatapointsRemoved(AutomaticChange):
+    """The resource folder 'timeseries_datapoints' have been removed.
+
+The `csv` and `parquet` files that were previously stored in the `timeseries_datapoints` folder
+should be moved to the `timeseries` folder.
+
+Before:
+```bash
+    my_module/
+       timeseries_datapoints/
+          my_datapoints.Datapoints.csv
+```
+After:
+```bash
+    my_module/
+       timeseries/
+          my_datapoints.Datapoints.csv
+```
+    """
+
+    deprecated_from = Version("0.3.0a7")
+    required_from = Version("0.3.0a7")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "timeseries_datapoints":
+                    (module / "timeseries").mkdir(exist_ok=True)
+                    for filepath in resource_dir.rglob("*"):
+                        target = module / "timeseries" / filepath.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
+                        if target.exists():
+                            print(f'  [bold red]ERROR ([/][red] Cannot move file [/][bold red]{filepath}[/][red] to [/][bold red]{target}[/][red]): File already exists')
+                            continue
+                        filepath.rename(target)
+                        changed.add(target)
+        return changed
 
 
 class AuthVerifySplit(AutomaticChange):
@@ -79,7 +180,6 @@ After:
     deprecated_from = Version("0.3.0a4")
     required_from = Version("0.3.0a4")
     has_file_changes = False
-
 
 
 class RenamedOrganizationDirInCDFToml(AutomaticChange):

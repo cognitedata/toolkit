@@ -1,7 +1,3 @@
-autoCreateDirectRelations: true
-skipOnVersionConflict: false
-replace: true
-nodes:
 - space: {{apm_config_instance_space}}
   externalId: default_infield_config_minimal
   sources:

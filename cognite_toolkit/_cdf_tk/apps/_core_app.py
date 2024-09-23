@@ -201,12 +201,12 @@ class CoreApp(typer.Typer):
         self,
         ctx: typer.Context,
         build_dir: Annotated[
-            str,
+            Path,
             typer.Argument(
                 help="Where to find the module templates to deploy from. Defaults to current directory.",
                 allow_dash=True,
             ),
-        ] = "./build",
+        ] = Path("./build"),
         build_env_name: Annotated[
             Optional[str],
             typer.Option(
@@ -276,12 +276,12 @@ class CoreApp(typer.Typer):
         self,
         ctx: typer.Context,
         build_dir: Annotated[
-            str,
+            Path,
             typer.Argument(
                 help="Where to find the module templates to clean from. Defaults to ./build directory.",
                 allow_dash=True,
             ),
-        ] = "./build",
+        ] = Path("./build"),
         build_env_name: Annotated[
             Optional[str],
             typer.Option(

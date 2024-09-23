@@ -1,22 +1,19 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
+import copy
 import difflib
-import io
 import re
 import shutil
-import sys
 import traceback
 from collections import Counter, defaultdict
-from collections.abc import Hashable, Iterable, Mapping
+from collections.abc import Callable, Hashable, Iterable
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
-import pandas as pd
 import yaml
-from cognite.client._api.functions import validate_function_folder
 from rich import print
 from rich.panel import Panel
 from rich.progress import track
@@ -33,15 +30,15 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildLocationEager,
-    BuildLocationLazy,
     BuildVariables,
     BuiltModule,
     BuiltModuleList,
+    BuiltResource,
+    BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
-    ResourceBuildInfo,
-    ResourceBuiltList,
+    SourceLocationEager,
+    SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -58,7 +55,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     ContainerLoader,
     DataModelLoader,
-    DatapointsLoader,
     FileLoader,
     FileMetadataLoader,
     FunctionLoader,
@@ -71,6 +67,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     SpaceLoader,
     ViewLoader,
 )
+from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
@@ -90,7 +87,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
-    get_cicd_environment,
     humanize_collection,
     module_from_path,
     read_yaml_content,
@@ -112,6 +108,11 @@ class BuildCommand(ToolkitCommand):
         self.existing_resources_by_loader: dict[type[ResourceLoader], set[Hashable]] = defaultdict(set)
         self.instantiated_loaders: dict[type[ResourceLoader], ResourceLoader] = {}
 
+        # Built State
+        self._module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
+        self._state = _BuildState()
+        self._has_built = False
+
     def execute(
         self,
         verbose: bool,
@@ -127,10 +128,7 @@ class BuildCommand(ToolkitCommand):
         verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
-        if not cdf_toml.is_loaded_from_file:
-            raise ToolkitError(
-                "No 'cdf.toml' file found in the current directory. Please run 'cdf repo init' to create it"
-            )
+
         if build_env_name:
             config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
         else:
@@ -219,26 +217,154 @@ class BuildCommand(ToolkitCommand):
                 if self.print_warning:
                     print(f"    {warning.get_message()}")
 
-        # This structure is used in a hint in case the user misplaces a variable in the wrong module.
-        # From a code architecture perspective, it is not ideal to create this structure here and
-        # then pass it through multiple functions. Unfortunately, I do not see a better way to do this.
-        module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
+        # Setup state before building modules
+        self._module_names_by_variable_key.clear()
         for variable in variables:
             for module_location in modules:
                 if variable.location in module_location.relative_path.parts:
-                    module_names_by_variable_key[variable.key].append(module_location.name)
+                    self._module_names_by_variable_key[variable.key].append(module_location.name)
+        if self._has_built:
+            # Todo: Reset of state??
+            raise RuntimeError("In the build command, the `build_config` method should only be called once.")
+        else:
+            self._has_built = True
 
-        state, built_modules = self.build_modules(
-            modules.selected, build_dir, variables, module_names_by_variable_key, verbose, progress_bar
-        )
+        built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar)
 
-        self._check_missing_dependencies(state, organization_dir, ToolGlobals)
+        self._check_missing_dependencies(organization_dir, ToolGlobals)
 
-        build_environment = config.create_build_environment(state.hash_by_source_path)
+        build_environment = config.create_build_environment(built_modules)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             self.console(f"Build complete. Files are located in {build_dir!s}/")
-        return built_modules, state.source_by_build_path
+        return built_modules, self._state.source_by_build_path
+
+    def build_modules(
+        self,
+        modules: ModuleDirectories,
+        build_dir: Path,
+        variables: BuildVariables,
+        verbose: bool = False,
+        progress_bar: bool = False,
+    ) -> BuiltModuleList:
+        build = BuiltModuleList()
+        warning_count = len(self.warning_list)
+        if progress_bar:
+            modules_iter = cast(
+                Iterable[ModuleLocation], track(modules, description="Building modules", transient=True)
+            )
+        else:
+            modules_iter = modules
+        for module in modules_iter:
+            if verbose:
+                self.console(f"Processing module {module.name}")
+            module_variables = variables.get_module_variables(module)
+            try:
+                built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
+            except ToolkitError as err:
+                print(f"  [bold red]Failed Building:([/][red]: {module.name}")
+                print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+                built_status = type(err).__name__
+                built_module_resources = {}
+            else:
+                built_status = "Success"
+
+            module_warnings = len(self.warning_list) - warning_count
+            warning_count = len(self.warning_list)
+
+            built_module = BuiltModule(
+                name=module.name,
+                location=SourceLocationLazy(
+                    path=module.relative_path,
+                    absolute_path=module.dir,
+                ),
+                build_variables=module_variables,
+                resources=built_module_resources,
+                warning_count=module_warnings,
+                status=built_status,
+            )
+            build.append(built_module)
+            self.tracker.track_module_build(built_module)
+        return build
+
+    def _build_module_resources(
+        self,
+        module: ModuleLocation,
+        build_dir: Path,
+        module_variables: BuildVariables,
+        verbose: bool,
+    ) -> dict[str, BuiltResourceList]:
+        build_resources_by_folder: dict[str, BuiltResourceList] = {}
+        if not_resource_directory := module.not_resource_directories:
+            self.warn(
+                LowSeverityWarning(
+                    f"Module {module.dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
+                )
+            )
+
+        for resource_name, resource_files in module.source_paths_by_resource_folder.items():
+            build_plugin = {
+                FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=verbose),
+            }.get(resource_name)
+
+            built_resource_list = BuiltResourceList[Hashable]()
+            for source_path in resource_files:
+                if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(
+                    source_path, resource_name
+                ):
+                    continue
+
+                destination = self._state.create_destination_path(source_path, resource_name, module.dir, build_dir)
+
+                built_resources = self._build_resources(
+                    source_path, destination, module_variables, build_plugin, verbose
+                )
+
+                built_resource_list.extend(built_resources)
+
+            if resource_name == FunctionLoader.folder_name:
+                self._validate_function_directory(built_resource_list, module=module)
+                self.copy_function_directory_to_build(built_resource_list, module.dir, build_dir)
+
+            build_resources_by_folder[resource_name] = built_resource_list
+        return build_resources_by_folder
+
+    def _build_resources(
+        self,
+        source_path: Path,
+        destination_path: Path,
+        variables: BuildVariables,
+        build_plugin: Callable[[str], str] | None,
+        verbose: bool,
+    ) -> BuiltResourceList:
+        if verbose:
+            self.console(f"Processing {source_path.name}")
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        content = safe_read(source_path)
+
+        location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+        # Todo: Remove when state is removed
+        self._state.source_by_build_path[destination_path] = source_path
+
+        content = variables.replace(content, source_path.suffix)
+        if build_plugin is not None and source_path.suffix.lower() in {".yaml", ".yml"}:
+            content = build_plugin(content)
+
+        safe_write(destination_path, content)
+
+        file_warnings, identifiers_kind_pairs = self.validate(content, source_path, destination_path)
+
+        if file_warnings:
+            self.warning_list.extend(file_warnings)
+            # Here we do not use the self.warn method as we want to print the warnings as a group.
+            if self.print_warning:
+                print(str(file_warnings))
+
+        return BuiltResourceList(
+            [BuiltResource(identifier, location, kind, destination_path) for identifier, kind in identifiers_kind_pairs]
+        )
 
     @staticmethod
     def _validate_modules(
@@ -287,131 +413,18 @@ class BuildCommand(ToolkitCommand):
                 f"the environment ({config.environment.name})?"
             )
 
-    def build_modules(
-        self,
-        modules: ModuleDirectories,
-        build_dir: Path,
-        variables: BuildVariables,
-        module_names_by_variable_key: dict[str, list[str]],
-        verbose: bool = False,
-        progress_bar: bool = False,
-    ) -> tuple[_BuildState, BuiltModuleList]:
-        build = BuiltModuleList()
-        state = _BuildState()
-        warning_count = len(self.warning_list)
-        if progress_bar:
-            modules_iter = cast(
-                Iterable[ModuleLocation], track(modules, description="Building modules", transient=True)
-            )
-        else:
-            modules_iter = modules
-        for module in modules_iter:
-            if verbose:
-                self.console(f"Processing module {module.name}")
-            module_variables = variables.get_module_variables(module)
-            try:
-                built_resources = self._build_module(
-                    module, build_dir, module_variables, module_names_by_variable_key, state, verbose
-                )
-            except ToolkitError as err:
-                print(f"  [bold red]Failed Building:([/][red]: {module.name}")
-                print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
-                built_status = type(err).__name__
-                built_resources = {}
-            else:
-                built_status = "Success"
-
-            module_warnings = len(self.warning_list) - warning_count
-            warning_count = len(self.warning_list)
-
-            built_module = BuiltModule(
-                name=module.name,
-                location=BuildLocationLazy(
-                    path=module.relative_path,
-                    absolute_path=module.dir,
-                ),
-                build_variables=module_variables,
-                resources=built_resources,
-                warning_count=module_warnings,
-                status=built_status,
-            )
-            build.append(built_module)
-            self.tracker.track_module_build(built_module)
-        return state, build
-
-    def _build_module(
-        self,
-        module: ModuleLocation,
-        build_dir: Path,
-        module_variables: BuildVariables,
-        module_names_by_variable_key: dict[str, list[str]],
-        state: _BuildState,
-        verbose: bool,
-    ) -> dict[str, ResourceBuiltList]:
-        files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
-        build_resources: dict[str, ResourceBuiltList] = defaultdict(ResourceBuiltList)
-        for resource_directory_name, directory_files in files_by_resource_directory.items():
-            build_folder: list[Path] = []
-            for source_path in directory_files.resource_files:
-                destination = state.create_destination_path(source_path, resource_directory_name, module.dir, build_dir)
-
-                resource_info = self._replace_variables_validate_to_build_directory(
-                    source_path, destination, module_variables, state, module_names_by_variable_key, verbose
-                )
-                build_folder.append(destination)
-                build_resources[resource_directory_name].extend(resource_info)
-
-            if resource_directory_name == FunctionLoader.folder_name:
-                self._validate_function_directory(state, directory_files, module.dir)
-                self.validate_and_copy_function_directory_to_build(
-                    resource_files_build_folder=build_folder,
-                    state=state,
-                    module_dir=module.dir,
-                    build_dir=build_dir,
-                )
-            elif resource_directory_name == FileLoader.folder_name:
-                self.copy_files_to_upload_to_build_directory(
-                    file_to_upload=directory_files.other_files,
-                    resource_files_build_folder=build_folder,
-                    state=state,
-                    module_dir=module.dir,
-                    build_dir=build_dir,
-                    verbose=verbose,
-                )
-            else:
-                for source_path in directory_files.other_files:
-                    destination = state.create_destination_path(
-                        source_path, resource_directory_name, module.dir, build_dir
-                    )
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    if resource_directory_name == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
-                        self._copy_and_timeshift_csv_files(source_path, destination)
-                    else:
-                        if verbose:
-                            self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
-                        # Copy the file as is, not variable replacement
-                        shutil.copyfile(source_path, destination)
-        return build_resources
-
-    def _validate_function_directory(
-        self, state: _BuildState, directory_files: ResourceDirectory, module_dir: Path
-    ) -> None:
-        if not state.printed_function_warning and sys.version_info >= (3, 12):
-            self.warn(
-                HighSeverityWarning(
-                    "The functions API does not support Python 3.12. "
-                    "It is recommended that you use Python 3.11 or 3.10 to develop functions locally."
-                )
-            )
-            state.printed_function_warning = True
-
-        has_config_files = any(FunctionLoader.is_supported_file(file) for file in directory_files.resource_files)
+    def _validate_function_directory(self, built_resources: BuiltResourceList, module: ModuleLocation) -> None:
+        has_config_files = any(resource.kind == FunctionLoader.kind for resource in built_resources)
+        if has_config_files:
+            return
         config_files_misplaced = [
-            file for file in directory_files.other_files if FunctionLoader.is_supported_file(file)
+            file
+            for file in module.source_paths_by_resource_folder[FunctionLoader.folder_name]
+            if FunctionLoader.is_supported_file(file)
         ]
-        if not has_config_files and config_files_misplaced:
+        if config_files_misplaced:
             for yaml_source_path in config_files_misplaced:
-                required_location = module_dir / FunctionLoader.folder_name / yaml_source_path.name
+                required_location = module.dir / FunctionLoader.folder_name / yaml_source_path.name
                 self.warn(
                     LowSeverityWarning(
                         f"The required Function resource configuration file "
@@ -422,44 +435,11 @@ class BuildCommand(ToolkitCommand):
                     )
                 )
 
-    def _replace_variables_validate_to_build_directory(
-        self,
-        source_path: Path,
-        destination_path: Path,
-        variables: BuildVariables,
-        state: _BuildState,
-        module_names_by_variable_key: dict[str, list[str]],
-        verbose: bool,
-    ) -> ResourceBuiltList:
-        if verbose:
-            self.console(f"Processing {source_path.name}")
-
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-
-        content = safe_read(source_path)
-        state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content, shorten=True)
-        location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
-
-        content = variables.replace(content, source_path.suffix)
-
-        safe_write(destination_path, content)
-        state.source_by_build_path[destination_path] = source_path
-
-        file_warnings, identifiers, kind = self.validate(
-            content, source_path, destination_path, state, module_names_by_variable_key
-        )
-        if file_warnings:
-            self.warning_list.extend(file_warnings)
-            # Here we do not use the self.warn method as we want to print the warnings as a group.
-            if self.print_warning:
-                print(str(file_warnings))
-        return ResourceBuiltList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
-
-    def _check_missing_dependencies(
-        self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
-    ) -> None:
-        existing = {(resource_cls, id_) for resource_cls, ids in state.ids_by_resource_type.items() for id_ in ids}
-        missing_dependencies = set(state.dependencies_by_required.keys()) - existing
+    def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
+        existing = {
+            (resource_cls, id_) for resource_cls, ids in self._state.ids_by_resource_type.items() for id_ in ids
+        }
+        missing_dependencies = set(self._state.dependencies_by_required.keys()) - existing
         for resource_cls, id_ in missing_dependencies:
             if self._is_system_resource(resource_cls, id_):
                 continue
@@ -467,7 +447,7 @@ class BuildCommand(ToolkitCommand):
                 continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
-                for required, path in state.dependencies_by_required[(resource_cls, id_)]
+                for required, path in self._state.dependencies_by_required[(resource_cls, id_)]
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
@@ -498,52 +478,6 @@ class BuildCommand(ToolkitCommand):
             return True
         return False
 
-    def _to_files_by_resource_directory(self, filepaths: list[Path], module_dir: Path) -> dict[str, ResourceDirectory]:
-        # Sort to support 1., 2. etc prefixes
-        def sort_key(p: Path) -> tuple[int, int, str]:
-            first = {
-                ".yaml": 0,
-                ".yml": 0,
-            }.get(p.suffix.lower(), 1)
-            # We ensure that the YAML files are sorted before other files.
-            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
-            # with the same name as a .yaml file gets the same index as the .yaml file.
-            if result := INDEX_PATTERN.search(p.stem):
-                return first, int(result.group()[:-1]), p.name
-            else:
-                return first, len(filepaths) + 1, p.name
-
-        # The builder of a module can control the order that resources are deployed by prefixing a number
-        # The custom key 'sort_key' is to get the sort on integer and not the string.
-        filepaths = sorted(filepaths, key=sort_key)
-
-        files_by_resource_directory: dict[str, ResourceDirectory] = defaultdict(ResourceDirectory)
-        not_resource_directory: set[str] = set()
-        for filepath in filepaths:
-            try:
-                resource_directory = resource_folder_from_path(filepath)
-            except ValueError:
-                relative_to_module = filepath.relative_to(module_dir)
-                is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
-                if not is_file_in_resource_folder:
-                    not_resource_directory.add(relative_to_module.parts[0])
-                continue
-
-            if filepath.suffix.lower() in TEMPLATE_VARS_FILE_SUFFIXES and not self._is_exception_file(
-                filepath, resource_directory
-            ):
-                files_by_resource_directory[resource_directory].resource_files.append(filepath)
-            else:
-                files_by_resource_directory[resource_directory].other_files.append(filepath)
-
-        if not_resource_directory:
-            self.warn(
-                LowSeverityWarning(
-                    f"Module {module_dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
-                )
-            )
-        return files_by_resource_directory
-
     @staticmethod
     def _is_exception_file(filepath: Path, resource_directory: str) -> bool:
         # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
@@ -551,28 +485,9 @@ class BuildCommand(ToolkitCommand):
         # In addition, all files in not int the 'functions' directory are considered other files.
         return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
-    def _copy_and_timeshift_csv_files(self, csv_file: Path, destination: Path) -> None:
-        """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
-        # Process all csv files
-        if csv_file.suffix.lower() != ".csv":
-            return
-        # Special case for timeseries datapoints, we want to timeshift datapoints
-        # if the file is a csv file, and we have been instructed to.
-        # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-        file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-        data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-        if "timeshift_" in data.index.name:
-            self.console("Found 'timeshift_' in index name, timeshifting datapoints up to today...")
-            data.index.name = str(data.index.name).replace("timeshift_", "")
-            data.index = pd.DatetimeIndex(data.index)
-            periods = datetime.datetime.today() - data.index[-1]
-            data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-        destination.write_text(data.to_csv())
-
-    def validate_and_copy_function_directory_to_build(
+    def copy_function_directory_to_build(
         self,
-        resource_files_build_folder: list[Path],
-        state: _BuildState,
+        built_resources: BuiltResourceList,
         module_dir: Path,
         build_dir: Path,
     ) -> None:
@@ -580,7 +495,7 @@ class BuildCommand(ToolkitCommand):
             dir_.name: dir_ for dir_ in (module_dir / FunctionLoader.folder_name).iterdir() if dir_.is_dir()
         }
         external_id_by_function_path = self._read_function_path_by_external_id(
-            resource_files_build_folder, function_directory_by_name, state
+            built_resources, function_directory_by_name
         )
 
         for external_id, function_path in external_id_by_function_path.items():
@@ -592,24 +507,6 @@ class BuildCommand(ToolkitCommand):
                     f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
                 )
             shutil.copytree(function_dir, destination)
-            if function_path:
-                try:
-                    # Run validations on the function using the SDK's validation function
-                    validate_function_folder(
-                        root_path=destination.as_posix(),
-                        function_path=function_path,
-                        skip_folder_validation=False,
-                    )
-                except Exception as e:
-                    if get_cicd_environment() == "local":
-                        # This warning is only relevant when running locally
-                        self.warn(
-                            MediumSeverityWarning(
-                                f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
-                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
-                                "installed in your current, local python environment."
-                            )
-                        )
 
             # Clean up cache files
             for subdir in destination.iterdir():
@@ -618,15 +515,15 @@ class BuildCommand(ToolkitCommand):
             shutil.rmtree(destination / "__pycache__", ignore_errors=True)
 
     def _read_function_path_by_external_id(
-        self, resource_files_build_folder: list[Path], function_directory_by_name: dict[str, Path], state: _BuildState
+        self, built_resources: BuiltResourceList, function_directory_by_name: dict[str, Path]
     ) -> dict[str, str | None]:
         function_path_by_external_id: dict[str, str | None] = {}
-        configuration_files = [file for file in resource_files_build_folder if FunctionLoader.is_supported_file(file)]
-        for config_file in configuration_files:
-            source_file = state.source_by_build_path[config_file]
-
+        for built_resource in built_resources:
+            if built_resource.kind != FunctionLoader.kind or built_resource.destination is None:
+                continue
+            source_file = built_resource.destination
             try:
-                raw_content = read_yaml_content(safe_read(config_file))
+                raw_content = read_yaml_content(safe_read(source_file))
             except yaml.YAMLError as e:
                 raise ToolkitYAMLFormatError(f"Failed to load function files {source_file.as_posix()!r} due to: {e}")
             raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
@@ -655,79 +552,48 @@ class BuildCommand(ToolkitCommand):
 
         return function_path_by_external_id
 
-    def copy_files_to_upload_to_build_directory(
-        self,
-        file_to_upload: list[Path],
-        resource_files_build_folder: list[Path],
-        state: _BuildState,
-        module_dir: Path,
-        build_dir: Path,
-        verbose: bool = False,
-    ) -> None:
-        """This function copies the file to upload to the build directory.
-
-        It also checks the resource configuration files for a file template definition and renames the
-        file to upload if a template is found.
-        """
-        if len(file_to_upload) == 0:
-            return
-
-        template_name = self._get_file_template_name(resource_files_build_folder, module_dir, verbose)
-
-        for filepath in file_to_upload:
-            destination_stem = filepath.stem
-            if template_name:
-                destination_stem = template_name.replace(FileMetadataLoader.template_pattern, filepath.stem)
-            new_source = filepath.parent / f"{destination_stem}{filepath.suffix}"
-            destination = state.create_destination_path(new_source, FileLoader.folder_name, module_dir, build_dir)
-            shutil.copyfile(filepath, destination)
-
-    def _get_file_template_name(
-        self, resource_files_build_folder: list[Path], module_dir: Path, verbose: bool
-    ) -> str | None:
-        # We only support one file template definition per module.
-        configuration_files = [
-            file for file in resource_files_build_folder if FileMetadataLoader.is_supported_file(file)
-        ]
-        if len(configuration_files) != 1:
-            # Multiple configuration files, then there is no template
-            return None
-
-        config_content = safe_read(configuration_files[0])
+    def _expand_file_metadata(self, raw_content: str, module: ModuleLocation, verbose: bool) -> str:
         try:
-            raw_files = read_yaml_content(config_content)
+            raw_list = read_yaml_content(raw_content)
         except yaml.YAMLError as e:
-            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {module_dir} due to: {e}")
+            raise ToolkitYAMLFormatError(f"Failed to load file definitions file {module.dir} due to: {e}")
 
         is_file_template = (
-            isinstance(raw_files, list)
-            and len(raw_files) == 1
-            and FileMetadataLoader.template_pattern in raw_files[0].get("externalId", "")
+            isinstance(raw_list, list)
+            and len(raw_list) == 1
+            and FileMetadataLoader.template_pattern in raw_list[0].get("externalId", "")
         )
         if not is_file_template:
-            return None
-
-        # MyPy is not able to infer the type of raw_files here, so we need to use ignore
-        template = raw_files[0]  # type: ignore[index]
-        has_template_name = "name" in template and FileMetadataLoader.template_pattern in template["name"]
-        if not has_template_name:
-            return None
-        template_name = template["name"]
+            return raw_content
+        if not (isinstance(raw_list, list) and raw_list and isinstance(raw_list[0], dict)):
+            raise ToolkitYAMLFormatError(
+                f"Expected a list with a single dictionary in the file metadata file {module.dir}, "
+                f"but got {type(raw_list).__name__}"
+            )
+        template = raw_list[0]
         if verbose:
             self.console(
-                f"Detected file template name {template_name!r} in "
-                f"{module_dir}/{FileMetadataLoader.folder_name}, renaming files..."
+                f"Detected file template name {FileMetadataLoader.template_pattern!r} in {module.relative_path.as_posix()!r}"
+                f"Expanding file metadata..."
             )
-        return template_name
+        expanded_metadata: list[dict[str, Any]] = []
+        for filepath in module.source_paths_by_resource_folder[FileLoader.folder_name]:
+            if not FileLoader.is_supported_file(filepath):
+                continue
+            new_entry = copy.deepcopy(template)
+            new_entry["externalId"] = new_entry["externalId"].replace(
+                FileMetadataLoader.template_pattern, filepath.name
+            )
+            new_entry["name"] = filepath.name
+            expanded_metadata.append(new_entry)
+        return yaml.safe_dump(expanded_metadata)
 
     def validate(
         self,
         content: str,
         source_path: Path,
         destination: Path,
-        state: _BuildState,
-        module_names_by_variable_key: dict[str, list[str]],
-    ) -> tuple[WarningList[FileReadWarning], list[Hashable], str]:
+    ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
         module = module_from_path(source_path)
         resource_folder = resource_folder_from_path(source_path)
@@ -736,7 +602,7 @@ class BuildCommand(ToolkitCommand):
         for unmatched in all_unmatched:
             warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
             variable = unmatched[2:-2]
-            if module_names := module_names_by_variable_key.get(variable):
+            if module_names := self._module_names_by_variable_key.get(variable):
                 module_str = (
                     f"{module_names[0]!r}"
                     if len(module_names) == 1
@@ -751,7 +617,7 @@ class BuildCommand(ToolkitCommand):
                 )
 
         if destination.suffix not in {".yaml", ".yml"}:
-            return warning_list, [], "Unknown"
+            return warning_list, []
 
         try:
             parsed = yaml.safe_load(content)
@@ -764,46 +630,47 @@ class BuildCommand(ToolkitCommand):
 
         loader = self._get_loader(resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
-            return warning_list, [], "Unknown"
+            return warning_list, []
 
         api_spec = self._get_api_spec(loader, destination)
         is_dict_item = isinstance(parsed, dict)
-        if loader is NodeLoader and is_dict_item and "node" in parsed:
-            items = [parsed["node"]]
-        elif loader is NodeLoader and is_dict_item and "nodes" in parsed:
-            items = parsed["nodes"]
-            is_dict_item = False
-        else:
-            items = [parsed] if is_dict_item else parsed
+        items = [parsed] if is_dict_item else parsed
 
-        identifiers: list[Hashable] = []
+        identifier_kind_pairs: list[tuple[Hashable, str]] = []
         for no, item in enumerate(items, 1):
             element_no = None if is_dict_item else no
 
             identifier: Any | None = None
+            # Raw Tables and Raw Databases can have different loaders in the same file.
+            item_loader = loader
             try:
-                identifier = loader.get_id(item)
+                identifier = item_loader.get_id(item)
             except KeyError as error:
-                warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+                if loader is RawTableLoader:
+                    try:
+                        identifier = RawDatabaseLoader.get_id(item)
+                        item_loader = RawDatabaseLoader
+                    except KeyError:
+                        warning_list.append(
+                            MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args)
+                        )
+                else:
+                    warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
-                identifiers.append(identifier)
-                if first_seen := state.ids_by_resource_type[loader].get(identifier):
-                    if loader is not RawDatabaseLoader:
-                        # RAW Database will pick up all Raw Tables, so we don't want to warn about duplicates.
-                        warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
-                else:
-                    state.ids_by_resource_type[loader][identifier] = source_path
+                if item_loader is RawTableLoader:
+                    database = RawDatabaseTable(identifier.db_name)
+                    if database not in self._state.ids_by_resource_type[RawDatabaseLoader]:
+                        self._state.ids_by_resource_type[RawDatabaseLoader][database] = source_path
 
-                if loader is RawDatabaseLoader:
-                    # We might also have Raw Tables that is in the same file.
-                    with contextlib.suppress(KeyError):
-                        table_id = RawTableLoader.get_id(item)
-                        if table_id not in state.ids_by_resource_type[RawTableLoader]:
-                            state.ids_by_resource_type[RawTableLoader][table_id] = source_path
+                identifier_kind_pairs.append((identifier, item_loader.kind))
+                if first_seen := self._state.ids_by_resource_type[item_loader].get(identifier):
+                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                else:
+                    self._state.ids_by_resource_type[item_loader][identifier] = source_path
 
                 for dependency in loader.get_dependent_items(item):
-                    state.dependencies_by_required[dependency].append((identifier, source_path))
+                    self._state.dependencies_by_required[dependency].append((identifier, source_path))
 
             if api_spec is not None:
                 resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
@@ -812,7 +679,7 @@ class BuildCommand(ToolkitCommand):
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
             warning_list.extend(data_set_warnings)
 
-        return warning_list, identifiers, loader.kind
+        return warning_list, identifier_kind_pairs
 
     def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
         api_spec: ParameterSpecSet | None = None
@@ -857,7 +724,7 @@ class BuildCommand(ToolkitCommand):
             return None
         elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
             # Multiple raw loaders load from the same file.
-            return RawDatabaseLoader
+            return RawTableLoader
         elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
             # There are two group loaders, one for resource scoped and one for all scoped.
             return GroupLoader
@@ -880,10 +747,8 @@ class _BuildState:
     """
 
     source_by_build_path: dict[Path, Path] = field(default_factory=dict)
-    hash_by_source_path: dict[Path, str] = field(default_factory=dict)
     index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
     index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
-    printed_function_warning: bool = False
     ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
         default_factory=lambda: defaultdict(dict)
     )
@@ -891,10 +756,8 @@ class _BuildState:
         default_factory=lambda: defaultdict(list)
     )
 
-    _local_variables: Mapping[str, str] = field(default_factory=dict)
-
     def create_destination_path(
-        self, source_path: Path, resource_directory: str, module_dir: Path, build_dir: Path
+        self, source_path: Path, resource_folder_name: str, module_dir: Path, build_dir: Path
     ) -> Path:
         """Creates the filepath in the build directory for the given source path.
 
@@ -914,24 +777,11 @@ class _BuildState:
         else:
             # Increment to ensure we do not get duplicate filenames when we flatten the file
             # structure from the module to the build directory.
-            self.index_by_resource_type_counter[resource_directory] += 1
-            index = self.index_by_resource_type_counter[resource_directory]
+            self.index_by_resource_type_counter[resource_folder_name] += 1
+            index = self.index_by_resource_type_counter[resource_folder_name]
             self.index_by_filepath_stem[relative_stem] = index
 
         filename = f"{index}.{filename}"
-        destination_path = build_dir / resource_directory / filename
+        destination_path = build_dir / resource_folder_name / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
-
-
-@dataclass
-class ResourceDirectory:
-    """The files in a Resource Directory.
-
-    Args:
-        resource_files: The files that are considered resources, which will be preformed variable replacement on
-        other_files: Files that are not considered resources, and will be copied as is.
-    """
-
-    resource_files: list[Path] = field(default_factory=list)
-    other_files: list[Path] = field(default_factory=list)

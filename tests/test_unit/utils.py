@@ -10,6 +10,7 @@ import string
 import sys
 import types
 import typing
+from datetime import date, datetime
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
 
@@ -39,6 +40,13 @@ from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
+from cognite.client.data_classes.hosted_extractors import (
+    BodyLoad,
+    HeaderValueLoad,
+    NextUrlLoad,
+    QueryParamLoad,
+    RestConfig,
+)
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
 from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTaskParameters
 from cognite.client.testing import CogniteClientMock
@@ -293,6 +301,12 @@ class FakeCogniteResourceGenerator:
         elif resource_cls is NodeResultSetExpression and not skip_defaulted_args:
             # Through has a special format.
             keyword_arguments["through"] = [keyword_arguments["through"][0], "my_view/v1", "a_property"]
+        elif resource_cls is RestConfig:
+            incremental = keyword_arguments.get("incremental_load")
+            if isinstance(incremental, NextUrlLoad):
+                # The incremental load cannot be of type `nextUrl`
+                load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
+                keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
 
         return resource_cls(*positional_arguments, **keyword_arguments)
 
@@ -374,6 +388,10 @@ class FakeCogniteResourceGenerator:
                     [self._random.randint(1, 1704067200000) for _ in range(self._max_list_dict_items)],
                     dtype="datetime64[ms]",
                 )
+            elif type_ == datetime:
+                return datetime.fromtimestamp(self._random.randint(1, 1704067200))
+            elif type_ == date:
+                return date.fromtimestamp(self._random.randint(1, 1704067200))
             else:
                 raise ValueError(f"Unknown type {type_} {type(type_)}. {self._error_msg}")
 

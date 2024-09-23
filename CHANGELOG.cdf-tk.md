@@ -15,6 +15,35 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0b1] - 2024-09-18
+
+### Added
+
+- Dump for `Assets` and `TimeSeries` with `cdf dump asset` and `cdf dump timeseries` commands.
+- Support for Hosted Extractors `Destination` and `Job`.
+- Support for `CogniteFile`.
+
+### Changed
+
+- The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
+  command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
+  Validation of the function code is expected to be handled by `cdf run function local`.
+- [BREAKING] The resource folder `timeseries_datapoints` is removed and `csv` and `parquet` files with
+  datapoints are now expected to be in the `timeseries` folder.
+- The dump of data models has changed interface, now the data model id is optionally given as positional instead
+  of flags. If now data model is given, the user will be prompted to select one.
+
+### Removed
+
+- CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
+  be timeshifted to today when running `cdf build`
+- FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
+  simplify the pattern.
+- [BREAKING] The command `cdf describe` is removed. This functionality was not used and thus removing it to simplify
+  the Toolkit and to focus on the core functionality.
+- [BREAKING] Support for api parameters in `Node` resource is removed.
+- Support for Python 3.9.
+
 ## [0.3.0a7] - 2024-09-18
 
 ### Fixed

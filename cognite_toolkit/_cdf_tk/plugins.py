@@ -12,15 +12,14 @@ class Plugin:
     name: str
     description: str
 
-    @staticmethod
-    def is_enabled(plugin: Plugin) -> bool:
-        return CDFToml.load().plugins.get(clean_name(plugin.name), False)
+    def is_enabled(self) -> bool:
+        return CDFToml.load().plugins.get(clean_name(self.name), False)
 
 
 class Plugins(Enum):
     run = Plugin("run", "plugin for Run command to execute Python scripts in CDF")
     pull = Plugin("pull", "plugin for Pull command to retrieve resources from CDF")
-    dump = Plugin("dump_assets", "plugin for Dump command to retrieve Asset resources from CDF")
+    dump = Plugin("dump", "plugin for Dump command to retrieve Asset resources from CDF")
 
     @staticmethod
     def list() -> dict[str, bool]:

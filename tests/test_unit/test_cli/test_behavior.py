@@ -10,8 +10,7 @@ from cognite.client.data_classes import GroupWrite, Transformation, Transformati
 from pytest import MonkeyPatch
 from typer import Context
 
-from cognite_toolkit._cdf import dump_datamodel_cmd, pull_transformation_cmd
-from cognite_toolkit._cdf_tk.apps import CoreApp
+from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
@@ -58,7 +57,7 @@ def test_inject_custom_environmental_variables(
     )
     app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,
@@ -132,7 +131,8 @@ def test_pull_transformation(
     read_transformation = Transformation.load(loaded.dump())
     toolkit_client_approval.append(Transformation, read_transformation)
 
-    pull_transformation_cmd(
+    app = PullApp()
+    app.pull_transformation_cmd(
         typer_context,
         organization_dir=organization_dir_mutable,
         external_id=read_transformation.external_id,
@@ -238,14 +238,12 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.Container, container)
     toolkit_client_approval.append(dm.View, view)
     toolkit_client_approval.append(dm.DataModel, data_model)
-
-    dump_datamodel_cmd(
+    app = DumpApp()
+    app.dump_datamodel_cmd(
         typer_context,
-        space="my_space",
-        external_id="my_data_model",
-        version="1",
+        data_model_id=["my_space", "my_data_model", "1"],
         clean=True,
-        output_dir=str(build_tmp_path),
+        output_dir=build_tmp_path,
     )
 
     assert len(list(build_tmp_path.glob("**/*.datamodel.yaml"))) == 1
@@ -323,7 +321,7 @@ def test_deploy_group_with_unknown_acl(
     app = CoreApp()
     app.deploy(
         typer_context,
-        build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
+        build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
         drop=False,
         dry_run=False,

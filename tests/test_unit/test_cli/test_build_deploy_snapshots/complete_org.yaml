@@ -10,6 +10,12 @@ DataModel:
 DataSet:
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
+  externalId: ds_extraction
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
   externalId: ds_labels_foo
   metadata: {}
   name: Example dataset.
@@ -30,6 +36,11 @@ DatapointSubscription:
       value: ts_value
   name: My Subscription
   partitionCount: 1
+Destination:
+- credentials:
+    nonce: '123'
+  externalId: EventHubTarget
+  targetDataSetId: 42
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
@@ -56,6 +67,16 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
+Job:
+- config:
+    topicFilter: my_topic
+  destinationId: EventHubTarget
+  externalId: myJob
+  format:
+    compression: gzip
+    encoding: utf16
+    type: value
+  sourceId: my_eventhub
 LabelDefinition:
 - dataSetId: 42
   description: Labels used for relationships that represent flows
@@ -73,6 +94,77 @@ LocationFilter:
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
+Node:
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      fileCategory: Document
+      isUploaded: null
+      mimeType: text/plain
+      name: anotherfile.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: I
+      sourceId: null
+      sourceModifiedTime: 2024-01-01 00:00:00+00:00
+      sourceModifiedUser: Myself
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      status: Active
+      tags: null
+      uploadedTime: null
+    source:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_nodes
+- externalId: MyVanillaFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      isUploaded: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: MySelf
+      sourceId: null
+      sourceModifiedTime: 2021-01-01 00:00:00+00:00
+      sourceModifiedUser: Me
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+      uploadedTime: null
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
@@ -97,6 +189,8 @@ Source:
   type: eventhub
 Space:
 - space: DataModelSpace
+- space: sp_nodes
+- space: sp_schema
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom

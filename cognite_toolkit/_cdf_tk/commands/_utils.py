@@ -25,7 +25,7 @@ def _remove_duplicates(
     ],
 ) -> tuple[T_CogniteResourceList, list[T_ID]]:
     seen: set[T_ID] = set()
-    output = loader.create_empty_of(loaded_resources)
+    output = loader.list_write_cls([])
     duplicates: list[T_ID] = []
     for item in loaded_resources:
         identifier = loader.get_id(item)

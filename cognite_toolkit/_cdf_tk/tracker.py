@@ -15,7 +15,7 @@ from typing import Any
 from mixpanel import Consumer, Mixpanel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.data_classes._build_info import BuiltModule
+from cognite_toolkit._cdf_tk.data_classes._built_modules import BuiltModule
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._version import __version__

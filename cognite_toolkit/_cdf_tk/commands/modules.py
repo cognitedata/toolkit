@@ -210,6 +210,10 @@ default_organization_dir = "{organization_dir.name}"''',
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
         selected = self._select_packages(packages)
+        if "bootcamp" in selected:
+            if questionary.confirm("Would you like to continue with creation?", default=True).ask():
+                self._create(Path.cwd() / "ice-cream-dataops", selected, ["dev", "prod"], mode)
+            raise typer.Exit()
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
             print("Exiting...")
@@ -256,6 +260,8 @@ default_organization_dir = "{organization_dir.name}"''',
         selected = Packages()
 
         while True:
+            if "bootcamp" in selected:
+                break
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
 
@@ -284,7 +290,9 @@ default_organization_dir = "{organization_dir.name}"''',
                 style=custom_style_fancy,
             ).ask()
 
-            if len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0):
+            if package.name != "bootcamp" and (
+                len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)
+            ):
                 selection = questionary.checkbox(
                     f"Which modules in {package.name} would you like to add?",
                     instruction="Use arrow up/down, press space to select item(s) and enter to save",
