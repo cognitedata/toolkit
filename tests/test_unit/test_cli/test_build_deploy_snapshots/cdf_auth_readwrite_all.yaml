@@ -138,6 +138,12 @@ Group:
       - WRITE
       scope:
         all: {}
+  - sequencesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
   metadata:
     origin: cdf-project-templates
   name: gp_admin_read_write

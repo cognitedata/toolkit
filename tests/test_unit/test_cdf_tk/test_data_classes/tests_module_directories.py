@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories, ModuleLocation
 from tests import data
 
 
 class TestModuleDirectories:
     def test_load(self) -> None:
-        cognite_modules = Path(COGNITE_MODULES)
+        cognite_modules = Path(BUILTIN_MODULES)
         expected = ModuleDirectories(
             [
                 ModuleLocation(
@@ -32,6 +32,6 @@ class TestModuleDirectories:
                 ),
             ]
         )
-        actual = ModuleDirectories.load(data.PROJECT_FOR_TEST, {("cognite_modules",)})
+        actual = ModuleDirectories.load(data.PROJECT_FOR_TEST, {("modules",)})
 
         assert actual == expected

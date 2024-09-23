@@ -1,0 +1,287 @@
+DataModel:
+- externalId: DataModelLocation
+  space: DataModelSpace
+  version: v1
+  views:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+DataSet:
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: ds_extraction
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: ds_labels_foo
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+- description: This is an example dataset used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: ds_timeseries_foo
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+DatapointSubscription:
+- description: All timeseries with externalId starting with ts_value
+  externalId: my_subscription
+  filter:
+    prefix:
+      property:
+      - externalId
+      value: ts_value
+  name: My Subscription
+  partitionCount: 1
+Destination:
+- credentials:
+    nonce: '123'
+  externalId: EventHubTarget
+  targetDataSetId: 42
+Function:
+- description: Returns the input data, secrets, and function info.
+  envVars:
+    CDF_ENV: dev
+    ENV_TYPE: dev
+  externalId: fn_first_function
+  fileId: -1
+  functionPath: ./src/handler.py
+  metadata:
+    cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
+    cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
+    version: '1'
+  name: first:example:function
+  owner: Anonymous
+  runtime: py311
+  secrets:
+    mysecret: ${ENVIRONMENT_SECRET}
+FunctionSchedule:
+- cronExpression: 0 8 * * *
+  data:
+    breakfast: 'today: peanut butter sandwich and coffee'
+    dinner: 'today: steak and red wine'
+    lunch: 'today: greek salad and water'
+  description: Run every day at 8am UTC
+  functionExternalId: fn_first_function
+  name: daily-8am-utc
+Job:
+- config:
+    topicFilter: my_topic
+  destinationId: EventHubTarget
+  externalId: myJob
+  format:
+    compression: gzip
+    encoding: utf16
+    type: value
+  sourceId: my_eventhub
+LabelDefinition:
+- dataSetId: 42
+  description: Labels used for relationships that represent flows
+  externalId: label_flow
+  name: Flows
+- dataSetId: 42
+  description: Pump label
+  externalId: label_pump
+  name: Pump
+LocationFilter:
+- dataModels:
+  - externalId: DataModelLocation
+    space: DataModelSpace
+    version: v1
+  description: LocationFilter for DataModel
+  externalId: DataModelLocationFilter
+  name: LocationFilter for DataModel
+Node:
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      fileCategory: Document
+      isUploaded: null
+      mimeType: text/plain
+      name: anotherfile.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: I
+      sourceId: null
+      sourceModifiedTime: 2024-01-01 00:00:00+00:00
+      sourceModifiedUser: Myself
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      status: Active
+      tags: null
+      uploadedTime: null
+    source:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_nodes
+- externalId: MyVanillaFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets:
+      - externalId: asset1
+        space: sp_nodes
+      category: null
+      description: null
+      directory: null
+      isUploaded: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source:
+        externalId: MySource
+        space: sp_nodes
+      sourceContext: null
+      sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: MySelf
+      sourceId: null
+      sourceModifiedTime: 2021-01-01 00:00:00+00:00
+      sourceModifiedUser: Me
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+      uploadedTime: null
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_nodes
+SecurityCategory:
+- name: sc_demo_category
+Sequence:
+- columns:
+  - description: Epoch time
+    externalId: mySequenceTime
+    name: Time
+    valueType: Double
+  - description: The value of the sequence
+    externalId: mySequenceValue
+    name: value
+    valueType: Double
+  description: A sequence of numbers
+  externalId: mySequence
+  name: mySequence
+Source:
+- eventHubName: The name of the event hub
+  externalId: my_eventhub
+  host: my_eventhub
+  keyName: The name of the key
+  keyValue: SuperSecretKeyValue
+  type: eventhub
+Space:
+- space: DataModelSpace
+- space: sp_nodes
+- space: sp_schema
+TimeSeries:
+- dataSetId: 42
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries
+  isStep: false
+  isString: false
+  metadata:
+    foo: bar
+  name: CDF Toolkit Example Timeseries
+  securityCategories: []
+- dataSetId: 42
+  description: This is an example timeseries used to demonstrate how to create a custom
+    module in the Cognite Data Fusion Toolkit.
+  externalId: cdf_tooklit:example_timeseries:2
+  isStep: false
+  isString: false
+  metadata:
+    bar: foo
+  name: CDF Toolkit Example Timeseries 2
+  securityCategories: []
+Transformation:
+- conflictMode: upsert
+  destination:
+    type: assets
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: tr_first_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: example:first:transformation
+  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: dummy
+    clientSecret: dummy
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+TransformationNotification:
+- destination: jane.smith@example.com
+  transformationExternalId: tr_first_transformation
+- destination: john.smith@example.com
+  transformationExternalId: tr_first_transformation
+TransformationSchedule:
+- externalId: tr_first_transformation
+  interval: 7 * * * *
+  isPaused: true
+Workflow:
+- description: A workflow for processing data
+  externalId: baz
+WorkflowTrigger:
+- externalId: MyTrigger
+  input: '{"my_input": "data"}'
+  triggerRule:
+    cronExpression: 0 0 0 * * ?
+    triggerType: schedule
+  workflowExternalId: baz
+  workflowVersion: '1'
+WorkflowVersion:
+- version: '1'
+  workflowDefinition:
+    description: Execute tasks in sequence
+    tasks:
+    - description: Task One Ipsum lorem dolor sit amet
+      externalId: baz_function_task
+      name: Task One
+      onFailure: abortWorkflow
+      parameters:
+        function:
+          externalId: fn_first_function
+        isAsyncComplete: false
+      retries: 3
+      timeout: 3600
+      type: function
+    - dependsOn:
+      - externalId: baz_function_task
+      description: Task Two Ipsum lorem dolor sit amet
+      externalId: baz_transformation_task
+      name: Task Two
+      onFailure: skipTask
+      parameters:
+        transformation:
+          concurrencyPolicy: fail
+          externalId: tr_first_transformation
+      retries: 3
+      timeout: 3600
+      type: transformation
+  workflowExternalId: baz

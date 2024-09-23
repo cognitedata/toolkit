@@ -6,4 +6,3 @@ dataModels:
     externalId: core_data_model
     version: v1
 instanceSpaces: ['sp_sap_springfield_data']
-views: []

@@ -313,7 +313,7 @@ class _RobotUpdate(CogniteUpdate):
         return [
             PropertySpec("name", is_nullable=False),
             PropertySpec("description", is_nullable=False),
-            PropertySpec("metadata", is_container=True, is_nullable=False),
+            PropertySpec("metadata", is_object=True, is_nullable=False),
             PropertySpec("robot_type", is_nullable=False),
             PropertySpec("location_external_id", is_nullable=False),
         ]

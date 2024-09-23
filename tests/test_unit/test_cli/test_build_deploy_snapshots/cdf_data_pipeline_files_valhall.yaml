@@ -53,14 +53,19 @@ ExtractionPipeline:
     tableName: files_metadata
   source: fileshare
 ExtractionPipelineConfig:
-- config: "data:\n    assetRootExtIds:\n    - WMT:VAL\n    debug: false\n    docDataSetExtId:\
-    \ ds_files_oid\n    docLimit: -1\n    docTypeMetaCol: doc_type\n    matchThreshold:\
-    \ 0.85\n    pAndIdDocType: PNID\n    runAll: false\n"
+- config: "data:\n  debug: False\n  runAll: False\n  docLimit: -1\n  docDataSetExtId:\
+    \ ds_files_oid\n  docTypeMetaCol: \"doc_type\"\n  pAndIdDocType: \"PNID\"\n  assetRootExtIds:\
+    \ [WMT:VAL]\n  matchThreshold: 0.85\n \n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
-- config: "cognite:\n    data-set:\n        external-id: ds-files:valhall\nfiles:\n\
-    \    extensions:\n    - .pdf\n    file-provider:\n        path: c:/tmp/files\n\
-    \        type: local\nlogger:\n    console:\n        level: INFO\n    file:\n\
-    \        level: INFO\n        path: c:/tmp/file.log\n"
+- config: "logger:\n  # Logging to console/terminal. Remove or comment out to disable\
+    \ terminal\n  # logging\n  console:\n    level: INFO\n\n  # Logging to file. Include\
+    \ to enable file logging\n  file:\n    level: INFO\n    path: \"c:/tmp/file.log\"\
+    \n\ncognite:\n  # Data set to attach uploaded files to. Either use CDF IDs (integers)\
+    \ or\n  # user-given external ids (strings)\n  data-set:\n    external-id: ds-files:valhall\n\
+    \n# Information about files to extract\nfiles:\n  extensions:\n    - .pdf\n\n\
+    \  # Information about file provider\n  file-provider:\n    type: local\n\n  \
+    \  # For local files: Absolute or relative path to directory to watch\n    path:\
+    \ c:/tmp/files"
   externalId: ep_src_files_oid_fileshare
 Function:
 - cpu: 0.6

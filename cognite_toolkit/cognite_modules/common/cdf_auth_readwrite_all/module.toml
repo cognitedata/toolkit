@@ -1,9 +1,0 @@
-[module]
-version = "0.0.0"
-description = "Admin group for CI/CD"
-
-[packages]
-tags = [
-    "inrobot",
-    "quickstart"
-]

@@ -12,15 +12,18 @@ from typing import Any, ClassVar, Literal, get_args
 
 import yaml
 from rich import print
-from typing_extensions import TypeAlias
 
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
+    BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
+    DEFAULT_ENV,
     MODULE_PATH_SEP,
+    MODULES,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
+    EnvType,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
@@ -42,19 +45,19 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._version import __version__
 
+from . import BuiltModuleList
 from ._base import ConfigCore, _load_version_variable
-
-EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
+from ._built_resources import BuiltResourceList
 
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
 
 @dataclass
 class Environment:
-    name: str
-    project: str
-    build_type: EnvType
-    selected: list[str | Path]
+    name: str = "dev"
+    project: str = field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
+    build_type: EnvType = DEFAULT_ENV  # type: ignore[assignment]
+    selected: list[str | Path] = field(default_factory=lambda: [Path(MODULES)])
 
     def __post_init__(self) -> None:
         if self.build_type not in _AVAILABLE_ENV_TYPES:
@@ -83,10 +86,23 @@ class Environment:
             name=build_name,
             project=data["project"],
             build_type=build_type,
-            selected=[
-                Path(selected) if MODULE_PATH_SEP in selected else selected for selected in data["selected"] or []
-            ],
+            selected=cls.load_selected(data.get("selected")),
         )
+
+    @classmethod
+    def load_selected(cls, raw: list[str] | None, organization_dir: Path | None = None) -> list[str | Path]:
+        cleaned = (selected.replace("\\", "/") for selected in raw or [])
+        all_selected: Iterable[str | Path] = (
+            Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
+        )
+        if organization_dir:
+            all_selected = (
+                selected.relative_to(organization_dir)
+                if isinstance(selected, Path) and selected.is_relative_to(organization_dir)
+                else selected
+                for selected in all_selected
+            )
+        return list(all_selected)
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -108,11 +124,11 @@ class Environment:
 
 @dataclass
 class ConfigYAMLCore(ABC):
-    environment: Environment
+    environment: Environment = field(default_factory=Environment)
 
 
 @dataclass
-class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
+class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     """This is the config.[env].yaml file used in the cdf-tk build command."""
 
     filename: ClassVar[str] = "config.{build_env}.yaml"
@@ -170,14 +186,14 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
         variables = data.get("variables", {})
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(self, hash_by_source_file: dict[Path, str] | None = None) -> BuildEnvironment:
+    def create_build_environment(self, built_modules: BuiltModuleList) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
-            hash_by_source_file=hash_by_source_file or {},
+            built_resources=built_modules.as_resources_by_folder(),
         )
 
     def get_selected_modules(
@@ -223,11 +239,30 @@ class BuildConfigYAML(ConfigCore, ConfigYAMLCore):
                     print(f"    {module}")
         return selected_modules
 
+    @classmethod
+    def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
+        return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
+
 
 @dataclass
 class BuildEnvironment(Environment):
-    cdf_toolkit_version: str
-    hash_by_source_file: dict[Path, str] = field(default_factory=dict)
+    cdf_toolkit_version: str = __version__
+    built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
+
+    def dump(self) -> dict[str, Any]:
+        output = super().dump()
+        output["cdf_toolkit_version"] = self.cdf_toolkit_version
+        if self.built_resources:
+            output["built_resources"] = {
+                resource_folder: resources.dump(resource_folder, include_destination=True)
+                for resource_folder, resources in self.built_resources.items()
+            }
+        return output
+
+    def dump_to_file(self, build_dir: Path) -> None:
+        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(
+            "# DO NOT EDIT THIS FILE!\n" + yaml.dump(self.dump(), sort_keys=False, indent=2)
+        )
 
     @classmethod
     def load(
@@ -242,14 +277,22 @@ class BuildEnvironment(Environment):
 
         version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         _deprecation_selected(data)
+        built_resources: dict[str, BuiltResourceList] = {}
+        if "built_resources" in data:
+            # We expect to dump BuildEnvironment, and load DeployEnvironment
+            built_resources = {
+                resource_folder: BuiltResourceList.load(resources, resource_folder)
+                for resource_folder, resources in data["built_resources"].items()
+            }
+
         try:
-            return BuildEnvironment(
+            return cls(
                 name=data["name"],
                 project=data["project"],
                 build_type=data["type"],
                 selected=data["selected"],
                 cdf_toolkit_version=version,
-                hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
+                built_resources=built_resources,
             )
         except KeyError:
             raise ToolkitEnvError(
@@ -257,34 +300,24 @@ class BuildEnvironment(Environment):
                 f"or 'selected' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
-    def dump(self) -> dict[str, Any]:
-        output = super().dump()
-        output["cdf_toolkit_version"] = self.cdf_toolkit_version
-        if self.hash_by_source_file:
-            output["source_files"] = {str(file): hash_ for file, hash_ in self.hash_by_source_file.items()}
-        return output
-
-    def dump_to_file(self, build_dir: Path) -> None:
-        (build_dir / BUILD_ENVIRONMENT_FILE).write_text(
-            "# DO NOT EDIT THIS FILE!\n" + yaml.dump(self.dump(), sort_keys=False, indent=2)
-        )
-
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
         os.environ["CDF_BUILD_TYPE"] = self.build_type
 
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
-        for file, hash_ in self.hash_by_source_file.items():
-            if file.suffix in {".csv", ".parquet"}:
-                # When we copy over the source files we use utf-8 encoding, which can change the file hash.
-                # Thus we skip checking the hash for these file types.
-                continue
+        for resource_folder, resources in self.built_resources.items():
+            for resource in resources:
+                source_filepath = resource.location.path
+                if source_filepath.suffix in {".csv", ".parquet"}:
+                    # When we copy over the source files we use utf-8 encoding, which can change the file hash.
+                    # Thus, we skip checking the hash for these file types.
+                    continue
 
-            if not file.exists():
-                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
-            elif hash_ != calculate_str_or_file_hash(file, shorten=True):
-                warning_list.append(SourceFileModifiedWarning(file))
+                if not source_filepath.exists():
+                    warning_list.append(MissingFileWarning(source_filepath, attempted_check="source file has changed"))
+                elif resource.location.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
+                    warning_list.append(SourceFileModifiedWarning(source_filepath))
         return warning_list
 
 
@@ -386,21 +419,11 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
     def as_build_config(self) -> BuildConfigYAML:
         return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
 
-    def load_selected_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
-        if not self.environment.selected or len(self.environment.selected) == 0:
-            return self.load_defaults(cognite_root_module)
-
-        relevant_defaults: list[Path] = []
-        for selected in self.environment.selected:
-            relevant_defaults.extend(cognite_root_module.glob(f"**/{selected}/**/{DEFAULT_CONFIG_FILE}"))
-
-        return self._load_defaults(cognite_root_module, relevant_defaults)
-
-    def load_defaults(self, cognite_root_module: Path) -> InitConfigYAML:
+    def load_defaults(self, cognite_root_module: Path, selected_paths: set[Path] | None = None) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module."""
 
         default_files_iterable: Iterable[Path]
-        if cognite_root_module.name in ROOT_MODULES:
+        if cognite_root_module.name in ROOT_MODULES or cognite_root_module.name == BUILTIN_MODULES:
             default_files_iterable = cognite_root_module.glob(f"**/{DEFAULT_CONFIG_FILE}")
         else:
             default_files_iterable = itertools.chain(
@@ -409,6 +432,12 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                     for root_module in ROOT_MODULES
                     if (cognite_root_module / root_module).exists()
                 ]
+            )
+        if selected_paths:
+            default_files_iterable = (
+                file
+                for file in default_files_iterable
+                if file.relative_to(cognite_root_module).parent in selected_paths
             )
 
         default_files = sorted(default_files_iterable, key=lambda f: f.relative_to(cognite_root_module))
@@ -433,7 +462,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
             file_data = yaml.safe_load(raw_file)
             for key, value in file_data.items():
-                key_path = (self._variables, *parts, key)
+                if len(parts) >= 1 and parts[0] in ROOT_MODULES:
+                    key_path = (self._variables, *parts, key)
+                else:
+                    key_path = (self._variables, MODULES, *parts, key)
                 local_file_path = (*parts, key)
                 if key_path in self:
                     self[key_path].default_value = value

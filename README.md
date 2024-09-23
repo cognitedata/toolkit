@@ -1,6 +1,6 @@
 # Cognite Data Fusion Toolkit
 
-The CDF Toolkit is a command-line interface (`cdf-tk`) used for configuring and administrating
+The CDF Toolkit is a command-line interface (`cdf`) used for configuring and administrating
 Cognite Data Fusion (CDF) projects. It ships with modularised `templates` that helps you
 configure Cognite Data Fusion according to best practices.
 
@@ -24,7 +24,7 @@ Install the Toolkit by running:
 pip install cognite-toolkit
 ```
 
-Then run `cdf-tk --help` to get started with the interactive command-line tool.
+Then run `cdf --help` to get started with the interactive command-line tool.
 
 ## For more information
 

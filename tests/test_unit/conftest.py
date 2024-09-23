@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 from collections.abc import Iterator
@@ -11,38 +10,17 @@ import pytest
 import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf import Common
-from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.apps._core_app import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.constants import ROOT_PATH
-from cognite_toolkit._cdf_tk.data_classes import Environment, InitConfigYAML, ModuleDirectories
+from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from tests.constants import REPO_ROOT
+from tests.constants import REPO_ROOT, chdir
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
 THIS_FOLDER = Path(__file__).resolve().parent
 TMP_FOLDER = THIS_FOLDER / "tmp"
 TMP_FOLDER.mkdir(exist_ok=True)
-
-
-@contextlib.contextmanager
-def chdir(new_dir: Path) -> Iterator[None]:
-    """
-    Change directory to new_dir and return to the original directory when exiting the context.
-
-    Args:
-        new_dir: The new directory to change to.
-
-    """
-    current_working_dir = Path.cwd()
-    os.chdir(new_dir)
-
-    try:
-        yield
-
-    finally:
-        os.chdir(current_working_dir)
 
 
 @pytest.fixture
@@ -53,10 +31,9 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
 
 
 @pytest.fixture(scope="session")
-def build_tmp_path() -> Path:
+def build_tmp_path() -> Iterator[Path]:
     pidid = os.getpid()
     build_folder = TMP_FOLDER / f"build-{pidid}"
-
     if build_folder.exists():
         shutil.rmtree(build_folder, ignore_errors=True)
         build_folder.mkdir(exist_ok=True)
@@ -65,30 +42,20 @@ def build_tmp_path() -> Path:
 
 
 @pytest.fixture(scope="session")
-def local_tmp_project_path_immutable() -> Path:
+def local_tmp_repo_path() -> Iterator[Path]:
     pidid = os.getpid()
-    project_path = TMP_FOLDER / f"pytest-project-{pidid}"
-    project_path.mkdir(exist_ok=True)
-    yield project_path
-    shutil.rmtree(project_path, ignore_errors=True)
+    repo_path = TMP_FOLDER / f"pytest-repo-{pidid}"
+    repo_path.mkdir(exist_ok=True)
+    RepoCommand(silent=True, skip_git_verify=True).init(repo_path)
+    yield repo_path
+    shutil.rmtree(repo_path, ignore_errors=True)
 
 
 @pytest.fixture
-def local_tmp_project_path_mutable() -> Path:
-    pidid = os.getpid()
-    project_path = TMP_FOLDER / f"pytest-project-mutable-{pidid}"
-    if project_path.exists():
-        shutil.rmtree(project_path, ignore_errors=True)
-    project_path.mkdir(exist_ok=True)
-    yield project_path
-    shutil.rmtree(project_path, ignore_errors=True)
-
-
-@pytest.fixture
-def cdf_tool_config(
+def cdf_tool_mock(
     toolkit_client_approval: ApprovalToolkitClient,
     monkeypatch: MonkeyPatch,
-) -> CDFToolConfig:
+) -> Iterator[CDFToolConfig]:
     environment_variables = {
         "LOGIN_FLOW": "client_credentials",
         "CDF_PROJECT": "pytest-project",
@@ -137,7 +104,7 @@ def cdf_tool_config(
 
 
 @pytest.fixture
-def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
+def cdf_tool_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
     monkeypatch.setenv("CDF_PROJECT", "pytest-project")
     monkeypatch.setenv("CDF_CLUSTER", "bluefield")
     monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
@@ -148,96 +115,53 @@ def cdf_tool_config_real(toolkit_client_approval: ApprovalToolkitClient, monkeyp
 
 
 @pytest.fixture
-def typer_context(cdf_tool_config: CDFToolConfig) -> typer.Context:
+def typer_context(cdf_tool_mock: CDFToolConfig) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(
-        verbose=False,
         override_env=True,
-        cluster="pytest",
-        project="pytest-project",
-        mockToolGlobals=cdf_tool_config,
+        mockToolGlobals=cdf_tool_mock,
     )
     return context
 
 
 @pytest.fixture(scope="session")
-def typer_context_no_cdf_tool_config() -> typer.Context:
+def typer_context_without_cdf_tool() -> typer.Context:
     context = MagicMock(spec=typer.Context)
-    context.obj = Common(
-        verbose=False, override_env=True, cluster="pytest", project="pytest-project", mockToolGlobals=None
-    )
+    context.obj = Common(override_env=True, mockToolGlobals=None)
     return context
 
 
 @pytest.fixture(scope="session")
-def module_directories() -> ModuleDirectories:
-    return ModuleDirectories.load(ROOT_PATH, {Path("")})
-
-
-@pytest.fixture(scope="session")
-def init_project(
-    typer_context_no_cdf_tool_config: typer.Context,
-    module_directories: ModuleDirectories,
-    local_tmp_project_path_immutable: Path,
+def organization_dir(
+    typer_context_without_cdf_tool: typer.Context,
+    local_tmp_repo_path: Path,
 ) -> Path:
-    module_directories.dump(local_tmp_project_path_immutable)
+    organization_folder = "pytest-org"
+    organization_dir = local_tmp_repo_path / organization_folder
+    ModulesCommand(silent=True).init(
+        organization_dir,
+        select_all=True,
+        clean=True,
+    )
 
-    init_config_yaml = InitConfigYAML(
-        Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
-    ).load_defaults(ROOT_PATH)
-    config_dev = init_config_yaml.dump_yaml_with_comments()
-    (local_tmp_project_path_immutable / "config.dev.yaml").write_text(config_dev)
-
-    for file_name in [
-        "README.md",
-        ".gitignore",
-        ".env.tmpl",
-    ]:
-        shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_immutable / file_name)
-
-    return local_tmp_project_path_immutable
-
-
-@pytest.fixture(scope="session")
-def cdf_toml(init_project: Path):
-    with chdir(init_project):
-        dest = init_project / CDFToml.file_name
-        if not dest.exists():
-            shutil.copy(ROOT_PATH / CDFToml.file_name_tmpl, dest)
-        yield
+    return organization_dir
 
 
 @pytest.fixture
-def init_project_mutable(
-    typer_context_no_cdf_tool_config: typer.Context,
-    module_directories: ModuleDirectories,
-    local_tmp_project_path_mutable: Path,
+def organization_dir_mutable(
+    typer_context_without_cdf_tool: typer.Context,
+    local_tmp_repo_path: Path,
 ) -> Path:
-    module_directories.dump(local_tmp_project_path_mutable)
+    """This is used in tests were the source module files are modified. For example, cdf pull commands."""
+    organization_dir = local_tmp_repo_path / "pytest-org-mutable"
 
-    init_config_yaml = InitConfigYAML(
-        Environment("dev", "<customer-dev>", "dev", selected=["cdf_demo_infield", "cdf_oid_example_data"])
-    ).load_defaults(ROOT_PATH)
-    config_dev = init_config_yaml.dump_yaml_with_comments()
-    (local_tmp_project_path_mutable / "config.dev.yaml").write_text(config_dev)
+    ModulesCommand(silent=True).init(
+        organization_dir,
+        select_all=True,
+        clean=True,
+    )
 
-    for file_name in [
-        "README.md",
-        ".gitignore",
-        ".env.tmpl",
-    ]:
-        shutil.copy(ROOT_PATH / file_name, local_tmp_project_path_mutable / file_name)
-
-    return local_tmp_project_path_mutable
-
-
-@pytest.fixture
-def cdf_toml_mutable(init_project_mutable: Path):
-    with chdir(init_project_mutable):
-        dest = init_project_mutable / CDFToml.file_name
-        if not dest.exists():
-            shutil.copy(ROOT_PATH / CDFToml.file_name_tmpl, dest)
-        yield
+    return organization_dir
 
 
 @pytest.fixture

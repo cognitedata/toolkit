@@ -35,7 +35,6 @@ from cognite.client.data_classes import (
     DatapointsList,
     DatapointSubscription,
     DatapointSubscriptionList,
-    DataPointSubscriptionUpdate,
     DataPointSubscriptionWrite,
     DatapointSubscriptionWriteList,
     TimeSeries,
@@ -62,8 +61,8 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
 )
 
-from .asset_loaders import AssetLoader
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader
 
 
@@ -81,13 +80,13 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
-    def get_required_capability(cls, items: TimeSeriesWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: TimeSeriesWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-
-        dataset_ids = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids)) if dataset_ids else TimeSeriesAcl.Scope.All()
+        scope: TimeSeriesAcl.Scope.All | TimeSeriesAcl.Scope.DataSet = TimeSeriesAcl.Scope.All()  # type: ignore[valid-type]
+        if items:
+            if dataset_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
 
         return TimeSeriesAcl(
             [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
@@ -173,7 +172,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         )
 
     def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
-        return self.client.time_series.update(items)
+        return self.client.time_series.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -291,15 +290,16 @@ class DatapointSubscriptionLoader(
             yield TimeSeriesLoader, timeseries_id
 
     @classmethod
-    def get_required_capability(cls, items: DatapointSubscriptionWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: DatapointSubscriptionWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-        scope = (
-            TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
-            if data_set_ids
-            else TimeSeriesSubscriptionsAcl.Scope.All()
+        scope: TimeSeriesSubscriptionsAcl.Scope.All | TimeSeriesSubscriptionsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            TimeSeriesSubscriptionsAcl.Scope.All()
         )
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
+
         return TimeSeriesSubscriptionsAcl(
             [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
             scope,  # type: ignore[arg-type]
@@ -322,13 +322,10 @@ class DatapointSubscriptionLoader(
     def update(self, items: DatapointSubscriptionWriteList) -> DatapointSubscriptionList:
         updated = DatapointSubscriptionList([])
         for item in items:
-            # Todo update SDK to support taking in Write object
-            update = self.client.time_series.subscriptions._update_multiple(
-                item,
-                list_cls=DatapointSubscriptionWriteList,
-                resource_cls=DataPointSubscriptionWrite,
-                update_cls=DataPointSubscriptionUpdate,
-            )
+            # There are two versions of a TimeSeries Subscription, one selects timeseries based filter
+            # and the other selects timeseries based on timeSeriesIds. If we use mode='replace', we try
+            # to set timeSeriesIds to an empty list, while the filter is set. This will result in an error.
+            update = self.client.time_series.subscriptions.update(item, mode="replace_ignore_null")
             updated.append(update)
 
         return updated

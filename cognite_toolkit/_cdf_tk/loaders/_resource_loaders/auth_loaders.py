@@ -101,11 +101,17 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
-    def get_required_capability(cls, items: GroupWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: GroupWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return GroupsAcl(
-            [GroupsAcl.Action.Read, GroupsAcl.Action.List, GroupsAcl.Action.Create, GroupsAcl.Action.Delete],
+            [
+                GroupsAcl.Action.Read,
+                GroupsAcl.Action.List,
+                GroupsAcl.Action.Create,
+                GroupsAcl.Action.Delete,
+                GroupsAcl.Action.Update,
+            ],
             GroupsAcl.Scope.All(),
         )
 
@@ -247,6 +253,13 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
+
+        # Remove metadata if it is empty to avoid false negatives
+        # as a result of cdf_resource.metadata = {} != local.metadata = None
+        if not local_dumped.get("metadata"):
+            local_dumped.pop("metadata", None)
+        if not cdf_dumped.get("metadata"):
+            cdf_dumped.pop("metadata", None)
 
         scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
 
@@ -410,8 +423,8 @@ class SecurityCategoryLoader(
         return {"name": id}
 
     @classmethod
-    def get_required_capability(cls, items: SecurityCategoryWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: SecurityCategoryWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return SecurityCategoriesAcl(
             actions=[

@@ -1,0 +1,22 @@
+space: sp_nodes
+externalId: MyExtendedFile
+name: anotherfile.txt
+source:
+  space: sp_nodes
+  externalId: MySource
+sourceCreatedTime: 2023-01-01T00:00:00Z
+sourceModifiedTime: 2024-01-01T00:00:00Z
+sourceCreatedUser: I
+sourceModifiedUser: Myself
+assets:
+  - space: sp_nodes
+    externalId: asset1
+mimeType: text/plain
+status: Active
+fileCategory: Document
+nodeSource:
+  space: sp_schema
+  externalId: MyFileExtension
+  version: v1
+  type: view
+

@@ -10,6 +10,7 @@ import string
 import sys
 import types
 import typing
+from datetime import date, datetime
 from pathlib import Path
 from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
 
@@ -39,6 +40,13 @@ from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
+from cognite.client.data_classes.hosted_extractors import (
+    BodyLoad,
+    HeaderValueLoad,
+    NextUrlLoad,
+    QueryParamLoad,
+    RestConfig,
+)
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
 from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTaskParameters
 from cognite.client.testing import CogniteClientMock
@@ -63,8 +71,12 @@ def mock_read_yaml_file(
         return read_yaml_file(filepath, expected_output)
 
     def fake_load_yaml_inject_variables(
-        filepath: Path, variables: dict[str, str | None], required_return_type: Literal["any", "list", "dict"] = "any"
+        filepath: Path | str,
+        variables: dict[str, str | None],
+        required_return_type: Literal["any", "list", "dict"] = "any",
     ) -> dict[str, Any] | list[dict[str, Any]]:
+        if isinstance(filepath, str):
+            return load_yaml_inject_variables(filepath, variables, required_return_type)
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
                 source = load_yaml_inject_variables(filepath, variables, required_return_type)
@@ -82,7 +94,7 @@ def mock_read_yaml_file(
         "cognite_toolkit._cdf_tk.loaders._base_loaders.load_yaml_inject_variables", fake_load_yaml_inject_variables
     )
     for module in [
-        "asset_loaders",
+        "classic_loaders",
         "auth_loaders",
         "data_organization_loaders",
         "datamodel_loaders",
@@ -169,6 +181,13 @@ class FakeCogniteResourceGenerator:
         )
 
     def create_instance(self, resource_cls: type[T_Object], skip_defaulted_args: bool = False) -> T_Object:
+        is_abstract = any(base is abc.ABC for base in resource_cls.__bases__)
+        if is_abstract:
+            subclasses = all_concrete_subclasses(resource_cls)
+            if not subclasses:
+                raise ValueError(f"Cannot create instance of abstract class {resource_cls.__name__}")
+            resource_cls = self._random.choice(subclasses)
+
         signature = inspect.signature(resource_cls.__init__)
         type_hint_by_name = _TypeHints.get_type_hints_by_name(resource_cls)
 
@@ -190,6 +209,9 @@ class FakeCogniteResourceGenerator:
                 value = None
             elif name == "scene":
                 value = self.create_value(LocationFilterScene, var_name=name)
+            elif name == "version":
+                # Special case
+                value = random.choice(["v1", "v2", "v3"])
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 
@@ -279,6 +301,12 @@ class FakeCogniteResourceGenerator:
         elif resource_cls is NodeResultSetExpression and not skip_defaulted_args:
             # Through has a special format.
             keyword_arguments["through"] = [keyword_arguments["through"][0], "my_view/v1", "a_property"]
+        elif resource_cls is RestConfig:
+            incremental = keyword_arguments.get("incremental_load")
+            if isinstance(incremental, NextUrlLoad):
+                # The incremental load cannot be of type `nextUrl`
+                load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
+                keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
 
         return resource_cls(*positional_arguments, **keyword_arguments)
 
@@ -360,6 +388,10 @@ class FakeCogniteResourceGenerator:
                     [self._random.randint(1, 1704067200000) for _ in range(self._max_list_dict_items)],
                     dtype="datetime64[ms]",
                 )
+            elif type_ == datetime:
+                return datetime.fromtimestamp(self._random.randint(1, 1704067200))
+            elif type_ == date:
+                return date.fromtimestamp(self._random.randint(1, 1704067200))
             else:
                 raise ValueError(f"Unknown type {type_} {type(type_)}. {self._error_msg}")
 

@@ -1,0 +1,7 @@
+[module]
+title = "CDF Data Pipeline Timeseries Valhall"
+
+[packages]
+tags = [
+    "examples",
+]

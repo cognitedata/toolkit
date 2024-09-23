@@ -10,6 +10,12 @@ from typing import Any, get_type_hints
 
 from cognite.client.data_classes import TransformationScheduleWrite
 from cognite.client.data_classes.capabilities import UnknownAcl
+from cognite.client.data_classes.data_modeling.instances import (
+    TypedEdge,
+    TypedEdgeApply,
+    TypedNode,
+    TypedNodeApply,
+)
 
 
 class _TypeHints:
@@ -29,6 +35,10 @@ class _TypeHints:
         to_check = [resource_cls]
         while to_check:
             cls_ = to_check.pop()
+            if cls_ in {TypedEdge, TypedNode, TypedEdgeApply, TypedNodeApply}:
+                # These classes are abstract, but are not marked as such as they use  Mixin pattern
+                continue
+
             to_check.extend(cls_.__subclasses__())
             is_base_class = inspect.isclass(cls_) and any(base is abc.ABC for base in cls_.__bases__)
             # UnknownAcl is a special case, it is concrete class, but cannot be instantiated easily

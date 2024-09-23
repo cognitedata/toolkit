@@ -3,12 +3,14 @@ from .build import BuildCommand
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
-from .describe import DescribeCommand
 from .dump import DumpCommand
+from .dump_assets import DumpAssetsCommand
+from .dump_timeseries import DumpTimeSeriesCommand
 from .featureflag import FeatureFlagCommand
 from .init import InitCommand
 from .modules import ModulesCommand
 from .pull import PullCommand
+from .repo import RepoCommand
 from .run import RunFunctionCommand, RunTransformationCommand
 
 __all__ = [
@@ -18,11 +20,13 @@ __all__ = [
     "CollectCommand",
     "CleanCommand",
     "DeployCommand",
-    "DescribeCommand",
     "DumpCommand",
     "FeatureFlagCommand",
     "PullCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
     "ModulesCommand",
+    "RepoCommand",
+    "DumpAssetsCommand",
+    "DumpTimeSeriesCommand",
 ]

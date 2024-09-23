@@ -15,14 +15,140 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.0b1] - 2024-09-18
+
+### Added
+
+- Dump for `Assets` and `TimeSeries` with `cdf dump asset` and `cdf dump timeseries` commands.
+- Support for Hosted Extractors `Destination` and `Job`.
+- Support for `CogniteFile`.
+
+### Changed
+
+- The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
+  command. This is to separate the build and deploying of artifacts from validating/debugging the function code.
+  Validation of the function code is expected to be handled by `cdf run function local`.
+- [BREAKING] The resource folder `timeseries_datapoints` is removed and `csv` and `parquet` files with
+  datapoints are now expected to be in the `timeseries` folder.
+- The dump of data models has changed interface, now the data model id is optionally given as positional instead
+  of flags. If now data model is given, the user will be prompted to select one.
+
+### Removed
+
+- CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
+  be timeshifted to today when running `cdf build`
+- FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
+  simplify the pattern.
+- [BREAKING] The command `cdf describe` is removed. This functionality was not used and thus removing it to simplify
+  the Toolkit and to focus on the core functionality.
+- [BREAKING] Support for api parameters in `Node` resource is removed.
+- Support for Python 3.9.
+
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
+## [0.3.0a6] - 2024-09-20
+
+### Added
+
+- Added flag `--modules`/`-m` to select which modules to build in the `cdf build` command.
+- The `cdf build` command no longer requires `config.[env].yaml` to be present. If it is not present, the Toolkit
+  will use the default values for the environment.
+
+### Fixed
+
+- If you removed `metadata` in any resource file, the Toolkit would not update this change in CDF. This is now fixed.
+
+## [0.3.0a5] - 2024-09-18
+
+### Added
+
+- The new `cdf modules add` subcommand lets users add modules to an existing modules directory.
+- [Feature Preview] Support for resource type Hosted Extractor Source. This should be in the `hosted_extractors` folder,
+  and the file needs to be suffixed with `.Source.yaml`, for example, `my_eventhub.Source.yaml`.
+  [CAUTION] The current implementation will always redeploy the source, even if it has not changed. This will be
+  fixed in a future release.
+- Added support for resource type `Sequence` in the `classic` folder.
+- Added parameter `--selected` to the `cdf build` command to overwrite the `selected` in the `config.[env].yaml` file.
+- Made the `config.[env].yaml` optional when running the `cdf build command.
+
+### Changed
+
+- [BREAKING] The command `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`. The `init` command
+  is used to initialize the auth parameters, and the `verify` command is used to verify that required privileges are
+  set. The `init` command will by default run the `verify` command after the initialization unless a `--no-verify`
+  flag is set. In addition, the two commands have been reworked to be more user-friendly. They are now interactive
+  (no longer requires a `--interactive` flag) and have no longer supports passing in a custom Group file. Instead,
+  they are intended to only set up and verify a service principal for the Toolkit.
+
+### Fixed
+
+- The `config` value of a `ExtractionPipelineConfig` is now correctly parsed as a string. Before it was parsed as YAML,
+  typically an object/dict, which caused loss of information. This is because
+  `yaml.safe_dump(yaml.safe_load(config)) != config` as, for example, special YAML tags are lost.
+- Deploying a `LocationFilter` with a data model no longer returns a `400` error.
+
+### Removed
+
+- The `--interactive` flag from the `cdf deploy` and `cdf clean` commands.
+- The shared flags `--verbose`. This has been deprecated and has been replaced by `--verbose` on each individual
+  command. For example, before you could write `cdf --verbose build --env dev`, now you should write
+  `cdf build --env dev --verbose`.
+
+## [0.3.0a4] - 2024-09-13
+
+### Added
+
+- The `WorkflowTrigger` config files now supports `object` (`dict`) as a valid type for the
+  `data` field. This will automatically be converted to a `json` string when deploying the trigger.
+
+### Fixed
+
+- The field `default_organization_dir` was not read in the `cdf.toml` file. This is now fixed.
+- The `cdf modules upgrade` command would fail to update `0.3.0a1` and `0.3.0a2` to `0.3.0a3`. This is now fixed.
+- If the version of a `DataModel` or `View` was set to `1_0_0` in the resource file, Toolkit would send
+  it as `100` to the API. This is now fixed.
+- Groups without metadata no longer triggers redeploy when running `cdf deploy`
+
+## [0.3.0a3] - 2024-09-11
+
+### Fixed
+
+- LocationFilter did not load subclasses properly. This is now fixed.
+- When running any command, the terminal would print warnings from the `cognite-sdk`. This is now fixed.
+- The `cdf modules init` no longer creates an invalid `cdf.toml` file when the user uses an `organization-dir`.
+
+### Changed
+
+- In the commands `build` and `pull`, `modules upgrade` and `modules list`,  `organization-dir` is now an
+  optional argument `--organization-dir` and `-o` instead of positional argument. This is to have consistent
+  behavior with other commands.
+- The config filed `cdf.toml` is now created with `cdf modules init` instead of `cdf repo init`.
+- In `cdf.toml` the `organization_dir` is renamed `default_organization_dir`.
+
+## [0.3.0a2] - 2024-09-10
+
+### Fixed
+
+- Running `cdf repo init` now creates a `cdf.toml` with the correct version.
+
+## [0.3.0a1] - 2024-09-10
 
 ### Added
 
 - Loaders for resource types `Assets`, `3DModel`, and `Robotic` (`Map`, `DataPostProcessing`, `RobotCapability`,
   `Frame`, and `Location`). These loaders were earlier available as feature preview.
 - Support for `LocationFilter` in the `locations` folder.
+- Command `cdf repo init` to initialize the repository with `.gitignore`, `.env`, and the new
+  Toolkit configuration file `cdf.toml`
 - Command `cdf modules list` to list all modules.
+- Command `cdf modules init` to setup modules. This is interactive and will guide you through selecting the
+  modules you want to use. You can bypass the interactive mode by using the `--all` flag. which
+  will select all modules, similar to the previous `cdf-tk init` command.
+- Command `cdf modules upgrade` to upgrade all modules automatically.
 
 ## Changed
 
@@ -31,12 +157,23 @@ Changes are grouped as follows:
 - The Toolkit no longer gives warnings for naming conventions that are not followed.
 - [BREAKING] The resource `Label` is now in the resource folder `classic` and not in the `labels` folder.
 
+## Removed
+
+- [BREAKING] The command `cdf-tk init` it now replaced by `cdf repo init` and `cdf modules init`.
+
+## [0.2.20] - 2024-08-31
+
+### Fixed
+
+- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
+  redeployments of functions.
+
+## [0.2.19] - 2024-08-26
+
 ### Fixed
 
 - Views and DataModels with versions that are integers are only being redeployed if they have changed in the
   `cdf-tk deploy` command. They were earlier always redeployed.
-- Ignore `.pyc` files when hashing function directories in the `cdf-tk deploy` command. This prevents unnecessary
-  redeployments of functions.
 
 ## [0.2.18] - 2024-08-22
 

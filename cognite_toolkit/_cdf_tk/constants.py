@@ -1,6 +1,8 @@
 import re
 from pathlib import Path
 
+from typing_extensions import Literal, TypeAlias
+
 try:
     from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]
 except ModuleNotFoundError:
@@ -8,6 +10,7 @@ except ModuleNotFoundError:
 # This is the default config located locally in each module.
 # The environment file:
 
+TOOLKIT_SERVICE_PRINCIPAL_NAME = "cognite_toolkit_service_principal"
 
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.
@@ -19,29 +22,31 @@ CONFIG_FILE_SUFFIX = "config.yaml"
 # The global config file
 GLOBAL_CONFIG_FILE = "global.yaml"
 
-COGNITE_MODULES = "cognite_modules"
 BUILTIN_MODULES = "_builtin_modules"
+COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
-ALT_CUSTOM_MODULES = "modules"
+MODULES = "modules"
+REPO_FILES_DIR = "_repo_files"
 
-ROOT_MODULES = [COGNITE_MODULES, CUSTOM_MODULES, ALT_CUSTOM_MODULES]
+ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"
 
 MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 HAS_DATA_FILTER_LIMIT = 10
 
+DEFAULT_ENV = "dev"
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 # Which files to process for template variable replacement
-TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".csv", ".txt", ".md", ".html", ".py"])
+TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json"])
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
+MODULES_PATH = ROOT_PATH / MODULES
 BUILTIN_MODULES_PATH = ROOT_PATH / BUILTIN_MODULES
-
-SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.1.0"
+SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
@@ -49,6 +54,10 @@ INDEX_PATTERN = re.compile("^[0-9]+\\.")
 # This is a regular expression that matches any non-word character or underscore
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
+HINT_LEAD_TEXT_LEN = 5
+EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 
 
 def clean_name(name: str) -> str:

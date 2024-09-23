@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import itertools
 import json
 import logging
 import os
@@ -25,12 +26,13 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
+from collections.abc import Collection, ItemsView, Iterable, Iterator, KeysView, MutableSequence, Sequence, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, get_args, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, TypeVar, overload
 
+import questionary
 import typer
 import yaml
 from cognite.client import ClientConfig
@@ -53,8 +55,9 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
+from questionary import Choice
 from rich import print
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -87,14 +90,19 @@ logger = logging.getLogger(__name__)
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 
 
+LOGIN_FLOW_DESCRIPTION = {
+    "client_credentials": "Setup a service principal with client credentials",
+    "interactive": "Login using the browser with your user credentials",
+    "token": "Use a Token directly to authenticate",
+}
+
+
 @dataclass
 class AuthVariables:
     cluster: str | None = field(
-        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF project cluster", example="westeurope-1")
+        metadata=dict(env_name="CDF_CLUSTER", display_name="CDF cluster", example="westeurope-1")
     )
-    project: str | None = field(
-        metadata=dict(env_name="CDF_PROJECT", display_name="CDF project URL name", example="publicdata")
-    )
+    project: str | None = field(metadata=dict(env_name="CDF_PROJECT", display_name="CDF project", example="publicdata"))
     cdf_url: str | None = field(
         default=None,
         metadata=dict(env_name="CDF_URL", display_name="CDF URL", example="https://CDF_CLUSTER.cognitedata.com"),
@@ -172,9 +180,9 @@ class AuthVariables:
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
         if self.cluster:
-            self._set_cluster_defaults()
+            self.set_cluster_defaults()
         if self.tenant_id:
-            self._set_token_id_defaults()
+            self.set_token_id_defaults()
         if self.token and self.login_flow != "token":
             print(
                 f"  [bold yellow]Warning[/] CDF_TOKEN detected. This will override LOGIN_FLOW, "
@@ -182,20 +190,34 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
-    def _set_token_id_defaults(self) -> None:
+    def set_token_id_defaults(self) -> None:
         if self.tenant_id:
             self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
             self.authority_url = self.authority_url or f"https://login.microsoftonline.com/{self.tenant_id}"
 
-    def _set_cluster_defaults(self) -> None:
+    def set_cluster_defaults(self) -> None:
         if self.cluster:
             self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
             self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
             self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
-    @classmethod
-    def login_flow_options(cls) -> list[str]:
-        return list(get_args(LoginFlow))
+    @property
+    def is_complete(self) -> bool:
+        if self.cdf_url is None:
+            return False
+        if self.login_flow == "token":
+            return self.token is not None
+        elif self.login_flow == "interactive":
+            return self.client_id is not None and self.tenant_id is not None and self.scopes is not None
+        elif self.login_flow == "client_credentials":
+            return (
+                self.client_id is not None
+                and self.client_secret is not None
+                and self.token_url is not None
+                and self.scopes is not None
+                and self.audience is not None
+            )
+        return False
 
     @classmethod
     def from_env(cls, override: dict[str, Any] | None = None) -> AuthVariables:
@@ -206,86 +228,12 @@ class AuthVariables:
                 args[field_.name] = override.get(env_name, os.environ.get(env_name))
         return cls(**args)
 
-    def validate(self, verbose: bool) -> AuthReaderValidation:
-        return self._read_and_validate(verbose, skip_prompt=True)
-
-    def from_interactive_with_validation(self, verbose: bool = False) -> AuthReaderValidation:
-        return self._read_and_validate(verbose, skip_prompt=False)
-
-    def _read_and_validate(self, verbose: bool = False, skip_prompt: bool = False) -> AuthReaderValidation:
-        reader = AuthReaderValidation(self, verbose, skip_prompt)
-        self.cluster = reader.prompt_user("cluster")
-        self._set_cluster_defaults()
-        self.project = reader.prompt_user("project")
-        if not (self.cluster and self.project):
-            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
-            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
-        self.cdf_url = reader.prompt_user("cdf_url", expected=f"https://{self.cluster}.cognitedata.com")
-        self.login_flow = reader.prompt_user("login_flow", choices=self.login_flow_options())  # type: ignore[assignment]
-        if self.login_flow == "token":
-            if new_token := reader.prompt_user("token", password=True):
-                self.token = new_token
-            else:
-                print("  Keeping existing token.")
-        elif self.login_flow == "device_code":
-            self.tenant_id = reader.prompt_user("tenant_id")
-            if self.tenant_id and len(self.tenant_id.strip()) > 0:
-                self._set_token_id_defaults()
-                # This is the default Cognite app registration for Entra with device code enabled
-                # to be used with the Toolkit.
-                self.client_id = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
-            else:
-                self.client_id = reader.prompt_user("client_id")
-                # The default scope is for Entra, we set the standard here.
-                self.scopes = "IDENTITY user_impersonation profile openid"
-                self.scopes = reader.prompt_user("scopes")
-                self.oidc_discovery_url = reader.prompt_user("oidc_discovery_url")
-        elif self.login_flow == "interactive":
-            # NOTE! Interactive login requires an app registration approved for implicit grant and a redirect URI configured in Azure
-            # to localhost, which is not deemed secure for production use.
-            # https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-implicit-grant-flow
-            # This flow is thus only supported for Entra for backwards compatibility and should be deprecated in the future.
-            # TODO: deprecate implicit interactive login flow.
-            self.tenant_id = reader.prompt_user("tenant_id")
-            self._set_token_id_defaults()
-            self.client_id = reader.prompt_user("client_id")
-            self.token_url = reader.prompt_user("token_url")
-            self.scopes = reader.prompt_user("scopes")
-            self.authority_url = reader.prompt_user("authority_url")
-        elif self.login_flow == "client_credentials":
-            self.tenant_id = reader.prompt_user("tenant_id")
-            self._set_token_id_defaults()
-            self.client_id = reader.prompt_user("client_id")
-            if new_secret := reader.prompt_user("client_secret", password=True):
-                self.client_secret = new_secret
-            else:
-                print("  Keeping existing client secret.")
-            self.token_url = reader.prompt_user("token_url")
-            self.scopes = reader.prompt_user("scopes")
-            self.audience = reader.prompt_user("audience", expected=f"https://{self.cluster}.cognitedata.com")
-        else:
-            raise AuthenticationError(f"The login flow {self.login_flow} is not supported")
-
-        if not skip_prompt:
-            if Path(".env").exists():
-                print(
-                    "[bold yellow]WARNING[/]: .env file already exists and values have been retrieved from it. It will be overwritten."
-                )
-            write = Confirm.ask(
-                "Do you want to save these to .env file for next time ? ",
-                choices=["y", "n"],
-            )
-            if write:
-                Path(".env").write_text(self.create_dotenv_file())
-
-        return reader
-
     def create_dotenv_file(self) -> str:
         lines = [
             "# .env file generated by cognite-toolkit",
+            self._write_var("login_flow"),
             self._write_var("cluster"),
             self._write_var("project"),
-            self._write_var("login_flow"),
         ]
         if self.login_flow == "token":
             lines += [
@@ -341,7 +289,7 @@ class AuthVariables:
         return f"{field_['env_name']}={value}"
 
 
-class AuthReaderValidation:
+class AuthReader:
     """Reads and validate the auth variables
 
     Args:
@@ -353,11 +301,81 @@ class AuthReaderValidation:
     """
 
     def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
-        self._auth_vars = auth_vars
+        self.auth_vars = auth_vars
         self.status: Literal["ok", "warning"] = "ok"
         self.messages: list[str] = []
         self.verbose = verbose
         self.skip_prompt = skip_prompt
+
+    def from_user(self) -> AuthVariables:
+        auth_vars = self.auth_vars
+        if auth_vars.is_complete:
+            print("Auth variables are already set.")
+            if not questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask():
+                return auth_vars
+        login_flow = questionary.select(
+            "Choose the login flow",
+            choices=[
+                Choice(title=f"{flow}: {description}", value=flow)
+                for flow, description in LOGIN_FLOW_DESCRIPTION.items()
+            ],
+        ).ask()
+        auth_vars.login_flow = login_flow
+        print("Default values in parentheses. Press Enter to keep current value")
+        auth_vars.cluster = self.prompt_user("cluster")
+        auth_vars.project = self.prompt_user("project")
+        auth_vars.set_cluster_defaults()
+        if not (auth_vars.cluster and auth_vars.project):
+            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
+            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
+        if login_flow == "token":
+            auth_vars.token = self.prompt_user("token")
+        elif login_flow == "client_credentials":
+            auth_vars.client_id = self.prompt_user("client_id")
+            if new_secret := self.prompt_user("client_secret", password=True):
+                auth_vars.client_secret = new_secret
+            else:
+                print("  Keeping existing client secret.")
+        elif login_flow == "interactive":
+            auth_vars.client_id = self.prompt_user("client_id")
+
+        if login_flow in ("client_credentials", "interactive"):
+            auth_vars.tenant_id = self.prompt_user("tenant_id")
+            auth_vars.set_token_id_defaults()
+
+        default_variables = ["cdf_url"]
+        if login_flow == "client_credentials":
+            default_variables.extend(["scopes", "audience"])
+        elif login_flow == "interactive":
+            default_variables.extend(["scopes", "authority_url"])
+        print("The below variables are the defaults,")
+        for field_name in default_variables:
+            current_value = getattr(self.auth_vars, field_name)
+            metadata = _auth_field_by_name[field_name].metadata
+            print(f"  {metadata['env_name']}={current_value}")
+        if questionary.confirm("Do you want to change any of these variables?", default=False).ask():
+            for field_name in default_variables:
+                setattr(auth_vars, field_name, self.prompt_user(field_name))
+
+        new_env_file = auth_vars.create_dotenv_file()
+        if Path(".env").exists():
+            existing = Path(".env").read_text()
+            if existing == new_env_file:
+                print("Identical '.env' file already exist.")
+                return auth_vars
+            MediumSeverityWarning("'.env' file already exists").print_warning()
+            filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
+
+            if questionary.confirm(
+                f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
+                default=False,
+            ).ask():
+                shutil.move(".env", filename)
+                Path(".env").write_text(new_env_file)
+        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
+            Path(".env").write_text(new_env_file)
+
+        return auth_vars
 
     def prompt_user(
         self,
@@ -367,13 +385,13 @@ class AuthReaderValidation:
         expected: str | None = None,
     ) -> str | None:
         try:
-            current_value = getattr(self._auth_vars, field_name)
+            current_value = getattr(self.auth_vars, field_name)
             field_ = _auth_field_by_name[field_name]
             metadata = field_.metadata
             example = (
                 metadata["example"]
-                .replace("CDF_CLUSTER", self._auth_vars.cluster or "<cluster>")
-                .replace("IDP_TENANT_ID", self._auth_vars.tenant_id or "<tenant_id>")
+                .replace("CDF_CLUSTER", self.auth_vars.cluster or "<cluster>")
+                .replace("IDP_TENANT_ID", self.auth_vars.tenant_id or "<tenant_id>")
             )
             display_name = metadata["display_name"]
             default = current_value or (field_.default if isinstance(field_.default, str) else None)
@@ -389,11 +407,12 @@ class AuthReaderValidation:
             extra_args["choices"] = choices
 
         if password and current_value:
-            prompt = f"You have set {display_name}, change it? (press Enter to keep current value)"
-        elif example == default:
-            prompt = f"{display_name}? "
+            prompt = f"You have set {display_name}, change it?"
+        elif example == default or (not example):
+            prompt = f"{display_name}?"
         else:
-            prompt = f"{display_name} (e.g. [italic]{example}[/])? "
+            prompt = f"{display_name}, e.g., [italic]{example}[/]?"
+
         response: str | None
         if self.skip_prompt:
             response = default
@@ -607,7 +626,7 @@ class CDFToolConfig:
         if ctx.obj.mockToolGlobals is not None:
             return ctx.obj.mockToolGlobals
         else:
-            return CDFToolConfig(cluster=ctx.obj.cluster, project=ctx.obj.project)
+            return CDFToolConfig()
 
     def environment_variables(self) -> dict[str, str | None]:
         return {**self._environ.copy(), **os.environ}
@@ -621,7 +640,7 @@ class CDFToolConfig:
         envs = ""
         for e in environment:
             envs += f"  {e}={environment[e]}\n"
-        return f"Cluster {self._cluster} with project {self._project} and config:\n{envs}"
+        return f"CDF Project {self._project} in cluster {self._cluster}:\n{envs}"
 
     def __str__(self) -> str:
         environment = self._environ.copy()
@@ -1272,7 +1291,6 @@ def iterate_modules(root_dir: Path) -> Iterator[tuple[Path, list[Path]]]:
     if root_dir.name in ROOT_MODULES:
         yield from _iterate_modules(root_dir)
         return
-    # todo: BUILTIN_MODULES cannot be a ROOT_MODULE yet because that causes lots of duplicate modules.
     elif root_dir.name == BUILTIN_MODULES:
         yield from _iterate_modules(root_dir)
         return
@@ -1414,6 +1432,37 @@ def get_cicd_environment() -> str:
     return "local"
 
 
+def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
+    # This pattern will match the key if it is not already quoted
+    pattern = rf"^(\s*-?\s*)?{key}:\s*(?!.*['\":])([\d_]+)$"
+    replacement = rf'\1{key}: "\2"'
+
+    return re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+
+def stringify_value_by_key_in_yaml(content: str, key: str) -> str:
+    """Quote a value in a yaml string"""
+    pattern = rf"^{key}:\s*$"
+    replacement = rf"{key}: |"
+    return re.sub(pattern, replacement, content, flags=re.MULTILINE)
+
+
+def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) -> str:
+    if not collection:
+        return ""
+    elif len(collection) == 1:
+        return str(next(iter(collection)))
+
+    strings = (str(item) for item in collection)
+    if sort:
+        sequence = sorted(strings)
+    else:
+        sequence = list(strings)
+
+    return f"{', '.join(sequence[:-1])} and {sequence[-1]}"
+
+
 class GraphQLParser:
     _token_pattern = re.compile(r"\w+|[^\w\s]")
 
@@ -1422,12 +1471,27 @@ class GraphQLParser:
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 
-    def get_views(self) -> set[ViewId]:
-        return {
-            ViewId(self.data_model_id.space, entity.identifier)
-            for entity in self._get_entities()
-            if not entity.is_imported
-        }
+    def get_views(self, include_version: bool = False) -> set[ViewId]:
+        views: set[ViewId] = set()
+        for entity in self._get_entities():
+            if entity.is_imported:
+                continue
+            view_directive: _ViewDirective | None = None
+            for directive in entity.directives:
+                if isinstance(directive, _ViewDirective):
+                    view_directive = directive
+                    break
+            if view_directive:
+                views.add(
+                    ViewId(
+                        view_directive.space or self.data_model_id.space,
+                        view_directive.external_id or entity.identifier,
+                        version=view_directive.version if include_version else None,
+                    )
+                )
+            else:
+                views.add(ViewId(self.data_model_id.space, entity.identifier))
+        return views
 
     def get_dependencies(self, include_version: bool = False) -> set[ViewId | DataModelId]:
         dependencies: set[ViewId | DataModelId] = set()
@@ -1537,7 +1601,7 @@ class _Directive:
 
     @classmethod
     def _create_args(cls, string: str) -> dict[str, Any] | str:
-        if "," not in string:
+        if "," not in string and ":" not in string:
             return string
         output: dict[str, Any] = {}
         if string[0] == "{" and string[-1] == "}":

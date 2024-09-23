@@ -14,10 +14,8 @@
 from __future__ import annotations
 
 import time
-from importlib import resources
-from pathlib import Path
+from collections import defaultdict
 from time import sleep
-from typing import cast
 
 import questionary
 from cognite.client.data_classes.capabilities import (
@@ -33,15 +31,14 @@ from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
+from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_NAME
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
     ResourceRetrievalError,
-    ToolkitFileNotFoundError,
-    ToolkitInvalidSettingsError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -49,57 +46,36 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthVariables, CDFToolConfig, safe_read
+from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig
 
 from ._base import ToolkitCommand
 
 
 class AuthCommand(ToolkitCommand):
-    def execute(
+    def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
+        auth_vars = AuthVariables.from_env()
+
+        reader = AuthReader(auth_vars, False)
+        _ = reader.from_user()
+        if reader.messages:
+            for message in reader.messages:
+                self.warn(MediumSeverityWarning(message))
+        if not no_verify:
+            ToolGlobals = CDFToolConfig(skip_initialization=True)
+            ToolGlobals.initialize_from_auth_variables(auth_vars)
+            self.verify(ToolGlobals, dry_run)
+
+    def verify(
         self,
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
-        interactive: bool,
-        group_file: str | None,
-        update_group: int,
-        create_group: str | None,
-        verbose: bool,
+        no_prompt: bool = False,
     ) -> None:
-        # TODO: Check if groupsAcl.UPDATE does nothing?
-        if create_group is not None and update_group != 0:
-            raise ToolkitInvalidSettingsError("--create-group and --update-group are mutually exclusive.")
-
-        if group_file is None:
-            template_dir = cast(Path, resources.files("cognite_toolkit"))
-            group_path = template_dir.joinpath(
-                Path(f"./{COGNITE_MODULES}/common/cdf_auth_readwrite_all/auth/admin.readwrite.group.yaml")
-            )
-        else:
-            group_path = Path(group_file)
-        self.check_auth(
-            ToolGlobals,
-            admin_group_file=group_path,
-            update_group=update_group,
-            create_group=create_group,
-            interactive=interactive,
-            dry_run=dry_run,
-            verbose=verbose,
-        )
-
-    def check_auth(
-        self,
-        ToolGlobals: CDFToolConfig,
-        admin_group_file: Path,
-        update_group: int = 0,
-        create_group: str | None = None,
-        interactive: bool = False,
-        dry_run: bool = False,
-        verbose: bool = False,
-    ) -> None:
-        auth_vars = self.initialize_client(ToolGlobals, interactive, verbose)
-        if auth_vars.project is None:
+        # More readable variable in the code
+        is_interactive = not no_prompt
+        if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
-        cdf_project = auth_vars.project
+        cdf_project = ToolGlobals.project
         token_inspection = self.check_has_any_access(ToolGlobals)
 
         self.check_has_project_access(token_inspection, cdf_project)
@@ -115,9 +91,18 @@ class AuthCommand(ToolkitCommand):
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
-        if not admin_group_file.exists():
-            raise ToolkitFileNotFoundError(f"Group config file does not exist: {admin_group_file.as_posix()}")
-        admin_write_group = GroupWrite.load(safe_read(admin_group_file))
+        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
+        admin_write_group = GroupWrite(
+            name=TOOLKIT_SERVICE_PRINCIPAL_NAME,
+            capabilities=[
+                *loader_capabilities,
+                # Add project ACL to be able to list and read projects, as the
+                ProjectsAcl(
+                    [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
+                    ProjectsAcl.Scope.All(),
+                ),
+            ],
+        )
 
         print(
             Panel(
@@ -132,39 +117,50 @@ class AuthCommand(ToolkitCommand):
                 expand=False,
             )
         )
-        if interactive:
+        if is_interactive:
             Prompt.ask("Press enter key to continue...")
 
         self.check_principal_groups(principal_groups, admin_write_group)
 
         missing_capabilities = self.check_has_toolkit_required_capabilities(
-            ToolGlobals.toolkit_client, token_inspection, admin_write_group, cdf_project, admin_write_group.name
+            ToolGlobals.toolkit_client,
+            token_inspection,
+            admin_write_group,
+            cdf_project,
+            admin_write_group.name,
+            loaders_by_capability_tuple,
         )
         print("---------------------")
         has_added_capabilities = False
-        if missing_capabilities:
-            if interactive:
-                to_create, to_delete = self.upsert_toolkit_group_interactive(principal_groups, admin_write_group)
-            else:
-                to_create, to_delete = self.upsert_toolkit_group(
-                    principal_groups, admin_write_group, update_group, create_group
-                )
+        if missing_capabilities and not is_interactive:
+            raise AuthorizationError(
+                "The service principal/application does not have the required capabilities for the Toolkit to function properly"
+            )
+        elif missing_capabilities:
+            to_create, to_delete = self.upsert_toolkit_group_interactive(
+                principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
+            )
 
             created: Group | None = None
             if dry_run:
                 if not to_create and not to_delete:
-                    print("No groups  would have been made or modified.")
+                    print("No groups would have been made or modified.")
                 elif to_create and not to_delete:
                     print(
                         f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
                     )
-                elif to_create and to_create:
-                    print(
-                        f"Would have updated group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
+                elif to_create and to_delete:
+                    adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
+                        to_delete.capabilities,  # type: ignore[arg-type]
+                        to_create.capabilities,  # type: ignore[arg-type]
+                        project=cdf_project,
                     )
+                    adding = self._merge_capabilities(adding)
+                    capability_str = "capabilities" if len(adding) > 1 else "capability"
+                    print(f"Would have updated group {to_create.name} with {len(adding)} new {capability_str}.")
             elif to_create:
                 created = self.upsert_group(
-                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, interactive, cdf_project
+                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, True, cdf_project
                 )
                 has_added_capabilities = True
 
@@ -181,18 +177,23 @@ class AuthCommand(ToolkitCommand):
 
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
-    def initialize_client(self, ToolGlobals: CDFToolConfig, interactive: bool, verbose: bool) -> AuthVariables:
-        print("[bold]Checking current service principal/application and environment configurations...[/]")
-        auth_vars = AuthVariables.from_env()
-        if interactive:
-            result = auth_vars.from_interactive_with_validation(verbose)
-        else:
-            result = auth_vars.validate(verbose)
-        if result.messages:
-            print("\n".join(result.messages))
-        print("  [bold green]OK[/]")
-        ToolGlobals.initialize_from_auth_variables(auth_vars)
-        return auth_vars
+    @staticmethod
+    def _get_capabilities_by_loader(
+        ToolGlobals: CDFToolConfig,
+    ) -> tuple[list[Capability], dict[tuple, list[str]]]:
+        loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
+        capability_by_id: dict[frozenset[tuple], Capability] = {}
+        for loader_cls in loaders.RESOURCE_LOADER_LIST:
+            loader = loader_cls.create_loader(ToolGlobals, None)
+            capability = loader_cls.get_required_capability(None)
+            capabilities = capability if isinstance(capability, list) else [capability]
+            for cap in capabilities:
+                id_ = frozenset(cap.as_tuples())
+                if id_ not in capability_by_id:
+                    capability_by_id[id_] = cap
+                for cap_tuple in cap.as_tuples():
+                    loaders_by_capability_tuple[cap_tuple].append(loader.display_name)
+        return list(capability_by_id.values()), loaders_by_capability_tuple
 
     def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
         print("Checking basic project configuration...")
@@ -361,6 +362,7 @@ class AuthCommand(ToolkitCommand):
         admin_group: GroupWrite,
         cdf_project: str,
         group_file_name: str,
+        loaders_by_capability_id: dict[tuple, list[str]],
     ) -> list[Capability]:
         print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
 
@@ -369,24 +371,50 @@ class AuthCommand(ToolkitCommand):
             admin_group.capabilities or [],
             project=cdf_project,
         )
+
         if missing_capabilities:
+            missing_capabilities = self._merge_capabilities(missing_capabilities)
+
             for s in sorted(map(str, missing_capabilities)):
                 self.warn(MissingCapabilityWarning(s))
+
+            resource_names: set[str] = set()
+            for cap in missing_capabilities:
+                for cap_tuple in cap.as_tuples():
+                    resource_names.update(loaders_by_capability_id[cap_tuple])
+            if resource_names:
+                print("[bold yellow]INFO:[/] The missing capabilities are required for the following resources:")
+                for resource_name in resource_names:
+                    print(f"    - {resource_name}")
         else:
             print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
         return missing_capabilities
 
+    @staticmethod
+    def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
+        """Merges capabilities that have the same ACL and Scope"""
+        actions_by_scope_and_cls: dict[tuple[type[Capability], Capability.Scope], set[Capability.Action]] = defaultdict(
+            set
+        )
+        for capability in capability_list:
+            actions_by_scope_and_cls[(type(capability), capability.scope)].update(capability.actions)
+        return [
+            cap_cls(actions=list(actions), scope=scope, allow_unknown=False)
+            for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
+        ]
+
     def upsert_toolkit_group_interactive(
-        self, principal_groups: GroupList, admin_group: GroupWrite
+        self, principal_groups: GroupList, admin_group: GroupWrite, client: ToolkitClient, cdf_project: str
     ) -> tuple[GroupWrite | None, Group | None]:
-        new_admin_group = GroupWrite.load(admin_group.dump())
         update_candidates = [group for group in principal_groups if group.name == admin_group.name]
         has_candidates = len(update_candidates) > 0
         update_group: Group | None = None
-        if has_candidates and Confirm.ask(
-            f"Do you want to update the group with name {admin_group.name!r} with the capabilities "
-            "from the group config file?",
-            choices=["y", "n"],
+        if (
+            has_candidates
+            and questionary.confirm(
+                f"Do you want to update the group with name {admin_group.name!r} with the missing capabilities?",
+                default=True,
+            ).ask()
         ):
             if len(update_candidates) > 1:
                 update_group = questionary.select(
@@ -401,20 +429,32 @@ class AuthCommand(ToolkitCommand):
             elif len(update_candidates) == 1:
                 update_group = update_candidates[0]
 
-            if update_group is not None:
-                new_admin_group.source_id = update_group.source_id
-                return new_admin_group, update_group
+        if update_group is not None:
+            # We need to recalculate the missing capabilities as the missing capabilities for service principal
+            # (if it has access to multiple groups) may be different from the ones missing in this group
+            missing_capabilities = client.iam.compare_capabilities(
+                update_group.capabilities or [],
+                admin_group.capabilities or [],
+                project=cdf_project,
+            )
+            missing_capabilities = self._merge_capabilities(missing_capabilities)
+            new_admin_group = GroupWrite.load(update_group.dump())
+            if new_admin_group.capabilities is None:
+                new_admin_group.capabilities = (admin_group.capabilities or []).copy()
+            else:
+                new_admin_group.capabilities.extend(missing_capabilities)
+            return new_admin_group, update_group
 
         prefix = f"No {admin_group.name} exists. " if not has_candidates else ""
-        if not Confirm.ask(
-            f"{prefix}Do you want to create a new group for running the toolkit "
-            "with the capabilities from the group config file ?",
-            choices=["y", "n"],
-        ):
+        if not questionary.confirm(
+            f"{prefix}Do you want to create a new group for running the toolkit with the capabilities?",
+            default=True,
+        ).ask():
             return None, None
         new_source_id = str(
-            Prompt.ask("What is the source id for the new group (typically a group id in the identity provider)? ")
+            Prompt.ask("What is the source id for the new group (typically a group id in the identity provider)?")
         )
+        new_admin_group = GroupWrite.load(admin_group.dump())
         new_admin_group.source_id = new_source_id
         return new_admin_group, None
 
@@ -511,7 +551,7 @@ class AuthCommand(ToolkitCommand):
                     f"such that you don't have a duplicated group in your CDF project."
                 )
         print(
-            f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name} with {len(created.capabilities or [])} capabilities."
+            f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
         )
         return created
 

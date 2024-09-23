@@ -1,5 +1,5 @@
 [module]
-description = "Admin group for CI/CD"
+title = "Admin group for CI/CD"
 
 [packages]
 tags = [

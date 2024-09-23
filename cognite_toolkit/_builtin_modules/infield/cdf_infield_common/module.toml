@@ -1,0 +1,8 @@
+[module]
+title = "InField Common"
+
+[packages]
+tags = [
+    "infield",
+    "quickstart"
+]

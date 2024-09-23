@@ -74,9 +74,9 @@ class RunFunctionApp(typer.Typer):
                 "-o",
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",
@@ -131,9 +131,9 @@ class RunFunctionApp(typer.Typer):
                 "-o",
                 help="Path to organization directory with the modules. This is used to search for available functions.",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 "-e",

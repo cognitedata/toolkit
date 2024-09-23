@@ -8,8 +8,11 @@ from functools import cached_property
 from pathlib import Path
 from typing import SupportsIndex, overload
 
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules
+from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
+
+from ._module_toml import ModuleToml
 
 
 @dataclass(frozen=True)
@@ -24,13 +27,21 @@ class ModuleLocation:
 
     dir: Path
     source_absolute_path: Path
-    is_selected: bool
     source_paths: list[Path]
+    is_selected: bool = False
+    definition: ModuleToml | None = None
 
     @property
     def name(self) -> str:
         """The name of the module."""
         return self.dir.name
+
+    @property
+    def title(self) -> str | None:
+        """The title of the module."""
+        if self.definition:
+            return self.definition.title
+        return None
 
     @property
     def relative_path(self) -> Path:
@@ -57,8 +68,61 @@ class ModuleLocation:
         """The resource directories in the module."""
         return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
 
+    @property
+    def _source_paths_by_resource_folder(self) -> tuple[dict[str, list[Path]], set[str]]:
+        """The source paths grouped by resource folder."""
+        source_paths_by_resource_folder = defaultdict(list)
+        # The directories in the module that are not resource directories.
+        invalid_resource_directory: set[str] = set()
+        for filepath in self.source_paths:
+            try:
+                resource_folder = resource_folder_from_path(filepath)
+            except ValueError:
+                relative_to_module = filepath.relative_to(self.dir)
+                is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
+                if not is_file_in_resource_folder:
+                    invalid_resource_directory.add(relative_to_module.parts[0])
+                continue
+            if filepath.is_file():
+                source_paths_by_resource_folder[resource_folder].append(filepath)
+        return source_paths_by_resource_folder, invalid_resource_directory
+
+    @cached_property
+    def source_paths_by_resource_folder(self) -> dict[str, list[Path]]:
+        """The source paths grouped by resource folder."""
+        source_paths_by_resource_folder, _ = self._source_paths_by_resource_folder
+
+        # Sort to support 1., 2. etc prefixes
+        def sort_key(p: Path) -> tuple[int, int, str]:
+            first = {
+                ".yaml": 0,
+                ".yml": 0,
+            }.get(p.suffix.lower(), 1)
+            # We ensure that the YAML files are sorted before other files.
+            # This is when we add indexes to files. We want to ensure that, for example, a .sql file
+            # with the same name as a .yaml file gets the same index as the .yaml file.
+            if result := INDEX_PATTERN.search(p.stem):
+                return first, int(result.group()[:-1]), p.name
+            else:
+                return first, len(filepaths) + 1, p.name
+
+        for filepaths in source_paths_by_resource_folder.values():
+            # The builder of a module can control the order that resources are deployed by prefixing a number
+            # The custom key 'sort_key' is to get the sort on integer and not the string.
+            filepaths.sort(key=sort_key)
+
+        return source_paths_by_resource_folder
+
+    @cached_property
+    def not_resource_directories(self) -> set[str]:
+        """The directories in the module that are not resource directories."""
+        return self._source_paths_by_resource_folder[1]
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"
+
+    def __str__(self) -> str:
+        return self.name
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
@@ -96,7 +160,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
     def load(
         cls,
         organization_dir: Path,
-        user_selected_modules: set[str | Path],
+        user_selected_modules: set[str | Path] | None = None,
     ) -> ModuleDirectories:
         """Loads the modules in the source directory.
 
@@ -105,16 +169,25 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             user_selected_modules: The modules selected by the user either by name or by path.
 
         """
+        # Assume all modules are selected if no selection is given.
+        user_selected_modules = user_selected_modules or {Path("")}
 
         module_locations: list[ModuleLocation] = []
         for module, source_paths in iterate_modules(organization_dir):
             relative_module_dir = module.relative_to(organization_dir)
+            module_toml: ModuleToml | None = None
+            tags: set[str] = set()
+            if (module / ModuleToml.filename).exists():
+                module_toml = ModuleToml.load(module / ModuleToml.filename)
+                tags = set(module_toml.tags)
+
             module_locations.append(
                 ModuleLocation(
                     module,
                     organization_dir,
-                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     source_paths,
+                    cls._is_selected_module(relative_module_dir, user_selected_modules, tags),
+                    module_toml,
                 )
             )
 
@@ -136,12 +209,17 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                 shutil.copy(source_file, absolute_file_path)
 
     @classmethod
-    def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:
+    def _is_selected_module(
+        cls, relative_module_dir: Path, user_selected: set[str | Path], module_tags: set[str]
+    ) -> bool:
         """Checks whether a module is selected by the user."""
         return (
             relative_module_dir.name in user_selected
             or relative_module_dir in user_selected
             or any(parent in user_selected for parent in relative_module_dir.parents)
+            # Check if the module has any tags that the user has selected,
+            # i.e., that the intersection of the module tags and the user selected tags is not empty.
+            or bool(module_tags & user_selected)
         )
 
     def as_path_by_name(self) -> dict[str, list[Path]]:

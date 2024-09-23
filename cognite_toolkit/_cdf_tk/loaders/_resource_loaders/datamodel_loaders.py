@@ -42,6 +42,7 @@ from cognite.client.data_classes.data_modeling import (
     DataModelList,
     Node,
     NodeApply,
+    NodeApplyList,
     NodeApplyResultList,
     NodeList,
     Space,
@@ -78,7 +79,6 @@ from cognite_toolkit._cdf_tk.loaders.data_classes import (
     GraphQLDataModelList,
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
-    NodeApplyListWithCall,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -87,6 +87,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
+    quote_int_value_by_key_in_yaml,
     retrieve_view_ancestors,
     safe_read,
 )
@@ -112,8 +113,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return "spaces"
 
     @classmethod
-    def get_required_capability(cls, items: SpaceApplyList) -> list[Capability] | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: SpaceApplyList | None) -> list[Capability] | list[Capability]:
+        if not items and items is not None:
             return []
         return [
             DataModelsAcl(
@@ -224,12 +225,14 @@ class ContainerLoader(
         return "containers"
 
     @classmethod
-    def get_required_capability(cls, items: ContainerApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ContainerApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -439,12 +442,14 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ViewApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -638,6 +643,19 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ViewApplyList:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        if isinstance(raw_yaml, list):
+            return ViewApplyList.load(raw_yaml)
+        else:
+            return ViewApplyList([self.resource_write_cls.load(raw_yaml)])
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -656,12 +674,14 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return "data models"
 
     @classmethod
-    def get_required_capability(cls, items: DataModelApplyList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: DataModelApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -763,16 +783,29 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataModelApplyList:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        if isinstance(raw_yaml, list):
+            return DataModelApplyList.load(raw_yaml)
+        else:
+            return DataModelApplyList([self.resource_write_cls.load(raw_yaml)])
+
 
 @final
-class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListWithCall, NodeList]):
+class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
     item_name = "nodes"
     folder_name = "data_models"
     filename_pattern = r"^.*node$"
     resource_cls = Node
     resource_write_cls = NodeApply
     list_cls = NodeList
-    list_write_cls = NodeApplyListWithCall
+    list_write_cls = NodeApplyList
     kind = "Node"
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
@@ -782,12 +815,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyListWithCall) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: NodeApplyList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelInstancesAcl(
             [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
-            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelInstancesAcl.Scope.All(),
         )
 
     @classmethod
@@ -821,10 +856,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    @classmethod
-    def create_empty_of(cls, items: NodeApplyListWithCall) -> NodeApplyListWithCall:
-        return NodeApplyListWithCall([], items.api_call)
-
     def _are_equal(
         self, local: NodeApply, cdf_resource: Node, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
@@ -856,9 +887,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyListWithCall:
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        return NodeApplyListWithCall._load(raw, cognite_client=self.client)
+        raw_list = raw if isinstance(raw, list) else [raw]
+        return NodeApplyList._load(raw_list, cognite_client=self.client)
 
     def dump_resource(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
@@ -884,19 +916,20 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyListW
 
         return dumped, {}
 
-    def create(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
-        if not isinstance(items, NodeApplyListWithCall):
-            raise ValueError("Unexpected node format file format")
-
-        api_call_args = items.api_call.dump(camel_case=False) if items.api_call else {}
-        result = self.client.data_modeling.instances.apply(nodes=items, **api_call_args)
+    def create(self, items: NodeApplyList) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=items, auto_create_direct_relations=True, replace=False
+        )
         return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
         return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
 
-    def update(self, items: NodeApplyListWithCall) -> NodeApplyResultList:
-        return self.create(items)
+    def update(self, items: NodeApplyList) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=items, auto_create_direct_relations=False, replace=True
+        )
+        return result.nodes
 
     def delete(self, ids: SequenceNotStr[NodeId]) -> int:
         try:
@@ -975,12 +1008,14 @@ class GraphQLLoader(
         return id.dump(include_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: GraphQLDataModelWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: GraphQLDataModelWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
         return DataModelsAcl(
             [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-            DataModelsAcl.Scope.SpaceID(list({item.space for item in items})),
+            DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
+            if items is not None
+            else DataModelsAcl.Scope.All(),
         )
 
     @classmethod
@@ -1010,7 +1045,14 @@ class GraphQLLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GraphQLDataModelWriteList:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
+        raw = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
         raw_list = raw if isinstance(raw, list) else [raw]
         models = GraphQLDataModelWriteList._load(raw_list)
 

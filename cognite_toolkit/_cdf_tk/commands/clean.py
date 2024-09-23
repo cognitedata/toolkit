@@ -11,7 +11,12 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILD_ENVIRONMENT_FILE,
+    HINT_LEAD_TEXT,
+    HINT_LEAD_TEXT_LEN,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
 )
@@ -21,6 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
+    DataLoader,
     DataSetsLoader,
     DeployResults,
     ResourceContainerLoader,
@@ -36,6 +42,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    humanize_collection,
     read_yaml_file,
 )
 
@@ -85,7 +92,7 @@ class CleanCommand(ToolkitCommand):
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
 
-        existing_resources = loader.retrieve(loader.get_ids(loaded_resources)).as_write()
+        existing_resources = loader.retrieve(loader.get_ids(loaded_resources))
         nr_of_existing = len(existing_resources)
 
         if drop:
@@ -209,20 +216,19 @@ class CleanCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        build_dir_raw: str,
+        build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         include: list[str],
         verbose: bool,
     ) -> None:
-        build_dir = Path(build_dir_raw)
         if not build_dir.exists():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
             )
-        build_ = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
-        build_.set_environment_variables()
-        errors = build_.check_source_files_changed()
+        clean_state = BuildEnvironment.load(read_yaml_file(build_dir / BUILD_ENVIRONMENT_FILE), build_env_name, "clean")
+        clean_state.set_environment_variables()
+        errors = clean_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
@@ -230,20 +236,27 @@ class CleanCommand(ToolkitCommand):
                 "One or more source files have been modified since the last build. " "Please rebuild the project."
             )
 
-        Panel(f"[bold]Cleaning environment {build_env_name} based on config files from {build_dir}...[/]")
+        environment_vars = ""
+        if not _RUNNING_IN_BROWSER:
+            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+
+        action = ""
+        if dry_run:
+            action = "(dry-run) "
+
+        print(
+            Panel(
+                f"[bold]Cleaning {action}[/]resource from CDF project {ToolGlobals._project} based "
+                f"on resource files in {build_dir} directory."
+                f"{environment_vars}",
+                expand=False,
+            )
+        )
 
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
-        # The 'auth' loader is excluded, as it is run at the end.
-        selected_loaders = {
-            loader_cls: loader_cls.dependencies
-            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and (build_dir / folder_name).is_dir()
-            for loader_cls in loader_classes
-        }
-
-        print(ToolGlobals.as_string())
+        selected_loaders = self.get_selected_loaders(build_dir, include)
 
         results = DeployResults([], "clean", dry_run=dry_run)
 
@@ -281,3 +294,33 @@ class CleanCommand(ToolkitCommand):
             print(results.counts_table())
         if results.has_uploads:
             print(results.uploads_table())
+
+    def get_selected_loaders(self, build_dir: Path, include: list[str]) -> dict[type[Loader], frozenset[type[Loader]]]:
+        selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
+        for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
+            if folder_name not in include or not (build_dir / folder_name).is_dir():
+                continue
+            folder_has_supported_files = False
+            for loader_cls in loader_classes:
+                if loader_cls.any_supported_files(build_dir / folder_name):
+                    folder_has_supported_files = True
+                    selected_loaders[loader_cls] = loader_cls.dependencies
+                elif issubclass(loader_cls, DataLoader):
+                    # Data Loaders are always included, as they will have
+                    # the files in the module folder and not the build folder.
+                    selected_loaders[loader_cls] = loader_cls.dependencies
+
+            if not folder_has_supported_files:
+                kinds = [loader_cls.kind for loader_cls in loader_classes]
+                yaml_file = next((build_dir / folder_name).glob("*.yaml"), None)
+                suggestion = ""
+                if yaml_file:
+                    suggestion = f"\n{' ' * HINT_LEAD_TEXT_LEN}For example: '{yaml_file.stem}.{kinds[0]}.yaml'."
+                self.warn(
+                    MediumSeverityWarning(
+                        f"No supported files found in {folder_name!r} folder. Skipping...\n"
+                        f"{HINT_LEAD_TEXT}All resource in the {folder_name!r} folder are expected to have suffix: "
+                        f"{humanize_collection(kinds)!r}.{suggestion}"
+                    )
+                )
+        return selected_loaders

@@ -6,7 +6,7 @@ environment:
   - run_local_functions
 
 variables:
-  cognite_modules:
+  modules:
     # Globally defined variables are available to all submodules
     # of the cognite_modules.
     cdf_cluster: ${CDF_CLUSTER}

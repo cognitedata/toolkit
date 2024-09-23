@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, MutableSequence
+from collections.abc import ItemsView, Iterable, Iterator, KeysView, Mapping, MutableMapping, ValuesView
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional, overload
 
-from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
-from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitValueError
+
+from ._module_directories import ModuleDirectories, ModuleLocation
 
 if sys.version_info >= (3, 11):
     import toml
@@ -17,41 +16,24 @@ else:
 
 
 @dataclass
-class SelectableModule:
-    @property
-    def name(self) -> str:
-        return self.path.name
-
-    @property
-    def title(self) -> str | None:
-        return self.definition.description
-
-    def __eq__(self, other: Any) -> bool:
-        if not isinstance(other, SelectableModule):
-            return NotImplemented
-        return self.name == other.name
-
-    def __hash__(self) -> int:
-        return hash(self.name)
-
-    def __str__(self) -> str:
-        return self.name
-
-    definition: ModuleToml
-    path: Path
-
-
-@dataclass
 class Package:
     """A package represents a bundle of modules.
     Args:
         name: the unique identifier of the package.
+        title: The display name of the package.
+        description: A description of the package.
+        modules: The modules that are part of the package.
     """
 
     name: str
     title: str
     description: str | None = None
-    modules: list[SelectableModule] = field(default_factory=list)
+    modules: list[ModuleLocation] = field(default_factory=list)
+
+    @property
+    def module_names(self) -> set[str]:
+        """The names of the modules in the package."""
+        return {module.name for module in self.modules}
 
     @classmethod
     def load(cls, name: str, package_definition: dict) -> Package:
@@ -62,66 +44,60 @@ class Package:
         )
 
 
-@dataclass
-class Packages(list, MutableSequence[Package]):
-    @overload
-    def __init__(self, packages: Iterable[Package]) -> None: ...
-
-    @overload
-    def __init__(self) -> None: ...
-
-    def __init__(self, packages: Optional[Iterable[Package]] = None) -> None:
-        super().__init__(packages or [])
-
-    def get_by_name(self, name: str) -> Package:
-        for package in self:
-            if package.name == name:
-                return package
-        raise KeyError(f"Package {name} not found")
+class Packages(dict, MutableMapping[str, Package]):
+    def __init__(self, packages: Iterable[Package] | Mapping[str, Package] | None = None) -> None:
+        if packages is None:
+            super().__init__()
+        elif isinstance(packages, Mapping):
+            super().__init__(packages)
+        else:
+            super().__init__({p.name: p for p in packages})
 
     @classmethod
     def load(
         cls,
-        path: Path,  # todo: relative to org dir
+        root_module_dir: Path,  # todo: relative to org dir
     ) -> Packages:
         """Loads the packages in the source directory.
 
         Args:
-            modules: The module directories to load the packages from.
+            root_module_dir: The module directories to load the packages from.
         """
 
-        package_definition_path = path / "package.toml"
+        package_definition_path = root_module_dir / "package.toml"
         if not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
         package_definitions = toml.loads(package_definition_path.read_text())["packages"]
 
-        collected: dict[str, Package] = {}
-        for package_name, package_definition in package_definitions.items():
-            if isinstance(package_definition, dict):
-                collected[package_name] = Package.load(package_name, package_definition)
+        collected: dict[str, Package] = {
+            package_name: Package.load(package_name, package_definition)
+            for package_name, package_definition in package_definitions.items()
+            if isinstance(package_definition, dict)
+        }
 
-        module_directories = ModuleDirectories.load(path, set())
-        selectable_modules = list(
-            {m for m in (cls.get_module(module.dir, path) for module in module_directories) if m is not None}
-        )
-        for selectable_module in selectable_modules:
-            if selectable_module is None:
+        module_directories = ModuleDirectories.load(root_module_dir)
+        for module in module_directories:
+            if module.definition is None:
                 continue
-            for tag in selectable_module.definition.tags or []:
+            for tag in module.definition.tags:
                 if tag in collected:
-                    collected[tag].modules.append(selectable_module)
+                    collected[tag].modules.append(module)
                 else:
-                    raise ValueError(f"Tag {tag} not found in package manifest toml")
+                    raise ToolkitValueError(f"Module {module.name} has an unknown tag {tag}")
+        return cls(collected)
 
-        return cls(list(collected.values()))
+    # The methods are overloads to provide type hints for the methods.
+    def items(self) -> ItemsView[str, Package]:  # type: ignore[override]
+        return super().items()
 
-    @classmethod
-    def get_module(cls, module_dir: Path, root: Path) -> SelectableModule | None:
-        dir = module_dir
-        while dir != root:
-            module_toml_file = dir / "module.toml"
-            if module_toml_file.exists():
-                definition = ModuleToml.load(module_toml_file)
-                return SelectableModule(definition, dir)
-            dir = dir.parent
-        return None
+    def keys(self) -> KeysView[str]:  # type: ignore[override]
+        return super().keys()
+
+    def values(self) -> ValuesView[Package]:  # type: ignore[override]
+        return super().values()
+
+    def __iter__(self) -> Iterator[str]:
+        yield from super().__iter__()
+
+    def __getitem__(self, package_name: str) -> Package:
+        return super().__getitem__(package_name)

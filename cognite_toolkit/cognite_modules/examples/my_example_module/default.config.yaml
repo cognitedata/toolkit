@@ -1,3 +1,0 @@
-example_variable: foo
-workflow_external_id: baz
-example_secret: '${ENVIRONMENT_SECRET}'

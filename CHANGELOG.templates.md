@@ -15,11 +15,47 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.0b1] - 2024-09-23
+
+No changes to templates.
+
+## [0.3.0a7] - 2024-09-23
+
+No changes to templates.
+
+## [0.3.0a6] - 2024-09-20
+
+Added `bootcamp` modules `ice_cream_api` and `oee`.
+
+## [0.3.0a5] - 2024-09-18
+
+No changes to templates.
+
+## [0.3.0a4] - 2024-09-13
+
+No changes to templates.
+
+## [0.3.0a3] - 2024-09-11
+
+No changes to templates.
+
+## [0.3.0a2] - 2024-09-10
+
+No changes to templates.
+
+## [0.3.0a1] - 2024-09-10
+
+No changes to templates.
+
+## [0.2.20] - 2024-08-31
 
 ## Fixed
 
 - Added missing `common_function_code` to the `cognite_modules/inrobot/cdf_inrobot_common` module.
+
+## [0.2.19] - 2024-08-26
+
+No changes to templates.
 
 ## [0.2.18] - 2024-08-22
 

@@ -1,0 +1,7 @@
+[module]
+title = "InRobot Common"
+
+[packages]
+tags = [
+    "inrobot",
+]

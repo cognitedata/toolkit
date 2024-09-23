@@ -1,6 +1,0 @@
-name: str
-cronExpression: str
-functionId: int | None
-functionExternalId: str | None
-description: str | None
-data: dict | None

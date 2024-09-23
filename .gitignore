@@ -282,6 +282,7 @@ config.yaml
 demo_project/
 tests/tests_unit/pytest-project/
 my_project/
+my_organization/
 *.bck
 
 # Hide environments used for migration testing
@@ -293,6 +294,13 @@ cognite_toolkit/config.local.yaml
 .venv.*
 build.*
 cognite_toolkit/.env.*
+cognite_toolkit/modules/*
 module_upgrade/project_inits
 function_local_venvs/
 tests/data/run_data/build_info.dev.yaml
+orgdir*
+module_upgrade/cdf.toml
+my_org
+# Org used by bootcamp
+ice-cream-dataops
+module_upgrade/*.log

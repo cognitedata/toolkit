@@ -4,7 +4,7 @@ on:
     branches:
       - main
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.10'
 jobs:
   build-modules:
     runs-on: ubuntu-latest
@@ -15,6 +15,7 @@ jobs:
         IDP_CLIENT_ID: ${{ secrets.IDP_CLIENT_ID }}
         IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
         IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
+        LOGIN_FLOW: client_credentials
     name: Loadmaster
     steps:
       - uses: actions/checkout@v4
@@ -32,20 +33,15 @@ jobs:
       - name: Install cdf-tk
         run: pip install .
       - name: Initialize project
-        run: python ./demo/old_init.py
+        run: cdf modules init demo_project --clean --all
       - name: "Pre-processing for demo environment"
         run: python ./demo/preproc.py
+      - name: "Not collect metrics"
+        run: cdf collect opt-out
       - name: "Build the templates"
-        run: cdf-tk build --build-dir=./build --env=demo ./demo_project
-      # be careful, this works as promised
-#      - name: "Delete existing resources including data"
-#        run: |
-#          cdf-tk clean --env=demo ./build --include data_models
+        run: cdf-tk build --build-dir=./build --env=demo -o ./demo_project
       - name: "Verify and create access rights"
-        run: cdf-tk auth verify
-      - name: "Allow some time for data modeling to finish syncing of deletions"
-        run: |
-          sleep 30
+        run: cdf auth verify --no-prompt
       - name: "Deploy the templates"
         run: |
           cdf-tk deploy --drop --env=demo ./build

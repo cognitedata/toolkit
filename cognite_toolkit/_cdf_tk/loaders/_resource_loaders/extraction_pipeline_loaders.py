@@ -26,6 +26,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.capabilities import (
     Capability,
+    ExtractionConfigsAcl,
     ExtractionPipelinesAcl,
 )
 from cognite.client.data_classes.extractionpipelines import (
@@ -51,6 +52,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     load_yaml_inject_variables,
+    safe_read,
+    stringify_value_by_key_in_yaml,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -75,16 +78,15 @@ class ExtractionPipelineLoader(
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: ExtractionPipelineWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_id = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = (
-            ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
-            if data_set_id
-            else ExtractionPipelinesAcl.Scope.All()
+        scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            ExtractionPipelinesAcl.Scope.All()
         )
+        if items is not None:
+            if data_set_id := {item.data_set_id for item in items if item.data_set_id}:
+                scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
         return ExtractionPipelinesAcl(
             [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
@@ -170,7 +172,8 @@ class ExtractionPipelineLoader(
         return self.client.extraction_pipelines.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: ExtractionPipelineWriteList) -> ExtractionPipelineList:
-        return self.client.extraction_pipelines.update(items)
+        # Bug in SDK overload so need the ignore.
+        return self.client.extraction_pipelines.update(items, mode="replace")  # type: ignore[call-overload]
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         id_list = list(ids)
@@ -224,10 +227,16 @@ class ExtractionPipelineConfigLoader(
         return "extraction_pipeline.config"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList) -> list[Capability]:
-        # Access for extraction pipeline configs is checked by the extraction pipeline that is deployed
-        # first, so we don't need to check for any capabilities here.
-        return []
+    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList | None) -> list[Capability]:
+        if not items and items is not None:
+            return []
+
+        return [
+            ExtractionConfigsAcl(
+                [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
+                ExtractionConfigsAcl.Scope.All(),
+            )
+        ]
 
     @classmethod
     def get_id(cls, item: ExtractionPipelineConfig | ExtractionPipelineConfigWrite | dict) -> str:
@@ -249,15 +258,18 @@ class ExtractionPipelineConfigLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
-        resources = load_yaml_inject_variables(filepath, {})
+        # The config is expected to be a string that is parsed as a YAML on the server side.
+        # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
+        raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
+        resources = load_yaml_inject_variables(raw_str, {})
         if isinstance(resources, dict):
             resources = [resources]
 
         for resource in resources:
             config_raw = resource.get("config")
-            if isinstance(config_raw, (dict, list)):
+            if isinstance(config_raw, str):
                 try:
-                    resource["config"] = yaml.safe_dump(config_raw, indent=4)
+                    yaml.safe_load(config_raw)
                 except yaml.YAMLError as e:
                     print(
                         HighSeverityWarning(

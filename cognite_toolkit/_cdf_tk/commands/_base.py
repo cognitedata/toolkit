@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -9,7 +8,7 @@ from typing import Any
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
@@ -29,35 +28,25 @@ class ToolkitCommand:
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         self._print_warning = print_warning
         self.silent = silent
-        if len(sys.argv) > 1:
-            self.user_command = f"cdf-tk {' '.join(sys.argv[1:])}"
-        else:
-            self.user_command = "cdf-tk"
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(self.user_command)
-        self.skip_tracking = self.tracker.opted_out or skip_tracking
+        self.tracker = Tracker(skip_tracking)
 
     @property
     def print_warning(self) -> bool:
         return self._print_warning and not self.silent
 
     def _track_command(self, result: str | Exception) -> None:
-        if self.skip_tracking or "PYTEST_CURRENT_TEST" in os.environ:
-            return
-        self.tracker.track_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
+        self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-        if (
-            not self.tracker.opted_in
-            and not self.tracker.opted_out
-            and not self.user_command.startswith("cdf-tk collect")
-        ):
+        is_collect_command = len(sys.argv) >= 2 and "collect" == sys.argv[1]
+        if not self.tracker.opted_in and not self.tracker.opted_out and not is_collect_command:
             print(
                 "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
                 "and crash reports for the purposes of providing services of functions that are relevant "
                 "to use of the CLI tool and product improvements. "
-                "To remove this message run 'cdf-tk collect opt-in', "
-                "or to stop collecting usage information run 'cdf-tk collect opt-out'."
+                "To remove this message run 'cdf collect opt-in', "
+                "or to stop collecting usage information run 'cdf collect opt-out'."
             )
 
         try:
@@ -87,7 +76,7 @@ class ToolkitCommand:
         ToolGlobals: CDFToolConfig,
         skip_validation: bool,
     ) -> T_CogniteResourceList:
-        loaded_resources = loader.create_empty_of(loader.list_write_cls([]))
+        loaded_resources = loader.list_write_cls([])
         for filepath in filepaths:
             try:
                 resource = loader.load_resource(filepath, ToolGlobals, skip_validation)
@@ -101,10 +90,6 @@ class ToolkitCommand:
                 raise ToolkitTypeError(
                     f"Failed to load {filepath.name} with {loader.display_name}. Wrong type {e!r}"
                 ) from e
-            except Exception as e:
-                raise ToolkitYAMLFormatError(
-                    f"Failed to load {filepath.name} with {loader.display_name}. Error: {e!r}."
-                )
             if resource is None:
                 # This is intentional. It is, for example, used by the AuthLoader to skip groups with resource scopes.
                 continue

@@ -2,7 +2,7 @@ from collections.abc import Hashable
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Group, GroupWrite
+from cognite.client.data_classes import Group, GroupWrite, GroupWriteList
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import (
@@ -23,28 +23,28 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestGroupLoader:
-    def test_load_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_config, None)
+    def test_load_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, skip_validation=False
         )
         assert loaded.name == "unscoped_group_name"
 
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False
         )
         assert loaded is None
 
-    def test_load_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
+    def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, skip_validation=False
         )
 
         assert loaded is None
 
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False
         )
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
@@ -56,30 +56,30 @@ class TestGroupLoader:
         assert all(isinstance(item, int) for item in caps["ExtractionConfigsAcl"].scope.ids)
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
-    def test_load_group_list_resource_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
+    def test_load_group_list_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, skip_validation=True
         )
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "scoped_group_name"
 
-    def test_load_group_list_all_scoped_only(self, cdf_tool_config: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_config, None)
+    def test_load_group_list_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, skip_validation=True
         )
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "unscoped_group_name"
 
     def test_unchanged_new_group(
-        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
-    ):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+    ) -> None:
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=True
         )
 
         # Simulate that one group is is already in CDF
@@ -108,11 +108,11 @@ class TestGroupLoader:
         assert len(unchanged) == 1
 
     def test_upsert_group(
-        self, cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_config, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_config, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=True
         )
         cmd = DeployCommand(print_warning=False)
 
@@ -201,3 +201,45 @@ class TestGroupLoader:
         actual_dependent_items = GroupLoader.get_dependent_items(item)
 
         assert list(actual_dependent_items) == expected
+
+    def test_unchanged_new_group_without_metadata(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+    ) -> None:
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        local_group = GroupWrite.load("""name: gp_no_metadata
+sourceId: 123
+capabilities:
+- assetsAcl:
+    actions:
+    - READ
+    scope:
+      all: {}
+""")
+        cdf_group = Group.load("""name: gp_no_metadata
+sourceId: 123
+capabilities:
+- assetsAcl:
+    actions:
+    - READ
+    scope:
+      all: {}
+metadata: {}
+id: 3760258445038144
+isDeleted: false
+deletedTime: -1
+""")
+
+        # Simulate that one group is is already in CDF
+        toolkit_client_approval.append(
+            Group,
+            [cdf_group],
+        )
+        cmd = DeployCommand(print_warning=False)
+        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
+            GroupWriteList([local_group]),
+            loader,
+        )
+
+        assert len(to_create) == 0
+        assert len(to_change) == 0
+        assert len(unchanged) == 1

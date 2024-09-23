@@ -7,9 +7,9 @@ from pathlib import Path
 
 from packaging.version import Version
 from packaging.version import parse as parse_version
+from rich import print
 
-from cognite_toolkit._cdf_tk.constants import COGNITE_MODULES
-from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
 
@@ -40,36 +40,276 @@ class ManualChange(Change):
     def instructions(self, files: set[Path]) -> str:
         return ""
 
+class NodeAPICallParametersNoLongerSupported(AutomaticChange):
+    """Setting API call parameters in the 'node' section of the config files is no longer supported.
 
-class SystemYAMLMoved(AutomaticChange):
-    """The _system.yaml file is now expected to in the root of the project.
-Before it was expected to be in the cognite_modules folder.
-This change moves the file to the root of the project.
+This is now handled correctly by the CDF Toolkit and should be removed from the config files.
 
-Before:
-```bash
-    my_project/
-        cognite_modules/
-            _system.yaml
+For example, in data_models/my_node.node.yaml, before:
+```yaml
+replace: true
+nodes:
+ - space: node_space
+   externalId: default_infield_config_minimal
 ```
 After:
-```bash
-    my_project/
-        _system.yaml
+```yaml
+- space: node_space
+  externalId: default_infield_config_minimal
 ```
     """
 
-    deprecated_from = Version("0.2.0a3")
-    required_from = Version("0.2.0a3")
+    deprecated_from = Version("0.3.0b1")
+    required_from = Version("0.3.0b1")
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir / COGNITE_MODULES / "_system.yaml"
-        if not system_yaml.exists():
+        from cognite_toolkit._cdf_tk.utils import resource_folder_from_path
+
+        api_call_parameters = {
+            "skipOnVersionConflict", "replace", "autoCreateDirectRelations"
+        }
+
+        changed: set[Path] = set()
+        resource_yaml: Path
+        for resource_yaml in self._organization_dir.rglob("*.yaml"):
+            try:
+                resource_folder = resource_folder_from_path(resource_yaml)
+            except ValueError:
+                continue
+            if resource_folder == "data_models" and resource_yaml.stem.casefold().endswith("node"):
+                content = safe_read(resource_yaml)
+                has_api_call_parameters = False
+                new_content:  list[str] = []
+                indent: int | None = None
+                for line in content.splitlines():
+                    if any(line.startswith(parameter) for parameter in api_call_parameters):
+                        has_api_call_parameters = True
+                        continue
+                    if (line.startswith("nodes:") or line.startswith("node:")) and has_api_call_parameters:
+                        continue
+                    if has_api_call_parameters and indent is None:
+                        indent = len(line) - len(line.lstrip())
+                    if has_api_call_parameters and indent is not None:
+                        line = line[indent:]
+                    new_content.append(line)
+                if has_api_call_parameters:
+                    changed.add(resource_yaml)
+                    resource_yaml.write_text("\n".join(new_content))
+
+        return changed
+
+
+class ResourceFolderTimeSeriesDatapointsRemoved(AutomaticChange):
+    """The resource folder 'timeseries_datapoints' have been removed.
+
+The `csv` and `parquet` files that were previously stored in the `timeseries_datapoints` folder
+should be moved to the `timeseries` folder.
+
+Before:
+```bash
+    my_module/
+       timeseries_datapoints/
+          my_datapoints.Datapoints.csv
+```
+After:
+```bash
+    my_module/
+       timeseries/
+          my_datapoints.Datapoints.csv
+```
+    """
+
+    deprecated_from = Version("0.3.0a7")
+    required_from = Version("0.3.0a7")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "timeseries_datapoints":
+                    (module / "timeseries").mkdir(exist_ok=True)
+                    for filepath in resource_dir.rglob("*"):
+                        target = module / "timeseries" / filepath.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
+                        if target.exists():
+                            print(f'  [bold red]ERROR ([/][red] Cannot move file [/][bold red]{filepath}[/][red] to [/][bold red]{target}[/][red]): File already exists')
+                            continue
+                        filepath.rename(target)
+                        changed.add(target)
+        return changed
+
+
+class AuthVerifySplit(AutomaticChange):
+    """The `cdf auth verify` has been split into `cdf auth init` and `cdf auth verify`.
+
+The `cdf auth init` command initializes the authorization for a user/service principal to run the CDF Toolkit commands,
+it will by default also verify the capabilities after the initialization. Thus it replaces the `cdf auth verify` command.
+In addition, the `cdf auth verify` command will only verify the capabilities without initializing the authorization.
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
+class DeployCleanInteractiveFlagRemoved(AutomaticChange):
+    """The `--interactive` flag has been removed from the `cdf deploy` and `cdf clean` commands.
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
+class SharedVerboseFlagRemoved(AutomaticChange):
+    """The shared `--verbose` flag been removed. Now each command has its own `--verbose` flag.
+
+For example, before:
+```bash
+    cdf --verbose deploy
+```
+
+After:
+```bash
+    cdf deploy --verbose
+```
+    """
+
+    deprecated_from = Version("0.3.0a4")
+    required_from = Version("0.3.0a4")
+    has_file_changes = False
+
+
+class RenamedOrganizationDirInCDFToml(AutomaticChange):
+    """In the cdf.toml file, the 'organization_dir' field in the 'cdf' section has been renamed to
+'default_organization_dir'.
+
+In cdf.toml, before:
+```toml
+[cdf]
+organization_dir = "my_organization"
+```
+After:
+```toml
+[cdf]
+default_organization_dir = "my_organization"
+```
+"""
+
+    deprecated_from = Version("0.3.0a3")
+    required_from = Version("0.3.0a3")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
             return set()
-        new_system_yaml = self._organization_dir / "_system.yaml"
-        system_yaml.rename(new_system_yaml)
-        return {system_yaml}
+        raw = safe_read(cdf_toml)
+        new_cdf_toml = []
+        changes: set[Path] = set()
+        # We do not parse the TOML file to avoid removing comments
+        is_after_cdf_section=False
+        for line in raw.splitlines():
+            if line.startswith("[cdf]"):
+                is_after_cdf_section = True
+            if line.startswith("organization_dir = ") and is_after_cdf_section:
+                new_line = line.replace("organization_dir", "default_organization_dir")
+                new_cdf_toml.append(new_line)
+                if new_line != line:
+                    changes.add(cdf_toml)
+            else:
+                new_cdf_toml.append(line)
+        cdf_toml.write_text("\n".join(new_cdf_toml))
+        return changes
+
+
+class InitCommandReplaced(AutomaticChange):
+    """The `cdf-tk init` has been replaced by `cdf repo init` and `cdf modules init`.
+
+The `cdf repo init` command initializer the current directory with config and git files such as .gitignore.
+The `cdf modules init` has an interactive prompt for the user to select the modules to include.
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = False
+
+
+class SystemYAMLReplaced(AutomaticChange):
+    """The _system.yaml file is now replaced by cdf.toml in the cwd of the project.
+
+Before:
+```bash
+    my_organization/
+        _system.yaml
+```
+After:
+```bash
+    cdf.toml
+    my_organization/
+```
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        # Avoid circular import
+        from .modules import ModulesCommand
+
+        system_yaml = self._organization_dir / "_system.yaml"
+        if not system_yaml.exists():
+            system_yaml = self._organization_dir / "cognite_modules" / "_system.yaml"
+            if not system_yaml.exists():
+                return set()
+        content = read_yaml_file(system_yaml)
+        current_version = content.get("cdf_toolkit_version", __version__)
+
+        cdf_toml_content = ModulesCommand(skip_tracking=True).create_cdf_toml(self._organization_dir)
+        cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
+
+        cdf_toml_path = Path.cwd() / "cdf.toml"
+        cdf_toml_path.write_text(cdf_toml_content)
+        system_yaml.unlink()
+        return {cdf_toml_path, system_yaml}
+
+
+class ResourceFolderLabelsRenamed(AutomaticChange):
+    """The resource folder 'labels' have been renamed to 'classic'.
+
+Before:
+```bash
+    my_module/
+       labels/
+          my_labels.Label.yaml
+```
+After:
+```bash
+    my_module/
+       classic/
+          my_labels.Label.yaml
+```
+    """
+
+    deprecated_from = Version("0.3.0a1")
+    required_from = Version("0.3.0a1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for module, source_files in iterate_modules(self._organization_dir):
+            for resource_dir in module.iterdir():
+                if resource_dir.name == "labels":
+                    (module / "classic").mkdir(exist_ok=True)
+                    for files in resource_dir.rglob("*"):
+                        target = module / "classic" / files.relative_to(resource_dir)
+                        target.parent.mkdir(exist_ok=True, parents=True)
+                        files.rename(target)
+                        changed.add(target)
+        return changed
 
 
 class RenamedModulesSection(AutomaticChange):
@@ -301,36 +541,41 @@ class UpdateModuleVersion(AutomaticChange):
     has_file_changes = True
 
     def do(self) -> set[Path]:
-        system_yaml = self._organization_dir / "_system.yaml"
-        if not system_yaml.exists():
+        cdf_toml = Path.cwd() / "cdf.toml"
+        if not cdf_toml.exists():
             return set()
-        raw = safe_read(system_yaml)
-        new_system_yaml = []
+        raw = safe_read(cdf_toml)
+        new_cdf_toml = []
         changes: set[Path] = set()
-        # We do not parse the YAML file to avoid removing comments
+        # We do not parse the TOML file to avoid removing comments
+        is_after_module_section=False
         for line in raw.splitlines():
-            if line.startswith("cdf_toolkit_version:"):
-                new_line = f"cdf_toolkit_version: {__version__}"
-                new_system_yaml.append(new_line)
+            if line.startswith("[modules]"):
+                is_after_module_section = True
+            if line.startswith("version = ") and is_after_module_section:
+                new_line = f'version = "{__version__}"'
+                new_cdf_toml.append(new_line)
                 if new_line != line:
-                    changes.add(system_yaml)
+                    changes.add(cdf_toml)
             else:
-                new_system_yaml.append(line)
-        system_yaml.write_text("\n".join(new_system_yaml))
+                new_cdf_toml.append(line)
+        cdf_toml.write_text("\n".join(new_cdf_toml))
         return changes
 
 
-UPDATE_MODULE_VERSION_DOCSTRING = """In the _system.yaml file, the 'cdf_toolkit_version' field has been updated to the same version as the CLI.
+UPDATE_MODULE_VERSION_DOCSTRING = """In the cdf.toml file, the 'version' field in the 'module' section has been updated to the same version as the CLI.
 
-This change updated the 'cdf_toolkit_version' field in the _system.yaml file to the same version as the CLI.
+This change updated the 'version' field in the cdf.toml file to the same version as the CLI.
 
-In _system.yaml, before:
-```yaml
-cdf_toolkit_version: {module_version}
+In cdf.toml, before:
+```toml
+[modules]
+version = "{module_version}"
 ```
 After:
-```yaml
-cdf_toolkit_version: {cli_version}
+```toml
+[modules]
+version = "{cli_version}"
 ```
     """
 UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING

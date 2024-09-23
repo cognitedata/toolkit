@@ -51,6 +51,15 @@ class LocationFilterDataModel(CogniteObject):
 class LocationFilterView(ViewId):
     represents_entity: Literal["MAINTENANCE_ORDER", "OPERATION", "NOTIFICATION", "ASSET"] | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            space=resource["space"],
+            version=resource["version"],
+            represents_entity=resource.get("representsEntity"),
+        )
+
 
 @dataclass
 class AssetCentricSubFilter(CogniteObject):
@@ -159,7 +168,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         output = super().dump(camel_case)
         if self.data_models:
             output["dataModels" if camel_case else "data_models"] = [
-                data_model.dump(camel_case) for data_model in self.data_models
+                data_model.dump(camel_case, include_type=False) for data_model in self.data_models
             ]
         if self.scene:
             output["scene"] = self.scene.dump(camel_case)
@@ -180,7 +189,7 @@ class LocationFilterWrite(LocationFilterCore):
         asset_centric = (
             AssetCentricFilter.load(resource.get("assetCentric", {})) if resource.get("assetCentric") else None
         )
-        views = LocationFilterView.load(resource.get("views", {})) if resource.get("views") else None
+        views = LocationFilterView._load(resource.get("views", {})) if resource.get("views") else None
         return cls(
             external_id=resource["externalId"],
             name=resource["name"],
@@ -241,11 +250,13 @@ class LocationFilter(LocationFilterCore):
             name=resource["name"],
             parent_id=resource.get("parentId"),
             description=resource.get("description"),
-            data_models=resource.get("dataModels"),
+            data_models=[DataModelId.load(item) for item in resource["dataModels"]]
+            if "dataModels" in resource
+            else None,
             instance_spaces=resource.get("instanceSpaces"),
-            scene=resource.get("scene"),
-            asset_centric=resource.get("assetCentric"),
-            views=resource.get("views"),
+            scene=LocationFilterScene._load(resource["scene"]) if "scene" in resource else None,
+            asset_centric=AssetCentricFilter._load(resource["assetCentric"]) if "assetCentric" in resource else None,
+            views=LocationFilterView._load(resource["views"]) if "views" in resource else None,
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
         )

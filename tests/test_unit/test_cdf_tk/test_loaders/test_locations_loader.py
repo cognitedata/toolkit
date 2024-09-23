@@ -17,10 +17,10 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 @pytest.fixture
-def exhaustive_filter(cdf_tool_config: CDFToolConfig) -> LocationFilterWrite:
-    loader = LocationFilterLoader.create_loader(cdf_tool_config, None)
+def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
+    loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
     loaded = loader.load_resource(
-        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_config, skip_validation=False
+        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock, skip_validation=False
     )
     assert len(loaded) == 1
     return loaded[0]

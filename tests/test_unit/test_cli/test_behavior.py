@@ -10,7 +10,7 @@ from cognite.client.data_classes import GroupWrite, Transformation, Transformati
 from pytest import MonkeyPatch
 from typer import Context
 
-from cognite_toolkit._cdf import build, deploy, dump_datamodel_cmd, pull_transformation_cmd
+from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
@@ -26,17 +26,16 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
 
-@pytest.mark.usefixtures("cdf_toml")
 def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project: Path,
+    organization_dir: Path,
 ) -> None:
-    config_yaml = yaml.safe_load((init_project / "config.dev.yaml").read_text())
-    config_yaml["variables"]["cognite_modules"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
+    config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
+    config_yaml["variables"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected"] = ["cdf_infield_location"]
     config_yaml["environment"]["project"] = "pytest"
@@ -47,19 +46,19 @@ def test_inject_custom_environmental_variables(
         monkeypatch,
     )
     monkeypatch.setenv("MY_ENVIRONMENT_VARIABLE", "my_environment_variable_value")
-
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(init_project),
-        build_dir=str(build_tmp_path),
+        organization_dir=organization_dir,
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
-    deploy(
+    app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
-        interactive=False,
         drop=True,
         dry_run=False,
         include=[],
@@ -84,30 +83,29 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     l1, l2, l3, l4, l5 = map(str.strip, str(err.value).splitlines())
     assert l1 == "Ambiguous module selected in config.dev.yaml:"
     assert l2 == "module1 exists in:"
-    assert l3 == "cognite_modules/examples/module1"
-    assert l4 == "cognite_modules/models/module1"
+    assert l3 == "modules/examples/module1"
+    assert l4 == "modules/models/module1"
     assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
 
 
-@pytest.mark.usefixtures("cdf_toml_mutable")
 def test_pull_transformation(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
-    init_project_mutable: Path,
+    organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
     transformation_yaml = (
-        init_project_mutable
-        / "cognite_modules"
+        organization_dir_mutable
+        / "modules"
         / "examples"
-        / "example_pump_asset_hierarchy"
+        / "cdf_example_pump_asset_hierarchy"
         / "transformations"
         / "pump_asset_hierarchy-load-collections_pump.yaml"
     )
-    loader = TransformationLoader.create_loader(cdf_tool_config, None)
+    loader = TransformationLoader.create_loader(cdf_tool_mock, None)
 
     def load_transformation() -> TransformationWrite:
         # Injecting variables into the transformation file, so we can load it.
@@ -121,7 +119,7 @@ def test_pull_transformation(
         content = content.replace("{{cicd_audience}}", "123")
         transformation_yaml.write_text(content)
 
-        transformation = loader.load_resource(transformation_yaml, cdf_tool_config, skip_validation=True)
+        transformation = loader.load_resource(transformation_yaml, cdf_tool_mock, skip_validation=True)
         # Write back original content
         transformation_yaml.write_text(original)
         return cast(TransformationWrite, transformation)
@@ -133,9 +131,10 @@ def test_pull_transformation(
     read_transformation = Transformation.load(loaded.dump())
     toolkit_client_approval.append(Transformation, read_transformation)
 
-    pull_transformation_cmd(
+    app = PullApp()
+    app.pull_transformation_cmd(
         typer_context,
-        organization_dir=init_project_mutable,
+        organization_dir=organization_dir_mutable,
         external_id=read_transformation.external_id,
         env="dev",
         dry_run=False,
@@ -149,7 +148,7 @@ def test_pull_transformation(
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_config: CDFToolConfig,
+    cdf_tool_mock: CDFToolConfig,
     typer_context: typer.Context,
 ) -> None:
     # Create a datamodel and append it to the approval client
@@ -239,14 +238,12 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.Container, container)
     toolkit_client_approval.append(dm.View, view)
     toolkit_client_approval.append(dm.DataModel, data_model)
-
-    dump_datamodel_cmd(
+    app = DumpApp()
+    app.dump_datamodel_cmd(
         typer_context,
-        space="my_space",
-        external_id="my_data_model",
-        version="1",
+        data_model_id=["my_space", "my_data_model", "1"],
         clean=True,
-        output_dir=str(build_tmp_path),
+        output_dir=build_tmp_path,
     )
 
     assert len(list(build_tmp_path.glob("**/*.datamodel.yaml"))) == 1
@@ -274,10 +271,12 @@ def test_build_custom_project(
         "transformations",
         "robotics",
     }
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
-        build_dir=str(build_tmp_path),
+        organization_dir=PROJECT_NO_COGNITE_MODULES,
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -296,10 +295,12 @@ def test_build_project_selecting_parent_path(
     typer_context: Context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_FOR_TEST),
-        build_dir=str(build_tmp_path),
+        organization_dir=PROJECT_FOR_TEST,
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="dev",
         no_clean=False,
     )
@@ -317,11 +318,11 @@ def test_deploy_group_with_unknown_acl(
     typer_context: Context,
     toolkit_client_approval: ApprovalToolkitClient,
 ) -> None:
-    deploy(
+    app = CoreApp()
+    app.deploy(
         typer_context,
-        build_dir=str(BUILD_GROUP_WITH_UNKNOWN_ACL),
+        build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
-        interactive=False,
         drop=False,
         dry_run=False,
         include=None,
@@ -345,10 +346,12 @@ def test_build_project_with_only_top_level_variables(
     build_tmp_path: Path,
     typer_context: typer.Context,
 ) -> None:
-    build(
+    app = CoreApp()
+    app.build(
         typer_context,
-        organization_dir=str(PROJECT_NO_COGNITE_MODULES),
-        build_dir=str(build_tmp_path),
+        organization_dir=PROJECT_NO_COGNITE_MODULES,
+        build_dir=build_tmp_path,
+        selected=None,
         build_env_name="top_level_variables",
         no_clean=False,
     )

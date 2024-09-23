@@ -99,12 +99,13 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationWriteList) -> Capability | list[Capability]:
-        if not items:
+    def get_required_capability(cls, items: TransformationWriteList | None) -> Capability | list[Capability]:
+        if not items and items is not None:
             return []
-        data_set_ids = {item.data_set_id for item in items if item.data_set_id}
-
-        scope = TransformationsAcl.Scope.DataSet(list(data_set_ids)) if data_set_ids else TransformationsAcl.Scope.All()
+        scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
+        if items is not None:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
         return TransformationsAcl(
             [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
@@ -266,7 +267,7 @@ class TransformationLoader(
         return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: TransformationWriteList) -> TransformationList:
-        return self.client.transformations.update(items)
+        return self.client.transformations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.retrieve(ids).as_external_ids()
@@ -340,7 +341,7 @@ class TransformationScheduleLoader(
         return "transformation.schedules"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationScheduleWriteList) -> list[Capability]:
+    def get_required_capability(cls, items: TransformationScheduleWriteList | None) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
@@ -386,7 +387,7 @@ class TransformationScheduleLoader(
         return self.client.transformations.schedules.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: TransformationScheduleWriteList) -> TransformationScheduleList:
-        return self.client.transformations.schedules.update(items)
+        return self.client.transformations.schedules.update(items, mode="replace")
 
     def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
         try:
@@ -446,7 +447,9 @@ class TransformationNotificationLoader(
         }
 
     @classmethod
-    def get_required_capability(cls, items: TransformationNotificationWriteList) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: TransformationNotificationWriteList | None
+    ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []

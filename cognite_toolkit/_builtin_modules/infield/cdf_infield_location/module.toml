@@ -1,0 +1,8 @@
+[module]
+title = "InField Location"
+
+[packages]
+tags = [
+    "infield",
+    "quickstart"
+]

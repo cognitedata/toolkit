@@ -1,0 +1,12 @@
+name: mySequence
+description: A sequence of numbers
+externalId: mySequence
+columns:
+  - name: Time
+    type: DOUBLE
+    description: Epoch time
+    externalId: mySequenceTime
+  - name: value
+    type: DOUBLE
+    description: The value of the sequence
+    externalId: mySequenceValue

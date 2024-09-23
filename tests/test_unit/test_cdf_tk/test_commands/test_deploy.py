@@ -9,16 +9,14 @@ from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
 class TestDeployCommand:
-    def test_load_files(self, cdf_tool_config: CDFToolConfig) -> None:
+    def test_load_files(self, cdf_tool_mock: CDFToolConfig) -> None:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
         path.read_text.return_value = VIEW_SOURCE_NONE
         cmd = DeployCommand(print_warning=False, skip_tracking=True)
 
         with pytest.raises(TypeError) as e:
-            cmd._load_files(
-                ViewLoader.create_loader(cdf_tool_config, None), [path], cdf_tool_config, skip_validation=True
-            )
+            cmd._load_files(ViewLoader.create_loader(cdf_tool_mock, None), [path], cdf_tool_mock, skip_validation=True)
 
         assert e.value
 

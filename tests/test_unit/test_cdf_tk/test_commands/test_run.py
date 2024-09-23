@@ -35,11 +35,11 @@ def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
     assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
 
 
-def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
+def test_run_function(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
     function = Function(
         id=1234567890,
-        name="test2",
-        external_id="fn_test2",
+        name="test3",
+        external_id="fn_test3",
         description="Returns the input data, secrets, and function info.",
         owner="pytest",
         status="RUNNING",
@@ -57,24 +57,24 @@ def test_run_function(cdf_tool_config: CDFToolConfig, toolkit_client_approval: A
     cmd = RunFunctionCommand()
 
     cmd.run_cdf(
-        cdf_tool_config,
+        cdf_tool_mock,
         organization_dir=RUN_DATA,
         build_env_name="dev",
-        external_id="fn_test2",
+        external_id="fn_test3",
         schedule="daily-8pm-utc",
         wait=False,
     )
     assert toolkit_client_approval.mock_client.functions.call.called
 
 
-def test_run_local_function(cdf_tool_config: CDFToolConfig) -> None:
+def test_run_local_function(cdf_tool_mock: CDFToolConfig) -> None:
     cmd = RunFunctionCommand()
 
     cmd.run_local(
-        ToolGlobals=cdf_tool_config,
+        ToolGlobals=cdf_tool_mock,
         organization_dir=RUN_DATA,
         build_env_name="dev",
-        external_id="fn_test2",
+        external_id="fn_test3",
         schedule="daily-8pm-utc",
         rebuild_env=False,
     )

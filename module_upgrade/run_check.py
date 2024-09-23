@@ -1,4 +1,6 @@
+# ruff: noqa: E402
 import contextlib
+import logging
 import os
 import platform
 import shutil
@@ -6,8 +8,21 @@ import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
+
+from cognite.client.config import global_config
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
+
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+
+# Hack to make the script work as running cdf modules upgrade
+original_argv = sys.argv
+sys.argv = ["cdf", "modules", "upgrade"]
 
 import yaml
 from dotenv import load_dotenv
@@ -17,8 +32,8 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._changes import ManualChange
-from cognite_toolkit._cdf_tk.commands.modules import CLICommands
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
@@ -28,9 +43,20 @@ TEST_DIR_ROOT = Path(__file__).resolve().parent
 PROJECT_INIT_DIR = TEST_DIR_ROOT / "project_inits"
 PROJECT_INIT_DIR.mkdir(exist_ok=True)
 
+TODAY = date.today()
+
+logging.basicConfig(
+    filename=f"module_upgrade_{TODAY.strftime('%Y-%m-%d')}.log",
+    filemode="w",
+    format="%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s",
+    datefmt="%H:%M:%S",
+    level=logging.INFO,
+)
+
 
 def run() -> None:
-    only_first = len(sys.argv) > 1 and sys.argv[1] == "--only-first"
+    only_earliest = len(original_argv) > 1 and original_argv[1] == "--earliest"
+    only_latest = len(original_argv) > 1 and original_argv[1] == "--latest"
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
     for version in versions:
@@ -51,8 +77,10 @@ def run() -> None:
             title="cdf-tk module upgrade",
         )
     )
-    if only_first:
+    if only_earliest:
         versions = versions[-1:]
+    elif only_latest:
+        versions = versions[:1]
     for version in versions:
         with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
             run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
@@ -114,22 +142,36 @@ def create_project_init(version: str) -> None:
     else:
         old_version_script_dir = Path(f"{environment_directory}/bin/")
     with chdir(TEST_DIR_ROOT):
-        cmd = [
-            str(old_version_script_dir / "cdf-tk"),
-            "init",
-            f"{PROJECT_INIT_DIR.name}/{project_init.name}",
-            "--clean",
-        ]
+        version_parsed = parse_version(version)
+        if version_parsed >= parse_version("0.3.0a1"):
+            cmd = [
+                str(old_version_script_dir / "cdf"),
+                "modules",
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+                "--clean",
+                "--all",
+            ]
+        else:
+            cmd = [
+                str(old_version_script_dir / "cdf-tk"),
+                "init",
+                f"{PROJECT_INIT_DIR.name}/{project_init.name}",
+            ]
+
         output = subprocess.run(
             cmd,
             capture_output=True,
             shell=True if platform.system() == "Windows" else False,
             env=modified_env_variables,
         )
-
         if output.returncode != 0:
             print(output.stderr.decode())
             raise ValueError(f"Failed to create project init for version {version}.")
+
+        cdf_toml_path = TEST_DIR_ROOT / CDFToml.file_name
+        if cdf_toml_path.exists():
+            shutil.move(cdf_toml_path, project_init / CDFToml.file_name)
 
     print(f"Project init for version {version} created.")
     with chdir(TEST_DIR_ROOT):
@@ -139,16 +181,23 @@ def create_project_init(version: str) -> None:
 def run_modules_upgrade(
     previous_version: Version, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
 ) -> None:
+    if (TEST_DIR_ROOT / CDFToml.file_name).exists():
+        # Cleanup after previous run
+        (TEST_DIR_ROOT / CDFToml.file_name).unlink()
+
     project_init = PROJECT_INIT_DIR / f"project_{previous_version!s}"
     # Copy the project to a temporary location as the upgrade command modifies the project.
     shutil.copytree(project_init, project_path, dirs_exist_ok=True)
+    if previous_version >= parse_version("0.3.0a1"):
+        # Move out the CDF.toml file to use
+        shutil.move(project_path / CDFToml.file_name, TEST_DIR_ROOT / CDFToml.file_name)
 
     with chdir(TEST_DIR_ROOT):
         modules = ModulesCommand(print_warning=False)
         # This is to allow running the function with having uncommitted changes in the repository.
         with patch.object(CLICommands, "has_uncommitted_changes", lambda: False):
             changes = modules.upgrade(project_path)
-
+        logging.info(f"Changes for version {previous_version!s} to {__version__}: {len(changes)}")
         delete_modules_requiring_manual_changes(changes)
 
         # Update the config file to run include all modules.
@@ -164,15 +213,16 @@ def run_modules_upgrade(
                 / "data_models"
                 / "4.Pump.view.yaml"
             )
-            pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
+            if pump_view.exists():
+                pump_view.write_text(pump_view.read_text().replace("external_id", "externalId"))
 
         build = BuildCommand(print_warning=False)
-        build.execute(False, project_path, build_path, build_env_name="dev", no_clean=False)
+        build.execute(False, project_path, build_path, selected=None, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
             cdf_tool_config,
-            str(build_path),
+            build_path,
             build_env_name="dev",
             dry_run=True,
             drop=False,
@@ -188,6 +238,7 @@ def run_modules_upgrade(
             style="green",
         )
     )
+    logging.info(f"Module upgrade for version {previous_version!s} to {__version__} completed successfully.")
 
 
 def delete_modules_requiring_manual_changes(changes):

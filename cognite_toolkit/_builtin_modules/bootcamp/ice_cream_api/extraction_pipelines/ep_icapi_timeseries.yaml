@@ -1,0 +1,5 @@
+externalId: ep_icapi_timeseries
+name: Ice Cream API Time Series
+description: Time Series source extraction pipeline for the Ice Cream API
+source: Ice Cream API
+dataSetExternalId: {{ icapi_ds_external_id }}

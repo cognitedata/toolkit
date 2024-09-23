@@ -18,27 +18,37 @@ class ModulesApp(typer.Typer):
         self.command()(self.init)
         self.command()(self.upgrade)
         self.command()(self.list)
+        self.command()(self.add)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands to manage modules"""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf-tk modules --help[/] for more information.")
+            print("Use [bold yellow]cdf modules --help[/] for more information.")
 
     def init(
         self,
         organization_dir: Annotated[
-            Optional[str],
+            Optional[Path],
             typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
         ] = None,
-        arg_package: Annotated[
-            Optional[str],
+        all: Annotated[
+            bool,
             typer.Option(
-                "--package",
-                help="Name of package to include",
+                "--all",
+                "-a",
+                help="Copy all available templates.",
             ),
-        ] = None,
+        ] = False,
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-a",
+                help="Clean target directory if it exists",
+            ),
+        ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
@@ -46,7 +56,8 @@ class ModulesApp(typer.Typer):
         cmd.run(
             lambda: cmd.init(
                 organization_dir=organization_dir,
-                arg_package=arg_package,
+                select_all=all,
+                clean=clean,
             )
         )
 
@@ -54,27 +65,53 @@ class ModulesApp(typer.Typer):
         self,
         organization_dir: Annotated[
             Path,
-            typer.Argument(
-                help="Directory path to project to upgrade with templates. Defaults to current directory.",
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Print details of each change applied in the upgrade process.",
+            ),
+        ] = False,
     ) -> None:
         cmd = ModulesCommand()
-        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir))
+        cmd.run(lambda: cmd.upgrade(organization_dir=organization_dir, verbose=verbose))
 
     # This is a trick to use an f-string for the docstring
     upgrade.__doc__ = f"""Upgrade the existing CDF project modules to version {__version__}."""
+
+    def add(
+        self,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Path to project directory with the modules. This is used to search for available functions.",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+    ) -> None:
+        cmd = ModulesCommand()
+        cmd.run(lambda: cmd.add(organization_dir=organization_dir))
 
     def list(
         self,
         organization_dir: Annotated[
             Path,
-            typer.Argument(
-                help="Directory path to organization to list modules.",
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
             ),
-        ] = CDF_TOML.cdf.organization_dir,
+        ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
-            str,
+            Optional[str],
             typer.Option(
                 "--env",
                 help="Build environment to use.",

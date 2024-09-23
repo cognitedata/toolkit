@@ -13,7 +13,10 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILD_ENVIRONMENT_FILE,
+)
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
 )
@@ -23,10 +26,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
-    UploadFileError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     DataLoader,
     DeployResults,
     Loader,
@@ -62,7 +63,7 @@ class DeployCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        build_dir_raw: str,
+        build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         drop: bool,
@@ -70,8 +71,6 @@ class DeployCommand(ToolkitCommand):
         include: list[str],
         verbose: bool,
     ) -> None:
-        # Override cluster and project from the options/env variables
-        build_dir: Path = Path(build_dir_raw)
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
@@ -83,30 +82,34 @@ class DeployCommand(ToolkitCommand):
                 "Did you forget to run `cdf-tk build` first?"
             )
 
-        build_ = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
+        deploy_state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
 
-        build_.set_environment_variables()
+        deploy_state.set_environment_variables()
 
-        errors = build_.check_source_files_changed()
+        errors = deploy_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-
-        print(Panel(f"[bold]Deploying config files from {build_dir} to environment {build_.name}...[/]", expand=False))
-
+        environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            print(ToolGlobals.as_string())
+            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
 
-        selected_loaders = {
-            loader_cls: loader_cls.dependencies
-            for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items()
-            if folder_name in include and (build_dir / folder_name).is_dir()
-            for loader_cls in loader_classes
-            if loader_cls.any_supported_files(build_dir / folder_name)
-        }
+        action = ""
+        if dry_run:
+            action = "(dry-run) "
+
+        print(
+            Panel(
+                f"[bold]Deploying {action}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                expand=False,
+            )
+        )
+
+        selected_loaders = self._clean_command.get_selected_loaders(build_dir, include)
+
         results = DeployResults([], "deploy", dry_run=dry_run)
 
         ordered_loaders: list[type[Loader]] = []
@@ -150,11 +153,13 @@ class DeployCommand(ToolkitCommand):
 
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
+
         for loader_cls in ordered_loaders:
             loader_instance = loader_cls.create_loader(ToolGlobals, build_dir)
             result = self.deploy_resources(
                 loader_instance,
                 ToolGlobals=ToolGlobals,
+                state=deploy_state,
                 dry_run=dry_run,
                 has_done_drop=drop,
                 has_dropped_data=drop_data,
@@ -174,6 +179,7 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: Loader,
         ToolGlobals: CDFToolConfig,
+        state: BuildEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
@@ -182,7 +188,7 @@ class DeployCommand(ToolkitCommand):
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(loader, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
         elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, ToolGlobals, dry_run, verbose)
+            return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
         else:
             raise ValueError(f"Unsupported loader type {type(loader)}.")
 
@@ -297,9 +303,9 @@ class DeployCommand(ToolkitCommand):
         """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
         resource_ids = loader.get_ids(resources)
         to_create, to_update, unchanged = (
-            loader.create_empty_of(resources),
-            loader.create_empty_of(resources),
-            loader.create_empty_of(resources),
+            loader.list_write_cls([]),
+            loader.list_write_cls([]),
+            loader.list_write_cls([]),
         )
         try:
             cdf_resources = loader.retrieve(resource_ids)
@@ -411,26 +417,24 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: DataLoader,
         ToolGlobals: CDFToolConfig,
+        state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult:
-        filepaths = loader.find_files()
-
         prefix = "Would upload" if dry_run else "Uploading"
-        print(f"[bold]{prefix} {len(filepaths)} data {loader.display_name} files to CDF...[/]")
+        print(f"[bold]{prefix} {loader.display_name} files to CDF...[/]")
+
         datapoints = 0
-        for filepath in filepaths:
-            try:
-                message, file_datapoints = loader.upload(filepath, ToolGlobals, dry_run)
-            except Exception as e:
-                print(Panel(traceback.format_exc()))
-                raise UploadFileError(f"Failed to upload {filepath.name}. Error: {e!r}.") from e
+        file_counts = 0
+        for message, file_datapoints in loader.upload(state, ToolGlobals, dry_run):
             if verbose:
                 print(message)
             datapoints += file_datapoints
+            file_counts += 1
+
         if datapoints != 0:
             return DatapointDeployResult(
-                loader.display_name, points=datapoints, uploaded=len(filepaths), item_name=loader.item_name
+                loader.display_name, points=datapoints, uploaded=file_counts, item_name=loader.item_name
             )
         else:
-            return UploadDeployResult(loader.display_name, uploaded=len(filepaths), item_name=loader.item_name)
+            return UploadDeployResult(loader.display_name, uploaded=file_counts, item_name=loader.item_name)
