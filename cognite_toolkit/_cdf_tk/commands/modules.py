@@ -260,6 +260,8 @@ default_organization_dir = "{organization_dir.name}"''',
         selected = Packages()
 
         while True:
+            if "bootcamp" in selected:
+                break
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
 
