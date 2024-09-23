@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Dump for `Assets` and `TimeSeries` with `cdf dump asset` and `cdf dump timeseries` commands.
+
 ### Changed
 
 - The Toolkit no longer gives a warning if it cannot import Cognite Function code when executing the `cdf build`
@@ -24,6 +28,8 @@ Changes are grouped as follows:
   Validation of the function code is expected to be handled by `cdf run function local`.
 - [BREAKING] The resource folder `timeseries_datapoints` is removed and `csv` and `parquet` files with
   datapoints are now expected to be in the `timeseries` folder.
+- The dump of data models has changed interface, now the data model id is optionally given as positional instead
+  of flags. If now data model is given, the user will be prompted to select one.
 
 ### Removed
 
