@@ -28,6 +28,12 @@ Changes are grouped as follows:
 - CSV files in the `timeseries_datapoins` folder with the string `timeshift_` in the index will no longer
   be timeshifted to today when running `cdf build`
 
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added
