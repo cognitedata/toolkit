@@ -207,10 +207,6 @@ class ResourceLoader(
         return
         yield
 
-    @classmethod
-    def create_empty_of(cls, items: T_CogniteResourceList) -> T_CogniteResourceList:
-        return cls.list_write_cls([])
-
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:

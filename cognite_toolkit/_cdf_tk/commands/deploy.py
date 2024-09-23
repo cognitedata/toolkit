@@ -303,9 +303,9 @@ class DeployCommand(ToolkitCommand):
         """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
         resource_ids = loader.get_ids(resources)
         to_create, to_update, unchanged = (
-            loader.create_empty_of(resources),
-            loader.create_empty_of(resources),
-            loader.create_empty_of(resources),
+            loader.list_write_cls([]),
+            loader.list_write_cls([]),
+            loader.list_write_cls([]),
         )
         try:
             cdf_resources = loader.retrieve(resource_ids)
