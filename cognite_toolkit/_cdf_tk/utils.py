@@ -61,7 +61,13 @@ from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
-from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, BUILTIN_MODULES, ROOT_MODULES, URL
+from cognite_toolkit._cdf_tk.constants import (
+    _RUNNING_IN_BROWSER,
+    BUILTIN_MODULES,
+    ROOT_MODULES,
+    TOOLKIT_CLIENT_ID_ENTRA,
+    URL,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     AuthorizationError,
@@ -340,7 +346,7 @@ class AuthReader:
         elif login_flow == "interactive":
             auth_vars.client_id = self.prompt_user("client_id")
 
-        if login_flow in ("client_credentials", "interactive"):
+        if login_flow in ("client_credentials", "interactive", "device_code"):
             auth_vars.tenant_id = self.prompt_user("tenant_id")
             auth_vars.set_token_id_defaults()
 
@@ -349,6 +355,8 @@ class AuthReader:
             default_variables.extend(["scopes", "audience"])
         elif login_flow == "interactive":
             default_variables.extend(["scopes", "authority_url"])
+        elif login_flow == "device_code":
+            default_variables.append("oidc_discovery_url")
         print("The below variables are the defaults,")
         for field_name in default_variables:
             current_value = getattr(self.auth_vars, field_name)
@@ -532,23 +540,24 @@ class CDFToolConfig:
             # The user will then have to wait until the token has expired to retry with the correct scopes.
             # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
             # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
-            if not auth.client_id:
-                raise ValueError("IDP_CLIENT_ID is required for device code login.")
             if auth.tenant_id:
                 # For Entra, we have defaults for everything, even the app registration as we can use the CDF public app.
                 self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(
                     tenant_id=auth.tenant_id,
-                    client_id=auth.client_id,
+                    client_id=TOOLKIT_CLIENT_ID_ENTRA,
                     cdf_cluster=self._cluster,
                 )
             else:
                 if not auth.scopes:
                     raise ValueError("IDP_SCOPES is required for device code login.")
+                if not auth.client_id:
+                    raise ValueError("IDP_CLIENT_ID is required for device code login.")
+
                 self._credentials_provider = OAuthDeviceCode(
                     authority_url=None,
+                    cdf_cluster=auth.cluster,
                     oauth_discovery_url=auth.oidc_discovery_url,
                     client_id=auth.client_id,
-                    scopes=auth.scopes.split(),
                     audience=auth.audience,
                 )
         elif auth.login_flow == "interactive":
