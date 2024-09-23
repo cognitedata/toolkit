@@ -22,7 +22,6 @@ from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
-    DescribeCommand,
     FeatureFlagCommand,
     PullCommand,
 )
@@ -158,42 +157,6 @@ def collect(
     """Collect usage information for the toolkit."""
     cmd = CollectCommand()
     cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
-
-
-@describe_app.callback(invoke_without_command=True)
-def describe_main(ctx: typer.Context) -> None:
-    """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf describe --help[/] for more information.")
-    return None
-
-
-@describe_app.command("datamodel")
-def describe_datamodel_cmd(
-    ctx: typer.Context,
-    space: Annotated[
-        str,
-        typer.Option(
-            "--space",
-            "-s",
-            prompt=True,
-            help="Space where the data model to describe is located.",
-        ),
-    ],
-    data_model: Annotated[
-        Optional[str],
-        typer.Option(
-            "--datamodel",
-            "-d",
-            prompt=False,
-            help="Data model to describe. If not specified, the first data model found in the space will be described.",
-        ),
-    ] = None,
-) -> None:
-    """This command will describe the characteristics of a data model given the space
-    name and datamodel name."""
-    cmd = DescribeCommand()
-    cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
 @pull_app.callback(invoke_without_command=True)
