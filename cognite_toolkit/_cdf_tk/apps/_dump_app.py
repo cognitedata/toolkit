@@ -6,6 +6,7 @@ from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpCommand, DumpTimeSeriesCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
@@ -30,9 +31,9 @@ class DumpApp(typer.Typer):
             Optional[list[str]],
             typer.Argument(
                 help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
-                     "Note that version is optional and defaults to the latest published version. If nothing is provided,"
-                     "an interactive prompt will be shown to select the data model.",
-            )
+                "Note that version is optional and defaults to the latest published version. If nothing is provided,"
+                "an interactive prompt will be shown to select the data model.",
+            ),
         ] = None,
         output_dir: Annotated[
             Path,
@@ -61,14 +62,19 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-
-
+        selected_data_model: DataModelId | None = None
+        if data_model_id is not None:
+            if len(data_model_id) <= 2:
+                raise ToolkitRequiredValueError(
+                    "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
+                )
+            selected_data_model = DataModelId(*data_model_id)
 
         cmd = DumpCommand()
         cmd.run(
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
-                DataModelId(space, external_id, version),
+                selected_data_model,
                 output_dir,
                 clean,
                 verbose,
@@ -92,7 +98,7 @@ class DumpApp(typer.Typer):
                 "--data-set",
                 "-d",
                 help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted"
-                     "to select which assets to dump",
+                "to select which assets to dump",
             ),
         ] = None,
         format_: Annotated[
@@ -211,9 +217,8 @@ class DumpApp(typer.Typer):
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
                 data_set,
-                interactive,
                 output_dir,
-                clean_,
+                clean,
                 limit,
                 format_,  # type: ignore [arg-type]
                 verbose,

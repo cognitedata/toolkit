@@ -20,11 +20,16 @@ class DumpCommand(ToolkitCommand):
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
-        data_model_id: DataModelId | None,
+        selected_data_model: DataModelId | None,
         output_dir: Path,
         clean: bool,
         verbose: bool,
     ) -> None:
+        if selected_data_model is None:
+            data_model_id = self._interactive_select_data_model(ToolGlobals)
+        else:
+            data_model_id = selected_data_model
+
         print(f"Dumping {data_model_id} from project {ToolGlobals.project}...")
         print("Verifying access rights...")
         client = ToolGlobals.verify_authorization(
@@ -102,3 +107,6 @@ class DumpCommand(ToolkitCommand):
         data_model_file.write_text(data_model_write.dump_yaml())
 
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
+
+    def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig) -> DataModelId:
+        raise NotImplementedError()

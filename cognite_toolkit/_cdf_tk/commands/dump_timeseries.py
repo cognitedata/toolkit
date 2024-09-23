@@ -56,7 +56,6 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         data_set: list[str] | None,
-        interactive: bool,
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
@@ -71,8 +70,8 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-
-        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, interactive)
+        is_interactive = not data_set
+        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, is_interactive)
         if not data_sets:
             raise ToolkitValueError("No data set provided")
 
