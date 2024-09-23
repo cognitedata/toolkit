@@ -32,6 +32,12 @@ Changes are grouped as follows:
 - FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
   simplify the pattern.
 
+## [0.3.0a7] - 2024-09-18
+
+### Fixed
+
+- Running `cdf modules upgrade` no longer raises an error when upgrading from `0.2.x`.
+
 ## [0.3.0a6] - 2024-09-20
 
 ### Added

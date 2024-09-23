@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILD_ENVIRONMENT_FILE,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
-    DeployEnvironment,
+    BuildEnvironment,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -82,7 +82,7 @@ class DeployCommand(ToolkitCommand):
                 "Did you forget to run `cdf-tk build` first?"
             )
 
-        deploy_state = DeployEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
+        deploy_state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
 
         deploy_state.set_environment_variables()
 
@@ -179,7 +179,7 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: Loader,
         ToolGlobals: CDFToolConfig,
-        state: DeployEnvironment,
+        state: BuildEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
@@ -417,7 +417,7 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: DataLoader,
         ToolGlobals: CDFToolConfig,
-        state: DeployEnvironment,
+        state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> UploadDeployResult:

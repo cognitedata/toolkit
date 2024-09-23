@@ -15,7 +15,7 @@ from ._resource_loaders import FileMetadataLoader, RawTableLoader, TimeSeriesLoa
 from .data_classes import RawDatabaseTable
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import DeployedResource, DeployEnvironment
+    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource
 
 
 @final
@@ -31,11 +31,11 @@ class DatapointsLoader(DataLoader):
     def display_name(self) -> str:
         return "timeseries.datapoints"
 
-    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
-        if self.folder_name not in state.deployed_resources:
+    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+        if self.folder_name not in state.built_resources:
             return
 
-        resource_directories = state.deployed_resources[self.folder_name].get_resource_directories(self.folder_name)
+        resource_directories = state.built_resources[self.folder_name].get_resource_directories(self.folder_name)
 
         for resource_dir in resource_directories:
             for datafile in self._find_data_files(resource_dir):
@@ -84,11 +84,11 @@ class FileLoader(DataLoader):
     def display_name(self) -> str:
         return "file contents"
 
-    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
-        if self.folder_name not in state.deployed_resources:
+    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+        if self.folder_name not in state.built_resources:
             return
 
-        for resource in state.deployed_resources[self.folder_name]:
+        for resource in state.built_resources[self.folder_name]:
             if resource.destination is None:
                 continue
             if resource.kind != FileMetadataLoader.kind:
@@ -107,7 +107,7 @@ class FileLoader(DataLoader):
                 yield f" Uploaded file '{datafile!s}' to file with external_id={external_id!r}", 1
 
     @staticmethod
-    def _read_metadata(resource: DeployedResource, destination: Path) -> FileMetadataWrite:
+    def _read_metadata(resource: BuiltResource, destination: Path) -> FileMetadataWrite:
         identifier = cast(str, resource.identifier)
         built_content = read_yaml_content(safe_read(destination))
         if isinstance(built_content, dict):
@@ -135,11 +135,11 @@ class RawFileLoader(DataLoader):
     def display_name(self) -> str:
         return "raw.rows"
 
-    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
-        if self.folder_name not in state.deployed_resources:
+    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+        if self.folder_name not in state.built_resources:
             return
 
-        for resource in state.deployed_resources[self.folder_name]:
+        for resource in state.built_resources[self.folder_name]:
             if resource.kind != RawTableLoader.kind:
                 continue
             table = cast(RawDatabaseTable, resource.identifier)

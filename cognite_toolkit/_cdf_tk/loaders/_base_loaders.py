@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.constants import EXCL_FILES
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import DeployEnvironment
+    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 T_ID = TypeVar("T_ID", bound=Hashable)
 T_WritableCogniteResourceList = TypeVar("T_WritableCogniteResourceList", bound=WriteableCogniteResourceList)
@@ -331,7 +331,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, state: DeployEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
     def _find_data_files(self, directory: Path) -> list[Path]:
