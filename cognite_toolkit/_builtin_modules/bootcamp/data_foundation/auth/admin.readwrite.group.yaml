@@ -1,0 +1,128 @@
+name: 'gp_admin_read_write'
+sourceId: '{{readwrite_source_id}}'
+metadata:
+  origin: 'cdf-project-templates'
+capabilities:
+  - projectsAcl:
+      actions:
+        - LIST
+        - READ
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+        - READ
+        - WRITE
+        - LIST
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - datasetsAcl:
+      actions:
+        - READ
+        - WRITE
+        - OWNER
+      scope:
+        all: {}
+  - extractionPipelinesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - extractionRunsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - LIST
+        - CREATE
+        - DELETE
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - workflowOrchestrationAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+        - LIST
+        - MEMBEROF
+        - DELETE
+        - CREATE
+        - UPDATE
+      scope:
+        all: { }
+  - timeSeriesSubscriptionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
