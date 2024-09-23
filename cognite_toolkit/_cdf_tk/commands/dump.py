@@ -2,10 +2,12 @@ import itertools
 import shutil
 from pathlib import Path
 
+import questionary
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.capabilities import DataModelsAcl
 from cognite.client.data_classes.data_modeling import DataModelId
+from questionary import Choice
 from rich import print
 from rich.panel import Panel
 
@@ -109,4 +111,36 @@ class DumpCommand(ToolkitCommand):
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
 
     def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig) -> DataModelId:
-        raise NotImplementedError()
+        spaces = ToolGlobals.toolkit_client.data_modeling.spaces.list(limit=-1)
+        selected_space: str = questionary.select(
+            "In which space is your data model located?", [space.space for space in spaces]
+        ).ask()
+
+        data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
+            space=selected_space, all_versions=False, limit=-1
+        )
+
+        if not data_models:
+            raise ToolkitMissingResourceError(f"No data models found in space {selected_space}")
+
+        selected_data_model: DataModelId = questionary.select(
+            "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_models]
+        ).ask()
+
+        if not questionary.confirm(
+            f"Would you like to select a different version than {selected_data_model.version} of the data model",
+            default=False,
+        ).ask():
+            return selected_data_model
+
+        data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
+            space=selected_space, all_versions=True, limit=-1
+        )
+        data_model_versions = [
+            model.version
+            for model in data_models
+            if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
+        ]
+
+        selected_version = questionary.select("Which version would you like to dump?", data_model_versions).ask()
+        return DataModelId(selected_space, selected_data_model.external_id, selected_version)
