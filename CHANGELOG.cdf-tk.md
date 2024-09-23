@@ -42,6 +42,7 @@ Changes are grouped as follows:
 - [BREAKING] The command `cdf describe` is removed. This functionality was not used and thus removing it to simplify
   the Toolkit and to focus on the core functionality.
 - [BREAKING] Support for api parameters in `Node` resource is removed.
+- Support for Python 3.9.
 
 ## [0.3.0a7] - 2024-09-18
 
