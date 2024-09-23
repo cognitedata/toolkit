@@ -333,6 +333,8 @@ class ApprovalToolkitClient:
                         "timeSeriesCount": 10,  # Datapoint subscription
                         "updatedTime": 0,  # Robotics
                         "id": 42,  # LocationFilters
+                        "status": "connected",  # Hosted Extractor Job
+                        "targetStatus": "paused",  # Hosted Extractor Job
                         **c.dump(camel_case=True),
                     }
                     for c in created
