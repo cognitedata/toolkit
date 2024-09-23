@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any, Optional, Union
 
 import typer
 from cognite.client.data_classes.data_modeling import DataModelId
@@ -62,7 +62,7 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
-        selected_data_model: DataModelId | None = None
+        selected_data_model: Union[DataModelId, None] = None
         if data_model_id is not None:
             if len(data_model_id) <= 2:
                 raise ToolkitRequiredValueError(
