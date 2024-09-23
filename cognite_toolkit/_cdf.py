@@ -14,16 +14,15 @@ from cognite.client.config import global_config
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
 
-from cognite.client.data_classes.data_modeling import DataModelId, NodeId
+from cognite.client.data_classes.data_modeling import NodeId
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, LandingApp, ModulesApp, RepoApp, RunApp, DumpApp
+from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, ModulesApp, RepoApp, RunApp
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
     DescribeCommand,
-    DumpCommand,
     FeatureFlagCommand,
     PullCommand,
 )
@@ -330,6 +329,7 @@ def pull_node_cmd(
             NodeLoader,
         )
     )
+
 
 @feature_flag_app.callback(invoke_without_command=True)
 def feature_flag_main(ctx: typer.Context) -> None:
