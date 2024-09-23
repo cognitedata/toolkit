@@ -5,6 +5,8 @@ from .collect import CollectCommand
 from .deploy import DeployCommand
 from .describe import DescribeCommand
 from .dump import DumpCommand
+from .dump_assets import DumpAssetsCommand
+from .dump_timeseries import DumpTimeSeriesCommand
 from .featureflag import FeatureFlagCommand
 from .init import InitCommand
 from .modules import ModulesCommand
@@ -27,4 +29,6 @@ __all__ = [
     "RunTransformationCommand",
     "ModulesCommand",
     "RepoCommand",
+    "DumpAssetsCommand",
+    "DumpTimeSeriesCommand",
 ]
