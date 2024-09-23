@@ -10,9 +10,10 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 
-from .constants import HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
+from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .loaders import LOADER_BY_FOLDER_NAME
+from .tk_warnings import LowSeverityWarning
 from .utils import find_directory_with_subdirectories
 
 
@@ -72,7 +73,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
 
     if organization_dir != Path.cwd():
         if build_env_name:
-            content = f"  ┣ {MODULES}/\n" f"  ┗ {config_file}\n"
+            content = f"  ┣ {MODULES}/\n  ┗ {config_file}\n"
         else:
             content = f"  ┗ {MODULES}\n"
 
@@ -97,6 +98,19 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
     root_modules = [
         module_dir for root_module in ROOT_MODULES if (module_dir := organization_dir / root_module).exists()
     ]
+    if deprecated_modules := [
+        root_module for root_module in [CUSTOM_MODULES, COGNITE_MODULES] if (organization_dir / root_module).exists()
+    ]:
+        if (organization_dir / MODULES).exists():
+            suffix = f"Move the modules into {MODULES}/ directory."
+        elif len(deprecated_modules) == 1:
+            suffix = f"Rename the directory to {MODULES}/."
+        else:
+            suffix = f"Combine the two into a new {MODULES}/ directory."
+        LowSeverityWarning(
+            f"Directories {', '.join(deprecated_modules)} are deprecated and will be removed in 0.4.0. " f"{suffix}"
+        ).print_warning()
+
     config_path = organization_dir / config_file
     if root_modules and (config_path.is_file() or build_env_name is None):
         return
