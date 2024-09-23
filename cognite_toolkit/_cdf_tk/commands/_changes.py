@@ -72,7 +72,7 @@ After:
 
         changed: set[Path] = set()
         resource_yaml: Path
-        for resource_yaml in self._organization_dir.glob("*.yaml"):
+        for resource_yaml in self._organization_dir.rglob("*.yaml"):
             try:
                 resource_folder = resource_folder_from_path(resource_yaml)
             except ValueError:
@@ -81,14 +81,16 @@ After:
                 content = safe_read(resource_yaml)
                 has_api_call_parameters = False
                 new_content:  list[str] = []
+                indent: int | None = None
                 for line in content.splitlines():
                     if any(line.startswith(parameter) for parameter in api_call_parameters):
                         has_api_call_parameters = True
                         continue
                     if (line.startswith("nodes:") or line.startswith("node:")) and has_api_call_parameters:
                         continue
-                    if has_api_call_parameters:
+                    if has_api_call_parameters and indent is None:
                         indent = len(line) - len(line.lstrip())
+                    if has_api_call_parameters and indent is not None:
                         line = line[indent:]
                     new_content.append(line)
                 if has_api_call_parameters:
