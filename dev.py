@@ -99,7 +99,8 @@ def bump(
                     has_added_entry = True
 
                 new_changelog.append(line)
-            file.write_text("\n".join(new_changelog))
+            with file.open("w") as f:
+                f.write("\n".join(new_changelog))
 
     for file in version_files:
         file.write_text(file.read_text().replace(str(version), str(new_version), 1))
