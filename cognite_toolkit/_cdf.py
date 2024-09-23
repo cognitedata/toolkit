@@ -86,6 +86,8 @@ _app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(pull_app, name="pull")
+# Todo: Add plugin flag when plugin bug is fixed.
+# if Plugin.is_enabled(Plugins.dump.value):
 _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 _app.add_typer(feature_flag_app, name="features")
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
