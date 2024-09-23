@@ -22,7 +22,7 @@ from rich.progress import Progress
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
-from cognite_toolkit._cdf_tk.data_classes import ModuleResources, ResourceBuildInfoFull
+from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitInvalidFunctionError,
@@ -179,7 +179,7 @@ if __name__ == "__main__":
         return True
 
     @staticmethod
-    def _get_function(external_id: str | None, resources: ModuleResources) -> ResourceBuildInfoFull[str]:
+    def _get_function(external_id: str | None, resources: ModuleResources) -> BuiltResourceFull[str]:
         function_builds_by_identifier = {
             build.identifier: build for build in resources.list_resources(str, "functions", FunctionLoader.kind)
         }

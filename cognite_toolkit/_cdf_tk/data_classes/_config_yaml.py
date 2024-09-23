@@ -45,7 +45,9 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._version import __version__
 
+from . import BuiltModuleList
 from ._base import ConfigCore, _load_version_variable
+from ._built_resources import BuiltResourceList
 
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
@@ -184,14 +186,14 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         variables = data.get("variables", {})
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(self, hash_by_source_file: dict[Path, str] | None = None) -> BuildEnvironment:
+    def create_build_environment(self, built_modules: BuiltModuleList) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
             build_type=self.environment.build_type,
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
-            hash_by_source_file=hash_by_source_file or {},
+            built_resources=built_modules.as_resources_by_folder(),
         )
 
     def get_selected_modules(
@@ -245,7 +247,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 @dataclass
 class BuildEnvironment(Environment):
     cdf_toolkit_version: str = __version__
-    hash_by_source_file: dict[Path, str] = field(default_factory=dict)
+    built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
 
     @classmethod
     def load(
@@ -260,6 +262,13 @@ class BuildEnvironment(Environment):
 
         version = _load_version_variable(data, BUILD_ENVIRONMENT_FILE)
         _deprecation_selected(data)
+        built_resources: dict[str, BuiltResourceList] = {}
+        if "built_resources" in data:
+            built_resources = {
+                resource_folder: BuiltResourceList.load(resources, resource_folder)
+                for resource_folder, resources in data["built_resources"].items()
+            }
+
         try:
             return BuildEnvironment(
                 name=data["name"],
@@ -267,7 +276,7 @@ class BuildEnvironment(Environment):
                 build_type=data["type"],
                 selected=data["selected"],
                 cdf_toolkit_version=version,
-                hash_by_source_file={Path(file): hash_ for file, hash_ in data.get("source_files", {}).items()},
+                built_resources=built_resources,
             )
         except KeyError:
             raise ToolkitEnvError(
@@ -278,8 +287,12 @@ class BuildEnvironment(Environment):
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version
-        if self.hash_by_source_file:
-            output["source_files"] = {str(file): hash_ for file, hash_ in self.hash_by_source_file.items()}
+        if self.built_resources:
+            output["built_resources"] = {
+                resource_folder: resources.dump(resource_folder, include_destination=True)
+                for resource_folder, resources in self.built_resources.items()
+                if resources
+            }
         return output
 
     def dump_to_file(self, build_dir: Path) -> None:
@@ -293,16 +306,18 @@ class BuildEnvironment(Environment):
 
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
-        for file, hash_ in self.hash_by_source_file.items():
-            if file.suffix in {".csv", ".parquet"}:
-                # When we copy over the source files we use utf-8 encoding, which can change the file hash.
-                # Thus, we skip checking the hash for these file types.
-                continue
+        for resource_folder, resources in self.built_resources.items():
+            for resource in resources:
+                source_filepath = resource.location.path
+                if source_filepath.suffix in {".csv", ".parquet"}:
+                    # When we copy over the source files we use utf-8 encoding, which can change the file hash.
+                    # Thus, we skip checking the hash for these file types.
+                    continue
 
-            if not file.exists():
-                warning_list.append(MissingFileWarning(file, attempted_check="source file has changed"))
-            elif hash_ != calculate_str_or_file_hash(file, shorten=True):
-                warning_list.append(SourceFileModifiedWarning(file))
+                if not source_filepath.exists():
+                    warning_list.append(MissingFileWarning(source_filepath, attempted_check="source file has changed"))
+                elif resource.location.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
+                    warning_list.append(SourceFileModifiedWarning(source_filepath))
         return warning_list
 
 
