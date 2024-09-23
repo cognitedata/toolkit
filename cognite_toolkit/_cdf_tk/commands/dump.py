@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 import shutil
 from pathlib import Path
