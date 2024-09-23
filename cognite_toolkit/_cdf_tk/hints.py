@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from .constants import COGNITE_MODULES, CUSTOM_MODULES, HINT_LEAD_TEXT, MODULES, ROOT_MODULES, URL
 from .exceptions import ToolkitFileNotFoundError, ToolkitNotADirectoryError
 from .loaders import LOADER_BY_FOLDER_NAME
-from .tk_warnings import LowSeverityWarning
+from .tk_warnings import MediumSeverityWarning
 from .utils import find_directory_with_subdirectories
 
 
@@ -107,8 +107,10 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
             suffix = f"Rename the directory to {MODULES}/."
         else:
             suffix = f"Combine the two into a new {MODULES}/ directory."
-        LowSeverityWarning(
-            f"Directories {', '.join(deprecated_modules)} are deprecated and will be removed in 0.4.0. " f"{suffix}"
+        prefix = "Directories" if len(deprecated_modules) > 1 else "Directory"
+        verb = "are" if len(deprecated_modules) > 1 else "is"
+        MediumSeverityWarning(
+            f"{prefix} {', '.join(deprecated_modules)} {verb} deprecated and will be removed in 0.4.0. " f"{suffix}"
         ).print_warning()
 
     config_path = organization_dir / config_file
