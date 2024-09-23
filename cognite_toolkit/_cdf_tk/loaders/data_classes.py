@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from abc import ABC
 from collections import UserDict
-from collections.abc import Collection, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 from functools import total_ordering
 from typing import Any, Literal
@@ -28,7 +28,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import DataModelId, NodeApply, NodeApplyList, ViewId
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.data_classes.data_modeling.core import DataModelingSchemaResource
 from rich.table import Table
 
@@ -207,73 +207,6 @@ class GraphQLDataModelList(WriteableCogniteResourceList[GraphQLDataModelWrite, G
 
     def as_ids(self) -> list[DataModelId]:
         return [model.as_id() for model in self.data]
-
-
-@dataclass(frozen=True, order=True)
-class NodeAPICall:
-    auto_create_direct_relations: bool | None
-    skip_on_version_conflict: bool | None
-    replace: bool | None
-
-    @classmethod
-    def load(cls, resource: dict[str, Any]) -> NodeAPICall:
-        return cls(
-            auto_create_direct_relations=resource.get("autoCreateDirectRelations"),
-            skip_on_version_conflict=resource.get("skipOnVersionConflict"),
-            replace=resource.get("replace"),
-        )
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        output: dict[str, Any] = {}
-        if self.auto_create_direct_relations is not None:
-            output["autoCreateDirectRelations" if camel_case else "auto_create_direct_relations"] = (
-                self.auto_create_direct_relations
-            )
-        if self.skip_on_version_conflict is not None:
-            output["skipOnVersionConflict" if camel_case else "skip_on_version_conflict"] = (
-                self.skip_on_version_conflict
-            )
-        if self.replace is not None:
-            output["replace"] = self.replace
-        return output
-
-
-class NodeApplyListWithCall(CogniteResourceList[NodeApply]):
-    _RESOURCE = NodeApply
-
-    def __init__(self, resources: Collection[Any], api_call: NodeAPICall | None = None) -> None:
-        super().__init__(resources, cognite_client=None)
-        self.api_call = api_call
-
-    @classmethod
-    def _load(  # type: ignore[override]
-        cls, resource: dict[str, Any] | list[dict[str, Any]], cognite_client: CogniteClient | None = None
-    ) -> NodeApplyListWithCall:
-        api_call: NodeAPICall | None = None
-        if isinstance(resource, dict) and ("nodes" in resource or "node" in resource):
-            api_call = NodeAPICall.load(resource)
-
-        if api_call and isinstance(resource, dict) and "nodes" in resource:
-            nodes = NodeApplyList.load(resource["nodes"])
-        elif api_call and isinstance(resource, dict) and "node" in resource:
-            nodes = NodeApplyList([NodeApply.load(resource["node"])])
-        elif isinstance(resource, list):
-            nodes = NodeApplyList.load(resource)
-        elif isinstance(resource, dict):
-            nodes = NodeApplyList([NodeApply.load(resource)])
-        else:
-            raise ValueError("Invalid input for NodeApplyListWithCall")
-        return cls(nodes, api_call)
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any] | list[dict[str, Any]]:  # type: ignore[override]
-        nodes = [resource.dump(camel_case) for resource in self.data]
-        if self.api_call is not None:
-            if len(nodes) == 1:
-                return {**self.api_call.dump(camel_case), "node": nodes[0]}
-            else:
-                return {**self.api_call.dump(camel_case), "nodes": nodes}
-        else:
-            return nodes
 
 
 @total_ordering
