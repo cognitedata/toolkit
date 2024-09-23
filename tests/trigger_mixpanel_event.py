@@ -5,11 +5,11 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.data_classes import (
-    BuildLocationEager,
     BuildVariables,
     BuiltModule,
-    ResourceBuildInfo,
-    ResourceBuiltList,
+    BuiltResource,
+    BuiltResourceList,
+    SourceLocationEager,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import WarningList
 from cognite_toolkit._cdf_tk.tracker import Tracker
@@ -47,23 +47,24 @@ def track_module_build() -> None:
 
 DEMO_MODULE = BuiltModule(
     "cdf_module_test",
-    location=BuildLocationEager(
+    location=SourceLocationEager(
         path=Path("modules/cdf_module_test"),
         _hash="hash",
     ),
     build_variables=BuildVariables([]),
     resources={
-        "files": ResourceBuiltList(
+        "files": BuiltResourceList(
             [
-                ResourceBuildInfo("file1", BuildLocationEager(Path("files/file1.yaml"), "hash"), kind="File"),
+                BuiltResource("file1", SourceLocationEager(Path("files/file1.yaml"), "hash"), "File", None),
             ]
         ),
-        "functions": ResourceBuiltList(
+        "functions": BuiltResourceList(
             [
-                ResourceBuildInfo(
+                BuiltResource(
                     "function1",
-                    BuildLocationEager(Path("functions/function1.yaml"), "hash"),
-                    kind="Function",
+                    SourceLocationEager(Path("functions/function1.yaml"), "hash"),
+                    "Function",
+                    None,
                 )
             ]
         ),

@@ -76,7 +76,7 @@ def test_build_deploy_module(
     )
     app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,
@@ -122,7 +122,7 @@ def test_build_deploy_with_dry_run(
     )
     app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=True,
@@ -159,7 +159,7 @@ def test_init_build_clean(
     )
     app.clean(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         dry_run=False,
         include=[],
@@ -193,7 +193,7 @@ def test_build_deploy_complete_org(
     )
     app.deploy(
         typer_context,
-        build_dir=str(build_tmp_path),
+        build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,

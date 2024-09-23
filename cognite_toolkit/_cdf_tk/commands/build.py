@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import contextlib
-import datetime
 import difflib
-import io
 import re
 import shutil
 import sys
@@ -14,9 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-import pandas as pd
 import yaml
-from cognite.client._api.functions import validate_function_folder
 from rich import print
 from rich.panel import Panel
 from rich.progress import track
@@ -33,15 +29,15 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildLocationEager,
-    BuildLocationLazy,
     BuildVariables,
     BuiltModule,
     BuiltModuleList,
+    BuiltResource,
+    BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
-    ResourceBuildInfo,
-    ResourceBuiltList,
+    SourceLocationEager,
+    SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -58,7 +54,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     ContainerLoader,
     DataModelLoader,
-    DatapointsLoader,
     FileLoader,
     FileMetadataLoader,
     FunctionLoader,
@@ -90,7 +85,6 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
-    get_cicd_environment,
     humanize_collection,
     module_from_path,
     read_yaml_content,
@@ -127,10 +121,7 @@ class BuildCommand(ToolkitCommand):
         verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
-        if not cdf_toml.is_loaded_from_file:
-            raise ToolkitError(
-                "No 'cdf.toml' file found in the current directory. Please run 'cdf repo init' to create it"
-            )
+
         if build_env_name:
             config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
         else:
@@ -234,7 +225,7 @@ class BuildCommand(ToolkitCommand):
 
         self._check_missing_dependencies(state, organization_dir, ToolGlobals)
 
-        build_environment = config.create_build_environment(state.hash_by_source_path)
+        build_environment = config.create_build_environment(built_modules)
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             self.console(f"Build complete. Files are located in {build_dir!s}/")
@@ -326,7 +317,7 @@ class BuildCommand(ToolkitCommand):
 
             built_module = BuiltModule(
                 name=module.name,
-                location=BuildLocationLazy(
+                location=SourceLocationLazy(
                     path=module.relative_path,
                     absolute_path=module.dir,
                 ),
@@ -347,9 +338,9 @@ class BuildCommand(ToolkitCommand):
         module_names_by_variable_key: dict[str, list[str]],
         state: _BuildState,
         verbose: bool,
-    ) -> dict[str, ResourceBuiltList]:
+    ) -> dict[str, BuiltResourceList]:
         files_by_resource_directory = self._to_files_by_resource_directory(module.source_paths, module.dir)
-        build_resources: dict[str, ResourceBuiltList] = defaultdict(ResourceBuiltList)
+        build_resources: dict[str, BuiltResourceList] = defaultdict(BuiltResourceList)
         for resource_directory_name, directory_files in files_by_resource_directory.items():
             build_folder: list[Path] = []
             for source_path in directory_files.resource_files:
@@ -363,7 +354,7 @@ class BuildCommand(ToolkitCommand):
 
             if resource_directory_name == FunctionLoader.folder_name:
                 self._validate_function_directory(state, directory_files, module.dir)
-                self.validate_and_copy_function_directory_to_build(
+                self.copy_function_directory_to_build(
                     resource_files_build_folder=build_folder,
                     state=state,
                     module_dir=module.dir,
@@ -384,13 +375,11 @@ class BuildCommand(ToolkitCommand):
                         source_path, resource_directory_name, module.dir, build_dir
                     )
                     destination.parent.mkdir(parents=True, exist_ok=True)
-                    if resource_directory_name == DatapointsLoader.folder_name and source_path.suffix.lower() == ".csv":
-                        self._copy_and_timeshift_csv_files(source_path, destination)
-                    else:
-                        if verbose:
-                            self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
-                        # Copy the file as is, not variable replacement
-                        shutil.copyfile(source_path, destination)
+
+                    if verbose:
+                        self.console(f"Found unrecognized file {source_path}. Copying in untouched...")
+                    # Copy the file as is, not variable replacement
+                    shutil.copyfile(source_path, destination)
         return build_resources
 
     def _validate_function_directory(
@@ -430,7 +419,7 @@ class BuildCommand(ToolkitCommand):
         state: _BuildState,
         module_names_by_variable_key: dict[str, list[str]],
         verbose: bool,
-    ) -> ResourceBuiltList:
+    ) -> BuiltResourceList:
         if verbose:
             self.console(f"Processing {source_path.name}")
 
@@ -438,7 +427,7 @@ class BuildCommand(ToolkitCommand):
 
         content = safe_read(source_path)
         state.hash_by_source_path[source_path] = calculate_str_or_file_hash(content, shorten=True)
-        location = BuildLocationEager(source_path, state.hash_by_source_path[source_path])
+        location = SourceLocationEager(source_path, state.hash_by_source_path[source_path])
 
         content = variables.replace(content, source_path.suffix)
 
@@ -453,7 +442,9 @@ class BuildCommand(ToolkitCommand):
             # Here we do not use the self.warn method as we want to print the warnings as a group.
             if self.print_warning:
                 print(str(file_warnings))
-        return ResourceBuiltList([ResourceBuildInfo(identifier, location, kind) for identifier in identifiers])
+        return BuiltResourceList(
+            [BuiltResource(identifier, location, kind, destination_path) for identifier in identifiers]
+        )
 
     def _check_missing_dependencies(
         self, state: _BuildState, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None
@@ -551,25 +542,7 @@ class BuildCommand(ToolkitCommand):
         # In addition, all files in not int the 'functions' directory are considered other files.
         return resource_directory == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
-    def _copy_and_timeshift_csv_files(self, csv_file: Path, destination: Path) -> None:
-        """Copies and time-shifts CSV files to today if the index name contains 'timeshift_'."""
-        # Process all csv files
-        if csv_file.suffix.lower() != ".csv":
-            return
-        # Special case for timeseries datapoints, we want to timeshift datapoints
-        # if the file is a csv file, and we have been instructed to.
-        # The replacement is used to ensure that we read exactly the same file on Windows and Linux
-        file_content = csv_file.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-        data = pd.read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
-        if "timeshift_" in data.index.name:
-            self.console("Found 'timeshift_' in index name, timeshifting datapoints up to today...")
-            data.index.name = str(data.index.name).replace("timeshift_", "")
-            data.index = pd.DatetimeIndex(data.index)
-            periods = datetime.datetime.today() - data.index[-1]
-            data.index = pd.DatetimeIndex.shift(data.index, periods=periods.days, freq="D")
-        destination.write_text(data.to_csv())
-
-    def validate_and_copy_function_directory_to_build(
+    def copy_function_directory_to_build(
         self,
         resource_files_build_folder: list[Path],
         state: _BuildState,
@@ -592,24 +565,6 @@ class BuildCommand(ToolkitCommand):
                     f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
                 )
             shutil.copytree(function_dir, destination)
-            if function_path:
-                try:
-                    # Run validations on the function using the SDK's validation function
-                    validate_function_folder(
-                        root_path=destination.as_posix(),
-                        function_path=function_path,
-                        skip_folder_validation=False,
-                    )
-                except Exception as e:
-                    if get_cicd_environment() == "local":
-                        # This warning is only relevant when running locally
-                        self.warn(
-                            MediumSeverityWarning(
-                                f"Failed to package function {external_id} at {function_dir.as_posix()!r}, python module is not loadable "
-                                f"due to: {type(e)}({e}). Note that you need to have any requirements your function uses "
-                                "installed in your current, local python environment."
-                            )
-                        )
 
             # Clean up cache files
             for subdir in destination.iterdir():
