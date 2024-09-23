@@ -5,7 +5,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, NoReturn, Optional
+from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
@@ -21,7 +21,6 @@ from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
-    DescribeCommand,
     FeatureFlagCommand,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -30,7 +29,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tracker import Tracker
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     sentry_exception_filter,
 )
 from cognite_toolkit._version import __version__ as current_version
@@ -69,13 +67,11 @@ except AttributeError as e:
     )
 
 _app = CoreApp(**default_typer_kws)
-describe_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type] # type: ignore [arg-type]
 feature_flag_app = typer.Typer(**default_typer_kws)  # type: ignore [arg-type]
 user_app = typer.Typer(**default_typer_kws, hidden=True)  # type: ignore [arg-type]
 landing_app = LandingApp(**default_typer_kws)  # type: ignore [arg-type]
 
 _app.add_typer(AuthApp(**default_typer_kws), name="auth")
-_app.add_typer(describe_app, name="describe")
 _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 _app.add_typer(PullApp(**default_typer_kws), name="pull")
@@ -151,42 +147,6 @@ def collect(
     """Collect usage information for the toolkit."""
     cmd = CollectCommand()
     cmd.run(lambda: cmd.execute(action))  # type: ignore [arg-type]
-
-
-@describe_app.callback(invoke_without_command=True)
-def describe_main(ctx: typer.Context) -> None:
-    """Commands to describe and document configurations and CDF project state, use --project (ENV_VAR: CDF_PROJECT) to specify project to use."""
-    if ctx.invoked_subcommand is None:
-        print("Use [bold yellow]cdf describe --help[/] for more information.")
-    return None
-
-
-@describe_app.command("datamodel")
-def describe_datamodel_cmd(
-    ctx: typer.Context,
-    space: Annotated[
-        str,
-        typer.Option(
-            "--space",
-            "-s",
-            prompt=True,
-            help="Space where the data model to describe is located.",
-        ),
-    ],
-    data_model: Annotated[
-        Optional[str],
-        typer.Option(
-            "--datamodel",
-            "-d",
-            prompt=False,
-            help="Data model to describe. If not specified, the first data model found in the space will be described.",
-        ),
-    ] = None,
-) -> None:
-    """This command will describe the characteristics of a data model given the space
-    name and datamodel name."""
-    cmd = DescribeCommand()
-    cmd.run(lambda: cmd.execute(CDFToolConfig.from_context(ctx), space, data_model))
 
 
 @feature_flag_app.callback(invoke_without_command=True)

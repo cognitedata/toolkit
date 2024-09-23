@@ -37,6 +37,8 @@ Changes are grouped as follows:
   be timeshifted to today when running `cdf build`
 - FileMetadata pattern `$FILENAME` is no longer supports prefix and suffix in the `name` parameter. This is to
   simplify the pattern.
+- [BREAKING] The command `cdf describe` is removed. This functionality was not used and thus removing it to simplify
+  the Toolkit and to focus on the core functionality.
 
 ## [0.3.0a7] - 2024-09-18
 

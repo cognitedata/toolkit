@@ -3,7 +3,6 @@ from .build import BuildCommand
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
-from .describe import DescribeCommand
 from .dump import DumpCommand
 from .dump_assets import DumpAssetsCommand
 from .dump_timeseries import DumpTimeSeriesCommand
@@ -21,7 +20,6 @@ __all__ = [
     "CollectCommand",
     "CleanCommand",
     "DeployCommand",
-    "DescribeCommand",
     "DumpCommand",
     "FeatureFlagCommand",
     "PullCommand",
