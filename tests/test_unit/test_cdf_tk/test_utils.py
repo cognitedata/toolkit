@@ -527,6 +527,22 @@ type WorkCenterCategory {
         set(),
         id="Simple type with version",
     ),
+    pytest.param(
+        """type UnitOfMeasurement
+  @import(
+    dataModel: {
+      externalId: "CoreDOM"
+      version: "1_0_18"
+      space: "EDG-COR-ALL-DMD"
+    }
+  ) {
+  name: String!
+}""",
+        DATA_MODEL,
+        {ViewId(SPACE, "UnitOfMeasurement")},
+        {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
+        id="Simple type with version",
+    ),
 ]
 
 
