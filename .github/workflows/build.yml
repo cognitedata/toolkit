@@ -127,6 +127,11 @@ jobs:
         run: |
           poetry install
           poetry build
+    # Temp to check if the build is working
+      - name: Run Migration Tests
+        run: |
+          python module_upgrade/run_check.py --earliest --latest
+
       - name: Install cdf-tk
         run: pip install .
       - name: "Not collect metrics"
