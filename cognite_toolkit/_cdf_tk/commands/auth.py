@@ -28,17 +28,16 @@ from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenI
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Prompt
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
-    ResourceRetrievalError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -46,7 +45,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig, humanize_collection
 
 from ._base import ToolkitCommand
 
@@ -71,7 +70,6 @@ class AuthCommand(ToolkitCommand):
         dry_run: bool,
         no_prompt: bool = False,
     ) -> None:
-        # More readable variable in the code
         is_interactive = not no_prompt
         if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
@@ -87,9 +85,12 @@ class AuthCommand(ToolkitCommand):
         self.check_identity_provider(ToolGlobals, cdf_project)
 
         try:
-            principal_groups = ToolGlobals.toolkit_client.iam.groups.list()
+            user_groups = ToolGlobals.toolkit_client.iam.groups.list()
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
+
+        if not user_groups:
+            raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
         loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
         toolkit_group = self._create_toolkit_group(loader_capabilities)
@@ -110,62 +111,175 @@ class AuthCommand(ToolkitCommand):
         if is_interactive:
             Prompt.ask("Press enter key to continue...")
 
-        self.check_principal_groups(principal_groups, toolkit_group)
+        all_groups = ToolGlobals.toolkit_client.iam.groups.list(all=True)
 
-        missing_capabilities = self.check_has_toolkit_required_capabilities(
-            ToolGlobals.toolkit_client,
-            token_inspection,
-            toolkit_group,
-            cdf_project,
-            toolkit_group.name,
-            loaders_by_capability_tuple,
-        )
-        print("---------------------")
+        is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
+        is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
+        print(f"Checking current client is member of the {toolkit_group.name!r} group...")
         has_added_capabilities = False
-        if missing_capabilities and not is_interactive:
-            raise AuthorizationError(
-                "The service principal/application does not have the required capabilities for the Toolkit to function properly"
+        if is_user_in_toolkit_group:
+            print(f"  [bold green]OK[/] - The current client is member of the {toolkit_group.name!r} group.")
+            existing_group = next(group for group in user_groups if group.name == toolkit_group.name)
+            missing_capabilities = self._check_missing_capabilities(
+                ToolGlobals, existing_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
-        elif missing_capabilities:
-            to_create, to_delete = self.upsert_toolkit_group_interactive(
-                principal_groups, toolkit_group, ToolGlobals.toolkit_client, cdf_project
+            if is_interactive:
+                has_added_capabilities = self._update_missing_capabilities(
+                    ToolGlobals, existing_group, toolkit_group, missing_capabilities, dry_run
+                )
+        elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
+            self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
+            print(f"Checking if the group {toolkit_group.name!r} has the required capabilities...")
+            # Update the group with the missing capabilities
+            existing_group = next(group for group in all_groups if group.name == toolkit_group.name)
+            missing_capabilities = self._check_missing_capabilities(
+                ToolGlobals, existing_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
-
-            created: Group | None = None
-            if dry_run:
-                if not to_create and not to_delete:
-                    print("No groups would have been made or modified.")
-                elif to_create and not to_delete:
-                    print(
-                        f"Would have created group {to_create.name} with {len(to_create.capabilities or [])} capabilities."
-                    )
-                elif to_create and to_delete:
-                    adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
-                        to_delete.capabilities,  # type: ignore[arg-type]
-                        to_create.capabilities,  # type: ignore[arg-type]
-                        project=cdf_project,
-                    )
-                    adding = self._merge_capabilities(adding)
-                    capability_str = "capabilities" if len(adding) > 1 else "capability"
-                    print(f"Would have updated group {to_create.name} with {len(adding)} new {capability_str}.")
-            elif to_create:
-                created = self.upsert_group(
-                    ToolGlobals.toolkit_client, to_create, to_delete, principal_groups, True, cdf_project
+            if is_interactive:
+                self._update_missing_capabilities(
+                    ToolGlobals, existing_group, toolkit_group, missing_capabilities, dry_run
                 )
-                has_added_capabilities = True
+        else:  # Toolkit group does not exist
+            is_created = self._create_toolkit_group_in_cdf(
+                ToolGlobals, toolkit_group, all_groups, is_interactive, dry_run
+            )
+            if not is_created:
+                return None
 
-            must_switch_principal = created and created.source_id not in {group.source_id for group in principal_groups}
-            if must_switch_principal and created:
-                print(
-                    Panel(
-                        f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
-                        f"to the principal with source-id {created.source_id!r}.",
-                        title="Switch Principal",
-                        expand=False,
-                    )
+        if not is_user_in_toolkit_group:
+            print(
+                Panel(
+                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
+                    f"to the principal with source-id {toolkit_group.source_id!r}.",
+                    title="Switch Principal",
+                    expand=False,
                 )
+            )
+            return None
+
+        self.check_principal_groups(user_groups, toolkit_group)
 
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
+
+    def _create_toolkit_group_in_cdf(
+        self,
+        ToolGlobals: CDFToolConfig,
+        toolkit_group: GroupWrite,
+        all_groups: GroupList,
+        is_interactive: bool,
+        dry_run: bool,
+    ) -> bool:
+        if not is_interactive:
+            raise AuthorizationError(
+                f"Group {toolkit_group.name!r} does not exist in the CDF project. "
+                "Please create the group and try again."
+                f"\n{HINT_LEAD_TEXT}Run this command without --no-prompt to get assistance to create the group."
+            )
+        if questionary.confirm(
+            f"Do you want to create a new group named {toolkit_group.name!r} for Cognite Toolkit?",
+            default=True,
+        ).ask():
+            if dry_run:
+                print(
+                    f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
+                )
+                return False
+
+            source_id = questionary.text(
+                "What is the source id for the new group (typically a group id in the identity provider)?"
+            ).ask()
+            toolkit_group.source_id = source_id
+            if already_used := [group for group in all_groups if group.source_id == source_id]:
+                self.warn(
+                    HighSeverityWarning(
+                        f"The source id {source_id!r} is already used by the groups {humanize_collection(already_used)}."
+                    )
+                )
+                if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+                    return False
+            created = ToolGlobals.toolkit_client.iam.groups.create(toolkit_group)
+            print(
+                f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
+            )
+        return True
+
+    def _check_missing_capabilities(
+        self,
+        ToolGlobals: CDFToolConfig,
+        existing_group: Group,
+        toolkit_group: GroupWrite,
+        loaders_by_capability_id: dict[tuple, list[str]],
+        is_interactive: bool,
+    ) -> list[Capability]:
+        print(f"\nChecking if the {existing_group.name} has the all required capabilities...")
+        missing_capabilities = ToolGlobals.toolkit_client.iam.compare_capabilities(
+            existing_group.capabilities or [],
+            toolkit_group.capabilities or [],
+            project=ToolGlobals.project,
+        )
+        if not missing_capabilities:
+            print(f"  [bold green]OK[/] - The {existing_group.name} has all the required capabilities.")
+            return []
+
+        missing_capabilities = self._merge_capabilities(missing_capabilities)
+        for s in sorted(map(str, missing_capabilities)):
+            self.warn(MissingCapabilityWarning(s))
+
+        resource_names: set[str] = set()
+        for cap in missing_capabilities:
+            for cap_tuple in cap.as_tuples():
+                resource_names.update(loaders_by_capability_id[cap_tuple])
+        if resource_names:
+            print("[bold yellow]INFO:[/] The missing capabilities are required for the following resources:")
+            for resource_name in resource_names:
+                print(f"    - {resource_name}")
+
+        if not is_interactive:
+            raise AuthorizationError(
+                "The service principal/application does not have the required capabilities for the Toolkit to support all resources"
+            )
+        return missing_capabilities
+
+    def _update_missing_capabilities(
+        self,
+        ToolGlobals: CDFToolConfig,
+        existing_group: Group,
+        toolkit_group: GroupWrite,
+        missing_capabilities: list[Capability],
+        dry_run: bool,
+    ) -> bool:
+        """Updates the missing capabilities. This assumes interactive mode."""
+        updated_toolkit_group = GroupWrite.load(existing_group.dump())
+        if updated_toolkit_group.capabilities is None:
+            updated_toolkit_group.capabilities = (toolkit_group.capabilities or []).copy()
+        else:
+            updated_toolkit_group.capabilities.extend(missing_capabilities)
+
+        adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
+            existing_group.capabilities or [],
+            updated_toolkit_group.capabilities or [],
+            project=ToolGlobals.project,
+        )
+        adding = self._merge_capabilities(adding)
+        capability_str = "capabilities" if len(adding) > 1 else "capability"
+        if dry_run:
+            print(f"Would have updated group {updated_toolkit_group.name} with {len(adding)} new {capability_str}.")
+            return False
+
+        try:
+            created = ToolGlobals.toolkit_client.iam.groups.create(updated_toolkit_group)
+        except CogniteAPIError as e:
+            raise ResourceCreationError(f"Unable to create group {updated_toolkit_group.name}.\n{e}")
+        try:
+            ToolGlobals.toolkit_client.iam.groups.delete(existing_group.id)
+        except CogniteAPIError as e:
+            raise ResourceDeleteError(
+                f"Failed to cleanup old version of the {existing_group.name}.\n{e}\n"
+                f"It is recommended that you manually delete the Group with ID {existing_group.id},"
+                f"such that you don't have a duplicated group in your CDF project."
+            )
+        print(f"  [bold green]OK[/] - Updated the group {created.name} with {len(adding)} new {capability_str}.")
+        return True
 
     @staticmethod
     def _create_toolkit_group(loader_capabilities: list[Capability]) -> GroupWrite:
@@ -294,7 +408,7 @@ class AuthCommand(ToolkitCommand):
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
 
-    def check_principal_groups(self, principal_groups: GroupList, admin_group: GroupWrite) -> None:
+    def check_principal_groups(self, principal_groups: GroupList, toolkit_group: GroupWrite) -> None:
         print("Checking CDF group memberships for the current client configured...")
 
         table = Table(title="CDF Group ids, Names, and Source Ids")
@@ -304,7 +418,7 @@ class AuthCommand(ToolkitCommand):
         admin_group_read = GroupList([])
         for group in principal_groups:
             name = group.name
-            if group.name == admin_group.name:
+            if group.name == toolkit_group.name:
                 admin_group_read.append(group)
                 name = f"[bold]{group.name}[/]"
 
@@ -330,7 +444,7 @@ class AuthCommand(ToolkitCommand):
         elif len(admin_group_read) > 1:
             self.warn(
                 MediumSeverityWarning(
-                    f"There are multiple groups with the same name {admin_group.name} in the CDF project."
+                    f"There are multiple groups with the same name {toolkit_group.name} in the CDF project."
                     "           It is recommended that this admin (CI/CD) application/service principal "
                     "only is member of one group in the identity provider. Suggest you delete all but one"
                     "           of the groups with the same name."
@@ -346,54 +460,19 @@ class AuthCommand(ToolkitCommand):
             group_names = [
                 group.name
                 for group in principal_groups
-                if group.source_id == source_id and group.name != admin_group.name
+                if group.source_id == source_id and group.name != toolkit_group.name
             ]
             if len(group_names) > 1:
                 groups_names_str = "\n  - ".join(group_names)
                 self.warn(
                     LowSeverityWarning(
                         f"The following groups have the same source id, {source_id}, "
-                        f"as the admin group {admin_group.name}: \n{groups_names_str}.\n"
+                        f"as the admin group {toolkit_group.name}: \n{groups_names_str}.\n"
                         "It is recommended that this admin (CI/CD) application/service principal "
                         "is only member of one group in the identity provider."
                     )
                 )
         return None
-
-    def check_has_toolkit_required_capabilities(
-        self,
-        client: ToolkitClient,
-        token_inspection: TokenInspection,
-        admin_group: GroupWrite,
-        cdf_project: str,
-        group_file_name: str,
-        loaders_by_capability_id: dict[tuple, list[str]],
-    ) -> list[Capability]:
-        print(f"\nChecking CDF groups access right against capabilities in {group_file_name} ...")
-
-        missing_capabilities = client.iam.compare_capabilities(
-            token_inspection.capabilities,
-            admin_group.capabilities or [],
-            project=cdf_project,
-        )
-
-        if missing_capabilities:
-            missing_capabilities = self._merge_capabilities(missing_capabilities)
-
-            for s in sorted(map(str, missing_capabilities)):
-                self.warn(MissingCapabilityWarning(s))
-
-            resource_names: set[str] = set()
-            for cap in missing_capabilities:
-                for cap_tuple in cap.as_tuples():
-                    resource_names.update(loaders_by_capability_id[cap_tuple])
-            if resource_names:
-                print("[bold yellow]INFO:[/] The missing capabilities are required for the following resources:")
-                for resource_name in resource_names:
-                    print(f"    - {resource_name}")
-        else:
-            print("  [bold green]OK[/] - All capabilities are present in the CDF project.")
-        return missing_capabilities
 
     @staticmethod
     def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
@@ -407,158 +486,6 @@ class AuthCommand(ToolkitCommand):
             cap_cls(actions=list(actions), scope=scope, allow_unknown=False)
             for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
         ]
-
-    def upsert_toolkit_group_interactive(
-        self, principal_groups: GroupList, admin_group: GroupWrite, client: ToolkitClient, cdf_project: str
-    ) -> tuple[GroupWrite | None, Group | None]:
-        update_candidates = [group for group in principal_groups if group.name == admin_group.name]
-        has_candidates = len(update_candidates) > 0
-        update_group: Group | None = None
-        if (
-            has_candidates
-            and questionary.confirm(
-                f"Do you want to update the group with name {admin_group.name!r} with the missing capabilities?",
-                default=True,
-            ).ask()
-        ):
-            if len(update_candidates) > 1:
-                update_group = questionary.select(
-                    "Select the group to update",
-                    choices=[
-                        {
-                            f"{group.id}  - {group.source_id} - {len(group.capabilities or [])} capabilities - {group.metadata!r}": group
-                        }
-                        for group in update_candidates
-                    ],
-                ).ask()  # returns value of selection
-            elif len(update_candidates) == 1:
-                update_group = update_candidates[0]
-
-        if update_group is not None:
-            # We need to recalculate the missing capabilities as the missing capabilities for service principal
-            # (if it has access to multiple groups) may be different from the ones missing in this group
-            missing_capabilities = client.iam.compare_capabilities(
-                update_group.capabilities or [],
-                admin_group.capabilities or [],
-                project=cdf_project,
-            )
-            missing_capabilities = self._merge_capabilities(missing_capabilities)
-            new_admin_group = GroupWrite.load(update_group.dump())
-            if new_admin_group.capabilities is None:
-                new_admin_group.capabilities = (admin_group.capabilities or []).copy()
-            else:
-                new_admin_group.capabilities.extend(missing_capabilities)
-            return new_admin_group, update_group
-
-        prefix = f"No {admin_group.name} exists. " if not has_candidates else ""
-        if not questionary.confirm(
-            f"{prefix}Do you want to create a new group for running the toolkit with the capabilities?",
-            default=True,
-        ).ask():
-            return None, None
-        new_source_id = str(
-            Prompt.ask("What is the source id for the new group (typically a group id in the identity provider)?")
-        )
-        new_admin_group = GroupWrite.load(admin_group.dump())
-        new_admin_group.source_id = new_source_id
-        return new_admin_group, None
-
-    def upsert_toolkit_group(
-        self, principal_groups: GroupList, admin_group: GroupWrite, update_group: int, create_group: str | None
-    ) -> tuple[GroupWrite | None, Group | None]:
-        new_admin_group = GroupWrite.load(admin_group.dump())
-        if create_group is not None:
-            new_admin_group.source_id = create_group
-            return new_admin_group, None
-
-        update_candidates = [group for group in principal_groups if group.name == admin_group.name]
-        if update_group == 1 and len(update_candidates) > 1:
-            group_ids = "         \n - ".join([str(group.id) for group in update_candidates])
-            raise AuthorizationError(
-                "You have specified --update-group=1.\n"
-                "         With multiple groups available, you must use the --update_group=<full-group-i> "
-                f"option to specify which group to update. One of the following group ids must be used:\n{group_ids}"
-            )
-        elif update_group == 1 and len(update_candidates) == 1:
-            new_admin_group.source_id = update_candidates[0].source_id
-            return new_admin_group, update_candidates[0]
-        elif update_group > 1:
-            try:
-                to_update_group = next(g for g in principal_groups if g.id == update_group)
-                new_admin_group.source_id = to_update_group.source_id
-                return new_admin_group, to_update_group
-            except StopIteration:
-                raise ResourceRetrievalError(f"Unable to find --group-id={update_group} in CDF.")
-        return None, None
-
-    def upsert_group(
-        self,
-        client: ToolkitClient,
-        to_create: GroupWrite,
-        to_delete: Group | None,
-        principal_groups: GroupList,
-        interactive: bool,
-        cdf_project: str,
-    ) -> Group | None:
-        existing_groups = [
-            group
-            for group in principal_groups
-            if group.source_id == to_create.source_id and (to_delete is None or group.id != to_delete.id)
-        ]
-        if existing_groups:
-            existing_str = "\n  - ".join([f"{group.id} - {group.name}" for group in existing_groups])
-            self.warn(
-                HighSeverityWarning(
-                    f"Group with source id {to_create.source_id} already exists in CDF.\n{existing_str}"
-                )
-            )
-            if interactive and not Confirm.ask("Do you want to continue and create a new group?", choices=["y", "n"]):
-                return None
-
-        if to_delete:
-            existing_capabilities = to_delete.capabilities or []
-            new_capabilities = to_create.capabilities or []
-            loosing = client.iam.compare_capabilities(new_capabilities, existing_capabilities, project=cdf_project)
-            for capability in loosing:
-                if len(principal_groups) > 1:
-                    self.warn(
-                        LowSeverityWarning(
-                            f"The capability {capability} may be lost if\n"
-                            "           switching to relying on only one group based on "
-                            "group config file for access."
-                        )
-                    )
-                else:
-                    self.warn(
-                        LowSeverityWarning(
-                            f"The capability {capability} will be removed in the project if overwritten by group config file."
-                        )
-                    )
-            if (
-                loosing
-                and interactive
-                and not Confirm.ask("Do you want to continue and update the group?", choices=["y", "n"])
-            ):
-                return None
-
-        action = "create" if to_delete is None else "update"
-        try:
-            created = client.iam.groups.create(to_create)
-        except CogniteAPIError as e:
-            raise ResourceCreationError(f"Unable to {action} group {to_create.name}.\n{e}")
-        if to_delete:
-            try:
-                client.iam.groups.delete(to_delete.id)
-            except CogniteAPIError as e:
-                raise ResourceDeleteError(
-                    f"Failed to cleanup old version of the {to_delete.name}.\n{e}\n"
-                    f"It is recommended that you manually delete the Group with ID {to_delete.id},"
-                    f"such that you don't have a duplicated group in your CDF project."
-                )
-        print(
-            f"  [bold green]OK[/] - {action.capitalize()}d new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
-        )
-        return created
 
     def check_function_service_status(self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool) -> None:
         print("Checking function service status...")
