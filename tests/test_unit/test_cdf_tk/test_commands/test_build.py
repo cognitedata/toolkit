@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from cognite.client.data_classes.data_modeling import DataModelId
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import Environment
@@ -13,7 +14,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import DataModelLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -142,3 +143,26 @@ class TestCheckYamlSemantics:
         destination = Path("build/raw/raw.yaml")
         yaml_warnings, *_ = cmd.validate(raw_yaml, source_path, destination)
         assert not yaml_warnings
+
+    def test_build_valid_read_int_version(self) -> None:
+        cmd = BuildCommand(print_warning=False)
+        destination = Path("build/transformation/transformations.Transformation.yaml")
+        source_path = Path("my_module/transformations/transformations.Transformation.yaml")
+        raw_yaml = """destination:
+  dataModel:
+    destinationType: CogniteFile
+    externalId: MyModel
+    space: my_space
+    version: 1_0_0
+  instanceSpace: my_space
+  type: instances
+externalId: some_external_id
+    """
+        _, identifier_pairs = cmd.validate(raw_yaml, source_path, destination)
+        assert len(identifier_pairs) == 1
+        required_data_model = next(
+            (required_id for loader, required_id in cmd._state.dependencies_by_required if loader is DataModelLoader),
+            None,
+        )
+        assert required_data_model is not None
+        assert required_data_model == DataModelId("MyModel", "my_space", "1_0_0")
