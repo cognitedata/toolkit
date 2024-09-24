@@ -72,6 +72,7 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
     load_yaml_inject_variables,
+    quote_int_value_by_key_in_yaml,
     safe_read,
 )
 
@@ -138,12 +139,14 @@ class TransformationLoader(
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
                 if in_dict(("space", "externalId", "version"), view):
+                    view["version"] = str(view["version"])
                     yield ViewLoader, ViewId.load(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
+                        data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
     def _are_equal(
@@ -179,7 +182,10 @@ class TransformationLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
-        resources = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        # If the destination is a DataModel or a View we need to ensure that the version is a string
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
+        resources = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
         # The `authentication` key is custom for this template:
 
         if isinstance(resources, dict):
