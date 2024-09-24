@@ -33,7 +33,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_NAME
+from cognite_toolkit._cdf_tk.constants import TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
@@ -92,17 +92,7 @@ class AuthCommand(ToolkitCommand):
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
         loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
-        toolkit_group = GroupWrite(
-            name=TOOLKIT_SERVICE_PRINCIPAL_NAME,
-            capabilities=[
-                *loader_capabilities,
-                # Add project ACL to be able to list and read projects, as the
-                ProjectsAcl(
-                    [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
-                    ProjectsAcl.Scope.All(),
-                ),
-            ],
-        )
+        toolkit_group = self._create_toolkit_group(loader_capabilities)
 
         print(
             Panel(
@@ -178,6 +168,21 @@ class AuthCommand(ToolkitCommand):
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
     @staticmethod
+    def _create_toolkit_group(loader_capabilities: list[Capability]) -> GroupWrite:
+        toolkit_group = GroupWrite(
+            name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME,
+            capabilities=[
+                *loader_capabilities,
+                # Add project ACL to be able to list and read projects, as the
+                ProjectsAcl(
+                    [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
+                    ProjectsAcl.Scope.All(),
+                ),
+            ],
+        )
+        return toolkit_group
+
+    @staticmethod
     def _get_capabilities_by_loader(
         ToolGlobals: CDFToolConfig,
     ) -> tuple[list[Capability], dict[tuple, list[str]]]:
@@ -250,7 +255,7 @@ class AuthCommand(ToolkitCommand):
                 ]
             )
             print("  [bold green]OK[/]")
-        except Exception:
+        except AuthorizationError:
             self.warn(
                 HighSeverityWarning(
                     "The service principal/application configured for this client "
@@ -266,7 +271,7 @@ class AuthCommand(ToolkitCommand):
                     ]
                 )
                 print("  [bold green]OK[/] - can continue with checks.")
-            except Exception:
+            except AuthorizationError:
                 raise AuthorizationError(
                     "Unable to continue, the service principal/application configured for this client does not"
                     " have the basic read group access rights."
