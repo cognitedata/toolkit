@@ -26,6 +26,9 @@ Changes are grouped as follows:
 - Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
 - In the `cdf build` command, version variables (`DataModel`, `View`, `Transformations`) are now always read as
   string and not integer. This ensures no false positive warnings for missing dependencies.
+- In the `cdf deploy/clean` command, if a transformation is writing to a `DataModel` or a `View` the version is
+  now always read as a string. Before if it was for example, `3_0_0` it would be read as `300` and cause
+  the deployment of the transformation to fail.
 
 ## [0.3.0b1] - 2024-09-23
 
