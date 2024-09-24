@@ -150,7 +150,7 @@ class AuthCommand(ToolkitCommand):
         if not is_user_in_toolkit_group:
             print(
                 Panel(
-                    f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
+                    f"To use the Toolkit, for example, 'cdf deploy', [red]you need to switch[/red] "
                     f"to the principal with source-id {cdf_toolkit_group.source_id!r}.",
                     title="Switch Principal",
                     expand=False,
