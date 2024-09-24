@@ -142,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
             )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
-        cdf_toml_content = self.create_cdf_toml(organization_dir)
+        cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0])
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
@@ -150,7 +150,7 @@ class ModulesCommand(ToolkitCommand):
         else:
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
-    def create_cdf_toml(self, organization_dir: Path) -> str:
+    def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
@@ -160,6 +160,7 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+        cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
         return cdf_toml_content
 
     def init(
@@ -186,7 +187,7 @@ default_organization_dir = "{organization_dir.name}"''',
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
             self._create(
-                organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
+                organization_dir=organization_dir, selected_packages=packages, environments=["test"], mode=mode
             )
             return
 
