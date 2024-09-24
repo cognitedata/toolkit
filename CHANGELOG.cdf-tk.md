@@ -29,6 +29,7 @@ Changes are grouped as follows:
 - In the `cdf deploy/clean` command, if a transformation is writing to a `DataModel` or a `View` the version is
   now always read as a string. Before if it was for example, `3_0_0` it would be read as `300` and cause
   the deployment of the transformation to fail.
+- [Feature Preview] The `GraphQL` loader now includes the `.graphql` file in the `cdf build` command.
 
 ## [0.3.0b1] - 2024-09-23
 
