@@ -139,7 +139,8 @@ class AuthCommand(ToolkitCommand):
             )
             if is_interactive:
                 self._update_missing_capabilities(ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run)
-        else:  # Toolkit group does not exist
+        else:
+            print(f"Group {toolkit_group.name!r} does not exist in the CDF project.")
             cdf_toolkit_group = self._create_toolkit_group_in_cdf(
                 ToolGlobals, toolkit_group, all_groups, is_interactive, dry_run
             )
