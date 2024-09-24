@@ -187,7 +187,7 @@ default_organization_dir = "{organization_dir.name}"''',
             print(Panel("Instantiating all available modules"))
             mode = self._verify_clean(modules_root_dir, clean)
             self._create(
-                organization_dir=organization_dir, selected_packages=packages, environments=["test"], mode=mode
+                organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
             )
             return
 
