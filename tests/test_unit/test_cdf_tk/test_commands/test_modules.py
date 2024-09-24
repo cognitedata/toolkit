@@ -22,7 +22,7 @@ class TestModulesCommand:
         target_path = tmp_path / "repo_root"
 
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-        cmd._create(organization_dir=target_path, selected_packages=selected_packages, environments=[], mode=None)
+        cmd._create(organization_dir=target_path, selected_packages=selected_packages, environments=["dev"], mode=None)
 
         assert Path(target_path).exists()
         assert Path(target_path / "modules" / "infield" / "cdf_infield_common").exists()

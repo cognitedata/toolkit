@@ -142,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
             )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
-        cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0])
+        cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0] if environments else "dev")
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
