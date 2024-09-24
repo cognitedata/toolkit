@@ -92,7 +92,7 @@ class AuthCommand(ToolkitCommand):
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
         loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
-        admin_write_group = GroupWrite(
+        toolkit_group = GroupWrite(
             name=TOOLKIT_SERVICE_PRINCIPAL_NAME,
             capabilities=[
                 *loader_capabilities,
@@ -109,10 +109,10 @@ class AuthCommand(ToolkitCommand):
                 "The Cognite Toolkit expects the following:\n"
                 " - The principal used with the Toolkit [yellow]should[/yellow] be connected to "
                 "only ONE CDF Group.\n"
-                f" - This group [red]must[/red] be named {admin_write_group.name!r}.\n"
-                f" - The group {admin_write_group.name!r} [red]must[/red] have capabilities to "
+                f" - This group [red]must[/red] be named {toolkit_group.name!r}.\n"
+                f" - The group {toolkit_group.name!r} [red]must[/red] have capabilities to "
                 f"all resources the Toolkit is managing\n"
-                " - All he capabilities [yellow]should[/yellow] be scoped to all resources.",
+                " - All the capabilities [yellow]should[/yellow] be scoped to all resources.",
                 title="Toolkit Access Group",
                 expand=False,
             )
@@ -120,14 +120,14 @@ class AuthCommand(ToolkitCommand):
         if is_interactive:
             Prompt.ask("Press enter key to continue...")
 
-        self.check_principal_groups(principal_groups, admin_write_group)
+        self.check_principal_groups(principal_groups, toolkit_group)
 
         missing_capabilities = self.check_has_toolkit_required_capabilities(
             ToolGlobals.toolkit_client,
             token_inspection,
-            admin_write_group,
+            toolkit_group,
             cdf_project,
-            admin_write_group.name,
+            toolkit_group.name,
             loaders_by_capability_tuple,
         )
         print("---------------------")
@@ -138,7 +138,7 @@ class AuthCommand(ToolkitCommand):
             )
         elif missing_capabilities:
             to_create, to_delete = self.upsert_toolkit_group_interactive(
-                principal_groups, admin_write_group, ToolGlobals.toolkit_client, cdf_project
+                principal_groups, toolkit_group, ToolGlobals.toolkit_client, cdf_project
             )
 
             created: Group | None = None
