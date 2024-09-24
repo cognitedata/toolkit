@@ -138,12 +138,14 @@ class TransformationLoader(
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
                 if in_dict(("space", "externalId", "version"), view):
+                    view["version"] = str(view["version"])
                     yield ViewLoader, ViewId.load(view)
             elif destination.get("type") == "instances":
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
                 if data_model := destination.get("dataModel"):
                     if in_dict(("space", "externalId", "version"), data_model):
+                        data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
     def _are_equal(
