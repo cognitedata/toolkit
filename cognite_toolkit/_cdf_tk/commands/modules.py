@@ -213,7 +213,7 @@ default_organization_dir = "{organization_dir.name}"''',
         selected = self._select_packages(packages)
         if "bootcamp" in selected:
             if questionary.confirm("Would you like to continue with creation?", default=True).ask():
-                self._create(Path.cwd() / "ice-cream-dataops", selected, ["dev", "prod"], mode)
+                self._create(Path.cwd() / "ice-cream-dataops", selected, ["test"], mode)
             raise typer.Exit()
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
