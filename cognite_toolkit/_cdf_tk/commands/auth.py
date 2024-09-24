@@ -158,7 +158,7 @@ class AuthCommand(ToolkitCommand):
             )
             return None
 
-        self.check_group_count_memberships(user_groups)
+        self.check_count_group_memberships(user_groups)
 
         self.check_source_id_usage(all_groups, cdf_toolkit_group)
 
@@ -420,7 +420,7 @@ class AuthCommand(ToolkitCommand):
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
 
-    def check_group_count_memberships(self, user_group: GroupList) -> None:
+    def check_count_group_memberships(self, user_group: GroupList) -> None:
         print("Checking CDF group memberships for the current client configured...")
 
         table = Table(title="CDF Group ids, Names, and Source Ids")
