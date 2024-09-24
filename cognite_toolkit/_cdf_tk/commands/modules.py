@@ -213,7 +213,12 @@ default_organization_dir = "{organization_dir.name}"''',
         selected = self._select_packages(packages)
         if "bootcamp" in selected:
             if questionary.confirm("Would you like to continue with creation?", default=True).ask():
-                self._create(Path.cwd() / "ice-cream-dataops", selected, ["test"], mode)
+                # Need to rerun the mode as bootcamp has a hardcoded organization directory
+                bootcamp_org = Path.cwd() / "ice-cream-dataops"
+                if bootcamp_org != organization_dir:
+                    mode = self._verify_clean(bootcamp_org / MODULES, clean)
+
+                self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
