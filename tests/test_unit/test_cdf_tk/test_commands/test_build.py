@@ -165,4 +165,4 @@ externalId: some_external_id
             None,
         )
         assert required_data_model is not None
-        assert required_data_model == DataModelId("MyModel", "my_space", "1_0_0")
+        assert required_data_model == DataModelId("my_space", "MyModel", "1_0_0")
