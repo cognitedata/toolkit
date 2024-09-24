@@ -1486,10 +1486,16 @@ class GraphQLParser:
         last_class: Literal["type", "interface"] | None = None
 
         parentheses: list[str] = []
-
         directive_tokens: _DirectiveTokens | None = None
-        is_directive_start: bool = False
-        for token in self._token_pattern.findall(self.raw):
+        is_directive_start = False
+        is_comment = False
+        tokens = self._token_pattern.findall(self.raw)
+        for no, token in enumerate(tokens):
+            if no >= 2 and (tokens[no - 2 : no + 1] == ['"'] * 3 or tokens[no - 2 : no + 1] == ["'"] * 3):
+                is_comment = not is_comment
+            if is_comment:
+                continue
+
             token = self._multi_newline.sub("\n", token)
             if token != "\n":
                 token = token.removesuffix("\n").removeprefix("\n")
@@ -1500,7 +1506,6 @@ class GraphQLParser:
                 parentheses.pop()
 
             is_end_of_entity = bool(parentheses and parentheses[0] == "{")
-
             if entity and is_end_of_entity:
                 # End of entity definition
                 if directive_tokens and (directive := directive_tokens.create()):
