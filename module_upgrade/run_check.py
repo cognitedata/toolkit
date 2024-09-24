@@ -132,6 +132,19 @@ def create_project_init(version: str) -> None:
 
             if install_toolkit.returncode != 0:
                 raise ValueError(f"Failed to install toolkit version {version}")
+
+            if parse_version(version) < parse_version("0.2.4"):
+                # Bug in pre 0.2.4 versions that was missing the packaging dependency
+                if platform.system() == "Windows":
+                    install_packing = subprocess.run(
+                        [f"{environment_directory}/Scripts/pip", "install", "packaging==24.1"]
+                    )
+                else:
+                    install_packing = subprocess.run([f"{environment_directory}/bin/pip", "install", "packaging==24.1"])
+
+                if install_packing.returncode != 0:
+                    raise ValueError(f"Failed to install packing version {version}")
+
             print(f"Environment for version {version} created")
 
     modified_env_variables = os.environ.copy()
