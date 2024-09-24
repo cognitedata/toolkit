@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- If there are multiple `cognite_service_principal_group`s, the `cdf auth verify` will offer to delete duplicates.
+
+### Fixed
+
+- Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
+
 ## [0.3.0b1] - 2024-09-23
 
 ### Added
