@@ -123,7 +123,7 @@ class DeployCommand(ToolkitCommand):
             # Otherwise, it is not in the build directory and not selected, so we skip it.
             # There should be a warning in the build step if it is missing.
         if should_include:
-            self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
+            self.warn(ToolkitDependenciesIncludedWarning(list({item.folder_name for item in should_include})))
 
         result: DeployResult | None
         if drop or drop_data:
