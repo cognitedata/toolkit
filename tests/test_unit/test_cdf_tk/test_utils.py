@@ -543,6 +543,25 @@ type WorkCenterCategory {
         {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
         id="No comma, only newline",
     ),
+    pytest.param(
+        '''"""
+  @name Name }{ Breaks the parser
+"""
+type UnitOfMeasurement
+  @import(
+    dataModel: {
+      externalId: "CoreDOM"
+      version: "1_0_18"
+      space: "EDG-COR-ALL-DMD"
+    }
+  ) {
+  name: String!
+}''',
+        DATA_MODEL,
+        set(),
+        {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
+        id="Ignore comments",
+    ),
 ]
 
 

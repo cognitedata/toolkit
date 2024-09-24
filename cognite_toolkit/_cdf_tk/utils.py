@@ -1420,6 +1420,7 @@ def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) ->
 
 class GraphQLParser:
     _token_pattern = re.compile(r"[\w\n]+|[^\w\s]", flags=re.DOTALL)
+    _multi_newline = re.compile(r"\n+")
 
     def __init__(self, raw: str, data_model_id: DataModelId) -> None:
         self.raw = raw
@@ -1489,6 +1490,7 @@ class GraphQLParser:
         directive_tokens: _DirectiveTokens | None = None
         is_directive_start: bool = False
         for token in self._token_pattern.findall(self.raw):
+            token = self._multi_newline.sub("\n", token)
             if token != "\n":
                 token = token.removesuffix("\n").removeprefix("\n")
 
