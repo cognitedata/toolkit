@@ -186,32 +186,34 @@ class AuthCommand(ToolkitCommand):
                 "Please create the group and try again."
                 f"\n{HINT_LEAD_TEXT}Run this command without --no-prompt to get assistance to create the group."
             )
-        if questionary.confirm(
-            f"Do you want to create a new group named {toolkit_group.name!r} for Cognite Toolkit?",
+        if not questionary.confirm(
+            "Do you want to create a it?",
             default=True,
         ).ask():
-            if dry_run:
-                print(
-                    f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
-                )
-                return None
+            return None
 
-            source_id = questionary.text(
-                "What is the source id for the new group (typically a group id in the identity provider)?"
-            ).ask()
-            toolkit_group.source_id = source_id
-            if already_used := [group for group in all_groups if group.source_id == source_id]:
-                self.warn(
-                    HighSeverityWarning(
-                        f"The source id {source_id!r} is already used by the groups {humanize_collection(already_used)}."
-                    )
-                )
-                if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
-                    return None
-            created = ToolGlobals.toolkit_client.iam.groups.create(toolkit_group)
+        if dry_run:
             print(
-                f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
+                f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
             )
+            return None
+
+        source_id = questionary.text(
+            "What is the source id for the new group (typically a group id in the identity provider)?"
+        ).ask()
+        toolkit_group.source_id = source_id
+        if already_used := [group.name for group in all_groups if group.source_id == source_id]:
+            self.warn(
+                HighSeverityWarning(
+                    f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
+                )
+            )
+            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+                return None
+        created = ToolGlobals.toolkit_client.iam.groups.create(toolkit_group)
+        print(
+            f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
+        )
         return created
 
     def _check_missing_capabilities(
@@ -436,7 +438,7 @@ class AuthCommand(ToolkitCommand):
             self.warn(
                 LowSeverityWarning(
                     "This service principal/application gets its access rights from more than one CDF group."
-                    "           This is not recommended. The group matching the group config file is marked in "
+                    "\nThis is not recommended. The group matching the group config file is marked in "
                     "bold above if it is present."
                 )
             )
@@ -453,9 +455,9 @@ class AuthCommand(ToolkitCommand):
             group_names_str = humanize_collection(reuse_source_id)
             self.warn(
                 MediumSeverityWarning(
-                    f"The following groups have the same source id, {cdf_toolkit_group.source_id}, "
-                    f"as the {cdf_toolkit_group.name!r} group: \n{group_names_str}.\n"
-                    "It is recommended that only the {cdf_toolkit_group.name!r} group has this source id."
+                    f"The following groups have the same source id, {cdf_toolkit_group.source_id},\n"
+                    f"as the {cdf_toolkit_group.name!r} group: \n    {group_names_str!r}.\n"
+                    f"It is recommended that only the {cdf_toolkit_group.name!r} group has this source id."
                 )
             )
 
