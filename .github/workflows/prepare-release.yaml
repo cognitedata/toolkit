@@ -1,0 +1,87 @@
+name: Prepare Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'The type of version bump to perform'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - patch
+          - minor
+          # Major version is intentionally omitted, as it should be done manually
+
+env:
+  MAIN_PYTHON_VERSION: 3.11
+
+jobs:
+  create_prepare_branch:
+    runs-on: ubuntu-latest
+    environment: dev_read
+    permissions:
+      # Give the default GITHUB_TOKEN write permission to commit and push the
+      # added or changed files to the repository.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.MAIN_PYTHON_VERSION }}
+
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+
+      - name: Install core dependencies
+        run: |
+          poetry install
+
+      - name: Bump Alpha Version
+        if: ${{ github.event.inputs.bump == 'alpha' }}
+        run:
+          python dev.py --alpha
+
+      - name: Bump Beta Version
+        if: ${{ github.event.inputs.bump == 'beta' }}
+        run:
+          python dev.py --beta
+
+      - name: Bump Patch Version
+        if: ${{ github.event.inputs.bump == 'patch' }}
+        run:
+          python dev.py --patch
+
+      - name: Bump Minor Version
+        if: ${{ github.event.inputs.bump == 'minor' }}
+        run:
+          python dev.py --minor --verbose
+
+      - id: version
+        name: Pick up the new version
+        # Read the version from the cognite/neat/_version.py file
+        run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
+
+      - name: Switch to a new branch
+        run: |
+          git switch -c "prepare-${{ env.version }}"
+
+      - name: Commit and push changes to new branch
+        run: |
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Action"
+          git add -A
+          git commit -m 'Prepare ${{ env.version }}'
+          git push -u origin "prepare-${{ env.version }}"
+
+      - name: Run Migration Tests
+        run: |
+          python module_upgrade/run_check.py --earliest --latest

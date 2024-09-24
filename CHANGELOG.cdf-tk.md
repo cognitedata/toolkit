@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [0.3.0b1] - 2024-09-18
+## [0.3.0b1] - 2024-09-23
 
 ### Added
 
@@ -44,7 +44,7 @@ Changes are grouped as follows:
 - [BREAKING] Support for api parameters in `Node` resource is removed.
 - Support for Python 3.9.
 
-## [0.3.0a7] - 2024-09-18
+## [0.3.0a7] - 2024-09-23
 
 ### Fixed
 

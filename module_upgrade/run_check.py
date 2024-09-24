@@ -55,10 +55,17 @@ logging.basicConfig(
 
 
 def run() -> None:
-    only_earliest = len(original_argv) > 1 and original_argv[1] == "--earliest"
-    only_latest = len(original_argv) > 1 and original_argv[1] == "--latest"
+    from_earliest = len(original_argv) > 1 and "--earliest" in original_argv[1:3]
+    from_latest = len(original_argv) > 1 and "--latest" in original_argv[1:3]
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
+    if from_earliest and from_latest:
+        versions = [versions[0], versions[-1]]
+    elif from_earliest:
+        versions = versions[-1:]
+    elif from_latest:
+        versions = versions[:1]
+
     for version in versions:
         create_project_init(str(version))
 
@@ -77,10 +84,6 @@ def run() -> None:
             title="cdf-tk module upgrade",
         )
     )
-    if only_earliest:
-        versions = versions[-1:]
-    elif only_latest:
-        versions = versions[:1]
     for version in versions:
         with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
             run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
