@@ -15,6 +15,26 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- [Feature Preview] Deploying `GraphQL` resources with `cdf deploy` no longers fails with a `ToolkitRequiredValueError`,
+  if there is a comment in the `.graphql` file or a multiline `@import` directive is used. For example:
+
+```graphql
+type MyType
+  @import(
+    dataModel: {
+      externalId: "MyModel"
+      version: "v1"
+      space: "MySpace"
+    }
+  ) {
+  name: String!
+}
+```
+
 ## [0.3.0b2] - 2024-09-24
 
 ### Added
