@@ -1489,6 +1489,9 @@ class GraphQLParser:
         directive_tokens: _DirectiveTokens | None = None
         is_directive_start: bool = False
         for token in self._token_pattern.findall(self.raw):
+            if token != "\n":
+                token = token.removesuffix("\n").removeprefix("\n")
+
             if token in "({[<":
                 parentheses.append(token)
             elif token in ")}]>":
@@ -1512,6 +1515,9 @@ class GraphQLParser:
                     if token == "@":
                         is_directive_start = True
                 elif directive_tokens:
+                    if token == "\n" and "{" not in parentheses:
+                        # Throw away.
+                        continue
                     # Gather the content of the directive
                     directive_tokens.append(token)
                 elif token == "@":
@@ -1526,7 +1532,7 @@ class GraphQLParser:
             elif token in ("type", "interface"):
                 # Next token starts a new entity definition
                 last_class = token
-            elif last_class is not None:
+            elif last_class is not None and token != "\n":
                 # Start of a new entity definition
                 entity = _Entity(identifier=token, class_=last_class)
                 last_class = None
@@ -1546,7 +1552,7 @@ class _Directive:
     @classmethod
     def load(cls, content: list[str]) -> _Directive | None:
         key, *content = content
-        raw_string = "".join(content).removeprefix("(").removesuffix(")")
+        raw_string = "".join(content).removeprefix("(").removesuffix(")").replace("\n", ",")
         data = typing.cast(dict[str, Any], cls._create_args(raw_string))
         if key == "import":
             return _Import._load(data)
@@ -1561,6 +1567,10 @@ class _Directive:
         output: dict[str, Any] = {}
         if string[0] == "{" and string[-1] == "}":
             string = string[1:-1]
+        if string[0] == ",":
+            string = string[1:]
+        if string[-1] == ",":
+            string = string[:-1]
         for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
             stripped = pair.strip()
             if not stripped or ":" not in stripped:

@@ -539,9 +539,9 @@ type WorkCenterCategory {
   name: String!
 }""",
         DATA_MODEL,
-        {ViewId(SPACE, "UnitOfMeasurement")},
+        set(),
         {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
-        id="Simple type with version",
+        id="No comma, only newline",
     ),
 ]
 
