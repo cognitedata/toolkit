@@ -142,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
             )
             (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
 
-        cdf_toml_content = self.create_cdf_toml(organization_dir)
+        cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0] if environments else "dev")
 
         destination = Path.cwd() / CDFToml.file_name
         if destination.exists():
@@ -150,7 +150,7 @@ class ModulesCommand(ToolkitCommand):
         else:
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
-    def create_cdf_toml(self, organization_dir: Path) -> str:
+    def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
         cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
@@ -160,6 +160,7 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         else:
             cdf_toml_content = cdf_toml_content.replace("#<PLACEHOLDER>", "")
+        cdf_toml_content = cdf_toml_content.replace("<DEFAULT_ENV_PLACEHOLDER>", env)
         return cdf_toml_content
 
     def init(
@@ -211,8 +212,13 @@ default_organization_dir = "{organization_dir.name}"''',
 
         selected = self._select_packages(packages)
         if "bootcamp" in selected:
-            if questionary.confirm("Would you like to continue with creation?", default=True).ask():
-                self._create(Path.cwd() / "ice-cream-dataops", selected, ["dev", "prod"], mode)
+            bootcamp_org = Path.cwd() / "ice-cream-dataops"
+            if bootcamp_org != organization_dir:
+                # Need to rerun the mode as bootcamp has a hardcoded organization directory
+                mode = self._verify_clean(bootcamp_org / MODULES, clean)
+            # We only ask to verify if the user has not already selected overwrite in the _verify_clean method
+            if mode == "clean" or questionary.confirm("Would you like to continue with creation?", default=True).ask():
+                self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
         if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
