@@ -212,12 +212,12 @@ default_organization_dir = "{organization_dir.name}"''',
 
         selected = self._select_packages(packages)
         if "bootcamp" in selected:
-            if questionary.confirm("Would you like to continue with creation?", default=True).ask():
+            bootcamp_org = Path.cwd() / "ice-cream-dataops"
+            if bootcamp_org != organization_dir:
                 # Need to rerun the mode as bootcamp has a hardcoded organization directory
-                bootcamp_org = Path.cwd() / "ice-cream-dataops"
-                if bootcamp_org != organization_dir:
-                    mode = self._verify_clean(bootcamp_org / MODULES, clean)
-
+                mode = self._verify_clean(bootcamp_org / MODULES, clean)
+            # We only ask to verify if the user has not already selected overwrite in the _verify_clean method
+            if mode == "clean" or questionary.confirm("Would you like to continue with creation?", default=True).ask():
                 self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
