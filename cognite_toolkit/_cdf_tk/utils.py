@@ -1419,7 +1419,7 @@ def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) ->
 
 
 class GraphQLParser:
-    _token_pattern = re.compile(r"\w+|[^\w\s]")
+    _token_pattern = re.compile(r"[\w\n]+|[^\w\s]", flags=re.DOTALL)
 
     def __init__(self, raw: str, data_model_id: DataModelId) -> None:
         self.raw = raw

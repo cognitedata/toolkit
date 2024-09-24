@@ -1074,7 +1074,10 @@ class GraphQLLoader(
                 )
             model_id = model.as_id()
             self._graphql_filepath_cache[model_id] = graphql_file
-            parser = GraphQLParser(safe_read(graphql_file), model_id)
+            graphql_content = safe_read(graphql_file)
+            # Ensure consistent line endings
+            graphql_content = graphql_content.replace("\r\n", "\n").replace("\r", "\n")
+            parser = GraphQLParser(graphql_content, model_id)
             try:
                 for view in parser.get_views():
                     self._datamodels_by_view_id[view].add(model_id)
