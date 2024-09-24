@@ -24,6 +24,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
+- In the `cdf build` command, version variables (`DataModel`, `View`, `Transformations`) are now always read as
+  string and not integer. This ensures no false positive warnings for missing dependencies.
 
 ## [0.3.0b1] - 2024-09-23
 
