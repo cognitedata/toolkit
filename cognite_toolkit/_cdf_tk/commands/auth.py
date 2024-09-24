@@ -198,9 +198,14 @@ class AuthCommand(ToolkitCommand):
             )
             return None
 
-        source_id = questionary.text(
-            "What is the source id for the new group (typically a group id in the identity provider)?"
-        ).ask()
+        while True:
+            source_id = questionary.text(
+                "What is the source id for the new group (typically a group id in the identity provider)?"
+            ).ask()
+            if source_id:
+                break
+            print("Source id cannot be empty.")
+
         toolkit_group.source_id = source_id
         if already_used := [group.name for group in all_groups if group.source_id == source_id]:
             self.warn(
