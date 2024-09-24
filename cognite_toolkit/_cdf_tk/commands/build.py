@@ -89,6 +89,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     humanize_collection,
     module_from_path,
+    quote_int_value_by_key_in_yaml,
     read_yaml_content,
     resource_folder_from_path,
     safe_read,
@@ -619,6 +620,9 @@ class BuildCommand(ToolkitCommand):
         if destination.suffix not in {".yaml", ".yml"}:
             return warning_list, []
 
+        # Ensure that all keys that are version gets read as strings.
+        # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
+        content = quote_int_value_by_key_in_yaml(content, key="version")
         try:
             parsed = yaml.safe_load(content)
         except yaml.YAMLError as e:

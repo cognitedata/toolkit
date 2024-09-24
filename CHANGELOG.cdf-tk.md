@@ -15,7 +15,23 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [0.3.0b1] - 2024-09-18
+## [0.3.0b2] - 2024-09-24
+
+### Added
+
+- If there are multiple `cognite_service_principal_group`s, the `cdf auth verify` will offer to delete duplicates.
+
+### Fixed
+
+- Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
+- In the `cdf build` command, version variables (`DataModel`, `View`, `Transformations`) are now always read as
+  string and not integer. This ensures no false positive warnings for missing dependencies.
+- In the `cdf deploy/clean` command, if a transformation is writing to a `DataModel` or a `View` the version is
+  now always read as a string. Before if it was for example, `3_0_0` it would be read as `300` and cause
+  the deployment of the transformation to fail.
+- [Feature Preview] The `GraphQL` loader now includes the `.graphql` file in the `cdf build` command.
+
+## [0.3.0b1] - 2024-09-23
 
 ### Added
 
@@ -44,7 +60,7 @@ Changes are grouped as follows:
 - [BREAKING] Support for api parameters in `Node` resource is removed.
 - Support for Python 3.9.
 
-## [0.3.0a7] - 2024-09-18
+## [0.3.0a7] - 2024-09-23
 
 ### Fixed
 
