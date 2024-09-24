@@ -69,7 +69,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
@@ -1075,9 +1075,12 @@ class GraphQLLoader(
             model_id = model.as_id()
             self._graphql_filepath_cache[model_id] = graphql_file
             parser = GraphQLParser(safe_read(graphql_file), model_id)
-            for view in parser.get_views():
-                self._datamodels_by_view_id[view].add(model_id)
-            self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
+            try:
+                for view in parser.get_views():
+                    self._datamodels_by_view_id[view].add(model_id)
+                self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
+            except Exception as e:
+                raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
         return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:

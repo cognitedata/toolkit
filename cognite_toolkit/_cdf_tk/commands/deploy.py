@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
-    ToolkitDeployResourceError,
     ToolkitFileNotFoundError,
     ToolkitNotADirectoryError,
 )
@@ -86,13 +85,13 @@ class DeployCommand(ToolkitCommand):
 
         deploy_state.set_environment_variables()
 
-        errors = deploy_state.check_source_files_changed()
-        for error in errors:
-            self.warn(error)
-        if errors:
-            raise ToolkitDeployResourceError(
-                "One or more source files have been modified since the last build. Please rebuild the project."
-            )
+        # errors = deploy_state.check_source_files_changed()
+        # for error in errors:
+        #     self.warn(error)
+        # if errors:
+        #     raise ToolkitDeployResourceError(
+        #         "One or more source files have been modified since the last build. Please rebuild the project."
+        #     )
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
             environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
