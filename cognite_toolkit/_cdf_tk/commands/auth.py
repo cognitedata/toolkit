@@ -115,49 +115,59 @@ class AuthCommand(ToolkitCommand):
 
         is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
         is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
+
         print(f"Checking current client is member of the {toolkit_group.name!r} group...")
         has_added_capabilities = False
+        cdf_toolkit_group: Group | None
         if is_user_in_toolkit_group:
             print(f"  [bold green]OK[/] - The current client is member of the {toolkit_group.name!r} group.")
-            existing_group = next(group for group in user_groups if group.name == toolkit_group.name)
+            cdf_toolkit_group = next(group for group in user_groups if group.name == toolkit_group.name)
             missing_capabilities = self._check_missing_capabilities(
-                ToolGlobals, existing_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
             if is_interactive:
                 has_added_capabilities = self._update_missing_capabilities(
-                    ToolGlobals, existing_group, toolkit_group, missing_capabilities, dry_run
+                    ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run
                 )
         elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
             self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
             print(f"Checking if the group {toolkit_group.name!r} has the required capabilities...")
             # Update the group with the missing capabilities
-            existing_group = next(group for group in all_groups if group.name == toolkit_group.name)
+            cdf_toolkit_group = next(group for group in all_groups if group.name == toolkit_group.name)
             missing_capabilities = self._check_missing_capabilities(
-                ToolGlobals, existing_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
             if is_interactive:
-                self._update_missing_capabilities(
-                    ToolGlobals, existing_group, toolkit_group, missing_capabilities, dry_run
-                )
+                self._update_missing_capabilities(ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run)
         else:  # Toolkit group does not exist
-            is_created = self._create_toolkit_group_in_cdf(
+            cdf_toolkit_group = self._create_toolkit_group_in_cdf(
                 ToolGlobals, toolkit_group, all_groups, is_interactive, dry_run
             )
-            if not is_created:
-                return None
+        if cdf_toolkit_group is None:
+            return None
 
         if not is_user_in_toolkit_group:
             print(
                 Panel(
                     f"To use the Toolkit, for example, 'cdf-tk deploy', [red]you need to switch[/red] "
-                    f"to the principal with source-id {toolkit_group.source_id!r}.",
+                    f"to the principal with source-id {cdf_toolkit_group.source_id!r}.",
                     title="Switch Principal",
                     expand=False,
                 )
             )
             return None
 
-        self.check_principal_groups(user_groups, toolkit_group)
+        self.check_group_count_memberships(user_groups)
+
+        self.check_source_id_usage(all_groups, cdf_toolkit_group)
+
+        if extra := self.check_duplicated_names(all_groups, cdf_toolkit_group):
+            if is_interactive and questionary.confirm("Do you want to delete the extra groups?", default=True).ask():
+                try:
+                    ToolGlobals.toolkit_client.iam.groups.delete(extra.as_ids())
+                except CogniteAPIError as e:
+                    raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
+                print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
 
         self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
 
@@ -168,7 +178,7 @@ class AuthCommand(ToolkitCommand):
         all_groups: GroupList,
         is_interactive: bool,
         dry_run: bool,
-    ) -> bool:
+    ) -> Group | None:
         if not is_interactive:
             raise AuthorizationError(
                 f"Group {toolkit_group.name!r} does not exist in the CDF project. "
@@ -183,7 +193,7 @@ class AuthCommand(ToolkitCommand):
                 print(
                     f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
                 )
-                return False
+                return None
 
             source_id = questionary.text(
                 "What is the source id for the new group (typically a group id in the identity provider)?"
@@ -196,12 +206,12 @@ class AuthCommand(ToolkitCommand):
                     )
                 )
                 if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
-                    return False
+                    return None
             created = ToolGlobals.toolkit_client.iam.groups.create(toolkit_group)
             print(
                 f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
             )
-        return True
+        return created
 
     def _check_missing_capabilities(
         self,
@@ -244,14 +254,13 @@ class AuthCommand(ToolkitCommand):
         self,
         ToolGlobals: CDFToolConfig,
         existing_group: Group,
-        toolkit_group: GroupWrite,
         missing_capabilities: list[Capability],
         dry_run: bool,
     ) -> bool:
         """Updates the missing capabilities. This assumes interactive mode."""
         updated_toolkit_group = GroupWrite.load(existing_group.dump())
         if updated_toolkit_group.capabilities is None:
-            updated_toolkit_group.capabilities = (toolkit_group.capabilities or []).copy()
+            updated_toolkit_group.capabilities = missing_capabilities
         else:
             updated_toolkit_group.capabilities.extend(missing_capabilities)
 
@@ -408,24 +417,21 @@ class AuthCommand(ToolkitCommand):
             f"  Matching on CDF group sourceIds will be done on any of these claims from the identity provider: {access_claims}"
         )
 
-    def check_principal_groups(self, principal_groups: GroupList, toolkit_group: GroupWrite) -> None:
+    def check_group_count_memberships(self, user_group: GroupList) -> None:
         print("Checking CDF group memberships for the current client configured...")
 
         table = Table(title="CDF Group ids, Names, and Source Ids")
         table.add_column("Id", justify="left")
         table.add_column("Name", justify="left")
         table.add_column("Source Id", justify="left")
-        admin_group_read = GroupList([])
-        for group in principal_groups:
+        for group in user_group:
             name = group.name
-            if group.name == toolkit_group.name:
-                admin_group_read.append(group)
+            if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
                 name = f"[bold]{group.name}[/]"
-
             table.add_row(str(group.id), name, group.source_id)
         print(table)
 
-        if len(principal_groups) > 1:
+        if len(user_group) > 1:
             self.warn(
                 LowSeverityWarning(
                     "This service principal/application gets its access rights from more than one CDF group."
@@ -436,43 +442,37 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - Only one group is used for this service principal/application.")
 
-        print("---------------------")
-        if len(admin_group_read) == 0:
-            # No group existing Toolkit group
-            return None
-
-        elif len(admin_group_read) > 1:
+    def check_source_id_usage(self, all_groups: GroupList, cdf_toolkit_group: Group) -> None:
+        reuse_source_id = [
+            group.name
+            for group in all_groups
+            if group.source_id == cdf_toolkit_group.source_id and group.id != cdf_toolkit_group.id
+        ]
+        if reuse_source_id:
+            group_names_str = humanize_collection(reuse_source_id)
             self.warn(
                 MediumSeverityWarning(
-                    f"There are multiple groups with the same name {toolkit_group.name} in the CDF project."
+                    f"The following groups have the same source id, {cdf_toolkit_group.source_id}, "
+                    f"as the {cdf_toolkit_group.name!r} group: \n{group_names_str}.\n"
+                    "It is recommended that only the {cdf_toolkit_group.name!r} group has this source id."
+                )
+            )
+
+    def check_duplicated_names(self, all_groups: GroupList, cdf_toolkit_group: Group) -> GroupList:
+        extra = GroupList(
+            [group for group in all_groups if group.name == cdf_toolkit_group.name and group.id != cdf_toolkit_group.id]
+        )
+        if extra:
+            self.warn(
+                MediumSeverityWarning(
+                    f"There are multiple groups with the same name {cdf_toolkit_group.name} in the CDF project."
                     "           It is recommended that this admin (CI/CD) application/service principal "
                     "only is member of one group in the identity provider. Suggest you delete all but one"
                     "           of the groups with the same name."
                 )
             )
-            # Todo: New feature ask user to cleanup groups with the same name.
-            #    Should compare the groups to the admin_group and ask to cleanup the groups
-            #    that are not the same.
 
-        # Check for the reuse of Source ID
-        unique_source_ids = set(group.source_id for group in principal_groups)
-        for source_id in unique_source_ids:
-            group_names = [
-                group.name
-                for group in principal_groups
-                if group.source_id == source_id and group.name != toolkit_group.name
-            ]
-            if len(group_names) > 1:
-                groups_names_str = "\n  - ".join(group_names)
-                self.warn(
-                    LowSeverityWarning(
-                        f"The following groups have the same source id, {source_id}, "
-                        f"as the admin group {toolkit_group.name}: \n{groups_names_str}.\n"
-                        "It is recommended that this admin (CI/CD) application/service principal "
-                        "is only member of one group in the identity provider."
-                    )
-                )
-        return None
+        return extra
 
     @staticmethod
     def _merge_capabilities(capability_list: list[Capability]) -> list[Capability]:
