@@ -1,5 +1,6 @@
 externalId: MyMapping
-mapping: "some expression"
+mapping:
+  expression: "some expression"
 input:
   type: csv
   delimiter: ","

@@ -356,5 +356,5 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Used by the SDK to determine the class to load
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
+        spec.add(ParameterSpec(("input", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
