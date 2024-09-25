@@ -124,6 +124,10 @@ from cognite.client.data_classes.hosted_extractors import (
     JobList,
     JobWrite,
     JobWriteList,
+    Mapping,
+    MappingList,
+    MappingWrite,
+    MappingWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -698,6 +702,19 @@ API_RESOURCES = [
         list_cls=JobList,
         _write_cls=JobWrite,
         _write_list_cls=JobWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="hosted_extractors.mappings",
+        resource_cls=Mapping,
+        list_cls=MappingList,
+        _write_cls=MappingWrite,
+        _write_list_cls=MappingWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
