@@ -86,7 +86,10 @@ class TypeHint:
 
     @property
     def is_user_defined_class(self) -> bool:
-        return any(inspect.isclass(arg) and arg.__module__ not in {"typing", "builtins"} for arg in self.args)
+        return any(
+            inspect.isclass(arg) and arg.__module__ not in {"typing", "builtins", "collections.abc"}
+            for arg in self.args
+        )
 
     @property
     def _get_origins(self) -> tuple[Any, ...]:
