@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Support for hosted extractors mappings.
+
 ### Fixed
 
 - [Feature Preview] Deploying `GraphQL` resources with `cdf deploy` no longers fails with a `ToolkitRequiredValueError`,
