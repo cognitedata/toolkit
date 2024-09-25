@@ -192,3 +192,6 @@ class AuthenticationError(ToolkitError):
 
 class AuthorizationError(ToolkitError):
     pass
+
+
+class GraphQLParseError(ToolkitError): ...

@@ -91,7 +91,9 @@ class ParameterFromInitTypeHints:
         elif key is str:
             key_path = ANY_STR
         else:
-            raise NotImplementedError("Only Literal and str are supported for dict keys.")
+            raise NotImplementedError(
+                f"Only Literal and str are supported for dict keys. {key.__name__} is not supported."
+            )
         value_hint = TypeHint(value)
 
         self.parameter_set.add(
