@@ -1,0 +1,6 @@
+externalId: MyMapping
+mapping: "some expression"
+input:
+  type: csv
+  delimiter: ","
+published: true
