@@ -94,6 +94,14 @@ LocationFilter:
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
+Mapping:
+- externalId: MyMapping
+  input:
+    delimiter: ','
+    type: csv
+  mapping:
+    expression: some expression
+  published: true
 Node:
 - externalId: MyExtendedFile
   instanceType: node
