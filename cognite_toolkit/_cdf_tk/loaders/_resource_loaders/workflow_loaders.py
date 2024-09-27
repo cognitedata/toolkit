@@ -276,7 +276,8 @@ class WorkflowTriggerLoader(
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
 
-    _doc_url = "Workflow-triggers/operation/createTriggers"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
+    _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
