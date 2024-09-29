@@ -1,0 +1,8 @@
+[module]
+title = "Admin group for CI/CD"
+
+[packages]
+tags = [
+    "inrobot",
+    "quickstart"
+]
