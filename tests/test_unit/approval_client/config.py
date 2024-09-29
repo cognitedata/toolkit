@@ -83,6 +83,8 @@ from cognite.client.data_classes import (
     WorkflowList,
     WorkflowTrigger,
     WorkflowTriggerList,
+    WorkflowTriggerUpsert,
+    WorkflowTriggerUpsertList,
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
@@ -659,8 +661,8 @@ API_RESOURCES = [
         api_name="workflows.triggers",
         resource_cls=WorkflowTrigger,
         list_cls=WorkflowTriggerList,
-        _write_cls=WorkflowUpsert,
-        _write_list_cls=WorkflowUpsertList,
+        _write_cls=WorkflowTriggerUpsert,
+        _write_list_cls=WorkflowTriggerUpsertList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
