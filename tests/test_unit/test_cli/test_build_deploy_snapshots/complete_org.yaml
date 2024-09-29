@@ -115,7 +115,6 @@ Node:
       description: null
       directory: null
       fileCategory: Document
-      isUploaded: null
       mimeType: text/plain
       name: anotherfile.txt
       source:
@@ -131,7 +130,6 @@ Node:
       sourceUpdatedUser: null
       status: Active
       tags: null
-      uploadedTime: null
     source:
       externalId: MyFileExtension
       space: sp_schema
@@ -149,7 +147,6 @@ Node:
       category: null
       description: null
       directory: null
-      isUploaded: null
       mimeType: text/plain
       name: filecontent.txt
       source:
@@ -166,7 +163,6 @@ Node:
       tags:
       - tag1
       - tag2
-      uploadedTime: null
     source:
       externalId: CogniteFile
       space: cdf_cdm
