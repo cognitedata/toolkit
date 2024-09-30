@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0b4] - 2024-09-30
+
+### Fixed
+
+- Module `bootcamp` error in calculation of `quality` and `performance` in the `oee_timeseries` function.
+
 ## [0.3.0b3] - 2024-09-25
 
 No changes to templates.

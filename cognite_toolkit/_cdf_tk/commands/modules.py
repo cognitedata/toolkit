@@ -306,7 +306,6 @@ default_organization_dir = "{organization_dir.name}"''',
                         questionary.Choice(
                             title=selectable_module.title,
                             value=selectable_module,
-                            checked=True,
                         )
                         for selectable_module in package.modules
                     ],

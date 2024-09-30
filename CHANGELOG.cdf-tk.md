@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0b4] - 2024-09-30
+
+### Fixed
+
+- Upgrading the `cognite-sdk` to `6.62.5` no longer raises an `ImportError` when running the `cdf` commands.
+
 ## [0.3.0b3] - 2024-09-25
 
 ### Added
