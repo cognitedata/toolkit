@@ -1,20 +1,44 @@
 LocationFilter:
-- dataModels:
-  - externalId: CogniteCore
-    space: sp_core_data_modecdf_cdm
-    version: v1
+- assetCentric:
+    assetSubtreeIds:
+    - externalId: '{{  location_asset_subtree_external_id }}'
+    assets:
+      assetSubtreeIds:
+      - externalId: '{{  location_asset_subtree_external_id }}'
+      dataSetIds:
+      - 42
+      externalIdPrefix: asset-prefix
+    dataSetIds:
+    - 42
+    events:
+      assetSubtreeIds:
+      - externalId: '{{  location_asset_subtree_external_id }}'
+      dataSetIds:
+      - 42
+      externalIdPrefix: event-prefix
+    externalIdPrefix: '{{  location_general_external_id_prefix }}'
+    files:
+      assetSubtreeIds:
+      - externalId: '{{  location_asset_subtree_external_id }}'
+      dataSetIds:
+      - 42
+      externalIdPrefix: file-prefix
+    sequences:
+      assetSubtreeIds:
+      - externalId: '{{  location_asset_subtree_external_id }}'
+      dataSetIds:
+      - 42
+      externalIdPrefix: '{{  location_sequences_prefix }}'
+    timeseries:
+      assetSubtreeIds:
+      - externalId: '{{  location_asset_subtree_external_id }}'
+      dataSetIds:
+      - 42
+      externalIdPrefix: '{{  location_timeseries_prefix }}'
   description: <not_set>
   externalId: <not_set>
-  instanceSpaces:
-  - <not_set>
   name: <not_set>
   parentId: <not_set>
   scene:
     externalId: '{{  location_scene_external_id }}'
     space: '{{  location_scene_space }}'
-  views:
-    externalId: <not_set>
-    representsEntity: <not_set>
-    space: <not_set>
-    type: view
-    version: <not_set>
