@@ -16,39 +16,3 @@ views:
  space: '{{ location_view_space }}'
  version: '{{ location_view_version }}'
  representsEntity: '{{ location_view_represents_entity }}'
-# assetCentric:
-#  assets:
-#    dataSetExternalIds:
-#      - '{{  location_asset_dataset_external_id }}'
-#    assetSubtreeIds:
-#      - externalId: '{{  location_asset_subtree_external_id }}'
-#    externalIdPrefix: asset-prefix
-#  events:
-#    dataSetExternalIds:
-#      - '{{  location_event_dataset_external_id }}'
-#    assetSubtreeIds:
-#      - externalId: '{{  location_asset_subtree_external_id }}'
-#    externalIdPrefix: event-prefix
-#  files:
-#    dataSetExternalIds:
-#      - '{{  location_file_dataset_external_id }}'
-#    assetSubtreeIds:
-#      - externalId: '{{  location_asset_subtree_external_id }}'
-#    externalIdPrefix: file-prefix
-#  timeseries:
-#    dataSetExternalIds:
-#      - '{{  location_timeseries_dataset_external_id }}'
-#    assetSubtreeIds:
-#      - externalId: '{{  location_asset_subtree_external_id }}'
-#    externalIdPrefix: '{{  location_timeseries_prefix }}'
-#  sequences:
-#    dataSetExternalIds:
-#      - '{{  location_timeseries_dataset_external_id }}'
-#    assetSubtreeIds:
-#      - externalId: '{{  location_asset_subtree_external_id }}'
-#    externalIdPrefix: '{{  location_sequences_prefix }}'
-#  dataSetExternalIds:
-#    - '{{  location_dataset_external_id }}'
-#  assetSubtreeIds:
-#    - externalId: '{{  location_asset_subtree_external_id }}'
-#  externalIdPrefix: '{{  location_general_external_id_prefix }}'
