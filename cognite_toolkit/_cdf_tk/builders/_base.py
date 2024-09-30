@@ -4,15 +4,22 @@ import re
 import shutil
 import traceback
 from collections import defaultdict
-from collections.abc import Hashable, Sequence
+from collections.abc import Callable, Hashable, Sequence
+from functools import partial
 from pathlib import Path
 from typing import Any, ClassVar
 
 import yaml
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
-from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.data_classes import BuiltResourceList, ModuleLocation
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, TEMPLATE_VARS_FILE_SUFFIXES
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildVariables,
+    BuiltResource,
+    BuiltResourceList,
+    ModuleLocation,
+    SourceLocationEager,
+)
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
     ToolkitFileExistsError,
@@ -33,6 +40,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
+    LowSeverityWarning,
     MediumSeverityWarning,
     ToolkitBugWarning,
     ToolkitNotSupportedWarning,
@@ -47,12 +55,14 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
     UnresolvedVariableWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_str_or_file_hash,
     humanize_collection,
     module_from_path,
     quote_int_value_by_key_in_yaml,
     read_yaml_content,
     resource_folder_from_path,
     safe_read,
+    safe_write,
 )
 from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_resource_yaml
 
@@ -61,8 +71,14 @@ class Builder:
     _resource_folder: ClassVar[str]
 
     def __init__(
-        self, module_names_by_variable_key: dict[str, list[str]], silent: bool, resource_folder: str, verbose: bool
+        self,
+        build_dir: Path,
+        module_names_by_variable_key: dict[str, list[str]],
+        silent: bool,
+        resource_folder: str,
+        verbose: bool,
     ):
+        self.build_dir = build_dir
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
         self.verbose = verbose
@@ -95,8 +111,68 @@ class Builder:
             return self._resource_folder
         return self.__resource_folder
 
-    def build_resource_folder(self, resource_files: Sequence[Path]) -> BuiltResourceList[Hashable]:
-        raise NotImplementedError
+    def build_resource_folder(
+        self, resource_files: Sequence[Path], module_variables: BuildVariables, module: ModuleLocation
+    ) -> BuiltResourceList[Hashable]:
+        build_plugin = {
+            FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=self.verbose),
+        }.get(self.resource_folder)
+
+        built_resource_list = BuiltResourceList[Hashable]()
+        for source_path in resource_files:
+            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(
+                source_path, self.resource_folder
+            ):
+                continue
+
+            destination = self._create_destination_path(source_path, self.resource_folder, module.dir, self.build_dir)
+
+            built_resources = self._build_resources(
+                source_path, destination, module_variables, build_plugin, self.verbose
+            )
+
+            built_resource_list.extend(built_resources)
+
+        if self.resource_folder == FunctionLoader.folder_name:
+            self._validate_function_directory(built_resource_list, module=module)
+            self.copy_function_directory_to_build(built_resource_list, module.dir, self.build_dir)
+
+        return built_resource_list
+
+    def _build_resources(
+        self,
+        source_path: Path,
+        destination_path: Path,
+        variables: BuildVariables,
+        build_plugin: Callable[[str], str] | None,
+        verbose: bool,
+    ) -> BuiltResourceList:
+        if verbose:
+            self.console(f"Processing {source_path.name}")
+
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        content = safe_read(source_path)
+
+        location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+
+        content = variables.replace(content, source_path.suffix)
+        if build_plugin is not None and source_path.suffix.lower() in {".yaml", ".yml"}:
+            content = build_plugin(content)
+
+        safe_write(destination_path, content)
+
+        file_warnings, identifiers_kind_pairs = self.validate(content, source_path, destination_path)
+
+        if file_warnings:
+            self.warning_list.extend(file_warnings)
+            # Here we do not use the self.warn method as we want to print the warnings as a group.
+            if self.print_warning:
+                print(str(file_warnings))
+
+        return BuiltResourceList(
+            [BuiltResource(identifier, location, kind, destination_path) for identifier, kind in identifiers_kind_pairs]
+        )
 
     def _create_destination_path(
         self, source_path: Path, resource_folder_name: str, module_dir: Path, build_dir: Path
@@ -393,3 +469,25 @@ class Builder:
             )
 
         return loaders[0]
+
+    def _validate_function_directory(self, built_resources: BuiltResourceList, module: ModuleLocation) -> None:
+        has_config_files = any(resource.kind == FunctionLoader.kind for resource in built_resources)
+        if has_config_files:
+            return
+        config_files_misplaced = [
+            file
+            for file in module.source_paths_by_resource_folder[FunctionLoader.folder_name]
+            if FunctionLoader.is_supported_file(file)
+        ]
+        if config_files_misplaced:
+            for yaml_source_path in config_files_misplaced:
+                required_location = module.dir / FunctionLoader.folder_name / yaml_source_path.name
+                self.warn(
+                    LowSeverityWarning(
+                        f"The required Function resource configuration file "
+                        f"was not found in {required_location.as_posix()!r}. "
+                        f"The file {yaml_source_path.as_posix()!r} is currently "
+                        f"considered part of the Function's artifacts and "
+                        f"will not be processed by the Toolkit."
+                    )
+                )
