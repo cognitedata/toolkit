@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 # ruff: noqa: E402
-import os
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
@@ -21,6 +19,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
 )
+from cognite_toolkit._cdf_tk.constants import USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
@@ -32,7 +31,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._version import __version__ as current_version
 
-if "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true":
+if USE_SENTRY:
     import sentry_sdk
 
     sentry_sdk.init(

@@ -1,6 +1,5 @@
 import difflib
 import re
-import traceback
 from collections import defaultdict
 from collections.abc import Hashable, Sequence
 from pathlib import Path
@@ -8,7 +7,6 @@ from typing import Any, ClassVar
 
 import yaml
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, TEMPLATE_VARS_FILE_SUFFIXES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
@@ -31,7 +29,6 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    ToolkitBugWarning,
     ToolkitNotSupportedWarning,
     ToolkitWarning,
     WarningList,
@@ -228,7 +225,7 @@ class Builder:
         if loader is None or not issubclass(loader, ResourceLoader):
             return warning_list, []
 
-        api_spec = self._get_api_spec(loader, destination)
+        api_spec = loader.safe_get_write_cls_parameter_spec()
         is_dict_item = isinstance(parsed, dict)
         items = [parsed] if is_dict_item else parsed
 
@@ -276,19 +273,6 @@ class Builder:
             warning_list.extend(data_set_warnings)
 
         return warning_list, identifier_kind_pairs
-
-    def _get_api_spec(self, loader: type[ResourceLoader], destination: Path) -> ParameterSpecSet | None:
-        api_spec: ParameterSpecSet | None = None
-        try:
-            api_spec = loader.get_write_cls_parameter_spec()
-        except Exception as e:
-            # Todo Replace with an automatic message to sentry.
-            self.warn(
-                ToolkitBugWarning(
-                    header=f"Failed to validate {destination.name} due to: {e}", traceback=traceback.format_exc()
-                )
-            )
-        return api_spec
 
     def _get_loader(self, resource_folder: str, destination: Path, source_path: Path) -> type[Loader] | None:
         folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
