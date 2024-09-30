@@ -1,6 +1,8 @@
 from pathlib import Path
 
-from ._base import Builder, FileBuilder, FunctionBuilder
+from ._base import Builder
+from ._file import FileBuilder
+from ._function import FunctionBuilder
 
 
 def create_builder(
