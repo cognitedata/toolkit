@@ -227,7 +227,7 @@ class DeployCommand(ToolkitCommand):
         if not loaded_resources:
             return ResourceDeployResult(name=loader.display_name)
 
-        capabilities = loader.get_required_capability(loaded_resources)
+        capabilities = loader.get_required_capability(loaded_resources, dry_run)
         if capabilities:
             ToolGlobals.verify_authorization(capabilities, action=f"deploy {loader.display_name}")
 

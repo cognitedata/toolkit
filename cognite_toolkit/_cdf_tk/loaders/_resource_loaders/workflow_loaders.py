@@ -80,11 +80,20 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowUpsertList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: WorkflowUpsertList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [WorkflowOrchestrationAcl.Action.Read]
+            if read_only
+            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+        )
+
         return WorkflowOrchestrationAcl(
-            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            actions,
             WorkflowOrchestrationAcl.Scope.All(),
         )
 
@@ -162,11 +171,20 @@ class WorkflowVersionLoader(
         return "workflow.versions"
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowVersionUpsertList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: WorkflowVersionUpsertList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [WorkflowOrchestrationAcl.Action.Read]
+            if read_only
+            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+        )
+
         return WorkflowOrchestrationAcl(
-            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            actions,
             WorkflowOrchestrationAcl.Scope.All(),
         )
 
@@ -297,11 +315,20 @@ class WorkflowTriggerLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowTriggerUpsertList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: WorkflowTriggerUpsertList | None, dry_run: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        capability = (
+            [WorkflowOrchestrationAcl.Action.Read]
+            if dry_run
+            else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
+        )
+
         return WorkflowOrchestrationAcl(
-            [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write],
+            capability,
             WorkflowOrchestrationAcl.Scope.All(),
         )
 

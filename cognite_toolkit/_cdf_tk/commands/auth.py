@@ -321,7 +321,7 @@ class AuthCommand(ToolkitCommand):
         capability_by_id: dict[frozenset[tuple], Capability] = {}
         for loader_cls in loaders.RESOURCE_LOADER_LIST:
             loader = loader_cls.create_loader(ToolGlobals, None)
-            capability = loader_cls.get_required_capability(None)
+            capability = loader_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
                 id_ = frozenset(cap.as_tuples())
