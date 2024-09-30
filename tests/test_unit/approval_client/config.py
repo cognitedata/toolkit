@@ -143,17 +143,17 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite_toolkit._cdf_tk.client.data_classes import (
     robotics,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
     LocationFilterWriteList,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-    GraphQLDataModelWriteList,
 )
 
 from .data_classes import APIResource, Method

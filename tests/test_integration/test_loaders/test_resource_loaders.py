@@ -22,6 +22,10 @@ from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
+    ExtendableCogniteFileApply,
+    ExtendableCogniteFileApplyList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     DataPostProcessingWrite,
     DataPostProcessingWriteList,
@@ -40,10 +44,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    ExtendableCogniteFileApply,
-    ExtendableCogniteFileApplyList,
 )
 from tests.test_integration.constants import RUN_UNIQUE_ID
 

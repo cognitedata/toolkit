@@ -7,6 +7,7 @@ from typing import Any, ClassVar
 
 import yaml
 
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, TEMPLATE_VARS_FILE_SUFFIXES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
@@ -27,7 +28,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawTableLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,
     ToolkitWarning,

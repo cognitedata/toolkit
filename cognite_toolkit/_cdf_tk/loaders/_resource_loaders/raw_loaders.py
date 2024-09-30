@@ -28,8 +28,8 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable, RawTableList
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable, RawTableList
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )

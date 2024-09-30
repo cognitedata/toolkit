@@ -61,13 +61,13 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,

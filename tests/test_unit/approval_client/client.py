@@ -52,9 +52,9 @@ from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectS
 from cognite.client.utils._text import to_camel_case
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModelWrite
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls

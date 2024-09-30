@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, cast, final
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 
 from ._base_loaders import DataLoader
 from ._resource_loaders import FileMetadataLoader, RawTableLoader, TimeSeriesLoader
-from .data_classes import RawDatabaseTable
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource

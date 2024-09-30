@@ -43,8 +43,8 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
