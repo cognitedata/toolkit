@@ -24,9 +24,9 @@ from cognite.client.data_classes import (
     Workflow,
     WorkflowList,
     WorkflowTrigger,
-    WorkflowTriggerCreate,
-    WorkflowTriggerCreateList,
     WorkflowTriggerList,
+    WorkflowTriggerUpsert,
+    WorkflowTriggerUpsertList,
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
@@ -265,18 +265,17 @@ class WorkflowVersionLoader(
 
 @final
 class WorkflowTriggerLoader(
-    ResourceLoader[str, WorkflowTriggerCreate, WorkflowTrigger, WorkflowTriggerCreateList, WorkflowTriggerList]
+    ResourceLoader[str, WorkflowTriggerUpsert, WorkflowTrigger, WorkflowTriggerUpsertList, WorkflowTriggerList]
 ):
     folder_name = "workflows"
     filename_pattern = r"^.*WorkflowTrigger$"
     resource_cls = WorkflowTrigger
-    resource_write_cls = WorkflowTriggerCreate
+    resource_write_cls = WorkflowTriggerUpsert
     list_cls = WorkflowTriggerList
-    list_write_cls = WorkflowTriggerCreateList
+    list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
 
-    _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
@@ -288,7 +287,7 @@ class WorkflowTriggerLoader(
         return "workflow.triggers"
 
     @classmethod
-    def get_id(cls, item: WorkflowTriggerCreate | WorkflowTrigger | dict) -> str:
+    def get_id(cls, item: WorkflowTriggerUpsert | WorkflowTrigger | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         return item.external_id
@@ -298,7 +297,7 @@ class WorkflowTriggerLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: WorkflowTriggerCreateList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: WorkflowTriggerUpsertList | None) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return WorkflowOrchestrationAcl(
@@ -306,7 +305,7 @@ class WorkflowTriggerLoader(
             WorkflowOrchestrationAcl.Scope.All(),
         )
 
-    def create(self, items: WorkflowTriggerCreateList) -> WorkflowTriggerList:
+    def create(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
         created = WorkflowTriggerList([])
         for item in items:
             credentials = self._authentication_by_id.get(item.external_id)
@@ -318,7 +317,7 @@ class WorkflowTriggerLoader(
         lookup = set(ids)
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
-    def update(self, items: WorkflowTriggerCreateList) -> WorkflowTriggerList:
+    def update(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
         exising = self.client.workflows.triggers.get_triggers(limit=-1)
         existing_lookup = {trigger.external_id: trigger for trigger in exising}
         updated = WorkflowTriggerList([])
@@ -371,15 +370,15 @@ class WorkflowTriggerLoader(
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> WorkflowTriggerCreateList:
+    ) -> WorkflowTriggerUpsertList:
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
-        loaded = WorkflowTriggerCreateList([])
+        loaded = WorkflowTriggerUpsertList([])
         for item in raw_list:
             if "data" in item and isinstance(item["data"], dict):
                 item["data"] = json.dumps(item["data"])
             if "authentication" in item:
                 raw_auth = item.pop("authentication")
                 self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
-            loaded.append(WorkflowTriggerCreate.load(item))
+            loaded.append(WorkflowTriggerUpsert.load(item))
         return loaded
