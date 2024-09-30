@@ -86,8 +86,8 @@ def process_site(client, data_set_id, lookback_minutes, site):
 
             # Calculate the components of OEE
             dps_df[f"{asset}:off_spec"] = count_dps - good_dps
-            dps_df[f"{asset}:quality"] = good_dps / total_items
-            dps_df[f"{asset}:performance"] = (total_items / status_dps) / (60.0 / 3.0)
+            dps_df[f"{asset}:quality"] = good_dps / count_dps
+            dps_df[f"{asset}:performance"] = (count_dps / status_dps) / (60.0 / 3.0)
             dps_df[f"{asset}:availability"] = status_dps / planned_status_dps
 
             dps_df[f"{asset}:oee"] = dps_df[f"{asset}:quality"] * dps_df[f"{asset}:performance"] * dps_df[f"{asset}:availability"]
