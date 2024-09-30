@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
     module_from_path,
     quote_int_value_by_key_in_yaml,
-    resource_folder_from_path,
     safe_read,
     safe_write,
 )
@@ -125,15 +124,12 @@ class Builder:
         if verbose:
             self.console(f"Processing {source_path.name}")
 
-        destination_path = self._create_destination_path(source_path, module.dir)
-
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-
         content = safe_read(source_path)
-
         location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
 
         content = variables.replace(content, source_path.suffix)
+
+        destination_path = self._create_destination_path(source_path, module.dir)
 
         safe_write(destination_path, content)
 
@@ -184,26 +180,11 @@ class Builder:
         destination: Path,
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
-        module = module_from_path(source_path)
-        resource_folder = resource_folder_from_path(source_path)
 
-        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
-        for unmatched in all_unmatched:
-            warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
-            variable = unmatched[2:-2]
-            if module_names := self._module_names_by_variable_key.get(variable):
-                module_str = (
-                    f"{module_names[0]!r}"
-                    if len(module_names) == 1
-                    else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
-                )
-                self.console(
-                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
-                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}.",
-                    prefix="    [bold green]Hint:[/] ",
-                )
+        module = module_from_path(source_path)
+
+        warnings = self._all_variables_replaced(content, module, source_path)
+        warning_list.extend(warnings)
 
         if destination.suffix not in {".yaml", ".yml"}:
             return warning_list, []
@@ -220,7 +201,7 @@ class Builder:
                 f"YAML validation error for {destination.name} after substituting config variables: {e}"
             )
 
-        loader = self._get_loader(resource_folder, destination, source_path)
+        loader = self._get_loader(self.resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
             return warning_list, []
 
@@ -272,6 +253,27 @@ class Builder:
             warning_list.extend(data_set_warnings)
 
         return warning_list, identifier_kind_pairs
+
+    def _all_variables_replaced(self, content: str, module: str, source_path: Path) -> WarningList[FileReadWarning]:
+        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        warning_list = WarningList[FileReadWarning]()
+        for unmatched in all_unmatched:
+            warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
+            variable = unmatched[2:-2]
+            if module_names := self._module_names_by_variable_key.get(variable):
+                module_str = (
+                    f"{module_names[0]!r}"
+                    if len(module_names) == 1
+                    else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
+                )
+                self.console(
+                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
+                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
+                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} the location of {module}.",
+                    prefix="    [bold green]Hint:[/] ",
+                )
+        return warning_list
 
     def _get_loader(self, resource_folder: str, destination: Path, source_path: Path) -> type[Loader] | None:
         folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
