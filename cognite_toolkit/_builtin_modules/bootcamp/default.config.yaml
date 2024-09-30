@@ -16,7 +16,7 @@ data_pipeline_oee_source_id: <NotSet>
 readwrite_source_id: <NotSet>
 # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
 readonly_source_id: <NotSet>
-# OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
+# OBJECT ID FOR TEST/PROD ICAPI EXTRACTORS ENTRA GROUP
 icapi_extractors_source_id: <NotSet>
 
 # Client Ids
