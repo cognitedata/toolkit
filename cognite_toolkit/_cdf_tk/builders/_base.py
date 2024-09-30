@@ -115,8 +115,9 @@ class Builder:
     ) -> BuiltResourceList[Hashable]:
         self._warning_index = len(self.warning_list)
         built_resource_list = BuiltResourceList[Hashable]()
+
         for source_path in resource_files:
-            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(source_path):
+            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
                 continue
 
             destination = self._create_destination_path(source_path, module.dir)
@@ -190,12 +191,6 @@ class Builder:
         destination_path = self.build_dir / self.resource_folder / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
-
-    def _is_exception_file(self, filepath: Path) -> bool:
-        # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
-        # This is to allow for function code to include arbitrary yaml files.
-        # In addition, all files in not int the 'functions' directory are considered other files.
-        return self.resource_folder == FunctionLoader.folder_name and filepath.parent.name != FunctionLoader.folder_name
 
     def validate(
         self,
@@ -360,6 +355,11 @@ class FunctionBuilder(Builder):
     def build_resource_folder(
         self, resource_files: Sequence[Path], module_variables: BuildVariables, module: ModuleLocation
     ) -> BuiltResourceList[Hashable]:
+        # In the 'functions' resource directories, all `.yaml` files must be in the root of the directory
+        # This is to allow for function code to include arbitrary yaml files.
+        # In addition, all files in not int the 'functions' directory are considered other files.
+        resource_files = [file for file in resource_files if file.parent.name == self.resource_folder]
+
         built_resources = super().build_resource_folder(resource_files, module_variables, module)
 
         self._validate_function_directory(built_resources, module)
