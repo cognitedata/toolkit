@@ -77,7 +77,7 @@ class BuildInfo(ConfigCore):
             else:
                 # Use path syntax to select only the modules that need to be rebuilt
                 config.environment.selected = list(needs_rebuild)
-            build, _ = BuildCommand(silent=True, skip_tracking=True).build_config(
+            build = BuildCommand(silent=True, skip_tracking=True).build_config(
                 build_dir=build_dir,
                 organization_dir=organization_dir,
                 config=config,

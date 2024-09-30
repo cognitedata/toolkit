@@ -84,6 +84,7 @@ class Builder:
         self.verbose = verbose
 
         self.resource_counter = 0
+        self._warning_index = 0
         self.index_by_filepath_stem: dict[Path, int] = {}
         self.ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = defaultdict(dict)
         self.dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = (
@@ -114,6 +115,7 @@ class Builder:
     def build_resource_folder(
         self, resource_files: Sequence[Path], module_variables: BuildVariables, module: ModuleLocation
     ) -> BuiltResourceList[Hashable]:
+        self._warning_index = len(self.warning_list)
         build_plugin = {
             FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=self.verbose),
         }.get(self.resource_folder)
@@ -138,6 +140,9 @@ class Builder:
             self.copy_function_directory_to_build(built_resource_list, module.dir, self.build_dir)
 
         return built_resource_list
+
+    def last_build_warnings(self) -> WarningList[ToolkitWarning]:
+        return self.warning_list[self._warning_index :]
 
     def _build_resources(
         self,

@@ -176,7 +176,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
         progress_bar: bool = False,
-    ) -> tuple[BuiltModuleList, dict[Path, Path]]:
+    ) -> BuiltModuleList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(build_dir)
@@ -239,7 +239,7 @@ class BuildCommand(ToolkitCommand):
         build_environment.dump_to_file(build_dir)
         if not _RUNNING_IN_BROWSER:
             self.console(f"Build complete. Files are located in {build_dir!s}/")
-        return built_modules, self._state.source_by_build_path
+        return built_modules
 
     def build_modules(
         self,
@@ -312,32 +312,11 @@ class BuildCommand(ToolkitCommand):
             builder = self._builder_by_resource_folder[resource_name]
 
             built_resource_list = builder.build_resource_folder(resource_files, module_variables, module)
+
             build_resources_by_folder[resource_name] = built_resource_list
 
-            # build_plugin = {
-            #     FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=verbose),
-            # }.get(resource_name)
-            #
-            # built_resource_list = BuiltResourceList[Hashable]()
-            # for source_path in resource_files:
-            #     if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(
-            #         source_path, resource_name
-            #     ):
-            #         continue
-            #
-            #     destination = self._state.create_destination_path(source_path, resource_name, module.dir, build_dir)
-            #
-            #     built_resources = self._build_resources(
-            #         source_path, destination, module_variables, build_plugin, verbose
-            #     )
-            #
-            #     built_resource_list.extend(built_resources)
-            #
-            # if resource_name == FunctionLoader.folder_name:
-            #     self._validate_function_directory(built_resource_list, module=module)
-            #     self.copy_function_directory_to_build(built_resource_list, module.dir, build_dir)
-            #
-            # build_resources_by_folder[resource_name] = built_resource_list
+            self.warning_list.extend(builder.last_build_warnings())
+
         return build_resources_by_folder
 
     def _build_resources(
