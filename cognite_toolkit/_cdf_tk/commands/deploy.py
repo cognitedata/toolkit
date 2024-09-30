@@ -19,6 +19,12 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
+    DatapointDeployResult,
+    DeployResult,
+    DeployResults,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
+    UploadDeployResult,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -29,17 +35,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
-    DeployResults,
     Loader,
     ResourceContainerLoader,
     ResourceLoader,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    DatapointDeployResult,
-    DeployResult,
-    ResourceContainerDeployResult,
-    ResourceDeployResult,
-    UploadDeployResult,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
