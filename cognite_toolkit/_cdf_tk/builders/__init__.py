@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ._base import Builder
+from ._base import Builder, FileBuilder, FunctionBuilder
 
 
 def create_builder(
@@ -10,7 +10,11 @@ def create_builder(
     silent: bool,
     verbose: bool,
 ) -> Builder:
-    return Builder(build_dir, module_names_by_variable_key, silent, resource_folder, verbose)
+    if builder_cls := _BUILDER_BY_RESOURCE_FOLDER.get(resource_folder):
+        return builder_cls(build_dir, module_names_by_variable_key, silent, verbose)
+
+    return Builder(build_dir, module_names_by_variable_key, silent, verbose, resource_folder)
 
 
-__all__ = ["Builder"]
+_BUILDER_BY_RESOURCE_FOLDER = {_builder._resource_folder: _builder for _builder in Builder.__subclasses__()}
+__all__ = ["Builder", "FileBuilder", "FunctionBuilder", "create_builder"]
