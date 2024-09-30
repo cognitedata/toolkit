@@ -23,13 +23,14 @@ class FileBuilder(Builder):
     def _build_resources(
         self,
         source_path: Path,
-        destination_path: Path,
         variables: BuildVariables,
         module: ModuleLocation,
         verbose: bool,
     ) -> BuiltResourceList:
         if verbose:
             self.console(f"Processing {source_path.name}")
+
+        destination_path = self._create_destination_path(source_path, module.dir)
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 

@@ -106,9 +106,7 @@ class Builder:
             if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
                 continue
 
-            destination = self._create_destination_path(source_path, module.dir)
-
-            built_resources = self._build_resources(source_path, destination, module_variables, module, self.verbose)
+            built_resources = self._build_resources(source_path, module_variables, module, self.verbose)
 
             built_resource_list.extend(built_resources)
 
@@ -120,13 +118,14 @@ class Builder:
     def _build_resources(
         self,
         source_path: Path,
-        destination_path: Path,
         variables: BuildVariables,
-        module_location: ModuleLocation,
+        module: ModuleLocation,
         verbose: bool,
     ) -> BuiltResourceList:
         if verbose:
             self.console(f"Processing {source_path.name}")
+
+        destination_path = self._create_destination_path(source_path, module.dir)
 
         destination_path.parent.mkdir(parents=True, exist_ok=True)
 
