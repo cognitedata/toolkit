@@ -9,7 +9,6 @@ import traceback
 from collections import Counter, defaultdict
 from collections.abc import Callable, Hashable, Iterable
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from typing import Any, cast
 
@@ -19,6 +18,7 @@ from rich.panel import Panel
 from rich.progress import track
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet
+from cognite_toolkit._cdf_tk.builders import Builder, create_builder
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
     ROOT_MODULES,
-    TEMPLATE_VARS_FILE_SUFFIXES,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -111,6 +110,7 @@ class BuildCommand(ToolkitCommand):
 
         # Built State
         self._module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
+        self._builder_by_resource_folder: dict[str, Builder] = {}
         self._state = _BuildState()
         self._has_built = False
 
@@ -220,6 +220,7 @@ class BuildCommand(ToolkitCommand):
 
         # Setup state before building modules
         self._module_names_by_variable_key.clear()
+        self._builder_by_resource_folder.clear()
         for variable in variables:
             for module_location in modules:
                 if variable.location in module_location.relative_path.parts:
@@ -304,30 +305,39 @@ class BuildCommand(ToolkitCommand):
             )
 
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
-            build_plugin = {
-                FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=verbose),
-            }.get(resource_name)
-
-            built_resource_list = BuiltResourceList[Hashable]()
-            for source_path in resource_files:
-                if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(
-                    source_path, resource_name
-                ):
-                    continue
-
-                destination = self._state.create_destination_path(source_path, resource_name, module.dir, build_dir)
-
-                built_resources = self._build_resources(
-                    source_path, destination, module_variables, build_plugin, verbose
+            if resource_name not in self._builder_by_resource_folder:
+                self._builder_by_resource_folder[resource_name] = create_builder(
+                    resource_name, build_dir, self._module_names_by_variable_key, silent=self.silent, verbose=verbose
                 )
+            builder = self._builder_by_resource_folder[resource_name]
 
-                built_resource_list.extend(built_resources)
-
-            if resource_name == FunctionLoader.folder_name:
-                self._validate_function_directory(built_resource_list, module=module)
-                self.copy_function_directory_to_build(built_resource_list, module.dir, build_dir)
-
+            built_resource_list = builder.build_resource_folder(resource_files, module_variables, module)
             build_resources_by_folder[resource_name] = built_resource_list
+
+            # build_plugin = {
+            #     FileMetadataLoader.folder_name: partial(self._expand_file_metadata, module=module, verbose=verbose),
+            # }.get(resource_name)
+            #
+            # built_resource_list = BuiltResourceList[Hashable]()
+            # for source_path in resource_files:
+            #     if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES or self._is_exception_file(
+            #         source_path, resource_name
+            #     ):
+            #         continue
+            #
+            #     destination = self._state.create_destination_path(source_path, resource_name, module.dir, build_dir)
+            #
+            #     built_resources = self._build_resources(
+            #         source_path, destination, module_variables, build_plugin, verbose
+            #     )
+            #
+            #     built_resource_list.extend(built_resources)
+            #
+            # if resource_name == FunctionLoader.folder_name:
+            #     self._validate_function_directory(built_resource_list, module=module)
+            #     self.copy_function_directory_to_build(built_resource_list, module.dir, build_dir)
+            #
+            # build_resources_by_folder[resource_name] = built_resource_list
         return build_resources_by_folder
 
     def _build_resources(
