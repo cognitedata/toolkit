@@ -8,7 +8,6 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import Environment
 from cognite_toolkit._cdf_tk.exceptions import (
-    AmbiguousResourceFileError,
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
@@ -28,15 +27,6 @@ def dummy_environment() -> Environment:
 
 
 class TestBuildCommand:
-    def test_get_loader_raises_ambiguous_error(self):
-        with pytest.raises(AmbiguousResourceFileError) as e:
-            BuildCommand()._get_loader(
-                "transformations",
-                destination=Path("transformation") / "notification.yaml",
-                source_path=Path("my_module") / "transformations" / "notification.yaml",
-            )
-        assert "Ambiguous resource file" in str(e.value)
-
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         with pytest.raises(ToolkitMissingModuleError):
             BuildCommand(print_warning=False).execute(

@@ -8,6 +8,7 @@ from _pytest.mark import ParameterSet
 from cognite.client.data_classes.data_modeling import DataModelId
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader
 
 
@@ -84,3 +85,16 @@ externalId: some_external_id
         )
         assert required_data_model is not None
         assert required_data_model == DataModelId("my_space", "MyModel", "1_0_0")
+
+
+class TestBuilder:
+    def test_get_loader_raises_ambiguous_error(self):
+        builder = Builder(Path(), {}, silent=True, resource_folder="transformations", verbose=False)
+
+        with pytest.raises(AmbiguousResourceFileError) as e:
+            builder._get_loader(
+                "transformations",
+                destination=Path("transformation") / "notification.yaml",
+                source_path=Path("my_module") / "transformations" / "notification.yaml",
+            )
+        assert "Ambiguous resource file" in str(e.value)
