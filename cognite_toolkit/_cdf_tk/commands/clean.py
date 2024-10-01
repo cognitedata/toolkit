@@ -84,7 +84,8 @@ class CleanCommand(ToolkitCommand):
         # need to check for duplicates here as well.
         loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
 
-        capabilities = loader.get_required_capability(loaded_resources, False)
+        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
+
         if capabilities:
             ToolGlobals.verify_authorization(capabilities, action=f"clean {loader.display_name}")
 
