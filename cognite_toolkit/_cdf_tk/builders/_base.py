@@ -7,7 +7,6 @@ from typing import Any, ClassVar
 
 import yaml
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, TEMPLATE_VARS_FILE_SUFFIXES
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
@@ -205,7 +204,6 @@ class Builder:
         if loader is None or not issubclass(loader, ResourceLoader):
             return warning_list, []
 
-        api_spec = loader.safe_get_write_cls_parameter_spec()
         is_dict_item = isinstance(parsed, dict)
         items = [parsed] if is_dict_item else parsed
 
@@ -231,20 +229,16 @@ class Builder:
                     warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
 
             if identifier:
-                if item_loader is RawTableLoader:
-                    database = RawDatabaseTable(identifier.db_name)
-                    if database not in self.ids_by_resource_type[RawDatabaseLoader]:
-                        self.ids_by_resource_type[RawDatabaseLoader][database] = source_path
-
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self.ids_by_resource_type[item_loader].get(identifier):
                     warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
                 else:
                     self.ids_by_resource_type[item_loader][identifier] = source_path
 
-                for dependency in loader.get_dependent_items(item):
+                for dependency in item_loader.get_dependent_items(item):
                     self.dependencies_by_required[dependency].append((identifier, source_path))
 
+            api_spec = item_loader.safe_get_write_cls_parameter_spec()
             if api_spec is not None:
                 resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
                 warning_list.extend(resource_warnings)

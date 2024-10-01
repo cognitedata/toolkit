@@ -11,27 +11,6 @@ from cognite.client.data_classes._base import (
 
 
 @dataclass(frozen=True)
-class RawDatabaseTable(WriteableCogniteResource):
-    db_name: str
-    table_name: str | None = None
-
-    @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawDatabaseTable:
-        return cls(db_name=resource["dbName"], table_name=resource.get("tableName"))
-
-    def dump(self, camel_case: bool = True) -> dict[str, Any]:
-        dumped = {
-            "dbName" if camel_case else "db_name": self.db_name,
-        }
-        if self.table_name is not None:
-            dumped["tableName" if camel_case else "table_name"] = self.table_name
-        return dumped
-
-    def as_write(self) -> RawDatabaseTable:
-        return self
-
-
-@dataclass(frozen=True)
 class RawDatabase(WriteableCogniteResource):
     db_name: str
 
