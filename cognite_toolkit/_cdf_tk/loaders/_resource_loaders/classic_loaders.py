@@ -59,18 +59,25 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: AssetWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: AssetWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
             capabilities.AssetsAcl.Scope.All()
         )
+
+        actions = (
+            [capabilities.AssetsAcl.Action.Read]
+            if read_only
+            else [capabilities.AssetsAcl.Action.Read, capabilities.AssetsAcl.Action.Write]
+        )
+
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.AssetsAcl.Scope.DataSet(list(data_set_ids))
 
         return capabilities.AssetsAcl(
-            [capabilities.AssetsAcl.Action.Read, capabilities.AssetsAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
@@ -218,7 +225,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: SequenceWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: SequenceWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: Any = capabilities.SequencesAcl.Scope.All()
@@ -226,8 +233,14 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = capabilities.SequencesAcl.Scope.DataSet(list(data_set_ids))
 
+        actions = (
+            [capabilities.SequencesAcl.Action.Read]
+            if read_only
+            else [capabilities.SequencesAcl.Action.Read, capabilities.SequencesAcl.Action.Write]
+        )
+
         return capabilities.SequencesAcl(
-            [capabilities.SequencesAcl.Action.Read, capabilities.SequencesAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 

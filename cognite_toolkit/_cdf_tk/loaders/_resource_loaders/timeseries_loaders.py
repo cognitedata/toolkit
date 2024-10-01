@@ -80,16 +80,21 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     _doc_url = "Time-series/operation/postTimeSeries"
 
     @classmethod
-    def get_required_capability(cls, items: TimeSeriesWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: TimeSeriesWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = [TimeSeriesAcl.Action.Read] if read_only else [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write]
+
         scope: TimeSeriesAcl.Scope.All | TimeSeriesAcl.Scope.DataSet = TimeSeriesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if dataset_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = TimeSeriesAcl.Scope.DataSet(list(dataset_ids))
 
         return TimeSeriesAcl(
-            [TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
@@ -290,9 +295,18 @@ class DatapointSubscriptionLoader(
             yield TimeSeriesLoader, timeseries_id
 
     @classmethod
-    def get_required_capability(cls, items: DatapointSubscriptionWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: DatapointSubscriptionWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [TimeSeriesSubscriptionsAcl.Action.Read]
+            if read_only
+            else [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write]
+        )
+
         scope: TimeSeriesSubscriptionsAcl.Scope.All | TimeSeriesSubscriptionsAcl.Scope.DataSet = (  # type: ignore[valid-type]
             TimeSeriesSubscriptionsAcl.Scope.All()
         )
@@ -301,7 +315,7 @@ class DatapointSubscriptionLoader(
                 scope = TimeSeriesSubscriptionsAcl.Scope.DataSet(list(data_set_ids))
 
         return TimeSeriesSubscriptionsAcl(
-            [TimeSeriesSubscriptionsAcl.Action.Read, TimeSeriesSubscriptionsAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 

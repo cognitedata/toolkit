@@ -51,7 +51,9 @@ class ThreeDModelLoader(
         return {"name": id}
 
     @classmethod
-    def get_required_capability(cls, items: ThreeDModelWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: ThreeDModelWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.ThreeDAcl.Scope.All | capabilities.ThreeDAcl.Scope.DataSet = (  # type: ignore[valid-type]
@@ -61,13 +63,19 @@ class ThreeDModelLoader(
             if data_set_ids := {item.data_set_id for item in items or [] if item.data_set_id}:
                 scope = capabilities.ThreeDAcl.Scope.DataSet(list(data_set_ids))
 
-        return capabilities.ThreeDAcl(
-            [
+        actions = (
+            [capabilities.ThreeDAcl.Action.Read]
+            if read_only
+            else [
                 capabilities.ThreeDAcl.Action.Read,
                 capabilities.ThreeDAcl.Action.Create,
                 capabilities.ThreeDAcl.Action.Update,
                 capabilities.ThreeDAcl.Action.Delete,
-            ],
+            ]
+        )
+
+        return capabilities.ThreeDAcl(
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
