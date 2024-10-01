@@ -193,7 +193,7 @@ class Test3DModelLoader:
 
         loader = ThreeDModelLoader(toolkit_client, None)
 
-        missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None))
+        missing = toolkit_client.iam.verify_capabilities(loader.get_required_capability(None, False))
         assert not missing, f"Missing capabilities: {missing}"
 
         created: ThreeDModelList | None = None
