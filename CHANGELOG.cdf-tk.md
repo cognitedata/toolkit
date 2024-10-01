@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## [TBD]
 
+### Added
+
+- Added support for device code login flow.
+
 ### Changed
 
 - When running `deploy --dry-run`, the Toolkit will not require write access to the CDF project.
