@@ -3,9 +3,8 @@ from __future__ import annotations
 import contextlib
 import re
 import shutil
-from collections import Counter, defaultdict
+from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -21,7 +20,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
-    INDEX_PATTERN,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     YAML_SUFFIX,
@@ -95,7 +93,10 @@ class BuildCommand(ToolkitCommand):
         # Built State
         self._module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
         self._builder_by_resource_folder: dict[str, Builder] = {}
-        self._state = _BuildState()
+        self._ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = defaultdict(dict)
+        self._dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = (
+            defaultdict(list)
+        )
         self._has_built = False
 
     def execute(
@@ -460,10 +461,8 @@ class BuildCommand(ToolkitCommand):
         return warning_list
 
     def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
-        existing = {
-            (resource_cls, id_) for resource_cls, ids in self._state.ids_by_resource_type.items() for id_ in ids
-        }
-        missing_dependencies = set(self._state.dependencies_by_required.keys()) - existing
+        existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}
+        missing_dependencies = set(self._dependencies_by_required.keys()) - existing
         for loader_cls, id_ in missing_dependencies:
             if self._is_system_resource(loader_cls, id_):
                 continue
@@ -474,7 +473,7 @@ class BuildCommand(ToolkitCommand):
                 continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
-                for required, path in self._state.dependencies_by_required[(loader_cls, id_)]
+                for required, path in self._dependencies_by_required[(loader_cls, id_)]
             }
             self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by))
 
@@ -528,13 +527,13 @@ class BuildCommand(ToolkitCommand):
 
             if identifier:
                 identifier_kind_pairs.append((identifier, item_loader.kind))
-                if first_seen := self._state.ids_by_resource_type[item_loader].get(identifier):
+                if first_seen := self._ids_by_resource_type[item_loader].get(identifier):
                     warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
                 else:
-                    self._state.ids_by_resource_type[item_loader][identifier] = source_path
+                    self._ids_by_resource_type[item_loader][identifier] = source_path
 
                 for dependency in item_loader.get_dependent_items(item):
-                    self._state.dependencies_by_required[dependency].append((identifier, source_path))
+                    self._dependencies_by_required[dependency].append((identifier, source_path))
 
             api_spec = item_loader.safe_get_write_cls_parameter_spec()
             if api_spec is not None:
@@ -558,51 +557,3 @@ class BuildCommand(ToolkitCommand):
         ):
             return True
         return False
-
-
-@dataclass
-class _BuildState:
-    """This is used in the build process to keep track of source of build files and hashes
-
-    It contains some counters and convenience dictionaries for easy lookup of variables and modules.
-    """
-
-    source_by_build_path: dict[Path, Path] = field(default_factory=dict)
-    index_by_resource_type_counter: Counter[str] = field(default_factory=Counter)
-    index_by_filepath_stem: dict[Path, int] = field(default_factory=dict)
-    ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = field(
-        default_factory=lambda: defaultdict(dict)
-    )
-    dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = field(
-        default_factory=lambda: defaultdict(list)
-    )
-
-    def create_destination_path(
-        self, source_path: Path, resource_folder_name: str, module_dir: Path, build_dir: Path
-    ) -> Path:
-        """Creates the filepath in the build directory for the given source path.
-
-        Note that this is a complex operation as the modules in the source are nested while the build directory is flat.
-        This means that we lose information and risk having duplicate filenames. To avoid this, we prefix the filename
-        with a number to ensure uniqueness.
-        """
-        filename = source_path.name
-        # Get rid of the local index
-        filename = INDEX_PATTERN.sub("", filename)
-
-        relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
-        if relative_stem in self.index_by_filepath_stem:
-            # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
-            # main YAML file. The Transformation Loader expects this.
-            index = self.index_by_filepath_stem[relative_stem]
-        else:
-            # Increment to ensure we do not get duplicate filenames when we flatten the file
-            # structure from the module to the build directory.
-            self.index_by_resource_type_counter[resource_folder_name] += 1
-            index = self.index_by_resource_type_counter[resource_folder_name]
-            self.index_by_filepath_stem[relative_stem] = index
-
-        filename = f"{index}.{filename}"
-        destination_path = build_dir / resource_folder_name / filename
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        return destination_path
