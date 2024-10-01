@@ -314,7 +314,7 @@ class TestResourceLoaders:
     def test_empty_required_capabilities_when_no_items(
         self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig
     ):
-        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]))
+        actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
 
         assert actual == []
 

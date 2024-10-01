@@ -168,7 +168,9 @@ class ResourceLoader(
 
     @classmethod
     @abstractmethod
-    def get_required_capability(cls, items: T_CogniteResourceList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: T_CogniteResourceList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
     @abstractmethod

@@ -63,19 +63,25 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MapWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: MapWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+
+        actions = (
             [
+                capabilities.RoboticsAcl.Action.Read,
+            ]
+            if read_only
+            else [
                 capabilities.RoboticsAcl.Action.Read,
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
                 capabilities.RoboticsAcl.Action.Delete,
-            ],
-            capabilities.RoboticsAcl.Scope.All(),
+            ]
         )
+
+        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
     def create(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.create(items)
@@ -124,7 +130,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: FrameWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: FrameWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
@@ -185,19 +191,24 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: LocationWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: LocationWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+        actions = (
             [
+                capabilities.RoboticsAcl.Action.Read,
+            ]
+            if read_only
+            else [
                 capabilities.RoboticsAcl.Action.Read,
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
                 capabilities.RoboticsAcl.Action.Delete,
-            ],
-            capabilities.RoboticsAcl.Scope.All(),
+            ]
         )
+
+        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
     def create(self, items: LocationWriteList) -> LocationList:
         return self.client.robotics.locations.create(items)
@@ -250,19 +261,26 @@ class RoboticsDataPostProcessingLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: DataPostProcessingWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: DataPostProcessingWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+        actions = (
             [
+                capabilities.RoboticsAcl.Action.Read,
+            ]
+            if read_only
+            else [
                 capabilities.RoboticsAcl.Action.Read,
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
                 capabilities.RoboticsAcl.Action.Delete,
-            ],
-            capabilities.RoboticsAcl.Scope.All(),
+            ]
         )
+
+        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
     def create(self, items: DataPostProcessingWriteList) -> DataPostProcessingList:
         return self.client.robotics.data_postprocessing.create(items)
@@ -325,19 +343,26 @@ class RobotCapabilityLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: RobotCapabilityWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: RobotCapabilityWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return capabilities.RoboticsAcl(
+        actions = (
             [
+                capabilities.RoboticsAcl.Action.Read,
+            ]
+            if read_only
+            else [
                 capabilities.RoboticsAcl.Action.Read,
                 capabilities.RoboticsAcl.Action.Create,
                 capabilities.RoboticsAcl.Action.Delete,
                 capabilities.RoboticsAcl.Action.Update,
                 capabilities.RoboticsAcl.Action.Delete,
-            ],
-            capabilities.RoboticsAcl.Scope.All(),
+            ]
         )
+
+        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
     def create(self, items: RobotCapabilityWriteList) -> RobotCapabilityList:
         return self.client.robotics.capabilities.create(items)
