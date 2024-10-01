@@ -22,6 +22,7 @@ from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -41,7 +42,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
     get_loader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModel
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     tmp_build_directory,

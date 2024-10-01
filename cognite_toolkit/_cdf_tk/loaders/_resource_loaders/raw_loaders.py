@@ -17,7 +17,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, NoReturn, cast, final
 
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -28,25 +28,22 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable, RawTableList
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 
 from .auth_loaders import GroupAllScopedLoader
 
 
 @final
 class RawDatabaseLoader(
-    ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
+    ResourceContainerLoader[RawDatabase, RawDatabase, RawDatabase, RawDatabaseList, RawDatabaseList]
 ):
     item_name = "raw tables"
     folder_name = "raw"
-    resource_cls = RawDatabaseTable
-    resource_write_cls = RawDatabaseTable
-    list_cls = RawTableList
-    list_write_cls = RawTableList
+    resource_cls = RawDatabase
+    resource_write_cls = RawDatabase
+    list_cls = RawDatabaseList
+    list_write_cls = RawDatabaseList
     kind = "Database"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Raw/operation/createDBs"
@@ -60,7 +57,7 @@ class RawDatabaseLoader(
         return "raw.databases"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: RawDatabaseList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -71,55 +68,38 @@ class RawDatabaseLoader(
         )
 
         scope: RawAcl.Scope.All | RawAcl.Scope.Table = RawAcl.Scope.All()  # type: ignore[valid-type]
-
         if items:
-            tables_by_database = defaultdict(list)
+            tables_by_database: dict[str, list[str]] = {}
             for item in items:
-                tables_by_database[item.db_name].append(item.table_name)
+                tables_by_database[item.db_name] = []
 
             scope = RawAcl.Scope.Table(dict(tables_by_database)) if tables_by_database else RawAcl.Scope.All()  # type: ignore[arg-type]
 
         return RawAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+    def get_id(cls, item: RawDatabase | dict) -> RawDatabase:
         if isinstance(item, dict):
-            return RawDatabaseTable(item["dbName"])
+            return RawDatabase(item["dbName"])
         return item
 
     @classmethod
-    def dump_id(cls, id: RawDatabaseTable) -> dict[str, Any]:
+    def dump_id(cls, id: RawDatabase) -> dict[str, Any]:
         return {"dbName": id.db_name}
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> RawDatabaseTable | RawTableList | None:
-        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if resource is None:
-            return None
-        dbs = resource if isinstance(resource, RawTableList) else RawTableList([resource])
-        # This loader is only used for the raw databases, so we need to remove the table names
-        # such that the comparison will work correctly.
-        db_names = set(dbs.as_db_names()) - self._loaded_db_names
-        if not db_names:
-            # All databases already loaded
-            return None
-        self._loaded_db_names.update(db_names)
-        return RawTableList([RawDatabaseTable(db_name=db_name) for db_name in db_names])
+    def create(self, items: RawDatabaseList) -> RawDatabaseList:
+        database_list = self.client.raw.databases.create([db.db_name for db in items])
+        return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name])
 
-    def create(self, items: RawTableList) -> RawTableList:
-        database_list = self.client.raw.databases.create(items.as_db_names())
-        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list if db.name])
-
-    def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
+    def retrieve(self, ids: SequenceNotStr[RawDatabase]) -> RawDatabaseList:
         database_list = self.client.raw.databases.list(limit=-1)
         target_dbs = {db.db_name for db in ids}
-        return RawTableList([RawDatabaseTable(db_name=db.name) for db in database_list if db.name in target_dbs])
+        return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name in target_dbs])
 
-    def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
+    def update(self, items: Sequence[RawDatabase]) -> NoReturn:
         raise NotImplementedError("Raw tables do not support update.")
 
-    def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def delete(self, ids: SequenceNotStr[RawDatabase]) -> int:
         db_names = [table.db_name for table in ids]
         try:
             self.client.raw.databases.delete(db_names)
@@ -133,12 +113,12 @@ class RawDatabaseLoader(
                 raise e
         return len(db_names)
 
-    def iterate(self) -> Iterable[RawDatabaseTable]:
-        return (RawDatabaseTable(db_name=cast(str, db.name)) for db in self.client.raw.databases)
+    def iterate(self) -> Iterable[RawDatabase]:
+        return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
-    def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
         nr_of_tables = 0
-        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
                 tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
             except CogniteAPIError as e:
@@ -148,9 +128,9 @@ class RawDatabaseLoader(
             nr_of_tables += len(tables.data)
         return nr_of_tables
 
-    def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RawDatabase]) -> int:
         nr_of_tables = 0
-        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
                 existing = self.client.raw.tables.list(db_name=db_name, limit=-1).as_names()
             except CogniteAPIError as e:
@@ -164,13 +144,11 @@ class RawDatabaseLoader(
 
 
 @final
-class RawTableLoader(
-    ResourceContainerLoader[RawDatabaseTable, RawDatabaseTable, RawDatabaseTable, RawTableList, RawTableList]
-):
+class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     item_name = "raw rows"
     folder_name = "raw"
-    resource_cls = RawDatabaseTable
-    resource_write_cls = RawDatabaseTable
+    resource_cls = RawTable
+    resource_write_cls = RawTable
     list_cls = RawTableList
     list_write_cls = RawTableList
     kind = "Table"
@@ -207,45 +185,34 @@ class RawTableLoader(
         return RawAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
-    def get_id(cls, item: RawDatabaseTable | dict) -> RawDatabaseTable:
+    def get_id(cls, item: RawTable | dict) -> RawTable:
         if isinstance(item, dict):
             if missing := tuple(k for k in {"dbName", "tableName"} if k not in item):
                 # We need to raise a KeyError with all missing keys to get the correct error message.
                 raise KeyError(*missing)
-            return RawDatabaseTable(item["dbName"], item["tableName"])
+            return RawTable(item["dbName"], item["tableName"])
         return item
 
     @classmethod
-    def dump_id(cls, id: RawDatabaseTable) -> dict[str, Any]:
+    def dump_id(cls, id: RawTable) -> dict[str, Any]:
         return {"dbName": id.db_name, "tableName": id.table_name}
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "dbName" in item:
-            yield RawDatabaseLoader, RawDatabaseTable(item["dbName"])
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RawTableList | None:
-        resource = super().load_resource(filepath, ToolGlobals, skip_validation)
-        if resource is None:
-            return None
-        raw_tables = resource if isinstance(resource, RawTableList) else RawTableList([resource])
-        raw_tables = RawTableList([table for table in raw_tables if table.table_name])
-        if not raw_tables:
-            # These are configs for Raw Databases only
-            return None
-        return raw_tables
+            yield RawDatabaseLoader, RawDatabase(item["dbName"])
 
     def create(self, items: RawTableList) -> RawTableList:
         created = RawTableList([])
-        for db_name, raw_tables in itertools.groupby(sorted(items), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(items, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables = [table.table_name for table in raw_tables]
             new_tables = self.client.raw.tables.create(db_name=db_name, name=tables)
-            created.extend([RawDatabaseTable(db_name=db_name, table_name=table.name) for table in new_tables])
+            created.extend([RawTable(db_name=db_name, table_name=cast(str, table.name)) for table in new_tables])
         return created
 
-    def retrieve(self, ids: SequenceNotStr[RawDatabaseTable]) -> RawTableList:
+    def retrieve(self, ids: SequenceNotStr[RawTable]) -> RawTableList:
         retrieved = RawTableList([])
-        for db_name, raw_tables in itertools.groupby(sorted(ids), key=lambda x: x.db_name):
+        for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             expected_tables = {table.table_name for table in raw_tables}
             try:
                 tables = self.client.raw.tables.list(db_name=db_name, limit=-1)
@@ -254,18 +221,14 @@ class RawTableLoader(
                     continue
                 raise e
             retrieved.extend(
-                [
-                    RawDatabaseTable(db_name=db_name, table_name=table.name)
-                    for table in tables
-                    if table.name in expected_tables
-                ]
+                [RawTable(db_name=db_name, table_name=table.name) for table in tables if table.name in expected_tables]
             )
         return retrieved
 
-    def update(self, items: Sequence[RawDatabaseTable]) -> RawTableList:
+    def update(self, items: Sequence[RawTable]) -> RawTableList:
         raise NotImplementedError("Raw tables do not support update.")
 
-    def delete(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def delete(self, ids: SequenceNotStr[RawTable]) -> int:
         count = 0
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             tables = [table.table_name for table in raw_tables if table.table_name]
@@ -289,20 +252,20 @@ class RawTableLoader(
                 count += len(tables)
         return count
 
-    def iterate(self) -> Iterable[RawDatabaseTable]:
+    def iterate(self) -> Iterable[RawTable]:
         return (
-            RawDatabaseTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
+            RawTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
             for db in self.client.raw.databases
             for table in self.client.raw.tables(cast(str, db.name))
         )
 
-    def count(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def count(self, ids: SequenceNotStr[RawTable]) -> int:
         if not self._printed_warning:
             print("  [bold green]INFO:[/] Raw rows do not support count (there is no aggregation method).")
             self._printed_warning = True
         return -1
 
-    def drop_data(self, ids: SequenceNotStr[RawDatabaseTable]) -> int:
+    def drop_data(self, ids: SequenceNotStr[RawTable]) -> int:
         for db_name, raw_tables in itertools.groupby(sorted(ids, key=lambda x: x.db_name), key=lambda x: x.db_name):
             try:
                 existing = set(self.client.raw.tables.list(db_name=db_name, limit=-1).as_names())

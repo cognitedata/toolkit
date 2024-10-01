@@ -61,13 +61,13 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -141,8 +141,8 @@ class TransformationLoader(
             if not isinstance(destination, dict):
                 return
             if destination.get("type") == "raw" and in_dict(("database", "table"), destination):
-                yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
-                yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
+                yield RawDatabaseLoader, RawDatabase(destination["database"])
+                yield RawTableLoader, RawTable(destination["database"], destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space

@@ -8,6 +8,7 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import data_modeling as dm
 
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
@@ -19,7 +20,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -199,8 +199,8 @@ conflictMode: upsert
             pytest.param(
                 {"destination": {"type": "raw", "database": "my_db", "table": "my_table"}},
                 [
-                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
-                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                    (RawDatabaseLoader, RawDatabase("my_db")),
+                    (RawTableLoader, RawTable("my_db", "my_table")),
                 ],
                 id="Transformation to RAW table",
             ),
