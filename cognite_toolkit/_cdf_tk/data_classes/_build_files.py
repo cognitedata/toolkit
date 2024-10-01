@@ -22,7 +22,6 @@ class BuildSourceFile:
     source: SourceLocation
     content: str
     loaded: list[dict[str, Any]] | dict[str, Any] | None = None
-    warnings: WarningList[FileReadWarning] = field(default_factory=WarningList[FileReadWarning])
 
 
 @dataclass

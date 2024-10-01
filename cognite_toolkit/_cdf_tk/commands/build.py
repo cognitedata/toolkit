@@ -410,10 +410,10 @@ class BuildCommand(ToolkitCommand):
 
             content = variables.replace(content, source_path.suffix)
 
-            warnings = self._check_variables_replaced(content, module_dir, source_path)
+            self._check_variables_replaced(content, module_dir, source_path)
 
             if source_path.suffix not in YAML_SUFFIX:
-                source_files.append(BuildSourceFile(source, content, None, warnings))
+                source_files.append(BuildSourceFile(source, content, None))
                 continue
 
             if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
@@ -428,17 +428,15 @@ class BuildCommand(ToolkitCommand):
             try:
                 loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
-                if self.print_warning:
-                    print(str(warnings))
                 raise ToolkitYAMLFormatError(
                     f"YAML validation error for {source_path.name} after substituting config variables: {e}"
                 )
 
-            source_files.append(BuildSourceFile(source, content, loaded, warnings))
+            source_files.append(BuildSourceFile(source, content, loaded))
 
         return source_files
 
-    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> WarningList[FileReadWarning]:
+    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> None:
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         warning_list = WarningList[FileReadWarning]()
         for unmatched in all_unmatched:
@@ -458,7 +456,9 @@ class BuildCommand(ToolkitCommand):
                     f"the location of {module.as_posix()}.",
                     prefix="    [bold green]Hint:[/] ",
                 )
-        return warning_list
+        self.warning_list.extend(warning_list)
+        if self.print_warning and warning_list:
+            print(str(warning_list))
 
     def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}
