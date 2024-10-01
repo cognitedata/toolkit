@@ -1,0 +1,65 @@
+### Asset Hierarchy Data Model
+type ProcessType {
+  name: String
+  description: String
+  code: String
+}
+
+type GeoRegion {
+  name: String!
+  description: String
+}
+
+
+type Country {
+  name: String!
+  iso3166Alpha2: String!
+  iso3166Alpha3: String!
+  iso3166Numeric: String!
+  parent: GeoRegion
+  flag: String
+}
+
+
+type Product {
+  name: String!
+  description: String
+}
+
+
+type TimeZone {
+  name: String!
+  description: String
+}
+
+type SiteType {
+  name: String!
+  description: String
+}
+
+type Language {
+  name: String!
+  description: String
+  LanCode: String
+  sapCode: String
+  enablonCode: String
+}
+
+type CoordinateReferenceSystem {
+  id: String!
+  name: String!
+}
+
+type Company {
+    name: String!
+    description: String
+    code: String
+}
+
+interface Hierarchical {
+  code: String
+  active: Boolean
+  parent: Hierarchical
+  path: [String]
+  level: Int
+}
