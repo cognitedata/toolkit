@@ -1,7 +1,6 @@
+from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any
-
-from mypy.checkexpr import defaultdict
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
