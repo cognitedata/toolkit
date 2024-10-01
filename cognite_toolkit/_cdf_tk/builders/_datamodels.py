@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
     ModuleLocation,
+    SourceLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders import GraphQLLoader
@@ -36,8 +37,9 @@ class DataModelBuilder(Builder):
                     yield [warning]
                 continue
 
+            extra_sources: list[SourceLocation] | None = None
             if loader is GraphQLLoader:
-                self._add_graphql(loaded, source_file, graphql_files)
+                extra_sources = self._add_graphql(loaded, source_file, graphql_files)
 
             destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
 
@@ -46,7 +48,7 @@ class DataModelBuilder(Builder):
                 loaded=loaded,
                 loader=loader,
                 source=source_file.source,
-                extra_sources=None,
+                extra_sources=extra_sources,
             )
             yield destination
 
@@ -55,7 +57,8 @@ class DataModelBuilder(Builder):
         loaded: dict[str, Any] | list[dict[str, Any]],
         source_file: BuildSourceFile,
         graphql_files: dict[Path, BuildSourceFile],
-    ) -> None:
+    ) -> list[SourceLocation]:
+        extra_sources: list[SourceLocation] = []
         loaded_list = loaded if isinstance(loaded, list) else [loaded]
         for entry in loaded_list:
             if "dml" in entry:
@@ -67,7 +70,9 @@ class DataModelBuilder(Builder):
             expected_path = source_file.source.path.parent / Path(expected_name)
             if expected_path in graphql_files:
                 entry["dml"] = graphql_files[expected_path].content
+                extra_sources.append(graphql_files[expected_path].source)
             else:
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {expected_name} adjacent to {source_file.source.path.as_posix()}"
                 )
+        return extra_sources

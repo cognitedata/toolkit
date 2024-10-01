@@ -7,6 +7,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
     ModuleLocation,
+    SourceLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
@@ -36,8 +37,9 @@ class TransformationBuilder(Builder):
                     yield [warning]
                 continue
 
+            extra_sources: list[SourceLocation] | None = None
             if loader is TransformationLoader:
-                self._add_query(loaded, source_file, query_files)
+                extra_sources = self._add_query(loaded, source_file, query_files)
 
             destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
 
@@ -46,7 +48,7 @@ class TransformationBuilder(Builder):
                 loaded=loaded,
                 loader=loader,
                 source=source_file.source,
-                extra_sources=None,
+                extra_sources=extra_sources,
             )
             yield destination
 
@@ -55,8 +57,9 @@ class TransformationBuilder(Builder):
         loaded: dict[str, Any] | list[dict[str, Any]],
         source_file: BuildSourceFile,
         query_files: dict[Path, BuildSourceFile],
-    ) -> None:
+    ) -> list[SourceLocation]:
         loaded_list = loaded if isinstance(loaded, list) else [loaded]
+        extra_sources: list[SourceLocation] = []
         for entry in loaded_list:
             try:
                 external_id = TransformationLoader.get_id(entry)
@@ -77,17 +80,20 @@ class TransformationBuilder(Builder):
                     filepath,
                 )
             elif query_file is not None:
-                entry["query"] = query_files
+                entry["query"] = query_file.content
+                extra_sources.append(query_file.source)
+
+        return extra_sources
 
     @staticmethod
     def _get_query_file(
         source_file: Path, transformation_external_id: str | None, query_files: dict[Path, BuildSourceFile]
-    ) -> str | None:
+    ) -> BuildSourceFile | None:
         query_file = source_file.parent / f"{source_file.stem}.sql"
         if query_file in query_files:
-            return query_files[query_file].content
+            return query_files[query_file]
         if transformation_external_id:
             query_file = source_file.parent / f"{transformation_external_id}.sql"
             if query_file in query_files:
-                return query_files[query_file].content
+                return query_files[query_file]
         return None
