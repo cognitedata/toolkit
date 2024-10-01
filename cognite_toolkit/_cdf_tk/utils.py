@@ -253,10 +253,10 @@ class AuthVariables:
                 self._write_var("client_secret"),
             ]
         elif self.login_flow == "device_code":
-            lines += [
-                self._write_var("client_id"),
-                self._write_var("oidc_discovery_url"),
-            ]
+            if self.oidc_discovery_url:
+                lines += [
+                    self._write_var("oidc_discovery_url"),
+                ]
         elif self.login_flow == "interactive":
             lines += [
                 self._write_var("client_id"),
@@ -355,8 +355,6 @@ class AuthReader:
             default_variables.extend(["scopes", "audience"])
         elif login_flow == "interactive":
             default_variables.extend(["scopes", "authority_url"])
-        elif login_flow == "device_code":
-            default_variables.append("oidc_discovery_url")
         print("The below variables are the defaults,")
         for field_name in default_variables:
             current_value = getattr(self.auth_vars, field_name)
@@ -518,7 +516,7 @@ class CDFToolConfig:
         self._project = self._toolkit_client.config.project
         self._cdf_url = self._toolkit_client.config.base_url
 
-    def initialize_from_auth_variables(self, auth: AuthVariables) -> None:
+    def initialize_from_auth_variables(self, auth: AuthVariables, clear_cache: bool = False) -> None:
         """Initialize the CDFToolConfig from the AuthVariables and returns whether it was successful or not."""
         cluster = auth.cluster or self._cluster
         project = auth.project or self._project
@@ -546,6 +544,7 @@ class CDFToolConfig:
                     tenant_id=auth.tenant_id,
                     client_id=TOOLKIT_CLIENT_ID_ENTRA,
                     cdf_cluster=self._cluster,
+                    clear_cache=clear_cache,
                 )
                 self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
             else:
@@ -559,6 +558,7 @@ class CDFToolConfig:
                     oauth_discovery_url=auth.oidc_discovery_url,
                     client_id=auth.client_id,
                     audience=auth.audience,
+                    clear_cache=clear_cache,
                 )
                 self._credentials_provider = OAuthDeviceCode(**self._credentials_args)
         elif auth.login_flow == "interactive":

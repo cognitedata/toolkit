@@ -59,9 +59,9 @@ class AuthCommand(ToolkitCommand):
         if reader.messages:
             for message in reader.messages:
                 self.warn(MediumSeverityWarning(message))
+        ToolGlobals = CDFToolConfig(skip_initialization=True)
+        ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=True)
         if not no_verify:
-            ToolGlobals = CDFToolConfig(skip_initialization=True)
-            ToolGlobals.initialize_from_auth_variables(auth_vars)
             self.verify(ToolGlobals, dry_run)
 
     def verify(
