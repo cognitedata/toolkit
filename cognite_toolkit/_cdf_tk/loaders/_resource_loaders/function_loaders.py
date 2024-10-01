@@ -78,14 +78,20 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         secret_hash = "cdf-toolkit-secret-hash"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionWriteList | None) -> list[Capability] | list[Capability]:
+    def get_required_capability(
+        cls, items: FunctionWriteList | None, read_only: bool
+    ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
+
+        function_actions = (
+            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        )
+        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+
         return [
-            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
-            FilesAcl(
-                [FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()
-            ),  # Needed for uploading function artifacts
+            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+            FilesAcl(file_actions, FilesAcl.Scope.All()),  # Needed for uploading function artifacts
         ]
 
     @classmethod
@@ -279,14 +285,22 @@ class FunctionScheduleLoader(
         return "function.schedules"
 
     @classmethod
-    def get_required_capability(cls, items: FunctionScheduleWriteList | None) -> list[Capability]:
+    def get_required_capability(cls, items: FunctionScheduleWriteList | None, read_only: bool) -> list[Capability]:
         if not items and items is not None:
             return []
+
+        function_actions = (
+            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        )
+        session_actions = (
+            [SessionsAcl.Action.List]
+            if read_only
+            else [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete]
+        )
+
         return [
-            FunctionsAcl([FunctionsAcl.Action.Read, FunctionsAcl.Action.Write], FunctionsAcl.Scope.All()),
-            SessionsAcl(
-                [SessionsAcl.Action.List, SessionsAcl.Action.Create, SessionsAcl.Action.Delete], SessionsAcl.Scope.All()
-            ),
+            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+            SessionsAcl(session_actions, SessionsAcl.Scope.All()),
         ]
 
     @classmethod

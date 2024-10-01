@@ -60,12 +60,18 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: SourceWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: SourceWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -140,12 +146,20 @@ class HostedExtractorDestinationLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: DestinationWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: DestinationWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -240,12 +254,18 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: JobWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: JobWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -326,12 +346,18 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MappingWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: MappingWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 

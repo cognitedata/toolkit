@@ -78,9 +78,18 @@ class ExtractionPipelineLoader(
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: ExtractionPipelineWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [ExtractionPipelinesAcl.Action.Read]
+            if read_only
+            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+        )
+
         scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
             ExtractionPipelinesAcl.Scope.All()
         )
@@ -89,7 +98,7 @@ class ExtractionPipelineLoader(
                 scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
         return ExtractionPipelinesAcl(
-            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
@@ -227,13 +236,21 @@ class ExtractionPipelineConfigLoader(
         return "extraction_pipeline.config"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList | None) -> list[Capability]:
+    def get_required_capability(
+        cls, items: ExtractionPipelineConfigWriteList | None, read_only: bool
+    ) -> list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [ExtractionConfigsAcl.Action.Read]
+            if read_only
+            else [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write]
+        )
+
         return [
             ExtractionConfigsAcl(
-                [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
+                actions,
                 ExtractionConfigsAcl.Scope.All(),
             )
         ]
