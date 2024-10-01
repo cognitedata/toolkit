@@ -17,6 +17,7 @@ from rich.progress import track
 from cognite_toolkit._cdf_tk.builders import Builder, create_builder
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
@@ -449,16 +450,19 @@ class BuildCommand(ToolkitCommand):
             (resource_cls, id_) for resource_cls, ids in self._state.ids_by_resource_type.items() for id_ in ids
         }
         missing_dependencies = set(self._state.dependencies_by_required.keys()) - existing
-        for resource_cls, id_ in missing_dependencies:
-            if self._is_system_resource(resource_cls, id_):
+        for loader_cls, id_ in missing_dependencies:
+            if self._is_system_resource(loader_cls, id_):
                 continue
-            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, resource_cls, id_):
+            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+                continue
+            if loader_cls.resource_cls is RawDatabase:
+                # Raw Databases are automatically created when a Raw Table is created.
                 continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
-                for required, path in self._state.dependencies_by_required[(resource_cls, id_)]
+                for required, path in self._state.dependencies_by_required[(loader_cls, id_)]
             }
-            self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
+            self.warn(MissingDependencyWarning(loader_cls.resource_cls.__name__, id_, required_by))
 
     def _check_resource_exists_in_cdf(
         self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable
