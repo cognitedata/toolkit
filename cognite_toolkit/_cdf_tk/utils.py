@@ -1354,7 +1354,10 @@ def safe_read(file: Path) -> str:
         return file.read_text()
     except UnicodeDecodeError:
         # On Windows, we may have issues as the encoding is not always utf-8
-        return file.read_text(encoding="utf-8")
+        try:
+            return file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise
 
 
 def safe_write(file: Path, content: str) -> None:

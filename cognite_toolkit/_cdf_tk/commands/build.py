@@ -389,15 +389,14 @@ class BuildCommand(ToolkitCommand):
         source_files: list[BuildSourceFile] = []
 
         for source_path in resource_files:
+            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
+                continue
+
             if verbose:
                 self.console(f"Processing file {source_path.name}...")
 
             content = safe_read(source_path)
             source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
-
-            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
-                source_files.append(BuildSourceFile(source, content, None, WarningList[FileReadWarning]()))
-                continue
 
             content = variables.replace(content, source_path.suffix)
 
@@ -411,7 +410,7 @@ class BuildCommand(ToolkitCommand):
             # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
             content = quote_int_value_by_key_in_yaml(content, key="version")
             try:
-                parsed = read_yaml_content(content)
+                loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
                 if self.print_warning:
                     print(str(warnings))
@@ -419,7 +418,7 @@ class BuildCommand(ToolkitCommand):
                     f"YAML validation error for {source_path.name} after substituting config variables: {e}"
                 )
 
-            source_files.append(BuildSourceFile(source, content, parsed, warnings))
+            source_files.append(BuildSourceFile(source, content, loaded, warnings))
 
         return source_files
 

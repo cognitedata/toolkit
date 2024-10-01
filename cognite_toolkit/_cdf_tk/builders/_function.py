@@ -48,7 +48,7 @@ class FunctionBuilder(Builder):
             yield BuildDestinationFile(
                 path=destination_path,
                 loaded=source_file.loaded,
-                loader=FunctionLoader,
+                loader=loader,
                 source=source_file.source,
                 extra_sources=None,
                 warnings=warnings,
