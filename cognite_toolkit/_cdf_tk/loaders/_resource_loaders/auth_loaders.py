@@ -101,17 +101,27 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
-    def get_required_capability(cls, items: GroupWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: GroupWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return GroupsAcl(
+
+        actions = (
             [
+                GroupsAcl.Action.Read,
+                GroupsAcl.Action.List,
+            ]
+            if read_only
+            else [
                 GroupsAcl.Action.Read,
                 GroupsAcl.Action.List,
                 GroupsAcl.Action.Create,
                 GroupsAcl.Action.Delete,
                 GroupsAcl.Action.Update,
-            ],
+            ]
+        )
+
+        return GroupsAcl(
+            actions,
             GroupsAcl.Scope.All(),
         )
 
@@ -423,18 +433,30 @@ class SecurityCategoryLoader(
         return {"name": id}
 
     @classmethod
-    def get_required_capability(cls, items: SecurityCategoryWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: SecurityCategoryWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return SecurityCategoriesAcl(
-            actions=[
+
+        actions = (
+            [
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.MemberOf,
+            ]
+            if read_only
+            else [
                 SecurityCategoriesAcl.Action.Create,
                 SecurityCategoriesAcl.Action.Update,
                 SecurityCategoriesAcl.Action.MemberOf,
                 SecurityCategoriesAcl.Action.List,
                 SecurityCategoriesAcl.Action.Delete,
-            ],
-            scope=SecurityCategoriesAcl.Scope.All(),
+            ]
+        )
+
+        return SecurityCategoriesAcl(
+            actions,
+            SecurityCategoriesAcl.Scope.All(),
         )
 
     def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:
