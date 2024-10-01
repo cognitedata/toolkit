@@ -1426,7 +1426,8 @@ class GraphQLParser:
     _multi_newline = re.compile(r"\n+")
 
     def __init__(self, raw: str, data_model_id: DataModelId) -> None:
-        self.raw = raw
+        # Ensure consistent line endings
+        self.raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 
