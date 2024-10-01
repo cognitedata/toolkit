@@ -308,16 +308,20 @@ class BuildEnvironment(Environment):
         warning_list = WarningList[FileReadWarning]()
         for resource_folder, resources in self.built_resources.items():
             for resource in resources:
-                source_filepath = resource.source.path
-                if source_filepath.suffix in {".csv", ".parquet"}:
-                    # When we copy over the source files we use utf-8 encoding, which can change the file hash.
-                    # Thus, we skip checking the hash for these file types.
-                    continue
+                to_check = [resource.source, *(resource.extra_sources or [])]
+                for source in to_check:
+                    source_filepath = source.path
+                    if source_filepath.suffix in {".csv", ".parquet"}:
+                        # When we copy over the source files we use utf-8 encoding, which can change the file hash.
+                        # Thus, we skip checking the hash for these file types.
+                        continue
 
-                if not source_filepath.exists():
-                    warning_list.append(MissingFileWarning(source_filepath, attempted_check="source file has changed"))
-                elif resource.source.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
-                    warning_list.append(SourceFileModifiedWarning(source_filepath))
+                    if not source_filepath.exists():
+                        warning_list.append(
+                            MissingFileWarning(source_filepath, attempted_check="source file has changed")
+                        )
+                    elif resource.source.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
+                        warning_list.append(SourceFileModifiedWarning(source_filepath))
         return warning_list
 
 
