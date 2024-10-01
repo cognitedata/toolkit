@@ -43,7 +43,6 @@ class Builder(ABC):
     ):
         self.build_dir = build_dir
         self.resource_counter = 0
-        self.index_by_filepath_stem: dict[Path, int] = {}
         if self._resource_folder is not None:
             self.resource_folder = self._resource_folder
         elif resource_folder is not None:
@@ -64,7 +63,7 @@ class Builder(ABC):
         return WarningList[ToolkitWarning]()
 
     # Helper methods
-    def _create_destination_path(self, source_path: Path, module_dir: Path) -> Path:
+    def _create_destination_path(self, source_path: Path, module_dir: Path, kind: str) -> Path:
         """Creates the filepath in the build directory for the given source path.
 
         Note that this is a complex operation as the modules in the source are nested while the build directory is flat.
@@ -75,19 +74,13 @@ class Builder(ABC):
         # Get rid of the local index
         filename = INDEX_PATTERN.sub("", filename)
 
-        relative_stem = module_dir.name / source_path.relative_to(module_dir).parent / source_path.stem
-        if relative_stem in self.index_by_filepath_stem:
-            # Ensure extra files (.sql, .pdf) with the same stem gets the same index as the
-            # main YAML file. The Transformation Loader expects this.
-            index = self.index_by_filepath_stem[relative_stem]
-        else:
-            # Increment to ensure we do not get duplicate filenames when we flatten the file
-            # structure from the module to the build directory.
-            self.resource_counter += 1
-            index = self.resource_counter
-            self.index_by_filepath_stem[relative_stem] = index
+        # Increment to ensure we do not get duplicate filenames when we flatten the file
+        # structure from the module to the build directory.
+        self.resource_counter += 1
 
-        filename = f"{index}.{filename}"
+        filename = f"{self.resource_counter}.{filename}"
+        if not filename.casefold().endswith(kind.casefold()):
+            filename = f"{filename}.{kind}"
         destination_path = self.build_dir / self.resource_folder / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
@@ -150,12 +143,12 @@ class DefaultBuilder(Builder):
             if source_file.loaded is None:
                 # Not a YAML file
                 continue
-            destination_path = self._create_destination_path(source_file.source.path, module.dir)
             loader, warning = self._get_loader(source_file.source.path)
             if loader is None:
                 if warning is not None:
                     yield [warning]
                 continue
+            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
 
             destination = BuildDestinationFile(
                 path=destination_path,

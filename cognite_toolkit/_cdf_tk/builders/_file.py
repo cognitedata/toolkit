@@ -21,13 +21,14 @@ class FileBuilder(Builder):
         for source_file in source_files:
             if source_file.loaded is None:
                 continue
+            loader = FileMetadataLoader
             loaded = self._expand_file_metadata(source_file.loaded, module, console)
-            destination_path = self._create_destination_path(source_file.source.path, module.dir)
+            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
 
             yield BuildDestinationFile(
                 path=destination_path,
                 loaded=loaded,
-                loader=FileMetadataLoader,
+                loader=loader,
                 source=source_file.source,
                 extra_sources=None,
             )
