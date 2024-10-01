@@ -505,7 +505,13 @@ class ApprovalToolkitClient:
             previous_version: str | None = None,
         ) -> DMLApplyResult:
             created = GraphQLDataModelWrite(
-                id.space, id.external_id, id.version, dml, name, description, previous_version
+                space=id.space,
+                external_id=id.external_id,
+                version=id.version,
+                dml=dml,
+                name=name,
+                description=description,
+                previous_version=previous_version,
             )
             created_resources[resource_cls.__name__].append(created)
             return DMLApplyResult(

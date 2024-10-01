@@ -67,6 +67,24 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
+GraphQLDataModel:
+- description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
+  dml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n  description:\
+    \ String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n  description:\
+    \ String\n}\n\n\ntype Country {\n  name: String!\n  iso3166Alpha2: String!\n \
+    \ iso3166Alpha3: String!\n  iso3166Numeric: String!\n  parent: GeoRegion\n  flag:\
+    \ String\n}\n\n\ntype Product {\n  name: String!\n  description: String\n}\n\n\
+    \ntype TimeZone {\n  name: String!\n  description: String\n}\n\ntype SiteType\
+    \ {\n  name: String!\n  description: String\n}\n\ntype Language {\n  name: String!\n\
+    \  description: String\n  LanCode: String\n  sapCode: String\n  enablonCode: String\n\
+    }\n\ntype CoordinateReferenceSystem {\n  id: String!\n  name: String!\n}\n\ntype\
+    \ Company {\n    name: String!\n    description: String\n    code: String\n}\n\
+    \ninterface Hierarchical {\n  code: String\n  active: Boolean\n  parent: Hierarchical\n\
+    \  path: [String]\n  level: Int\n}\n"
+  externalId: AssetHierarchy
+  name: Asset Hierarchy
+  space: sp_schema
+  version: '3_0_2'
 Job:
 - config:
     topicFilter: my_topic

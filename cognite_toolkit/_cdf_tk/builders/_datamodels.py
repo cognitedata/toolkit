@@ -75,7 +75,7 @@ class DataModelBuilder(Builder):
             expected_path = source_file.source.path.parent / Path(expected_filename)
 
             if expected_path in graphql_files:
-                shutil.copy(graphql_files[expected_path].source.path, destination_path)
+                shutil.copy(graphql_files[expected_path].source.path, destination_path.with_suffix(".graphql"))
                 extra_sources.append(graphql_files[expected_path].source)
             else:
                 raise ToolkitFileNotFoundError(
