@@ -542,24 +542,25 @@ class CDFToolConfig:
             # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
             if auth.tenant_id:
                 # For Entra, we have defaults for everything, even the app registration as we can use the CDF public app.
-                self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(
+                self._credentials_args = dict(
                     tenant_id=auth.tenant_id,
                     client_id=TOOLKIT_CLIENT_ID_ENTRA,
                     cdf_cluster=self._cluster,
                 )
+                self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
             else:
                 if not auth.scopes:
                     raise ValueError("IDP_SCOPES is required for device code login.")
                 if not auth.client_id:
                     raise ValueError("IDP_CLIENT_ID is required for device code login.")
-
-                self._credentials_provider = OAuthDeviceCode(
+                self._credentials_args = dict(
                     authority_url=None,
                     cdf_cluster=auth.cluster,
                     oauth_discovery_url=auth.oidc_discovery_url,
                     client_id=auth.client_id,
                     audience=auth.audience,
                 )
+                self._credentials_provider = OAuthDeviceCode(**self._credentials_args)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]
