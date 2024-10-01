@@ -285,7 +285,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
-            source_files = self._replace_variables(resource_files, module_variables, module.dir)
+            source_files = self._replace_variables(resource_files, module_variables, module.dir, verbose)
 
             builder = self._get_builder(build_dir, resource_name)
 
@@ -384,11 +384,14 @@ class BuildCommand(ToolkitCommand):
             )
 
     def _replace_variables(
-        self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path
+        self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path, verbose: bool
     ) -> list[BuildSourceFile]:
         source_files: list[BuildSourceFile] = []
 
         for source_path in resource_files:
+            if verbose:
+                self.console(f"Processing file {source_path.name}...")
+
             content = safe_read(source_path)
             source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
 

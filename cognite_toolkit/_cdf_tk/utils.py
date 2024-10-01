@@ -1015,7 +1015,7 @@ def calculate_secure_hash(item: dict[str, Any]) -> str:
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
-        content = content.read_text(encoding="utf-8")
+        content = safe_read(content)
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
     calculated = sha256_hash.hexdigest()

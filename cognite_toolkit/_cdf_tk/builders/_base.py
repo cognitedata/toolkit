@@ -70,17 +70,18 @@ class Builder(ABC):
         This means that we lose information and risk having duplicate filenames. To avoid this, we prefix the filename
         with a number to ensure uniqueness.
         """
-        filename = source_path.name
+        filestem = source_path.stem
         # Get rid of the local index
-        filename = INDEX_PATTERN.sub("", filename)
+        filestem = INDEX_PATTERN.sub("", filestem)
 
         # Increment to ensure we do not get duplicate filenames when we flatten the file
         # structure from the module to the build directory.
         self.resource_counter += 1
 
-        filename = f"{self.resource_counter}.{filename}"
+        filename = f"{self.resource_counter}.{filestem}"
         if not filename.casefold().endswith(kind.casefold()):
             filename = f"{filename}.{kind}"
+        filename = f"{filename}{source_path.suffix}"
         destination_path = self.build_dir / self.resource_folder / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path

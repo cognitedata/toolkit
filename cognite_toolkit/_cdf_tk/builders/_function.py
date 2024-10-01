@@ -29,6 +29,10 @@ class FunctionBuilder(Builder):
         for source_file in source_files:
             if source_file.loaded is None:
                 continue
+            if source_file.source.path.parent.parent != module.dir:
+                # Function YAML files must be in the resource folder.
+                continue
+
             loader, warning = self._get_loader(source_file.source.path)
             if loader is None:
                 if warning is not None:
