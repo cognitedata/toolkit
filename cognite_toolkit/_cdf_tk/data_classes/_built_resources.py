@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Collection, Iterator, MutableSequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._build_variables import BuildVariables
+
 
 if TYPE_CHECKING:
     from ._built_modules import BuiltModule
@@ -76,10 +77,22 @@ class SourceLocationEager(SourceLocation):
 
 @dataclass
 class BuiltResource(Generic[T_ID]):
+    """This represents a built resource.
+
+    Args:
+        identifier: The unique identifier of the resource.
+        source: The source location of the resource.
+        kind: The kind of resource.
+        destination: The destination of the resource.
+        extra_sources: Extra source locations of the resource, for example, Transformations might have
+            .sql files that are used to build the final resource.
+
+    """
     identifier: T_ID
-    location: SourceLocation
+    source: SourceLocation
     kind: str
     destination: Path | None
+    extra_sources: list[SourceLocation] | None
 
     @classmethod
     def load(cls: type[T_BuiltResource], data: dict[str, Any], resource_folder: str) -> T_BuiltResource:
@@ -90,10 +103,11 @@ class BuiltResource(Generic[T_ID]):
         identifier = loader.get_id(data["identifier"])
 
         return cls(
-            location=SourceLocation.load(data["location"]),
+            source=SourceLocation.load(data["source"]),
             kind=kind,
             identifier=identifier,
             destination=Path(data["destination"]) if "destination" in data else None,
+            extra_sources=[SourceLocation.load(source) for source in data.get("extra_sources", [])] or None,
         )
 
     def dump(self, resource_folder: str, include_destination: bool = False) -> dict[str, Any]:
@@ -104,17 +118,19 @@ class BuiltResource(Generic[T_ID]):
 
         output = {
             "identifier": dumped,
-            "location": self.location.dump(),
+            "source": self.source.dump(),
             "kind": self.kind,
         }
         if include_destination and self.destination:
             output["destination"] = self.destination.as_posix()
+        if self.extra_sources:
+            output["extra_sources"] = [source.dump() for source in self.extra_sources]
         return output
 
     def create_full(self, module: BuiltModule, resource_dir: str) -> BuiltResourceFull[T_ID]:
         return BuiltResourceFull(
             identifier=self.identifier,
-            location=self.location,
+            source=self.source,
             kind=self.kind,
             destination=self.destination,
             build_variables=module.build_variables,
@@ -137,7 +153,8 @@ class BuiltResourceFull(BuiltResource[T_ID]):
     def load_resource_dict(
         self, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
-        content = self.build_variables.replace(safe_read(self.location.path))
+
+        content = self.build_variables.replace(safe_read(self.yaml_source.path))
         loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
         raw = load_yaml_inject_variables(content, environment_variables, validate=validate)
         if isinstance(raw, dict):
@@ -146,7 +163,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
             for item in raw:
                 if loader.get_id(item) == self.identifier:
                     return item
-        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.location.path}")
+        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.yaml_source.path}")
 
 
 class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
@@ -182,10 +199,10 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
     def get_resource_directories(self, resource_folder: str) -> set[Path]:
         output: set[Path] = set()
         for resource in self:
-            index = next((i for i, part in enumerate(resource.location.path.parts) if part == resource_folder), None)
+            index = next((i for i, part in enumerate(resource.yaml_source.path.parts) if part == resource_folder), None)
             if index is None:
                 continue
-            path = Path("/".join(resource.location.path.parts[: index + 1]))
+            path = Path("/".join(resource.source.path.parts[: index + 1]))
             output.add(path)
 
         return output

@@ -1,11 +1,14 @@
 import difflib
 import re
 from collections import defaultdict
-from collections.abc import Hashable, Sequence
+from collections.abc import Hashable, Sequence, Iterable
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
 
 import yaml
+from cognite.client.data_classes import Source
+from pandas.core.base import NoNewAttributesMixin
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, TEMPLATE_VARS_FILE_SUFFIXES
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -13,7 +16,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResource,
     BuiltResourceList,
     ModuleLocation,
-    SourceLocationEager,
+    SourceLocationEager, SourceLocation,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -42,13 +45,26 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 from cognite_toolkit._cdf_tk.utils import (
     calculate_str_or_file_hash,
     humanize_collection,
-    module_from_path,
     quote_int_value_by_key_in_yaml,
     safe_read,
     safe_write,
 )
 from cognite_toolkit._cdf_tk.validation import validate_data_set_is_set, validate_resource_yaml
 
+@dataclass
+class BuildSourceFile:
+    source: SourceLocation
+    content: str
+    loaded: list[dict[str, Any]] | dict[str, Any] | None = None
+    warnings: WarningList[FileReadWarning] = field(default_factory=WarningList[FileReadWarning])
+
+@dataclass
+class BuildDestinationFile:
+    path: Path
+    loaded: list[dict[str, Any]] | dict[str, Any]
+    loader: type[ResourceLoader]
+    source: SourceLocation
+    extra_sources: list[SourceLocation] | None
 
 class Builder:
     _resource_folder: ClassVar[str | None] = None
@@ -100,49 +116,66 @@ class Builder:
         self._warning_index = len(self.warning_list)
         built_resource_list = BuiltResourceList[Hashable]()
 
-        for source_path in resource_files:
-            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
-                continue
+        source_files = self._replace_variables(resource_files, module_variables, module.dir)
 
-            built_resources = self._build_resources(source_path, module_variables, module, self.verbose)
+        for destination_file in self.build(source_files, module):
+            file_warnings, identifiers_kind_pairs = self.validate(destination_file.loaded, destination_file.source.path, destination_file.path)
 
-            built_resource_list.extend(built_resources)
+            if file_warnings:
+                self.warning_list.extend(file_warnings)
+                # Here we do not use the self.warn method as we want to print the warnings as a group.
+                if self.print_warning:
+                    print(str(file_warnings))
+
+            built = BuiltResourceList(
+                [BuiltResource(identifier, destination_file.source, kind, destination_file.path, extra_sources=destination_file.extra_sources) for identifier, kind in
+                 identifiers_kind_pairs]
+            )
+            built_resource_list.extend(built)
 
         return built_resource_list
 
+    def build(self, source_files: list[BuildSourceFile], module: ModuleLocation) -> Iterable[BuildDestinationFile]:
+        ...
+
+    def _replace_variables(self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path) -> list[BuildSourceFile]:
+        source_files: list[BuildSourceFile] = []
+
+        for source_path in resource_files:
+            content = safe_read(source_path)
+            source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+
+            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
+                source_files.append(BuildSourceFile(source, content, None, WarningList[FileReadWarning]()))
+                continue
+
+            content = variables.replace(content, source_path.suffix)
+
+            warnings = self._check_variables_replaced(content, module_dir, source_path)
+
+            if source_path.suffix not in {".yaml", ".yml"}:
+                source_files.append(BuildSourceFile(source, content, None, warnings))
+                continue
+
+            # Ensure that all keys that are version gets read as strings.
+            # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
+            content = quote_int_value_by_key_in_yaml(content, key="version")
+            try:
+                parsed = yaml.safe_load(content)
+            except yaml.YAMLError as e:
+                if self.print_warning:
+                    print(str(warnings))
+                raise ToolkitYAMLFormatError(
+                    f"YAML validation error for {source_path.name} after substituting config variables: {e}"
+                )
+
+            source_files.append(BuildSourceFile(source, content, parsed, warnings))
+
+        return source_files
+
+
     def last_build_warnings(self) -> WarningList[ToolkitWarning]:
         return self.warning_list[self._warning_index :]
-
-    def _build_resources(
-        self,
-        source_path: Path,
-        variables: BuildVariables,
-        module: ModuleLocation,
-        verbose: bool,
-    ) -> BuiltResourceList:
-        if verbose:
-            self.console(f"Processing {source_path.name}")
-
-        content = safe_read(source_path)
-        location = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
-
-        content = variables.replace(content, source_path.suffix)
-
-        destination_path = self._create_destination_path(source_path, module.dir)
-
-        safe_write(destination_path, content)
-
-        file_warnings, identifiers_kind_pairs = self.validate(content, source_path, destination_path)
-
-        if file_warnings:
-            self.warning_list.extend(file_warnings)
-            # Here we do not use the self.warn method as we want to print the warnings as a group.
-            if self.print_warning:
-                print(str(file_warnings))
-
-        return BuiltResourceList(
-            [BuiltResource(identifier, location, kind, destination_path) for identifier, kind in identifiers_kind_pairs]
-        )
 
     def _create_destination_path(self, source_path: Path, module_dir: Path) -> Path:
         """Creates the filepath in the build directory for the given source path.
@@ -174,31 +207,11 @@ class Builder:
 
     def validate(
         self,
-        content: str,
+        parsed: dict[str, Any] | list[dict[str, Any]],
         source_path: Path,
         destination: Path,
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
-
-        module = module_from_path(source_path)
-
-        warnings = self._all_variables_replaced(content, module, source_path)
-        warning_list.extend(warnings)
-
-        if destination.suffix not in {".yaml", ".yml"}:
-            return warning_list, []
-
-        # Ensure that all keys that are version gets read as strings.
-        # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
-        content = quote_int_value_by_key_in_yaml(content, key="version")
-        try:
-            parsed = yaml.safe_load(content)
-        except yaml.YAMLError as e:
-            if self.print_warning:
-                print(str(warning_list))
-            raise ToolkitYAMLFormatError(
-                f"YAML validation error for {destination.name} after substituting config variables: {e}"
-            )
 
         loader = self._get_loader(self.resource_folder, destination, source_path)
         if loader is None or not issubclass(loader, ResourceLoader):
@@ -248,7 +261,7 @@ class Builder:
 
         return warning_list, identifier_kind_pairs
 
-    def _all_variables_replaced(self, content: str, module: str, source_path: Path) -> WarningList[FileReadWarning]:
+    def _check_variables_replaced(self, content: str, module: str, source_path: Path) -> WarningList[FileReadWarning]:
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         warning_list = WarningList[FileReadWarning]()
         for unmatched in all_unmatched:
