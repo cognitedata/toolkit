@@ -33,8 +33,8 @@ class BuildDestinationFile:
     loader: type[ResourceLoader]
     source: SourceLocation
     extra_sources: list[SourceLocation] | None
+    warnings: WarningList[FileReadWarning] = field(default_factory=WarningList[FileReadWarning])
 
     @property
     def content(self) -> str:
         return yaml.safe_dump(self.loaded, sort_keys=False)
-

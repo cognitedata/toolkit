@@ -21,43 +21,62 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
-    ROOT_MODULES, TEMPLATE_VARS_FILE_SUFFIXES, YAML_SUFFIX,
+    ROOT_MODULES,
+    TEMPLATE_VARS_FILE_SUFFIXES,
+    YAML_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuildSourceFile,
     BuildVariables,
     BuiltModule,
     BuiltModuleList,
+    BuiltResource,
     BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
-    SourceLocationLazy, BuildSourceFile, SourceLocationEager, BuiltResource,
+    SourceLocationEager,
+    SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
     ToolkitError,
-    ToolkitMissingModuleError, ToolkitYAMLFormatError,
+    ToolkitMissingModuleError,
+    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
     NodeLoader,
+    RawDatabaseLoader,
+    RawTableLoader,
     ResourceLoader,
     SpaceLoader,
-    ViewLoader, RawDatabaseLoader, RawTableLoader,
+    ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    DuplicatedItemWarning,
+    FileReadWarning,
     LowSeverityWarning,
-    MissingDependencyWarning, WarningList, FileReadWarning, UnresolvedVariableWarning, DuplicatedItemWarning,
+    MissingDependencyWarning,
+    UnresolvedVariableWarning,
+    WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig, quote_int_value_by_key_in_yaml, safe_read, calculate_str_or_file_hash, read_yaml_content, safe_write
+    CDFToolConfig,
+    calculate_str_or_file_hash,
+    quote_int_value_by_key_in_yaml,
+    read_yaml_content,
+    safe_read,
+    safe_write,
 )
 from cognite_toolkit._cdf_tk.validation import (
-    validate_modules_variables, validate_data_set_is_set, validate_resource_yaml,
+    validate_data_set_is_set,
+    validate_modules_variables,
+    validate_resource_yaml,
 )
 from cognite_toolkit._version import __version__
 
@@ -265,39 +284,50 @@ class BuildCommand(ToolkitCommand):
             )
 
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
-
             source_files = self._replace_variables(resource_files, module_variables, module.dir)
 
-            builder = self._get_builder(build_dir, resource_name, verbose)
+            builder = self._get_builder(build_dir, resource_name)
 
+            built_resources = BuiltResourceList[Hashable]()
             for destination in builder.build(source_files, module):
                 safe_write(destination.path, destination.content)
 
-                file_warnings, identifiers_kind_pairs = self.check_built_resource(destination.loaded,
-                                                                                  destination.loader,
-                                                                                  destination.source.path,
-                                                                                )
+                file_warnings, identifiers_kind_pairs = self.check_built_resource(
+                    destination.loaded,
+                    destination.loader,
+                    destination.source.path,
+                )
+                file_warnings.extend(destination.warnings)
+
                 if file_warnings:
                     self.warning_list.extend(file_warnings)
                     # Here we do not use the self.warn method as we want to print the warnings as a group.
                     if self.print_warning:
                         print(str(file_warnings))
 
-                built_resources = BuiltResourceList(
-                    [BuiltResource(identifier, destination.source, kind, destination.path,
-                                   extra_sources=destination.extra_sources) for identifier, kind in
-                     identifiers_kind_pairs]
+                built_source = BuiltResourceList(
+                    [
+                        BuiltResource(
+                            identifier,
+                            destination.source,
+                            kind,
+                            destination.path,
+                            extra_sources=destination.extra_sources,
+                        )
+                        for identifier, kind in identifiers_kind_pairs
+                    ]
                 )
+                built_resources.extend(built_source)
 
-                build_resources_by_folder[resource_name].extend(built_resources)
+            builder.validate_directory(built_resources, module)
+
+            build_resources_by_folder[resource_name].extend(built_resources)
 
         return build_resources_by_folder
 
-    def _get_builder(self, build_dir: Path, resource_name: str, verbose: bool) -> Builder:
+    def _get_builder(self, build_dir: Path, resource_name: str) -> Builder:
         if resource_name not in self._builder_by_resource_folder:
-            self._builder_by_resource_folder[resource_name] = create_builder(
-                resource_name, build_dir, self._module_names_by_variable_key, silent=self.silent, verbose=verbose
-            )
+            self._builder_by_resource_folder[resource_name] = create_builder(resource_name, build_dir)
         builder = self._builder_by_resource_folder[resource_name]
         return builder
 
@@ -348,7 +378,9 @@ class BuildCommand(ToolkitCommand):
                 f"the environment ({config.environment.name})?"
             )
 
-    def _replace_variables(self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path) -> list[BuildSourceFile]:
+    def _replace_variables(
+        self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path
+    ) -> list[BuildSourceFile]:
         source_files: list[BuildSourceFile] = []
 
         for source_path in resource_files:
@@ -421,7 +453,9 @@ class BuildCommand(ToolkitCommand):
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
-    def _check_resource_exists_in_cdf(self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable) -> bool:
+    def _check_resource_exists_in_cdf(
+        self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable
+    ) -> bool:
         """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
         if id_ in self.existing_resources_by_loader[loader_cls]:
             return True
@@ -444,7 +478,7 @@ class BuildCommand(ToolkitCommand):
         warning_list = WarningList[FileReadWarning]()
 
         is_dict_item = isinstance(parsed, dict)
-        items = [parsed] if is_dict_item else parsed
+        items = [parsed] if isinstance(parsed, dict) else parsed
 
         identifier_kind_pairs: list[tuple[Hashable, str]] = []
         for no, item in enumerate(items, 1):

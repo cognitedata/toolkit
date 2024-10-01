@@ -1,10 +1,12 @@
 import copy
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildDestinationFile,
+    BuildSourceFile,
     ModuleLocation,
-    BuildSourceFile, BuildDestinationFile,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import FileLoader, FileMetadataLoader
@@ -28,7 +30,9 @@ class FileBuilder(Builder):
                 extra_sources=None,
             )
 
-    def _expand_file_metadata(self, raw_list: list[dict[str, Any]] | dict[str, Any], module: ModuleLocation) -> list[dict[str, Any]]| dict[str, Any]:
+    def _expand_file_metadata(
+        self, raw_list: list[dict[str, Any]] | dict[str, Any], module: ModuleLocation
+    ) -> list[dict[str, Any]] | dict[str, Any]:
         is_file_template = (
             isinstance(raw_list, list)
             and len(raw_list) == 1

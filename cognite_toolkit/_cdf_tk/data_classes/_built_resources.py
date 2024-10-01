@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Collection, Iterator, MutableSequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, SupportsIndex, TypeVar, cast, overload
@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from ._build_variables import BuildVariables
-
 
 if TYPE_CHECKING:
     from ._built_modules import BuiltModule
@@ -88,6 +87,7 @@ class BuiltResource(Generic[T_ID]):
             .sql files that are used to build the final resource.
 
     """
+
     identifier: T_ID
     source: SourceLocation
     kind: str
@@ -116,7 +116,7 @@ class BuiltResource(Generic[T_ID]):
         loader = cast(ResourceLoader, get_loader(resource_folder, self.kind))
         dumped = loader.dump_id(self.identifier)
 
-        output = {
+        output: dict[str, Any] = {
             "identifier": dumped,
             "source": self.source.dump(),
             "kind": self.kind,
@@ -137,6 +137,7 @@ class BuiltResource(Generic[T_ID]):
             module_name=module.name,
             module_location=module.location.path,
             resource_dir=resource_dir,
+            extra_sources=self.extra_sources,
         )
 
 
@@ -153,8 +154,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
     def load_resource_dict(
         self, environment_variables: dict[str, str | None], validate: bool = False
     ) -> dict[str, Any]:
-
-        content = self.build_variables.replace(safe_read(self.yaml_source.path))
+        content = self.build_variables.replace(safe_read(self.source.path))
         loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
         raw = load_yaml_inject_variables(content, environment_variables, validate=validate)
         if isinstance(raw, dict):
@@ -163,7 +163,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
             for item in raw:
                 if loader.get_id(item) == self.identifier:
                     return item
-        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.yaml_source.path}")
+        raise ToolkitMissingResourceError(f"Resource {self.identifier} not found in {self.source.path}")
 
 
 class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID]):
@@ -199,7 +199,7 @@ class BuiltResourceList(list, MutableSequence[BuiltResource[T_ID]], Generic[T_ID
     def get_resource_directories(self, resource_folder: str) -> set[Path]:
         output: set[Path] = set()
         for resource in self:
-            index = next((i for i, part in enumerate(resource.yaml_source.path.parts) if part == resource_folder), None)
+            index = next((i for i, part in enumerate(resource.source.path.parts) if part == resource_folder), None)
             if index is None:
                 continue
             path = Path("/".join(resource.source.path.parts[: index + 1]))

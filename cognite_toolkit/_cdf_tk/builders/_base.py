@@ -1,13 +1,15 @@
 import difflib
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from pathlib import Path
 from typing import ClassVar
 
-from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN, YAML_SUFFIX
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildDestinationFile,
+    BuildSourceFile,
+    BuiltResourceList,
     ModuleLocation,
-    BuildDestinationFile, BuildSourceFile, BuiltResourceList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
@@ -15,11 +17,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     GroupLoader,
-    Loader,
-    RawTableLoader, ResourceLoader,
+    RawTableLoader,
+    ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    ToolkitNotSupportedWarning, WarningList, ToolkitWarning,
+    ToolkitNotSupportedWarning,
+    ToolkitWarning,
+    WarningList,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
     UnknownResourceTypeWarning,
@@ -51,7 +55,9 @@ class Builder(ABC):
     def build(self, source_files: list[BuildSourceFile], module: ModuleLocation) -> Iterable[BuildDestinationFile]:
         raise NotImplementedError()
 
-    def validate_folder(self, built_resources: BuiltResourceList, module: ModuleLocation) -> WarningList[ToolkitWarning]:
+    def validate_directory(
+        self, built_resources: BuiltResourceList, module: ModuleLocation
+    ) -> WarningList[ToolkitWarning]:
         """This can be overridden to add additional validation for the built resources."""
         return WarningList[ToolkitWarning]()
 
@@ -83,7 +89,6 @@ class Builder(ABC):
         destination_path = self.build_dir / self.resource_folder / filename
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         return destination_path
-
 
     def _get_loader(self, resource_folder: str, destination: Path, source_path: Path) -> type[ResourceLoader] | None:
         folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
@@ -134,9 +139,11 @@ class Builder(ABC):
 
 
 class DefaultBuilder(Builder):
+    """This is used to build resources that do not have a specific builder."""
+
     def build(self, source_files: list[BuildSourceFile], module: ModuleLocation) -> Iterable[BuildDestinationFile]:
         for source_file in source_files:
-            if source_file.source.path.suffix.lower() not in YAML_SUFFIX:
+            if source_file.loaded is None:
                 continue
             destination_path = self._create_destination_path(source_file.source.path, module.dir)
             loader = self._get_loader(self.resource_folder, destination_path, source_file.source.path)
