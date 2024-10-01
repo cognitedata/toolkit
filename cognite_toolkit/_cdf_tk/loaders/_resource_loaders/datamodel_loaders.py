@@ -74,7 +74,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
 )
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
@@ -1084,15 +1084,32 @@ class GraphQLLoader(
 
         # Find the GraphQL files adjacent to the DML files
         for model in models:
+            if model.dml is not None:
+                expected_filename = model.dml
+            else:
+                expected_filename = (
+                    f'{INDEX_PATTERN.sub("", filepath.stem.removesuffix(self.kind).removesuffix("."))}.graphql'
+                )
+
+            graphql_file = next(
+                (f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(expected_filename)), None
+            )
+            if graphql_file is None:
+                raise ToolkitFileNotFoundError(
+                    f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
+                )
             model_id = model.as_id()
-            graphql_content = cast(str, model.dml)
+            self._graphql_filepath_cache[model_id] = graphql_file
+            graphql_content = safe_read(graphql_file)
+            # Ensure consistent line endings
+            graphql_content = graphql_content.replace("\r\n", "\n").replace("\r", "\n")
             parser = GraphQLParser(graphql_content, model_id)
             try:
                 for view in parser.get_views():
                     self._datamodels_by_view_id[view].add(model_id)
                 self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
             except Exception as e:
-                raise GraphQLParseError(f"Failed to parse GraphQL file for {model_id!r}: {e}") from e
+                raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
         return models
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
