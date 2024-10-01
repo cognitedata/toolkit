@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import contextlib
+import re
 import shutil
 from collections import Counter, defaultdict
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
+import yaml
 from rich import print
 from rich.panel import Panel
 from rich.progress import track
@@ -19,7 +21,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     INDEX_PATTERN,
-    ROOT_MODULES,
+    ROOT_MODULES, TEMPLATE_VARS_FILE_SUFFIXES, YAML_SUFFIX,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -29,13 +31,13 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
-    SourceLocationLazy,
+    SourceLocationLazy, BuildSourceFile, SourceLocationEager, BuiltResource,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitDuplicatedModuleError,
     ToolkitEnvError,
     ToolkitError,
-    ToolkitMissingModuleError,
+    ToolkitMissingModuleError, ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
@@ -44,17 +46,18 @@ from cognite_toolkit._cdf_tk.loaders import (
     NodeLoader,
     ResourceLoader,
     SpaceLoader,
-    ViewLoader,
+    ViewLoader, RawDatabaseLoader, RawTableLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
-    MissingDependencyWarning,
+    MissingDependencyWarning, WarningList, FileReadWarning, UnresolvedVariableWarning, DuplicatedItemWarning,
 )
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
+    CDFToolConfig, quote_int_value_by_key_in_yaml, safe_read, calculate_str_or_file_hash, read_yaml_content, safe_write
 )
 from cognite_toolkit._cdf_tk.validation import (
-    validate_modules_variables,
+    validate_modules_variables, validate_data_set_is_set, validate_resource_yaml,
 )
 from cognite_toolkit._version import __version__
 
@@ -253,7 +256,7 @@ class BuildCommand(ToolkitCommand):
         module_variables: BuildVariables,
         verbose: bool,
     ) -> dict[str, BuiltResourceList]:
-        build_resources_by_folder: dict[str, BuiltResourceList] = {}
+        build_resources_by_folder: dict[str, BuiltResourceList] = defaultdict(BuiltResourceList)
         if not_resource_directory := module.not_resource_directories:
             self.warn(
                 LowSeverityWarning(
@@ -262,19 +265,41 @@ class BuildCommand(ToolkitCommand):
             )
 
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
-            if resource_name not in self._builder_by_resource_folder:
-                self._builder_by_resource_folder[resource_name] = create_builder(
-                    resource_name, build_dir, self._module_names_by_variable_key, silent=self.silent, verbose=verbose
+
+            source_files = self._replace_variables(resource_files, module_variables, module.dir)
+
+            builder = self._get_builder(build_dir, resource_name, verbose)
+
+            for destination in builder.build(source_files, module):
+                safe_write(destination.path, destination.content)
+
+                file_warnings, identifiers_kind_pairs = self.check_built_resource(destination.loaded,
+                                                                                  destination.loader,
+                                                                                  destination.source.path,
+                                                                                )
+                if file_warnings:
+                    self.warning_list.extend(file_warnings)
+                    # Here we do not use the self.warn method as we want to print the warnings as a group.
+                    if self.print_warning:
+                        print(str(file_warnings))
+
+                built_resources = BuiltResourceList(
+                    [BuiltResource(identifier, destination.source, kind, destination.path,
+                                   extra_sources=destination.extra_sources) for identifier, kind in
+                     identifiers_kind_pairs]
                 )
-            builder = self._builder_by_resource_folder[resource_name]
 
-            built_resource_list = builder.build_resource_folder(resource_files, module_variables, module)
-
-            build_resources_by_folder[resource_name] = built_resource_list
-
-            self.warning_list.extend(builder.last_build_warnings())
+                build_resources_by_folder[resource_name].extend(built_resources)
 
         return build_resources_by_folder
+
+    def _get_builder(self, build_dir: Path, resource_name: str, verbose: bool) -> Builder:
+        if resource_name not in self._builder_by_resource_folder:
+            self._builder_by_resource_folder[resource_name] = create_builder(
+                resource_name, build_dir, self._module_names_by_variable_key, silent=self.silent, verbose=verbose
+            )
+        builder = self._builder_by_resource_folder[resource_name]
+        return builder
 
     @staticmethod
     def _validate_modules(
@@ -323,6 +348,63 @@ class BuildCommand(ToolkitCommand):
                 f"the environment ({config.environment.name})?"
             )
 
+    def _replace_variables(self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path) -> list[BuildSourceFile]:
+        source_files: list[BuildSourceFile] = []
+
+        for source_path in resource_files:
+            content = safe_read(source_path)
+            source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+
+            if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
+                source_files.append(BuildSourceFile(source, content, None, WarningList[FileReadWarning]()))
+                continue
+
+            content = variables.replace(content, source_path.suffix)
+
+            warnings = self._check_variables_replaced(content, module_dir, source_path)
+
+            if source_path.suffix not in YAML_SUFFIX:
+                source_files.append(BuildSourceFile(source, content, None, warnings))
+                continue
+
+            # Ensure that all keys that are version gets read as strings.
+            # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
+            content = quote_int_value_by_key_in_yaml(content, key="version")
+            try:
+                parsed = read_yaml_content(content)
+            except yaml.YAMLError as e:
+                if self.print_warning:
+                    print(str(warnings))
+                raise ToolkitYAMLFormatError(
+                    f"YAML validation error for {source_path.name} after substituting config variables: {e}"
+                )
+
+            source_files.append(BuildSourceFile(source, content, parsed, warnings))
+
+        return source_files
+
+    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> WarningList[FileReadWarning]:
+        all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
+        warning_list = WarningList[FileReadWarning]()
+        for unmatched in all_unmatched:
+            warning_list.append(UnresolvedVariableWarning(source_path, unmatched))
+            variable = unmatched[2:-2]
+            if module_names := self._module_names_by_variable_key.get(variable):
+                module_str = (
+                    f"{module_names[0]!r}"
+                    if len(module_names) == 1
+                    else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
+                )
+                self.console(
+                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
+                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
+                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} "
+                    f"the location of {module.as_posix()}.",
+                    prefix="    [bold green]Hint:[/] ",
+                )
+        return warning_list
+
     def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
         existing = {
             (resource_cls, id_) for resource_cls, ids in self._state.ids_by_resource_type.items() for id_ in ids
@@ -331,7 +413,7 @@ class BuildCommand(ToolkitCommand):
         for resource_cls, id_ in missing_dependencies:
             if self._is_system_resource(resource_cls, id_):
                 continue
-            if ToolGlobals and self._resource_exists_in_cdf(ToolGlobals.toolkit_client, resource_cls, id_):
+            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, resource_cls, id_):
                 continue
             required_by = {
                 (required, path.relative_to(project_config_dir))
@@ -339,7 +421,7 @@ class BuildCommand(ToolkitCommand):
             }
             self.warn(MissingDependencyWarning(resource_cls.resource_cls.__name__, id_, required_by))
 
-    def _resource_exists_in_cdf(self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable) -> bool:
+    def _check_resource_exists_in_cdf(self, client: ToolkitClient, loader_cls: type[ResourceLoader], id_: Hashable) -> bool:
         """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
         if id_ in self.existing_resources_by_loader[loader_cls]:
             return True
@@ -352,6 +434,58 @@ class BuildCommand(ToolkitCommand):
                 self.existing_resources_by_loader[loader_cls].add(id_)
                 return True
         return False
+
+    def check_built_resource(
+        self,
+        parsed: dict[str, Any] | list[dict[str, Any]],
+        loader: type[ResourceLoader],
+        source_path: Path,
+    ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
+        warning_list = WarningList[FileReadWarning]()
+
+        is_dict_item = isinstance(parsed, dict)
+        items = [parsed] if is_dict_item else parsed
+
+        identifier_kind_pairs: list[tuple[Hashable, str]] = []
+        for no, item in enumerate(items, 1):
+            element_no = None if is_dict_item else no
+
+            identifier: Any | None = None
+            # Raw Tables and Raw Databases can have different loaders in the same file.
+            item_loader = loader
+            try:
+                identifier = item_loader.get_id(item)
+            except KeyError as error:
+                if loader is RawTableLoader:
+                    try:
+                        identifier = RawDatabaseLoader.get_id(item)
+                        item_loader = RawDatabaseLoader
+                    except KeyError:
+                        warning_list.append(
+                            MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args)
+                        )
+                else:
+                    warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+
+            if identifier:
+                identifier_kind_pairs.append((identifier, item_loader.kind))
+                if first_seen := self._state.ids_by_resource_type[item_loader].get(identifier):
+                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                else:
+                    self._state.ids_by_resource_type[item_loader][identifier] = source_path
+
+                for dependency in item_loader.get_dependent_items(item):
+                    self._state.dependencies_by_required[dependency].append((identifier, source_path))
+
+            api_spec = item_loader.safe_get_write_cls_parameter_spec()
+            if api_spec is not None:
+                resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
+                warning_list.extend(resource_warnings)
+
+            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
+            warning_list.extend(data_set_warnings)
+
+        return warning_list, identifier_kind_pairs
 
     @staticmethod
     def _is_system_resource(resource_cls: type[ResourceLoader], id_: Hashable) -> bool:

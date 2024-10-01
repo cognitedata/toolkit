@@ -31,6 +31,7 @@ from ._deploy_results import (
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._module_resources import ModuleResources
 from ._packages import Package, Packages
+from ._build_files import BuildDestinationFile, BuildSourceFile
 
 __all__ = [
     "InitConfigYAML",
@@ -61,4 +62,6 @@ __all__ = [
     "UploadDeployResult",
     "DatapointDeployResult",
     "DeployResults",
+    "BuildSourceFile",
+    "BuildDestinationFile",
 ]
