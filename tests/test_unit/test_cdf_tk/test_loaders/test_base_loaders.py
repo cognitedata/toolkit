@@ -4,6 +4,7 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -32,19 +33,17 @@ from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
-    FunctionLoader,
     GroupResourceScopedLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
     ResourceTypes,
     ViewLoader,
+    get_loader,
 )
 from cognite_toolkit._cdf_tk.loaders.data_classes import GraphQLDataModel
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    module_from_path,
-    resource_folder_from_path,
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
@@ -234,7 +233,7 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
         # Use path syntax to select all modules in the source directory
         config.environment.selected = [Path()]
 
-        _, source_by_build_path = BuildCommand().build_config(
+        built_modules = BuildCommand().build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
             config=config,
@@ -242,31 +241,23 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
             clean=True,
             verbose=False,
         )
-        for filepath in build_dir.rglob("*.yaml"):
-            try:
-                resource_folder = resource_folder_from_path(filepath)
-            except ValueError:
-                # Not a resource file
-                continue
-            loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
-            if not loaders:
-                continue
-            loader = next((loader for loader in loaders if loader.is_supported_file(filepath)), None)
-            if loader is None:
-                raise ValueError(f"Could not find loader for {filepath}")
-            if loader is FunctionLoader and filepath.parent.name != loader.folder_name:
-                # Functions will only accept YAML in root function folder.
-                continue
-            if issubclass(loader, ResourceLoader):
-                raw = yaml.CSafeLoader(filepath.read_text()).get_data()
+        for module in built_modules:
+            for resource_folder, resources in module.resources.items():
+                for resource in resources:
+                    try:
+                        loader = get_loader(resource_folder, resource.kind)
+                    except ValueError:
+                        # Cannot find loader for resource kind
+                        continue
+                    filepath = cast(Path, resource.destination)
+                    if issubclass(loader, ResourceLoader):
+                        raw = yaml.CSafeLoader(filepath.read_text()).get_data()
 
-                source_path = source_by_build_path[filepath]
-                module_name = module_from_path(source_path)
-                if isinstance(raw, dict):
-                    yield pytest.param(loader, raw, id=f"{module_name} - {filepath.stem} - dict")
-                elif isinstance(raw, list):
-                    for no, item in enumerate(raw):
-                        yield pytest.param(loader, item, id=f"{module_name} - {filepath.stem} - list {no}")
+                        if isinstance(raw, dict):
+                            yield pytest.param(loader, raw, id=f"{module.name} - {filepath.stem} - dict")
+                        elif isinstance(raw, list):
+                            for no, item in enumerate(raw):
+                                yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
 class TestResourceLoaders:
@@ -300,10 +291,6 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls, content", list(cognite_module_files_with_loader()))
     def test_write_cls_spec_against_cognite_modules(self, loader_cls: type[ResourceLoader], content: dict) -> None:
-        if loader_cls is LocationFilterLoader:
-            # TODO: https://cognitedata.atlassian.net/browse/CDF-22363
-            pytest.skip(f"Skipping {loader_cls} because get_write_cls_parameter_spec fails for some reason")
-
         spec = loader_cls.get_write_cls_parameter_spec()
 
         warnings = validate_resource_yaml(content, spec, Path("test.yaml"))
