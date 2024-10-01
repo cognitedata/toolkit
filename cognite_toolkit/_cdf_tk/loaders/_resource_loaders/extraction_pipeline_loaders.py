@@ -41,7 +41,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -115,9 +115,9 @@ class ExtractionPipelineLoader(
                 if db := entry.get("dbName"):
                     if db not in seen_databases:
                         seen_databases.add(db)
-                        yield RawDatabaseLoader, RawDatabaseTable(db_name=db)
+                        yield RawDatabaseLoader, RawDatabase(db_name=db)
                     if "tableName" in entry:
-                        yield RawTableLoader, RawDatabaseTable._load(entry)
+                        yield RawTableLoader, RawTable._load(entry)
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool

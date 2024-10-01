@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import total_ordering
 from typing import Any
 
 from cognite.client import CogniteClient
@@ -11,7 +10,6 @@ from cognite.client.data_classes._base import (
 )
 
 
-@total_ordering
 @dataclass(frozen=True)
 class RawDatabaseTable(WriteableCogniteResource):
     db_name: str
@@ -31,33 +29,6 @@ class RawDatabaseTable(WriteableCogniteResource):
 
     def as_write(self) -> RawDatabaseTable:
         return self
-
-    def __lt__(self, other: object) -> bool:
-        if isinstance(other, RawDatabaseTable):
-            if self.db_name == other.db_name:
-                return (self.table_name or "") < (other.table_name or "")
-            else:
-                return self.db_name < other.db_name
-        else:
-            return NotImplemented
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, RawDatabaseTable):
-            return self.db_name == other.db_name and self.table_name == other.table_name
-        else:
-            return NotImplemented
-
-    def __str__(self) -> str:
-        if self.table_name is None:
-            return self.db_name
-        else:
-            return super().__str__()
-
-    def __repr__(self) -> str:
-        if self.table_name is None:
-            return f"{type(self).__name__}(db_name='{self.db_name}')"
-        else:
-            return f"{type(self).__name__}(db_name='{self.db_name}', table_name='{self.table_name}')"
 
 
 @dataclass(frozen=True)

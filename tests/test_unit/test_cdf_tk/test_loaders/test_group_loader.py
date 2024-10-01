@@ -4,7 +4,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import Group, GroupWrite, GroupWriteList
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
@@ -176,8 +176,8 @@ class TestGroupLoader:
             pytest.param(
                 {"capabilities": [{"rawAcl": {"scope": {"tableScope": {"dbsToTables": {"my_db": ["my_table"]}}}}}]},
                 [
-                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
-                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
+                    (RawDatabaseLoader, RawDatabase("my_db")),
+                    (RawTableLoader, RawTable("my_db", "my_table")),
                 ],
                 id="Table scope",
             ),

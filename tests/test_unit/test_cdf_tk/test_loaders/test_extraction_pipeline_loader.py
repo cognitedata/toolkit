@@ -6,7 +6,7 @@ import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import ExtractionPipelineConfig
 
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabaseTable
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
@@ -116,9 +116,9 @@ class TestExtractionPipelineLoader:
                 },
                 [
                     (DataSetsLoader, "ds_my_dataset"),
-                    (RawDatabaseLoader, RawDatabaseTable("my_db")),
-                    (RawTableLoader, RawDatabaseTable("my_db", "my_table")),
-                    (RawTableLoader, RawDatabaseTable("my_db", "my_table2")),
+                    (RawDatabaseLoader, RawDatabase("my_db")),
+                    (RawTableLoader, RawTable("my_db", "my_table")),
+                    (RawTableLoader, RawTable("my_db", "my_table2")),
                 ],
                 id="Extraction pipeline to Table",
             ),
