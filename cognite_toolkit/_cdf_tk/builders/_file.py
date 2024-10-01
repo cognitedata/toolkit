@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import FileLoader, FileMetadataLoader
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
 
 class FileBuilder(Builder):
@@ -17,12 +18,19 @@ class FileBuilder(Builder):
 
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
-    ) -> Iterable[BuildDestinationFile]:
+    ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         for source_file in source_files:
-            if source_file.loaded is None:
+            loaded = source_file.loaded
+            if loaded is None:
                 continue
-            loader = FileMetadataLoader
-            loaded = self._expand_file_metadata(source_file.loaded, module, console)
+
+            loader, warning = self._get_loader(source_file.source.path)
+            if loader is None:
+                if warning is not None:
+                    yield [warning]
+                continue
+            if loader is FileMetadataLoader:
+                loaded = self._expand_file_metadata(loaded, module, console)
             destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
 
             yield BuildDestinationFile(
