@@ -98,7 +98,9 @@ externalId: some_external_id
         source_filepath.read_text.return_value = raw_yaml
         source_filepath.suffix = ".yaml"
 
-        source_files = cmd._replace_variables([source_filepath], BuildVariables([]), Path("my_module"), verbose=False)
+        source_files = cmd._replace_variables(
+            [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False
+        )
         assert len(source_files) == 1
         source_file = source_files[0]
         assert isinstance(source_file.loaded, dict)

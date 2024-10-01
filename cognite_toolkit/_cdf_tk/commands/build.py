@@ -51,11 +51,13 @@ from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_direct
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
+    ExtractionPipelineConfigLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
     ResourceLoader,
     SpaceLoader,
+    TransformationLoader,
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -74,6 +76,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_content,
     safe_read,
     safe_write,
+    stringify_value_by_key_in_yaml,
 )
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -286,7 +289,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         for resource_name, resource_files in module.source_paths_by_resource_folder.items():
-            source_files = self._replace_variables(resource_files, module_variables, module.dir, verbose)
+            source_files = self._replace_variables(resource_files, module_variables, resource_name, module.dir, verbose)
 
             builder = self._get_builder(build_dir, resource_name)
 
@@ -385,7 +388,12 @@ class BuildCommand(ToolkitCommand):
             )
 
     def _replace_variables(
-        self, resource_files: Sequence[Path], variables: BuildVariables, module_dir: Path, verbose: bool
+        self,
+        resource_files: Sequence[Path],
+        variables: BuildVariables,
+        resource_name: str,
+        module_dir: Path,
+        verbose: bool,
     ) -> list[BuildSourceFile]:
         source_files: list[BuildSourceFile] = []
 
@@ -407,9 +415,15 @@ class BuildCommand(ToolkitCommand):
                 source_files.append(BuildSourceFile(source, content, None, warnings))
                 continue
 
-            # Ensure that all keys that are version gets read as strings.
-            # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
-            content = quote_int_value_by_key_in_yaml(content, key="version")
+            if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
+                # Ensure that all keys that are version gets read as strings.
+                # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
+                content = quote_int_value_by_key_in_yaml(content, key="version")
+
+            if resource_name in ExtractionPipelineConfigLoader.folder_name:
+                # Ensure that the config variables are stings.
+                # This is required by ExtractionPipelineConfig
+                content = stringify_value_by_key_in_yaml(content, key="config")
             try:
                 loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
