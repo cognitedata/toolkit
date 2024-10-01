@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
+    BuildDestinationFile,
     BuildSourceFile,
     BuildVariables,
     BuiltModule,
@@ -290,6 +291,10 @@ class BuildCommand(ToolkitCommand):
 
             built_resources = BuiltResourceList[Hashable]()
             for destination in builder.build(source_files, module):
+                if not isinstance(destination, BuildDestinationFile):
+                    # is warnings
+                    self.warning_list.extend(destination)
+                    continue
                 safe_write(destination.path, destination.content)
 
                 file_warnings, identifiers_kind_pairs = self.check_built_resource(

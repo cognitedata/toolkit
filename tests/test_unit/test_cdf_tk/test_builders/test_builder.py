@@ -89,7 +89,7 @@ externalId: some_external_id
 
 class TestBuilder:
     def test_get_loader_raises_ambiguous_error(self):
-        builder = Builder(Path(), {}, silent=True, verbose=False, resource_folder="transformations")
+        builder = Builder(Path(), resource_folder="transformations")
 
         with pytest.raises(AmbiguousResourceFileError) as e:
             builder._get_loader(

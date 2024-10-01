@@ -1,8 +1,5 @@
 import shutil
-from collections.abc import Iterable
-from pathlib import Path
-
-import yaml
+from collections.abc import Callable, Iterable, Sequence
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -11,32 +8,46 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceList,
     ModuleLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileExistsError, ToolkitNotADirectoryError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    FileReadWarning,
     HighSeverityWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
     ToolkitWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 
 
 class FunctionBuilder(Builder):
     _resource_folder = FunctionLoader.folder_name
 
-    def build(self, source_files: list[BuildSourceFile], module: ModuleLocation) -> Iterable[BuildDestinationFile]:
+    def build(
+        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
+    ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             if source_file.loaded is None:
                 continue
+            loader, warning = self._get_loader(source_file.source.path)
+            if loader is None:
+                if warning is not None:
+                    yield [warning]
+                continue
+
+            warnings = WarningList[FileReadWarning]()
+            if loader is FunctionLoader:
+                warnings = self.copy_function_directory_to_build(source_file)
+
             destination_path = self._create_destination_path(source_file.source.path, module.dir)
+
             yield BuildDestinationFile(
                 path=destination_path,
                 loaded=source_file.loaded,
                 loader=FunctionLoader,
                 source=source_file.source,
                 extra_sources=None,
+                warnings=warnings,
             )
 
     def validate_directory(
@@ -64,68 +75,43 @@ class FunctionBuilder(Builder):
                 warnings.append(warning)
         return warnings
 
-    def copy_function_directory_to_build(
-        self,
-        built_resources: BuiltResourceList,
-        module_dir: Path,
-    ) -> None:
-        function_directory_by_name = {
-            dir_.name: dir_ for dir_ in (module_dir / FunctionLoader.folder_name).iterdir() if dir_.is_dir()
-        }
-        external_id_by_function_path = self._read_function_path_by_external_id(
-            built_resources, function_directory_by_name
-        )
+    def copy_function_directory_to_build(self, source_file: BuildSourceFile) -> WarningList[FileReadWarning]:
+        raw_content = source_file.loaded
+        if raw_content is None:
+            # This should already be checked before calling this method.
+            raise ToolkitValueError("Function source file should be a YAML file.")
+        raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
+        warnings = WarningList[FileReadWarning]()
+        for raw_function in raw_functions:
+            external_id = raw_function.get("externalId")
+            function_path = raw_function.get("functionPath")
+            if not external_id:
+                warnings.append(
+                    HighSeverityWarning(
+                        f"Function in {source_file.source.path.as_posix()!r} has no externalId defined. "
+                        f"This is used to match the function to the function directory."
+                    )
+                )
+                continue
+            if not function_path:
+                warnings.append(
+                    MediumSeverityWarning(
+                        f"Function {external_id} in {source_file.source.path.as_posix()!r} has no function_path defined."
+                    )
+                )
 
-        for external_id, function_path in external_id_by_function_path.items():
-            # Function directory already validated to exist in read function
-            function_dir = function_directory_by_name[external_id]
-            destination = self.build_dir / FunctionLoader.folder_name / external_id
+            function_directory = source_file.source.path.with_name(external_id)
+
+            if not function_directory.is_dir():
+                raise ToolkitNotADirectoryError(
+                    f"Function directory not found for externalId {external_id} defined in {source_file.source.path.as_posix()!r}."
+                )
+
+            destination = self.build_dir / self.resource_folder / external_id
             if destination.exists():
                 raise ToolkitFileExistsError(
                     f"Function {external_id!r} is duplicated. If this is unexpected, ensure you have a clean build directory."
                 )
-            shutil.copytree(function_dir, destination)
+            shutil.copytree(function_directory, destination, ignore=shutil.ignore_patterns("__pycache__"))
 
-            # Clean up cache files
-            for subdir in destination.iterdir():
-                if subdir.is_dir():
-                    shutil.rmtree(subdir / "__pycache__", ignore_errors=True)
-            shutil.rmtree(destination / "__pycache__", ignore_errors=True)
-
-    def _read_function_path_by_external_id(
-        self, built_resources: BuiltResourceList, function_directory_by_name: dict[str, Path]
-    ) -> dict[str, str | None]:
-        function_path_by_external_id: dict[str, str | None] = {}
-        for built_resource in built_resources:
-            if built_resource.kind != FunctionLoader.kind or built_resource.destination is None:
-                continue
-            source_file = built_resource.destination
-            try:
-                raw_content = read_yaml_content(safe_read(source_file))
-            except yaml.YAMLError as e:
-                raise ToolkitYAMLFormatError(f"Failed to load function files {source_file.as_posix()!r} due to: {e}")
-            raw_functions = raw_content if isinstance(raw_content, list) else [raw_content]
-            for raw_function in raw_functions:
-                external_id = raw_function.get("externalId")
-                function_path = raw_function.get("functionPath")
-                if not external_id:
-                    self.warn(
-                        HighSeverityWarning(
-                            f"Function in {source_file.as_posix()!r} has no externalId defined. "
-                            f"This is used to match the function to the function directory."
-                        )
-                    )
-                    continue
-                elif external_id not in function_directory_by_name:
-                    raise ToolkitNotADirectoryError(
-                        f"Function directory not found for externalId {external_id} defined in {source_file.as_posix()!r}."
-                    )
-                if not function_path:
-                    self.warn(
-                        MediumSeverityWarning(
-                            f"Function {external_id} in {source_file.as_posix()!r} has no function_path defined."
-                        )
-                    )
-                function_path_by_external_id[external_id] = function_path
-
-        return function_path_by_external_id
+        return warnings

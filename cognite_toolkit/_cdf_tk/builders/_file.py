@@ -1,5 +1,5 @@
 import copy
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
@@ -15,11 +15,13 @@ from cognite_toolkit._cdf_tk.loaders import FileLoader, FileMetadataLoader
 class FileBuilder(Builder):
     _resource_folder = FileMetadataLoader.folder_name
 
-    def build(self, source_files: list[BuildSourceFile], module: ModuleLocation) -> Iterable[BuildDestinationFile]:
+    def build(
+        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
+    ) -> Iterable[BuildDestinationFile]:
         for source_file in source_files:
             if source_file.loaded is None:
                 continue
-            loaded = self._expand_file_metadata(source_file.loaded, module)
+            loaded = self._expand_file_metadata(source_file.loaded, module, console)
             destination_path = self._create_destination_path(source_file.source.path, module.dir)
 
             yield BuildDestinationFile(
@@ -30,8 +32,11 @@ class FileBuilder(Builder):
                 extra_sources=None,
             )
 
+    @staticmethod
     def _expand_file_metadata(
-        self, raw_list: list[dict[str, Any]] | dict[str, Any], module: ModuleLocation
+        raw_list: list[dict[str, Any]] | dict[str, Any],
+        module: ModuleLocation,
+        console: Callable[[str], None] | None = None,
     ) -> list[dict[str, Any]] | dict[str, Any]:
         is_file_template = (
             isinstance(raw_list, list)
@@ -46,8 +51,8 @@ class FileBuilder(Builder):
                 f"but got {type(raw_list).__name__}"
             )
         template = raw_list[0]
-        if self.verbose:
-            self.console(
+        if console:
+            console(
                 f"Detected file template name {FileMetadataLoader.template_pattern!r} in {module.relative_path.as_posix()!r}"
                 f"Expanding file metadata..."
             )
