@@ -20,6 +20,14 @@ from ._config_yaml import (
     Environment,
     InitConfigYAML,
 )
+from ._deploy_results import (
+    DatapointDeployResult,
+    DeployResult,
+    DeployResults,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
+    UploadDeployResult,
+)
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._module_resources import ModuleResources
 from ._packages import Package, Packages
@@ -47,4 +55,10 @@ __all__ = [
     "SourceLocationLazy",
     "BuiltFullResourceList",
     "BuiltResourceFull",
+    "DeployResult",
+    "ResourceDeployResult",
+    "ResourceContainerDeployResult",
+    "UploadDeployResult",
+    "DatapointDeployResult",
+    "DeployResults",
 ]

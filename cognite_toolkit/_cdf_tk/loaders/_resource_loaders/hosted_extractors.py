@@ -16,6 +16,10 @@ from cognite.client.data_classes.hosted_extractors import (
     JobList,
     JobWrite,
     JobWriteList,
+    Mapping,
+    MappingList,
+    MappingWrite,
+    MappingWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -56,12 +60,18 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: SourceWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: SourceWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -136,12 +146,20 @@ class HostedExtractorDestinationLoader(
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: DestinationWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: DestinationWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -236,12 +254,18 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: JobWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: JobWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
         return HostedExtractorsAcl(
-            [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write],
+            actions,
             HostedExtractorsAcl.Scope.All(),
         )
 
@@ -294,3 +318,69 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             yield HostedExtractorSourceLoader, item["sourceId"]
         if "destinationId" in item:
             yield HostedExtractorDestinationLoader, item["destinationId"]
+
+
+class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
+    folder_name = "hosted_extractors"
+    filename_pattern = r".*\.Mapping$"  # Matches all yaml files whose stem ends with '.Mapping'.
+    resource_cls = Mapping
+    resource_write_cls = MappingWrite
+    list_cls = MappingList
+    list_write_cls = MappingWriteList
+    kind = "Mapping"
+    _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
+    _doc_url = "Mappings/operation/create_mappings"
+
+    @property
+    def display_name(self) -> str:
+        return "Hosted Extractor Mapping"
+
+    @classmethod
+    def get_id(cls, item: MappingWrite | Mapping | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: MappingWriteList | None, read_only: bool) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        actions = (
+            [HostedExtractorsAcl.Action.Read]
+            if read_only
+            else [HostedExtractorsAcl.Action.Read, HostedExtractorsAcl.Action.Write]
+        )
+
+        return HostedExtractorsAcl(
+            actions,
+            HostedExtractorsAcl.Scope.All(),
+        )
+
+    def create(self, items: MappingWriteList) -> MappingList:
+        return self.client.hosted_extractors.mappings.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> MappingList:
+        return self.client.hosted_extractors.mappings.retrieve(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: MappingWriteList) -> MappingList:
+        return self.client.hosted_extractors.mappings.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        self.client.hosted_extractors.mappings.delete(ids, ignore_unknown_ids=True)
+        return len(ids)
+
+    def iterate(self) -> Iterable[Mapping]:
+        return iter(self.client.hosted_extractors.mappings)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Used by the SDK to determine the class to load
+        spec.add(ParameterSpec(("input", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
+        return spec

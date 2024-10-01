@@ -37,6 +37,7 @@ from ._resource_loaders import (
     GroupResourceScopedLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorJobLoader,
+    HostedExtractorMappingLoader,
     HostedExtractorSourceLoader,
     LabelLoader,
     LocationFilterLoader,
@@ -60,7 +61,6 @@ from ._resource_loaders import (
     WorkflowLoader,
     WorkflowVersionLoader,
 )
-from .data_classes import DeployResult, DeployResults
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -147,8 +147,6 @@ __all__ = [
     "ResourceLoader",
     "ResourceContainerLoader",
     "DataLoader",
-    "DeployResult",
-    "DeployResults",
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
@@ -166,6 +164,7 @@ __all__ = [
     "HostedExtractorJobLoader",
     "HostedExtractorDestinationLoader",
     "HostedExtractorSourceLoader",
+    "HostedExtractorMappingLoader",
     "get_loader",
     "LOADER_BY_FOLDER_NAME",
     "LOADER_LIST",

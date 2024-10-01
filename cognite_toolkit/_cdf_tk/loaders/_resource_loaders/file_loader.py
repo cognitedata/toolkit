@@ -35,16 +35,16 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitRequiredValueError,
-)
-from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
+from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
     ExtendableCogniteFile,
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
     ExtendableCogniteFileList,
 )
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitRequiredValueError,
+)
+from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -82,15 +82,20 @@ class FileMetadataLoader(
         return "file_metadata"
 
     @classmethod
-    def get_required_capability(cls, items: FileMetadataWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: FileMetadataWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+
         scope: FilesAcl.Scope.All | FilesAcl.Scope.DataSet = FilesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = FilesAcl.Scope.DataSet(list(data_set_ids))
 
-        return FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], scope)  # type: ignore[arg-type]
+        return FilesAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: FileMetadata | FileMetadataWrite | dict) -> str:
@@ -270,17 +275,25 @@ class CogniteFileLoader(
         return id.dump(include_instance_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: ExtendableCogniteFileApplyList | None) -> list[Capability]:
+    def get_required_capability(cls, items: ExtendableCogniteFileApplyList | None, read_only: bool) -> list[Capability]:
         if not items and items is not None:
             return []
+
+        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        instance_actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+
         scope: DataModelInstancesAcl.Scope.All | DataModelInstancesAcl.Scope.SpaceID = DataModelInstancesAcl.Scope.All()  # type: ignore[valid-type]
         if items:
             if spaces := {item.space for item in items}:
                 scope = DataModelInstancesAcl.Scope.SpaceID(list(spaces))
         return [
-            FilesAcl([FilesAcl.Action.Read, FilesAcl.Action.Write], FilesAcl.Scope.All()),
+            FilesAcl(file_actions, FilesAcl.Scope.All()),
             DataModelInstancesAcl(
-                [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],  # type: ignore[valid-type]
+                instance_actions,  # type: ignore[valid-type]
                 scope,  # type: ignore[arg-type]
             ),
         ]

@@ -19,6 +19,12 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
+    DatapointDeployResult,
+    DeployResult,
+    DeployResults,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
+    UploadDeployResult,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
@@ -29,17 +35,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
-    DeployResults,
     Loader,
     ResourceContainerLoader,
     ResourceLoader,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    DatapointDeployResult,
-    DeployResult,
-    ResourceContainerDeployResult,
-    ResourceDeployResult,
-    UploadDeployResult,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
@@ -123,7 +121,7 @@ class DeployCommand(ToolkitCommand):
             # Otherwise, it is not in the build directory and not selected, so we skip it.
             # There should be a warning in the build step if it is missing.
         if should_include:
-            self.warn(ToolkitDependenciesIncludedWarning([item.folder_name for item in should_include]))
+            self.warn(ToolkitDependenciesIncludedWarning(list({item.folder_name for item in should_include})))
 
         result: DeployResult | None
         if drop or drop_data:
@@ -227,7 +225,7 @@ class DeployCommand(ToolkitCommand):
         if not loaded_resources:
             return ResourceDeployResult(name=loader.display_name)
 
-        capabilities = loader.get_required_capability(loaded_resources)
+        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
         if capabilities:
             ToolGlobals.verify_authorization(capabilities, action=f"deploy {loader.display_name}")
 

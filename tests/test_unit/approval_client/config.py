@@ -82,9 +82,9 @@ from cognite.client.data_classes import (
     Workflow,
     WorkflowList,
     WorkflowTrigger,
-    WorkflowTriggerCreate,
-    WorkflowTriggerCreateList,
     WorkflowTriggerList,
+    WorkflowTriggerUpsert,
+    WorkflowTriggerUpsertList,
     WorkflowUpsert,
     WorkflowUpsertList,
     WorkflowVersion,
@@ -124,6 +124,10 @@ from cognite.client.data_classes.hosted_extractors import (
     JobList,
     JobWrite,
     JobWriteList,
+    Mapping,
+    MappingList,
+    MappingWrite,
+    MappingWriteList,
     Source,
     SourceList,
     SourceWrite,
@@ -139,17 +143,17 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite_toolkit._cdf_tk.client.data_classes import (
     robotics,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
     LocationFilterWriteList,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-    GraphQLDataModelWriteList,
 )
 
 from .data_classes import APIResource, Method
@@ -657,8 +661,8 @@ API_RESOURCES = [
         api_name="workflows.triggers",
         resource_cls=WorkflowTrigger,
         list_cls=WorkflowTriggerList,
-        _write_cls=WorkflowTriggerCreate,
-        _write_list_cls=WorkflowTriggerCreateList,
+        _write_cls=WorkflowTriggerUpsert,
+        _write_list_cls=WorkflowTriggerUpsertList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
@@ -698,6 +702,19 @@ API_RESOURCES = [
         list_cls=JobList,
         _write_cls=JobWrite,
         _write_list_cls=JobWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="hosted_extractors.mappings",
+        resource_cls=Mapping,
+        list_cls=MappingList,
+        _write_cls=MappingWrite,
+        _write_list_cls=MappingWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create")],
             "retrieve": [
