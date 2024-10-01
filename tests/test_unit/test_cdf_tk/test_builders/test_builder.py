@@ -57,14 +57,14 @@ tableName: myTable
 class TestCheckYamlSemantics:
     @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
     def test_valid_yaml(self, raw_yaml: str, source_path: Path) -> None:
-        builder = Builder(Path(), {}, silent=True, resource_folder="raw", verbose=False)
+        builder = Builder(Path(), {}, silent=True, verbose=False, resource_folder="raw")
         # Only used in error messages
         destination = Path("build/raw/raw.yaml")
         yaml_warnings, *_ = builder.validate(raw_yaml, source_path, destination)
         assert not yaml_warnings
 
     def test_build_valid_read_int_version(self) -> None:
-        builder = Builder(Path(), {}, silent=True, resource_folder="transformations", verbose=False)
+        builder = Builder(Path(), {}, silent=True, verbose=False, resource_folder="transformations")
         destination = Path("build/transformation/transformations.Transformation.yaml")
         source_path = Path("my_module/transformations/transformations.Transformation.yaml")
         raw_yaml = """destination:
@@ -89,7 +89,7 @@ externalId: some_external_id
 
 class TestBuilder:
     def test_get_loader_raises_ambiguous_error(self):
-        builder = Builder(Path(), {}, silent=True, resource_folder="transformations", verbose=False)
+        builder = Builder(Path(), {}, silent=True, verbose=False, resource_folder="transformations")
 
         with pytest.raises(AmbiguousResourceFileError) as e:
             builder._get_loader(

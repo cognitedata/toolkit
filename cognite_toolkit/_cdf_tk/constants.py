@@ -1,4 +1,6 @@
+import os
 import re
+import sys
 from pathlib import Path
 
 from typing_extensions import Literal, TypeAlias
@@ -58,6 +60,7 @@ _CLEAN_PATTERN = re.compile(r"[\W_]+")
 HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
+USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
 
 
 def clean_name(name: str) -> str:

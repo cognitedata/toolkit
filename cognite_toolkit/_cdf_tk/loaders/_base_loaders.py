@@ -18,7 +18,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import EXCL_FILES
+from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 if TYPE_CHECKING:
@@ -274,10 +274,24 @@ class ResourceLoader(
         else:
             return local_dumped == cdf_dumped
 
-    # Helper method
+    # Helper methods
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
         return [cls.get_id(item) for item in items]
+
+    @classmethod
+    def safe_get_write_cls_parameter_spec(cls) -> ParameterSpecSet | None:
+        from sentry_sdk import capture_exception
+
+        api_spec: ParameterSpecSet | None = None
+        try:
+            api_spec = cls.get_write_cls_parameter_spec()
+        except Exception as e:
+            if USE_SENTRY:
+                capture_exception(e)
+            else:
+                raise
+        return api_spec
 
 
 class ResourceContainerLoader(
