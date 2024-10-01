@@ -316,14 +316,14 @@ class WorkflowTriggerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowTriggerUpsertList | None, dry_run: bool
+        cls, items: WorkflowTriggerUpsertList | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
         capability = (
             [WorkflowOrchestrationAcl.Action.Read]
-            if dry_run
+            if read_only
             else [WorkflowOrchestrationAcl.Action.Read, WorkflowOrchestrationAcl.Action.Write]
         )
 
