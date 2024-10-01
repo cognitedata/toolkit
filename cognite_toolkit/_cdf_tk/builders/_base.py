@@ -138,8 +138,6 @@ class DefaultBuilder(Builder):
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         for source_file in source_files:
-            if console:
-                console(f"Processing {source_file.source.path.name}...")
             if source_file.loaded is None:
                 # Not a YAML file
                 continue
