@@ -4,9 +4,6 @@ from typing import Any
 
 import yaml
 
-from cognite_toolkit._cdf_tk.data_classes import (
-    SourceLocation,
-)
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
@@ -16,6 +13,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
     FileReadWarning,
 )
+
+from ._built_resources import SourceLocation
 
 
 @dataclass
