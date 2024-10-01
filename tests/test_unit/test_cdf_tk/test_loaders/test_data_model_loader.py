@@ -168,15 +168,17 @@ name: String}""",
 
     @staticmethod
     def _create_mock_file(model: str, space: str, external_id: str, version: int | str = "v1") -> MagicMock:
-        first_file = MagicMock(spec=Path)
-        first_file.read_text.return_value = f"""space: {space}
+        yaml_file = MagicMock(spec=Path)
+        yaml_file.read_text.return_value = f"""space: {space}
 externalId: {external_id}
 version: {version}
 dml: model.graphql
 """
-        first_model_file = MagicMock(spec=Path)
-        first_model_file.read_text.return_value = model
-        first_model_file.name = "model.graphql"
-        first_model_file.is_file.return_value = True
-        first_file.parent.iterdir.return_value = [first_model_file]
-        return first_file
+
+        graphql_file = MagicMock(spec=Path)
+        graphql_file.read_text.return_value = model
+        graphql_file.name = "model.graphql"
+        graphql_file.is_file.return_value = True
+
+        yaml_file.with_suffix.return_value = graphql_file
+        return yaml_file

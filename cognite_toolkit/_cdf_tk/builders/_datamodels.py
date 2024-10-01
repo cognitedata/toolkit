@@ -1,8 +1,10 @@
+import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -37,11 +39,13 @@ class DataModelBuilder(Builder):
                     yield [warning]
                 continue
 
+            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+
             extra_sources: list[SourceLocation] | None = None
             if loader is GraphQLLoader:
-                extra_sources = self._add_graphql(loaded, source_file, graphql_files)
-
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+                # The GraphQL must be copied over instead of added to the DML field as
+                # it is hashed in the deployment step and used to determine if the DML has changed.
+                extra_sources = self._copy_graphql_to_build(source_file, destination_path, graphql_files)
 
             destination = BuildDestinationFile(
                 path=destination_path,
@@ -52,27 +56,29 @@ class DataModelBuilder(Builder):
             )
             yield destination
 
-    def _add_graphql(
+    def _copy_graphql_to_build(
         self,
-        loaded: dict[str, Any] | list[dict[str, Any]],
         source_file: BuildSourceFile,
+        destination_path: Path,
         graphql_files: dict[Path, BuildSourceFile],
     ) -> list[SourceLocation]:
         extra_sources: list[SourceLocation] = []
-        loaded_list = loaded if isinstance(loaded, list) else [loaded]
+        loaded_list: list[dict[str, Any]] = (
+            source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]  # type: ignore[list-item]
+        )
+
         for entry in loaded_list:
             if "dml" in entry:
-                expected_name = entry["dml"]
+                expected_filename = entry["dml"]
             else:
-                expected_name = (
-                    f"{source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix('.')}.graphql"
-                )
-            expected_path = source_file.source.path.parent / Path(expected_name)
+                expected_filename = f'{INDEX_PATTERN.sub("", source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix("."))}.graphql'
+            expected_path = source_file.source.path.parent / Path(expected_filename)
+
             if expected_path in graphql_files:
-                entry["dml"] = graphql_files[expected_path].content
+                shutil.copy(graphql_files[expected_path].source.path, destination_path)
                 extra_sources.append(graphql_files[expected_path].source)
             else:
                 raise ToolkitFileNotFoundError(
-                    f"Failed to find GraphQL file. Expected {expected_name} adjacent to {source_file.source.path.as_posix()}"
+                    f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {source_file.source.path.as_posix()}"
                 )
         return extra_sources
