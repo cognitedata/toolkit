@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.loaders import GraphQLLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
 
-class TransformationBuilder(Builder):
+class DataModelBuilder(Builder):
     _resource_folder = GraphQLLoader.folder_name
 
     def build(
