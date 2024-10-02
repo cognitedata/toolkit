@@ -43,8 +43,8 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
@@ -101,17 +101,27 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
-    def get_required_capability(cls, items: GroupWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: GroupWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return GroupsAcl(
+
+        actions = (
             [
+                GroupsAcl.Action.Read,
+                GroupsAcl.Action.List,
+            ]
+            if read_only
+            else [
                 GroupsAcl.Action.Read,
                 GroupsAcl.Action.List,
                 GroupsAcl.Action.Create,
                 GroupsAcl.Action.Delete,
                 GroupsAcl.Action.Update,
-            ],
+            ]
+        )
+
+        return GroupsAcl(
+            actions,
             GroupsAcl.Scope.All(),
         )
 
@@ -146,9 +156,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                                 yield DataSetsLoader, data_set_id
                     if table_ids := scope.get(capabilities.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
-                            yield RawDatabaseLoader, RawDatabaseTable(db_name)
+                            yield RawDatabaseLoader, RawDatabase(db_name)
                             for table in tables:
-                                yield RawTableLoader, RawDatabaseTable(db_name, table)
+                                yield RawTableLoader, RawTable(db_name, table)
                     if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
@@ -423,18 +433,30 @@ class SecurityCategoryLoader(
         return {"name": id}
 
     @classmethod
-    def get_required_capability(cls, items: SecurityCategoryWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: SecurityCategoryWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return SecurityCategoriesAcl(
-            actions=[
+
+        actions = (
+            [
+                SecurityCategoriesAcl.Action.List,
+                SecurityCategoriesAcl.Action.MemberOf,
+            ]
+            if read_only
+            else [
                 SecurityCategoriesAcl.Action.Create,
                 SecurityCategoriesAcl.Action.Update,
                 SecurityCategoriesAcl.Action.MemberOf,
                 SecurityCategoriesAcl.Action.List,
                 SecurityCategoriesAcl.Action.Delete,
-            ],
-            scope=SecurityCategoriesAcl.Scope.All(),
+            ]
+        )
+
+        return SecurityCategoriesAcl(
+            actions,
+            SecurityCategoriesAcl.Scope.All(),
         )
 
     def create(self, items: SecurityCategoryWriteList) -> SecurityCategoryList:

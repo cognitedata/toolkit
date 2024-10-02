@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [TBD]
+
+### Added
+
+- Added support for device code login flow.
+
+### Changed
+
+- When running `deploy --dry-run`, the Toolkit will not require write access to the CDF project.
+
 ## [0.3.0b4] - 2024-09-30
 
 ### Fixed

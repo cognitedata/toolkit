@@ -41,11 +41,11 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
@@ -78,9 +78,18 @@ class ExtractionPipelineLoader(
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: ExtractionPipelineWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [ExtractionPipelinesAcl.Action.Read]
+            if read_only
+            else [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write]
+        )
+
         scope: ExtractionPipelinesAcl.Scope.All | ExtractionPipelinesAcl.Scope.DataSet = (  # type: ignore[valid-type]
             ExtractionPipelinesAcl.Scope.All()
         )
@@ -89,7 +98,7 @@ class ExtractionPipelineLoader(
                 scope = ExtractionPipelinesAcl.Scope.DataSet(list(data_set_id))
 
         return ExtractionPipelinesAcl(
-            [ExtractionPipelinesAcl.Action.Read, ExtractionPipelinesAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
@@ -115,9 +124,9 @@ class ExtractionPipelineLoader(
                 if db := entry.get("dbName"):
                     if db not in seen_databases:
                         seen_databases.add(db)
-                        yield RawDatabaseLoader, RawDatabaseTable(db_name=db)
+                        yield RawDatabaseLoader, RawDatabase(db_name=db)
                     if "tableName" in entry:
-                        yield RawTableLoader, RawDatabaseTable._load(entry)
+                        yield RawTableLoader, RawTable._load(entry)
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -227,13 +236,21 @@ class ExtractionPipelineConfigLoader(
         return "extraction_pipeline.config"
 
     @classmethod
-    def get_required_capability(cls, items: ExtractionPipelineConfigWriteList | None) -> list[Capability]:
+    def get_required_capability(
+        cls, items: ExtractionPipelineConfigWriteList | None, read_only: bool
+    ) -> list[Capability]:
         if not items and items is not None:
             return []
 
+        actions = (
+            [ExtractionConfigsAcl.Action.Read]
+            if read_only
+            else [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write]
+        )
+
         return [
             ExtractionConfigsAcl(
-                [ExtractionConfigsAcl.Action.Read, ExtractionConfigsAcl.Action.Write],
+                actions,
                 ExtractionConfigsAcl.Scope.All(),
             )
         ]

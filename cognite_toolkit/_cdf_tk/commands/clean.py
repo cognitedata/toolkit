@@ -19,6 +19,9 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
+    DeployResults,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
@@ -28,12 +31,10 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DataLoader,
     DataSetsLoader,
-    DeployResults,
     ResourceContainerLoader,
     ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.loaders.data_classes import ResourceContainerDeployResult, ResourceDeployResult
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -84,7 +85,8 @@ class CleanCommand(ToolkitCommand):
         # need to check for duplicates here as well.
         loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
 
-        capabilities = loader.get_required_capability(loaded_resources)
+        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
+
         if capabilities:
             ToolGlobals.verify_authorization(capabilities, action=f"clean {loader.display_name}")
 

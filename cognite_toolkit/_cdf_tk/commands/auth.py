@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import (
+    AuthenticationError,
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
@@ -54,14 +55,35 @@ class AuthCommand(ToolkitCommand):
     def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
         auth_vars = AuthVariables.from_env()
 
-        reader = AuthReader(auth_vars, False)
-        _ = reader.from_user()
-        if reader.messages:
-            for message in reader.messages:
-                self.warn(MediumSeverityWarning(message))
+        prompt_user = True
+        if auth_vars.is_complete:
+            print("Auth variables are already set.")
+            prompt_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
+
+        if prompt_user:
+            reader = AuthReader(auth_vars, False)
+
+            auth_vars = reader.from_user()
+            if reader.messages:
+                for message in reader.messages:
+                    self.warn(MediumSeverityWarning(message))
+
+        ToolGlobals = CDFToolConfig(skip_initialization=True)
+        ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=prompt_user)
+        try:
+            ToolGlobals.toolkit_client.iam.token.inspect()
+        except CogniteAPIError as e:
+            raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
+
+        print("[green]The credentials are valid.[/green]")
         if not no_verify:
-            ToolGlobals = CDFToolConfig(skip_initialization=True)
-            ToolGlobals.initialize_from_auth_variables(auth_vars)
+            print(
+                Panel(
+                    "Running verification, 'cdf auth verify'...",
+                    title="",
+                    expand=False,
+                )
+            )
             self.verify(ToolGlobals, dry_run)
 
     def verify(
@@ -321,7 +343,7 @@ class AuthCommand(ToolkitCommand):
         capability_by_id: dict[frozenset[tuple], Capability] = {}
         for loader_cls in loaders.RESOURCE_LOADER_LIST:
             loader = loader_cls.create_loader(ToolGlobals, None)
-            capability = loader_cls.get_required_capability(None)
+            capability = loader_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
                 id_ = frozenset(cap.as_tuples())
