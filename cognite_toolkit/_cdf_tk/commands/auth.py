@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk import loaders
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME
 from cognite_toolkit._cdf_tk.exceptions import (
+    AuthenticationError,
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
@@ -61,6 +62,12 @@ class AuthCommand(ToolkitCommand):
                 self.warn(MediumSeverityWarning(message))
         ToolGlobals = CDFToolConfig(skip_initialization=True)
         ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=True)
+        try:
+            ToolGlobals.toolkit_client.iam.token.inspect()
+        except CogniteAPIError as e:
+            raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
+        else:
+            print("The credentials are valid.")
         if not no_verify:
             self.verify(ToolGlobals, dry_run)
 
