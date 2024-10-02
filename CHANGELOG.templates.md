@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0b5] - 2024-10-02
+
+### Fixed
+
+- Module `bootcamp` error in calculation of site names for `ooe_timeseries`
+- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect
+
+### Removed
+
+- Module `bootcamp` data_sets and raw modules removed from `ice_cream_api` and `oee`
+- Module `bootcamp` default config removed from `ice_cream_api`
+
 ## [0.3.0b4] - 2024-09-30
 
 ### Fixed
