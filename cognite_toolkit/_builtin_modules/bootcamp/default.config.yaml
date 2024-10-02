@@ -8,8 +8,6 @@ IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
 IDP_TOKEN_URL: ${IDP_TOKEN_URL} # replaced by .env
 
 # Groups
-# OBJECT ID FOR TEST/PROD DATA DEVELOPER ENTRA GROUP
-data_developer_source_id: <NotSet>
 # OBJECT ID FOR TEST/PROD DATA PIPELINE OEE ENTRA GROUP
 data_pipeline_oee_source_id: <NotSet>
 # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
@@ -26,4 +24,5 @@ data_pipeline_oee_client_secret: ${DATA_PIPELINE_OEE_CLIENT_SECRET} # replaced b
 icapi_extractors_client_id: ${ICAPI_EXTRACTORS_CLIENT_ID} # replaced by .env
 icapi_extractors_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET} # replaced by .env
 
+# Variables shared by modules
 icapi_ds_external_id: ds_icapi
