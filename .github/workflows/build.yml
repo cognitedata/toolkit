@@ -151,13 +151,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Poetry is required to export requirements.txt
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.3.1
+      - id: version
+        name: Toolkit Version
+        # Read the version from the cognite/neat/_version.py file
+        run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
 
       - name: Build Image
-        working-directory: ./docker
         run: |
-          docker build -t cognite/neat:${version} -t cognite/neat:latest .
+          docker build -t cognite/toolkit:${{ env.version }} -t cognite/toolkit:latest .
