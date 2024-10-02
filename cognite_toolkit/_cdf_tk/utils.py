@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILTIN_MODULES,
     ROOT_MODULES,
-    TOOLKIT_CLIENT_ID_ENTRA,
+    TOOLKIT_CLIENT_ENTRA_ID,
     URL,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -94,13 +94,18 @@ logger = logging.getLogger(__name__)
 
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-
+Provider: TypeAlias = Literal["entra_id", "other"]
 
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
     "interactive": "Login using the browser with your user credentials",
     "device_code": "Login using the browser with your user credentials using device code flow",
     "token": "Use a Token directly to authenticate",
+}
+
+PROVDER_DESCRIPTION = {
+    "entra_id": "Use Microsoft Entra ID to authenticate",
+    "other": "Use other IDP to authenticate",
 }
 
 
@@ -120,6 +125,14 @@ class AuthVariables:
             env_name="LOGIN_FLOW",
             display_name="Login flow",
             example="client_credentials",
+        ),
+    )
+    provider: Provider = field(
+        default="entra_id",
+        metadata=dict(
+            env_name="PROVIDER",
+            display_name="Provider",
+            example="entra_id",
         ),
     )
     token: str | None = field(
@@ -224,6 +237,10 @@ class AuthVariables:
                 and self.scopes is not None
                 and self.audience is not None
             )
+        elif self.login_flow == "device_code" and self.provider == "entra_id":
+            return self.tenant_id is not None
+        elif self.login_flow == "device_code" and self.provider == "other":
+            return self.client_id is not None and self.oidc_discovery_url is not None
         return False
 
     @classmethod
@@ -253,27 +270,35 @@ class AuthVariables:
                 self._write_var("client_secret"),
             ]
         elif self.login_flow == "device_code":
-            if self.oidc_discovery_url:
-                lines += [
-                    self._write_var("oidc_discovery_url"),
-                ]
+            lines += [
+                self._write_var("provider"),
+            ]
         elif self.login_flow == "interactive":
             lines += [
                 self._write_var("client_id"),
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        if self.login_flow in ("client_credentials", "device_code", "interactive"):
+        if self.login_flow in ("client_credentials", "interactive"):
             lines += [
                 "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
                 self._write_var("tenant_id"),
                 self._write_var("token_url"),
             ]
+        elif self.login_flow == "device_code" and self.provider == "entra_id":
+            lines += [
+                self._write_var("tenant_id"),
+            ]
+        elif self.login_flow == "device_code" and self.provider == "other":
+            lines += [
+                self._write_var("client_id"),
+                self._write_var("oidc_discovery_url"),
+            ]
         lines += [
             "# The below variables are the defaults, they are automatically constructed unless they are set.",
             self._write_var("cdf_url"),
         ]
-        if self.login_flow in ("client_credentials", "device_code", "interactive"):
+        if self.login_flow in ("client_credentials", "interactive"):
             lines += [
                 self._write_var("scopes"),
             ]
@@ -281,7 +306,7 @@ class AuthVariables:
             lines += [
                 self._write_var("authority_url"),
             ]
-        if self.login_flow in ("client_credentials", "device_code"):
+        if self.login_flow in ("client_credentials") or (self.login_flow == "device_code" and self.provider == "other"):
             lines += [
                 self._write_var("audience"),
             ]
@@ -345,10 +370,24 @@ class AuthReader:
                 print("  Keeping existing client secret.")
         elif login_flow == "interactive":
             auth_vars.client_id = self.prompt_user("client_id")
+        elif login_flow == "device_code":
+            provider = questionary.select(
+                "Choose the provider",
+                choices=[
+                    Choice(title=f"{provider}: {description}", value=provider)
+                    for provider, description in PROVDER_DESCRIPTION.items()
+                ],
+            ).ask()
+            auth_vars.provider = provider
 
-        if login_flow in ("client_credentials", "interactive", "device_code"):
+        if login_flow in ("client_credentials", "interactive") or (
+            login_flow == "device_code" and auth_vars.provider == "entra_id"
+        ):
             auth_vars.tenant_id = self.prompt_user("tenant_id")
             auth_vars.set_token_id_defaults()
+        elif login_flow == "device_code" and auth_vars.provider == "other":
+            auth_vars.client_id = self.prompt_user("client_id")
+            auth_vars.oidc_discovery_url = self.prompt_user("oidc_discovery_url")
 
         default_variables = ["cdf_url"]
         if login_flow == "client_credentials":
@@ -533,34 +572,33 @@ class CDFToolConfig:
                 raise AuthenticationError("Login flow=token is set but no CDF_TOKEN is not provided.")
             self._credentials_args = dict(token=auth.token)
             self._credentials_provider = Token(**self._credentials_args)
-        elif auth.login_flow == "device_code":
+        elif auth.login_flow == "device_code" and auth.provider == "entra_id":
             # TODO: If the user has submitted the wrong scopes, we may get a valid token that gives 401 on the CDF API.
             # The user will then have to wait until the token has expired to retry with the correct scopes.
             # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
             # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
-            if auth.tenant_id:
-                # For Entra, we have defaults for everything, even the app registration as we can use the CDF public app.
-                self._credentials_args = dict(
-                    tenant_id=auth.tenant_id,
-                    client_id=TOOLKIT_CLIENT_ID_ENTRA,
-                    cdf_cluster=self._cluster,
-                    clear_cache=clear_cache,
-                )
-                self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
-            else:
-                if not auth.scopes:
-                    raise ValueError("IDP_SCOPES is required for device code login.")
-                if not auth.client_id:
-                    raise ValueError("IDP_CLIENT_ID is required for device code login.")
-                self._credentials_args = dict(
-                    authority_url=None,
-                    cdf_cluster=auth.cluster,
-                    oauth_discovery_url=auth.oidc_discovery_url,
-                    client_id=auth.client_id,
-                    audience=auth.audience,
-                    clear_cache=clear_cache,
-                )
-                self._credentials_provider = OAuthDeviceCode(**self._credentials_args)
+            if not auth.tenant_id:
+                raise ValueError("IDP_TENANT_ID is required for device code login.")
+            # For Entra ID, we have defaults for everything, even the app registration as we can use the CDF public app.
+            self._credentials_args = dict(
+                tenant_id=auth.tenant_id,
+                client_id=TOOLKIT_CLIENT_ENTRA_ID,
+                cdf_cluster=self._cluster,
+                clear_cache=clear_cache,
+            )
+            self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
+        elif auth.login_flow == "device_code" and auth.provider == "other":
+            if not auth.client_id:
+                raise ValueError("IDP_CLIENT_ID is required for device code login.")
+            self._credentials_args = dict(
+                authority_url=None,
+                cdf_cluster=auth.cluster,
+                oauth_discovery_url=auth.oidc_discovery_url,
+                client_id=auth.client_id,
+                audience=auth.audience,
+                clear_cache=clear_cache,
+            )
+            self._credentials_provider = OAuthDeviceCode(**self._credentials_args)
         elif auth.login_flow == "interactive":
             if auth.scopes:
                 self._scopes = [auth.scopes]

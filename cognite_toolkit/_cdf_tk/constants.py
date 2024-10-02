@@ -16,7 +16,7 @@ TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME = "cognite_toolkit_service_principal"
 
 # This is the default Cognite app registration for Entra with device code enabled
 # to be used with the Toolkit.
-TOOLKIT_CLIENT_ID_ENTRA = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
+TOOLKIT_CLIENT_ENTRA_ID = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
 
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.
