@@ -6,7 +6,7 @@ on:
 env:
   PYTHON_VERSION: '3.11'
 jobs:
-  deploy:
+  release-pypi:
     runs-on: ubuntu-latest
     environment: CD
     # This causes issues when CDF is down.
@@ -29,3 +29,4 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload --verbose dist/*
+
