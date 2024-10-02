@@ -267,7 +267,7 @@ if __name__ == "__main__":
             readme_overview.write_text(self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        function_source_code = function_build.location.path.parent / function_external_id
+        function_source_code = function_build.source.path.parent / function_external_id
         if not function_source_code.exists():
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"

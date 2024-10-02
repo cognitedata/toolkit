@@ -1,3 +1,4 @@
+from ._build_files import BuildDestinationFile, BuildSourceFile
 from ._build_variables import BuildVariable, BuildVariables
 from ._built_modules import (
     BuiltModule,
@@ -61,4 +62,6 @@ __all__ = [
     "UploadDeployResult",
     "DatapointDeployResult",
     "DeployResults",
+    "BuildSourceFile",
+    "BuildDestinationFile",
 ]

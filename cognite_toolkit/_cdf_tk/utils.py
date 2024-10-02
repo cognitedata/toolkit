@@ -1105,7 +1105,7 @@ def calculate_secure_hash(item: dict[str, Any]) -> str:
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
-        content = content.read_text(encoding="utf-8")
+        content = safe_read(content)
     # Get rid of Windows line endings to make the hash consistent across platforms.
     sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
     calculated = sha256_hash.hexdigest()
@@ -1444,7 +1444,10 @@ def safe_read(file: Path) -> str:
         return file.read_text()
     except UnicodeDecodeError:
         # On Windows, we may have issues as the encoding is not always utf-8
-        return file.read_text(encoding="utf-8")
+        try:
+            return file.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            raise
 
 
 def safe_write(file: Path, content: str) -> None:
@@ -1493,7 +1496,7 @@ def stringify_value_by_key_in_yaml(content: str, key: str) -> str:
     return re.sub(pattern, replacement, content, flags=re.MULTILINE)
 
 
-def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) -> str:
+def humanize_collection(collection: Collection[Any], /, *, sort: bool = True, bind_word: str = "and") -> str:
     if not collection:
         return ""
     elif len(collection) == 1:
@@ -1505,7 +1508,7 @@ def humanize_collection(collection: Collection[Any], /, *, sort: bool = True) ->
     else:
         sequence = list(strings)
 
-    return f"{', '.join(sequence[:-1])} and {sequence[-1]}"
+    return f"{', '.join(sequence[:-1])} {bind_word} {sequence[-1]}"
 
 
 class GraphQLParser:
@@ -1513,7 +1516,8 @@ class GraphQLParser:
     _multi_newline = re.compile(r"\n+")
 
     def __init__(self, raw: str, data_model_id: DataModelId) -> None:
-        self.raw = raw
+        # Ensure consistent line endings
+        self.raw = raw.replace("\r\n", "\n").replace("\r", "\n")
         self.data_model_id = data_model_id
         self._entities: list[_Entity] | None = None
 

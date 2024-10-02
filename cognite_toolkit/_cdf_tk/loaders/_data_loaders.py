@@ -96,7 +96,7 @@ class FileLoader(DataLoader):
             meta = self._read_metadata(resource, resource.destination)
             if meta.name is None:
                 continue
-            datafile = resource.location.path.parent / meta.name
+            datafile = resource.source.path.parent / meta.name
             if not datafile.exists():
                 continue
             external_id = meta.external_id
@@ -145,9 +145,9 @@ class RawFileLoader(DataLoader):
             table = cast(RawTable, resource.identifier)
             datafile = next(
                 (
-                    resource.location.path.with_suffix(f".{file_type}")
+                    resource.source.path.with_suffix(f".{file_type}")
                     for file_type in self.filetypes
-                    if (resource.location.path.with_suffix(f".{file_type}").exists())
+                    if (resource.source.path.with_suffix(f".{file_type}").exists())
                 ),
                 None,
             )
