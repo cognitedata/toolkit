@@ -341,10 +341,6 @@ class AuthReader:
 
     def from_user(self) -> AuthVariables:
         auth_vars = self.auth_vars
-        if auth_vars.is_complete:
-            print("Auth variables are already set.")
-            if not questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask():
-                return auth_vars
         login_flow = questionary.select(
             "Choose the login flow",
             choices=[

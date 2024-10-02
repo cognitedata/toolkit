@@ -55,19 +55,27 @@ class AuthCommand(ToolkitCommand):
     def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
         auth_vars = AuthVariables.from_env()
 
-        reader = AuthReader(auth_vars, False)
-        _ = reader.from_user()
-        if reader.messages:
-            for message in reader.messages:
-                self.warn(MediumSeverityWarning(message))
+        prompt_user = True
+        if auth_vars.is_complete:
+            print("Auth variables are already set.")
+            prompt_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
+
+        if prompt_user:
+            reader = AuthReader(auth_vars, False)
+
+            auth_vars = reader.from_user()
+            if reader.messages:
+                for message in reader.messages:
+                    self.warn(MediumSeverityWarning(message))
+
         ToolGlobals = CDFToolConfig(skip_initialization=True)
-        ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=True)
+        ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=prompt_user)
         try:
             ToolGlobals.toolkit_client.iam.token.inspect()
         except CogniteAPIError as e:
             raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
-        else:
-            print("The credentials are valid.")
+
+        print("[green]The credentials are valid.[/green]")
         if not no_verify:
             self.verify(ToolGlobals, dry_run)
 
