@@ -153,7 +153,7 @@ jobs:
 
       - id: version
         name: Toolkit Version
-        # Read the version from the cognite/neat/_version.py file
+        # Read the version from the cognite_toolkit/_version.py file
         run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
 
       - name: Build Image
