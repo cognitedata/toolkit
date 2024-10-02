@@ -77,6 +77,13 @@ class AuthCommand(ToolkitCommand):
 
         print("[green]The credentials are valid.[/green]")
         if not no_verify:
+            print(
+                Panel(
+                    "Running verification, 'cdf auth verify'...",
+                    title="",
+                    expand=False,
+                )
+            )
             self.verify(ToolGlobals, dry_run)
 
     def verify(
