@@ -41,6 +41,13 @@ Destination:
     nonce: '123'
   externalId: EventHubTarget
   targetDataSetId: 42
+FileLoader:
+- externalId: MyExtendedFile
+  filehash: 5e6be7b4
+  space: sp_nodes
+- externalId: MyVanillaFile
+  filehash: adc874a9
+  space: sp_nodes
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:

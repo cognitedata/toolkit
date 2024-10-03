@@ -121,7 +121,7 @@ class FileLoader(DataLoader):
                     yield f" Would upload file '{datafile!s}' to file with instance_id={instance_id!r}", 1
                 else:
                     self.client.files.upload_content(path=str(datafile), instance_id=instance_id)
-                    yield f" Uploaded file '{datafile!s}' to file with id={instance_id!r}", 1
+                    yield f" Uploaded file '{datafile!s}' to file with instance_id={instance_id!r}", 1
 
     @staticmethod
     def _read_metadata(resource: BuiltResource, destination: Path) -> FileMetadataWrite:
