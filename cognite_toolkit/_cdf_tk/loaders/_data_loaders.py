@@ -7,12 +7,17 @@ from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
+from cognite.client.data_classes.data_modeling import NodeId
 
+from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
+    ExtendableCogniteFileApply,
+    ExtendableCogniteFileApplyList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 
 from ._base_loaders import DataLoader
-from ._resource_loaders import FileMetadataLoader, RawTableLoader, TimeSeriesLoader
+from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource
@@ -77,7 +82,7 @@ class FileLoader(DataLoader):
     kind = "File"
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
-    dependencies = frozenset({FileMetadataLoader})
+    dependencies = frozenset({FileMetadataLoader, CogniteFileLoader})
     _doc_url = "Files/operation/initFileUpload"
 
     @property
@@ -91,20 +96,32 @@ class FileLoader(DataLoader):
         for resource in state.built_resources[self.folder_name]:
             if resource.destination is None:
                 continue
-            if resource.kind != FileMetadataLoader.kind:
-                continue
-            meta = self._read_metadata(resource, resource.destination)
-            if meta.name is None:
-                continue
-            datafile = resource.source.path.parent / meta.name
-            if not datafile.exists():
-                continue
-            external_id = meta.external_id
-            if dry_run:
-                yield f" Would upload file '{datafile!s}' to file with external_id={external_id!r}", 1
-            else:
-                self.client.files.upload(path=str(datafile), overwrite=True, external_id=external_id)
-                yield f" Uploaded file '{datafile!s}' to file with external_id={external_id!r}", 1
+            if resource.kind == FileMetadataLoader.kind:
+                meta = self._read_metadata(resource, resource.destination)
+                if meta.name is None:
+                    continue
+                datafile = resource.source.path.parent / meta.name
+                if not datafile.exists():
+                    continue
+                external_id = meta.external_id
+                if dry_run:
+                    yield f" Would upload file '{datafile!s}' to file with external_id={external_id!r}", 1
+                else:
+                    self.client.files.upload(path=str(datafile), overwrite=True, external_id=external_id)
+                    yield f" Uploaded file '{datafile!s}' to file with external_id={external_id!r}", 1
+            elif resource.kind == CogniteFileLoader.kind:
+                cognite_file = self._read_cognite_file(resource, resource.destination)
+                if cognite_file.name is None:
+                    continue
+                datafile = resource.source.path.parent / cognite_file.name
+                if not datafile.exists():
+                    continue
+                instance_id = cognite_file.as_id()
+                if dry_run:
+                    yield f" Would upload file '{datafile!s}' to file with instance_id={instance_id!r}", 1
+                else:
+                    self.client.files.upload_content(path=str(datafile), instance_id=instance_id)
+                    yield f" Uploaded file '{datafile!s}' to file with id={instance_id!r}", 1
 
     @staticmethod
     def _read_metadata(resource: BuiltResource, destination: Path) -> FileMetadataWrite:
@@ -120,6 +137,23 @@ class FileLoader(DataLoader):
         else:
             raise RuntimeError(f"Unexpected content type {type(built_content)} in {destination.as_posix()}")
         return meta
+
+    @staticmethod
+    def _read_cognite_file(resource: BuiltResource, destination: Path) -> ExtendableCogniteFileApply:
+        identifier = cast(NodeId, resource.identifier)
+        built_content = read_yaml_content(safe_read(destination))
+        if isinstance(built_content, dict):
+            cognite_file = ExtendableCogniteFileApply.load(built_content)
+        elif isinstance(built_content, list):
+            try:
+                cognite_file = next(
+                    m for m in ExtendableCogniteFileApplyList.load(built_content) if m.as_id() == identifier
+                )
+            except StopIteration:
+                raise RuntimeError(f"Missing file metadata for {destination.as_posix()}")
+        else:
+            raise RuntimeError(f"Unexpected content type {type(built_content)} in {destination.as_posix()}")
+        return cognite_file
 
 
 @final
