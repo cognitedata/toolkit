@@ -14,6 +14,7 @@ from ._base import ToolkitCommand
 
 REPOSITORY_HOSTING = [
     "GitHub",
+    "Other",
     "None",
 ]
 
@@ -64,5 +65,8 @@ class RepoCommand(ToolkitCommand):
         repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
         if repo_host == "GitHub":
             self.console("The repository will be hosted on GitHub.")
-
+        elif repo_host == "Other":
+            self.console("No template for CI/CD available for other hosting services yet.")
+        elif repo_host == "None":
+            self.console("It is recommended to host your repository on a platform like GitHub.")
         self.console("Repo initialization complete.")
