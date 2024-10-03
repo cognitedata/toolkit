@@ -163,4 +163,14 @@ jobs:
       - name: Test Image
         run: |
           docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init my_org --all
-          ls -l my_org
+
+      - name: Verfiy Created Files
+        run: |
+         if [ -d "my_org" ]; then
+              echo "My org successfully created"
+            else
+              echo "My org failed creation"
+              exit 1
+         fi
+      - name: Inspection
+        run: ls -l my_org
