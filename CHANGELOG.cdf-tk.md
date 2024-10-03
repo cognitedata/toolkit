@@ -20,10 +20,15 @@ Changes are grouped as follows:
 ### Added
 
 - Added support for device code login flow.
+- Support for uploading `CogniteFiles`.
 
 ### Changed
 
 - When running `deploy --dry-run`, the Toolkit will not require write access to the CDF project.
+
+### Fixed
+
+- Uploading a file will no longer overwrite the `FileMetadata`.
 
 ## [0.3.0b4] - 2024-09-30
 
