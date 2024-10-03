@@ -29,5 +29,8 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages  /usr/local/lib/pyth
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /cognite_toolkit /cognite_toolkit
 
+RUN mkdir /app
+WORKDIR /app
+
 
 CMD ["cdf", "--help"]

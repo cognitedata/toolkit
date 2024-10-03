@@ -159,3 +159,7 @@ jobs:
       - name: Build Image
         run: |
           docker build -t cognite/toolkit:${{ env.version }} -t cognite/toolkit:latest .
+
+      - name: Test Image
+        run: |
+          docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init --all
