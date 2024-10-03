@@ -1,3 +1,26 @@
+Container:
+- constraints: {}
+  externalId: MyFileExtension
+  indexes: {}
+  properties:
+    fileCategory:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    status:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
 DataModel:
 - externalId: DataModelLocation
   space: DataModelSpace
@@ -133,18 +156,14 @@ Node:
   sources:
   - properties:
       aliases: null
-      assets:
-      - externalId: asset1
-        space: sp_nodes
+      assets: null
       category: null
       description: null
       directory: null
       fileCategory: Document
       mimeType: text/plain
       name: anotherfile.txt
-      source:
-        externalId: MySource
-        space: sp_nodes
+      source: null
       sourceContext: null
       sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
       sourceCreatedUser: I
@@ -164,17 +183,13 @@ Node:
   sources:
   - properties:
       aliases: null
-      assets:
-      - externalId: asset1
-        space: sp_nodes
+      assets: null
       category: null
       description: null
       directory: null
       mimeType: text/plain
       name: filecontent.txt
-      source:
-        externalId: MySource
-        space: sp_nodes
+      source: null
       sourceContext: null
       sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
       sourceCreatedUser: MySelf
@@ -269,6 +284,28 @@ TransformationSchedule:
 - externalId: tr_first_transformation
   interval: 7 * * * *
   isPaused: true
+View:
+- externalId: MyFileExtension
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    fileCategory:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: fileCategory
+    status:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: status
+  space: sp_schema
+  version: v1
 Workflow:
 - description: A workflow for processing data
   externalId: baz
