@@ -162,4 +162,4 @@ jobs:
 
       - name: Test Image
         run: |
-          docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init --all
+          docker run -v $(pwd):/app cognite/toolkit:latest cdf modules init my_org --all
