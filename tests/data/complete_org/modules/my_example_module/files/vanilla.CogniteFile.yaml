@@ -4,14 +4,8 @@ name: filecontent.txt
 tags:
   - tag1
   - tag2
-source:
-  space: sp_nodes
-  externalId: MySource
 sourceCreatedTime: 2020-01-01T00:00:00Z
 sourceUpdatedTime: 2021-01-01T00:00:00Z
 sourceCreatedUser: MySelf
 sourceUpdatedUser: Me
-assets:
-  - space: sp_nodes
-    externalId: asset1
 mimeType: text/plain

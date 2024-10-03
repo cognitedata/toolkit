@@ -1,16 +1,10 @@
 space: sp_nodes
 externalId: MyExtendedFile
 name: anotherfile.txt
-source:
-  space: sp_nodes
-  externalId: MySource
 sourceCreatedTime: 2023-01-01T00:00:00Z
 sourceUpdatedTime: 2024-01-01T00:00:00Z
 sourceCreatedUser: I
 sourceUpdatedUser: Myself
-assets:
-  - space: sp_nodes
-    externalId: asset1
 mimeType: text/plain
 status: Active
 fileCategory: Document
