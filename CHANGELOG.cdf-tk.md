@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Added support for device code login flow.
 - Support for uploading `CogniteFiles`.
+- Docker release of the Toolkit.
 
 ### Changed
 
