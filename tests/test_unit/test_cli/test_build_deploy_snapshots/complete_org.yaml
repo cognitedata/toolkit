@@ -149,10 +149,8 @@ Node:
       sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
       sourceCreatedUser: I
       sourceId: null
-      sourceModifiedTime: 2024-01-01 00:00:00+00:00
-      sourceModifiedUser: Myself
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
+      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Myself
       status: Active
       tags: null
     source:
@@ -181,10 +179,8 @@ Node:
       sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
       sourceCreatedUser: MySelf
       sourceId: null
-      sourceModifiedTime: 2021-01-01 00:00:00+00:00
-      sourceModifiedUser: Me
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
+      sourceUpdatedTime: '2021-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Me
       tags:
       - tag1
       - tag2

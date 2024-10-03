@@ -56,7 +56,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
-from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -504,7 +504,7 @@ class ApprovalToolkitClient:
                 entry = {"external_id": external_id}
             else:
                 entry = instance_id.dump(include_instance_type=False)
-            entry["filehash"] = calculate_str_or_file_hash(Path(path), shorten=True)
+            entry["filehash"] = calculate_bytes_or_file_hash(Path(path), shorten=True)
 
             created_resources[FileLoader.__name__].append(entry)
 

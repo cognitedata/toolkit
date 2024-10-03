@@ -1114,6 +1114,18 @@ def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> st
     return calculated
 
 
+def calculate_bytes_or_file_hash(content: bytes | Path, shorten: bool = False) -> str:
+    sha256_hash = hashlib.sha256()
+    if isinstance(content, Path):
+        # Get rid of Windows line endings to make the hash consistent across platforms.
+        content = content.read_bytes().replace(b"\r\n", b"\n")
+    sha256_hash.update(content)
+    calculated = sha256_hash.hexdigest()
+    if shorten:
+        return calculated[:8]
+    return calculated
+
+
 def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
     """Get a oneshot (use once) session for execution in CDF"""
     # Special case as this utility function may be called with a new client created in code,
