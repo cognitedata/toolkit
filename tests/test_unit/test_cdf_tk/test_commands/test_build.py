@@ -1,20 +1,19 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import Environment
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
-    AmbiguousResourceFileError,
     ToolkitMissingModuleError,
 )
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import DataModelLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from tests import data
 
@@ -30,15 +29,6 @@ def dummy_environment() -> Environment:
 
 
 class TestBuildCommand:
-    def test_get_loader_raises_ambiguous_error(self):
-        with pytest.raises(AmbiguousResourceFileError) as e:
-            BuildCommand()._get_loader(
-                "transformations",
-                destination=Path("transformation") / "notification.yaml",
-                source_path=Path("my_module") / "transformations" / "notification.yaml",
-            )
-        assert "Ambiguous resource file" in str(e.value)
-
     def test_module_not_found_error(self, tmp_path: Path) -> None:
         with pytest.raises(ToolkitMissingModuleError):
             BuildCommand(print_warning=False).execute(
@@ -89,65 +79,11 @@ class TestBuildCommand:
             if f.is_file() and TransformationLoader.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
-        sql_files = [f for f in (tmp_path / "transformations").iterdir() if f.is_file() and f.suffix == ".sql"]
-        assert len(sql_files) == 2
-
-
-def valid_yaml_semantics_test_cases() -> Iterable[pytest.ParameterSet]:
-    yield pytest.param(
-        """
-- dbName: src:005:test:rawdb:state
-- dbName: src:002:weather:rawdb:state
-- dbName: uc:001:demand:rawdb:state
-- dbName: in:all:rawdb:state
-- dbName: src:001:sap:rawdb
-""",
-        Path("build/raw/raw.yaml"),
-        id="Multiple Raw Databases",
-    )
-
-    yield pytest.param(
-        """
-dbName: src:005:test:rawdb:state
-""",
-        Path("build/raw/raw.yaml"),
-        id="Single Raw Database",
-    )
-
-    yield pytest.param(
-        """
-dbName: src:005:test:rawdb:state
-tableName: myTable
-""",
-        Path("build/raw/raw.yaml"),
-        id="Single Raw Database with table",
-    )
-
-    yield pytest.param(
-        """
-- dbName: src:005:test:rawdb:state
-  tableName: myTable
-- dbName: src:002:weather:rawdb:state
-  tableName: myOtherTable
-""",
-        Path("build/raw/raw.yaml"),
-        id="Multiple Raw Databases with table",
-    )
 
 
 class TestCheckYamlSemantics:
-    @pytest.mark.parametrize("raw_yaml, source_path", list(valid_yaml_semantics_test_cases()))
-    def test_valid_yaml(self, raw_yaml: str, source_path: Path, dummy_environment: Environment) -> None:
-        cmd = BuildCommand(print_warning=False)
-        # Only used in error messages
-        destination = Path("build/raw/raw.yaml")
-        yaml_warnings, *_ = cmd.validate(raw_yaml, source_path, destination)
-        assert not yaml_warnings
-
     def test_build_valid_read_int_version(self) -> None:
-        cmd = BuildCommand(print_warning=False)
-        destination = Path("build/transformation/transformations.Transformation.yaml")
-        source_path = Path("my_module/transformations/transformations.Transformation.yaml")
+        cmd = BuildCommand(silent=True)
         raw_yaml = """destination:
   dataModel:
     destinationType: CogniteFile
@@ -158,11 +94,15 @@ class TestCheckYamlSemantics:
   type: instances
 externalId: some_external_id
     """
-        _, identifier_pairs = cmd.validate(raw_yaml, source_path, destination)
-        assert len(identifier_pairs) == 1
-        required_data_model = next(
-            (required_id for loader, required_id in cmd._state.dependencies_by_required if loader is DataModelLoader),
-            None,
+        source_filepath = MagicMock(spec=Path)
+        source_filepath.read_text.return_value = raw_yaml
+        source_filepath.suffix = ".yaml"
+
+        source_files = cmd._replace_variables(
+            [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False
         )
-        assert required_data_model is not None
-        assert required_data_model == DataModelId("my_space", "MyModel", "1_0_0")
+        assert len(source_files) == 1
+        source_file = source_files[0]
+        assert isinstance(source_file.loaded, dict)
+        actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
+        assert actual == DataModelId("my_space", "MyModel", "1_0_0")

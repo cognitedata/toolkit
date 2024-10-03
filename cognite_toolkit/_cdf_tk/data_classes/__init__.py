@@ -1,3 +1,4 @@
+from ._build_files import BuildDestinationFile, BuildSourceFile
 from ._build_variables import BuildVariable, BuildVariables
 from ._built_modules import (
     BuiltModule,
@@ -19,6 +20,14 @@ from ._config_yaml import (
     ConfigYAMLs,
     Environment,
     InitConfigYAML,
+)
+from ._deploy_results import (
+    DatapointDeployResult,
+    DeployResult,
+    DeployResults,
+    ResourceContainerDeployResult,
+    ResourceDeployResult,
+    UploadDeployResult,
 )
 from ._module_directories import ModuleDirectories, ModuleLocation
 from ._module_resources import ModuleResources
@@ -47,4 +56,12 @@ __all__ = [
     "SourceLocationLazy",
     "BuiltFullResourceList",
     "BuiltResourceFull",
+    "DeployResult",
+    "ResourceDeployResult",
+    "ResourceContainerDeployResult",
+    "UploadDeployResult",
+    "DatapointDeployResult",
+    "DeployResults",
+    "BuildSourceFile",
+    "BuildDestinationFile",
 ]

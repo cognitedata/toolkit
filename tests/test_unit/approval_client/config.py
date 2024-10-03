@@ -143,17 +143,17 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite_toolkit._cdf_tk.client.data_classes import (
     robotics,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
+    GraphQLDataModel,
+    GraphQLDataModelList,
+    GraphQLDataModelWrite,
+    GraphQLDataModelWriteList,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
     LocationFilterWrite,
     LocationFilterWriteList,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
-    GraphQLDataModel,
-    GraphQLDataModelList,
-    GraphQLDataModelWrite,
-    GraphQLDataModelWriteList,
 )
 
 from .data_classes import APIResource, Method
@@ -429,6 +429,7 @@ API_RESOURCES = [
                 Method(api_class_method="create", mock_class_method="create"),
                 # This is used by functions to upload the file used for deployment.
                 Method(api_class_method="upload_bytes", mock_class_method="upload_bytes_files_api"),
+                Method(api_class_method="upload_content", mock_class_method="upload_file_content_files_api"),
             ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [

@@ -77,7 +77,7 @@ class BuildInfo(ConfigCore):
             else:
                 # Use path syntax to select only the modules that need to be rebuilt
                 config.environment.selected = list(needs_rebuild)
-            build, _ = BuildCommand(silent=True, skip_tracking=True).build_config(
+            build = BuildCommand(silent=True, skip_tracking=True).build_config(
                 build_dir=build_dir,
                 organization_dir=organization_dir,
                 config=config,
@@ -173,7 +173,9 @@ class ModuleResources:
         try:
             self._build_info = BuildInfo.load_from_directory(organization_dir, build_env)
             self._has_rebuilt = False
-        except FileNotFoundError:
+        except (FileNotFoundError, KeyError):
+            # FileNotFound = Not run before.
+            # KeyError = Version mismatch/Changed format
             self._build_info = BuildInfo.rebuild(organization_dir, build_env)
             self._has_rebuilt = True
 

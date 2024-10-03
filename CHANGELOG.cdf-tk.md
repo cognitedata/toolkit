@@ -15,6 +15,22 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0b5] - 2024-10-03
+
+### Added
+
+- Added support for device code login flow.
+- Support for uploading `CogniteFiles`.
+- Docker release of the Toolkit.
+
+### Changed
+
+- When running `deploy --dry-run`, the Toolkit will not require write access to the CDF project.
+
+### Fixed
+
+- Uploading a file will no longer overwrite the `FileMetadata`.
+
 ## [0.3.0b4] - 2024-09-30
 
 ### Fixed

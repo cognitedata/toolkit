@@ -1,3 +1,26 @@
+Container:
+- constraints: {}
+  externalId: MyFileExtension
+  indexes: {}
+  properties:
+    fileCategory:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    status:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
 DataModel:
 - externalId: DataModelLocation
   space: DataModelSpace
@@ -41,6 +64,13 @@ Destination:
     nonce: '123'
   externalId: EventHubTarget
   targetDataSetId: 42
+FileLoader:
+- externalId: MyExtendedFile
+  filehash: 5e6be7b4
+  space: sp_nodes
+- externalId: MyVanillaFile
+  filehash: adc874a9
+  space: sp_nodes
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
@@ -67,6 +97,24 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
+GraphQLDataModel:
+- description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
+  dml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n  description:\
+    \ String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n  description:\
+    \ String\n}\n\n\ntype Country {\n  name: String!\n  iso3166Alpha2: String!\n \
+    \ iso3166Alpha3: String!\n  iso3166Numeric: String!\n  parent: GeoRegion\n  flag:\
+    \ String\n}\n\n\ntype Product {\n  name: String!\n  description: String\n}\n\n\
+    \ntype TimeZone {\n  name: String!\n  description: String\n}\n\ntype SiteType\
+    \ {\n  name: String!\n  description: String\n}\n\ntype Language {\n  name: String!\n\
+    \  description: String\n  LanCode: String\n  sapCode: String\n  enablonCode: String\n\
+    }\n\ntype CoordinateReferenceSystem {\n  id: String!\n  name: String!\n}\n\ntype\
+    \ Company {\n    name: String!\n    description: String\n    code: String\n}\n\
+    \ninterface Hierarchical {\n  code: String\n  active: Boolean\n  parent: Hierarchical\n\
+    \  path: [String]\n  level: Int\n}\n"
+  externalId: AssetHierarchy
+  name: Asset Hierarchy
+  space: sp_schema
+  version: '3_0_2'
 Job:
 - config:
     topicFilter: my_topic
@@ -108,26 +156,20 @@ Node:
   sources:
   - properties:
       aliases: null
-      assets:
-      - externalId: asset1
-        space: sp_nodes
+      assets: null
       category: null
       description: null
       directory: null
       fileCategory: Document
       mimeType: text/plain
       name: anotherfile.txt
-      source:
-        externalId: MySource
-        space: sp_nodes
+      source: null
       sourceContext: null
       sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
       sourceCreatedUser: I
       sourceId: null
-      sourceModifiedTime: 2024-01-01 00:00:00+00:00
-      sourceModifiedUser: Myself
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
+      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Myself
       status: Active
       tags: null
     source:
@@ -141,25 +183,19 @@ Node:
   sources:
   - properties:
       aliases: null
-      assets:
-      - externalId: asset1
-        space: sp_nodes
+      assets: null
       category: null
       description: null
       directory: null
       mimeType: text/plain
       name: filecontent.txt
-      source:
-        externalId: MySource
-        space: sp_nodes
+      source: null
       sourceContext: null
       sourceCreatedTime: '2020-01-01T00:00:00.000+00:00'
       sourceCreatedUser: MySelf
       sourceId: null
-      sourceModifiedTime: 2021-01-01 00:00:00+00:00
-      sourceModifiedUser: Me
-      sourceUpdatedTime: null
-      sourceUpdatedUser: null
+      sourceUpdatedTime: '2021-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Me
       tags:
       - tag1
       - tag2
@@ -248,6 +284,28 @@ TransformationSchedule:
 - externalId: tr_first_transformation
   interval: 7 * * * *
   isPaused: true
+View:
+- externalId: MyFileExtension
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    fileCategory:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: fileCategory
+    status:
+      container:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: status
+  space: sp_schema
+  version: v1
 Workflow:
 - description: A workflow for processing data
   externalId: baz

@@ -61,7 +61,6 @@ from ._resource_loaders import (
     WorkflowLoader,
     WorkflowVersionLoader,
 )
-from .data_classes import DeployResult, DeployResults
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -148,8 +147,6 @@ __all__ = [
     "ResourceLoader",
     "ResourceContainerLoader",
     "DataLoader",
-    "DeployResult",
-    "DeployResults",
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",

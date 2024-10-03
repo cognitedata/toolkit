@@ -41,12 +41,21 @@ class LocationFilterLoader(
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
     @classmethod
-    def get_required_capability(cls, items: LocationFilterWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: LocationFilterWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         # Todo: Specify space ID scopes:
+
+        actions = (
+            [LocationFiltersAcl.Action.Read]
+            if read_only
+            else [LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write]
+        )
+
         return LocationFiltersAcl(
-            actions=[LocationFiltersAcl.Action.Read, LocationFiltersAcl.Action.Write],
+            actions=actions,
             scope=LocationFiltersAcl.Scope.All(),
             allow_unknown=True,
         )

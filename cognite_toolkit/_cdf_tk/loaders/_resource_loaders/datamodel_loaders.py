@@ -68,17 +68,17 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT, INDEX_PATTERN
-from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
-from cognite_toolkit._cdf_tk.loaders._base_loaders import (
-    ResourceContainerLoader,
-    ResourceLoader,
-)
-from cognite_toolkit._cdf_tk.loaders.data_classes import (
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModel,
     GraphQLDataModelList,
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
+)
+from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.loaders._base_loaders import (
+    ResourceContainerLoader,
+    ResourceLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -113,15 +113,15 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return "spaces"
 
     @classmethod
-    def get_required_capability(cls, items: SpaceApplyList | None) -> list[Capability] | list[Capability]:
+    def get_required_capability(
+        cls, items: SpaceApplyList | None, read_only: bool
+    ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
-        return [
-            DataModelsAcl(
-                [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
-                DataModelsAcl.Scope.All(),
-            ),
-        ]
+
+        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+
+        return [DataModelsAcl(actions, DataModelsAcl.Scope.All())]
 
     @classmethod
     def get_id(cls, item: SpaceApply | Space | dict) -> str:
@@ -225,15 +225,21 @@ class ContainerLoader(
         return "containers"
 
     @classmethod
-    def get_required_capability(cls, items: ContainerApplyList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: ContainerApplyList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return DataModelsAcl(
-            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+
+        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+
+        scope = (
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelsAcl.Scope.All(),
+            else DataModelsAcl.Scope.All()
         )
+
+        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: ContainerApply | Container | dict) -> ContainerId:
@@ -442,15 +448,19 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: ViewApplyList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return DataModelsAcl(
-            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+
+        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+
+        scope = (
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelsAcl.Scope.All(),
+            else DataModelsAcl.Scope.All()
         )
+
+        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: ViewApply | View | dict) -> ViewId:
@@ -674,15 +684,21 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return "data models"
 
     @classmethod
-    def get_required_capability(cls, items: DataModelApplyList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: DataModelApplyList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
-        return DataModelsAcl(
-            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+
+        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
+
+        scope = (
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
-            else DataModelsAcl.Scope.All(),
+            else DataModelsAcl.Scope.All()
         )
+
+        return DataModelsAcl(actions, scope)  # type: ignore[arg-type]
 
     @classmethod
     def get_id(cls, item: DataModelApply | DataModel | dict) -> DataModelId:
@@ -815,11 +831,18 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyList | None) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: NodeApplyList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+
         return DataModelInstancesAcl(
-            [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write],
+            actions,
             DataModelInstancesAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
             else DataModelInstancesAcl.Scope.All(),
@@ -1008,11 +1031,14 @@ class GraphQLLoader(
         return id.dump(include_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: GraphQLDataModelWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: GraphQLDataModelWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+        actions = [DataModelsAcl.Action.Read] if read_only else [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write]
         return DataModelsAcl(
-            [DataModelsAcl.Action.Read, DataModelsAcl.Action.Write],
+            actions,
             DataModelsAcl.Scope.SpaceID(list({item.space for item in items}))
             if items is not None
             else DataModelsAcl.Scope.All(),
@@ -1058,25 +1084,15 @@ class GraphQLLoader(
 
         # Find the GraphQL files adjacent to the DML files
         for model in models:
-            if model.dml is not None:
-                expected_filename = model.dml
-            else:
-                expected_filename = (
-                    f'{INDEX_PATTERN.sub("", filepath.stem.removesuffix(self.kind).removesuffix("."))}.graphql'
-                )
+            graphql_file = filepath.with_suffix(".graphql")
 
-            graphql_file = next(
-                (f for f in filepath.parent.iterdir() if f.is_file() and f.name.endswith(expected_filename)), None
-            )
-            if graphql_file is None:
+            if not graphql_file.is_file():
                 raise ToolkitFileNotFoundError(
-                    f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {filepath.as_posix()}"
+                    f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
                 )
             model_id = model.as_id()
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file)
-            # Ensure consistent line endings
-            graphql_content = graphql_content.replace("\r\n", "\n").replace("\r", "\n")
             parser = GraphQLParser(graphql_content, model_id)
             try:
                 for view in parser.get_views():

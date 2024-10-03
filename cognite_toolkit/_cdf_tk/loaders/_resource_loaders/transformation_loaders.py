@@ -61,13 +61,13 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import RawDatabaseTable
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
@@ -100,16 +100,24 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationWriteList | None) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: TransformationWriteList | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
+
+        actions = (
+            [TransformationsAcl.Action.Read]
+            if read_only
+            else [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write]
+        )
         scope: TransformationsAcl.Scope.All | TransformationsAcl.Scope.DataSet = TransformationsAcl.Scope.All()  # type: ignore[valid-type]
         if items is not None:
             if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
                 scope = TransformationsAcl.Scope.DataSet(list(data_set_ids))
 
         return TransformationsAcl(
-            [TransformationsAcl.Action.Read, TransformationsAcl.Action.Write],
+            actions,
             scope,  # type: ignore[arg-type]
         )
 
@@ -133,8 +141,8 @@ class TransformationLoader(
             if not isinstance(destination, dict):
                 return
             if destination.get("type") == "raw" and in_dict(("database", "table"), destination):
-                yield RawDatabaseLoader, RawDatabaseTable(destination["database"])
-                yield RawTableLoader, RawDatabaseTable(destination["database"], destination["table"])
+                yield RawDatabaseLoader, RawDatabase(destination["database"])
+                yield RawTableLoader, RawTable(destination["database"], destination["table"])
             elif destination.get("type") in ("nodes", "edges") and (view := destination.get("view", {})):
                 if space := destination.get("instanceSpace"):
                     yield SpaceLoader, space
@@ -347,7 +355,9 @@ class TransformationScheduleLoader(
         return "transformation.schedules"
 
     @classmethod
-    def get_required_capability(cls, items: TransformationScheduleWriteList | None) -> list[Capability]:
+    def get_required_capability(
+        cls, items: TransformationScheduleWriteList | None, read_only: bool
+    ) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
@@ -454,7 +464,7 @@ class TransformationNotificationLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationNotificationWriteList | None
+        cls, items: TransformationNotificationWriteList | None, read_only: bool
     ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.

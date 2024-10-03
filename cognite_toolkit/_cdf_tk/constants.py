@@ -1,4 +1,6 @@
+import os
 import re
+import sys
 from pathlib import Path
 
 from typing_extensions import Literal, TypeAlias
@@ -11,6 +13,10 @@ except ModuleNotFoundError:
 # The environment file:
 
 TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME = "cognite_toolkit_service_principal"
+
+# This is the default Cognite app registration for Entra with device code enabled
+# to be used with the Toolkit.
+TOOLKIT_CLIENT_ENTRA_ID = "fb9d503b-ac25-44c7-a75d-8fbcd3a206bd"
 
 _RUNNING_IN_BROWSER = IN_BROWSER
 # This is the default config located locally in each module.
@@ -40,6 +46,7 @@ DEFAULT_ENV = "dev"
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
+YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])
 ROOT_PATH = Path(__file__).parent.parent
@@ -58,6 +65,7 @@ _CLEAN_PATTERN = re.compile(r"[\W_]+")
 HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
+USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
 
 
 def clean_name(name: str) -> str:

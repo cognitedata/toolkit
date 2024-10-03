@@ -1,0 +1,31 @@
+from pathlib import Path
+
+from ._base import Builder, DefaultBuilder
+from ._datamodels import DataModelBuilder
+from ._file import FileBuilder
+from ._function import FunctionBuilder
+from ._raw import RawBuilder
+from ._transformation import TransformationBuilder
+
+
+def create_builder(
+    resource_folder: str,
+    build_dir: Path,
+) -> Builder:
+    if builder_cls := _BUILDER_BY_RESOURCE_FOLDER.get(resource_folder):
+        return builder_cls(build_dir)  # type: ignore[abstract]
+
+    return DefaultBuilder(build_dir, resource_folder)
+
+
+_BUILDER_BY_RESOURCE_FOLDER = {_builder._resource_folder: _builder for _builder in Builder.__subclasses__()}
+__all__ = [
+    "Builder",
+    "DefaultBuilder",
+    "FileBuilder",
+    "FunctionBuilder",
+    "RawBuilder",
+    "TransformationBuilder",
+    "DataModelBuilder",
+    "create_builder",
+]

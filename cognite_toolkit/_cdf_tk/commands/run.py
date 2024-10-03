@@ -21,6 +21,7 @@ from rich import print
 from rich.progress import Progress
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -32,7 +33,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
-from cognite_toolkit._cdf_tk.loaders.data_classes import FunctionScheduleID
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
             readme_overview.write_text(self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
-        function_source_code = function_build.location.path.parent / function_external_id
+        function_source_code = function_build.source.path.parent / function_external_id
         if not function_source_code.exists():
             raise ToolkitNotADirectoryError(
                 f"Could not find function code for {function_external_id}. Expected at {function_source_code.as_posix()}"
