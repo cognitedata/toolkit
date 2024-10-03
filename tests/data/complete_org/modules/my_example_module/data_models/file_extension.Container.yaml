@@ -1,0 +1,14 @@
+externalId: MyFileExtension
+space: sp_schema
+usedFor: node
+properties:
+  status:
+    nullable: true
+    type:
+      list: false
+      type: text
+  fileCategory:
+    nullable: true
+    type:
+      list: false
+      type: text
