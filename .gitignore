@@ -295,3 +295,6 @@ build.*
 cognite_toolkit/.env.*
 module_upgrade/project_inits
 function_local_venvs/
+# For newer versions of the toolkit
+tests/data/run_data/build_info.dev.yaml
+cdf.toml
