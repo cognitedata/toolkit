@@ -2,6 +2,8 @@ import shutil
 from importlib import resources
 from pathlib import Path
 
+import questionary
+
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -9,6 +11,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeveri
 
 from . import _cli_commands
 from ._base import ToolkitCommand
+
+REPOSITORY_HOSTING = [
+    "GitHub",
+    "None",
+]
 
 
 class RepoCommand(ToolkitCommand):
@@ -53,4 +60,9 @@ class RepoCommand(ToolkitCommand):
             shutil.copy(file, destination)
             if verbose:
                 self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
+
+        repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+        if repo_host == "GitHub":
+            self.console("The repository will be hosted on GitHub.")
+
         self.console("Repo initialization complete.")
