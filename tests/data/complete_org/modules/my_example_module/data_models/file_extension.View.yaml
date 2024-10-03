@@ -1,0 +1,22 @@
+externalId: MyFileExtension
+implements:
+- externalId: CogniteFile
+  space: cdf_cdm
+  type: view
+  version: v1
+
+properties:
+  status:
+    container:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: status
+  fileCategory:
+    container:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: fileCategory
+space: sp_schema
+version: v1
