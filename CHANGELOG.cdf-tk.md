@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.2.22] - 2024-10-03
+
+### Fixed
+
+- On `Windows` if you use a no `utf-8` encoded files, the `cdf-tk` deploy no longer raises
+  `ERROR [ERROR]: SourceFileModifiedWarning: The source file...`
+
 ## [0.2.21] - 2024-09-13
 
 ### Fixed
