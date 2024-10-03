@@ -173,4 +173,6 @@ jobs:
               exit 1
          fi
       - name: Inspection
-        run: ls -l my_org
+        run: |
+          ls -l my_org
+          ls -l my_org/modules
