@@ -146,7 +146,7 @@ jobs:
           cdf deploy --drop --env=demo ./build --dry-run
 
 
-  build-image:
+  Build-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
