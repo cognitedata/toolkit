@@ -1,4 +1,4 @@
-name: Release pypi package
+name: Release Toolkit
 on:
   push:
     branches:
@@ -58,4 +58,4 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           push: true
-          tags: cognite/toolkit:latest, cognite/toolkit:${{ env.version }}
+          tags: cognite/toolkit:${{ env.version }}, cognite/toolkit:latest
