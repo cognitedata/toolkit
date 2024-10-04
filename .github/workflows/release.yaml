@@ -1,4 +1,4 @@
-name: Release pypi package
+name: Release Toolkit
 on:
   push:
     branches:
