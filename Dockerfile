@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM python:3.12-slim AS builder
 # Python
 ENV PYTHONFAULTHANDLER=1 \
   PYTHONUNBUFFERED=1 \
@@ -24,7 +24,7 @@ COPY cognite_toolkit/. ./cognite_toolkit/
 RUN poetry install --without dev --sync
 
 # Building final image
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 COPY --from=builder /usr/local/lib/python3.11/site-packages  /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /cognite_toolkit /cognite_toolkit
