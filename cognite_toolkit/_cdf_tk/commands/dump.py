@@ -74,24 +74,27 @@ class DumpCommand(ToolkitCommand):
                 print(f"  [bold green]INFO:[/] Dumped space {space.space} to {space_file!s}.")
 
         prefix_space = len(containers) != len({container.external_id for container in containers})
+        container_folder = resource_folder / "containers"
+        container_folder.mkdir(exist_ok=True)
         for container in containers:
             file_name = f"{container.external_id}.container.yaml"
             if prefix_space:
                 file_name = f"{container.space}_{file_name}"
-            container_file = resource_folder / file_name
+            container_file = container_folder / file_name
             container_file.write_text(container.as_write().dump_yaml())
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped container {container.external_id} to {container_file!s}.")
 
         prefix_space = len(views) != len({view.external_id for view in views})
         suffix_version = len(views) != len({f"{view.space}{view.external_id}" for view in views})
+        view_folder = resource_folder / "views"
         for view in views:
             file_name = f"{view.external_id}.view.yaml"
             if prefix_space:
                 file_name = f"{view.space}_{file_name}"
             if suffix_version:
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
-            view_file = resource_folder / file_name
+            view_file = view_folder / file_name
             view_write = view.as_write().dump()
             parents = retrieve_view_ancestors(client, view.implements or [], views_by_id)
             for parent in parents:
