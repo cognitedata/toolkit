@@ -1,0 +1,16 @@
+space: {{ schema_space }}
+externalId: {{ organization }}3DGroup
+properties:
+  groupType:
+    type:
+      values:
+        Station360:
+          name: Station360
+          description: null
+      type: enum
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}
+usedFor: node

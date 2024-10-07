@@ -1,0 +1,13 @@
+space: {{ schema_space }}
+externalId: {{ organization }}PointCloudRevision
+properties:
+  revisionId:
+    type:
+      list: false
+      type: int64
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}
+usedFor: node

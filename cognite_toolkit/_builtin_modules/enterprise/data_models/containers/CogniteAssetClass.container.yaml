@@ -1,0 +1,36 @@
+space: {{ schema_space }}
+externalId: {{ organization }}AssetClass
+description: This identifies the class of an asset
+properties:
+  code:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: A unique identifier for the class of asset
+  standard:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Textual string for which standard the code is from
+constraints:
+  describablePresent:
+    require:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Describable
+      type: container
+    constraintType: requires
+  uniqueCodeConstraint:
+    properties:
+    - code
+    - standard
+    constraintType: uniqueness
+indexes: {}
+usedFor: node

@@ -1,0 +1,27 @@
+space: {{ schema_space }}
+externalId: {{ organization }}AssetClass
+name: Asset class
+description: Represents the class of an asset.
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+version: v1
+properties:
+  code:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: A unique identifier for the class of asset.
+  standard:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: A text string to specify which standard the class is from.

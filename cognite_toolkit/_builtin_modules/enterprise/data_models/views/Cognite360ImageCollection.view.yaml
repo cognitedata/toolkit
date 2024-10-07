@@ -1,0 +1,25 @@
+space: {{ schema_space }}
+externalId: {{ organization }}360ImageCollection
+description: Represents a logical collection of {{ organization }}360Image instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DRevision
+  - equals:
+      property:
+      - {{ schema_space }}
+      - {{ organization }}3DModel
+      - type
+      value: Image360
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DRevision
+  version: v1
+  type: view
+version: v1

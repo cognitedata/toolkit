@@ -1,0 +1,41 @@
+space: {{ schema_space }}
+externalId: {{ organization }}360ImageModel
+description: Navigational aid for traversing {{ organization }}360ImageModel instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DModel
+  - equals:
+      property:
+      - {{ schema_space }}
+      - {{ organization }}3DModel
+      - type
+      value: Image360
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DModel
+  version: v1
+  type: view
+version: v1
+properties:
+  collections:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageCollection
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DRevision
+        version: v1
+        type: view
+      identifier: model3D
+    description: List {{ organization }}360Image collections for this instance
+    connectionType: multi_reverse_direct_relation

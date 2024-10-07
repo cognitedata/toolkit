@@ -1,0 +1,25 @@
+space: {{ schema_space }}
+externalId: {{ organization }}SourceSystem
+description: The {{ organization }}SourceSystem core concept is used to standardize the way source
+  system is stored.
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+version: v1
+properties:
+  version:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      type: container
+    containerPropertyIdentifier: version
+    description: Version identifier for the source system
+  manufacturer:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      type: container
+    containerPropertyIdentifier: manufacturer
+    description: Manufacturer of the source system

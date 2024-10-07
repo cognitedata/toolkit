@@ -1,0 +1,62 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Sourceable
+implements: []
+version: v1
+properties:
+  sourceId:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Identifier from the source system
+  sourceContext:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceContext
+    description: Context of the source id. For systems where the sourceId is globally
+      unique, the sourceContext is expected to not be set.
+  source:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  sourceCreatedTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedTime
+    description: When the instance was created in source system (if available)
+  sourceUpdatedTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedTime
+    description: When the instance was last updated in the source system (if available)
+  sourceCreatedUser:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedUser
+    description: User identifier from the source system on who created the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  sourceUpdatedUser:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedUser
+    description: User identifier from the source system on who last updated the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF

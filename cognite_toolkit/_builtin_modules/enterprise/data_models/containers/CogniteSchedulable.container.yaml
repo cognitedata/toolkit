@@ -1,0 +1,60 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Schedulable
+description: {{ organization }}Schedulable represents the metadata about when an activity (or
+  similar) starts and ends
+properties:
+  startTime:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: The actual start time of an activity (or similar that extends this)
+  endTime:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: The actual end time of an activity (or similar that extends this)
+  scheduledStartTime:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: The planned start time of an activity (or similar that extends this)
+  scheduledEndTime:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: The planned end time of an activity (or similar that extends this)
+constraints: {}
+indexes:
+  startTime:
+    properties:
+    - startTime
+    cursorable: true
+    indexType: btree
+  endTime:
+    properties:
+    - endTime
+    cursorable: true
+    indexType: btree
+  scheduledStartTime:
+    properties:
+    - scheduledStartTime
+    cursorable: true
+    indexType: btree
+  scheduledEndTime:
+    properties:
+    - scheduledEndTime
+    cursorable: true
+    indexType: btree
+usedFor: node

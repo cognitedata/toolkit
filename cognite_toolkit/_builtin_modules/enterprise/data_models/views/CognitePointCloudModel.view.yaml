@@ -1,0 +1,41 @@
+space: {{ schema_space }}
+externalId: {{ organization }}PointCloudModel
+description: Navigational aid for traversing {{ organization }}PointCloudModel instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DModel
+  - equals:
+      property:
+      - {{ schema_space }}
+      - {{ organization }}3DModel
+      - type
+      value: PointCloud
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DModel
+  version: v1
+  type: view
+version: v1
+properties:
+  revisions:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}PointCloudRevision
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DRevision
+        version: v1
+        type: view
+      identifier: model3D
+    description: List of revisions for this PointCloud model
+    connectionType: multi_reverse_direct_relation

@@ -1,0 +1,32 @@
+space: {{ schema_space }}
+externalId: {{ organization }}360ImageAnnotation
+description: ''
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}Annotation
+  version: v1
+  type: view
+version: v1
+properties:
+  polygon:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageAnnotation
+      type: container
+    containerPropertyIdentifier: polygon
+    description: List of floats representing the polygon. Format depends on formatVersion
+  formatVersion:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageAnnotation
+      type: container
+    containerPropertyIdentifier: formatVersion
+    description: Specifies the storage representation for the polygon

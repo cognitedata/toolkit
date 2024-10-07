@@ -1,0 +1,75 @@
+space: {{ schema_space }}
+externalId: {{ organization }}CADNode
+description: Represents nodes from the 3D model that have been contextualized
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+version: v1
+properties:
+  object3D:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: object3D
+    description: Direct relation to object3D grouping for this node
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DObject
+      version: v1
+      type: view
+  model3D:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: model3D
+    description: Direct relation to {{ organization }}3DModel
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADModel
+      version: v1
+      type: view
+  cadNodeReference:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: cadNodeReference
+    description: Reference to a node within a CAD model from the 3D API
+  revisions:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: revisions
+    description: List of direct relations to instances of {{ organization }}3DRevision which
+      this {{ organization }}CADNode exists in.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADRevision
+      version: v1
+      type: view
+  treeIndexes:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: treeIndexes
+    description: 'List of tree indexes in the same order as revisions. Used by Reveal
+      and similar applications to map from {{ organization }}CADNode to tree index
+
+      '
+  subTreeSizes:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: subTreeSizes
+    description: 'List of subtree sizes in the same order as revisions. Used by Reveal
+      and similar applications to know how many nodes exists below this node in the
+      hierarchy
+
+      '

@@ -1,0 +1,46 @@
+space: {{ schema_space }}
+externalId: {{ organization }}360Image
+description: ''
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DTransformation
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}CubeMap
+  version: v1
+  type: view
+version: v1
+properties:
+  collection360:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360Image
+      type: container
+    containerPropertyIdentifier: collection360
+    description: Direct relation to {{ organization }}360ImageCollection
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageCollection
+      version: v1
+      type: view
+  station360:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360Image
+      type: container
+    containerPropertyIdentifier: group3d
+    description: Direct relation to {{ organization }}3DGroup instance that groups different
+      {{ organization }}360Image instances to the same station
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageStation
+      version: v1
+      type: view
+  takenAt:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360Image
+      type: container
+    containerPropertyIdentifier: takenAt
+    description: The timestamp when the 6 photos were taken

@@ -1,0 +1,75 @@
+space: {{ schema_space }}
+externalId: {{ organization }}PointCloudVolume
+properties:
+  volumeReferences:
+    type:
+      list: true
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  object3D:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DObject
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  model3D:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DModel
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  revisions:
+    type:
+      list: true
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DRevision
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  volumeType:
+    type:
+      values:
+        Cylinder:
+          name: Cylinder
+          description: null
+        Box:
+          name: Box
+          description: null
+      type: enum
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  volume:
+    type:
+      list: true
+      type: float64
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  formatVersion:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}
+usedFor: node

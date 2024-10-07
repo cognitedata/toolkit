@@ -1,0 +1,28 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Annotation
+description: Annotation represents contextualization results or links
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
+version: v1
+properties:
+  confidence:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Annotation
+      type: container
+    containerPropertyIdentifier: confidence
+    description: The confidence that the annotation is a good match
+  status:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Annotation
+      type: container
+    containerPropertyIdentifier: status
+    description: The status of the annotation

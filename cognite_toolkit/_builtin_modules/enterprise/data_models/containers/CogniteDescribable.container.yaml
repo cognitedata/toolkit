@@ -1,0 +1,49 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Describable
+description: The describable core concept is used as a standard way of holding the
+  bare minimum of information about the instance.
+properties:
+  name:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Holds a name of the instance where that is applicable
+  description:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Holds a description of the instance
+  tags:
+    type:
+      list: true
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Instance tags (limited to 1000 tags)
+  aliases:
+    type:
+      list: true
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Alternative names (aliases)
+constraints: {}
+indexes:
+  name:
+    properties:
+    - name
+    cursorable: false
+    indexType: btree
+usedFor: all

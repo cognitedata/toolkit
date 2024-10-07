@@ -1,0 +1,55 @@
+space: {{ schema_space }}
+externalId: {{ organization }}EquipmentType
+description: This identifies the type of an equipment
+properties:
+  code:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: A unique identifier for the type of equipment
+  equipmentClass:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Class of equipment
+  standard:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Standard identifier this equipment is sourced from, such as ISO14224
+      or similar
+  standardReference:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Reference to the source of the equipment specification
+constraints:
+  describablePresent:
+    require:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Describable
+      type: container
+    constraintType: requires
+  uniqueCodeConstraint:
+    properties:
+    - code
+    - standard
+    constraintType: uniqueness
+indexes: {}
+usedFor: node

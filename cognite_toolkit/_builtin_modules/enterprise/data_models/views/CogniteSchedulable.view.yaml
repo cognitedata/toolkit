@@ -1,0 +1,35 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Schedulable
+description: {{ organization }}Schedulable represents the metadata about when an activity (or
+  similar) starts and ends.
+implements: []
+version: v1
+properties:
+  startTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Schedulable
+      type: container
+    containerPropertyIdentifier: startTime
+    description: The actual start time of an activity (or similar that extends this)
+  endTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Schedulable
+      type: container
+    containerPropertyIdentifier: endTime
+    description: The actual end time of an activity (or similar that extends this)
+  scheduledStartTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Schedulable
+      type: container
+    containerPropertyIdentifier: scheduledStartTime
+    description: The planned start time of an activity (or similar that extends this)
+  scheduledEndTime:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Schedulable
+      type: container
+    containerPropertyIdentifier: scheduledEndTime
+    description: The planned end time of an activity (or similar that extends this)

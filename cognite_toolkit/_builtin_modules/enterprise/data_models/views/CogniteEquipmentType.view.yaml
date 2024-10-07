@@ -1,0 +1,44 @@
+space: {{ schema_space }}
+externalId: {{ organization }}EquipmentType
+name: Equipment type
+description: Represents the type of equipment.
+implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+version: v1
+properties:
+  code:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: A unique identifier for the type of equipment.
+  equipmentClass:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: equipmentClass
+    name: Equipment class
+    description: Represents the class of equipment.
+  standard:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: An identifier for the standard this equipment type is sourced from,
+      for example, ISO14224.
+  standardReference:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: standardReference
+    name: Standard reference
+    description: A reference to the source of the equipment standard.

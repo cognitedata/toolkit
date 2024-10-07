@@ -1,0 +1,36 @@
+space: {{ schema_space }}
+externalId: {{ organization }}360Image
+properties:
+  collection360:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DRevision
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  group3d:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DGroup
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+  takenAt:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: The timestamp the 6 photos were taken.
+constraints: {}
+indexes: {}
+usedFor: node

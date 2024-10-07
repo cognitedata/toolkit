@@ -1,0 +1,98 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Asset
+description: The asset is the bare bone representation of assets in our asset centric
+  world
+properties:
+  assetHierarchy_parent:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Direct relation to closest (for ease of navigation)
+  assetHierarchy_root:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Direct relation to the root of the asset hierarchy (primarily an
+      optimization/convenience)
+  assetHierarchy_path:
+    type:
+      list: true
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Automatically populated list of ancestors to enable subtree filtering
+  assetHierarchy_path_last_updated_time:
+    type:
+      list: false
+      type: timestamp
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Last time the path was updated for this asset
+  assetClass:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}AssetClass
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Class of asset, direct relation to AssetClass
+  type:
+    type:
+      list: false
+      container:
+        space: {{ schema_space }}
+        externalId: {{ organization }}AssetType
+        type: container
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    description: Type of asset, direct relation to AssetType
+constraints:
+  describablePresent:
+    require:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Describable
+      type: container
+    constraintType: requires
+  visualizablePresent:
+    require:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Visualizable
+      type: container
+    constraintType: requires
+  sourceablePresent:
+    require:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    constraintType: requires
+indexes:
+  parent:
+    properties:
+    - assetHierarchy_parent
+    cursorable: false
+    indexType: btree
+  path:
+    properties:
+    - assetHierarchy_path
+    cursorable: false
+    indexType: btree
+  root:
+    properties:
+    - assetHierarchy_root
+    cursorable: false
+    indexType: btree
+usedFor: node
