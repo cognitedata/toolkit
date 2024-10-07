@@ -31,7 +31,7 @@ class RepoCommand(ToolkitCommand):
         self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
         self.skip_git_verify = skip_git_verify
 
-    def init(self, cwd: Path, verbose: bool = False) -> None:
+    def init(self, cwd: Path, host: str | None = None, verbose: bool = False) -> None:
         if not self.skip_git_verify:
             if _cli_commands.use_git():
                 if not _cli_commands.has_initiated_repo():
@@ -63,8 +63,10 @@ class RepoCommand(ToolkitCommand):
             shutil.copy(file, destination)
             if verbose:
                 self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
-
-        repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+        if host is None:
+            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+        else:
+            repo_host = host
         if repo_host == "GitHub":
             self.console("The repository will be hosted on GitHub.")
         elif repo_host == "Other":

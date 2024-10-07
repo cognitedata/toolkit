@@ -46,7 +46,7 @@ def local_tmp_repo_path() -> Iterator[Path]:
     pidid = os.getpid()
     repo_path = TMP_FOLDER / f"pytest-repo-{pidid}"
     repo_path.mkdir(exist_ok=True)
-    RepoCommand(silent=True, skip_git_verify=True).init(repo_path)
+    RepoCommand(silent=True, skip_git_verify=True).init(repo_path, host="GitHub")
     yield repo_path
     shutil.rmtree(repo_path, ignore_errors=True)
 
