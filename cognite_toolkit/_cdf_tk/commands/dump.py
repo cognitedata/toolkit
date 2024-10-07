@@ -30,7 +30,7 @@ class DumpCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         if selected_data_model is None:
-            data_model_id = self._interactive_select_data_model(ToolGlobals)
+            data_model_id = self._interactive_select_data_model(ToolGlobals, include_global=False)
         else:
             data_model_id = selected_data_model
 
@@ -88,6 +88,7 @@ class DumpCommand(ToolkitCommand):
         prefix_space = len(views) != len({view.external_id for view in views})
         suffix_version = len(views) != len({f"{view.space}{view.external_id}" for view in views})
         view_folder = resource_folder / "views"
+        view_folder.mkdir(exist_ok=True)
         for view in views:
             file_name = f"{view.external_id}.view.yaml"
             if prefix_space:
