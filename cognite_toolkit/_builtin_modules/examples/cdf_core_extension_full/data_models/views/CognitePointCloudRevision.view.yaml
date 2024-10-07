@@ -1,0 +1,29 @@
+space: cdf_cdm
+externalId: CognitePointCloudRevision
+description: Navigational aid for traversing CognitePointCloudRevision instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
+  - equals:
+      property:
+      - cdf_cdm_3d
+      - Cognite3DModel
+      - type
+      value: PointCloud
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DRevision
+  version: v1
+  type: view
+version: v1
+properties:
+  revisionId:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudRevision
+      type: container
+    containerPropertyIdentifier: revisionId
+    description: The 3D API revision identifier for this PointCloud model
