@@ -60,11 +60,3 @@ views:
   externalId: {{ organization }}Unit
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Annotation
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}DiagramAnnotation
-  version: v1
-  type: view
