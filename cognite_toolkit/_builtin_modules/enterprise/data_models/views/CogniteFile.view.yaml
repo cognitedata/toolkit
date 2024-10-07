@@ -3,20 +3,16 @@ externalId: {{ organization }}File
 name: File
 description: Represents files.
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
+- space: cdf_cdm
+  externalId: CogniteFile
   version: v1
   type: view
 version: v1
 properties:
   assets:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
+      space: cdf_cdm
+      externalId: CogniteFile
       type: container
     containerPropertyIdentifier: assets
     name: Assets
@@ -26,49 +22,15 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
-  mimeType:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
-      type: container
-    containerPropertyIdentifier: mimeType
-    name: MIME type
-    description: The MIME type of the file.
-  directory:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
-      type: container
-    containerPropertyIdentifier: directory
-    name: Directory
-    description: Contains the path elements from the source (if the source system
-      has a file system hierarchy or similar.)
-  isUploaded:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
-      type: container
-    containerPropertyIdentifier: isUploaded
-    name: Is uploaded
-    description: Specifies if the file content has been uploaded to {{ organization }} Data Fusion
-      or not.
-  uploadedTime:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
-      type: container
-    containerPropertyIdentifier: uploadedTime
-    name: Uploaded time
-    description: The time the file upload completed.
   category:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}File
+      space: cdf_cdm
+      externalId: CogniteFile
       type: container
     containerPropertyIdentifier: category
     name: Category
     description: Specifies the detected category the file belongs to. It's a direct
-      relation to an instance of {{ organization }}FileCategory.
+      relation to an instance of CogniteFileCategory.
     source:
       space: {{ schema_space }}
       externalId: {{ organization }}FileCategory
@@ -82,8 +44,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Equipment
+        space: cdf_cdm
+        externalId: CogniteEquipment
         version: v1
         type: view
       identifier: files

@@ -1,14 +1,18 @@
 space: {{ schema_space }}
 externalId: {{ organization }}Visualizable
-description: {{ organization }}Visualizable defines the standard way to reference a related 3D
+description: CogniteVisualizable defines the standard way to reference a related 3D
   resource
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteVisualizable
+  version: v1
+  type: view
 version: v1
 properties:
   object3D:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Visualizable
+      space: cdf_cdm
+      externalId: CogniteVisualizable
       type: container
     containerPropertyIdentifier: object3D
     description: Direct relation to an Object3D instance representing the 3D resource

@@ -4,24 +4,16 @@ name: Asset
 description: Assets represent systems that support industrial functions or processes.
   Assets are often called 'functional location'.
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Visualizable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
+- space: cdf_cdm
+  externalId: CogniteAsset
   version: v1
   type: view
 version: v1
 properties:
   parent:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
+      space: cdf_cdm
+      externalId: CogniteAsset
       type: container
     containerPropertyIdentifier: assetHierarchy_parent
     name: Parent
@@ -33,8 +25,8 @@ properties:
       type: view
   root:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
+      space: cdf_cdm
+      externalId: CogniteAsset
       type: container
     containerPropertyIdentifier: assetHierarchy_root
     name: Root
@@ -47,8 +39,8 @@ properties:
       type: view
   path:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
+      space: cdf_cdm
+      externalId: CogniteAsset
       type: container
     containerPropertyIdentifier: assetHierarchy_path
     name: Path
@@ -60,22 +52,14 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
-  pathLastUpdatedTime:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
-      type: container
-    containerPropertyIdentifier: assetHierarchy_path_last_updated_time
-    name: Path last updated time
-    description: The last time the path was updated for this asset.
   assetClass:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
+      space: cdf_cdm
+      externalId: CogniteAsset
       type: container
     containerPropertyIdentifier: assetClass
     name: Asset class
-    description: Specifies the class of the asset. It's a direct relation to {{ organization }}AssetClass.
+    description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
     source:
       space: {{ schema_space }}
       externalId: {{ organization }}AssetClass
@@ -83,12 +67,12 @@ properties:
       type: view
   type:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Asset
+      space: cdf_cdm
+      externalId: CogniteAsset
       type: container
     containerPropertyIdentifier: type
     name: Asset type
-    description: Specifies the type of the asset. It's a direct relation to {{ organization }}AssetType.
+    description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
     source:
       space: {{ schema_space }}
       externalId: {{ organization }}AssetType
@@ -102,8 +86,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}File
+        space: cdf_cdm
+        externalId: CogniteFile
         version: v1
         type: view
       identifier: assets
@@ -118,8 +102,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Asset
+        space: cdf_cdm
+        externalId: CogniteAsset
         version: v1
         type: view
       identifier: parent
@@ -135,8 +119,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Equipment
+        space: cdf_cdm
+        externalId: CogniteEquipment
         version: v1
         type: view
       identifier: asset
@@ -151,8 +135,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Activity
+        space: cdf_cdm
+        externalId: CogniteActivity
         version: v1
         type: view
       identifier: assets
@@ -167,8 +151,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}TimeSeries
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
         version: v1
         type: view
       identifier: assets

@@ -5,25 +5,18 @@ filter:
   and:
   - hasData:
     - type: container
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DRevision
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
   - equals:
       property:
-      - {{ schema_space }}
-      - {{ organization }}3DModel
+      - cdf_cdm_3d
+      - Cognite3DModel
       - type
       value: CAD
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DRevision
+- space: cdf_cdm
+  externalId: CogniteCADRevision
   version: v1
   type: view
 version: v1
-properties:
-  revisionId:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CADRevision
-      type: container
-    containerPropertyIdentifier: revisionId
-    description: The 3D API revision identifier for this CAD model
+properties: {}

@@ -1,29 +1,22 @@
 space: {{ schema_space }}
 externalId: {{ organization }}PointCloudRevision
-description: Navigational aid for traversing {{ organization }}PointCloudRevision instances
+description: Navigational aid for traversing CognitePointCloudRevision instances
 filter:
   and:
   - hasData:
     - type: container
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DRevision
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
   - equals:
       property:
-      - {{ schema_space }}
-      - {{ organization }}3DModel
+      - cdf_cdm_3d
+      - Cognite3DModel
       - type
       value: PointCloud
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DRevision
+- space: cdf_cdm
+  externalId: CognitePointCloudRevision
   version: v1
   type: view
 version: v1
-properties:
-  revisionId:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}PointCloudRevision
-      type: container
-    containerPropertyIdentifier: revisionId
-    description: The 3D API revision identifier for this PointCloud model
+properties: {}

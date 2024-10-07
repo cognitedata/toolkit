@@ -2,37 +2,9 @@ space: {{ schema_space }}
 externalId: {{ organization }}Unit
 description: Represents a single unit of measurement
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
+- space: cdf_cdm
+  externalId: CogniteUnit
   version: v1
   type: view
 version: v1
-properties:
-  symbol:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Unit
-      type: container
-    containerPropertyIdentifier: symbol
-    description: The symbol for the unit of measurement
-  quantity:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Unit
-      type: container
-    containerPropertyIdentifier: quantity
-    description: Specifies the physical quantity the unit measures
-  source:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Unit
-      type: container
-    containerPropertyIdentifier: source
-    description: Source of the unit definition
-  sourceReference:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Unit
-      type: container
-    containerPropertyIdentifier: sourceReference
-    description: Reference to the source of the unit definition
+properties: {}

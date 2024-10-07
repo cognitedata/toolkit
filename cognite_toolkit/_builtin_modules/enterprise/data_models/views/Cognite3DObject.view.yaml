@@ -3,54 +3,12 @@ externalId: {{ organization }}3DObject
 description: This is the virtual position representation of an object in the physical
   world, connecting an asset to one or more 3D resources
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
+- space: cdf_cdm
+  externalId: Cognite3DObject
   version: v1
   type: view
 version: v1
 properties:
-  xMin:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: xMin
-    description: Lowest X value in bounding box
-  xMax:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: xMax
-    description: Highest X value in bounding box
-  yMin:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: yMin
-    description: Lowest Y value in bounding box
-  yMax:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: yMax
-    description: Highest Y value in bounding box
-  zMin:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: zMin
-    description: Lowest Z value in bounding box
-  zMax:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DObject
-      type: container
-    containerPropertyIdentifier: zMax
-    description: Highest Z value in bounding box
   asset:
     source:
       space: {{ schema_space }}
@@ -59,8 +17,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Asset
+        space: cdf_cdm
+        externalId: CogniteAsset
         version: v1
         type: view
       identifier: object3D
@@ -74,16 +32,16 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}CADNode
+        space: cdf_cdm
+        externalId: CogniteCADNode
         version: v1
         type: view
       identifier: object3D
-    description: List of up to 1000 CADNodes that represents the connected {{ organization }}Asset
+    description: List of up to 1000 CADNodes that represents the connected CogniteAsset
     connectionType: multi_reverse_direct_relation
   images360:
     type:
-      space: {{ schema_space }}
+      space: cdf_cdm
       externalId: image-360-annotation
     source:
       space: {{ schema_space }}
@@ -91,11 +49,11 @@ properties:
       version: v1
       type: view
     direction: outwards
-    description: Edge connection to {{ organization }}360Image annotations that represents the
-      connected {{ organization }}Asset
+    description: Edge connection to Cognite360Image annotations that represents the
+      connected CogniteAsset
     edgeSource:
-      space: {{ schema_space }}
-      externalId: {{ organization }}360ImageAnnotation
+      space: cdf_cdm
+      externalId: Cognite360ImageAnnotation
       version: v1
       type: view
     connectionType: multi_edge_connection
@@ -107,11 +65,11 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}PointCloudVolume
+        space: cdf_cdm
+        externalId: CognitePointCloudVolume
         version: v1
         type: view
       identifier: object3D
     description: List of up to 1000 PointCloudVolumes that represents the connected
-      {{ organization }}Asset
+      CogniteAsset
     connectionType: multi_reverse_direct_relation

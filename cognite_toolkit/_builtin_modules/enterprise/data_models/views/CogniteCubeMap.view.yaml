@@ -4,13 +4,17 @@ description: 'The cube map holds references to 6 images in used to visually repr
   the surrounding environment
 
   '
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteCubeMap
+  version: v1
+  type: view
 version: v1
 properties:
   front:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: front
     description: Direct relation to a file holding the front projection of the cube
@@ -22,8 +26,8 @@ properties:
       type: view
   back:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: back
     description: Direct relation to a file holding the back projection of the cube
@@ -35,8 +39,8 @@ properties:
       type: view
   left:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: left
     description: Direct relation to a file holding the left projection of the cube
@@ -48,8 +52,8 @@ properties:
       type: view
   right:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: right
     description: Direct relation to a file holding the right projection of the cube
@@ -61,8 +65,8 @@ properties:
       type: view
   top:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: top
     description: Direct relation to a file holding the top projection of the cube
@@ -74,8 +78,8 @@ properties:
       type: view
   bottom:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}CubeMap
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
       type: container
     containerPropertyIdentifier: bottom
     description: Direct relation to a file holding the bottom projection of the cube

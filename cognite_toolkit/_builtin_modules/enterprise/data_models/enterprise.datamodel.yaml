@@ -1,6 +1,6 @@
 space: {{ schema_space }}
-externalId: {{ organization }}Model
-name: {{ organization }} Enterprise Model
+externalId: {{ organization }}Enterprise
+name: {{ organization }} enterprise model
 description: {{ organization }} enterprise model
 version: v1
 views:

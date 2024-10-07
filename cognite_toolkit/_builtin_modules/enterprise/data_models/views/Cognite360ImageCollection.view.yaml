@@ -1,25 +1,22 @@
 space: {{ schema_space }}
 externalId: {{ organization }}360ImageCollection
-description: Represents a logical collection of {{ organization }}360Image instances
+description: Represents a logical collection of Cognite360Image instances
 filter:
   and:
   - hasData:
     - type: container
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DRevision
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
   - equals:
       property:
-      - {{ schema_space }}
-      - {{ organization }}3DModel
+      - cdf_cdm_3d
+      - Cognite3DModel
       - type
       value: Image360
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DRevision
+- space: cdf_cdm
+  externalId: Cognite360ImageCollection
   version: v1
   type: view
 version: v1
+properties: {}

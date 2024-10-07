@@ -6,25 +6,18 @@ filter:
   and:
   - hasData:
     - type: container
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DGroup
+      space: cdf_cdm_3d
+      externalId: Cognite3DGroup
   - equals:
       property:
-      - {{ schema_space }}
-      - {{ organization }}3DGroup
+      - cdf_cdm_3d
+      - Cognite3DGroup
       - groupType
       value: Station360
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
+- space: cdf_cdm
+  externalId: Cognite360ImageStation
   version: v1
   type: view
 version: v1
-properties:
-  groupType:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DGroup
-      type: container
-    containerPropertyIdentifier: groupType
-    description: Type of group
+properties: {}

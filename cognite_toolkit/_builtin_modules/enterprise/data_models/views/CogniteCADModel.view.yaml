@@ -1,25 +1,21 @@
 space: {{ schema_space }}
 externalId: {{ organization }}CADModel
-description: Navigational aid for traversing {{ organization }}CADModel instances
+description: Navigational aid for traversing CogniteCADModel instances
 filter:
   and:
   - hasData:
     - type: container
-      space: {{ schema_space }}
-      externalId: {{ organization }}3DModel
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
   - equals:
       property:
-      - {{ schema_space }}
-      - {{ organization }}3DModel
+      - cdf_cdm_3d
+      - Cognite3DModel
       - type
       value: CAD
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DModel
+- space: cdf_cdm
+  externalId: CogniteCADModel
   version: v1
   type: view
 version: v1
@@ -32,8 +28,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}3DRevision
+        space: cdf_cdm
+        externalId: Cognite3DRevision
         version: v1
         type: view
       identifier: model3D

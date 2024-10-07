@@ -3,44 +3,16 @@ externalId: {{ organization }}TimeSeries
 name: Time series
 description: Represents a series of data points in time order."
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
+- space: cdf_cdm
+  externalId: CogniteTimeSeries
   version: v1
   type: view
 version: v1
 properties:
-  isStep:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
-      type: container
-    containerPropertyIdentifier: isStep
-    name: Is step
-    description: Specifies whether the time series is a step time series or not.
-  type:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
-      type: container
-    containerPropertyIdentifier: type
-    name: Type
-    description: Specifies the data type of the data points.
-  sourceUnit:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
-      type: container
-    containerPropertyIdentifier: sourceUnit
-    name: Source unit
-    description: The unit specified in the source system.
   unit:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
       type: container
     containerPropertyIdentifier: unit
     name: Unit
@@ -52,8 +24,8 @@ properties:
       type: view
   assets:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
       type: container
     containerPropertyIdentifier: assets
     name: Assets
@@ -65,8 +37,8 @@ properties:
       type: view
   equipment:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}TimeSeries
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
       type: container
     containerPropertyIdentifier: equipment
     name: Equipment
@@ -84,8 +56,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Activity
+        space: cdf_cdm
+        externalId: CogniteActivity
         version: v1
         type: view
       identifier: timeSeries

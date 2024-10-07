@@ -3,20 +3,16 @@ externalId: {{ organization }}Equipment
 name: Equipment
 description: Equipment represents physical supplies or devices.
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
+- space: cdf_cdm
+  externalId: CogniteEquipment
   version: v1
   type: view
 version: v1
 properties:
   asset:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Equipment
+      space: cdf_cdm
+      externalId: CogniteEquipment
       type: container
     containerPropertyIdentifier: asset
     name: Asset
@@ -26,30 +22,14 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
-  serialNumber:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Equipment
-      type: container
-    containerPropertyIdentifier: serialNumber
-    name: Serial number
-    description: The serial number of the equipment.
-  manufacturer:
-    container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Equipment
-      type: container
-    containerPropertyIdentifier: manufacturer
-    name: Manufacturer
-    description: The manufacturer of the equipment.
   equipmentType:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Equipment
+      space: cdf_cdm
+      externalId: CogniteEquipment
       type: container
     containerPropertyIdentifier: equipmentType
     name: Equipment type
-    description: Specifies the type of the equipment. It's a direct relation to {{ organization }}EquipmentType.
+    description: Specifies the type of the equipment. It's a direct relation to CogniteEquipmentType.
     source:
       space: {{ schema_space }}
       externalId: {{ organization }}EquipmentType
@@ -57,8 +37,8 @@ properties:
       type: view
   files:
     container:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Equipment
+      space: cdf_cdm
+      externalId: CogniteEquipment
       type: container
     containerPropertyIdentifier: files
     name: Files
@@ -76,8 +56,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}Activity
+        space: cdf_cdm
+        externalId: CogniteActivity
         version: v1
         type: view
       identifier: equipment
@@ -92,8 +72,8 @@ properties:
       type: view
     through:
       source:
-        space: {{ schema_space }}
-        externalId: {{ organization }}TimeSeries
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
         version: v1
         type: view
       identifier: equipment
