@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - Support for `$FILENAME` expansion pattern for `CogniteFile` in the `files` folder.
+- The `cdf repo init` command now creates a `GitHub` workflow for the Toolkit.
 
 ## [0.3.0b5] - 2024-10-03
 
