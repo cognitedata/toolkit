@@ -2,6 +2,10 @@ space: {{ schema_space }}
 externalId: {{ organization }}DiagramAnnotation
 description: Annotation for diagrams
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CogniteDiagramAnnotation
   version: v1

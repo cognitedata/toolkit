@@ -14,6 +14,10 @@ filter:
       - type
       value: PointCloud
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DRevision
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CognitePointCloudRevision
   version: v1

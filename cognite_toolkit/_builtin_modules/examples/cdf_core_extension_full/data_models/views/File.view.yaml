@@ -3,6 +3,10 @@ externalId: {{ organization }}File
 name: File
 description: Represents files.
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CogniteFile
   version: v1

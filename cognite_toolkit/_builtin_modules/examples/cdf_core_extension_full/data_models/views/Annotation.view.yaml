@@ -2,6 +2,10 @@ space: {{ schema_space }}
 externalId: {{ organization }}Annotation
 description: Annotation represents contextualization results or links
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CogniteAnnotation
   version: v1

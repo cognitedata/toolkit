@@ -3,6 +3,10 @@ externalId: {{ organization }}TimeSeries
 name: Time series
 description: Represents a series of data points in time order."
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CogniteTimeSeries
   version: v1

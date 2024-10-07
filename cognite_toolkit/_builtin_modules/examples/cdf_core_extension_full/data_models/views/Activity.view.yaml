@@ -4,6 +4,10 @@ name: Activity
 description: Represents activities. Activities typically happen over a period and
   have a start and end time.
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: CogniteActivity
   version: v1

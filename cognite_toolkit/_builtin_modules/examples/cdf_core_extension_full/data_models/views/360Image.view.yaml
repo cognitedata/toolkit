@@ -2,6 +2,10 @@ space: {{ schema_space }}
 externalId: {{ organization }}360Image
 description: ''
 implements:
+- space: {{ schema_space }}
+  externalId: {{ organization }}CubeMap
+  version: v1
+  type: view
 - space: cdf_cdm
   externalId: Cognite360Image
   version: v1
