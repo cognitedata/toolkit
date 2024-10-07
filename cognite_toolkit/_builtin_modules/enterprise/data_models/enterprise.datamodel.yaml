@@ -25,70 +25,6 @@ views:
   version: v1
   type: view
 - space: {{ schema_space }}
-  externalId: {{ organization }}3DTransformation
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}CubeMap
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DObject
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DModel
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}CADModel
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}3DRevision
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}PointCloudModel
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}360ImageModel
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}CADRevision
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}PointCloudRevision
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}360ImageCollection
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}CADNode
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}PointCloudVolume
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}360Image
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}360ImageStation
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}360ImageAnnotation
-  version: v1
-  type: view
-- space: {{ schema_space }}
   externalId: {{ organization }}Asset
   version: v1
   type: view
@@ -125,14 +61,14 @@ views:
   version: v1
   type: view
 - space: {{ schema_space }}
+  externalId: {{ organization }}Unit
+  version: v1
+  type: view
+- space: {{ schema_space }}
   externalId: {{ organization }}Annotation
   version: v1
   type: view
 - space: {{ schema_space }}
   externalId: {{ organization }}DiagramAnnotation
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Unit
   version: v1
   type: view
