@@ -54,6 +54,8 @@ class RepoCommand(ToolkitCommand):
             self.console("Initializing toolkit repository...")
 
         for file in self._repo_files.rglob("*"):
+            if file.is_dir():
+                continue
             destination = cwd / file.relative_to(self._repo_files)
             if destination.exists():
                 self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
