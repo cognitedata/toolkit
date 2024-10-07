@@ -67,7 +67,7 @@ class RepoCommand(ToolkitCommand):
 
         iterables = [self._repo_files.glob("*")]
         if repo_host == "GitHub":
-            iterables.append(self._repo_files.rglob(f"{repo_host}/*"))
+            iterables.append(self._repo_files.rglob(f"{repo_host}/**/*.yaml"))
 
         for file in itertools.chain(*iterables):
             if file.is_dir():
