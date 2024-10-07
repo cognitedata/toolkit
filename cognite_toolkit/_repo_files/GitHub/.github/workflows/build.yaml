@@ -23,5 +23,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the modules
         run: cdf build
-      - name: Dry Run the templates
+      - name: Dry Run the modules deployment
         run: cdf deploy --dry-run

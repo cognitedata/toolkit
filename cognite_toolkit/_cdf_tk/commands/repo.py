@@ -1,3 +1,4 @@
+import itertools
 import shutil
 from importlib import resources
 from pathlib import Path
@@ -50,19 +51,6 @@ class RepoCommand(ToolkitCommand):
                     MediumSeverityWarning("git is not installed. It is strongly recommended to use version control.")
                 )
 
-        if verbose:
-            self.console("Initializing toolkit repository...")
-
-        for file in self._repo_files.rglob("*"):
-            if file.is_dir():
-                continue
-            destination = cwd / file.relative_to(self._repo_files)
-            if destination.exists():
-                self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
-                continue
-            shutil.copy(file, destination)
-            if verbose:
-                self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
         if host is None:
             repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
         else:
@@ -73,4 +61,23 @@ class RepoCommand(ToolkitCommand):
             self.console("No template for CI/CD available for other hosting services yet.")
         elif repo_host == "None":
             self.console("It is recommended to host your repository on a platform like GitHub.")
+
+        if verbose:
+            self.console("Initializing toolkit repository...")
+
+        iterables = [self._repo_files.glob("*")]
+        if repo_host == "GitHub":
+            iterables.append(self._repo_files.rglob("github/*"))
+
+        for file in itertools.chain(*iterables):
+            if file.is_dir():
+                continue
+            destination = cwd / file.relative_to(self._repo_files)
+            if destination.exists():
+                self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
+                continue
+            shutil.copy(file, destination)
+            if verbose:
+                self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
+
         self.console("Repo initialization complete.")
