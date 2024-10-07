@@ -159,3 +159,10 @@ properties:
     name: Time series
     description: An automatically updated list of time series related to the asset.
     connectionType: multi_reverse_direct_relation
+  object3D:
+    container:
+      space: cdf_cdm
+      externalId: CogniteVisualizable
+      type: container
+    containerPropertyIdentifier: object3D
+    source: None
