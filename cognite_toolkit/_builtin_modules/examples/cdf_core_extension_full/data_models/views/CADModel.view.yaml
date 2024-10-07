@@ -35,3 +35,15 @@ properties:
       identifier: model3D
     description: List of revisions for this CAD model
     connectionType: multi_reverse_direct_relation
+  thumbnail:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+      type: container
+    containerPropertyIdentifier: thumbnail
+    description: Thumbnail of the 3D model
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view

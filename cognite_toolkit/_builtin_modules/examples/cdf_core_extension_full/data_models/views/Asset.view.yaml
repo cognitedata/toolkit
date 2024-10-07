@@ -4,14 +4,6 @@ name: Asset
 description: Assets represent systems that support industrial functions or processes.
   Assets are often called 'functional location'.
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Visualizable
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
-  version: v1
-  type: view
 - space: cdf_cdm
   externalId: CogniteAsset
   version: v1
@@ -167,3 +159,27 @@ properties:
     name: Time series
     description: An automatically updated list of time series related to the asset.
     connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  object3D:
+    container:
+      space: cdf_cdm
+      externalId: CogniteVisualizable
+      type: container
+    containerPropertyIdentifier: object3D
+    description: Direct relation to an Object3D instance representing the 3D resource
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DObject
+      version: v1
+      type: view

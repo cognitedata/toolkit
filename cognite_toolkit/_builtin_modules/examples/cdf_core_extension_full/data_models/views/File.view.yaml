@@ -3,10 +3,6 @@ externalId: {{ organization }}File
 name: File
 description: Represents files.
 implements:
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
-  version: v1
-  type: view
 - space: cdf_cdm
   externalId: CogniteFile
   version: v1
@@ -56,3 +52,15 @@ properties:
     name: Equipment
     description: An automatically updated list of equipment this file is related to.
     connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
