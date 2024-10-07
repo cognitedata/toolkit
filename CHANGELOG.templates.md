@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+## Added
+
+- CogniteCore full and minimum extension templates in `quickstart` and `example` packages..
+
 ## [0.3.0b5] - 2024-10-03
 
 No changes to templates.
