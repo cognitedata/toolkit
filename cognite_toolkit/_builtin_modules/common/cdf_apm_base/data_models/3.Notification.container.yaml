@@ -1,0 +1,63 @@
+externalId: APM_Notification
+usedFor: node
+space: {{apm_datamodel_space}}
+properties:
+  sourceId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  title:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  description:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  source:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  assetExternalId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  rootLocationExternalId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  status:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  priority:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    nullable: true
+  createdDate:
+    type:
+      type: timestamp
+      list: false
+    nullable: true
