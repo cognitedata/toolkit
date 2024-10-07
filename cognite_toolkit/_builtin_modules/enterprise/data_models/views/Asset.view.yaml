@@ -178,4 +178,4 @@ properties:
       type: container
     containerPropertyIdentifier: object3D
     description: This is not used, overwritten to point to nothing to avoid including 3D.
-    source: None
+    # Note that source is not included.
