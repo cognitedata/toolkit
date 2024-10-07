@@ -80,3 +80,15 @@ properties:
     name: Time series
     description: An automatically updated list of time series related to the equipment.
     connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
