@@ -112,14 +112,14 @@ class DumpCommand(ToolkitCommand):
 
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
 
-    def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig) -> DataModelId:
-        spaces = ToolGlobals.toolkit_client.data_modeling.spaces.list(limit=-1)
+    def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig, include_global: bool = False) -> DataModelId:
+        spaces = ToolGlobals.toolkit_client.data_modeling.spaces.list(limit=-1, include_global=include_global)
         selected_space: str = questionary.select(
             "In which space is your data model located?", [space.space for space in spaces]
         ).ask()
 
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
-            space=selected_space, all_versions=False, limit=-1
+            space=selected_space, all_versions=False, limit=-1, include_global=include_global
         ).as_ids()
 
         if not data_models:
@@ -130,7 +130,10 @@ class DumpCommand(ToolkitCommand):
         ).ask()
 
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
-            space=selected_space, all_versions=True, limit=-1
+            space=selected_space,
+            all_versions=True,
+            limit=-1,
+            include_global=include_global,
         ).as_ids()
         data_model_versions = [
             model.version
