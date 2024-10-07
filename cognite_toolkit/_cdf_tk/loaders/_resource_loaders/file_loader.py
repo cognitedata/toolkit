@@ -61,7 +61,6 @@ from .datamodel_loaders import SpaceLoader, ViewLoader
 class FileMetadataLoader(
     ResourceContainerLoader[str, FileMetadataWrite, FileMetadata, FileMetadataWriteList, FileMetadataList]
 ):
-    template_pattern = "$FILENAME"
     item_name = "file contents"
     folder_name = "files"
     filename_pattern = (
