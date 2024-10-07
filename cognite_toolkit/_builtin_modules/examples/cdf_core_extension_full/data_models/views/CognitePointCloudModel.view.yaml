@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: CognitePointCloudModel
+space: sp_my_schema
+externalId: MyOrganizationPointCloudModel
 description: Navigational aid for traversing CognitePointCloudModel instances
 filter:
   and:
@@ -15,19 +15,15 @@ filter:
       value: PointCloud
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: Cognite3DModel
+  externalId: CognitePointCloudModel
   version: v1
   type: view
 version: v1
 properties:
   revisions:
     source:
-      space: cdf_cdm
-      externalId: CognitePointCloudRevision
+      space: sp_my_schema
+      externalId: MyOrganizationPointCloudRevision
       version: v1
       type: view
     through:

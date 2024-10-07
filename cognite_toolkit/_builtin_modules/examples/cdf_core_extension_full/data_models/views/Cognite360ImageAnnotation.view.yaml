@@ -1,32 +1,10 @@
-space: cdf_cdm
-externalId: Cognite360ImageAnnotation
+space: sp_my_schema
+externalId: MyOrganization360ImageAnnotation
 description: ''
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteAnnotation
+  externalId: Cognite360ImageAnnotation
   version: v1
   type: view
 version: v1
-properties:
-  polygon:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite360ImageAnnotation
-      type: container
-    containerPropertyIdentifier: polygon
-    description: List of floats representing the polygon. Format depends on formatVersion
-  formatVersion:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite360ImageAnnotation
-      type: container
-    containerPropertyIdentifier: formatVersion
-    description: Specifies the storage representation for the polygon
+properties: {}

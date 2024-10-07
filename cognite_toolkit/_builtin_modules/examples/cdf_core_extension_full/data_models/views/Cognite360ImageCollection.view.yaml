@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: Cognite360ImageCollection
+space: sp_my_schema
+externalId: MyOrganization360ImageCollection
 description: Represents a logical collection of Cognite360Image instances
 filter:
   and:
@@ -15,11 +15,8 @@ filter:
       value: Image360
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: Cognite3DRevision
+  externalId: Cognite360ImageCollection
   version: v1
   type: view
 version: v1
+properties: {}

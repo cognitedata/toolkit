@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: Cognite360ImageStation
+space: sp_my_schema
+externalId: MyOrganization360ImageStation
 description: A way to group images across collections. Used for creating visual scan
   history
 filter:
@@ -16,15 +16,8 @@ filter:
       value: Station360
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
+  externalId: Cognite360ImageStation
   version: v1
   type: view
 version: v1
-properties:
-  groupType:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DGroup
-      type: container
-    containerPropertyIdentifier: groupType
-    description: Type of group
+properties: {}

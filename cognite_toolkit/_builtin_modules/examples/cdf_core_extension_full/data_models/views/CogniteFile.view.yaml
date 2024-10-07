@@ -1,14 +1,10 @@
-space: cdf_cdm
-externalId: CogniteFile
+space: sp_my_schema
+externalId: MyOrganizationFile
 name: File
 description: Represents files.
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
+  externalId: CogniteFile
   version: v1
   type: view
 version: v1
@@ -22,44 +18,10 @@ properties:
     name: Assets
     description: A list of assets this file is related to.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
-  mimeType:
-    container:
-      space: cdf_cdm
-      externalId: CogniteFile
-      type: container
-    containerPropertyIdentifier: mimeType
-    name: MIME type
-    description: The MIME type of the file.
-  directory:
-    container:
-      space: cdf_cdm
-      externalId: CogniteFile
-      type: container
-    containerPropertyIdentifier: directory
-    name: Directory
-    description: Contains the path elements from the source (if the source system
-      has a file system hierarchy or similar.)
-  isUploaded:
-    container:
-      space: cdf_cdm
-      externalId: CogniteFile
-      type: container
-    containerPropertyIdentifier: isUploaded
-    name: Is uploaded
-    description: Specifies if the file content has been uploaded to Cognite Data Fusion
-      or not.
-  uploadedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteFile
-      type: container
-    containerPropertyIdentifier: uploadedTime
-    name: Uploaded time
-    description: The time the file upload completed.
   category:
     container:
       space: cdf_cdm
@@ -70,14 +32,14 @@ properties:
     description: Specifies the detected category the file belongs to. It's a direct
       relation to an instance of CogniteFileCategory.
     source:
-      space: cdf_cdm
-      externalId: CogniteFileCategory
+      space: sp_my_schema
+      externalId: MyOrganizationFileCategory
       version: v1
       type: view
   equipment:
     source:
-      space: cdf_cdm
-      externalId: CogniteEquipment
+      space: sp_my_schema
+      externalId: MyOrganizationEquipment
       version: v1
       type: view
     through:

@@ -1,19 +1,11 @@
-space: cdf_cdm
-externalId: CogniteAsset
+space: sp_my_schema
+externalId: MyOrganizationAsset
 name: Asset
 description: Assets represent systems that support industrial functions or processes.
   Assets are often called 'functional location'.
 implements:
 - space: cdf_cdm
-  externalId: CogniteVisualizable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
+  externalId: CogniteAsset
   version: v1
   type: view
 version: v1
@@ -27,8 +19,8 @@ properties:
     name: Parent
     description: The parent of the asset.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
   root:
@@ -41,8 +33,8 @@ properties:
     description: An automatically updated reference to the top-level asset of the
       hierarchy.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
   path:
@@ -56,18 +48,10 @@ properties:
       starting with the root asset. Enables subtree filtering to find all assets under
       a parent.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
-  pathLastUpdatedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteAsset
-      type: container
-    containerPropertyIdentifier: assetHierarchy_path_last_updated_time
-    name: Path last updated time
-    description: The last time the path was updated for this asset.
   assetClass:
     container:
       space: cdf_cdm
@@ -77,8 +61,8 @@ properties:
     name: Asset class
     description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
     source:
-      space: cdf_cdm
-      externalId: CogniteAssetClass
+      space: sp_my_schema
+      externalId: MyOrganizationAssetClass
       version: v1
       type: view
   type:
@@ -90,14 +74,14 @@ properties:
     name: Asset type
     description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
     source:
-      space: cdf_cdm
-      externalId: CogniteAssetType
+      space: sp_my_schema
+      externalId: MyOrganizationAssetType
       version: v1
       type: view
   files:
     source:
-      space: cdf_cdm
-      externalId: CogniteFile
+      space: sp_my_schema
+      externalId: MyOrganizationFile
       version: v1
       type: view
     through:
@@ -112,8 +96,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   children:
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
     through:
@@ -129,8 +113,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   equipment:
     source:
-      space: cdf_cdm
-      externalId: CogniteEquipment
+      space: sp_my_schema
+      externalId: MyOrganizationEquipment
       version: v1
       type: view
     through:
@@ -145,8 +129,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   activities:
     source:
-      space: cdf_cdm
-      externalId: CogniteActivity
+      space: sp_my_schema
+      externalId: MyOrganizationActivity
       version: v1
       type: view
     through:
@@ -161,8 +145,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   timeSeries:
     source:
-      space: cdf_cdm
-      externalId: CogniteTimeSeries
+      space: sp_my_schema
+      externalId: MyOrganizationTimeSeries
       version: v1
       type: view
     through:

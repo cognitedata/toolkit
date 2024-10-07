@@ -1,28 +1,10 @@
-space: cdf_cdm
-externalId: CogniteAnnotation
+space: sp_my_schema
+externalId: MyOrganizationAnnotation
 description: Annotation represents contextualization results or links
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
+  externalId: CogniteAnnotation
   version: v1
   type: view
 version: v1
-properties:
-  confidence:
-    container:
-      space: cdf_cdm
-      externalId: CogniteAnnotation
-      type: container
-    containerPropertyIdentifier: confidence
-    description: The confidence that the annotation is a good match
-  status:
-    container:
-      space: cdf_cdm
-      externalId: CogniteAnnotation
-      type: container
-    containerPropertyIdentifier: status
-    description: The status of the annotation
+properties: {}

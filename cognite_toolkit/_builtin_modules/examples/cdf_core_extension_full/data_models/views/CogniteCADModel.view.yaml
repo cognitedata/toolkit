@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: CogniteCADModel
+space: sp_my_schema
+externalId: MyOrganizationCADModel
 description: Navigational aid for traversing CogniteCADModel instances
 filter:
   and:
@@ -15,19 +15,15 @@ filter:
       value: CAD
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: Cognite3DModel
+  externalId: CogniteCADModel
   version: v1
   type: view
 version: v1
 properties:
   revisions:
     source:
-      space: cdf_cdm
-      externalId: CogniteCADRevision
+      space: sp_my_schema
+      externalId: MyOrganizationCADRevision
       version: v1
       type: view
     through:

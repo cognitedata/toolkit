@@ -1,19 +1,11 @@
-space: cdf_cdm
-externalId: CogniteActivity
+space: sp_my_schema
+externalId: MyOrganizationActivity
 name: Activity
 description: Represents activities. Activities typically happen over a period and
   have a start and end time.
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSchedulable
+  externalId: CogniteActivity
   version: v1
   type: view
 version: v1
@@ -27,8 +19,8 @@ properties:
     name: Assets
     description: A list of assets the activity is related to.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
   equipment:
@@ -40,8 +32,8 @@ properties:
     name: Equipment
     description: A list of equipment the activity is related to.
     source:
-      space: cdf_cdm
-      externalId: CogniteEquipment
+      space: sp_my_schema
+      externalId: MyOrganizationEquipment
       version: v1
       type: view
   timeSeries:
@@ -53,7 +45,7 @@ properties:
     name: Time series
     description: A list of time series the activity is related to.
     source:
-      space: cdf_cdm
-      externalId: CogniteTimeSeries
+      space: sp_my_schema
+      externalId: MyOrganizationTimeSeries
       version: v1
       type: view

@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: CognitePointCloudRevision
+space: sp_my_schema
+externalId: MyOrganizationPointCloudRevision
 description: Navigational aid for traversing CognitePointCloudRevision instances
 filter:
   and:
@@ -15,15 +15,8 @@ filter:
       value: PointCloud
 implements:
 - space: cdf_cdm
-  externalId: Cognite3DRevision
+  externalId: CognitePointCloudRevision
   version: v1
   type: view
 version: v1
-properties:
-  revisionId:
-    container:
-      space: cdf_cdm_3d
-      externalId: CognitePointCloudRevision
-      type: container
-    containerPropertyIdentifier: revisionId
-    description: The 3D API revision identifier for this PointCloud model
+properties: {}

@@ -1,60 +1,18 @@
-space: cdf_cdm
-externalId: Cognite3DObject
+space: sp_my_schema
+externalId: MyOrganization3DObject
 description: This is the virtual position representation of an object in the physical
   world, connecting an asset to one or more 3D resources
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
+  externalId: Cognite3DObject
   version: v1
   type: view
 version: v1
 properties:
-  xMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: xMin
-    description: Lowest X value in bounding box
-  xMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: xMax
-    description: Highest X value in bounding box
-  yMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: yMin
-    description: Lowest Y value in bounding box
-  yMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: yMax
-    description: Highest Y value in bounding box
-  zMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: zMin
-    description: Lowest Z value in bounding box
-  zMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: zMax
-    description: Highest Z value in bounding box
   asset:
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
     through:
@@ -68,8 +26,8 @@ properties:
     connectionType: single_reverse_direct_relation
   cadNodes:
     source:
-      space: cdf_cdm
-      externalId: CogniteCADNode
+      space: sp_my_schema
+      externalId: MyOrganizationCADNode
       version: v1
       type: view
     through:
@@ -86,8 +44,8 @@ properties:
       space: cdf_cdm
       externalId: image-360-annotation
     source:
-      space: cdf_cdm
-      externalId: Cognite360Image
+      space: sp_my_schema
+      externalId: MyOrganization360Image
       version: v1
       type: view
     direction: outwards
@@ -101,8 +59,8 @@ properties:
     connectionType: multi_edge_connection
   pointCloudVolumes:
     source:
-      space: cdf_cdm
-      externalId: CognitePointCloudVolume
+      space: sp_my_schema
+      externalId: MyOrganizationPointCloudVolume
       version: v1
       type: view
     through:

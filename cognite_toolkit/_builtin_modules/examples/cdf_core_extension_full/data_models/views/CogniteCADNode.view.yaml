@@ -1,9 +1,9 @@
-space: cdf_cdm
-externalId: CogniteCADNode
+space: sp_my_schema
+externalId: MyOrganizationCADNode
 description: Represents nodes from the 3D model that have been contextualized
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
+  externalId: CogniteCADNode
   version: v1
   type: view
 version: v1
@@ -16,8 +16,8 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to object3D grouping for this node
     source:
-      space: cdf_cdm
-      externalId: Cognite3DObject
+      space: sp_my_schema
+      externalId: MyOrganization3DObject
       version: v1
       type: view
   model3D:
@@ -28,17 +28,10 @@ properties:
     containerPropertyIdentifier: model3D
     description: Direct relation to Cognite3DModel
     source:
-      space: cdf_cdm
-      externalId: CogniteCADModel
+      space: sp_my_schema
+      externalId: MyOrganizationCADModel
       version: v1
       type: view
-  cadNodeReference:
-    container:
-      space: cdf_cdm_3d
-      externalId: CogniteCADNode
-      type: container
-    containerPropertyIdentifier: cadNodeReference
-    description: Reference to a node within a CAD model from the 3D API
   revisions:
     container:
       space: cdf_cdm_3d
@@ -48,28 +41,7 @@ properties:
     description: List of direct relations to instances of Cognite3DRevision which
       this CogniteCADNode exists in.
     source:
-      space: cdf_cdm
-      externalId: CogniteCADRevision
+      space: sp_my_schema
+      externalId: MyOrganizationCADRevision
       version: v1
       type: view
-  treeIndexes:
-    container:
-      space: cdf_cdm_3d
-      externalId: CogniteCADNode
-      type: container
-    containerPropertyIdentifier: treeIndexes
-    description: 'List of tree indexes in the same order as revisions. Used by Reveal
-      and similar applications to map from CogniteCADNode to tree index
-
-      '
-  subTreeSizes:
-    container:
-      space: cdf_cdm_3d
-      externalId: CogniteCADNode
-      type: container
-    containerPropertyIdentifier: subTreeSizes
-    description: 'List of subtree sizes in the same order as revisions. Used by Reveal
-      and similar applications to know how many nodes exists below this node in the
-      hierarchy
-
-      '

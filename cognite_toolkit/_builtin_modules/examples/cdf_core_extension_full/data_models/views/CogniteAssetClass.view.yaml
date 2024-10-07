@@ -1,27 +1,11 @@
-space: cdf_cdm
-externalId: CogniteAssetClass
+space: sp_my_schema
+externalId: MyOrganizationAssetClass
 name: Asset class
 description: Represents the class of an asset.
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
+  externalId: CogniteAssetClass
   version: v1
   type: view
 version: v1
-properties:
-  code:
-    container:
-      space: cdf_cdm
-      externalId: CogniteAssetClass
-      type: container
-    containerPropertyIdentifier: code
-    name: Code
-    description: A unique identifier for the class of asset.
-  standard:
-    container:
-      space: cdf_cdm
-      externalId: CogniteAssetClass
-      type: container
-    containerPropertyIdentifier: standard
-    name: Standard
-    description: A text string to specify which standard the class is from.
+properties: {}

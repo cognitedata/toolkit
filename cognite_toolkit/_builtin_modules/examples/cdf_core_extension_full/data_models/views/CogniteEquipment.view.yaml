@@ -1,14 +1,10 @@
-space: cdf_cdm
-externalId: CogniteEquipment
+space: sp_my_schema
+externalId: MyOrganizationEquipment
 name: Equipment
 description: Equipment represents physical supplies or devices.
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
+  externalId: CogniteEquipment
   version: v1
   type: view
 version: v1
@@ -22,26 +18,10 @@ properties:
     name: Asset
     description: The asset the equipment is related to.
     source:
-      space: cdf_cdm
-      externalId: CogniteAsset
+      space: sp_my_schema
+      externalId: MyOrganizationAsset
       version: v1
       type: view
-  serialNumber:
-    container:
-      space: cdf_cdm
-      externalId: CogniteEquipment
-      type: container
-    containerPropertyIdentifier: serialNumber
-    name: Serial number
-    description: The serial number of the equipment.
-  manufacturer:
-    container:
-      space: cdf_cdm
-      externalId: CogniteEquipment
-      type: container
-    containerPropertyIdentifier: manufacturer
-    name: Manufacturer
-    description: The manufacturer of the equipment.
   equipmentType:
     container:
       space: cdf_cdm
@@ -51,8 +31,8 @@ properties:
     name: Equipment type
     description: Specifies the type of the equipment. It's a direct relation to CogniteEquipmentType.
     source:
-      space: cdf_cdm
-      externalId: CogniteEquipmentType
+      space: sp_my_schema
+      externalId: MyOrganizationEquipmentType
       version: v1
       type: view
   files:
@@ -64,14 +44,14 @@ properties:
     name: Files
     description: A list of files the equipment relates to.
     source:
-      space: cdf_cdm
-      externalId: CogniteFile
+      space: sp_my_schema
+      externalId: MyOrganizationFile
       version: v1
       type: view
   activities:
     source:
-      space: cdf_cdm
-      externalId: CogniteActivity
+      space: sp_my_schema
+      externalId: MyOrganizationActivity
       version: v1
       type: view
     through:
@@ -86,8 +66,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   timeSeries:
     source:
-      space: cdf_cdm
-      externalId: CogniteTimeSeries
+      space: sp_my_schema
+      externalId: MyOrganizationTimeSeries
       version: v1
       type: view
     through:

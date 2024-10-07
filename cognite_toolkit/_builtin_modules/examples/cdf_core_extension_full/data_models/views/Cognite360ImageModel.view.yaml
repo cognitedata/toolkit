@@ -1,5 +1,5 @@
-space: cdf_cdm
-externalId: Cognite360ImageModel
+space: sp_my_schema
+externalId: MyOrganization360ImageModel
 description: Navigational aid for traversing Cognite360ImageModel instances
 filter:
   and:
@@ -15,19 +15,15 @@ filter:
       value: Image360
 implements:
 - space: cdf_cdm
-  externalId: CogniteDescribable
-  version: v1
-  type: view
-- space: cdf_cdm
-  externalId: Cognite3DModel
+  externalId: Cognite360ImageModel
   version: v1
   type: view
 version: v1
 properties:
   collections:
     source:
-      space: cdf_cdm
-      externalId: Cognite360ImageCollection
+      space: sp_my_schema
+      externalId: MyOrganization360ImageCollection
       version: v1
       type: view
     through:

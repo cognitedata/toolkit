@@ -1,8 +1,12 @@
-space: cdf_cdm
-externalId: CogniteVisualizable
+space: sp_my_schema
+externalId: MyOrganizationVisualizable
 description: CogniteVisualizable defines the standard way to reference a related 3D
   resource
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteVisualizable
+  version: v1
+  type: view
 version: v1
 properties:
   object3D:
@@ -13,7 +17,7 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to an Object3D instance representing the 3D resource
     source:
-      space: cdf_cdm
-      externalId: Cognite3DObject
+      space: sp_my_schema
+      externalId: MyOrganization3DObject
       version: v1
       type: view
