@@ -47,7 +47,6 @@
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
         "--override-env",
         "modules",
         "init",

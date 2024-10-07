@@ -16,12 +16,22 @@ class ModuleToml:
     filename: ClassVar[str] = "module.toml"
     title: str | None
     tags: frozenset[str] = field(default_factory=frozenset)
+    dependencies: frozenset[str] = field(default_factory=frozenset)
+    default_selected: bool = False
 
     @classmethod
     def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
         if isinstance(data, Path):
             return cls.load(toml.loads(data.read_text()))
+
+        if "dependencies" in data:
+            dependencies = frozenset(data["dependencies"].get("modules", set()))
+        else:
+            dependencies = frozenset()
+
         return cls(
             title=data["module"].get("title"),
             tags=frozenset(data["packages"].get("tags", set())),
+            dependencies=dependencies,
+            default_selected=data["module"].get("default_selected", False),
         )

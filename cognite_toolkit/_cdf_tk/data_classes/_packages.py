@@ -79,11 +79,13 @@ class Packages(dict, MutableMapping[str, Package]):
         for module in module_directories:
             if module.definition is None:
                 continue
+
             for tag in module.definition.tags:
                 if tag in collected:
                     collected[tag].modules.append(module)
                 else:
                     raise ToolkitValueError(f"Module {module.name} has an unknown tag {tag}")
+
         return cls(collected)
 
     # The methods are overloads to provide type hints for the methods.

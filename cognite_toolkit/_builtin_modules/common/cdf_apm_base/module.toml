@@ -1,9 +1,10 @@
 [module]
-title = "InField Second Location"
+title = "APM Base"
 default_selected = false
 
 [packages]
 tags = [
     "infield",
-    "quickstart"
+    "quickstart",
+    "inrobot",
 ]
