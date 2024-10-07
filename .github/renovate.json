@@ -14,5 +14,5 @@
     ]
   }
 ],
-  "ignorePaths": ["cognite_toolkit/", "tests/"]
+  "ignorePaths": ["cognite_toolkit/", "tests/", "Dockerfile", ".devcontainer/"]
 }
