@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationPointCloudRevision
+space: {{ schema_space }}
+externalId: {{ organization }}PointCloudRevision
 description: Navigational aid for traversing CognitePointCloudRevision instances
 filter:
   and:

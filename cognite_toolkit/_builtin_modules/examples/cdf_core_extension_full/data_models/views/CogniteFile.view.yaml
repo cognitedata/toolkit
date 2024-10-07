@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationFile
+space: {{ schema_space }}
+externalId: {{ organization }}File
 name: File
 description: Represents files.
 implements:
@@ -18,8 +18,8 @@ properties:
     name: Assets
     description: A list of assets this file is related to.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
   category:
@@ -32,14 +32,14 @@ properties:
     description: Specifies the detected category the file belongs to. It's a direct
       relation to an instance of CogniteFileCategory.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFileCategory
+      space: {{ schema_space }}
+      externalId: {{ organization }}FileCategory
       version: v1
       type: view
   equipment:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationEquipment
+      space: {{ schema_space }}
+      externalId: {{ organization }}Equipment
       version: v1
       type: view
     through:

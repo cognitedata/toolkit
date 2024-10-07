@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationCADModel
+space: {{ schema_space }}
+externalId: {{ organization }}CADModel
 description: Navigational aid for traversing CogniteCADModel instances
 filter:
   and:
@@ -22,8 +22,8 @@ version: v1
 properties:
   revisions:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationCADRevision
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADRevision
       version: v1
       type: view
     through:

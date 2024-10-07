@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganization3DModel
+space: {{ schema_space }}
+externalId: {{ organization }}3DModel
 description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
   Image360)
 implements:
@@ -17,7 +17,7 @@ properties:
     containerPropertyIdentifier: thumbnail
     description: Thumbnail of the 3D model
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view

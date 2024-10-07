@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationUnit
+space: {{ schema_space }}
+externalId: {{ organization }}Unit
 description: Represents a single unit of measurement
 implements:
 - space: cdf_cdm

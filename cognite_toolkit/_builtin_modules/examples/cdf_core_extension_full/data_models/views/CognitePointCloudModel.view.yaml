@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationPointCloudModel
+space: {{ schema_space }}
+externalId: {{ organization }}PointCloudModel
 description: Navigational aid for traversing CognitePointCloudModel instances
 filter:
   and:
@@ -22,8 +22,8 @@ version: v1
 properties:
   revisions:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationPointCloudRevision
+      space: {{ schema_space }}
+      externalId: {{ organization }}PointCloudRevision
       version: v1
       type: view
     through:

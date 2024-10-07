@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationSchedulable
+space: {{ schema_space }}
+externalId: {{ organization }}Schedulable
 description: CogniteSchedulable represents the metadata about when an activity (or
   similar) starts and ends.
 implements:

@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganization360Image
+space: {{ schema_space }}
+externalId: {{ organization }}360Image
 description: ''
 implements:
 - space: cdf_cdm
@@ -16,8 +16,8 @@ properties:
     containerPropertyIdentifier: collection360
     description: Direct relation to Cognite360ImageCollection
     source:
-      space: sp_my_schema
-      externalId: MyOrganization360ImageCollection
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageCollection
       version: v1
       type: view
   station360:
@@ -29,7 +29,7 @@ properties:
     description: Direct relation to Cognite3DGroup instance that groups different
       Cognite360Image instances to the same station
     source:
-      space: sp_my_schema
-      externalId: MyOrganization360ImageStation
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageStation
       version: v1
       type: view

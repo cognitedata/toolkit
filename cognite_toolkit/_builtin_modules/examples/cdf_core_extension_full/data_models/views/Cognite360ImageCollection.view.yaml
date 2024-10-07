@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganization360ImageCollection
+space: {{ schema_space }}
+externalId: {{ organization }}360ImageCollection
 description: Represents a logical collection of Cognite360Image instances
 filter:
   and:

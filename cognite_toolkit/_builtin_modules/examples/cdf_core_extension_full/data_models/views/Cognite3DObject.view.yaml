@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganization3DObject
+space: {{ schema_space }}
+externalId: {{ organization }}3DObject
 description: This is the virtual position representation of an object in the physical
   world, connecting an asset to one or more 3D resources
 implements:
@@ -11,8 +11,8 @@ version: v1
 properties:
   asset:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
     through:
@@ -26,8 +26,8 @@ properties:
     connectionType: single_reverse_direct_relation
   cadNodes:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationCADNode
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADNode
       version: v1
       type: view
     through:
@@ -44,8 +44,8 @@ properties:
       space: cdf_cdm
       externalId: image-360-annotation
     source:
-      space: sp_my_schema
-      externalId: MyOrganization360Image
+      space: {{ schema_space }}
+      externalId: {{ organization }}360Image
       version: v1
       type: view
     direction: outwards
@@ -59,8 +59,8 @@ properties:
     connectionType: multi_edge_connection
   pointCloudVolumes:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationPointCloudVolume
+      space: {{ schema_space }}
+      externalId: {{ organization }}PointCloudVolume
       version: v1
       type: view
     through:

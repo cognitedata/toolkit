@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganization360ImageModel
+space: {{ schema_space }}
+externalId: {{ organization }}360ImageModel
 description: Navigational aid for traversing Cognite360ImageModel instances
 filter:
   and:
@@ -22,8 +22,8 @@ version: v1
 properties:
   collections:
     source:
-      space: sp_my_schema
-      externalId: MyOrganization360ImageCollection
+      space: {{ schema_space }}
+      externalId: {{ organization }}360ImageCollection
       version: v1
       type: view
     through:

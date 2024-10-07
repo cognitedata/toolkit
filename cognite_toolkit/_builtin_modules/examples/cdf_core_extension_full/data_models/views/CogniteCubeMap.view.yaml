@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationCubeMap
+space: {{ schema_space }}
+externalId: {{ organization }}CubeMap
 description: 'The cube map holds references to 6 images in used to visually represent
   the surrounding environment
 
@@ -20,8 +20,8 @@ properties:
     description: Direct relation to a file holding the front projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
   back:
@@ -33,8 +33,8 @@ properties:
     description: Direct relation to a file holding the back projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
   left:
@@ -46,8 +46,8 @@ properties:
     description: Direct relation to a file holding the left projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
   right:
@@ -59,8 +59,8 @@ properties:
     description: Direct relation to a file holding the right projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
   top:
@@ -72,8 +72,8 @@ properties:
     description: Direct relation to a file holding the top projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
   bottom:
@@ -85,7 +85,7 @@ properties:
     description: Direct relation to a file holding the bottom projection of the cube
       map
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view

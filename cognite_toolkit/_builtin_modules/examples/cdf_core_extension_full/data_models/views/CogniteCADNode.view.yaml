@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationCADNode
+space: {{ schema_space }}
+externalId: {{ organization }}CADNode
 description: Represents nodes from the 3D model that have been contextualized
 implements:
 - space: cdf_cdm
@@ -16,8 +16,8 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to object3D grouping for this node
     source:
-      space: sp_my_schema
-      externalId: MyOrganization3DObject
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DObject
       version: v1
       type: view
   model3D:
@@ -28,8 +28,8 @@ properties:
     containerPropertyIdentifier: model3D
     description: Direct relation to Cognite3DModel
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationCADModel
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADModel
       version: v1
       type: view
   revisions:
@@ -41,7 +41,7 @@ properties:
     description: List of direct relations to instances of Cognite3DRevision which
       this CogniteCADNode exists in.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationCADRevision
+      space: {{ schema_space }}
+      externalId: {{ organization }}CADRevision
       version: v1
       type: view

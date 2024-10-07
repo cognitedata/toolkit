@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationAsset
+space: {{ schema_space }}
+externalId: {{ organization }}Asset
 name: Asset
 description: Assets represent systems that support industrial functions or processes.
   Assets are often called 'functional location'.
@@ -19,8 +19,8 @@ properties:
     name: Parent
     description: The parent of the asset.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
   root:
@@ -33,8 +33,8 @@ properties:
     description: An automatically updated reference to the top-level asset of the
       hierarchy.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
   path:
@@ -48,8 +48,8 @@ properties:
       starting with the root asset. Enables subtree filtering to find all assets under
       a parent.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
   assetClass:
@@ -61,8 +61,8 @@ properties:
     name: Asset class
     description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAssetClass
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
       version: v1
       type: view
   type:
@@ -74,14 +74,14 @@ properties:
     name: Asset type
     description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAssetType
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetType
       version: v1
       type: view
   files:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationFile
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
       version: v1
       type: view
     through:
@@ -96,8 +96,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   children:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
     through:
@@ -113,8 +113,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   equipment:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationEquipment
+      space: {{ schema_space }}
+      externalId: {{ organization }}Equipment
       version: v1
       type: view
     through:
@@ -129,8 +129,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   activities:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationActivity
+      space: {{ schema_space }}
+      externalId: {{ organization }}Activity
       version: v1
       type: view
     through:
@@ -145,8 +145,8 @@ properties:
     connectionType: multi_reverse_direct_relation
   timeSeries:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationTimeSeries
+      space: {{ schema_space }}
+      externalId: {{ organization }}TimeSeries
       version: v1
       type: view
     through:

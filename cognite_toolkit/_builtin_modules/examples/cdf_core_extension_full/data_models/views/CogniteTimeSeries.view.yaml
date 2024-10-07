@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationTimeSeries
+space: {{ schema_space }}
+externalId: {{ organization }}TimeSeries
 name: Time series
 description: Represents a series of data points in time order."
 implements:
@@ -18,8 +18,8 @@ properties:
     name: Unit
     description: The unit of the time series.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationUnit
+      space: {{ schema_space }}
+      externalId: {{ organization }}Unit
       version: v1
       type: view
   assets:
@@ -31,8 +31,8 @@ properties:
     name: Assets
     description: A list of assets the time series is related to.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationAsset
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
       version: v1
       type: view
   equipment:
@@ -44,14 +44,14 @@ properties:
     name: Equipment
     description: A list of equipment the time series is related to.
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationEquipment
+      space: {{ schema_space }}
+      externalId: {{ organization }}Equipment
       version: v1
       type: view
   activities:
     source:
-      space: sp_my_schema
-      externalId: MyOrganizationActivity
+      space: {{ schema_space }}
+      externalId: {{ organization }}Activity
       version: v1
       type: view
     through:

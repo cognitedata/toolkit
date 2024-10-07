@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationAssetClass
+space: {{ schema_space }}
+externalId: {{ organization }}AssetClass
 name: Asset class
 description: Represents the class of an asset.
 implements:

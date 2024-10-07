@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationFileCategory
+space: {{ schema_space }}
+externalId: {{ organization }}FileCategory
 name: File category
 description: Represents the categories of files as determined by contextualization
   or categorization.

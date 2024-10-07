@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationDescribable
+space: {{ schema_space }}
+externalId: {{ organization }}Describable
 description: 'The describable core concept is used as a standard way of holding the
   bare minimum of information about the instance
 

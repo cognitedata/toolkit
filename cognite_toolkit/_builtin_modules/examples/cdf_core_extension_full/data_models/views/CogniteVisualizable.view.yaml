@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationVisualizable
+space: {{ schema_space }}
+externalId: {{ organization }}Visualizable
 description: CogniteVisualizable defines the standard way to reference a related 3D
   resource
 implements:
@@ -17,7 +17,7 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to an Object3D instance representing the 3D resource
     source:
-      space: sp_my_schema
-      externalId: MyOrganization3DObject
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DObject
       version: v1
       type: view

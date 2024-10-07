@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationSourceSystem
+space: {{ schema_space }}
+externalId: {{ organization }}SourceSystem
 description: The CogniteSourceSystem core concept is used to standardize the way source
   system is stored.
 implements:

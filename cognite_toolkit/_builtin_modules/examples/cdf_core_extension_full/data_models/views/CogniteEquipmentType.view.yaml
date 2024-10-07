@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationEquipmentType
+space: {{ schema_space }}
+externalId: {{ organization }}EquipmentType
 name: Equipment type
 description: Represents the type of equipment.
 implements:

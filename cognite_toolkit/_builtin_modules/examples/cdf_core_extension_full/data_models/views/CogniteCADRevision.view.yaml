@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationCADRevision
+space: {{ schema_space }}
+externalId: {{ organization }}CADRevision
 description: ''
 filter:
   and:

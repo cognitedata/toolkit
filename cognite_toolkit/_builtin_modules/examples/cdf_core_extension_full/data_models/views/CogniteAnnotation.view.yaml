@@ -1,5 +1,5 @@
-space: sp_my_schema
-externalId: MyOrganizationAnnotation
+space: {{ schema_space }}
+externalId: {{ organization }}Annotation
 description: Annotation represents contextualization results or links
 implements:
 - space: cdf_cdm
