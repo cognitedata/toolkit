@@ -1,4 +1,3 @@
-import itertools
 import shutil
 from importlib import resources
 from pathlib import Path
@@ -65,19 +64,20 @@ class RepoCommand(ToolkitCommand):
         if verbose:
             self.console("Initializing toolkit repository...")
 
-        iterables = [self._repo_files.glob("*")]
+        iterables = [(self._repo_files, self._repo_files.glob("*"))]
         if repo_host == "GitHub":
-            iterables.append(self._repo_files.rglob(f"{repo_host}/**/*.yaml"))
+            iterables.append((self._repo_files / repo_host, self._repo_files.rglob(f"{repo_host}/**/*.yaml")))
 
-        for file in itertools.chain(*iterables):
-            if file.is_dir():
-                continue
-            destination = cwd / file.relative_to(self._repo_files)
-            if destination.exists():
-                self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
-                continue
-            shutil.copy(file, destination)
-            if verbose:
-                self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
+        for root, iterable in iterables:
+            for file in iterable:
+                if file.is_dir():
+                    continue
+                destination = cwd / file.relative_to(root)
+                if destination.exists():
+                    self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
+                    continue
+                shutil.copy(file, destination)
+                if verbose:
+                    self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
 
         self.console("Repo initialization complete.")
