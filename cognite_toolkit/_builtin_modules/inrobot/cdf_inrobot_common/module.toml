@@ -5,3 +5,6 @@ title = "InRobot Common"
 tags = [
     "inrobot",
 ]
+
+[dependencies]
+modules = ["cdf_apm_base"]
