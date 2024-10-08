@@ -53,6 +53,13 @@ class ModuleLocation:
         """Ways of selecting this module."""
         return {self.name, self.relative_path, *self.parent_relative_paths}
 
+    @property
+    def is_selected_by_default(self) -> bool:
+        """Whether the module is default selected."""
+        if self.definition:
+            return self.definition.is_selected_by_default
+        return False
+
     @cached_property
     def parent_relative_paths(self) -> set[Path]:
         """All relative parent paths of the module."""
@@ -117,6 +124,13 @@ class ModuleLocation:
     def not_resource_directories(self) -> set[str]:
         """The directories in the module that are not resource directories."""
         return self._source_paths_by_resource_folder[1]
+
+    @cached_property
+    def dependencies(self) -> set[str]:
+        """The dependencies of the module."""
+        if self.definition:
+            return set(self.definition.dependencies)
+        return set()
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(name={self.name}, is_selected={self.is_selected}, file_count={len(self.source_paths)})"

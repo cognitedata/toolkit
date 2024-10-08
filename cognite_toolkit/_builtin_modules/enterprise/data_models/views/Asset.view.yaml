@@ -1,0 +1,181 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Asset
+name: Asset
+description: Assets represent systems that support industrial functions or processes.
+  Assets are often called 'functional location'.
+implements:
+- space: cdf_cdm
+  externalId: CogniteAsset
+  version: v1
+  type: view
+version: v1
+properties:
+  parent:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: assetHierarchy_parent
+    name: Parent
+    description: The parent of the asset.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  root:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: assetHierarchy_root
+    name: Root
+    description: An automatically updated reference to the top-level asset of the
+      hierarchy.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  path:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: assetHierarchy_path
+    name: Path
+    description: An automatically updated ordered list of this asset's ancestors,
+      starting with the root asset. Enables subtree filtering to find all assets under
+      a parent.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  assetClass:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: assetClass
+    name: Asset class
+    description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
+      version: v1
+      type: view
+  type:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: type
+    name: Asset type
+    description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetType
+      version: v1
+      type: view
+  files:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteFile
+        version: v1
+        type: view
+      identifier: assets
+    name: Files
+    description: An automatically updated list of files related to the asset.
+    connectionType: multi_reverse_direct_relation
+  children:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteAsset
+        version: v1
+        type: view
+      identifier: parent
+    name: Children
+    description: An automatically updated list of assets with this asset as their
+      parent.
+    connectionType: multi_reverse_direct_relation
+  equipment:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteEquipment
+        version: v1
+        type: view
+      identifier: asset
+    name: Equipment
+    description: An automatically updated list of equipment related to the asset.
+    connectionType: multi_reverse_direct_relation
+  activities:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Activity
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteActivity
+        version: v1
+        type: view
+      identifier: assets
+    name: Activities
+    description: An automatically updated list of activities related to the asset.
+    connectionType: multi_reverse_direct_relation
+  timeSeries:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}TimeSeries
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+        version: v1
+        type: view
+      identifier: assets
+    name: Time series
+    description: An automatically updated list of time series related to the asset.
+    connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  object3D:
+    container:
+      space: cdf_cdm
+      externalId: CogniteVisualizable
+      type: container
+    containerPropertyIdentifier: object3D
+    description: This is not used, overwritten to point to nothing to avoid including 3D.
+    # Note that source is not included.

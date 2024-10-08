@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.0] - 2024-10-08
+
+### Added
+
+- Support for `$FILENAME` expansion pattern for `CogniteFile` in the `files` folder.
+- The `cdf repo init` command now creates a `GitHub` workflow for the Toolkit.
+
+### Changed
+
+- Running `cdf dump datamodels` now dumps containers and views into separate folders.
+
 ## [0.3.0b5] - 2024-10-03
 
 ### Added

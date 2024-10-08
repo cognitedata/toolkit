@@ -23,10 +23,12 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
+    UPDATE_IMAGE_VERSION_DOCSTRING,
     UPDATE_MODULE_VERSION_DOCSTRING,
     AutomaticChange,
     Changes,
     ManualChange,
+    UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import (
@@ -256,6 +258,34 @@ default_organization_dir = "{organization_dir.name}"''',
 
         raise typer.Exit()
 
+    def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
+        dependencies: set[str] = set()
+        for module in package.modules:
+            for dependency in module.dependencies:
+                dependencies.add(dependency)
+
+        choices = sorted(
+            [
+                questionary.Choice(
+                    title=module.title,
+                    value=module,
+                    checked=module.is_selected_by_default,
+                    disabled="required" if module.name in dependencies else None,
+                )
+                for module in package.modules
+            ],
+            key=lambda choice: not choice.checked,
+        )
+
+        return questionary.checkbox(
+            f"Which modules in {package.name} would you like to add?",
+            instruction="Use arrow up/down, press space to select item(s) and enter to save",
+            choices=choices,
+            qmark=INDENT,
+            pointer=POINTER,
+            style=custom_style_fancy,
+        ).ask()
+
     def _select_packages(self, packages: Packages, existing_module_names: list[str] | None = None) -> Packages:
         adding_to_existing = False
         if existing_module_names is not None:
@@ -299,20 +329,7 @@ default_organization_dir = "{organization_dir.name}"''',
             if package.name != "bootcamp" and (
                 len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)
             ):
-                selection = questionary.checkbox(
-                    f"Which modules in {package.name} would you like to add?",
-                    instruction="Use arrow up/down, press space to select item(s) and enter to save",
-                    choices=[
-                        questionary.Choice(
-                            title=selectable_module.title,
-                            value=selectable_module,
-                        )
-                        for selectable_module in package.modules
-                    ],
-                    qmark=INDENT,
-                    pointer=POINTER,
-                    style=custom_style_fancy,
-                ).ask()
+                selection = self._select_modules_in_package(package)
             else:
                 selection = package.modules
 
@@ -380,8 +397,12 @@ default_organization_dir = "{organization_dir.name}"''',
         UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
         )
+        UpdateDockerImageVersion.__doc__ = UPDATE_IMAGE_VERSION_DOCSTRING.format(
+            module_version=module_version, cli_version=cli_version
+        )
 
-        changes = Changes.load(module_version, organization_dir)
+        workflow_dir = Path.cwd() / ".github" / "workflows"
+        changes = Changes.load(module_version, organization_dir, workflow_dir if workflow_dir.exists() else None)
         if not changes:
             print("No changes required.")
             return changes

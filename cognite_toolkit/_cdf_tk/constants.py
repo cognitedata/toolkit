@@ -33,6 +33,7 @@ COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 MODULES = "modules"
 REPO_FILES_DIR = "_repo_files"
+DOCKER_IMAGE_NAME = "cognite/toolkit"
 
 ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"

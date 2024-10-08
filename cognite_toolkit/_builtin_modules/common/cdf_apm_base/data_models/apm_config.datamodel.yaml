@@ -1,0 +1,10 @@
+externalId: APM_Config
+name: APM config
+version: 1 # must be this exact version
+space: APM_Config # Must be this exact space
+description: "Config data for APM applications"
+views:
+  - type: view
+    externalId: APM_Config
+    space: APM_Config # Must be this exact space
+    version: 1 # must be this exact version

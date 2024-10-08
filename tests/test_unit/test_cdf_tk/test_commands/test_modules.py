@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
+from _pytest.monkeypatch import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
@@ -51,7 +53,7 @@ class TestModulesCommand:
         config = yaml.safe_load(Path(target_path / "config.dev.yaml").read_text())
         assert config["variables"]["modules"]["infield"]["first_location"] == "oid"
 
-    def test_adding(self, selected_packages: Packages, tmp_path: Path) -> None:
+    def test_adding(self, selected_packages: Packages, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         target_path = tmp_path / "repo_root"
         cmd = ModulesCommand(print_warning=True, skip_tracking=True)
 
@@ -59,7 +61,16 @@ class TestModulesCommand:
         second_batch = Packages({"quickstart": selected_packages["inrobot"]})
 
         cmd._create(organization_dir=target_path, selected_packages=first_batch, environments=["qa"], mode=None)
-        cmd._create(organization_dir=target_path, selected_packages=second_batch, environments=["qa"], mode="update")
+        with monkeypatch.context() as m:
+            # Mocking questionary such that questionary.confirm.ask() returns True.
+            questionary_mock = MagicMock()
+            # MagicMock will always return other MagicMock objects
+            # which when evaluated will return True.
+
+            m.setattr("cognite_toolkit._cdf_tk.commands.modules.questionary", questionary_mock)
+            cmd._create(
+                organization_dir=target_path, selected_packages=second_batch, environments=["qa"], mode="update"
+            )
 
         config = yaml.safe_load(Path(target_path / "config.qa.yaml").read_text())
         assert config["variables"]["modules"]["infield"]["first_location"] is not None

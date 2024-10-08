@@ -1,8 +1,12 @@
 [module]
 title = "InField Common"
+is_selected_by_default = true
 
 [packages]
 tags = [
     "infield",
     "quickstart"
 ]
+
+[dependencies]
+modules = ["cdf_apm_base"]
