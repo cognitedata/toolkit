@@ -23,7 +23,7 @@ Changes are grouped as follows:
 
 ### Changed
 
-- Running `cdf dump datamoedls` now dumps containers and views into separate folders.
+- Running `cdf dump datamodels` now dumps containers and views into separate folders.
 
 ## [0.3.0b5] - 2024-10-03
 
