@@ -23,10 +23,12 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands._changes import (
+    UPDATE_IMAGE_VERSION_DOCSTRING,
     UPDATE_MODULE_VERSION_DOCSTRING,
     AutomaticChange,
     Changes,
     ManualChange,
+    UpdateDockerImageVersion,
     UpdateModuleVersion,
 )
 from cognite_toolkit._cdf_tk.constants import (
@@ -380,8 +382,12 @@ default_organization_dir = "{organization_dir.name}"''',
         UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING.format(
             module_version=module_version, cli_version=cli_version
         )
+        UpdateDockerImageVersion.__doc__ = UPDATE_IMAGE_VERSION_DOCSTRING.format(
+            module_version=module_version, cli_version=cli_version
+        )
 
-        changes = Changes.load(module_version, organization_dir)
+        workflow_dir = Path.cwd() / ".github" / "workflows"
+        changes = Changes.load(module_version, organization_dir, workflow_dir if workflow_dir.exists() else None)
         if not changes:
             print("No changes required.")
             return changes

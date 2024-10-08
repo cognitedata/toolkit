@@ -5,6 +5,8 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import RepoCommand
+from cognite_toolkit._cdf_tk.commands.repo import REPOSITORY_HOSTING
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 
 class RepoApp(typer.Typer):
@@ -26,9 +28,15 @@ class RepoApp(typer.Typer):
                 help="",
             ),
         ] = Path.cwd(),
+        host: str | None = typer.Option(
+            None,
+            "--host",
+            "-h",
+            help=f"Hosting service for the repository. Supported {humanize_collection(REPOSITORY_HOSTING)}. If not provided, you will be prompted to choose.",
+        ),
         verbose: bool = typer.Option(False, "-v", "--verbose", help="Verbose output"),
     ) -> None:
         """Initialize a new git repository with files like .gitignore, cdf.toml, and so on."""
 
         cmd = RepoCommand()
-        cmd.run(lambda: cmd.init(cwd=cwd, verbose=verbose))
+        cmd.run(lambda: cmd.init(cwd=cwd, host=host, verbose=verbose))
