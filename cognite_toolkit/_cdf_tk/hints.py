@@ -110,7 +110,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
         prefix = "Directories" if len(deprecated_modules) > 1 else "Directory"
         verb = "are" if len(deprecated_modules) > 1 else "is"
         MediumSeverityWarning(
-            f"{prefix} {', '.join(deprecated_modules)} {verb} deprecated and will be removed in 0.3.0. " f"{suffix}"
+            f"{prefix} {', '.join(deprecated_modules)} {verb} deprecated and will be removed in 0.4.0. " f"{suffix}"
         ).print_warning()
 
     config_path = organization_dir / config_file
