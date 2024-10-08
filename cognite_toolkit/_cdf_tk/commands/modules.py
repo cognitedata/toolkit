@@ -257,8 +257,7 @@ default_organization_dir = "{organization_dir.name}"''',
         raise typer.Exit()
 
     def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
-        choices = []
-        dependencies: list[str] = []
+        dependencies: set[str] = set()
         for module in package.modules:
             if module.dependencies:
                 dependencies.extend(module.dependencies)
