@@ -5,19 +5,11 @@ description: {{ organization }} enterprise model
 version: v1
 views:
 - space: {{ schema_space }}
-  externalId: {{ organization }}Describable
-  version: v1
-  type: view
-- space: {{ schema_space }}
   externalId: {{ organization }}Sourceable
   version: v1
   type: view
 - space: {{ schema_space }}
   externalId: {{ organization }}SourceSystem
-  version: v1
-  type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Schedulable
   version: v1
   type: view
 - space: {{ schema_space }}
