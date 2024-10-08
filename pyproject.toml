@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.4.0"
+version = "0.3.0"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
