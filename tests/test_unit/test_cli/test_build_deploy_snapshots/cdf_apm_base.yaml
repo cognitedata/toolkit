@@ -1,1 +1,136 @@
-{}
+Container:
+- constraints: {}
+  externalId: APM_Config
+  indexes: {}
+  properties:
+    appDataSpaceId:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    appDataSpaceVersion:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    customerDataSpaceId:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    customerDataSpaceVersion:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    featureConfiguration:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: true
+        type: json
+    name:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: APM_Config
+  usedFor: node
+DataModel:
+- description: Config data for APM applications
+  externalId: APM_Config
+  name: APM config
+  space: APM_Config
+  version: '1'
+  views:
+  - externalId: APM_Config
+    space: APM_Config
+    type: view
+    version: '1'
+- description: APM data models for customer source data to be consumed by the APM
+    application.
+  externalId: APM_SourceData
+  name: APM Source data
+  space: APM_SourceData
+  version: '1'
+  views:
+  - externalId: APM_Activity
+    space: APM_SourceData
+    type: view
+    version: '1'
+  - externalId: APM_Operation
+    space: APM_SourceData
+    type: view
+    version: '1'
+  - externalId: APM_Notification
+    space: APM_SourceData
+    type: view
+    version: '1'
+View:
+- description: Config data for APM applications
+  externalId: APM_Config
+  implements: []
+  name: APM Config
+  properties:
+    appDataSpaceId:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: appDataSpaceId
+      description: Deprecated as we now use system data models for app data
+    appDataSpaceVersion:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: appDataSpaceVersion
+      description: Deprecated as we now use system data models for app data
+    customerDataSpaceId:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: customerDataSpaceId
+      description: Used to identifiy the SourceData model, as of now it requires the
+        Model name to be the same as the space name its defined in.
+    customerDataSpaceVersion:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: customerDataSpaceVersion
+      description: Version of the Source data model
+    featureConfiguration:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: featureConfiguration
+      description: Used by all apps to store feature configuration, eg. for InField,
+        locations is stored inside this field
+    name:
+      container:
+        externalId: APM_Config
+        space: APM_Config
+        type: container
+      containerPropertyIdentifier: name
+      description: Name of the configuration, infield just use one config record
+  space: APM_Config
+  version: '1'
