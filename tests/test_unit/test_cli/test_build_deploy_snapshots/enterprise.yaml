@@ -5,19 +5,11 @@ DataModel:
   space: sp_enterprise_min_schema
   version: v1
   views:
-  - externalId: ToolkitMinimumDescribable
-    space: sp_enterprise_min_schema
-    type: view
-    version: v1
   - externalId: ToolkitMinimumSourceable
     space: sp_enterprise_min_schema
     type: view
     version: v1
   - externalId: ToolkitMinimumSourceSystem
-    space: sp_enterprise_min_schema
-    type: view
-    version: v1
-  - externalId: ToolkitMinimumSchedulable
     space: sp_enterprise_min_schema
     type: view
     version: v1
@@ -344,19 +336,6 @@ View:
         version: v1
   space: sp_enterprise_min_schema
   version: v1
-- description: 'The describable core concept is used as a standard way of holding
-    the bare minimum of information about the instance
-
-    '
-  externalId: ToolkitMinimumDescribable
-  implements:
-  - externalId: CogniteDescribable
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties: {}
-  space: sp_enterprise_min_schema
-  version: v1
 - description: Equipment represents physical supplies or devices.
   externalId: ToolkitMinimumEquipment
   implements:
@@ -539,17 +518,6 @@ View:
     type: view
     version: v1
   name: File category
-  properties: {}
-  space: sp_enterprise_min_schema
-  version: v1
-- description: CogniteSchedulable represents the metadata about when an activity (or
-    similar) starts and ends.
-  externalId: ToolkitMinimumSchedulable
-  implements:
-  - externalId: CogniteSchedulable
-    space: cdf_cdm
-    type: view
-    version: v1
   properties: {}
   space: sp_enterprise_min_schema
   version: v1
