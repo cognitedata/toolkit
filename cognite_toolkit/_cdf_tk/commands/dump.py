@@ -30,7 +30,7 @@ class DumpCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         if selected_data_model is None:
-            data_model_id = self._interactive_select_data_model(ToolGlobals)
+            data_model_id = self._interactive_select_data_model(ToolGlobals, include_global=False)
         else:
             data_model_id = selected_data_model
 
@@ -74,24 +74,28 @@ class DumpCommand(ToolkitCommand):
                 print(f"  [bold green]INFO:[/] Dumped space {space.space} to {space_file!s}.")
 
         prefix_space = len(containers) != len({container.external_id for container in containers})
+        container_folder = resource_folder / "containers"
+        container_folder.mkdir(exist_ok=True)
         for container in containers:
             file_name = f"{container.external_id}.container.yaml"
             if prefix_space:
                 file_name = f"{container.space}_{file_name}"
-            container_file = resource_folder / file_name
+            container_file = container_folder / file_name
             container_file.write_text(container.as_write().dump_yaml())
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped container {container.external_id} to {container_file!s}.")
 
         prefix_space = len(views) != len({view.external_id for view in views})
         suffix_version = len(views) != len({f"{view.space}{view.external_id}" for view in views})
+        view_folder = resource_folder / "views"
+        view_folder.mkdir(exist_ok=True)
         for view in views:
             file_name = f"{view.external_id}.view.yaml"
             if prefix_space:
                 file_name = f"{view.space}_{file_name}"
             if suffix_version:
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
-            view_file = resource_folder / file_name
+            view_file = view_folder / file_name
             view_write = view.as_write().dump()
             parents = retrieve_view_ancestors(client, view.implements or [], views_by_id)
             for parent in parents:
@@ -112,14 +116,14 @@ class DumpCommand(ToolkitCommand):
 
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
 
-    def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig) -> DataModelId:
-        spaces = ToolGlobals.toolkit_client.data_modeling.spaces.list(limit=-1)
+    def _interactive_select_data_model(self, ToolGlobals: CDFToolConfig, include_global: bool = False) -> DataModelId:
+        spaces = ToolGlobals.toolkit_client.data_modeling.spaces.list(limit=-1, include_global=include_global)
         selected_space: str = questionary.select(
             "In which space is your data model located?", [space.space for space in spaces]
         ).ask()
 
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
-            space=selected_space, all_versions=False, limit=-1
+            space=selected_space, all_versions=False, limit=-1, include_global=include_global
         ).as_ids()
 
         if not data_models:
@@ -130,7 +134,10 @@ class DumpCommand(ToolkitCommand):
         ).ask()
 
         data_models = ToolGlobals.toolkit_client.data_modeling.data_models.list(
-            space=selected_space, all_versions=True, limit=-1
+            space=selected_space,
+            all_versions=True,
+            limit=-1,
+            include_global=include_global,
         ).as_ids()
         data_model_versions = [
             model.version

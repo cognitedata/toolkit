@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - Support for `$FILENAME` expansion pattern for `CogniteFile` in the `files` folder.
 
+### Changed
+
+- Running `cdf dump datamodels` now dumps containers and views into separate folders.
+
 ## [0.3.0b5] - 2024-10-03
 
 ### Added
