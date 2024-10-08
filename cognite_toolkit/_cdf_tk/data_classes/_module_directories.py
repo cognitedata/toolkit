@@ -54,10 +54,10 @@ class ModuleLocation:
         return {self.name, self.relative_path, *self.parent_relative_paths}
 
     @property
-    def default_selected(self) -> bool:
+    def is_selected_by_default(self) -> bool:
         """Whether the module is default selected."""
         if self.definition:
-            return self.definition.default_selected
+            return self.definition.is_selected_by_default
         return False
 
     @cached_property

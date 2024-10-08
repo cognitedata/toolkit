@@ -259,15 +259,15 @@ default_organization_dir = "{organization_dir.name}"''',
     def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
         dependencies: set[str] = set()
         for module in package.modules:
-            if module.dependencies:
-                dependencies.extend(module.dependencies)
+            for dependency in module.dependencies:
+                dependencies.add(dependency)
 
         choices = sorted(
             [
                 questionary.Choice(
                     title=module.title,
                     value=module,
-                    checked=module.default_selected,
+                    checked=module.is_selected_by_default,
                     disabled="required" if module.name in dependencies else None,
                 )
                 for module in package.modules

@@ -1,6 +1,6 @@
 [module]
 title = "InField Second Location"
-default_selected = false
+is_selected_by_default = false
 
 [packages]
 tags = [

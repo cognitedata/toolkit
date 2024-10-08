@@ -17,7 +17,7 @@ class ModuleToml:
     title: str | None
     tags: frozenset[str] = field(default_factory=frozenset)
     dependencies: frozenset[str] = field(default_factory=frozenset)
-    default_selected: bool = False
+    is_selected_by_default: bool = False
 
     @classmethod
     def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
@@ -33,5 +33,5 @@ class ModuleToml:
             title=data["module"].get("title"),
             tags=frozenset(data["packages"].get("tags", set())),
             dependencies=dependencies,
-            default_selected=data["module"].get("default_selected", False),
+            is_selected_by_default=data["module"].get("is_selected_by_default", False),
         )
