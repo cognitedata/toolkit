@@ -76,6 +76,7 @@ class RepoCommand(ToolkitCommand):
                 if destination.exists():
                     self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
                     continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy(file, destination)
                 if verbose:
                     self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
