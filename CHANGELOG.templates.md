@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 ## Added
 
-- CogniteCore full and minimum extension templates in `quickstart` and `example` packages..
+- CogniteCore full and minimum extension templates in `quickstart` and `example` packages.
 
 ## [0.3.0b5] - 2024-10-03
 
