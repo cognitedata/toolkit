@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- CogniteFiles are not recognized by `CogniteFile` and not `.CogniteFile` suffix in the `files` resource folder.
+
 ## [0.3.0] - 2024-10-08
 
 ### Added
