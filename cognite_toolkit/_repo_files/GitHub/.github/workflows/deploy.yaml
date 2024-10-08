@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     # refers to the Environment concept in GitHub
     environment: dev
-    name: Deploy Dry Run
+    name: Deploy
     container:
       image: cognite/toolkit:0.3.0b5
       env:
