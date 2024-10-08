@@ -2,6 +2,8 @@ import shutil
 from importlib import resources
 from pathlib import Path
 
+import questionary
+
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
@@ -9,6 +11,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeveri
 
 from . import _cli_commands
 from ._base import ToolkitCommand
+
+REPOSITORY_HOSTING = [
+    "GitHub",
+    "Other",
+    "None",
+]
 
 
 class RepoCommand(ToolkitCommand):
@@ -23,7 +31,7 @@ class RepoCommand(ToolkitCommand):
         self._repo_files = Path(resources.files(cognite_toolkit.__name__)) / REPO_FILES_DIR  # type: ignore [arg-type]
         self.skip_git_verify = skip_git_verify
 
-    def init(self, cwd: Path, verbose: bool = False) -> None:
+    def init(self, cwd: Path, host: str | None = None, verbose: bool = False) -> None:
         if not self.skip_git_verify:
             if _cli_commands.use_git():
                 if not _cli_commands.has_initiated_repo():
@@ -42,15 +50,35 @@ class RepoCommand(ToolkitCommand):
                     MediumSeverityWarning("git is not installed. It is strongly recommended to use version control.")
                 )
 
+        if host is None:
+            repo_host = questionary.select("Where do are you hosting the repository?", REPOSITORY_HOSTING).ask()
+        else:
+            repo_host = host
+        if repo_host == "GitHub":
+            self.console("The repository will be hosted on GitHub.")
+        elif repo_host == "Other":
+            self.console("No template for CI/CD available for other hosting services yet.")
+        elif repo_host == "None":
+            self.console("It is recommended to host your repository on a platform like GitHub.")
+
         if verbose:
             self.console("Initializing toolkit repository...")
 
-        for file in self._repo_files.rglob("*"):
-            destination = cwd / file.relative_to(self._repo_files)
-            if destination.exists():
-                self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
-                continue
-            shutil.copy(file, destination)
-            if verbose:
-                self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
+        iterables = [(self._repo_files, self._repo_files.glob("*"))]
+        if repo_host == "GitHub":
+            iterables.append((self._repo_files / repo_host, self._repo_files.rglob(f"{repo_host}/**/*.yaml")))
+
+        for root, iterable in iterables:
+            for file in iterable:
+                if file.is_dir():
+                    continue
+                destination = cwd / file.relative_to(root)
+                if destination.exists():
+                    self.warn(LowSeverityWarning(f"File {destination} already exists. Skipping..."))
+                    continue
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy(file, destination)
+                if verbose:
+                    self.console(f"Created {destination.relative_to(cwd).as_posix()!r}")
+
         self.console("Repo initialization complete.")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import re
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
@@ -9,6 +10,7 @@ from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -20,8 +22,9 @@ class Change:
     required_from: Version | None = None
     has_file_changes: bool = False
 
-    def __init__(self, organization_dir: Path) -> None:
+    def __init__(self, organization_dir: Path, workflow_dir: Path | None) -> None:
         self._organization_dir = organization_dir
+        self._workflow_dir = workflow_dir
 
 
 class AutomaticChange(Change):
@@ -562,6 +565,22 @@ class UpdateModuleVersion(AutomaticChange):
         cdf_toml.write_text("\n".join(new_cdf_toml))
         return changes
 
+class UpdateDockerImageVersion(AutomaticChange):
+    deprecated_from = parse_version(__version__)
+    required_from = parse_version(__version__)
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        if self._workflow_dir is None:
+            return set()
+        changed = set()
+        for workflow_file in itertools.chain(self._workflow_dir.rglob("*.yaml"), self._workflow_dir.rglob("*.yml")):
+            content = safe_read(workflow_file)
+            new_content = re.sub(rf"image: {DOCKER_IMAGE_NAME}:[0-9.ab]+", f"image: {DOCKER_IMAGE_NAME}:{__version__}", content)
+            if new_content != content:
+                workflow_file.write_text(new_content)
+                changed.add(workflow_file)
+        return changed
 
 UPDATE_MODULE_VERSION_DOCSTRING = """In the cdf.toml file, the 'version' field in the 'module' section has been updated to the same version as the CLI.
 
@@ -580,6 +599,19 @@ version = "{cli_version}"
     """
 UpdateModuleVersion.__doc__ = UPDATE_MODULE_VERSION_DOCSTRING
 
+UPDATE_IMAGE_VERSION_DOCSTRING = """Update the docker image version in the workflow files to the current version of the CLI.
+
+Before:
+```yaml
+image: cognite/toolkit:{module_version}
+```
+After:
+```yaml
+image: cognite/toolkit:{cli_version}
+```
+    """
+UpdateDockerImageVersion.__doc__ = UPDATE_IMAGE_VERSION_DOCSTRING
+
 
 _CHANGES: list[type[Change]] = [
     change for change in itertools.chain(AutomaticChange.__subclasses__(), ManualChange.__subclasses__())
@@ -588,8 +620,8 @@ _CHANGES: list[type[Change]] = [
 
 class Changes(list, MutableSequence[Change]):
     @classmethod
-    def load(cls, module_version: Version, project_path: Path) -> Changes:
-        return cls([change(project_path) for change in _CHANGES if change.deprecated_from >= module_version])
+    def load(cls, module_version: Version, project_path: Path, workflow_dir: Path | None) -> Changes:
+        return cls([change(project_path, workflow_dir) for change in _CHANGES if change.deprecated_from >= module_version])
 
     @property
     def required_changes(self) -> Changes:
