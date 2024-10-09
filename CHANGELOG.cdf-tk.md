@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Views based location filters no longer raises a TypeError when running `cdf clean` or `cdf deploy`.
+
 ## [0.3.0] - 2024-10-08
 
 ### Added

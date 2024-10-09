@@ -142,6 +142,17 @@ LocationFilter:
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
+- description: A location filter for the Fornebu location
+  externalId: fornebu_location_filter
+  instanceSpaces:
+  - DataModelSpace
+  name: Fornebu location filter
+  views:
+  - externalId: CogniteAsset
+    representsEntity: ASSET
+    space: cdf_cdm
+    type: view
+    version: v1
 Mapping:
 - externalId: MyMapping
   input:
