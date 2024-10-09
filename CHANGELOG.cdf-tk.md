@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.1] - 2024-10-09
+
+### Fixed
+
+- Views based location filters no longer raises a TypeError when running `cdf clean` or `cdf deploy`.
+- CogniteFiles are not recognized by `CogniteFile` and not `.CogniteFile` suffix in the `files` resource folder.
+
 ## [0.3.0] - 2024-10-08
 
 ### Added
@@ -76,11 +83,11 @@ type MyType
 
 ### Added
 
-- If there are multiple `cognite_service_principal_group`s, the `cdf auth verify` will offer to delete duplicates.
+- If there are multiple `cognite_toolkit_service_principal`s, the `cdf auth verify` will offer to delete duplicates.
 
 ### Fixed
 
-- Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
+- Running `cdf auth verify` now prompts the user to create the `cognite_toolkit_service_principal` if it does not exist.
 - In the `cdf build` command, version variables (`DataModel`, `View`, `Transformations`) are now always read as
   string and not integer. This ensures no false positive warnings for missing dependencies.
 - In the `cdf deploy/clean` command, if a transformation is writing to a `DataModel` or a `View` the version is

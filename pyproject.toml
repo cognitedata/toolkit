@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.3.0"
+version = "0.3.1"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -29,7 +29,7 @@ toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
-pre-commit = "^3.6.0"
+pre-commit = "^4.0.0"
 pytest = "^8.0.0"
 pytest-icdiff = "*"  # Used for better diffs in pytest
 pytest-regressions = "^2.4.2"
