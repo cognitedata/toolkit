@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - Views based location filters no longer raises a TypeError when running `cdf clean` or `cdf deploy`.
+- CogniteFiles are not recognized by `CogniteFile` and not `.CogniteFile` suffix in the `files` resource folder.
 
 ## [0.3.0] - 2024-10-08
 
