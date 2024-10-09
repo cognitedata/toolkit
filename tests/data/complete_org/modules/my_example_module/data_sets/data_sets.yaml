@@ -10,3 +10,6 @@
   name: Example dataset.
   description: This is an example dataset used to demonstrate how to create a custom module 
       in the Cognite Data Fusion Toolkit.
+- externalId: ds_complete_org
+  name: Example dataset.
+  description: This dataset is used for all the resources in the complete_org.

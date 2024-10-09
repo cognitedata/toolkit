@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.apps import CoreApp
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection, iterate_modules
 from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
@@ -238,5 +238,7 @@ def test_complete_org_is_complete() -> None:
 
     # If this assertion fails, it means that the complete_org is not complete.
     # This typically happens when you have just added a new loader and forgotten to add
-    # example data for in the tests/data/complete_org.
-    assert not unused_loaders, f"The following loaders are not used: {unused_loaders}"
+    # example data for the new resource type in the tests/data/complete_org.
+    assert (
+        not unused_loaders
+    ), f"The following loaders are not used: {humanize_collection([loader.__name__ for loader in unused_loaders])}"
