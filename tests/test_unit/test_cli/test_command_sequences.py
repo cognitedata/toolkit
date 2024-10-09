@@ -7,12 +7,12 @@ If the changes are desired, you can update the snapshot by running `pytest tests
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 import typer
-from mypy.checkexpr import defaultdict
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.apps import CoreApp
