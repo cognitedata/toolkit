@@ -251,7 +251,7 @@ class LocationFilterLoader(
             )
 
         spec.add(ParameterSpec(("dataModels", ANY_INT, "type"), frozenset({"str"}), False, False))
-        spec.add(ParameterSpec(("views", "type"), frozenset({"str"}), False, False))
+        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), False, False))
         return spec
 
     @classmethod
