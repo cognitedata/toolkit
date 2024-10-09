@@ -12,7 +12,7 @@ scene:
  externalId: '{{  location_scene_external_id }}'
  space: '{{  location_scene_space }}'
 views:
- externalId: '{{  location_view_external_id }}'
- space: '{{ location_view_space }}'
- version: '{{ location_view_version }}'
- representsEntity: '{{ location_view_represents_entity }}'
+ - externalId: '{{  location_view_external_id }}'
+   space: '{{ location_view_space }}'
+   version: '{{ location_view_version }}'
+   representsEntity: '{{ location_view_represents_entity }}'
