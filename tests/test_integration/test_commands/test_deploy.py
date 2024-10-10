@@ -61,5 +61,5 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
         drop=False,
         drop_data=False,
         include=list(LOADER_BY_FOLDER_NAME.keys()),
-        verbose=False,
+        verbose=True,
     )

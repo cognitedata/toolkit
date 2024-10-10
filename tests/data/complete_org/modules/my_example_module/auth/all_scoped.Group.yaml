@@ -1,5 +1,5 @@
 name: gp_all_scoped_complete_org
-sourceId: 1234567890123456
+sourceId: "1234567890123456"
 metadata:
   origin: cognite-toolkit
 capabilities:

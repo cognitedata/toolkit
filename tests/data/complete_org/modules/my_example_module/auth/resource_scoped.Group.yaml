@@ -1,5 +1,5 @@
 name: gp_resource_scoped_complete_org
-sourceId: 1234567890123456
+sourceId: "1234567890123456789"
 metadata:
   origin: cognite-toolkit
 capabilities:
@@ -8,6 +8,6 @@ capabilities:
         - READ
         - WRITE
       scope:
-        dataSetScope:
+        datasetScope:
           ids:
             - ds_complete_org
