@@ -36,73 +36,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 
 
-class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
-    folder_name = "robotics"
-    filename_pattern = r"^.*\.Map$"  # Matches all yaml files whose stem ends with '.Map'.
-    resource_cls = Map
-    resource_write_cls = MapWrite
-    list_cls = MapList
-    list_write_cls = MapWriteList
-    kind = "Map"
-    _doc_url = "Maps/operation/createMaps"
-
-    @property
-    def display_name(self) -> str:
-        return "robotics.map"
-
-    @classmethod
-    def get_id(cls, item: Map | MapWrite | dict) -> str:
-        if isinstance(item, dict):
-            return item["externalId"]
-        if not item.external_id:
-            raise KeyError("Map must have external_id")
-        return item.external_id
-
-    @classmethod
-    def dump_id(cls, id: str) -> dict[str, Any]:
-        return {"externalId": id}
-
-    @classmethod
-    def get_required_capability(cls, items: MapWriteList | None, read_only: bool) -> Capability | list[Capability]:
-        if not items and items is not None:
-            return []
-
-        actions = (
-            [
-                capabilities.RoboticsAcl.Action.Read,
-            ]
-            if read_only
-            else [
-                capabilities.RoboticsAcl.Action.Read,
-                capabilities.RoboticsAcl.Action.Create,
-                capabilities.RoboticsAcl.Action.Delete,
-                capabilities.RoboticsAcl.Action.Update,
-                capabilities.RoboticsAcl.Action.Delete,
-            ]
-        )
-
-        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
-
-    def create(self, items: MapWriteList) -> MapList:
-        return self.client.robotics.maps.create(items)
-
-    def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
-        return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
-
-    def update(self, items: MapWriteList) -> MapList:
-        return self.client.robotics.maps.update(items)
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        try:
-            self.client.robotics.maps.delete(ids)
-        except CogniteAPIError as e:
-            return len(e.successful)
-        return len(ids)
-
-    def iterate(self) -> Iterable[Map]:
-        return iter(self.client.robotics.maps)
-
-
 class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, FrameList]):
     folder_name = "robotics"
     filename_pattern = r"^.*\.Frame$"  # Matches all yaml files whose stem ends with '.Frame'.
@@ -397,6 +330,74 @@ class RobotCapabilityLoader(
 
     def iterate(self) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
+
+
+class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
+    folder_name = "robotics"
+    filename_pattern = r"^.*\.Map$"  # Matches all yaml files whose stem ends with '.Map'.
+    resource_cls = Map
+    resource_write_cls = MapWrite
+    list_cls = MapList
+    list_write_cls = MapWriteList
+    kind = "Map"
+    dependencies = frozenset({RoboticFrameLoader, RoboticLocationLoader})
+    _doc_url = "Maps/operation/createMaps"
+
+    @property
+    def display_name(self) -> str:
+        return "robotics.map"
+
+    @classmethod
+    def get_id(cls, item: Map | MapWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("Map must have external_id")
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: MapWriteList | None, read_only: bool) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        actions = (
+            [
+                capabilities.RoboticsAcl.Action.Read,
+            ]
+            if read_only
+            else [
+                capabilities.RoboticsAcl.Action.Read,
+                capabilities.RoboticsAcl.Action.Create,
+                capabilities.RoboticsAcl.Action.Delete,
+                capabilities.RoboticsAcl.Action.Update,
+                capabilities.RoboticsAcl.Action.Delete,
+            ]
+        )
+
+        return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+
+    def create(self, items: MapWriteList) -> MapList:
+        return self.client.robotics.maps.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> MapList:
+        return _fallback_to_one_by_one(self.client.robotics.maps.retrieve, ids, MapList)
+
+    def update(self, items: MapWriteList) -> MapList:
+        return self.client.robotics.maps.update(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.robotics.maps.delete(ids)
+        except CogniteAPIError as e:
+            return len(e.successful)
+        return len(ids)
+
+    def iterate(self) -> Iterable[Map]:
+        return iter(self.client.robotics.maps)
 
 
 def _fallback_to_one_by_one(
