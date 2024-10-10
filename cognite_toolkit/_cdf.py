@@ -131,6 +131,7 @@ def app() -> NoReturn:
                                     if app_cmd.name not in command_by_name:
                                         _app.command(app_cmd.name)(app_cmd.callback)  # type: ignore [type-var]
 
+        print("Welcome to the Cognite Toolkit!")
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
