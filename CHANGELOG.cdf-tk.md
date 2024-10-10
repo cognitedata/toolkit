@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- `repo init` command provides a choice for Azure Devops (ADO) with sample pipeline files.
+
 ## [0.3.1] - 2024-10-09
 
 ### Fixed
