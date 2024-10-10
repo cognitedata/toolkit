@@ -43,8 +43,6 @@ if USE_SENTRY:
         traces_sample_rate=1.0,
     )
 
-print("??? Start!")
-
 CDF_TOML = CDFToml.load(Path.cwd())
 
 default_typer_kws = dict(
@@ -132,7 +130,6 @@ def app() -> NoReturn:
                                     if app_cmd.name not in command_by_name:
                                         _app.command(app_cmd.name)(app_cmd.callback)  # type: ignore [type-var]
 
-        print("??? Welcome to the Cognite Toolkit!")
         _app()
     except ToolkitError as err:
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
