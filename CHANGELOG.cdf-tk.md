@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- `repo init` command provides a choice for Azure Devops (ADO) with sample pipeline files.
+
 ### Fixed
 
 - The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`

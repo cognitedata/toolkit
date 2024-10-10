@@ -14,6 +14,7 @@ from ._base import ToolkitCommand
 
 REPOSITORY_HOSTING = [
     "GitHub",
+    "Azure DevOps",
     "Other",
     "None",
 ]
@@ -56,17 +57,20 @@ class RepoCommand(ToolkitCommand):
             repo_host = host
         if repo_host == "GitHub":
             self.console("The repository will be hosted on GitHub.")
+        elif repo_host == "Azure DevOps":
+            self.console("The repository will be hosted on Azure DevOps.")
         elif repo_host == "Other":
             self.console("No template for CI/CD available for other hosting services yet.")
         elif repo_host == "None":
-            self.console("It is recommended to host your repository on a platform like GitHub.")
+            self.console("It is recommended to use a hosted version control service like GitHub or Azure DevOps.")
 
         if verbose:
             self.console("Initializing toolkit repository...")
 
         iterables = [(self._repo_files, self._repo_files.glob("*"))]
-        if repo_host == "GitHub":
-            iterables.append((self._repo_files / repo_host, self._repo_files.rglob(f"{repo_host}/**/*.yaml")))
+        if repo_host in ["GitHub", "Azure DevOps"]:
+            repo_host = repo_host.replace(" ", "")
+            iterables.append((self._repo_files / repo_host, self._repo_files.rglob(f"{repo_host}/**/*.*")))
 
         for root, iterable in iterables:
             for file in iterable:
