@@ -40,7 +40,7 @@ def _version_callback(value: bool) -> None:
 
 class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
-        print("??? Start!")
+        print("??? CoreApp Start!")
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
         self.command()(self.build)
