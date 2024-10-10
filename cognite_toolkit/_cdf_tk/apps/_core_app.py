@@ -1,7 +1,5 @@
 """This is the core functionality of the Cognite Data Fusion Toolkit."""
 
-from __future__ import annotations
-
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,7 +41,7 @@ def _version_callback(value: bool) -> None:
 class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
-        self.callback(invoke_without_command=True)(self.common)
+        # self.callback(invoke_without_command=True)(self.common)
         self.command()(self.build)
         self.command()(self.deploy)
         self.command()(self.clean)
