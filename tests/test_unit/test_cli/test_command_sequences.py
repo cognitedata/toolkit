@@ -239,6 +239,4 @@ def test_complete_org_is_complete() -> None:
     # If this assertion fails, it means that the complete_org is not complete.
     # This typically happens when you have just added a new loader and forgotten to add
     # example data for the new resource type in the tests/data/complete_org.
-    assert (
-        not unused_loaders
-    ), f"The following loaders are not used: {humanize_collection([loader.__name__ for loader in unused_loaders])}"
+    assert not unused_loaders, f"The following {len(unused_loaders)} loaders are not used: {humanize_collection([loader.__name__ for loader in unused_loaders])}"
