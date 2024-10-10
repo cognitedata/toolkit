@@ -1,0 +1,4 @@
+name: Robot navigation map
+externalId: robotMap
+mapType: POINTCLOUD
+description: Original Description
