@@ -57,9 +57,15 @@ logging.basicConfig(
 def run() -> None:
     from_earliest = len(original_argv) > 1 and "--earliest" in original_argv[1:3]
     from_latest = len(original_argv) > 1 and "--latest" in original_argv[1:3]
+    selected_version = len(original_argv) > 1 and "--version" in original_argv[1:3] and original_argv[2]
 
     versions = get_versions_since(SUPPORT_MODULE_UPGRADE_FROM_VERSION)
-    if from_earliest and from_latest:
+    if selected_version:
+        selected = parse_version(selected_version)
+        versions = [version for version in versions if version == selected]
+        if not versions:
+            raise ValueError(f"Version {selected_version} is not available.")
+    elif from_earliest and from_latest:
         versions = [versions[0], versions[-1]]
     elif from_earliest:
         versions = versions[-1:]
