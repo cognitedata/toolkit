@@ -1,0 +1,32 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - '*'  # Triggers on all pull requests
+
+jobs:
+- job: CheckModules
+  displayName: 'Deploy Dry Run'
+  pool:
+    vmImage: 'ubuntu-latest'
+  container:
+    image: cognite/toolkit:0.3.1
+    env:
+      CDF_CLUSTER: $(CDF_CLUSTER)
+      CDF_PROJECT: $(CDF_PROJECT)
+      IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+      IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET)
+      IDP_TENANT_ID: $(IDP_TENANT_ID)
+  
+  steps:
+    - checkout: self
+      clean: true
+    
+    - script: |
+        cdf build
+      displayName: 'Build the modules'
+
+    - script: |
+        cdf deploy --dry-run
+      displayName: 'Dry Run the modules deployment'
