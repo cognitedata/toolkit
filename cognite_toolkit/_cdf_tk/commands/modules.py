@@ -3,7 +3,7 @@ from __future__ import annotations
 import shutil
 from importlib import resources
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 import questionary
 import typer
@@ -75,14 +75,27 @@ class ModulesCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
 
-    @staticmethod
-    def _build_tree(item: Packages | ModuleLocation, tree: Tree) -> None:
-        if not isinstance(item, Packages):
-            return
-        for key, value in item.items():
+    @classmethod
+    def _create_tree(cls, item: Packages) -> Tree:
+        module_locations = [module for package in item.values() for module in package.modules]
+        data: dict[str, Any] = {}
+        for module in module_locations:
+            parts = module.relative_path.parts
+            current = data
+            for part in parts:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+
+        return cls._build_tree(data, Tree(MODULES))
+
+    @classmethod
+    def _build_tree(cls, data: dict[str, Any], tree: Tree) -> Tree:
+        for key, value in data.items():
             subtree = tree.add(key)
-            for subvalue in value.modules:
-                subtree.add(str(subvalue))
+            if isinstance(value, dict):
+                cls._build_tree(value, subtree)
+        return tree
 
     def _create(
         self,
@@ -269,7 +282,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 questionary.Choice(
                     title=module.title,
                     value=module,
-                    checked=module.is_selected_by_default,
+                    checked=module.name in dependencies or module.is_selected_by_default,
                     disabled="required" if module.name in dependencies else None,
                 )
                 for module in package.modules
@@ -301,8 +314,7 @@ default_organization_dir = "{organization_dir.name}"''',
             if len(selected) > 0:
                 print("\n[bold]You have selected the following:[/]\n")
 
-                tree = Tree(MODULES)
-                self._build_tree(selected, tree)
+                tree = self._create_tree(selected)
                 print(Padding.indent(tree, 5))
                 print("\n")
 
