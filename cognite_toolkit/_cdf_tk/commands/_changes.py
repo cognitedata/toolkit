@@ -43,6 +43,65 @@ class ManualChange(Change):
     def instructions(self, files: set[Path]) -> str:
         return ""
 
+
+class FixViewBasedLocationFilter(AutomaticChange):
+    """The created view-based location filter has been fixed to be compatible with the CDF API.
+
+Before `your.LocationFilter.yaml`:
+```yaml
+...
+views:
+  externalId: my_view
+  space: my_space
+  version: "1"
+  representsEntity: ASSET
+...
+```
+After `your.LocationFilter.yaml`:
+```yaml
+...
+views:
+  - externalId: my_view
+    space: my_space
+    version: "1"
+    representsEntity: ASSET
+...
+    """
+
+    deprecated_from = Version("0.3.1")
+    required_from = Version("0.3.1")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        changed = set()
+        for resource_yaml in itertools.chain(self._organization_dir.rglob("*LocationFilter.yaml"), self._organization_dir.rglob("*LocationFilter.yml")):
+            content = safe_read(resource_yaml)
+            if "views:" not in content:
+                continue
+            lines = content.splitlines()
+            new_lines: list[str] = []
+            is_next = False
+            indent: int | None = None
+            for line in lines:
+                if line.startswith("views:"):
+                    is_next = True
+                elif is_next:
+                    indent = len(line) - len(line.lstrip())
+                    line = f"{indent * ' '}- {line[indent:]}"
+                    is_next = False
+                elif indent is not None:
+                    line_indent = len(line) - len(line.lstrip())
+                    if line_indent == indent:
+                        line = f"  {line}"
+                    else:
+                        indent = None
+                new_lines.append(line)
+            resource_yaml.write_text("\n".join(new_lines))
+            changed.add(resource_yaml)
+        return changed
+
+
+
 class NodeAPICallParametersNoLongerSupported(AutomaticChange):
     """Setting API call parameters in the 'node' section of the config files is no longer supported.
 
