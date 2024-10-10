@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
+from cognite.client.data_classes._base import UnknownCogniteObject
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
 from cognite.client.data_classes.hosted_extractors import (
     Destination,
@@ -322,6 +323,17 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             yield HostedExtractorSourceLoader, item["sourceId"]
         if "destinationId" in item:
             yield HostedExtractorDestinationLoader, item["destinationId"]
+
+    def _are_equal(
+        self, local: JobWrite, cdf_resource: Job, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.dump()
+        if isinstance(cdf_dumped["config"], UnknownCogniteObject):
+            # Bug in SDK.
+            cdf_dumped["config"] = cdf_dumped["config"].dump()
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, MappingWriteList, MappingList]):

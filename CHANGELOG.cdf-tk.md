@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
   is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
+- Deploying a view-based `LocationFilter` no longer raises a `400` error.
 
 ## [0.3.1] - 2024-10-09
 

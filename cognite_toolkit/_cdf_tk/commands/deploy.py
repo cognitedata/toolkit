@@ -339,13 +339,16 @@ class DeployCommand(ToolkitCommand):
                 unchanged.append(item)
             elif cdf_resource:
                 if verbose:
-                    print(
-                        Panel(
-                            "\n".join(to_diff(cdf_dumped, local_dumped)),
-                            title=f"{loader.display_name}: {identifier}",
-                            expand=False,
+                    try:
+                        print(
+                            Panel(
+                                "\n".join(to_diff(cdf_dumped, local_dumped)),
+                                title=f"{loader.display_name}: {identifier}",
+                                expand=False,
+                            )
                         )
-                    )
+                    except Exception:
+                        raise
                 to_update.append(item)
             else:
                 to_create.append(item)
