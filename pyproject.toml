@@ -14,7 +14,7 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.62.5", extras = ["pandas"]}
+cognite-sdk = {version = "^7.63.1", extras = ["pandas"]}
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
 typer = {version = ">=0.12.0, <1.0", extras = ["all"]}
