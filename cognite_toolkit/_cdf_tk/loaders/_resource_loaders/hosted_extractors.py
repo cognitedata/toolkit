@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes import ClientCredentials
+from cognite.client.data_classes._base import UnknownCogniteObject
 from cognite.client.data_classes.capabilities import Capability, HostedExtractorsAcl
 from cognite.client.data_classes.hosted_extractors import (
     Destination,
@@ -32,6 +33,8 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+
+from .data_organization_loaders import DataSetsLoader
 
 
 class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, SourceWriteList, SourceList]):
@@ -123,6 +126,7 @@ class HostedExtractorDestinationLoader(
     resource_write_cls = DestinationWrite
     list_cls = DestinationList
     list_write_cls = DestinationWriteList
+    dependencies = frozenset({DataSetsLoader})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
@@ -227,6 +231,11 @@ class HostedExtractorDestinationLoader(
         cdf_dumped = cdf_resource.dump()
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "targetDataSetId" in item:
+            yield DataSetsLoader, item["targetDataSetId"]
+
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
     folder_name = "hosted_extractors"
@@ -235,6 +244,7 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
     resource_write_cls = JobWrite
     list_cls = JobList
     list_write_cls = JobWriteList
+    dependencies = frozenset({HostedExtractorSourceLoader, HostedExtractorDestinationLoader})
     kind = "Job"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Jobs/operation/create_jobs"
@@ -319,6 +329,17 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         if "destinationId" in item:
             yield HostedExtractorDestinationLoader, item["destinationId"]
 
+    def _are_equal(
+        self, local: JobWrite, cdf_resource: Job, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.dump()
+        if isinstance(cdf_dumped["config"], UnknownCogniteObject):
+            # Bug in SDK.
+            cdf_dumped["config"] = cdf_dumped["config"].dump()
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
 
 class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, MappingWriteList, MappingList]):
     folder_name = "hosted_extractors"
@@ -327,6 +348,8 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     resource_write_cls = MappingWrite
     list_cls = MappingList
     list_write_cls = MappingWriteList
+    # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
+    dependencies = frozenset({HostedExtractorSourceLoader})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Mappings/operation/create_mappings"

@@ -1,0 +1,20 @@
+externalId: 'ep_src_asset_hamburg_sap'
+description: 'DB extractor config reading data from Hamburg SAP'
+config:
+  logger:
+    console:
+      level: INFO
+    file:
+      level: INFO
+      path: 'file.log'
+  # List of databases
+  databases:
+    - type: odbc
+      name: postgres
+      connection-string: 'DSN={MyPostgresDsn}'
+  # List of queries
+  queries:
+    - name: test-postgres
+      database: postgres
+      query: >
+        SELECT

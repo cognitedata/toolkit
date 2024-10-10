@@ -60,6 +60,14 @@ class LocationFilterView(ViewId):
             represents_entity=resource.get("representsEntity"),
         )
 
+    def dump(self, camel_case: bool = True, include_type: bool = False) -> dict[str, str]:
+        if include_type:
+            raise ValueError(f"{type(self).__name__} cannot be dumped with type")
+        output = super().dump(camel_case, False)
+        if self.represents_entity:
+            output["representsEntity"] = self.represents_entity
+        return output
+
 
 @dataclass
 class AssetCentricSubFilter(CogniteObject):

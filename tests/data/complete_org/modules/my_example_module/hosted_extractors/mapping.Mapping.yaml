@@ -1,6 +1,11 @@
 externalId: MyMapping
 mapping:
-  expression: "some expression"
+  expression: '[{
+  "type": "datapoint",
+  "timestamp": to_unix_timestamp(input.timestamp, "%Y-%m-%dT%H:%M:%S"),
+  "value": try_float(input.value, null),
+  "externalId": input.tag
+}].filter(datapoint => datapoint.value is not null)'
 input:
   type: csv
   delimiter: ","

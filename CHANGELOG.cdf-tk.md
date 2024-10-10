@@ -21,6 +21,14 @@ Changes are grouped as follows:
 
 - `repo init` command provides a choice for Azure Devops (ADO) with sample pipeline files.
 
+### Fixed
+
+- The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
+  is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
+- Deploying a view-based `LocationFilter` no longer raises a `400` error.
+- When running `cdf build`, in the `hosted_extractors` folder, the Toolkit will now give a warning if a `Destination`
+  is referring toa non-existing dataset.
+
 ## [0.3.1] - 2024-10-09
 
 ### Fixed
