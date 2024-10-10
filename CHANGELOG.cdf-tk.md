@@ -22,6 +22,8 @@ Changes are grouped as follows:
 - The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
   is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
 - Deploying a view-based `LocationFilter` no longer raises a `400` error.
+- When running `cdf modules init` required modules are now created. Before, the Toolkit would skip creating
+  the required modules.
 - When running `cdf build`, in the `hosted_extractors` folder, the Toolkit will now give a warning if a `Destination`
   is referring toa non-existing dataset.
 
