@@ -269,7 +269,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 questionary.Choice(
                     title=module.title,
                     value=module,
-                    checked=module.is_selected_by_default,
+                    checked=module.name in dependencies or module.is_selected_by_default,
                     disabled="required" if module.name in dependencies else None,
                 )
                 for module in package.modules
