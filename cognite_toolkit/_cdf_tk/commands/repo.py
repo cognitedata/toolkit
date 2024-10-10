@@ -68,9 +68,8 @@ class RepoCommand(ToolkitCommand):
 
         iterables = [(self._repo_files, self._repo_files.glob("*"))]
         if repo_host in ["GitHub", "Azure DevOps"]:
-            iterables.append(
-                (self._repo_files / repo_host.replace(" ", ""), self._repo_files.rglob(f"{repo_host}/**/*.yaml"))
-            )
+            repo_host = repo_host.replace(" ", "")
+            iterables.append((self._repo_files / repo_host, self._repo_files.rglob(f"{repo_host}/**/*.yaml")))
 
         for root, iterable in iterables:
             for file in iterable:
