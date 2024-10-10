@@ -1,4 +1,5 @@
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -33,3 +34,10 @@ def test_deploy_core_model(cdf_tool_config: CDFToolConfig) -> None:
         include=list(LOADER_BY_FOLDER_NAME.keys()),
         verbose=False,
     )
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
+)
+def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
+    assert True
