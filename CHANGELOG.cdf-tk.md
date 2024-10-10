@@ -24,6 +24,8 @@ Changes are grouped as follows:
 - Deploying a view-based `LocationFilter` no longer raises a `400` error.
 - When running `cdf build`, in the `hosted_extractors` folder, the Toolkit will now give a warning if a `Destination`
   is referring toa non-existing dataset.
+- Running `cdf modules upgrade` from version `0.3.0` and earlier will no longer fail if you
+  have a view based `LocationFilter` in the `locations` folder.
 
 ## [0.3.1] - 2024-10-09
 
