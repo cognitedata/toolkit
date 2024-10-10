@@ -14,8 +14,8 @@ from ._base import ToolkitCommand
 
 REPOSITORY_HOSTING = [
     "GitHub",
-    "Other",
     "Azure DevOps",
+    "Other",
     "None",
 ]
 
