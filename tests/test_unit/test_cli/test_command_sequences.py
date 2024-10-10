@@ -7,6 +7,7 @@ If the changes are desired, you can update the snapshot by running `pytest tests
 
 from __future__ import annotations
 
+from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -16,7 +17,9 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.apps import CoreApp
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, iterate_modules
+from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection, iterate_modules
 from tests.data import COMPLETE_ORG
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
@@ -214,3 +217,26 @@ def test_build_deploy_complete_org(
         assert (
             not lost_capabilities
         ), f"The group {group_calls.name!r} has lost the capabilities: {', '.join(lost_capabilities)}"
+
+
+def test_complete_org_is_complete() -> None:
+    modules = ModuleDirectories.load(COMPLETE_ORG)
+    used_loader_by_folder_name: dict[str, set[type[Loader]]] = defaultdict(set)
+
+    for module in modules:
+        for resource_folder, files in module.source_paths_by_resource_folder.items():
+            for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+                if any(loader.is_supported_file(file) for file in files):
+                    used_loader_by_folder_name[resource_folder].add(loader)
+
+    unused_loaders = {
+        loader
+        for folder, loaders in LOADER_BY_FOLDER_NAME.items()
+        for loader in loaders
+        if loader not in used_loader_by_folder_name[folder]
+    }
+
+    # If this assertion fails, it means that the complete_org is not complete.
+    # This typically happens when you have just added a new loader and forgotten to add
+    # example data for the new resource type in the tests/data/complete_org.
+    assert not unused_loaders, f"The following {len(unused_loaders)} loaders are not used: {humanize_collection([loader.__name__ for loader in unused_loaders])}"

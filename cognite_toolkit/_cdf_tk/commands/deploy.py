@@ -54,8 +54,8 @@ from ._utils import _print_ids_or_length, _remove_duplicates
 
 
 class DeployCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking)
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
     def execute(
@@ -339,13 +339,16 @@ class DeployCommand(ToolkitCommand):
                 unchanged.append(item)
             elif cdf_resource:
                 if verbose:
-                    print(
-                        Panel(
-                            "\n".join(to_diff(cdf_dumped, local_dumped)),
-                            title=f"{loader.display_name}: {identifier}",
-                            expand=False,
+                    try:
+                        print(
+                            Panel(
+                                "\n".join(to_diff(cdf_dumped, local_dumped)),
+                                title=f"{loader.display_name}: {identifier}",
+                                expand=False,
+                            )
                         )
-                    )
+                    except Exception:
+                        raise
                 to_update.append(item)
             else:
                 to_create.append(item)

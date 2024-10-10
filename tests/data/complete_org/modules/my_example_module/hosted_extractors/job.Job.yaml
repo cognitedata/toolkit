@@ -5,5 +5,3 @@ format:
   type: value
   encoding: utf16
   compression: gzip
-config:
-  topicFilter: "my_topic"

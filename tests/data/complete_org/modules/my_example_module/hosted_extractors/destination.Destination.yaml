@@ -1,5 +1,5 @@
 externalId: EventHubTarget
 credentials:
-  clientId: "12345678-1234-1234-1234-123456789012"
+  clientId: ${EVENTHUB_CLIENT_ID}
   clientSecret: ${EVENTHUB_CLIENT_SECRET}
-targetDataSetExternalId: ds_extraction
+targetDataSetExternalId: ds_complete_org

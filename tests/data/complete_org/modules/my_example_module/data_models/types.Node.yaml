@@ -1,0 +1,4 @@
+- space: sp_schema
+  externalId: MyNodeType
+- space: sp_schema
+  externalId: MyOtherNodeType

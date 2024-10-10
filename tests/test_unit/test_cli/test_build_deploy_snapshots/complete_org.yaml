@@ -1,3 +1,12 @@
+Asset:
+- dataSetId: 42
+  description: This is the root asset
+  externalId: root
+  metadata:
+    key: value
+    key2: value2
+  name: RootAsset
+  source: doctrino
 Container:
 - constraints: {}
   externalId: MyFileExtension
@@ -30,16 +39,45 @@ DataModel:
     space: cdf_cdm
     type: view
     version: v1
+DataPostProcessing:
+- description: Original Description
+  externalId: read_dial_gauge
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180
+            minimum: -180
+            type: number
+          tilt:
+            maximum: 90
+            minimum: -90
+            type: number
+          zoom:
+            maximum: 100
+            minimum: 0
+            type: number
+        required:
+        - tilt
+        - pan
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera capability input
+    type: object
+  method: read_dial_gauge
+  name: Read dial gauge
 DataSet:
-- description: This is an example dataset used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
-  externalId: ds_extraction
-  metadata: {}
-  name: Example dataset.
-  writeProtected: false
-- description: This is an example dataset used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
-  externalId: ds_labels_foo
+- description: This dataset is used for all the resources in the complete_org.
+  externalId: ds_complete_org
   metadata: {}
   name: Example dataset.
   writeProtected: false
@@ -59,11 +97,46 @@ DatapointSubscription:
       value: ts_value
   name: My Subscription
   partitionCount: 1
+Datapoints:
+- args: []
+  dataframe:
+    empty_count: 0
+    first_row:
+      cdf_tooklit:example_timeseries: 0.943
+      cdf_tooklit:example_timeseries:2: 0.9213
+    index_name: timestamp
+    last_row:
+      cdf_tooklit:example_timeseries: 0.9356
+      cdf_tooklit:example_timeseries:2: 0.9153
+    nan_count: 1
+    null_count: 1
+    shape: 5x2
+  kwargs: {}
+  name: missing
 Destination:
 - credentials:
     nonce: '123'
   externalId: EventHubTarget
   targetDataSetId: 42
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 42
+  description: Asset source extraction pipeline with configuration for a DB extractor
+    reading data from Hamburg SAP
+  documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
+  externalId: ep_src_asset_hamburg_sap
+  name: src:asset:hamburg:sap
+  rawTables:
+  - dbName: db_complete_org
+    tableName: asset
+  source: doctrino
+ExtractionPipelineConfig:
+- config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
+    \ 'file.log'\n# List of databases\ndatabases:\n  - type: odbc\n    name: postgres\n\
+    \    connection-string: 'DSN={MyPostgresDsn}'\n# List of queries\nqueries:\n \
+    \ - name: test-postgres\n    database: postgres\n    query: >\n      SELECT\n"
+  description: DB extractor config reading data from Hamburg SAP
+  externalId: ep_src_asset_hamburg_sap
 FileLoader:
 - externalId: MyExtendedFile
   filehash: 5e6be7b4
@@ -71,6 +144,20 @@ FileLoader:
 - externalId: MyVanillaFile
   filehash: adc874a9
   space: sp_nodes
+- external_id: classicFileMetadata
+  filehash: c646656c
+FileMetadata:
+- dataSetId: 42
+  directory: /files
+  externalId: classicFileMetadata
+  metadata:
+    origin: cognite-toolkit
+  mimeType: text/plain
+  name: classicfile.txt
+  source: doctrino
+Frame:
+- externalId: rootCoordinateFrame
+  name: Root coordinate frame
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
@@ -115,10 +202,33 @@ GraphQLDataModel:
   name: Asset Hierarchy
   space: sp_schema
   version: '3_0_2'
+Group:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - LIST
+      - READ
+      scope:
+        all: {}
+  metadata:
+    origin: cognite-toolkit
+  name: gp_all_scoped_complete_org
+  sourceId: '1234567890123456'
+- capabilities:
+  - timeSeriesAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  metadata:
+    origin: cognite-toolkit
+  name: gp_resource_scoped_complete_org
+  sourceId: '1234567890123456789'
 Job:
-- config:
-    topicFilter: my_topic
-  destinationId: EventHubTarget
+- destinationId: EventHubTarget
   externalId: myJob
   format:
     compression: gzip
@@ -134,6 +244,10 @@ LabelDefinition:
   description: Pump label
   externalId: label_pump
   name: Pump
+Location:
+- description: Original Description
+  externalId: waterTreatmentPlant1_Windows_3_11_8
+  name: Water treatment plant
 LocationFilter:
 - dataModels:
   - externalId: DataModelLocation
@@ -151,15 +265,21 @@ LocationFilter:
   - externalId: CogniteAsset
     representsEntity: ASSET
     space: cdf_cdm
-    type: view
     version: v1
+Map:
+- description: Original Description
+  externalId: robotMap
+  mapType: POINTCLOUD
+  name: Robot navigation map
 Mapping:
 - externalId: MyMapping
   input:
     delimiter: ','
     type: csv
   mapping:
-    expression: some expression
+    expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+      "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+      }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
 - externalId: MyExtendedFile
@@ -189,6 +309,12 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+- externalId: MyNodeType
+  instanceType: node
+  space: sp_schema
+- externalId: MyOtherNodeType
+  instanceType: node
+  space: sp_schema
 - externalId: MyVanillaFile
   instanceType: node
   sources:
@@ -216,6 +342,90 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+RobotCapability:
+- dataHandlingSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    id: robotics/schemas/0.1.0/data_handling/ptz
+    properties:
+      uploadInstructions:
+        additionalProperties: false
+        properties:
+          image:
+            additionalProperties: false
+            properties:
+              method:
+                const: uploadFile
+              parameters:
+                properties:
+                  filenamePrefix:
+                    type: string
+                required:
+                - filenamePrefix
+                type: object
+            required:
+            - method
+            - parameters
+            type: object
+        type: object
+    required:
+    - uploadInstructions
+    type: object
+  description: Original Description
+  externalId: ptz
+  inputSchema:
+    $schema: http://json-schema.org/draft-07/schema#
+    additionalProperties: false
+    id: robotics/schemas/0.1.0/capabilities/ptz
+    properties:
+      method:
+        type: string
+      parameters:
+        properties:
+          pan:
+            maximum: 180
+            minimum: -180
+            type: number
+          tilt:
+            maximum: 90
+            minimum: -90
+            type: number
+          zoom:
+            maximum: 100
+            minimum: 0
+            type: number
+        required:
+        - tilt
+        - pan
+        - zoom
+        type: object
+    required:
+    - method
+    - parameters
+    title: PTZ camera capability input
+    type: object
+  method: ptz
+  name: ptz
+Row:
+- args: []
+  dataframe:
+    empty_count: 0
+    first_row:
+      categoryId: '1'
+      description: This is an example
+      name: Example 1
+    index_name: key
+    last_row:
+      categoryId: '2'
+      description: This is a third example
+      name: Example 3
+    nan_count: 0
+    null_count: 0
+    shape: 3x3
+  kwargs:
+    db_name: db_complete_org
+    ensure_parent: false
+    table_name: asset
+  name: db_complete_org_asset_False
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
@@ -234,7 +444,7 @@ Sequence:
 Source:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
-  host: my_eventhub
+  host: myHost
   keyName: The name of the key
   keyValue: SuperSecretKeyValue
   type: eventhub
@@ -242,6 +452,12 @@ Space:
 - space: DataModelSpace
 - space: sp_nodes
 - space: sp_schema
+ThreeDModel:
+- createdTime: 1
+  dataSetId: 42
+  metadata:
+    origin: cognite-toolkit
+  name: my_3Dmodel
 TimeSeries:
 - dataSetId: 42
   description: This is an example timeseries used to demonstrate how to create a custom
@@ -322,9 +538,8 @@ Workflow:
   externalId: baz
 WorkflowTrigger:
 - externalId: MyTrigger
-  input: '{"my_input": "data"}'
   triggerRule:
-    cronExpression: 0 0 0 * * ?
+    cronExpression: 5 4 * * *
     triggerType: schedule
   workflowExternalId: baz
   workflowVersion: '1'
