@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -53,6 +54,9 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
     )
 
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
+    cdf_tool_config._environ["EVENTHUB_CLIENT_ID"] = os.environ["IDP_CLIENT_ID"]
+    cdf_tool_config._environ["EVENTHUB_CLIENT_SECRET"] = os.environ["IDP_CLIENT_SECRET"]
+
     deploy_command.execute(
         cdf_tool_config,
         build_dir=build_dir,

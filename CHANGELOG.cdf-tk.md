@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
+  is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
+
 ## [0.3.1] - 2024-10-09
 
 ### Fixed
