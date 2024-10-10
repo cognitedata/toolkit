@@ -83,18 +83,6 @@ DataSet:
   writeProtected: false
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
-  externalId: ds_extraction
-  metadata: {}
-  name: Example dataset.
-  writeProtected: false
-- description: This is an example dataset used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
-  externalId: ds_labels_foo
-  metadata: {}
-  name: Example dataset.
-  writeProtected: false
-- description: This is an example dataset used to demonstrate how to create a custom
-    module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
   metadata: {}
   name: Example dataset.
@@ -160,7 +148,7 @@ FileLoader:
   filehash: c646656c
 FileMetadata:
 - dataSetId: 42
-  directory: files
+  directory: /files
   externalId: classicFileMetadata
   metadata:
     origin: cognite-toolkit
@@ -225,24 +213,22 @@ Group:
   metadata:
     origin: cognite-toolkit
   name: gp_all_scoped_complete_org
-  sourceId: 1234567890123456
+  sourceId: '1234567890123456'
 - capabilities:
   - timeSeriesAcl:
       actions:
       - READ
       - WRITE
       scope:
-        dataSetScope:
+        datasetScope:
           ids:
-          - ds_complete_org
+          - 42
   metadata:
     origin: cognite-toolkit
   name: gp_resource_scoped_complete_org
-  sourceId: 1234567890123456
+  sourceId: '1234567890123456789'
 Job:
-- config:
-    topicFilter: my_topic
-  destinationId: EventHubTarget
+- destinationId: EventHubTarget
   externalId: myJob
   format:
     compression: gzip
@@ -279,7 +265,6 @@ LocationFilter:
   - externalId: CogniteAsset
     representsEntity: ASSET
     space: cdf_cdm
-    type: view
     version: v1
 Map:
 - description: Original Description
@@ -292,7 +277,9 @@ Mapping:
     delimiter: ','
     type: csv
   mapping:
-    expression: some expression
+    expression: '[{ "type": "datapoint", "timestamp": to_unix_timestamp(input.timestamp,
+      "%Y-%m-%dT%H:%M:%S"), "value": try_float(input.value, null), "externalId": input.tag
+      }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
 - externalId: MyExtendedFile
@@ -457,7 +444,7 @@ Sequence:
 Source:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
-  host: my_eventhub
+  host: myHost
   keyName: The name of the key
   keyValue: SuperSecretKeyValue
   type: eventhub
@@ -551,9 +538,8 @@ Workflow:
   externalId: baz
 WorkflowTrigger:
 - externalId: MyTrigger
-  input: '{"my_input": "data"}'
   triggerRule:
-    cronExpression: 0 0 0 * * ?
+    cronExpression: 5 4 * * *
     triggerType: schedule
   workflowExternalId: baz
   workflowVersion: '1'

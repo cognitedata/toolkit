@@ -231,6 +231,11 @@ class HostedExtractorDestinationLoader(
         cdf_dumped = cdf_resource.dump()
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "targetDataSetId" in item:
+            yield DataSetsLoader, item["targetDataSetId"]
+
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
     folder_name = "hosted_extractors"
@@ -343,6 +348,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     resource_write_cls = MappingWrite
     list_cls = MappingList
     list_write_cls = MappingWriteList
+    # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
     dependencies = frozenset({HostedExtractorSourceLoader})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
