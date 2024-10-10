@@ -40,13 +40,11 @@ def _version_callback(value: bool) -> None:
 
 class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
-        print("??? CoreApp Start!")
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
         self.command()(self.build)
         self.command()(self.deploy)
         self.command()(self.clean)
-        print("??? Welcome to the Cognite Toolkit!")
 
     def common(
         self,
@@ -76,6 +74,7 @@ class CoreApp(typer.Typer):
         Docs: https://docs.cognite.com/cdf/deploy/cdf_toolkit/\n
         Template reference documentation: https://developer.cognite.com/sdks/toolkit/references/configs
         """
+        print("??? common")
         if ctx.invoked_subcommand is None:
             print(
                 Panel(
