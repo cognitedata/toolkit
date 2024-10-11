@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The property `featureConfiguration` is in the `APM_Config` is now correctly a blob and not a list of blobs. This
+  impacted the InRobot and InField options in `cdf modules init` and `cdf modules add`.
+
 ## [0.3.2] - 2024-10-11
 
 ### Fixed
