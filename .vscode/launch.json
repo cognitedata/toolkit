@@ -71,6 +71,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf repo init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "repo",
+        "init",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: deploy",
       "type": "debugpy",
       "request": "launch",
