@@ -33,6 +33,8 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
+from .data_organization_loaders import DataSetsLoader
+
 
 class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, SourceWriteList, SourceList]):
     folder_name = "hosted_extractors"
@@ -123,6 +125,7 @@ class HostedExtractorDestinationLoader(
     resource_write_cls = DestinationWrite
     list_cls = DestinationList
     list_write_cls = DestinationWriteList
+    dependencies = frozenset({DataSetsLoader})
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
@@ -227,6 +230,11 @@ class HostedExtractorDestinationLoader(
         cdf_dumped = cdf_resource.dump()
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if "targetDataSetId" in item:
+            yield DataSetsLoader, item["targetDataSetId"]
+
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):
     folder_name = "hosted_extractors"
@@ -235,6 +243,7 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
     resource_write_cls = JobWrite
     list_cls = JobList
     list_write_cls = JobWriteList
+    dependencies = frozenset({HostedExtractorSourceLoader, HostedExtractorDestinationLoader})
     kind = "Job"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Jobs/operation/create_jobs"
@@ -327,6 +336,8 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
     resource_write_cls = MappingWrite
     list_cls = MappingList
     list_write_cls = MappingWriteList
+    # This is not an explicit dependency, however, adding it here as mapping will should be deployed after source.
+    dependencies = frozenset({HostedExtractorSourceLoader})
     kind = "Mapping"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Mappings/operation/create_mappings"

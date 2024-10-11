@@ -1,0 +1,9 @@
+- externalId: classicFileMetadata
+  name: classicfile.txt
+  description: The description of the classic file metadata
+  directory: /files
+  dataSetExternalId: ds_complete_org
+  mimeType: text/plain
+  source: doctrino
+  metadata:
+    origin: cognite-toolkit
