@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.2] - 2024-10-11
+
+### Fixed
+
+- Added missing views, containers, and spaces to the `cdf_apm_base` module.
+
 ## [0.3.1] - 2024-10-09
 
 No changes to templates.

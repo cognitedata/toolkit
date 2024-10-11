@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.2] - 2024-10-11
 
 ### Added
 
@@ -23,11 +23,16 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Deploying `Robotics` resource `Map` now accounts for the dependencies on `Frame` and `Location`.
 - The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
   is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
 - Deploying a view-based `LocationFilter` no longer raises a `400` error.
+- When running `cdf modules init` required modules are now created. Before, the Toolkit would skip creating
+  the required modules.
 - When running `cdf build`, in the `hosted_extractors` folder, the Toolkit will now give a warning if a `Destination`
   is referring toa non-existing dataset.
+- Running `cdf modules upgrade` from version `0.3.0` and earlier will no longer fail if you
+  have a view based `LocationFilter` in the `locations` folder.
 
 ## [0.3.1] - 2024-10-09
 
