@@ -1,0 +1,84 @@
+space: {{apm_datamodel_space}}
+externalId: APM_Notification
+name: APM_Notification
+description: The Maintenance Notification API informs the maintenance team of anomalies
+  in technical objects within the plant. It comprehensively logs tasks for long-term
+  analysis and aids in task planning and execution.
+implements: []
+version: '1'
+properties:
+  sourceId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Unique identifier from the source, e.g., SAP object ID.
+  title:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: title
+    description: Brief title or summary of the notification.
+  description:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: description
+    description: Detailed explanation of the notification.
+  source:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: source
+    description: Origin of the notification, commonly aligned with the activity, such
+      as SAP or Comos.
+  assetExternalId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: assetExternalId
+    description: Asset linked with the notification.
+  rootLocationExternalId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: rootLocationExternalId
+    description: Primary location linked to the notification. Essential for location-based
+      filtering in InField. Input the location's externalId configured in InField.
+  status:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: status
+    description: Current state of the notification, e.g., draft, submitted.
+  type:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: type
+    description: Category of the notification like Malfunction Report, Maintenance
+      Request, or Activity Report. Use descriptive types over codes for clarity in
+      the UI.
+  priority:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: priority
+    description: Urgency level of the notification, such as Urgent, High, or Low.
+      Opt for descriptive priorities over codes for a user-friendly UI.
+  createdDate:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      type: container
+    containerPropertyIdentifier: createdDate
+    description: Timestamp marking the creation of the notification.
