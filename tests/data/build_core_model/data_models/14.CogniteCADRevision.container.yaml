@@ -1,8 +1,0 @@
-externalId: CogniteCADRevision
-properties:
-  revisionId:
-    type:
-      list: false
-      type: int64
-space: sp_core_model
-usedFor: node
