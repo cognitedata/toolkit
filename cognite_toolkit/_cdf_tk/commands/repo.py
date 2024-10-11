@@ -21,12 +21,7 @@ REPOSITORY_HOSTING = [
 
 
 if FeatureFlag.is_enabled(Flags.ADO_PIPELINES):
-    REPOSITORY_HOSTING = [
-        "GitHub",
-        "Azure DevOps",
-        "Other",
-        "None",
-    ]
+    REPOSITORY_HOSTING.insert(1, "Azure DevOps")
 
 
 class RepoCommand(ToolkitCommand):
