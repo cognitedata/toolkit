@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Deploying `Robotics` resource `Map` now accounts for the dependencies on `Frame` and `Location`.
 - The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
   is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
 - Deploying a view-based `LocationFilter` no longer raises a `400` error.
