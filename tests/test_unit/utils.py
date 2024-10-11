@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import abc
 import collections.abc
+import dataclasses
 import enum
 import inspect
 import random
 import re
 import string
-import sys
-import types
 import typing
 from datetime import date, datetime
 from pathlib import Path
+from types import UnionType
 from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
 
 from _pytest.monkeypatch import MonkeyPatch
@@ -33,11 +33,10 @@ from cognite.client.data_classes import (
     SequenceRows,
     Transformation,
     TransformationScheduleWrite,
-    capabilities,
     filters,
 )
 from cognite.client.data_classes._base import CogniteResourceList
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.hosted_extractors import (
@@ -54,6 +53,8 @@ from cognite.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+
+UNION_TYPES = {typing.Union, UnionType}
 
 
 def mock_read_yaml_file(
@@ -311,94 +312,32 @@ class FakeCogniteResourceGenerator:
         return resource_cls(*positional_arguments, **keyword_arguments)
 
     def create_value(self, type_: Any, var_name: str | None = None) -> Any:
+        import numpy as np
+
         if isinstance(type_, typing.ForwardRef):
             type_ = type_._evaluate(globals(), self._type_checking())
 
-        try:
-            if var_name == "external_id" and type_ is str:
-                return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
-            elif var_name == "id" and type_ is int:
-                return self._random.choice(range(1, MAX_VALID_INTERNAL_ID + 1))
-            if type_ is str or type_ is Any:
-                return self._random_string()
-            elif type_ is int:
-                return self._random.randint(1, 100000)
-            elif type_ is float:
-                return self._random.random()
-            elif type_ is bool:
-                return self._random.choice([True, False])
-            elif type_ is dict:
-                return {
-                    self._random_string(10): self._random_string(10)
-                    for _ in range(self._random.randint(1, self._max_list_dict_items))
-                }
-            elif type_ is CogniteClient:
-                return self._cognite_client
-            elif inspect.isclass(type_) and any(base is abc.ABC for base in type_.__bases__):
-                implementations = all_concrete_subclasses(type_)
-                if type_ is Filter:
-                    # Remove filters which are only used by data modeling classes
-                    implementations.remove(filters.HasData)
-                    implementations.remove(filters.Nested)
-                    implementations.remove(filters.GeoJSONWithin)
-                    implementations.remove(filters.GeoJSONDisjoint)
-                    implementations.remove(filters.GeoJSONIntersects)
-                if type_ is Capability:
-                    # UnknownAcl is a special case, that is a concrete class, but cannot be instantiated easily
-                    implementations.remove(capabilities.UnknownAcl)
-                if type_ is WorkflowTaskOutput:
-                    # For Workflow Output has to match the input type
-                    selected = FunctionTaskOutput
-                elif type_ is WorkflowTaskParameters:
-                    selected = FunctionTaskParameters
-                else:
-                    selected = self._random.choice(implementations)
-                return self.create_instance(selected)
-            elif isinstance(type_, enum.EnumMeta):
-                return self._random.choice(list(type_))
-            elif isinstance(type_, TypeVar):
-                return self.create_value(type_.__bound__)
-            elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
-                return type_(
-                    [
-                        self.create_value(type_._RESOURCE)
-                        for _ in range(self._random.randint(1, self._max_list_dict_items))
-                    ]
-                )
-            elif inspect.isclass(type_):
-                return self.create_instance(type_)
-        except TypeError:
-            ...
-
         container_type = get_origin(type_)
         is_container = container_type is not None
-        if not is_container:
+        if not is_container or container_type is np.ndarray:  # looks weird, but 3.8 and 3.12 type compat. issue
             # Handle numpy types
-            import numpy as np
             from numpy.typing import NDArray
 
             if type_ == NDArray[np.float64]:
-                return np.array([self._random.random() for _ in range(self._max_list_dict_items)], dtype=np.float64)
+                return np.array([self._random.random() for _ in range(3)], dtype=np.float64)
+            elif type_ == NDArray[np.uint32]:
+                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.uint32)
             elif type_ == NDArray[np.int64]:
-                return np.array(
-                    [self._random.randint(1, 100) for _ in range(self._max_list_dict_items)], dtype=np.int64
-                )
+                return np.array([self._random.randint(1, 100) for _ in range(3)], dtype=np.int64)
             elif type_ == NDArray[np.datetime64]:
-                return np.array(
-                    [self._random.randint(1, 1704067200000) for _ in range(self._max_list_dict_items)],
-                    dtype="datetime64[ms]",
-                )
-            elif type_ == datetime:
-                return datetime.fromtimestamp(self._random.randint(1, 1704067200))
-            elif type_ == date:
-                return date.fromtimestamp(self._random.randint(1, 1704067200))
-            else:
-                raise ValueError(f"Unknown type {type_} {type(type_)}. {self._error_msg}")
+                return np.array([self._random.randint(1, 1704067200000) for _ in range(3)], dtype="datetime64[ns]")
+            elif type_ == NDArray[np.object_]:
+                return np.array([self._random_string(10) for _ in range(3)], dtype=np.object_)
 
         # Handle containers
         args = get_args(type_)
         first_not_none = next((arg for arg in args if arg is not None), None)
-        if container_type is typing.Union or (sys.version_info >= (3, 10) and container_type is types.UnionType):
+        if container_type in UNION_TYPES:
             return self.create_value(first_not_none)
         elif container_type is typing.Literal:
             return self._random.choice(args)
@@ -408,23 +347,78 @@ class FakeCogniteResourceGenerator:
             collections.abc.Sequence,
             collections.abc.Collection,
         ]:
-            return [self.create_value(first_not_none) for _ in range(self._max_list_dict_items)]
+            return [self.create_value(first_not_none) for _ in range(3)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:
             if first_not_none is None:
                 return self.create_value(dict)
             key_type, value_type = args
             return {
-                self.create_value(key_type): self.create_value(value_type)
-                for _ in range(self._random.randint(1, self._max_list_dict_items))
+                self.create_value(key_type): self.create_value(value_type) for _ in range(self._random.randint(1, 3))
             }
-        elif container_type in [tuple]:
+        elif container_type is set:
+            return set(self.create_value(first_not_none) for _ in range(self._random.randint(1, 3)))
+        elif container_type is tuple:
             if any(arg is ... for arg in args):
-                return tuple(
-                    self.create_value(first_not_none) for _ in range(self._random.randint(1, self._max_list_dict_items))
-                )
+                return tuple(self.create_value(first_not_none) for _ in range(self._random.randint(1, 3)))
             raise NotImplementedError(f"Tuple with multiple types is not supported. {self._error_msg}")
 
-        raise NotImplementedError(f"Unsupported container type {container_type}. {self._error_msg}")
+        if var_name == "external_id" and type_ is str:
+            return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
+        elif var_name == "id" and type_ is int:
+            return self._random.choice(range(1, MAX_VALID_INTERNAL_ID + 1))
+        if type_ is str or type_ is Any:
+            return self._random_string()
+        elif type_ is int:
+            return self._random.randint(1, 100000)
+        elif type_ is float:
+            return self._random.random()
+        elif type_ is bool:
+            return self._random.choice([True, False])
+        elif type_ == datetime:
+            return datetime.fromtimestamp(self._random.randint(1, 1704067200))
+        elif type_ == date:
+            return date.fromtimestamp(self._random.randint(1, 1704067200))
+        elif type_ is dict:
+            return {self._random_string(10): self._random_string(10) for _ in range(self._random.randint(1, 3))}
+        elif type_ is CogniteClient:
+            return self._cognite_client
+        elif inspect.isclass(type_) and any(base is abc.ABC for base in type_.__bases__):
+            implementations = all_concrete_subclasses(type_)
+            if type_ is Filter:
+                # Remove filters not supported by dps subscriptions
+                implementations.remove(filters.Overlaps)
+
+                # Remove filters which are only used by data modeling classes
+                implementations.remove(filters.HasData)
+                implementations.remove(filters.InvalidFilter)
+                implementations.remove(filters.Nested)
+                implementations.remove(filters.GeoJSONWithin)
+                implementations.remove(filters.GeoJSONDisjoint)
+                implementations.remove(filters.GeoJSONIntersects)
+            elif type_ is Capability:
+                implementations.remove(UnknownAcl)
+                if LegacyCapability in implementations:
+                    implementations.remove(LegacyCapability)
+            if type_ is WorkflowTaskOutput:
+                # For Workflow Output has to match the input type
+                selected = FunctionTaskOutput
+            elif type_ is WorkflowTaskParameters:
+                selected = FunctionTaskParameters
+            else:
+                selected = self._random.choice(implementations)
+            return self.create_instance(selected)
+        elif isinstance(type_, enum.EnumMeta):
+            return self._random.choice(list(type_))
+        elif isinstance(type_, TypeVar):
+            return self.create_value(type_.__bound__)
+        elif inspect.isclass(type_) and issubclass(type_, CogniteResourceList):
+            return type_([self.create_value(type_._RESOURCE) for _ in range(self._random.randint(1, 3))])
+        elif inspect.isclass(type_):
+            return self.create_instance(type_)
+        elif type(type_) is dataclasses.InitVar:
+            return self.create_value(type_.type)
+
+        raise NotImplementedError(f"Unsupported {type_=} or {container_type=}. {self._error_msg}")
 
     def _random_string(
         self,
