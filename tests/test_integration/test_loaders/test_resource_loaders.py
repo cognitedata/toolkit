@@ -9,6 +9,7 @@ from cognite.client.data_classes import (
     DataPointSubscriptionWrite,
     Function,
     FunctionSchedule,
+    FunctionScheduleWrite,
     FunctionScheduleWriteList,
     LabelDefinitionWrite,
     filters,
@@ -91,22 +92,23 @@ def dummy_function(cognite_client: CogniteClient) -> Function:
 @pytest.fixture
 def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> FunctionSchedule:
     name = "integration_test_schedule_dummy"
-    if existing_list := cognite_client.functions.schedules.list(
-        function_external_id=dummy_function.external_id, name=name
-    ):
-        created = existing_list[0]
+    if existing_list := cognite_client.functions.schedules.list(name=name):
+        if len(existing_list) > 1:
+            for existing in existing_list[1:]:
+                cognite_client.functions.schedules.delete(existing.id)
+        schedule = existing_list[0]
     else:
-        created = cognite_client.functions.schedules.create(
+        schedule = cognite_client.functions.schedules.create(
             name=name,
             cron_expression="0 7 * * MON",
             description="Original description.",
             function_external_id=dummy_function.external_id,
         )
-    if created.function_external_id is None:
-        created.function_external_id = dummy_function.external_id
-    if created.function_id is not None:
-        created.function_id = None
-    return created
+    if schedule.function_external_id is None:
+        schedule.function_external_id = dummy_function.external_id
+    if schedule.function_id is not None:
+        schedule.function_id = None
+    return schedule
 
 
 class TestFunctionScheduleLoader:
@@ -136,6 +138,35 @@ class TestFunctionScheduleLoader:
 
         assert retrieved, "Function schedule not found after update."
         assert retrieved[0].description == function_schedule.description
+
+    def test_schedule_without_function_external_id_ignored(
+        self, toolkit_client: ToolkitClient, dummy_function: Function, dummy_schedule: FunctionSchedule
+    ) -> None:
+        ui_created_schedule = FunctionScheduleWrite(
+            name="schedule_without_function_external_id_ignored",
+            cron_expression="0 7 * * MON",
+            function_id=dummy_function.id,
+            description="This schedule should be ignored as it does not have a function_external_id",
+        )
+        created: FunctionSchedule | None = None
+
+        try:
+            created = toolkit_client.functions.schedules.create(ui_created_schedule)
+
+            loader = FunctionScheduleLoader(toolkit_client, None)
+
+            cmd = DeployCommand(skip_tracking=True)
+            local = dummy_schedule.as_write()
+            local.cron_expression = "0 7 * * TUE" if local.cron_expression != "0 7 * * TUE" else "0 7 * * MON"
+            create, update, unchanged = cmd.to_create_changed_unchanged_triple(
+                FunctionScheduleWriteList([local]), loader
+            )
+
+            assert len(update) + len(create) == 1
+            _ = loader.update(update)
+        finally:
+            if created:
+                toolkit_client.functions.schedules.delete(created.id)
 
 
 class TestDatapointSubscriptionLoader:
