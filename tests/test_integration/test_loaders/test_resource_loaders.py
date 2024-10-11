@@ -366,6 +366,9 @@ inputSchema:
       additionalProperties: false
   additionalProperties: false""")
 
+        # Ensure the original is deleted even if the test fails
+        loader.delete([original.external_id])
+
         try:
             created = loader.create(DataPostProcessingWriteList([original]))
             assert len(created) == 1
