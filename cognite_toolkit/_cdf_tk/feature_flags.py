@@ -15,6 +15,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
+    ADO_PIPELINES: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables creation of Azure DevOps pipelines in repo init command",
+    }
 
 
 class FeatureFlag:

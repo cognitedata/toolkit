@@ -17,10 +17,6 @@ Changes are grouped as follows:
 
 ## [0.3.2] - 2024-10-11
 
-### Added
-
-- `repo init` command provides a choice for Azure Devops (ADO) with sample pipeline files.
-
 ### Fixed
 
 - Deploying `Robotics` resource `Map` now accounts for the dependencies on `Frame` and `Location`.
