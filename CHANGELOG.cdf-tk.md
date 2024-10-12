@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Running `cdf deploy --verbose` will no longer raise a `ToolkitRequiredValueError` when creating a new
   `FunctionSchedule`.
+- If `--verbose` is set on any command and an error occurs, the Toolkit will now print a full traceback.
 
 ## [0.3.2] - 2024-10-11
 
