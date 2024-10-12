@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running `cdf deploy --verbose` will no longer raise a `ToolkitRequiredValueError` when creating a new
+  `FunctionSchedule`.
+
 ## [0.3.2] - 2024-10-11
 
 ### Fixed
