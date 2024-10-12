@@ -9,6 +9,7 @@ from cognite.client.data_classes import (
     DataPointSubscriptionWrite,
     Function,
     FunctionSchedule,
+    FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
     LabelDefinitionWrite,
@@ -139,34 +140,22 @@ class TestFunctionScheduleLoader:
         assert retrieved, "Function schedule not found after update."
         assert retrieved[0].description == function_schedule.description
 
-    def test_schedule_without_function_external_id_ignored(
-        self, toolkit_client: ToolkitClient, dummy_function: Function, dummy_schedule: FunctionSchedule
-    ) -> None:
-        ui_created_schedule = FunctionScheduleWrite(
-            name="schedule_without_function_external_id_ignored",
-            cron_expression="0 7 * * MON",
-            function_id=dummy_function.id,
+    def test_creating_schedule_then_print_ids(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
+        local = FunctionScheduleWrite(
+            name="test_creating_schedule_then_print_ids",
+            cron_expression="0 7 * * TUE",
+            function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        created: FunctionSchedule | None = None
+        loader = FunctionScheduleLoader(toolkit_client, None)
 
+        created: FunctionSchedulesList | None = None
         try:
-            created = toolkit_client.functions.schedules.create(ui_created_schedule)
-
-            loader = FunctionScheduleLoader(toolkit_client, None)
-
-            cmd = DeployCommand(skip_tracking=True)
-            local = dummy_schedule.as_write()
-            local.cron_expression = "0 7 * * TUE" if local.cron_expression != "0 7 * * TUE" else "0 7 * * MON"
-            create, update, unchanged = cmd.to_create_changed_unchanged_triple(
-                FunctionScheduleWriteList([local]), loader
-            )
-
-            assert len(update) + len(create) == 1
-            _ = loader.update(update)
+            created = loader.create(FunctionScheduleWriteList([local]))
+            loader.get_ids(created)
         finally:
             if created:
-                toolkit_client.functions.schedules.delete(created.id)
+                toolkit_client.functions.schedules.delete(created[0].id)
 
 
 class TestDatapointSubscriptionLoader:
