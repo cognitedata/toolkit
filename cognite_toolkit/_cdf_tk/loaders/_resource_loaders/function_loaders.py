@@ -367,20 +367,17 @@ class FunctionScheduleLoader(
         functions = FunctionLoader(self.client, None).retrieve(list(names_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
+            func_external_id = cast(str, func.external_id)
             function_schedules = self.client.functions.schedules.list(function_id=func.id, limit=-1)
             for schedule in function_schedules:
-                schedule.function_external_id = func.external_id
+                schedule.function_external_id = func_external_id
             schedules.extend(
-                [
-                    schedule
-                    for schedule in function_schedules
-                    if schedule.name in names_by_function[cast(str, func.external_id)]
-                ]
+                [schedule for schedule in function_schedules if schedule.name in names_by_function[func_external_id]]
             )
         return schedules
 
     def create(self, items: FunctionScheduleWriteList) -> FunctionSchedulesList:
-        created = []
+        created_list = FunctionSchedulesList([], cognite_client=self.client)
         for item in items:
             id_ = self.get_id(item)
             auth_config = self.extra_configs.get(id_, {}).get("authentication", {})
@@ -389,13 +386,13 @@ class FunctionScheduleLoader(
             else:
                 client_credentials = None
 
-            created.append(
-                self.client.functions.schedules.create(
-                    item,
-                    client_credentials=client_credentials,
-                )
-            )
-        return FunctionSchedulesList(created)
+            created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
+            # The PySDK mutates the input object, such that function_id is set and function_external_id is None.
+            # If we call .get_id on the returned object, it will raise an error we require the function_external_id
+            # to be set.
+            created.function_external_id = id_.function_external_id
+            created_list.append(created)
+        return created_list
 
     def update(self, items: FunctionScheduleWriteList) -> Sized:
         # Function schedule does not have an update, so we delete and recreate
