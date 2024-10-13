@@ -58,7 +58,8 @@ class MockQuestionary:
 
 def get_packages() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
-    return list(packages.keys())
+    # The Bootcamp package has hardcoded exceptions which makes it not fit for this test.
+    return [name for name in packages.keys() if name != "bootcamp"]
 
 
 @pytest.mark.parametrize("package", get_packages())
@@ -81,6 +82,7 @@ def test_build_packages_without_warnings(
         True,
         ["dev"],
     ]
+
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
         module_cmd.init(organization_dir, clean=True)
 
