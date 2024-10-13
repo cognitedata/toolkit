@@ -6,6 +6,8 @@ first_root_asset_external_id: 'WMT:VAL'
 second_location: oid2
 second_root_asset_external_id: 'WMT:VAL'
 
+scheduleHourly: "0 * * * *"
+
 # Transformation authentication
 cdf_cluster: ${CDF_CLUSTER}
 cicd_clientId: ${IDP_CLIENT_ID}
