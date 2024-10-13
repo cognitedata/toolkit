@@ -48,7 +48,7 @@ assetCentric:
     - externalId: general-subtree-id-890
   externalIdPrefix: general-prefix
 views:
-  externalId: view-id-321
-  space: view-space-secondary
-  version: v2-0-0
-  representsEntity: MAINTENANCE_ORDER
+  - externalId: view-id-321
+    space: view-space-secondary
+    version: v2-0-0
+    representsEntity: MAINTENANCE_ORDER

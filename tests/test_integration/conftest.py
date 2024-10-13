@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 import pytest
 from cognite.client import ClientConfig, CogniteClient, global_config
@@ -10,6 +12,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
+
+THIS_FOLDER = Path(__file__).resolve().parent
+TMP_FOLDER = THIS_FOLDER / "tmp"
 
 
 @pytest.fixture(scope="session")
@@ -51,3 +56,12 @@ def cdf_tool_config(cognite_client: CogniteClient) -> CDFToolConfig:
 @pytest.fixture(scope="session")
 def toolkit_space(cognite_client: CogniteClient) -> Space:
     return cognite_client.data_modeling.spaces.apply(SpaceApply(space="toolkit_test_space"))
+
+
+@pytest.fixture
+def build_dir() -> Path:
+    pidid = os.getpid()
+    build_path = TMP_FOLDER / f"build-{pidid}"
+    build_path.mkdir(exist_ok=True, parents=True)
+    yield build_path
+    shutil.rmtree(build_path, ignore_errors=True)

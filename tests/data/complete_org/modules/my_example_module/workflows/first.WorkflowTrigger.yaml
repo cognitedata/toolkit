@@ -1,7 +1,6 @@
 externalId: MyTrigger
 triggerRule:
   triggerType: schedule
-  cronExpression: "0 0 0 * * ?"
-input: '{"my_input": "data"}'
+  cronExpression: "5 4 * * *"
 workflowExternalId: {{ workflow_external_id }}
 workflowVersion: "1"

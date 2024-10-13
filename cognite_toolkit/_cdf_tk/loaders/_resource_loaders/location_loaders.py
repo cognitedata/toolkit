@@ -19,9 +19,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict, load_yaml_inject_variables
 
-from .classic_loaders import AssetLoader
+from .classic_loaders import AssetLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .file_loader import FileMetadataLoader
+from .timeseries_loaders import TimeSeriesLoader
 
 
 @final
@@ -34,6 +36,18 @@ class LocationFilterLoader(
     resource_write_cls = LocationFilterWrite
     list_cls = LocationFilterList
     list_write_cls = LocationFilterWriteList
+    dependencies = frozenset(
+        {
+            AssetLoader,
+            DataModelLoader,
+            DataModelLoader,
+            SpaceLoader,
+            ViewLoader,
+            SequenceLoader,
+            FileMetadataLoader,
+            TimeSeriesLoader,
+        }
+    )
     kind = "LocationFilter"
     _doc_base_url = "https://api-docs.cogheim.net/redoc/#tag/"
     _doc_url = "Location-Filters/operation/createLocationFilter"
@@ -237,7 +251,7 @@ class LocationFilterLoader(
             )
 
         spec.add(ParameterSpec(("dataModels", ANY_INT, "type"), frozenset({"str"}), False, False))
-        spec.add(ParameterSpec(("views", "type"), frozenset({"str"}), False, False))
+        spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), False, False))
         return spec
 
     @classmethod

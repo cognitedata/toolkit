@@ -1,3 +1,5 @@
 run_function_user_group_source_id: <change_me>
 run_function_client_id: <change_me>
 run_function_secret: <change_me>
+apm_datamodel_space: 'APM_SourceData'
+apm_datamodel_version: 'v1'

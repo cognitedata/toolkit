@@ -1,0 +1,8 @@
+externalId: root
+name: RootAsset
+description: This is the root asset
+source: doctrino
+metadata:
+  key: value
+  key2: value2
+dataSetExternalId: ds_complete_org

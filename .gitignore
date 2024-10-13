@@ -305,3 +305,5 @@ my_org
 ice-cream-dataops
 module_upgrade/*.log
 needle/
+
+tmp.py

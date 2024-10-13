@@ -173,7 +173,9 @@ class ModuleResources:
         try:
             self._build_info = BuildInfo.load_from_directory(organization_dir, build_env)
             self._has_rebuilt = False
-        except FileNotFoundError:
+        except (FileNotFoundError, KeyError):
+            # FileNotFound = Not run before.
+            # KeyError = Version mismatch/Changed format
             self._build_info = BuildInfo.rebuild(organization_dir, build_env)
             self._has_rebuilt = True
 

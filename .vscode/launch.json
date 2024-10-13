@@ -47,7 +47,6 @@
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
         "--override-env",
         "modules",
         "init",
@@ -67,6 +66,18 @@
         "add",
         "-o", 
         "acme"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf repo init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "repo",
+        "init",
       ],
       "console": "integratedTerminal",
       "justMyCode": false

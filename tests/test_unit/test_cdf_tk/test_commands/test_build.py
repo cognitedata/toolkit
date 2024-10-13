@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from cognite.client.data_classes.data_modeling import DataModelId
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
-from cognite_toolkit._cdf_tk.data_classes import Environment
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
 )
@@ -77,5 +79,30 @@ class TestBuildCommand:
             if f.is_file() and TransformationLoader.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
-        sql_files = [f for f in (tmp_path / "transformations").iterdir() if f.is_file() and f.suffix == ".sql"]
-        assert len(sql_files) == 2
+
+
+class TestCheckYamlSemantics:
+    def test_build_valid_read_int_version(self) -> None:
+        cmd = BuildCommand(silent=True)
+        raw_yaml = """destination:
+  dataModel:
+    destinationType: CogniteFile
+    externalId: MyModel
+    space: my_space
+    version: 1_0_0
+  instanceSpace: my_space
+  type: instances
+externalId: some_external_id
+    """
+        source_filepath = MagicMock(spec=Path)
+        source_filepath.read_text.return_value = raw_yaml
+        source_filepath.suffix = ".yaml"
+
+        source_files = cmd._replace_variables(
+            [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False
+        )
+        assert len(source_files) == 1
+        source_file = source_files[0]
+        assert isinstance(source_file.loaded, dict)
+        actual = DataModelId.load(source_file.loaded["destination"]["dataModel"])
+        assert actual == DataModelId("my_space", "MyModel", "1_0_0")

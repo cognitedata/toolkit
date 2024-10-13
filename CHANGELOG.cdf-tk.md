@@ -15,15 +15,54 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [TBD]
+## [0.3.2] - 2024-10-11
+
+### Fixed
+
+- Deploying `Robotics` resource `Map` now accounts for the dependencies on `Frame` and `Location`.
+- The Hosted Extractor Resources now respects the dependencies between the resources. For example, if a `Job`
+  is referencing a `Destination`, the `Destination` will be deployed before the `Job`.
+- Deploying a view-based `LocationFilter` no longer raises a `400` error.
+- When running `cdf modules init` required modules are now created. Before, the Toolkit would skip creating
+  the required modules.
+- When running `cdf build`, in the `hosted_extractors` folder, the Toolkit will now give a warning if a `Destination`
+  is referring toa non-existing dataset.
+- Running `cdf modules upgrade` from version `0.3.0` and earlier will no longer fail if you
+  have a view based `LocationFilter` in the `locations` folder.
+
+## [0.3.1] - 2024-10-09
+
+### Fixed
+
+- Views based location filters no longer raises a TypeError when running `cdf clean` or `cdf deploy`.
+- CogniteFiles are not recognized by `CogniteFile` and not `.CogniteFile` suffix in the `files` resource folder.
+
+## [0.3.0] - 2024-10-08
+
+### Added
+
+- Support for `$FILENAME` expansion pattern for `CogniteFile` in the `files` folder.
+- The `cdf repo init` command now creates a `GitHub` workflow for the Toolkit.
+
+### Changed
+
+- Running `cdf dump datamodels` now dumps containers and views into separate folders.
+
+## [0.3.0b5] - 2024-10-03
 
 ### Added
 
 - Added support for device code login flow.
+- Support for uploading `CogniteFiles`.
+- Docker release of the Toolkit.
 
 ### Changed
 
 - When running `deploy --dry-run`, the Toolkit will not require write access to the CDF project.
+
+### Fixed
+
+- Uploading a file will no longer overwrite the `FileMetadata`.
 
 ## [0.3.0b4] - 2024-09-30
 
@@ -59,11 +98,11 @@ type MyType
 
 ### Added
 
-- If there are multiple `cognite_service_principal_group`s, the `cdf auth verify` will offer to delete duplicates.
+- If there are multiple `cognite_toolkit_service_principal`s, the `cdf auth verify` will offer to delete duplicates.
 
 ### Fixed
 
-- Running `cdf auth verify` now prompts the user to create the `cognite_service_principal_group` if it does not exist.
+- Running `cdf auth verify` now prompts the user to create the `cognite_toolkit_service_principal` if it does not exist.
 - In the `cdf build` command, version variables (`DataModel`, `View`, `Transformations`) are now always read as
   string and not integer. This ensures no false positive warnings for missing dependencies.
 - In the `cdf deploy/clean` command, if a transformation is writing to a `DataModel` or a `View` the version is

@@ -15,17 +15,32 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [0.3.0b5] - 2024-10-02
+## TBD
 
 ### Fixed
 
-- Module `bootcamp` error in calculation of site names for `ooe_timeseries`
-- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect
+- The property `featureConfiguration` is in the `APM_Config` is now correctly a blob and not a list of blobs. This
+  impacted the InRobot and InField options in `cdf modules init` and `cdf modules add`.
 
-### Removed
+## [0.3.2] - 2024-10-11
 
-- Module `bootcamp` data_sets and raw modules removed from `ice_cream_api` and `oee`
-- Module `bootcamp` default config removed from `ice_cream_api`
+### Fixed
+
+- Added missing views, containers, and spaces to the `cdf_apm_base` module.
+
+## [0.3.1] - 2024-10-09
+
+No changes to templates.
+
+## [0.3.0] - 2024-10-08
+
+## Added
+
+- CogniteCore full and minimum extension templates in `quickstart` and `example` packages.
+
+## [0.3.0b5] - 2024-10-03
+
+No changes to templates.
 
 ## [0.3.0b4] - 2024-09-30
 

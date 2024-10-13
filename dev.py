@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).parent
 CHANGELOG = REPO_ROOT / "CHANGELOG.cdf-tk.md"
 TEMPLATE_CHANGELOG = REPO_ROOT / "CHANGELOG.templates.md"
 TBD_HEADING = "## TBD"
+IMAGE_NAME = "cognite/toolkit"
 
 bump_app = typer.Typer(
     add_completion=False,
@@ -39,6 +40,10 @@ def bump(
         *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
         *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
         *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
+    ]
+    docker_image_files = [
+        *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yml"),
+        *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yaml"),
     ]
     version = parse(__version__)
 
@@ -107,6 +112,10 @@ def bump(
 
     for file in version_files:
         file.write_text(file.read_text().replace(str(version), str(new_version), 1))
+        if verbose:
+            typer.echo(f"Bumped version from {version} to {new_version} in {file}.")
+    for file in docker_image_files:
+        file.write_text(file.read_text().replace(f"{IMAGE_NAME}:{version!s}", f"{IMAGE_NAME}:{new_version!s}", 1))
         if verbose:
             typer.echo(f"Bumped version from {version} to {new_version} in {file}.")
 

@@ -412,7 +412,7 @@ class PullCommand(ToolkitCommand):
         print(f"[bold]Pulling {loader.display_name} {resource_id!r}...[/]")
 
         built_local = next(r for r in local_resources if r.identifier == resource_id)
-        if sum(1 for r in local_resources if r.location.path == built_local.location.path) > 1:
+        if sum(1 for r in local_resources if r.source.path == built_local.source.path) > 1:
             raise ToolkitValueError(f"Pull of {loader.display_name} only supports one resource per file.")
 
         local_resource_dict = built_local.load_resource_dict(ToolGlobals.environment_variables(), validate=True)
@@ -424,7 +424,7 @@ class PullCommand(ToolkitCommand):
 
         if Loader is TransformationLoader:
             # Todo Hack to pass in the local resource_dict
-            query_file = Path(built_local.location.path.with_suffix(".sql"))
+            query_file = Path(built_local.source.path.with_suffix(".sql"))
             if query_file.exists():
                 query_content = built_local.build_variables.replace(safe_read(query_file))
                 query_mock_file = MagicMock(spec=Path)
@@ -445,7 +445,7 @@ class PullCommand(ToolkitCommand):
         if cdf_resource == local_resource:
             print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
             return
-        source_file = built_local.location.path
+        source_file = built_local.source.path
 
         # Todo: How to load the resource correctly with for example the .sql included in the resource.
         cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)  # type: ignore[arg-type]
@@ -482,7 +482,7 @@ class PullCommand(ToolkitCommand):
             )
 
         if Loader is TransformationLoader:
-            query_file = Path(built_local.location.path.with_suffix(".sql"))
+            query_file = Path(built_local.source.path.with_suffix(".sql"))
             query_content2: str | None = None
             if query_file.exists():
                 query_content2 = built_local.build_variables.replace(safe_read(query_file))

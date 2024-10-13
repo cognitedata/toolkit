@@ -1,4 +1,4 @@
-name: Release pypi package
+name: Release Toolkit
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
 env:
   PYTHON_VERSION: '3.11'
 jobs:
-  deploy:
+  release-pypi:
     runs-on: ubuntu-latest
     environment: CD
     # This causes issues when CDF is down.
@@ -29,3 +29,33 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: twine upload --verbose dist/*
+
+  release-to-docker-hub:
+    runs-on: ubuntu-latest
+    environment: CD
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - id: version
+        name: Toolkit Version
+        # Read the version from the cognite_toolkit/_version.py file
+        run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: true
+          tags: cognite/toolkit:${{ env.version }}, cognite/toolkit:latest

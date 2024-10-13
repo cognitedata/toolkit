@@ -6,16 +6,18 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast, final
 
 import pandas as pd
-from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
+from cognite.client.data_classes import FileMetadataWrite
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 
+from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 
-from ._base_loaders import DataLoader
-from ._resource_loaders import FileMetadataLoader, RawTableLoader, TimeSeriesLoader
+from ._base_loaders import T_ID, DataLoader, ResourceLoader, T_WritableCogniteResourceList
+from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
 
 if TYPE_CHECKING:
-    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment, BuiltResource
+    from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
 
 
 @final
@@ -77,7 +79,7 @@ class FileLoader(DataLoader):
     kind = "File"
     filetypes = frozenset()
     exclude_filetypes = frozenset({"yml", "yaml"})
-    dependencies = frozenset({FileMetadataLoader})
+    dependencies = frozenset({FileMetadataLoader, CogniteFileLoader})
     _doc_url = "Files/operation/initFileUpload"
 
     @property
@@ -91,35 +93,49 @@ class FileLoader(DataLoader):
         for resource in state.built_resources[self.folder_name]:
             if resource.destination is None:
                 continue
-            if resource.kind != FileMetadataLoader.kind:
-                continue
-            meta = self._read_metadata(resource, resource.destination)
-            if meta.name is None:
-                continue
-            datafile = resource.location.path.parent / meta.name
-            if not datafile.exists():
-                continue
-            external_id = meta.external_id
-            if dry_run:
-                yield f" Would upload file '{datafile!s}' to file with external_id={external_id!r}", 1
-            else:
-                self.client.files.upload(path=str(datafile), overwrite=True, external_id=external_id)
-                yield f" Uploaded file '{datafile!s}' to file with external_id={external_id!r}", 1
+
+            if result := {
+                FileMetadataLoader.kind: (FileMetadataLoader, "external_id"),
+                CogniteFileLoader.kind: (CogniteFileLoader, "instance_id"),
+            }.get(resource.kind):
+                loader_cls, id_name = result
+                meta: FileMetadataWrite | ExtendableCogniteFileApply = self._read_metadata(
+                    resource.destination,
+                    loader_cls,  # type: ignore[arg-type]
+                    resource.identifier,
+                )
+                if meta.name is None:
+                    continue
+                datafile = resource.source.path.parent / meta.name
+                if not datafile.exists():
+                    continue
+
+                if dry_run:
+                    yield f" Would upload file '{datafile!s}' to file with {id_name}={resource.identifier!r}", 1
+                else:
+                    self.client.files.upload_content(path=str(datafile), **{id_name: resource.identifier})
+                    yield f" Uploaded file '{datafile!s}' to file with {id_name}={resource.identifier!r}", 1
 
     @staticmethod
-    def _read_metadata(resource: BuiltResource, destination: Path) -> FileMetadataWrite:
-        identifier = cast(str, resource.identifier)
+    def _read_metadata(
+        destination: Path,
+        loader: type[
+            ResourceLoader[
+                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            ]
+        ],
+        identifier: T_ID,
+    ) -> T_WriteClass:
         built_content = read_yaml_content(safe_read(destination))
         if isinstance(built_content, dict):
-            meta = FileMetadataWrite.load(built_content)
+            return loader.resource_write_cls.load(built_content)
         elif isinstance(built_content, list):
             try:
-                meta = next(m for m in FileMetadataWriteList.load(built_content) if m.external_id == identifier)
+                return next(m for m in loader.list_write_cls.load(built_content) if loader.get_id(m) == identifier)
             except StopIteration:
-                raise RuntimeError(f"Missing file metadata for {destination.as_posix()}")
-        else:
-            raise RuntimeError(f"Unexpected content type {type(built_content)} in {destination.as_posix()}")
-        return meta
+                raise RuntimeError(f"Missing metadata for {destination.as_posix()}")
+
+        raise RuntimeError(f"Unexpected content type {type(built_content)} in {destination.as_posix()}")
 
 
 @final
@@ -145,9 +161,9 @@ class RawFileLoader(DataLoader):
             table = cast(RawTable, resource.identifier)
             datafile = next(
                 (
-                    resource.location.path.with_suffix(f".{file_type}")
+                    resource.source.path.with_suffix(f".{file_type}")
                     for file_type in self.filetypes
-                    if (resource.location.path.with_suffix(f".{file_type}").exists())
+                    if (resource.source.path.with_suffix(f".{file_type}").exists())
                 ),
                 None,
             )

@@ -55,6 +55,8 @@ from requests import Response
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
+from cognite_toolkit._cdf_tk.loaders import FileLoader
+from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -490,6 +492,24 @@ class ApprovalToolkitClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
+        def upload_file_content_files_api(
+            path: str,
+            external_id: str | None = None,
+            instance_id: NodeId | None = None,
+        ) -> FileMetadata:
+            if sum([bool(external_id), bool(instance_id)]) != 1:
+                raise ValueError("Exactly one of external_id or instance_id must be set")
+
+            if external_id:
+                entry = {"external_id": external_id}
+            else:
+                entry = instance_id.dump(include_instance_type=False)
+            entry["filehash"] = calculate_bytes_or_file_hash(Path(path), shorten=True)
+
+            created_resources[FileLoader.__name__].append(entry)
+
+            return FileMetadata(external_id, instance_id)
+
         def create_3dmodel(
             name: str, data_set_id: int | None = None, metadata: dict[str, str] | None = None
         ) -> ThreeDModel:
@@ -505,7 +525,13 @@ class ApprovalToolkitClient:
             previous_version: str | None = None,
         ) -> DMLApplyResult:
             created = GraphQLDataModelWrite(
-                id.space, id.external_id, id.version, dml, name, description, previous_version
+                space=id.space,
+                external_id=id.external_id,
+                version=id.version,
+                dml=dml,
+                name=name,
+                description=description,
+                previous_version=previous_version,
             )
             created_resources[resource_cls.__name__].append(created)
             return DMLApplyResult(
@@ -528,6 +554,7 @@ class ApprovalToolkitClient:
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
+                upload_file_content_files_api,
                 create_3dmodel,
                 apply_dml,
             ]

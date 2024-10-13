@@ -60,6 +60,14 @@ class LocationFilterView(ViewId):
             represents_entity=resource.get("representsEntity"),
         )
 
+    def dump(self, camel_case: bool = True, include_type: bool = False) -> dict[str, str]:
+        if include_type:
+            raise ValueError(f"{type(self).__name__} cannot be dumped with type")
+        output = super().dump(camel_case, False)
+        if self.represents_entity:
+            output["representsEntity"] = self.represents_entity
+        return output
+
 
 @dataclass
 class AssetCentricSubFilter(CogniteObject):
@@ -139,7 +147,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
-        views: LocationFilterView | None = None,
+        views: list[LocationFilterView] | None = None,
     ) -> None:
         self.external_id = external_id
         self.name = name
@@ -175,7 +183,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         if self.asset_centric:
             output["assetCentric"] = self.asset_centric.dump(camel_case)
         if self.views:
-            output["views"] = self.views.dump(camel_case)
+            output["views"] = [view.dump(camel_case) for view in self.views]
         return output
 
 
@@ -189,7 +197,7 @@ class LocationFilterWrite(LocationFilterCore):
         asset_centric = (
             AssetCentricFilter.load(resource.get("assetCentric", {})) if resource.get("assetCentric") else None
         )
-        views = LocationFilterView._load(resource.get("views", {})) if resource.get("views") else None
+        views = [LocationFilterView._load(view) for view in resource["views"]] if "views" in resource else None
         return cls(
             external_id=resource["externalId"],
             name=resource["name"],
@@ -233,7 +241,7 @@ class LocationFilter(LocationFilterCore):
         instance_spaces: list[str] | None = None,
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
-        views: LocationFilterView | None = None,
+        views: list[LocationFilterView] | None = None,
     ) -> None:
         super().__init__(
             external_id, name, parent_id, description, data_models, instance_spaces, scene, asset_centric, views
@@ -256,7 +264,7 @@ class LocationFilter(LocationFilterCore):
             instance_spaces=resource.get("instanceSpaces"),
             scene=LocationFilterScene._load(resource["scene"]) if "scene" in resource else None,
             asset_centric=AssetCentricFilter._load(resource["assetCentric"]) if "assetCentric" in resource else None,
-            views=LocationFilterView._load(resource["views"]) if "views" in resource else None,
+            views=[LocationFilterView._load(view) for view in resource["views"]] if "views" in resource else None,
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
         )

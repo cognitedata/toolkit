@@ -33,6 +33,7 @@ COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
 MODULES = "modules"
 REPO_FILES_DIR = "_repo_files"
+DOCKER_IMAGE_NAME = "cognite/toolkit"
 
 ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"
@@ -46,6 +47,7 @@ DEFAULT_ENV = "dev"
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
+YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])
 ROOT_PATH = Path(__file__).parent.parent

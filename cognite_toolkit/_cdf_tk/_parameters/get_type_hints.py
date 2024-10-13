@@ -3,9 +3,7 @@ from __future__ import annotations
 import abc
 import importlib
 import inspect
-import re
 import typing
-from collections import Counter
 from typing import Any, get_type_hints
 
 from cognite.client.data_classes import TransformationScheduleWrite
@@ -121,66 +119,7 @@ class _TypeHints:
             return eval(annotation, resource_module_vars, local_vars)
         except (TypeError, NameError):
             # Python 3.10 Type Hint
-            return cls._type_hint_3_10_to_8(annotation, resource_module_vars, local_vars)
-
-    @classmethod
-    @typing.no_type_check
-    def _type_hint_3_10_to_8(
-        cls, annotation: str, resource_module_vars: dict[str, Any], local_vars: dict[str, Any]
-    ) -> Any:
-        if cls._is_vertical_union(annotation):
-            alternatives = [
-                cls._create_type_hint_3_10(a.strip(), resource_module_vars, local_vars) for a in annotation.split("|")
-            ]
-            return typing.Union[tuple(alternatives)]
-        elif annotation.startswith("dict[") and annotation.endswith("]"):
-            if Counter(annotation)[","] > 1:
-                # Regex pattern to split on the first comma not inside square brackets
-                pattern = r",(?!(?:[^\[]*\[[^\]]*\])*[^\]]*\])"
-                key, rest = re.split(pattern, annotation[5:-1], maxsplit=1)
-                key_hint = cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars)
-                value_hint = cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
-                return dict[key_hint, value_hint]  # type: ignore[misc, valid-type]
-            key, value = annotation[5:-1].split(",")
-            return dict[  # type: ignore[misc]
-                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
-                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
-            ]
-        elif annotation.startswith("Mapping[") and annotation.endswith("]"):
-            if Counter(annotation)[","] > 1:
-                key, rest = annotation[8:-1].split(",", 1)
-                return typing.Mapping[  # type: ignore[misc]
-                    key.strip(), cls._create_type_hint_3_10(rest.strip(), resource_module_vars, local_vars)
-                ]
-            key, value = annotation[8:-1].split(",")
-            return typing.Mapping[  # type: ignore[misc]
-                cls._create_type_hint_3_10(key.strip(), resource_module_vars, local_vars),
-                cls._create_type_hint_3_10(value.strip(), resource_module_vars, local_vars),
-            ]
-        elif annotation.startswith("Optional[") and annotation.endswith("]"):
-            return typing.Optional[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]
-        elif annotation.startswith("list[") and annotation.endswith("]"):
-            return list[cls._create_type_hint_3_10(annotation[5:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        elif annotation.startswith("tuple[") and annotation.endswith("]"):
-            return tuple[cls._create_type_hint_3_10(annotation[6:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        elif annotation.startswith("typing.Sequence[") and annotation.endswith("]"):
-            # This is used in the Sequence data class file to avoid name collision
-            return typing.Sequence[cls._create_type_hint_3_10(annotation[16:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        elif annotation.startswith("Sequence[") and annotation.endswith("]"):
-            return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        elif annotation.startswith("Collection[") and annotation.endswith("]"):
-            return typing.Collection[cls._create_type_hint_3_10(annotation[11:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        elif annotation.startswith("Literal[") and annotation.endswith("]"):
-            return typing.Literal[cls._create_type_hint_3_10(annotation[8:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
-        raise NotImplementedError(f"Unsupported conversion of type hint {annotation!r}. {cls._error_msg}")
-
-    @classmethod
-    def _is_vertical_union(cls, annotation: str) -> bool:
-        if "|" not in annotation:
-            return False
-        parts = [p.strip() for p in annotation.split("|")]
-        for part in parts:
-            counts = Counter(part)
-            if counts["["] != counts["]"]:
-                return False
-        return True
+            if annotation.startswith("Sequence[") and annotation.endswith("]"):
+                return typing.Sequence[cls._create_type_hint_3_10(annotation[9:-1], resource_module_vars, local_vars)]  # type: ignore[misc]
+            else:
+                raise
