@@ -59,7 +59,8 @@ class MockQuestionary:
 def get_packages() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
     # The Bootcamp package has hardcoded exceptions which makes it not fit for this test.
-    return [name for name in packages.keys() if name != "bootcamp"]
+    # Examples will be tested separately, as each individual example
+    return [name for name in packages.keys() if name not in ["bootcamp", "examples"]]
 
 
 @pytest.mark.parametrize("package", get_packages())
