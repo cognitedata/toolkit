@@ -13,7 +13,7 @@ def handle(client: CogniteClient, data: Dict[str, Any] = {}) -> None:
     lookback_minutes = timedelta(minutes=data.get("lookback_minutes", 60)).total_seconds() * 1000
     data_set_external_id = data.get("data_set_external_id", "ds_uc_oee")
     data_set_id = client.data_sets.retrieve(external_id=data_set_external_id).id
-    all_sites = ["Oslo", "Houston", "Kuala Lumpur", "Hannover", "Nuremberg", "Marseille", "Sao Paulo", "Chicago", "Rotterdam", "London"]
+    all_sites = ["Oslo", "Houston", "Kuala_Lumpur", "Hannover", "Nuremberg", "Marseille", "Sao_Paulo", "Chicago", "Rotterdam", "London"]
     sites = data.get("sites", all_sites)
 
     print(f"Processing datapoints for these sites: {sites}")
