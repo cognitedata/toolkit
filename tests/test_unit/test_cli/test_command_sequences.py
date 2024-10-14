@@ -16,6 +16,7 @@ import typer
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.apps import CoreApp
+from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
@@ -66,17 +67,20 @@ def test_build_deploy_module(
     organization_dir: Path,
     data_regression,
 ) -> None:
-    mock_environments_yaml_file(module_path, monkeypatch)
     app = CoreApp()
 
-    app.build(
-        typer_context,
+    cmd = BuildCommand(skip_tracking=True, silent=True)
+    cmd.execute(
+        verbose=False,
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
-        selected=None,
+        selected=[module_path.name],
         build_env_name="dev",
         no_clean=False,
+        ToolGlobals=cdf_tool_mock,
+        on_error="continue",
     )
+
     app.deploy(
         typer_context,
         build_dir=build_tmp_path,

@@ -6,7 +6,7 @@ import shutil
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
 from rich import print
@@ -108,6 +108,7 @@ class BuildCommand(ToolkitCommand):
         build_env_name: str | None,
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> None:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
