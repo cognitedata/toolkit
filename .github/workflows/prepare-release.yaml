@@ -11,8 +11,10 @@ on:
         options:
           - alpha
           - beta
+          - stable
           - patch
           - minor
+          - minor-alpha
           # Major version is intentionally omitted, as it should be done manually
 
 env:
@@ -62,6 +64,16 @@ jobs:
         if: ${{ github.event.inputs.bump == 'beta' }}
         run:
           python dev.py --beta
+
+      - name: Bump Stable Version
+        if: ${{ github.event.inputs.bump == 'stable' }}
+        run:
+          python dev.py --stable
+
+      - name: Bump Minor Alpha Version
+        if: ${{ github.event.inputs.bump == 'minor-alpha' }}
+        run:
+          python dev.py --minor --alpha
 
       - name: Bump Patch Version
         if: ${{ github.event.inputs.bump == 'patch' }}
