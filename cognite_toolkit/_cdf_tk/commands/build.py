@@ -150,6 +150,7 @@ class BuildCommand(ToolkitCommand):
             clean=not no_clean,
             verbose=verbose,
             ToolGlobals=ToolGlobals,
+            on_error=on_error,
         )
 
     def build_config(
@@ -162,6 +163,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
         progress_bar: bool = False,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
@@ -217,7 +219,7 @@ class BuildCommand(ToolkitCommand):
         else:
             self._has_built = True
 
-        built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar)
+        built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar, on_error)
 
         self._check_missing_dependencies(organization_dir, ToolGlobals)
 
@@ -234,6 +236,7 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         verbose: bool = False,
         progress_bar: bool = False,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         build = BuiltModuleList()
         warning_count = len(self.warning_list)
@@ -250,6 +253,8 @@ class BuildCommand(ToolkitCommand):
             try:
                 built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
             except ToolkitError as err:
+                if on_error == "raise":
+                    raise
                 print(f"  [bold red]Failed Building:([/][red]: {module.name}")
                 print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
                 built_status = type(err).__name__
