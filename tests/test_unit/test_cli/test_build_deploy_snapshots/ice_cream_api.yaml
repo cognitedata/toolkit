@@ -1,9 +1,3 @@
-DataSet:
-- description: Data set for the Ice Cream API
-  externalId: ds_icapi
-  metadata: {}
-  name: Ice Cream API
-  writeProtected: false
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
