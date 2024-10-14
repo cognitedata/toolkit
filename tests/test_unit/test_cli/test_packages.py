@@ -107,3 +107,54 @@ def test_build_packages_without_warnings(
     warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
+
+
+def get_examples() -> list[str]:
+    packages = Packages.load(BUILTIN_MODULES_PATH)
+    examples = packages["examples"]
+    return sorted(examples.module_names)
+
+
+@pytest.mark.parametrize("module_name", get_examples())
+def test_build_example_module(module_name: str, tmp_path: Path, build_tmp_path: Path, monkeypatch) -> None:
+    organization_dir = tmp_path
+
+    module_cmd = ModulesCommand(silent=True, skip_tracking=True)
+
+    def select_package(choices: Sequence[Choice]) -> Any:
+        return next(choice.value for choice in choices if choice.value.name == "examples")
+
+    def select_module(choices: Sequence[Choice]) -> Any:
+        return [next(choice.value for choice in choices if choice.value.name == module_name)]
+
+    answers = [
+        select_package,
+        select_module,
+        False,
+        True,
+        ["dev"],
+    ]
+
+    with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
+        module_cmd.init(organization_dir, clean=True)
+
+    assert exc_info.value.exit_code == 0
+
+    build_cmd = BuildCommand(silent=True, skip_tracking=True)
+
+    monkeypatch.setenv("CDF_PROJECT", "<my-project-dev>")
+    build_cmd.execute(
+        verbose=False,
+        build_dir=build_tmp_path,
+        organization_dir=organization_dir,
+        build_env_name="dev",
+        no_clean=False,
+        ToolGlobals=None,
+        selected=None,
+    )
+
+    # TemplateVariableWarning is when <change_me> is not replaced in the config file.
+    # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
+    warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
+
+    assert not warnings, f"{len(warnings)} warnings found: {warnings}"
