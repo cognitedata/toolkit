@@ -31,6 +31,7 @@ def bump(
     patch: bool = False,
     alpha: bool = False,
     beta: bool = False,
+    stable: bool = False,
     verbose: bool = False,
 ) -> None:
     version_files = [
@@ -59,6 +60,8 @@ def bump(
         suffix = f"b{version.pre[1] + 1}"
     elif beta and not version.is_prerelease:
         raise typer.BadParameter("Cannot bump to beta version when current version is not an alpha prerelease.")
+    elif stable and not version.is_prerelease:
+        raise typer.BadParameter("Cannot bump to stable version when current version is not a prerelease.")
     else:
         suffix = ""
 
@@ -68,7 +71,7 @@ def bump(
         new_version = Version(f"{version.major}.{version.minor + 1}.0{suffix}")
     elif patch:
         new_version = Version(f"{version.major}.{version.minor}.{version.micro + 1}{suffix}")
-    elif alpha or beta:
+    elif alpha or beta or stable:
         new_version = Version(f"{version.major}.{version.minor}.{version.micro}{suffix}")
     else:
         raise typer.BadParameter("You must specify one of major, minor, patch, alpha, or beta.")
