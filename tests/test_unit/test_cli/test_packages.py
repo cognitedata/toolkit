@@ -10,7 +10,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Packages
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, TemplateVariableWarning
+from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 
 
 class MockQuestion:
@@ -91,6 +91,7 @@ def test_build_packages_without_warnings(
 
     build_cmd = BuildCommand(silent=True, skip_tracking=True)
 
+    monkeypatch.setenv("CDF_PROJECT", "<my-project-dev>")
     build_cmd.execute(
         verbose=False,
         build_dir=build_tmp_path,
@@ -103,16 +104,6 @@ def test_build_packages_without_warnings(
 
     # TemplateVariableWarning is when <change_me> is not replaced in the config file.
     # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
-    warnings = [
-        warning
-        for warning in build_cmd.warning_list
-        if not isinstance(warning, TemplateVariableWarning)
-        and not (
-            # This warning is expected to be raised when the 'CDF_PROJECT' environment variable is not set.
-            isinstance(warning, MediumSeverityWarning)
-            and warning.message_raw
-            and warning.message_raw.startswith("No 'CDF_PROJECT' environment variable set.")
-        )
-    ]
+    warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
