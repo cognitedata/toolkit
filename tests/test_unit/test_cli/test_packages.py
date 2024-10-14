@@ -10,8 +10,7 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Packages
-from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, TemplateVariableWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning, ToolkitWarning
 from tests.constants import chdir
 
 
@@ -141,11 +140,7 @@ def test_build_bootcamp(tmp_path: Path, build_tmp_path: Path, monkeypatch: Monke
         assert not warnings, f"{len(warnings)} warnings found: {warnings}"
 
 
-def clean_warnings(warning_list: Sequence[ToolkitWarning]) -> list[MediumSeverityWarning]:
+def clean_warnings(warning_list: Sequence[ToolkitWarning]) -> list[ToolkitWarning]:
     # TemplateVariableWarning is when <change_me> is not replaced in the config file.
     # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
-    return [
-        warning
-        for warning in warning_list
-        if not isinstance(warning, TemplateVariableWarning)
-    ]
+    return [warning for warning in warning_list if not isinstance(warning, TemplateVariableWarning)]
