@@ -78,7 +78,7 @@ def test_build_deploy_module(
         build_env_name="dev",
         no_clean=False,
         ToolGlobals=cdf_tool_mock,
-        on_error="continue",
+        on_error="raise",
     )
 
     app.deploy(
