@@ -11,6 +11,8 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Packages
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, TemplateVariableWarning, ToolkitWarning
+from tests.constants import chdir
 
 
 class MockQuestion:
@@ -67,8 +69,6 @@ def get_packages() -> list[str]:
 def test_build_packages_without_warnings(
     package: str, tmp_path: Path, build_tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    assert package
-
     organization_dir = tmp_path
 
     module_cmd = ModulesCommand(silent=True, skip_tracking=True)
@@ -101,9 +101,51 @@ def test_build_packages_without_warnings(
         ToolGlobals=None,
         selected=None,
     )
-
-    # TemplateVariableWarning is when <change_me> is not replaced in the config file.
-    # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
-    warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
+    warnings = clean_warnings(build_cmd.warning_list)
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
+
+
+def test_build_bootcamp(tmp_path: Path, build_tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    with chdir(tmp_path):
+        module_cmd = ModulesCommand(silent=True, skip_tracking=True)
+
+        def select_bootcamp(choices: Sequence[Choice]) -> Any:
+            return next(choice.value for choice in choices if choice.value.name == "bootcamp")
+
+        answers = [
+            select_bootcamp,
+            True,
+        ]
+
+        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
+            module_cmd.init(Path("will_be_overwritten"), clean=True)
+
+        assert exc_info.value.exit_code == 0
+
+        build_cmd = BuildCommand(silent=True, skip_tracking=True)
+
+        monkeypatch.setenv("CDF_PROJECT", "<my-project-test>")
+        build_cmd.execute(
+            verbose=False,
+            build_dir=build_tmp_path,
+            # Hardcoded path to the bootcamp organization
+            organization_dir=tmp_path / "ice-cream-dataops",
+            build_env_name="test",
+            no_clean=False,
+            ToolGlobals=None,
+            selected=None,
+        )
+        warnings = clean_warnings(build_cmd.warning_list)
+
+        assert not warnings, f"{len(warnings)} warnings found: {warnings}"
+
+
+def clean_warnings(warning_list: Sequence[ToolkitWarning]) -> list[MediumSeverityWarning]:
+    # TemplateVariableWarning is when <change_me> is not replaced in the config file.
+    # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
+    return [
+        warning
+        for warning in warning_list
+        if not isinstance(warning, TemplateVariableWarning)
+    ]
