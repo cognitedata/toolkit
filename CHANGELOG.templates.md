@@ -24,6 +24,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Added missing default variable `scheduleHourly` to `InField` module `cdf_infield_common`.
 - The property `featureConfiguration` is in the `APM_Config` is now correctly a blob and not a list of blobs. This
   impacted the InRobot and InField options in `cdf modules init` and `cdf modules add`.
 - Module `bootcamp` error in calculation of site names for `ooe_timeseries`

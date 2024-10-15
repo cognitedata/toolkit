@@ -201,7 +201,10 @@ class BuildCommand(ToolkitCommand):
         variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
-            self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
+            self.console(
+                f"Found the following warnings in config.{config.environment.name}.yaml:",
+                prefix="[bold red]Warning:[/]",
+            )
             for warning in warnings:
                 if self.print_warning:
                     print(f"    {warning.get_message()}")
