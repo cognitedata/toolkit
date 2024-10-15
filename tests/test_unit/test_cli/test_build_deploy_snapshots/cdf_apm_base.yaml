@@ -148,7 +148,7 @@ Container:
       immutable: false
       nullable: true
       type:
-        list: true
+        list: false
         type: json
     name:
       autoIncrement: false

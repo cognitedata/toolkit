@@ -898,7 +898,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                 nodes=cdf_resource.as_id(), sources=sources
             ).nodes[0]
-        except Exception:
+        except CogniteAPIError:
             # View does not exist, so node does not exist.
             return self._return_are_equal(local_dumped, {}, return_dumped)
         cdf_dumped = cdf_resource_with_properties.as_write().dump()
@@ -1099,6 +1099,7 @@ class GraphQLLoader(
                     self._datamodels_by_view_id[view].add(model_id)
                 self._dependencies_by_datamodel_id[model_id] = parser.get_dependencies()
             except Exception as e:
+                # We catch a broad exception here to give a more user-friendly error message.
                 raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
         return models
 

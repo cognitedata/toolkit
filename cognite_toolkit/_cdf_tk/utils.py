@@ -437,7 +437,7 @@ class AuthReader:
             )
             display_name = metadata["display_name"]
             default = current_value or (field_.default if isinstance(field_.default, str) else None)
-        except Exception as e:
+        except KeyError as e:
             raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
 
         extra_args: dict[str, Any] = {}
@@ -542,7 +542,7 @@ class CDFToolConfig:
     def _initialize_in_browser(self) -> None:
         try:
             self._toolkit_client = ToolkitClient()
-        except Exception as e:
+        except CogniteAPIError as e:
             raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
 
         if self._cluster or self._project:
@@ -658,7 +658,7 @@ class CDFToolConfig:
                 field_ = _auth_field_by_name[field_name]
                 env_name = field_.metadata["env_name"]
                 value = getattr(self, f"_{field_name}")
-            except Exception as e:
+            except KeyError as e:
                 # This means that the attribute is not set correctly in AuthVariables,
                 # ensure that 'env_name' is set in the metadata for all fields in AuthVariables.
                 raise RuntimeError("AuthVariables not created correctly. Contact Support") from e

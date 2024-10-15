@@ -1,0 +1,39 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - '*'
+
+jobs:
+- job: DeployModules
+  displayName: 'Dry-run test in Dev'
+  pool:
+    vmImage: 'ubuntu-latest'
+  container:
+    image: cognite/toolkit:0.3.1
+  variables: 
+    - group: 'dev-toolkit-credentials'
+  steps:
+    - checkout: self
+      clean: true
+    
+    - script: |
+        cdf build
+      displayName: 'Build the modules'
+      env:
+        CDF_CLUSTER: $(CDF_CLUSTER)
+        CDF_PROJECT: $(CDF_PROJECT)
+        IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+        IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET)
+        IDP_TENANT_ID: $(IDP_TENANT_ID)
+
+    - script: |
+        cdf deploy --dry-run
+      displayName: 'Deploy the modules'
+      env:
+        CDF_CLUSTER: $(CDF_CLUSTER)
+        CDF_PROJECT: $(CDF_PROJECT)
+        IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+        IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET)
+        IDP_TENANT_ID: $(IDP_TENANT_ID)

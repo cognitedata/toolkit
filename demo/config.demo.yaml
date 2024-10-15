@@ -37,6 +37,9 @@ variables:
         readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 
     examples:
+      default_location: oid
+      source_asset: workmate
+
       cdf_data_pipeline_asset_valhall:
         # This is the configuration file used for the example data from The Open Industrial Data (oid)
         #
@@ -46,7 +49,7 @@ variables:
         # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
         # location based on OID example data
         location_name: oid
-        # specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
+        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
         source_name: workmate
         asset_dataset: ds_asset_oid
         asset_raw_input_db: asset_oid_workmate
@@ -138,6 +141,7 @@ variables:
         # Only valid for this module, loads template variables from environment
         raw_db: pump_assets
         data_set: src:lift_pump_stations
+
 
     infield:
       # The root asset external id should be

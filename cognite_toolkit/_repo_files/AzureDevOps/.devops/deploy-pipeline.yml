@@ -1,0 +1,42 @@
+trigger:
+  branches:
+    include:
+      - main
+
+jobs:
+- job: DeployModules
+  displayName: 'Deploy to Dev'
+  pool:
+    vmImage: 'ubuntu-latest'
+  container:
+    image: cognite/toolkit:0.3.1
+  variables: 
+    - group: 'dev-toolkit-credentials'
+  steps:
+    - checkout: self
+      clean: true
+
+    # Uncomment the following lines to enable statistics
+    # - script:
+    #     cdf collect opt-in
+    #   displayName: 'Enable statistics'
+    
+    - script: |
+        cdf build
+      displayName: 'Build the modules'
+      env:
+        CDF_CLUSTER: $(CDF_CLUSTER)
+        CDF_PROJECT: $(CDF_PROJECT)
+        IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+        IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET)
+        IDP_TENANT_ID: $(IDP_TENANT_ID)
+
+    - script: |
+        cdf deploy 
+      displayName: 'Deploy the modules'
+      env:
+        CDF_CLUSTER: $(CDF_CLUSTER)
+        CDF_PROJECT: $(CDF_PROJECT)
+        IDP_CLIENT_ID: $(IDP_CLIENT_ID)
+        IDP_CLIENT_SECRET: $(IDP_CLIENT_SECRET)
+        IDP_TENANT_ID: $(IDP_TENANT_ID)

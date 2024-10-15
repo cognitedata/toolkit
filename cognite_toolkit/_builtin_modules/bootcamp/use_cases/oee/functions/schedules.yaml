@@ -8,8 +8,8 @@
       - Nuremberg
       - Marseille
       - Houston
-      - Sao Paulo
-      - Kuala Lumpur
+      - Sao_Paulo
+      - Kuala_Lumpur
       - Chicago
       - Rotterdam
       - London
@@ -67,7 +67,7 @@
   functionExternalId: oee_timeseries
   data:
     sites:
-      - Sao Paulo
+      - Sao_Paulo
     lookback_minutes: 7200
   authentication:
     clientId: {{ data_pipeline_oee_client_id }}
@@ -78,7 +78,7 @@
   functionExternalId: oee_timeseries
   data:
     sites:
-      - Kuala Lumpur
+      - Kuala_Lumpur
     lookback_minutes: 7200
   authentication:
     clientId: {{ data_pipeline_oee_client_id }}

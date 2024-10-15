@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 # ruff: noqa: E402
+import sys
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
+from rich.panel import Panel
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
@@ -133,6 +136,9 @@ def app() -> NoReturn:
 
         _app()
     except ToolkitError as err:
+        if "--verbose" in sys.argv:
+            print(Panel(traceback.format_exc(), title="Traceback", expand=False))
+
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
 

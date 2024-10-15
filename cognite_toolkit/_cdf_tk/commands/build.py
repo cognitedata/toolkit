@@ -6,7 +6,7 @@ import shutil
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yaml
 from rich import print
@@ -108,6 +108,7 @@ class BuildCommand(ToolkitCommand):
         build_env_name: str | None,
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> None:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
@@ -149,6 +150,7 @@ class BuildCommand(ToolkitCommand):
             clean=not no_clean,
             verbose=verbose,
             ToolGlobals=ToolGlobals,
+            on_error=on_error,
         )
 
     def build_config(
@@ -161,6 +163,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool = False,
         ToolGlobals: CDFToolConfig | None = None,
         progress_bar: bool = False,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
@@ -198,7 +201,10 @@ class BuildCommand(ToolkitCommand):
         variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
-            self.warn(LowSeverityWarning(f"Found the following warnings in config.{config.environment.name}.yaml:"))
+            self.console(
+                f"Found the following warnings in config.{config.environment.name}.yaml:",
+                prefix="[bold red]Warning:[/]",
+            )
             for warning in warnings:
                 if self.print_warning:
                     print(f"    {warning.get_message()}")
@@ -216,7 +222,7 @@ class BuildCommand(ToolkitCommand):
         else:
             self._has_built = True
 
-        built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar)
+        built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar, on_error)
 
         self._check_missing_dependencies(organization_dir, ToolGlobals)
 
@@ -233,6 +239,7 @@ class BuildCommand(ToolkitCommand):
         variables: BuildVariables,
         verbose: bool = False,
         progress_bar: bool = False,
+        on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         build = BuiltModuleList()
         warning_count = len(self.warning_list)
@@ -249,6 +256,8 @@ class BuildCommand(ToolkitCommand):
             try:
                 built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
             except ToolkitError as err:
+                if on_error == "raise":
+                    raise
                 print(f"  [bold red]Failed Building:([/][red]: {module.name}")
                 print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
                 built_status = type(err).__name__

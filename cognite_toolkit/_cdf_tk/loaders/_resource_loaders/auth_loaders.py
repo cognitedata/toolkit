@@ -38,6 +38,7 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
@@ -344,7 +345,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         # Let's prevent that we delete groups we belong to
         try:
             groups = self.client.iam.groups.list()
-        except Exception as e:
+        except CogniteAPIError as e:
             print(
                 f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
             )
