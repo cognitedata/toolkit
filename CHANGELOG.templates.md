@@ -17,6 +17,12 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Changed
+
+- The `cdf_location_filter_example` has been split into three separate modules: `cdf_location_asset_centric`,
+  `cdf_location_filter_view_based`, and `cdf_location_datamodel_based`. This is to better demonstrate the different
+  ways to filter locations in CDF.
+
 ### Removed
 
 - Module `bootcamp` data_sets and raw modules removed from `ice_cream_api` and `oee`
@@ -28,7 +34,11 @@ Changes are grouped as follows:
 - The property `featureConfiguration` is in the `APM_Config` is now correctly a blob and not a list of blobs. This
   impacted the InRobot and InField options in `cdf modules init` and `cdf modules add`.
 - Module `bootcamp` error in calculation of site names for `ooe_timeseries`
-- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect
+- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect.
+- Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_3d_valhall` example.
+- Added missing RAW table `asset_oid_workmate` to `cdf_data_pipeline_asset_valhall` example.
+- Added missing RAW table `files_oid_fileshare` and dataset `ds_asset_oid` to `cdf_data_pipeline_files_valhall` example.
+- Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_timeseries_valhall` example.
 
 ## [0.3.2] - 2024-10-11
 
