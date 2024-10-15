@@ -7,7 +7,7 @@ assetCentric:
      - '{{ ds_asset }}'
    assetSubtreeIds:
      - externalId: '{{  root_asset }}'
-   externalIdPrefix: asset-prefix
+   externalIdPrefix: pump_
  timeseries:
    dataSetExternalIds:
      - '{{  ds_asset }}'
