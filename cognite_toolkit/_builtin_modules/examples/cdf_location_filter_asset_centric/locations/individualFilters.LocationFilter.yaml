@@ -3,6 +3,8 @@ name: Asset Centric Individual Filter Location Example
 description: This is an example of an asset centric individual filter location
 assetCentric:
  assets:
+   # Typically, you would use either dataSetExternalIds, assetSubtreeIds, or externalIdPrefix
+   # not all of them. They are shown in this example for demonstration purposes.
    dataSetExternalIds:
      - '{{ ds_asset }}'
    assetSubtreeIds:
