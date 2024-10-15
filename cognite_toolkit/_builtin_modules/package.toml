@@ -24,3 +24,7 @@ description = "Examples of how to configure Cognite Data Fusion"
 [packages.bootcamp]
 title = "Bootcamp"
 description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
+
+[packages.sourcesystem]
+title = "SourceSystem"
+description = "Module templates for setting up a data pipeline from a source system"
