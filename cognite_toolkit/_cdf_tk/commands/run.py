@@ -16,6 +16,7 @@ from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from rich import print
 from rich.progress import Progress
@@ -456,7 +457,7 @@ class RunTransformationCommand(ToolkitCommand):
             transformations: TransformationList = ToolGlobals.toolkit_client.transformations.retrieve_multiple(
                 external_ids=external_ids
             )
-        except Exception as e:
+        except CogniteAPIError as e:
             print("[bold red]ERROR:[/] Could not retrieve transformations.")
             print(e)
             return False
@@ -469,7 +470,7 @@ class RunTransformationCommand(ToolkitCommand):
             transformation.destination_nonce = nonce
         try:
             ToolGlobals.toolkit_client.transformations.update(transformations)
-        except Exception as e:
+        except CogniteAPIError as e:
             print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
             print(e)
             return False
@@ -479,7 +480,7 @@ class RunTransformationCommand(ToolkitCommand):
                     transformation_external_id=transformation.external_id, wait=False
                 )
                 print(f"Running transformation {transformation.external_id}, status {job.status}...")
-            except Exception as e:
+            except CogniteAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
                 print(e)
         return True

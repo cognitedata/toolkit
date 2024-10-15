@@ -307,7 +307,7 @@ class DeployCommand(ToolkitCommand):
         )
         try:
             cdf_resources = loader.retrieve(resource_ids)
-        except Exception as e:
+        except CogniteAPIError as e:
             self.warn(
                 MediumSeverityWarning(
                     f"Failed to retrieve {len(resource_ids)} of {loader.display_name}. Proceeding assuming not data in CDF. Error {e}."
@@ -339,16 +339,13 @@ class DeployCommand(ToolkitCommand):
                 unchanged.append(item)
             elif cdf_resource:
                 if verbose:
-                    try:
-                        print(
-                            Panel(
-                                "\n".join(to_diff(cdf_dumped, local_dumped)),
-                                title=f"{loader.display_name}: {identifier}",
-                                expand=False,
-                            )
+                    print(
+                        Panel(
+                            "\n".join(to_diff(cdf_dumped, local_dumped)),
+                            title=f"{loader.display_name}: {identifier}",
+                            expand=False,
                         )
-                    except Exception:
-                        raise
+                    )
                 to_update.append(item)
             else:
                 to_create.append(item)
@@ -398,9 +395,6 @@ class DeployCommand(ToolkitCommand):
                     f"{len(e.duplicated)} out of {len(resources)} resource(s) already exist(s). {len(e.successful or [])} resource(s) created."
                 )
             )
-        except Exception as e:
-            print(Panel(traceback.format_exc()))
-            raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
         else:
             return len(created) if created is not None else 0
         return 0
@@ -408,7 +402,7 @@ class DeployCommand(ToolkitCommand):
     def _update_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader) -> int:
         try:
             updated = loader.update(resources)
-        except Exception as e:
+        except CogniteAPIError as e:
             print(Panel(traceback.format_exc()))
             raise ResourceUpdateError(f"Failed to update resource(s). Error: {e!r}.") from e
 
