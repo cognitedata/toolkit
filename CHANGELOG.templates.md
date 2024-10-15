@@ -30,6 +30,7 @@ Changes are grouped as follows:
 - Module `bootcamp` error in calculation of site names for `ooe_timeseries`
 - Module `bootcamp` comment for `icapi_extractors_source_id` incorrect.
 - Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_3d_valhall` example.
+- Added missing RAW table `asset_oid_workmate` to `cdf_data_pipeline_asset_valhall` example.
 
 ## [0.3.2] - 2024-10-11
 
