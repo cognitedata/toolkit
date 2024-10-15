@@ -20,7 +20,7 @@ LocationFilter:
       - externalId: my_root_asset
       dataSetIds:
       - 42
-      externalIdPrefix: asset-prefix
+      externalIdPrefix: pump_
     timeseries:
       assetSubtreeIds:
       - externalId: my_root_asset2
