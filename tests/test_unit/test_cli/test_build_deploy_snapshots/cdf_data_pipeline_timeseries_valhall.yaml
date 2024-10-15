@@ -1,4 +1,13 @@
 DataSet:
+- description: Asset data for oid
+  externalId: ds_asset_oid
+  metadata:
+    consoleSource: '{"names": ["opcua"]}'
+    rawTables: '[{"databaseName": "asset_oid_opcua", "tableName": "assets"}]'
+    transformations: '[{"externalId": "tr_asset_oid_opcua_asset_hierarchy", "type":
+      "Transformations"}]'
+  name: asset:oid
+  writeProtected: false
 - description: Time series data for oid extracted live from OPC-UA simulator and static
     examples from PI (OID data)
   externalId: ds_timeseries_oid
