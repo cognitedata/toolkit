@@ -1,0 +1,3 @@
+externalId: {{ processing_dataset_external_id }}
+name: 'Processing resources for AVEVA PI in {{ location_name }}'
+description: 'This dataset used for the resources that process AVEVA PI data in {{ location_name }}'

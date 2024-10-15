@@ -1,6 +1,8 @@
-# location
-location: <not set>
-location_name: <not set>
 
+# location
+location: <not_set> # for example springfield
+location_name: <not_set> # for example Springfield
+instance_space: <not_set> # for example springfield_pi_instances
+processing_dataset_external_id: <not_set> # for example springfield_pi_processing
 pause_transformations: true
 
