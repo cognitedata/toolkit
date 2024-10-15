@@ -366,10 +366,11 @@ class AuthCommand(ToolkitCommand):
                     " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
                 )
             print("  [bold green]OK[/]")
-        except Exception:
+        except CogniteAPIError as e:
             raise AuthorizationError(
                 "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
                 "This could also be due to the service principal/application not having access to any Groups."
+                f"\n{e}"
             )
         return token_inspection
 

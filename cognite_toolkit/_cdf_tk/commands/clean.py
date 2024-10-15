@@ -151,10 +151,6 @@ class CleanCommand(ToolkitCommand):
         except CogniteNotFoundError:
             if verbose:
                 print(f"  [bold]INFO:[/] {_print_ids_or_length(resource_ids)} do(es) not exist.")
-        except Exception as e:
-            self.warn(MediumSeverityWarning(f"Failed to delete {_print_ids_or_length(resource_ids)}. Error {e}."))
-            if verbose:
-                print(Panel(traceback.format_exc()))
         else:  # Delete succeeded
             if verbose:
                 print(f"  Deleted {_print_ids_or_length(resource_ids)}.")
@@ -180,14 +176,6 @@ class CleanCommand(ToolkitCommand):
                 print(f"  [bold]INFO:[/] {len(resource_ids)} {loader.display_name} do(es) not exist.")
         except CogniteNotFoundError:
             return nr_of_dropped
-        except Exception as e:
-            self.warn(
-                MediumSeverityWarning(
-                    f"Failed to drop {loader.item_name} from {len(resource_ids)} {loader.display_name}. Error {e}."
-                )
-            )
-            if verbose:
-                print(Panel(traceback.format_exc()))
         else:  # Delete succeeded
             if verbose:
                 self._verbose_print_drop(resource_drop_count, resource_ids, loader, dry_run)

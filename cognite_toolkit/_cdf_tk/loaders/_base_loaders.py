@@ -287,6 +287,9 @@ class ResourceLoader(
         try:
             api_spec = cls.get_write_cls_parameter_spec()
         except Exception as e:
+            # We don't want to crash the program if we can't get the parameter spec
+            # as we can continue without doing this check. Note that getting the parameter spec
+            # is also fragile as it relies on the type hints in the cognite-sdk which is out of our control.
             if USE_SENTRY:
                 capture_exception(e)
             else:
