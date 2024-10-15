@@ -16,4 +16,4 @@ assetCentric:
    assetSubtreeIds:
      - externalId: '{{  root_asset2 }}'
    externalIdPrefix: '{{  ts_prefix }}'
-# Events, Sequences, and Files are also supported.
+# events, sequences, and files are also supported.
