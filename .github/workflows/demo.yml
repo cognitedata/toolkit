@@ -39,7 +39,7 @@ jobs:
       - name: "Not collect metrics"
         run: cdf collect opt-out
       - name: "Build the templates"
-        run: cdf-tk build --build-dir=./build --env=demo -o ./demo_project
+        run: cdf build --env demo -o ./demo_project
       - name: "Verify and create access rights"
         run: cdf auth verify --no-prompt
       - name: "Deploy the templates"

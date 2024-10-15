@@ -19,9 +19,8 @@ Changes are grouped as follows:
 
 ### Changed
 
-- The `cdf_location_filter_example` has been split into three separate modules: `cdf_location_asset_centric`,
-  `cdf_location_filter_view_based`, and `cdf_location_datamodel_based`. This is to better demonstrate the different
-  ways to filter locations in CDF.
+- The `cdf_location_filter_example` has been split into two separate modules: `cdf_location_asset_centric`,
+  and `cdf_location_datamodel_based`. This is to better demonstrate the different ways to filter locations in CDF.
 
 ### Removed
 

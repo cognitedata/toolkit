@@ -1,7 +1,7 @@
 LocationFilter:
 - dataModels:
   - externalId: CogniteProcessIndustries
-    space: cdf_cdm
+    space: cdf_idm
     version: v1
   description: This is an example of a data model based location filter
   externalId: view_based_location_filter
