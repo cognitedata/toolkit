@@ -58,8 +58,9 @@ class MockQuestionary:
 
 def get_packages() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
-    # The Bootcamp package has hardcoded exceptions which makes it not fit for this test.
-    # Examples will be tested separately, as each individual example
+    # The Bootcamp package has intentionally warnings that is part of the learning experience.
+    # Examples is tested separately, in that each example is tested individually as they
+    # should be independent of each other.
     return [name for name in packages.keys() if name not in ["bootcamp", "examples"]]
 
 
@@ -67,8 +68,6 @@ def get_packages() -> list[str]:
 def test_build_packages_without_warnings(
     package: str, tmp_path: Path, build_tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
-    assert package
-
     organization_dir = tmp_path
 
     module_cmd = ModulesCommand(silent=True, skip_tracking=True)
