@@ -1,0 +1,9 @@
+externalId: asset_centric_shared_location_filter
+name: Asset Centric Shared Location Example
+description: This is an example of an asset centric shared location
+assetCentric:
+ dataSetExternalIds:
+   - '{{  ds_asset }}'
+ assetSubtreeIds:
+   - externalId: '{{  root_asset }}'
+   - externalId: '{{  root_asset2 }}'

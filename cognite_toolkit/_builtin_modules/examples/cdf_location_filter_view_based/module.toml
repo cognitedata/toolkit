@@ -1,0 +1,7 @@
+[module]
+title = "Example location filter view based"
+
+[packages]
+tags = [
+    "examples",
+]

@@ -1,0 +1,15 @@
+externalId: view_based_location_filter
+name: View Based Location Filter Example
+description: This is an example of a view based location filter
+instanceSpaces:
+ - {{ instance_space1 }}
+ - {{ instance_space2 }}
+views:
+ - externalId: CogniteAsset
+   space: cdf_cdm
+   version: v1
+   representsEntity: ASSET
+ - externalId: CogniteMaintenanceOrder
+   space: cdf_idm
+   version: v1
+   representsEntity: MAINTENANCE_ORDER
