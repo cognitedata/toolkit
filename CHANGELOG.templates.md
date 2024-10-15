@@ -32,6 +32,7 @@ Changes are grouped as follows:
 - Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_3d_valhall` example.
 - Added missing RAW table `asset_oid_workmate` to `cdf_data_pipeline_asset_valhall` example.
 - Added missing RAW table `files_oid_fileshare` and dataset `ds_asset_oid` to `cdf_data_pipeline_files_valhall` example.
+- Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_timeseries_valhall` example.
 
 ## [0.3.2] - 2024-10-11
 
