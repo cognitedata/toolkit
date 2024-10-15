@@ -83,18 +83,37 @@
       "justMyCode": false
     },
     {
-      "name": "Python: deploy",
+      "name": "cdf build",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "build",
+        "--env=local",
+        "--verbose"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf deploy --dry-run",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
         "deploy",
-        //"--dry-run",
-        //"--drop",
-        //"--drop-data",
-        "--env=local",
-        //"--include=transformations",
-        "./build"
+        "--dry-run",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf deploy",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "deploy",
       ],
       "console": "integratedTerminal",
       "justMyCode": false
