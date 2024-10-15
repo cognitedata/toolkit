@@ -28,7 +28,8 @@ Changes are grouped as follows:
 - The property `featureConfiguration` is in the `APM_Config` is now correctly a blob and not a list of blobs. This
   impacted the InRobot and InField options in `cdf modules init` and `cdf modules add`.
 - Module `bootcamp` error in calculation of site names for `ooe_timeseries`
-- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect
+- Module `bootcamp` comment for `icapi_extractors_source_id` incorrect.
+- Added missing dataset `ds_asset_oid` to `cdf_data_pipeline_3d_valhall` example.
 
 ## [0.3.2] - 2024-10-11
 
