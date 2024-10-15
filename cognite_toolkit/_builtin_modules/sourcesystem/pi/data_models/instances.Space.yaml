@@ -1,0 +1,4 @@
+space: '{{ location }}_{{ instance_space }}'
+name: '{{ location_name }} instances'
+description: |
+  This space contains all data from the {{ source_name }} for {{ location_name }}.

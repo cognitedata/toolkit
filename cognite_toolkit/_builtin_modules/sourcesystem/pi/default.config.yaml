@@ -1,0 +1,11 @@
+# location
+location: <not set>
+location_name: <not set>
+
+# data source
+source: aveva_pi
+source_name: AVEVA PI
+
+
+pause_transformations: true
+
