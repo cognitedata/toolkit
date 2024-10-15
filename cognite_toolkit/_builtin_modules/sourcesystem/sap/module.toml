@@ -1,0 +1,7 @@
+[module]
+title = "SAP Source System"
+
+[packages]
+tags = [
+    "sourcesystem",
+]
