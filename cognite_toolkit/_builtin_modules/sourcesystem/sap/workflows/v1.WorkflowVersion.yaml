@@ -1,5 +1,5 @@
 workflowExternalId: {{ workflow }}
-version: v1
+version: 'v1'
 workflowDefinition:
   tasks:
     - externalId: {{ workflow}}_task1
@@ -7,17 +7,19 @@ workflowDefinition:
       parameters:
         transformation:
           externalId: tr_sap_asset_{{ sourceId }}
+          concurrencyPolicy: fail
     - externalId: {{ workflow}}_task2
       type: transformation
       parameters:
         transformation:
           externalId: tr_sap_equipment_{{ sourceId }}
+          concurrencyPolicy: fail
     - externalId: {{ workflow}}_task3
       type: transformation
       parameters:
         transformation:
           externalId: tr_sap_equipment_to_asset_{{ sourceId }}
+          concurrencyPolicy: fail
       dependsOn:
-        - {{ workflow}}_task1
-        - {{ workflow}}_task2
-
+        - {{ workflow }}_task1
+        - {{ workflow }}_task2

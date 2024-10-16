@@ -5,11 +5,11 @@ metadata:
 capabilities:
   - rawAcl:
       actions:
-        - WRITE
+        - READ
       scope:
-        tableScope: {
+        tableScope:
           dbsToTables:
-            {{ rawDb }}:{}
+            {{ rawDb }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ
