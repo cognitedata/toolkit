@@ -380,8 +380,16 @@ class WorkflowTriggerLoader(
             ParameterSpec(
                 ("triggerRule", "triggerType"),
                 frozenset({"str"}),
-                is_required=False,
-                _is_nullable=True,
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("authentication",),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
             )
         )
         spec.add(
