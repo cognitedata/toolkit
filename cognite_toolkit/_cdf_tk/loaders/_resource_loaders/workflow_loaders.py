@@ -384,6 +384,22 @@ class WorkflowTriggerLoader(
                 _is_nullable=True,
             )
         )
+        spec.add(
+            ParameterSpec(
+                ("authentication", "clientId"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("authentication", "clientSecret"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
         return spec
 
     @classmethod
