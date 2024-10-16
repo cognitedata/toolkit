@@ -1,0 +1,13 @@
+externalId: tr_sap_equipment_to_asset_{{ sourceId }}
+dataSetExternalId: {{ dataset }}
+name: Equipment to Asset Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert

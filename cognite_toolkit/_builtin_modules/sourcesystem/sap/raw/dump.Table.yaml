@@ -1,0 +1,2 @@
+dbName: {{ rawDb }}
+tableName: dump

@@ -1,4 +1,4 @@
-space: {{ instance_space }}
+space: {{ instanceSpace }}
 name: SAP instance space {{ source_name }}
 description: |
   This space contains all data from the SAP system {{ source_name }}.
