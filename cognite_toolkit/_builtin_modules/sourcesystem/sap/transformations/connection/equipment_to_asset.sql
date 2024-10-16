@@ -4,7 +4,7 @@ select
 from
     {{ rawDb }}.`dump` d1
 join
-  {{ rawDb }}.`dump` d2
+  {{ rawDatabase }}.`dump` d2
 on
   d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`
 where

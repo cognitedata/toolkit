@@ -1,8 +1,8 @@
-instanceSpace: sp_springfield_sap
+instanceSpace: springfield_sap
 sourceName: SAP Springfield S/4HANA
-rawDb: sap_springfield_staging
-sourceId: sap_springfield_s4hana
+rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+source: sap_s4hana # can also contain location, for example sap_springfield_s4hana
 transformationServicePrincipalGroupObjectId: <not set>
-workflow: sap_springfield_s4hana_population
-dataset: ds_sap_springfield_s4hana_transformations
+workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
 schemaSpace: cdf_cdm

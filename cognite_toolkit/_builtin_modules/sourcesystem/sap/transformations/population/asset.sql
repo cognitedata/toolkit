@@ -9,7 +9,7 @@ select
   cast(`WMT_TAG_UPDATED_DATE` as TIMESTAMP) as sourceUpdatedTime,
   cast(`WMT_TAG_UPDATED_BY` as STRING) as sourceUpdatedUser
 from
-  `{{ rawDb }}`.`dump`
+  `{{ rawDatabase }}`.`dump`
 where
   isnotnull(`WMT_TAG_NAME`) AND
 /* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while equipment is everything else */

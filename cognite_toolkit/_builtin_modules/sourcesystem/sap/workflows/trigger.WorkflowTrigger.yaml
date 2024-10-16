@@ -1,4 +1,4 @@
-externalId: tr_sap_population_{{ sourceId }}
+externalId: sap_population_{{ source }}
 triggerRule:
   triggerType: schedule
   cronExpression: "0 4 * * MON"

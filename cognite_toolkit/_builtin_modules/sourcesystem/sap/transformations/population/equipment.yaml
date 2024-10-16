@@ -1,4 +1,4 @@
-externalId: tr_sap_equipment_{{ sourceId }}
+externalId: sap_equipment_{{ source }}
 dataSetExternalId: {{ dataset }}
 name: Equipment Transformations for {{ sourceName }}
 destination:

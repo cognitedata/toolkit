@@ -1,2 +1,2 @@
-dbName: {{ rawDb }}
+dbName: {{ rawDatabase }}
 tableName: dump

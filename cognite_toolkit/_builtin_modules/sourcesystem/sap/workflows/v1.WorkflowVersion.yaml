@@ -6,21 +6,21 @@ workflowDefinition:
       type: transformation
       parameters:
         transformation:
-          externalId: tr_sap_asset_{{ sourceId }}
+          externalId: sap_asset_{{ source }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
     - externalId: {{ workflow}}_task2
       type: transformation
       parameters:
         transformation:
-          externalId: tr_sap_equipment_{{ sourceId }}
+          externalId: sap_equipment_{{ source }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
     - externalId: {{ workflow}}_task3
       type: transformation
       parameters:
         transformation:
-          externalId: tr_sap_equipment_to_asset_{{ sourceId }}
+          externalId: sap_equipment_to_asset_{{ source }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
       dependsOn:

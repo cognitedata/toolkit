@@ -3,13 +3,14 @@ sourceId: {{ transformationServicePrincipalGroupObjectId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
+  # minimum runtime capabilities
   - rawAcl:
       actions:
         - READ
       scope:
         tableScope:
           dbsToTables:
-            {{ rawDb }}: {}
+            {{ rawDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ
@@ -26,12 +27,10 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
-  # Needed to create a nonce when creating the transformation
+  # transformation-specific capabilities
   - sessionsAcl:
       actions:
-        - LIST
         - CREATE
-        - DELETE
       scope:
         all: {}
   - projectsAcl:
