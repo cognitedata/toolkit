@@ -536,13 +536,6 @@ View:
 Workflow:
 - description: A workflow for processing data
   externalId: baz
-WorkflowTrigger:
-- externalId: MyTrigger
-  triggerRule:
-    cronExpression: 5 4 * * *
-    triggerType: schedule
-  workflowExternalId: baz
-  workflowVersion: '1'
 WorkflowVersion:
 - version: '1'
   workflowDefinition:

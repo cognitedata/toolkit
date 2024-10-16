@@ -14,13 +14,6 @@ Group:
           dbsToTables:
             sap_springfield_staging:
               tables: []
-  - sessionsAcl:
-      actions:
-      - LIST
-      - CREATE
-      - DELETE
-      scope:
-        all: {}
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -30,6 +23,31 @@ Group:
         spaceIdScope:
           spaceIds:
           - sp_springfield_sap
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+  - sessionsAcl:
+      actions:
+      - LIST
+      - CREATE
+      - DELETE
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
   metadata:
     origin: cognite-toolkit
   name: gp_transformations_sap_springfield_s4hana
@@ -58,7 +76,7 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
   externalId: tr_sap_asset_sap_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
@@ -97,7 +115,7 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -113,7 +131,7 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
   externalId: tr_sap_equipment_sap_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
@@ -151,7 +169,7 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -167,7 +185,7 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
   externalId: tr_sap_equipment_to_asset_sap_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
@@ -185,18 +203,11 @@ Transformation:
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://bluefield.cognitedata.com
+    tokenUri: dummy
 Workflow:
 - description: This workflow populates the Cognite Data Platform with data from the
     SAP system SAP Springfield S/4HANA.
   externalId: sap_springfield_s4hana_population
-WorkflowTrigger:
-- externalId: tr_sap_population_sap_springfield_s4hana
-  triggerRule:
-    cronExpression: 0 4 * * MON
-    triggerType: schedule
-  workflowExternalId: sap_springfield_s4hana_population
-  workflowVersion: v1
 WorkflowVersion:
 - version: v1
   workflowDefinition:
