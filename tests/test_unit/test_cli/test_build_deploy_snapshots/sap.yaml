@@ -46,7 +46,7 @@ Transformation:
       space: cdf_cdm
       version: v1
   destinationOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
@@ -85,7 +85,7 @@ Transformation:
     \ like asset are category 1157 while equipment is everything else */\n  cast(`WMT_CATEGORY_ID`\
     \ as INT) = 1157\n"
   sourceOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
@@ -101,7 +101,7 @@ Transformation:
       space: cdf_cdm
       version: v1
   destinationOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
@@ -139,7 +139,7 @@ Transformation:
     \  cast(`WMT_TAG_GLOBALID` as STRING) as serialNumber\nfrom\n  `sap_springfield_staging`.`dump`\n\
     where\n  isnotnull(`WMT_TAG_NAME`) AND\n  cast(`WMT_CATEGORY_ID` as INT) != 1157\n"
   sourceOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
@@ -155,7 +155,7 @@ Transformation:
       space: cdf_cdm
       version: v1
   destinationOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
@@ -168,27 +168,25 @@ Transformation:
   query: "select\n  concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,\n\
     \  node_reference('sp_springfield_sap',  concat('WMT', cast(d2.`WMT_TAG_NAME`\
     \ as STRING))) as asset\nfrom\n    sap_springfield_staging.`dump` d1\njoin\n \
-    \ sap_springfield_staging.`dump` d2\non\n  d1.`WMT_TAG_ID` = d2.`WMT_TAG_ID_ANCESTOR`\n\
+    \ sap_springfield_staging.`dump` d2\non\n  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`\n\
     where\n  isnotnull(d1.`WMT_TAG_NAME`) AND\n  cast(d1.`WMT_CATEGORY_ID` as INT)\
     \ != 1157 AND\n  isnotnull(d2.`WMT_TAG_NAME`) AND\n  cast(d2.`WMT_CATEGORY_ID`\
     \ as INT) = 1157\n"
   sourceOidcCredentials:
-    audience: null
+    audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
     clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
     clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: https://bluefield.cognitedata.com
 Workflow:
-- description: 'This workflow populates the Cognite Data Platform with data from the
+- description: This workflow populates the Cognite Data Platform with data from the
     SAP system SAP Springfield S/4HANA.
-
-    '
   externalId: sap_springfield_s4hana_population
 WorkflowTrigger:
 - externalId: tr_sap_population_sap_springfield_s4hana
   triggerRule:
-    cronExpression: 4 ? * MON *
+    cronExpression: 0 4 * * MON
     triggerType: schedule
   workflowExternalId: sap_springfield_s4hana_population
   workflowVersion: v1
@@ -197,7 +195,7 @@ WorkflowVersion:
   workflowDefinition:
     tasks:
     - externalId: sap_springfield_s4hana_population_task1
-      onFailure: null
+      onFailure: abortWorkflow
       parameters:
         transformation:
           concurrencyPolicy: fail
@@ -206,7 +204,7 @@ WorkflowVersion:
       timeout: null
       type: transformation
     - externalId: sap_springfield_s4hana_population_task2
-      onFailure: null
+      onFailure: abortWorkflow
       parameters:
         transformation:
           concurrencyPolicy: fail
@@ -218,7 +216,7 @@ WorkflowVersion:
       - externalId: sap_springfield_s4hana_population_task1
       - externalId: sap_springfield_s4hana_population_task2
       externalId: sap_springfield_s4hana_population_task3
-      onFailure: null
+      onFailure: abortWorkflow
       parameters:
         transformation:
           concurrencyPolicy: fail
