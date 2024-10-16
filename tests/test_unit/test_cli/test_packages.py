@@ -1,5 +1,4 @@
 from collections.abc import Callable, Sequence
-from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -63,12 +62,6 @@ def get_packages() -> list[str]:
     # Examples is tested separately, in that each example is tested individually as they
     # should be independent of each other.
     packages = (name for name in packages.keys() if name not in ["bootcamp", "examples"])
-    if (date.today() - date(2024, 10, 15)).days < 3:
-        # The following packages are not yet available in the CDF Toolkit.
-        # They are expected to be available in the future. The delay above is to enforce
-        # that the tests are updated when the packages are available.
-        packages = (name for name in packages if name not in ["sourcesystem"])
-
     return sorted(packages)
 
 
@@ -85,11 +78,12 @@ def test_build_packages_without_warnings(
 
     answers = [
         select_package,
-        MockQuestionary.select_all,
         False,
         True,
         ["dev"],
     ]
+    if package != "sourcesystem":
+        answers.insert(1, MockQuestionary.select_all)
 
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
         module_cmd.init(organization_dir, clean=True)
