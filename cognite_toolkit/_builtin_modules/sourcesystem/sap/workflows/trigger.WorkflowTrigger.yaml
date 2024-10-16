@@ -1,0 +1,9 @@
+externalId: tr_sap_population_{{ sourceId }}
+triggerRule:
+  triggerType: schedule
+  cronExpression: "4 ? * MON *"
+workflowExternalId: {{ workflow }}
+version: v1
+authentication:
+  clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+  clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}

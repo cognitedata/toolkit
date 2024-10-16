@@ -1,4 +1,6 @@
-instanceSpace: sp_sap
-sourceName: SAP S/4HANA
-rawDb: sap_staging
-sourceId: sap_s4hana
+instanceSpace: sp_springfield_sap
+sourceName: SAP Springfield S/4HANA
+rawDb: sap_springfield_staging
+sourceId: sap_springfield_s4hana
+transformationServicePrincipalGroupObjectId: <not set>
+workflow: sap_springfield_s4hana_population

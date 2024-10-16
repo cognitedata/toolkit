@@ -1,0 +1,23 @@
+workflowExternalId: {{ workflow }}
+version: v1
+workflowDefinition:
+  tasks:
+    - externalId: {{ workflow}}_task1
+      type: transformation
+      parameters:
+        transformation:
+          externalId: tr_sap_asset_{{ sourceId }}
+    - externalId: {{ workflow}}_task2
+      type: transformation
+      parameters:
+        transformation:
+          externalId: tr_sap_equipment_{{ sourceId }}
+    - externalId: {{ workflow}}_task3
+      type: transformation
+      parameters:
+        transformation:
+          externalId: tr_sap_equipment_to_asset_{{ sourceId }}
+      dependsOn:
+        - {{ workflow}}_task1
+        - {{ workflow}}_task2
+

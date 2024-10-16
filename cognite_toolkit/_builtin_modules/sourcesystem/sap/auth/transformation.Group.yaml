@@ -1,0 +1,24 @@
+name: gp_transformations_
+sourceId: {{ transformationServicePrincipalGroupObjectId }}
+metadata:
+  origin: cognite-toolkit
+capabilities:
+  - rawAcl:
+      actions:
+        - WRITE
+      scope:
+        tableScope: {
+          dbsToTables: {'{{ rawDb }}':{} }
+        }
+  - extractionConfigsAcl:
+      actions:
+        - READ
+      scope:
+        dataModelInstancesAcl:
+          actions:
+            - READ
+            - WRITE
+            - WRITE_PROPERTIES
+          scope:
+            spaceIdScope:
+              - {{ instanceSpace }}
