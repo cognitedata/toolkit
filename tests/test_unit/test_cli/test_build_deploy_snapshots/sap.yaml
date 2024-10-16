@@ -208,6 +208,13 @@ Workflow:
 - description: This workflow populates the Cognite Data Platform with data from the
     SAP system SAP Springfield S/4HANA.
   externalId: sap_springfield_s4hana_population
+WorkflowTrigger:
+- externalId: tr_sap_population_sap_springfield_s4hana
+  triggerRule:
+    cronExpression: 0 4 * * MON
+    triggerType: schedule
+  workflowExternalId: sap_springfield_s4hana_population
+  workflowVersion: v1
 WorkflowVersion:
 - version: v1
   workflowDefinition:

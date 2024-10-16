@@ -665,7 +665,7 @@ API_RESOURCES = [
         _write_cls=WorkflowTriggerUpsert,
         _write_list_cls=WorkflowTriggerUpsertList,
         methods={
-            "create": [Method(api_class_method="create", mock_class_method="create")],
+            "create": [Method(api_class_method="upsert", mock_class_method="create")],
             "retrieve": [
                 Method(api_class_method="get_triggers", mock_class_method="return_values"),
             ],
