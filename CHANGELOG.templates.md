@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Building a `WorkflowTrigger` will no longer complain that `authentication` is an unused variable.
+
+### Improved
+
+- When running `cdf deploy/clean` if a `ToolkitRequiredValueError` or `ToolkitTypeError` is raised, a full traceback
+  will be printed to the console. This will help users understand what went wrong and how to fix it.
+
 ## [0.3.3] - 2024-10-15
 
 ### Changed
