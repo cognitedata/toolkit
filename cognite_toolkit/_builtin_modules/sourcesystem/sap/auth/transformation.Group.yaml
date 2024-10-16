@@ -10,14 +10,6 @@ capabilities:
         tableScope:
           dbsToTables:
             {{ rawDb }}: {}
-  # Needed to create a nonce when creating the transformation
-  - sessionsAcl:
-      actions:
-        - LIST
-        - CREATE
-        - DELETE
-      scope:
-        all: {}
   - dataModelInstancesAcl:
       actions:
         - READ
@@ -27,3 +19,22 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ instanceSpace }}
+  # Needed to create a nonce when creating the transformation
+  - sessionsAcl:
+      actions:
+        - LIST
+        - CREATE
+        - DELETE
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
