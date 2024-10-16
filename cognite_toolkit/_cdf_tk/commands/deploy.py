@@ -387,6 +387,7 @@ class DeployCommand(ToolkitCommand):
             else:
                 # This must be printed as this if not rich filters out regex patterns from
                 # the error message which typically contains the critical information.
+                print(Panel(traceback.format_exc()))
                 print(e)
                 raise ResourceCreationError(f"Failed to create resource(s). Error: {e!r}.") from e
         except CogniteDuplicatedError as e:
