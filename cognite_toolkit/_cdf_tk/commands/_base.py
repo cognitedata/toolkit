@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import sys
+import traceback
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitTypeError
 from cognite_toolkit._cdf_tk.loaders import (
@@ -81,12 +83,14 @@ class ToolkitCommand:
             try:
                 resource = loader.load_resource(filepath, ToolGlobals, skip_validation)
             except KeyError as e:
+                print(Panel(traceback.format_exc(), title="Traceback", expand=False))
                 # KeyError means that we are missing a required field in the yaml file.
                 raise ToolkitRequiredValueError(
                     f"Failed to load {filepath.name} with {loader.display_name}. Missing required field: {e}."
                     f"\nPlease compare with the API specification at {loader.doc_url()}."
                 )
             except TypeError as e:
+                print(Panel(traceback.format_exc(), title="Traceback", expand=False))
                 raise ToolkitTypeError(
                     f"Failed to load {filepath.name} with {loader.display_name}. Wrong type {e!r}"
                 ) from e

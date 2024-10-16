@@ -21,5 +21,5 @@ workflowDefinition:
           externalId: tr_sap_equipment_to_asset_{{ sourceId }}
           concurrencyPolicy: fail
       dependsOn:
-        - {{ workflow }}_task1
-        - {{ workflow }}_task2
+        - externalId: {{ workflow }}_task1
+        - externalId: {{ workflow }}_task2

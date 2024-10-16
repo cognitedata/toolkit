@@ -17,4 +17,5 @@ capabilities:
         - WRITE_PROPERTIES
       scope:
         spaceIdScope:
-          - {{ instanceSpace }}
+          spaceIds:
+            - {{ instanceSpace }}
