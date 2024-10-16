@@ -1,7 +1,7 @@
 externalId: tr_sap_population_{{ sourceId }}
 triggerRule:
   triggerType: schedule
-  cronExpression: "4 ? * MON *"
+  cronExpression: "0 4 * * MON"
 workflowExternalId: {{ workflow }}
 workflowVersion: v1
 authentication:

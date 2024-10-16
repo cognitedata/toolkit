@@ -6,7 +6,7 @@ from
 join
   {{ rawDb }}.`dump` d2
 on
-  d1.`WMT_TAG_ID` = d2.`WMT_TAG_ID_ANCESTOR`
+  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`
 where
   isnotnull(d1.`WMT_TAG_NAME`) AND
   cast(d1.`WMT_CATEGORY_ID` as INT) != 1157 AND
