@@ -19,6 +19,13 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ instanceSpace }}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
   # Needed to create a nonce when creating the transformation
   - sessionsAcl:
       actions:

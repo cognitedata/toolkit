@@ -5,3 +5,4 @@ sourceId: sap_springfield_s4hana
 transformationServicePrincipalGroupObjectId: <not set>
 workflow: sap_springfield_s4hana_population
 dataset: ds_sap_springfield_s4hana_transformations
+schemaSpace: cdf_cdm
