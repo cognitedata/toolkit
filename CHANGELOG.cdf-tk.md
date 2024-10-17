@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Building a `WorkflowTrigger` will no longer complain that `authentication` is an unused variable.
+
 ## [0.3.3] - 2024-10-15
 
 ### Fixed
