@@ -36,6 +36,13 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ instanceSpace }}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm_units
   - dataModelsAcl:
       actions:
         - READ
