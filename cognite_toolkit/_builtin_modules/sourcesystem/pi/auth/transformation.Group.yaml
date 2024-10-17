@@ -43,3 +43,4 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
+            - cdf_cdm_units
