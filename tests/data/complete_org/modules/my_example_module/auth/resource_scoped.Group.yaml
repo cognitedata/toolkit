@@ -11,3 +11,11 @@ capabilities:
         datasetScope:
           ids:
             - ds_complete_org
+  - securityCategoriesAcl:
+      actions:
+      - LIST
+      - MEMBEROF
+      scope:
+        idscope:
+          ids:
+          - sc_demo_category
