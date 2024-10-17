@@ -147,9 +147,11 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        from .classic_loaders import AssetLoader
         from .data_organization_loaders import DataSetsLoader
         from .datamodel_loaders import SpaceLoader
         from .extraction_pipeline_loaders import ExtractionPipelineLoader
+        from .location_loaders import LocationFilterLoader
         from .raw_loaders import RawDatabaseLoader, RawTableLoader
         from .timeseries_loaders import TimeSeriesLoader
 
@@ -173,6 +175,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
                                 yield ExtractionPipelineLoader, extraction_pipeline_id
+                    if asset_root_ids := scope.get(cap.AssetRootIDScope._scope_name, []):
+                        if isinstance(asset_root_ids, dict) and "rootIds" in asset_root_ids:
+                            for asset_root_id in asset_root_ids["rootIds"]:
+                                yield AssetLoader, asset_root_id
                     if (ids := scope.get(cap.IDScope._scope_name, [])) or (
                         ids := scope.get(cap.IDScopeLowerCase._scope_name, [])
                     ):
@@ -183,6 +189,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             loader = ExtractionPipelineLoader
                         elif acl == cap.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesLoader
+                        elif acl == cap.SecurityCategoriesAcl._capability_name:
+                            loader = SecurityCategoryLoader
+                        elif acl == cap.LocationFiltersAcl._capability_name:
+                            loader = LocationFilterLoader
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
                                 yield loader, id_
