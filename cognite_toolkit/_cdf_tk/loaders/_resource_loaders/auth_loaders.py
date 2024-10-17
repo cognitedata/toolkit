@@ -229,9 +229,19 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 operation="replace extractionPipelineExternalId with extractionPipelineId in group",
                 id_name="ids",
             ),
+            (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
+                ToolGlobals.verify_locationfilter,
+                operation="replace locationFilterExternalId with locationFilterId in group",
+                id_name="ids",
+            ),
             (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
                 ToolGlobals.verify_security_categories,
                 operation="replace securityCategoryExternalId with securityCategoryId in group",
+                id_name="ids",
+            ),
+            (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
+                ToolGlobals.verify_timeseries,
+                operation="replace timeSeriesExternalId with timeSeriesId in group",
                 id_name="ids",
             ),
             cap.DataSetScope: _ReplaceMethod(
@@ -243,6 +253,11 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 ToolGlobals.verify_extraction_pipeline,
                 operation="replace extractionPipelineExternalId with extractionPipelineId in group",
                 id_name="ids",
+            ),
+            cap.AssetRootIDScope: _ReplaceMethod(
+                ToolGlobals.verify_dataset,
+                operation="replace rootAssetExternalId with rootAssetId in group",
+                id_name="rootIds",
             ),
         }
         # Trick to avoid writing _capability_name and _scope_name for each entry.
