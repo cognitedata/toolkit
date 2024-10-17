@@ -242,7 +242,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         }
         # Trick to avoid writing _capability_name and _scope_name for each entry.
         return {
-            (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else cap.Capability.Scope: method  # type: ignore[misc]
+            (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else key._scope_name: method  # type: ignore[attr-defined]
             for key, method in source.items()
         }
 
