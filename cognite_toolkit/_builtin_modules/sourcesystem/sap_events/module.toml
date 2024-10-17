@@ -1,5 +1,5 @@
 [module]
-title = "SAP Source System"
+title = "SAP Source System Events"
 
 [packages]
 tags = [
