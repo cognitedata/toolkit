@@ -1,0 +1,7 @@
+[module]
+title = "SAP Source System Asset/Equipment Metadata"
+
+[packages]
+tags = [
+    "sourcesystem",
+]
