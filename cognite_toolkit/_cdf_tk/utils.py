@@ -51,6 +51,7 @@ from cognite.client.data_classes.capabilities import (
     DataSetsAcl,
     ExtractionPipelinesAcl,
     SecurityCategoriesAcl,
+    TimeSeriesAcl,
 )
 from cognite.client.data_classes.data_modeling import DataModelId, View, ViewId
 from cognite.client.data_classes.iam import TokenInspection
@@ -494,6 +495,7 @@ class CDFToolConfig:
         extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
         asset_id_by_external_id: dict[str, int] = field(default_factory=dict)
+        timeseries_id_by_external_id: dict[str, int] = field(default_factory=dict)
         token_inspect: TokenInspection | None = None
 
     def __init__(
@@ -960,6 +962,62 @@ class CDFToolConfig:
             return self._cache.asset_id_by_external_id[external_id]
         else:
             return [self._cache.asset_id_by_external_id[ext_id] for ext_id in external_id]
+
+    @overload
+    def verify_timeseries(self, external_id: str, skip_validation: bool = False, action: str | None = None) -> int: ...
+
+    @overload
+    def verify_timeseries(
+        self, external_id: list[str], skip_validation: bool = False, action: str | None = None
+    ) -> list[int]: ...
+
+    def verify_timeseries(
+        self, external_id: str | list[str], skip_validation: bool = False, action: str | None = None
+    ) -> int | list[int]:
+        if skip_validation:
+            return [-1 for _ in range(len(external_id))] if isinstance(external_id, list) else -1
+
+        if isinstance(external_id, str) and external_id in self._cache.timeseries_id_by_external_id:
+            return self._cache.timeseries_id_by_external_id[external_id]
+        elif isinstance(external_id, str):
+            missing_external_ids = [external_id]
+        elif isinstance(external_id, list):
+            existing_by_external_id: dict[str, int] = {
+                ext_id: self._cache.timeseries_id_by_external_id[ext_id]
+                for ext_id in external_id
+                if ext_id in self._cache.timeseries_id_by_external_id
+            }
+            if len(existing_by_external_id) == len(existing_by_external_id):
+                return [existing_by_external_id[ext_id] for ext_id in external_id]
+            missing_external_ids = [ext_id for ext_id in external_id if ext_id not in existing_by_external_id]
+        else:
+            raise ValueError(f"Expected external_id to be str or list of str, but got {type(external_id)}")
+
+        self.verify_authorization(TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.All()), action)
+
+        missing_timeseries = self.toolkit_client.time_series.retrieve_multiple(
+            external_ids=missing_external_ids, ignore_unknown_ids=True
+        )
+
+        self._cache.timeseries_id_by_external_id.update(
+            {
+                timeseries.external_id: timeseries.id
+                for timeseries in missing_timeseries
+                if timeseries.id and timeseries.external_id
+            }
+        )
+
+        if missing := [
+            ext_id for ext_id in missing_external_ids if ext_id not in self._cache.timeseries_id_by_external_id
+        ]:
+            raise ToolkitResourceMissingError(
+                "TimeSeries(s) does not exist. You need to create it/them first.", str(missing)
+            )
+
+        if isinstance(external_id, str):
+            return self._cache.timeseries_id_by_external_id[external_id]
+        else:
+            return [self._cache.timeseries_id_by_external_id[ext_id] for ext_id in external_id]
 
 
 @overload
