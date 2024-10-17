@@ -336,7 +336,7 @@ class WorkflowTriggerLoader(
         created = WorkflowTriggerList([])
         for item in items:
             credentials = self._authentication_by_id.get(item.external_id)
-            created.append(self.client.workflows.triggers.create(item, credentials))
+            created.append(self.client.workflows.triggers.upsert(item, credentials))
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowTriggerList:
@@ -380,8 +380,32 @@ class WorkflowTriggerLoader(
             ParameterSpec(
                 ("triggerRule", "triggerType"),
                 frozenset({"str"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("authentication",),
+                frozenset({"dict"}),
+                is_required=True,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("authentication", "clientId"),
+                frozenset({"str"}),
                 is_required=False,
-                _is_nullable=True,
+                _is_nullable=False,
+            )
+        )
+        spec.add(
+            ParameterSpec(
+                ("authentication", "clientSecret"),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=False,
             )
         )
         return spec
