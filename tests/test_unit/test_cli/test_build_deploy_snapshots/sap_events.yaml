@@ -6,6 +6,11 @@ DataSet:
   writeProtected: false
 Group:
 - capabilities:
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
   - projectsAcl:
       actions:
       - READ
@@ -15,11 +20,6 @@ Group:
   - groupsAcl:
       actions:
       - LIST
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - CREATE
       scope:
         all: {}
   - rawAcl:
