@@ -1,0 +1,7 @@
+[module]
+title = "SAP Source System Events"
+
+[packages]
+tags = [
+    "sourcesystem",
+]
