@@ -1,3 +1,0 @@
-externalId: '{{ location }}_pi_timeseries_upsert'
-interval: '7 * * * *' # hourly
-isPaused: {{ pause_transformations }}
