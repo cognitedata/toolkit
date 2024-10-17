@@ -1,5 +1,5 @@
 select 
-  external_id as externalId,
+  externalId as externalId,
   name as name,
   'numeric' as type,
   false as isStep,

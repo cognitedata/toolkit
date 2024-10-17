@@ -1,16 +1,15 @@
-# This role is used for the processing of asset data, creating an asset hierarchy 
 name: gp_transformations_{{ sourceId }}
 sourceId: {{ transformationServicePrincipalGroupObjectId }}
 metadata:
   origin: 'Cognite Toolkit'
 capabilities:
   # minimum runtime capabilities
-  - groupsAcl:
+  - projectsAcl:
       actions:
         - LIST
       scope:
         all: {}
-  - projectsAcl:
+  - groupsAcl:
       actions:
         - LIST
       scope:
@@ -26,17 +25,8 @@ capabilities:
         - READ
       scope:
         tableScope:
-          dbsToTables: 
-            '{{ rawDatabase }}' : {}
-  - dataModelsAcl:
-      actions:
-        - READ
-      scope:
-        spaceIdScope:
-          spaceIds: 
-            - cdf_cdm
-            - {{ instanceSpace }}
-
+          dbsToTables:
+            {{ rawDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ
@@ -46,3 +36,18 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ instanceSpace }}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
+            - cdf_cdm_units
