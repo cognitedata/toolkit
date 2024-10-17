@@ -217,6 +217,7 @@ class DumpApp(typer.Typer):
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
                 data_set,
+                None,
                 output_dir,
                 clean,
                 limit,

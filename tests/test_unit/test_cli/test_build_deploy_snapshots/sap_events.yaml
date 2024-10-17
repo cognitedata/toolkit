@@ -6,6 +6,22 @@ DataSet:
   writeProtected: false
 Group:
 - capabilities:
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
   - rawAcl:
       actions:
       - READ
@@ -30,22 +46,6 @@ Group:
         spaceIdScope:
           spaceIds:
           - cdf_idm
-  - sessionsAcl:
-      actions:
-      - CREATE
-      scope:
-        all: {}
-  - projectsAcl:
-      actions:
-      - READ
-      - LIST
-      scope:
-        all: {}
-  - groupsAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
   metadata:
     origin: cognite-toolkit
   name: gp_transformations_sap_springfield_s4hana
