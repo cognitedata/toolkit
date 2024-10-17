@@ -17,7 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
-- Added new module `sourcesystem/sap`.
+- Added new package `sourcesystem` with modules
+  - `sap_asset`
+  - `sap_events`
+- Added new modules for extension of `CogniteProcessIndustries` model.
+  Full and minimum extension templates in `quickstart` and `example` packages.
 
 ## [0.3.3] - 2024-10-15
 

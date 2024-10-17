@@ -166,11 +166,16 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: Operation to Maintenance Order for SAP Springfield S/4HANA
-  query: "select\n  cast(task.`sourceId` as STRING) as externalId,\n  node_reference('springfield_sap',\
-    \  cast(worder.`sourceId` as STRING)) as maintenanceOrder\nfrom\n    sap_s4hana.`worktask`\
-    \ as task\njoin\n  sap_s4hana.`workorder` as worder\non\n  task.`WORKORDER_NUMBER`\
-    \ = worder.`WORKORDER_NUMBER`\nwhere\n  isnotnull(task.`sourceId`) AND\n  isnotnull(task.`WORKORDER_NUMBER`)\
-    \ AND\n  isnotnull(worder.`WORKORDER_NUMBER`) AND\n  isnotnull(worder.`sourceId`)\n"
+  query: "/* The WORKORDER_NUMBER is not unique in the workorder table,\nso use the\
+    \ following query to select the first match. */\nwith worder_unique as (\n  select\n\
+    \    *,\n    row_number() over (partition by `WORKORDER_NUMBER` order by `sourceId`)\
+    \ as rn\n  from\n    sap_s4hana.`workorder`\n)\nselect\n  cast(task.`sourceId`\
+    \ as STRING) as externalId,\n  node_reference('springfield_sap', cast(worder.`sourceId`\
+    \ as STRING)) as maintenanceOrder\nfrom\n  sap_s4hana.`worktask` as task\njoin\n\
+    \  worder_unique as worder\non\n  task.`WORKORDER_NUMBER` = worder.`WORKORDER_NUMBER`\n\
+    where\n  isnotnull(task.`sourceId`) AND\n  isnotnull(task.`WORKORDER_NUMBER`)\
+    \ AND\n  isnotnull(worder.`WORKORDER_NUMBER`) AND\n  isnotnull(worder.`sourceId`)\
+    \ AND\n  worder.rn = 1\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
