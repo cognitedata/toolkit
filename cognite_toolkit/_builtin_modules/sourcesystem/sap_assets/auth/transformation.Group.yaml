@@ -4,11 +4,6 @@ metadata:
   origin: cognite-toolkit
 capabilities:
   # minimum runtime capabilities
-  - sessionsAcl:
-      actions:
-        - CREATE
-      scope:
-        all: {}
   - projectsAcl:
       actions:
         - READ
@@ -18,6 +13,11 @@ capabilities:
   - groupsAcl:
       actions:
         - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
       scope:
         all: {}
   # query-specific capabilities

@@ -5,12 +5,12 @@ metadata:
   origin: 'Cognite Toolkit'
 capabilities:
   # minimum runtime capabilities
-  - groupsAcl:
+  - projectsAcl:
       actions:
         - LIST
       scope:
         all: {}
-  - projectsAcl:
+  - groupsAcl:
       actions:
         - LIST
       scope:
@@ -28,15 +28,6 @@ capabilities:
         tableScope:
           dbsToTables: 
             {{ rawDatabase }}: {}
-  - dataModelsAcl:
-      actions:
-        - READ
-      scope:
-        spaceIdScope:
-          spaceIds: 
-            - cdf_cdm
-            - {{ instanceSpace }}
-
   - dataModelInstancesAcl:
       actions:
         - READ
@@ -46,3 +37,10 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ instanceSpace }}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds: 
+            - {{ schemaSpace }}
