@@ -19,3 +19,17 @@ capabilities:
         idscope:
           ids:
           - sc_demo_category
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        idscope:
+          ids:
+          - cdf_tooklit:example_timeseries
+  - locationFiltersAcl:
+      actions:
+      - READ
+      scope:
+        idScope:
+          ids:
+          - DataModelLocationFilter
