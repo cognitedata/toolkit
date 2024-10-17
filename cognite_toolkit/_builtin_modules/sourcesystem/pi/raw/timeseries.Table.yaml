@@ -1,0 +1,2 @@
+dbName: {{ rawDatabase }}
+tableName: timeseries_metadata

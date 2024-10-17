@@ -10,6 +10,7 @@ import pandas as pd
 import questionary
 import yaml
 from cognite.client.data_classes import (
+    Asset,
     DataSetWrite,
     DataSetWriteList,
     TimeSeriesFilter,
@@ -43,6 +44,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False):
         super().__init__(print_warning, skip_tracking)
+        self.asset_external_id_by_id: dict[int, str] = {}
         self.time_series_external_id_by_id: dict[int, str] = {}
         self.data_set_by_id: dict[int, DataSetWrite] = {}
 
@@ -51,11 +53,13 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
         self._used_data_sets: set[int] = set()
         self._available_data_sets: dict[int, DataSetWrite] | None = None
+        self._available_hierarchies: dict[int, Asset] | None = None
 
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
         data_set: list[str] | None,
+        hierarchy: list[str] | None,
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
@@ -70,10 +74,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-        is_interactive = not data_set
-        data_sets = self._select_data_set(ToolGlobals.toolkit_client, data_set, is_interactive)
-        if not data_sets:
-            raise ToolkitValueError("No data set provided")
+        is_interactive = hierarchy is None and data_set is None
+        hierarchies, data_sets = self._select_data_set(ToolGlobals.toolkit_client, hierarchy, data_set, is_interactive)
+        if not hierarchies and not data_sets:
+            raise ToolkitValueError("No hierarchy or data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
@@ -88,6 +92,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         total_time_series = ToolGlobals.toolkit_client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )
         )
         if limit:
@@ -100,6 +105,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             time_series_iterator = ToolGlobals.toolkit_client.time_series(
                 chunk_size=1000,
                 data_set_external_ids=data_sets or None,
+                asset_subtree_external_ids=hierarchies or None,
                 limit=limit,
             )
             time_series_iterator = self._log_retrieved(time_series_iterator, progress, retrieved_time_series)
@@ -180,12 +186,24 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         """Using LRU decorator w/o limit instead of another lookup map."""
         return client.time_series.aggregate_count(advanced_filter=Equals("dataSetId", item_id))
 
-    def _create_choice(self, item_id: int, item: DataSetWrite, ts_count: int) -> questionary.Choice:
+    @lru_cache
+    def get_timeseries_choice_count_by_root_id(self, item_id: int, client: ToolkitClient) -> int:
+        """Using LRU decorator w/o limit instead of another lookup map."""
+        return client.time_series.aggregate_count(filter=TimeSeriesFilter(asset_subtree_ids=[{"id": item_id}]))
+
+    def _create_choice(self, item_id: int, item: Asset | DataSetWrite, client: ToolkitClient) -> questionary.Choice:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
         `item_id` and `item` came in separate as item is DataSetWrite w/o `id`.
         """
+
+        if isinstance(item, DataSetWrite):
+            ts_count = self.get_timeseries_choice_count_by_dataset(item_id, client)
+        elif isinstance(item, Asset):
+            ts_count = self.get_timeseries_choice_count_by_root_id(item_id, client)
+        else:
+            raise TypeError(f"Unsupported item type: {type(item)}")
 
         return questionary.Choice(
             title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
@@ -206,43 +224,62 @@ class DumpTimeSeriesCommand(ToolkitCommand):
     def _select_data_set(
         self,
         client: ToolkitClient,
+        hierarchy: list[str] | None,
         data_set: list[str] | None,
         interactive: bool,
-    ) -> list[str]:
+    ) -> tuple[list[str], list[str]]:
         if not interactive:
-            return data_set or []
+            return hierarchy or [], data_set or []
 
+        hierarchies: set[str] = set()
         data_sets: set[str] = set()
         while True:
             selected = []
+            if hierarchies:
+                selected.append(f"Selected hierarchies: {sorted(hierarchies)}")
+            else:
+                selected.append("No hierarchy selected.")
             if data_sets:
                 selected.append(f"Selected data sets: {sorted(data_sets)}")
             else:
                 selected.append("No data set selected.")
             selected_str = "\n".join(selected)
             what = questionary.select(
-                f"\n{selected_str}\nSelect a data set to dump",
-                choices=[
-                    "Data Set",
-                    "Done",
-                    "Abort",
-                ],
+                f"\n{selected_str}\nSelect a hierarchy or data set to dump",
+                choices=["Hierarchy", "Data Set", "Done", "Abort"],
             ).ask()
 
             if what == "Done":
                 break
             elif what == "Abort":
-                return []
+                return [], []
+            elif what == "Hierarchy":
+                _available_hierarchies = self._get_available_hierarchies(client)
+                selected_hierarchy = questionary.checkbox(
+                    "Select a hierarchy listed as 'name (external_id) [count]'",
+                    choices=sorted(
+                        [
+                            self._create_choice(item_id, item, client)
+                            for (item_id, item) in _available_hierarchies.items()
+                            if item.external_id not in hierarchies
+                        ],
+                        key=self._get_choice_title,
+                        # sorted cannot find the proper overload
+                    ),  # type: ignore
+                ).ask()
+                if selected_hierarchy:
+                    hierarchies.update(selected_hierarchy)
+                else:
+                    print("No hierarchy selected.")
             elif what == "Data Set":
                 _available_data_sets = self._get_available_data_sets(client)
                 selected_data_set = questionary.checkbox(
                     "Select a data set listed as 'name (external_id) [count]'",
                     choices=sorted(
                         [
-                            self._create_choice(item_id, item, ts_count)
+                            self._create_choice(item_id, item, client)
                             for (item_id, item) in _available_data_sets.items()
-                            if (ts_count := self.get_timeseries_choice_count_by_dataset(item_id, client))
-                            and item.external_id not in data_sets
+                            if item.external_id not in data_sets
                         ],
                         # sorted cannot find the proper overload
                         key=self._get_choice_title,
@@ -252,7 +289,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     data_sets.update(selected_data_set)
                 else:
                     print("No data set selected.")
-        return list(data_sets)
+        return list(hierarchies), list(data_sets)
 
     def _get_available_data_sets(self, client: ToolkitClient) -> dict[int, DataSetWrite]:
         if self._available_data_sets is None:
@@ -262,6 +299,16 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                 item_id: item for (item_id, item) in self.data_set_by_id.items() if item.external_id
             }
         return self._available_data_sets
+
+    def _get_available_hierarchies(self, client: ToolkitClient) -> dict[int, Asset]:
+        if self._available_hierarchies is None:
+            self._available_hierarchies = {}
+            for item in client.assets(root=True):
+                if item.id and item.external_id:
+                    self.asset_external_id_by_id[item.id] = item.external_id
+                if item.external_id:
+                    self._available_hierarchies.update({item.id: item})
+        return self._available_hierarchies
 
     def _to_write(
         self,
