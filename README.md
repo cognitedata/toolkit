@@ -1,5 +1,14 @@
 # Cognite Data Fusion Toolkit
 
+[![release](https://img.shields.io/github/actions/workflow/status/cognitedata/toolkit/release.yaml?style=for-the-badge)](https://github.com/cognitedata/toolkit/actions/workflows/release.yaml)
+[![Github](https://shields.io/badge/github-cognite/toolkit-green?logo=github&style=for-the-badge)](https://github.com/cognitedata/toolkit)
+[![PyPI](https://img.shields.io/pypi/v/cognite-toolkit?style=for-the-badge)](https://pypi.org/project/cognite-toolkit/)
+[![Downloads](https://img.shields.io/pypi/dm/cognite-toolkit?style=for-the-badge)](https://pypistats.org/packages/cognite-toolkit)
+[![GitHub](https://img.shields.io/github/license/cognitedata/toolkit?style=for-the-badge)](https://github.com/cognitedata/toolkit/blob/master/LICENSE)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/ambv/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge)](https://github.com/astral-sh/ruff)
+[![mypy](https://img.shields.io/badge/mypy-checked-000000.svg?style=for-the-badge&color=blue)](http://mypy-lang.org)
+
 The CDF Toolkit is a command-line interface (`cdf`) used for configuring and administrating
 Cognite Data Fusion (CDF) projects. It ships with modularised `templates` that helps you
 configure Cognite Data Fusion according to best practices.
