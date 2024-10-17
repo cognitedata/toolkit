@@ -1,8 +1,8 @@
-
-# location
-location: <not_set> # for example springfield
-location_name: <not_set> # for example Springfield
-instance_space: <not_set> # for example springfield_pi_instances
-processing_dataset_external_id: <not_set> # for example springfield_pi_processing
-pause_transformations: true
-
+sourceName: Springfield AVEVA PI
+sourceId: springfield_aveva_pi # can also contain location, for example sap_springfield_s4hana
+rawDatabase: aveva_pi_staging # can also contain location, for example aveva_pi_springfield_staging
+transformationServicePrincipalGroupObjectId: <not set>
+workflow: aveva_pi_population # can also contain location aveva_pi_springfield_population
+dataset: aveva_pi_population # can also contain location aveva_pi_springfield_population
+schemaSpace: cdf_cdm
+instanceSpace: springfield_pi

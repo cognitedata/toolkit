@@ -4,7 +4,7 @@ is_selected_by_default = false
 
 [packages]
 tags = [
-    "quickstart",
+    "sourcesystem",
 ]
 
 [dependencies]

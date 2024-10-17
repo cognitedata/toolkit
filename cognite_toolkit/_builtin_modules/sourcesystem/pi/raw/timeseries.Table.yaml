@@ -1,2 +1,2 @@
-dbName: '{{location}}_pi_staging'
+dbName: {{ rawDatabase }}
 tableName: timeseries_metadata
