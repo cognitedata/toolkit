@@ -1,11 +1,14 @@
 select
-  concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,
-  node_reference('{{ instanceSpace }}',  concat('WMT', cast(d2.`WMT_TAG_NAME` as STRING))) as maintenanceOrder
+  cast(task.`sourceId` as STRING) as externalId,
+  node_reference('{{ instanceSpace }}',  cast(worder.`sourceId` as STRING)) as maintenanceOrder
 from
-    {{ rawDatabase }}.`workitem` d1
+    {{ rawDatabase }}.`worktask` as task
 join
-  {{ rawDatabase }}.`workorder` d2
+  {{ rawDatabase }}.`workorder` as worder
 on
-  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`
+  task.`WORKORDER_NUMBER` = worder.`WORKORDER_NUMBER`
 where
-  isnotnull(d1.`WMT_TAG_NAME`
+  isnotnull(task.`sourceId`) AND
+  isnotnull(task.`WORKORDER_NUMBER`) AND
+  isnotnull(worder.`WORKORDER_NUMBER`) AND
+  isnotnull(worder.`sourceId`)
