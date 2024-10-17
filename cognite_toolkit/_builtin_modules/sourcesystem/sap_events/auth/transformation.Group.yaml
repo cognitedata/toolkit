@@ -4,6 +4,23 @@ metadata:
   origin: cognite-toolkit
 capabilities:
   # minimum runtime capabilities
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
   - rawAcl:
       actions:
         - READ
@@ -27,20 +44,3 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
-  # transformation-specific capabilities
-  - sessionsAcl:
-      actions:
-        - CREATE
-      scope:
-        all: {}
-  - projectsAcl:
-      actions:
-        - READ
-        - LIST
-      scope:
-        all: {}
-  - groupsAcl:
-      actions:
-        - LIST
-      scope:
-        all: {}
