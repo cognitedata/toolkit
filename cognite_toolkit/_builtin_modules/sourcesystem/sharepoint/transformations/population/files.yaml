@@ -1,19 +1,19 @@
-externalId: sap_asset_{{ source }}
+externalId: file_{{ sourceId }}
 dataSetExternalId: {{ dataset }}
-name: Asset Transformations for {{ sourceName }}
+name: File Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
     space: cdf_cdm
-    externalId: CogniteAsset
+    externalId: CogniteFile
     version: v1
   instanceSpace: {{ instanceSpace }}
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
 authentication:
-  clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-  clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+  clientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+  clientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
   tokenUri: ${IDP_TOKEN_URL}
   cdfProjectName: ${CDF_PROJECT}
   audience: ${CDF_URL}
