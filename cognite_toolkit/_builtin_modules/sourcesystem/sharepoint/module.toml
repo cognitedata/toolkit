@@ -1,0 +1,7 @@
+[module]
+title = "Sharepoint Files"
+
+[packages]
+tags = [
+    "sourcesystem",
+]
