@@ -5,7 +5,6 @@
 [![PyPI](https://img.shields.io/pypi/v/cognite-toolkit?style=for-the-badge)](https://pypi.org/project/cognite-toolkit/)
 [![Downloads](https://img.shields.io/pypi/dm/cognite-toolkit?style=for-the-badge)](https://pypistats.org/packages/cognite-toolkit)
 [![GitHub](https://img.shields.io/github/license/cognitedata/toolkit?style=for-the-badge)](https://github.com/cognitedata/toolkit/blob/master/LICENSE)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/ambv/black)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge)](https://github.com/astral-sh/ruff)
 [![mypy](https://img.shields.io/badge/mypy-checked-000000.svg?style=for-the-badge&color=blue)](http://mypy-lang.org)
 
