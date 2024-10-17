@@ -119,7 +119,7 @@ def get_individual_modules() -> list[str]:
 
 
 @pytest.mark.parametrize("package, module_name", get_individual_modules())
-def test_build_example_module(
+def test_build_individual_module(
     package: str, module_name: str, tmp_path: Path, build_tmp_path: Path, monkeypatch
 ) -> None:
     organization_dir = tmp_path
