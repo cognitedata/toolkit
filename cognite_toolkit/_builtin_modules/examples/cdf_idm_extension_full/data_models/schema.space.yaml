@@ -1,1 +1,1 @@
-space: cdf_idm
+space: {{ schema_space}}

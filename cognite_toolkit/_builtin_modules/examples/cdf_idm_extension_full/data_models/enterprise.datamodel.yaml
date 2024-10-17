@@ -1,150 +1,150 @@
-space: cdf_idm
-externalId: CogniteProcessIndustries
-name: Cognite process industries data model
-description: Cognite process industries data model
+space: {{ schema_space }}
+externalId: {{ organization }}ProcessIndustries
+name: {{ organization }} enterprise model
+description: {{ organization }} enterprise model
 version: v1
 views:
-- space: cdf_idm
-  externalId: CogniteMaintenanceOrder
+- space: {{ schema_space }}
+  externalId: {{ organization }}MaintenanceOrder
   version: v1
   type: view
-- space: cdf_idm
-  externalId: CogniteOperation
+- space: {{ schema_space }}
+  externalId: {{ organization }}Operation
   version: v1
   type: view
-- space: cdf_idm
-  externalId: CogniteNotification
+- space: {{ schema_space }}
+  externalId: {{ organization }}Notification
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteDescribable
+- space: {{ schema_space }}
+  externalId: {{ organization }}Describable
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteSourceable
+- space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteSourceSystem
+- space: {{ schema_space }}
+  externalId: {{ organization }}SourceSystem
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteSchedulable
+- space: {{ schema_space }}
+  externalId: {{ organization }}Schedulable
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteVisualizable
+- space: {{ schema_space }}
+  externalId: {{ organization }}Visualizable
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite3DTransformation
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DTransformation
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteCubeMap
+- space: {{ schema_space }}
+  externalId: {{ organization }}CubeMap
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite3DObject
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DObject
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite3DModel
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DModel
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteCADModel
+- space: {{ schema_space }}
+  externalId: {{ organization }}CADModel
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite3DRevision
+- space: {{ schema_space }}
+  externalId: {{ organization }}3DRevision
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CognitePointCloudModel
+- space: {{ schema_space }}
+  externalId: {{ organization }}PointCloudModel
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite360ImageModel
+- space: {{ schema_space }}
+  externalId: {{ organization }}360ImageModel
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteCADRevision
+- space: {{ schema_space }}
+  externalId: {{ organization }}CADRevision
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CognitePointCloudRevision
+- space: {{ schema_space }}
+  externalId: {{ organization }}PointCloudRevision
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite360ImageCollection
+- space: {{ schema_space }}
+  externalId: {{ organization }}360ImageCollection
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteCADNode
+- space: {{ schema_space }}
+  externalId: {{ organization }}CADNode
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CognitePointCloudVolume
+- space: {{ schema_space }}
+  externalId: {{ organization }}PointCloudVolume
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite360Image
+- space: {{ schema_space }}
+  externalId: {{ organization }}360Image
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite360ImageStation
+- space: {{ schema_space }}
+  externalId: {{ organization }}360ImageStation
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: Cognite360ImageAnnotation
+- space: {{ schema_space }}
+  externalId: {{ organization }}360ImageAnnotation
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteAsset
+- space: {{ schema_space }}
+  externalId: {{ organization }}Asset
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteAssetClass
+- space: {{ schema_space }}
+  externalId: {{ organization }}AssetClass
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteAssetType
+- space: {{ schema_space }}
+  externalId: {{ organization }}AssetType
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteEquipment
+- space: {{ schema_space }}
+  externalId: {{ organization }}Equipment
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteEquipmentType
+- space: {{ schema_space }}
+  externalId: {{ organization }}EquipmentType
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteFile
+- space: {{ schema_space }}
+  externalId: {{ organization }}File
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteFileCategory
+- space: {{ schema_space }}
+  externalId: {{ organization }}FileCategory
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteActivity
+- space: {{ schema_space }}
+  externalId: {{ organization }}Activity
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteTimeSeries
+- space: {{ schema_space }}
+  externalId: {{ organization }}TimeSeries
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteAnnotation
+- space: {{ schema_space }}
+  externalId: {{ organization }}Annotation
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteDiagramAnnotation
+- space: {{ schema_space }}
+  externalId: {{ organization }}DiagramAnnotation
   version: v1
   type: view
-- space: cdf_cdm
-  externalId: CogniteUnit
+- space: {{ schema_space }}
+  externalId: {{ organization }}Unit
   version: v1
   type: view
