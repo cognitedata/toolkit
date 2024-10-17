@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - Building a `WorkflowTrigger` will no longer complain that `authentication` is an unused variable.
+- In resource `Group`, security categorie names are now replaced by ids when running `cdf deploy/clean`.
 
 ## [0.3.3] - 2024-10-15
 
