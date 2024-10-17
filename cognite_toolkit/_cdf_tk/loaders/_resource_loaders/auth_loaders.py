@@ -16,13 +16,12 @@ from __future__ import annotations
 import difflib
 from abc import ABC
 from collections.abc import Callable, Hashable, Iterable, Sequence
+from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, cast, final
 
-from cognite.client.data_classes import (
-    capabilities,
-)
+from cognite.client.data_classes import capabilities as cap
 from cognite.client.data_classes.capabilities import (
     Capability,
     GroupsAcl,
@@ -55,6 +54,16 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 
+@dataclass
+class _ReplaceMethod:
+    """This is a small helper class used in the
+    lookup and replace in the ACL scoped ids"""
+
+    verify_method: Callable[[str, bool, str], int]
+    operation: str
+    id_name: str
+
+
 class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
@@ -65,13 +74,13 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     list_write_cls = GroupWriteList
     resource_scopes = frozenset(
         {
-            capabilities.IDScope,
-            capabilities.SpaceIDScope,
-            capabilities.DataSetScope,
-            capabilities.TableScope,
-            capabilities.AssetRootIDScope,
-            capabilities.ExtractionPipelineScope,
-            capabilities.IDScopeLowerCase,
+            cap.IDScope,
+            cap.SpaceIDScope,
+            cap.DataSetScope,
+            cap.TableScope,
+            cap.AssetRootIDScope,
+            cap.ExtractionPipelineScope,
+            cap.IDScopeLowerCase,
         }
     )
     resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
@@ -147,67 +156,95 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         for capability in item.get("capabilities", []):
             for acl, content in capability.items():
                 if scope := content.get("scope", {}):
-                    if space_ids := scope.get(capabilities.SpaceIDScope._scope_name, []):
+                    if space_ids := scope.get(cap.SpaceIDScope._scope_name, []):
                         if isinstance(space_ids, dict) and "spaceIds" in space_ids:
                             for space_id in space_ids["spaceIds"]:
                                 yield SpaceLoader, space_id
-                    if data_set_ids := scope.get(capabilities.DataSetScope._scope_name, []):
+                    if data_set_ids := scope.get(cap.DataSetScope._scope_name, []):
                         if isinstance(data_set_ids, dict) and "ids" in data_set_ids:
                             for data_set_id in data_set_ids["ids"]:
                                 yield DataSetsLoader, data_set_id
-                    if table_ids := scope.get(capabilities.TableScope._scope_name, []):
+                    if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabase(db_name)
                             for table in tables:
                                 yield RawTableLoader, RawTable(db_name, table)
-                    if extraction_pipeline_ids := scope.get(capabilities.ExtractionPipelineScope._scope_name, []):
+                    if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
                             for extraction_pipeline_id in extraction_pipeline_ids["ids"]:
                                 yield ExtractionPipelineLoader, extraction_pipeline_id
-                    if (ids := scope.get(capabilities.IDScope._scope_name, [])) or (
-                        ids := scope.get(capabilities.IDScopeLowerCase._scope_name, [])
+                    if (ids := scope.get(cap.IDScope._scope_name, [])) or (
+                        ids := scope.get(cap.IDScopeLowerCase._scope_name, [])
                     ):
                         loader: type[ResourceLoader] | None = None
-                        if acl == capabilities.DataSetsAcl._capability_name:
+                        if acl == cap.DataSetsAcl._capability_name:
                             loader = DataSetsLoader
-                        elif acl == capabilities.ExtractionPipelinesAcl._capability_name:
+                        elif acl == cap.ExtractionPipelinesAcl._capability_name:
                             loader = ExtractionPipelineLoader
-                        elif acl == capabilities.TimeSeriesAcl._capability_name:
+                        elif acl == cap.TimeSeriesAcl._capability_name:
                             loader = TimeSeriesLoader
                         if loader is not None and isinstance(ids, dict) and "ids" in ids:
                             for id_ in ids["ids"]:
                                 yield loader, id_
 
-    @staticmethod
-    def _substitute_scope_ids(group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
+    @classmethod
+    def _substitute_scope_ids(cls, group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
+        replace_method_by_acl = cls._create_replace_method_by_acl_and_scope(ToolGlobals)
+
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
                 scope = values.get("scope", {})
+                if len(scope) != 1:
+                    # This will raise an error when the group is loaded.
+                    continue
+                scope_name, scope_content = next(iter(scope.items()))
 
-                verify_method: Callable[[str, bool, str], int]
-                for scope_name, verify_method, action in [
-                    ("datasetScope", ToolGlobals.verify_dataset, "replace datasetExternalId with dataSetId in group"),
-                    (
-                        "idScope",
-                        (
-                            ToolGlobals.verify_extraction_pipeline
-                            if acl == "extractionPipelinesAcl"
-                            else ToolGlobals.verify_dataset
-                        ),
-                        "replace extractionPipelineExternalId with extractionPipelineId in group",
-                    ),
-                    (
-                        "extractionPipelineScope",
-                        ToolGlobals.verify_extraction_pipeline,
-                        "replace extractionPipelineExternalId with extractionPipelineId in group",
-                    ),
-                ]:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        values["scope"][scope_name]["ids"] = [
-                            verify_method(ext_id, skip_validation, action) if isinstance(ext_id, str) else ext_id
-                            for ext_id in ids
-                        ]
+                if (acl, scope_name) in replace_method_by_acl:
+                    replace_method = replace_method_by_acl[(acl, scope_name)]
+                elif scope_name in replace_method_by_acl:
+                    replace_method = replace_method_by_acl[scope_name]
+                else:
+                    continue
+                if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
+                    values["scope"][scope_name][replace_method.id_name] = [
+                        replace_method.verify_method(ext_id, skip_validation, replace_method.operation)
+                        if isinstance(ext_id, str)
+                        else ext_id
+                        for ext_id in ids
+                    ]
         return group
+
+    @classmethod
+    def _create_replace_method_by_acl_and_scope(
+        cls, ToolGlobals: CDFToolConfig
+    ) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+        source = {
+            (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
+                ToolGlobals.verify_dataset,
+                operation="replace datasetExternalId with dataSetId in group",
+                id_name="ids",
+            ),
+            (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
+                ToolGlobals.verify_extraction_pipeline,
+                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                id_name="ids",
+            ),
+            cap.DataSetScope: _ReplaceMethod(
+                ToolGlobals.verify_dataset,
+                operation="replace datasetExternalId with dataSetId in group",
+                id_name="ids",
+            ),
+            cap.ExtractionPipelineScope: _ReplaceMethod(
+                ToolGlobals.verify_extraction_pipeline,
+                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                id_name="ids",
+            ),
+        }
+        # Trick to avoid writing _capability_name and _scope_name for each entry.
+        return {
+            (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else cap.Capability.Scope: method  # type: ignore[misc]
+            for key, method in source.items()
+        }
 
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
@@ -239,14 +276,12 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
                 loaded = GroupWrite._load(substituted, allow_unknown=True)
                 for capability in loaded.capabilities or []:
-                    if isinstance(capability, capabilities.UnknownAcl):
+                    if isinstance(capability, cap.UnknownAcl):
                         msg = (
                             f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
                             "Will proceed with group creation and let the API validate the capability."
                         )
-                        if matches := difflib.get_close_matches(
-                            capability.capability_name, capabilities.ALL_CAPABILITIES
-                        ):
+                        if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
                             msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
                         prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
                         print(prefix, warning_msg)
