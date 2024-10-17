@@ -24,6 +24,7 @@ from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import SpaceLoader
 from .extraction_pipeline_loaders import ExtractionPipelineLoader
 from .location_loaders import LocationFilterLoader
+from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .timeseries_loaders import TimeSeriesLoader
 
 
@@ -38,6 +39,8 @@ class GroupResourceScopedLoader(GroupLoader):
             SecurityCategoryLoader,
             LocationFilterLoader,
             AssetLoader,
+            RawDatabaseLoader,
+            RawTableLoader,
         }
     )
 
