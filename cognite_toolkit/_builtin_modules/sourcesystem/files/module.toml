@@ -1,0 +1,7 @@
+[module]
+title = "File Metadata Source System"
+
+[packages]
+tags = [
+    "sourcesystem",
+]
