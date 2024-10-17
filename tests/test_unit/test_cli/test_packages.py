@@ -114,7 +114,7 @@ def get_individual_modules() -> list[str]:
 
     for package_name in ["examples", "sourcesystem"]:
         modules = packages[package_name]
-        for module_name in modules.module_names:
+        for module_name in sorted(modules.module_names):
             yield package_name, module_name
 
 
