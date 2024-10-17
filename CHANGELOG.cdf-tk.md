@@ -25,6 +25,8 @@ Changes are grouped as follows:
   - `locationFiltersAcl` `idscope` external LocationFilter Ids are now replaced by IDs.
   - `timeSeriesAcl` `idscope` external TimeSeries IDs are now replaced by internal IDs.
   - `assetRootIdScope` external Asset IDs are now replaced by internal IDs.
+- The resource `ResourceScopedGroup` is now correctly deployed after `RAW` `Tables` and `Databases`,
+  `LocationFilters`, and `SecurityCategories` when running `cdf deploy`.
 
 ## [0.3.3] - 2024-10-15
 
