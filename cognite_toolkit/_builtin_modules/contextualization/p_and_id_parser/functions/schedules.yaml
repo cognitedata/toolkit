@@ -1,0 +1,10 @@
+- name: Run P&ID parser every Monday at 4:00
+  functionExternalId: contextualization_p_and_id_parser
+  description: Run the P&ID parser every Monday at 4:00
+  cronExpression: "0 4 * * 1"
+  authentication:
+    # Credentials to use to run the function in this schedule.
+    # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
+    # credentials (env variables) if you want to run the function with different permissions.
+    clientId: {{cicd_clientId}}
+    clientSecret: {{cicd_clientSecret}}

@@ -1,0 +1,8 @@
+contextualizationId: p_and_id_parser
+contextualizationName: P&ID Parser
+functionServicePrincipalGroupObjectId: <not_set>
+dataset: ds_p_and_id_parser
+schemaSpace: cdf_cdm
+instanceSpaces:
+  - files_metadata_instances
+  - sap_springfield_s4hana
