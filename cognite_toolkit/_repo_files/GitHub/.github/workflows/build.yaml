@@ -17,8 +17,6 @@ jobs:
         IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
         IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
         IDP_TENANT_ID: ${{ vars.IDP_TENANT_ID }}
-      volumes:
-        - :/app
     steps:
       - uses: actions/checkout@v4
       - name: Build the modules
