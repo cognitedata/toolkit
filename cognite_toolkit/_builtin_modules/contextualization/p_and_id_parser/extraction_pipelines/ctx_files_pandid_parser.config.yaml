@@ -1,4 +1,4 @@
-externalId: '{{ contextualizationName }}'
+externalId: '{{ contextualizationId }}'
 config:
   parameters:
     matchThreshold: 0.85
