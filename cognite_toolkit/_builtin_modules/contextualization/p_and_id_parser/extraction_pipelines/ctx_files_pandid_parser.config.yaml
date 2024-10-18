@@ -1,0 +1,6 @@
+externalId: '{{ contextualizationId }}'
+config:
+  parameters:
+    matchThreshold: 0.85
+  data:
+    -

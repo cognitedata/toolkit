@@ -28,3 +28,7 @@ description = "Initial toolkit configurations for the Cognite Data Fusion Bootca
 [packages.sourcesystem]
 title = "SourceSystem"
 description = "Module templates for setting up a data pipeline from a source system"
+
+[packages.contextualization]
+title = "Contextualization"
+description = "Module templates for contextualize data"
