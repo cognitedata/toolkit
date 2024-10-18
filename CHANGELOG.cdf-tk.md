@@ -15,6 +15,19 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.4] - 2024-10-18
+
+### Fixed
+
+- Building a `WorkflowTrigger` will no longer complain that `authentication` is an unused variable.
+- In resource `Group`, the following lookups are now done when running `cdf deploy/clean`:
+  - `securityCategoriesAcl` `idscope` Security Names are now replaced by IDs.
+  - `locationFiltersAcl` `idscope` external LocationFilter Ids are now replaced by IDs.
+  - `timeSeriesAcl` `idscope` external TimeSeries IDs are now replaced by internal IDs.
+  - `assetRootIdScope` external Asset IDs are now replaced by internal IDs.
+- The resource `ResourceScopedGroup` is now correctly deployed after `RAW` `Tables` and `Databases`,
+  `LocationFilters`, and `SecurityCategories` when running `cdf deploy`.
+
 ## [0.3.3] - 2024-10-15
 
 ### Fixed

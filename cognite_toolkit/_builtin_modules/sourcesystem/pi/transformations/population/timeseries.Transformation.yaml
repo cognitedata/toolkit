@@ -1,0 +1,21 @@
+externalId: pi_timeseries_{{ sourceId }}
+dataSetExternalId: {{ dataset }}
+name: TimeSeries Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+authentication:
+  clientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+  clientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  audience: ${CDF_URL}
+  scopes:
+  - ${IDP_SCOPES}

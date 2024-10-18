@@ -18,10 +18,13 @@ from typing import final
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
-from .auth_loaders import GroupLoader
+from .auth_loaders import GroupLoader, SecurityCategoryLoader
+from .classic_loaders import AssetLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import SpaceLoader
 from .extraction_pipeline_loaders import ExtractionPipelineLoader
+from .location_loaders import LocationFilterLoader
+from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .timeseries_loaders import TimeSeriesLoader
 
 
@@ -33,6 +36,11 @@ class GroupResourceScopedLoader(GroupLoader):
             DataSetsLoader,
             ExtractionPipelineLoader,
             TimeSeriesLoader,
+            SecurityCategoryLoader,
+            LocationFilterLoader,
+            AssetLoader,
+            RawDatabaseLoader,
+            RawTableLoader,
         }
     )
 

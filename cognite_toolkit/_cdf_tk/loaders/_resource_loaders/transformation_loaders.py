@@ -96,7 +96,18 @@ class TransformationLoader(
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
     kind = "Transformation"
-    dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, GroupAllScopedLoader})
+    dependencies = frozenset(
+        {
+            DataSetsLoader,
+            RawDatabaseLoader,
+            GroupAllScopedLoader,
+            SpaceLoader,
+            ViewLoader,
+            DataModelLoader,
+            RawTableLoader,
+            RawDatabaseLoader,
+        }
+    )
     _doc_url = "Transformations/operation/createTransformations"
 
     @classmethod

@@ -59,9 +59,10 @@ class MockQuestionary:
 def get_packages() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
     # The Bootcamp package has intentionally warnings that is part of the learning experience.
-    # Examples is tested separately, in that each example is tested individually as they
+    # Examples and sourcesystems are tested separately, in that each example is tested individually as they
     # should be independent of each other.
-    return [name for name in packages.keys() if name not in ["bootcamp", "examples"]]
+    packages = (name for name in packages.keys() if name not in ["bootcamp", "examples", "sourcesystem"])
+    return sorted(packages)
 
 
 @pytest.mark.parametrize("package", get_packages())
@@ -108,20 +109,25 @@ def test_build_packages_without_warnings(
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
 
 
-def get_examples() -> list[str]:
+def get_individual_modules() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
-    examples = packages["examples"]
-    return sorted(examples.module_names)
+
+    for package_name in ["examples", "sourcesystem"]:
+        modules = packages[package_name]
+        for module_name in sorted(modules.module_names):
+            yield package_name, module_name
 
 
-@pytest.mark.parametrize("module_name", get_examples())
-def test_build_example_module(module_name: str, tmp_path: Path, build_tmp_path: Path, monkeypatch) -> None:
+@pytest.mark.parametrize("package, module_name", get_individual_modules())
+def test_build_individual_module(
+    package: str, module_name: str, tmp_path: Path, build_tmp_path: Path, monkeypatch
+) -> None:
     organization_dir = tmp_path
 
     module_cmd = ModulesCommand(silent=True, skip_tracking=True)
 
     def select_package(choices: Sequence[Choice]) -> Any:
-        return next(choice.value for choice in choices if choice.value.name == "examples")
+        return next(choice.value for choice in choices if choice.value.name == package)
 
     def select_module(choices: Sequence[Choice]) -> Any:
         return [next(choice.value for choice in choices if choice.value.name == module_name)]

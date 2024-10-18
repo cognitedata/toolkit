@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.4] - 2024-10-18
+
+- Added new package `sourcesystem` with modules
+  - `sap_asset`
+  - `sap_events`
+  - `pi`
+- Added new modules for extension of `CogniteProcessIndustries` model.
+  Full and minimum extension templates in `quickstart` and `example` packages.
+
 ## [0.3.3] - 2024-10-15
 
 ### Changed
