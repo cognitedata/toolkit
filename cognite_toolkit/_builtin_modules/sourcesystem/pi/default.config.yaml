@@ -4,4 +4,4 @@ rawDatabase: aveva_pi_staging # can also contain location, for example aveva_pi_
 transformationServicePrincipalGroupObjectId: <not set>
 dataset: aveva_pi_population # can also contain location aveva_pi_springfield_population
 schemaSpace: cdf_cdm
-instanceSpace: springfield_pi
+instanceSpace: springfield_instances

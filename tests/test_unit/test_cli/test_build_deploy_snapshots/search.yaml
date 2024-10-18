@@ -1,0 +1,30 @@
+Group:
+- capabilities:
+  - locationFiltersAcl:
+      actions:
+      - READ
+      scope:
+        idScope:
+          ids:
+          - 1
+  members: allUserAccounts
+  metadata:
+    origin: cognite-toolkit
+  name: gp_locationfilter_all_users_read
+LocationFilter:
+- dataModels:
+  - externalId: CogniteProcessIndustries
+    space: cdf_idm
+    version: v1
+  description: This shows all resources in Springfield for users with access to the
+    designated spaces.
+  externalId: springfield_location_filter
+  instanceSpaces:
+  - springfield_instances
+  name: Springfield
+Space:
+- description: 'This space contains data for location Springfield.
+
+    '
+  name: Springfield instance space
+  space: springfield_instances

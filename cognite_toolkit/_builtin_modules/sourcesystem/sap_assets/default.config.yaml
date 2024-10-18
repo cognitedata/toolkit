@@ -1,4 +1,4 @@
-instanceSpace: springfield_sap
+instanceSpace: springfield_instances
 sourceName: SAP Springfield S/4HANA
 sourceId: sap_springfield_s4hana
 rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana

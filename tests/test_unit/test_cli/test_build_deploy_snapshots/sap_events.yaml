@@ -38,7 +38,7 @@ Group:
       scope:
         spaceIdScope:
           spaceIds:
-          - springfield_sap
+          - springfield_instances
   - dataModelsAcl:
       actions:
       - READ
@@ -57,12 +57,12 @@ Space:
 
     '
   name: SAP Springfield S/4HANA instance space
-  space: springfield_sap
+  space: springfield_instances
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
   destination:
-    instanceSpace: springfield_sap
+    instanceSpace: springfield_instances
     type: nodes
     view:
       externalId: CogniteMaintenanceOrder
@@ -118,7 +118,7 @@ Transformation:
 - conflictMode: upsert
   dataSetId: 42
   destination:
-    instanceSpace: springfield_sap
+    instanceSpace: springfield_instances
     type: nodes
     view:
       externalId: CogniteOperation
@@ -149,7 +149,7 @@ Transformation:
 - conflictMode: upsert
   dataSetId: 42
   destination:
-    instanceSpace: springfield_sap
+    instanceSpace: springfield_instances
     type: nodes
     view:
       externalId: CogniteOperation
@@ -170,7 +170,7 @@ Transformation:
     \ following query to select the first match. */\nwith worder_unique as (\n  select\n\
     \    *,\n    row_number() over (partition by `WORKORDER_NUMBER` order by `sourceId`)\
     \ as rn\n  from\n    sap_s4hana.`workorder`\n)\nselect\n  cast(task.`sourceId`\
-    \ as STRING) as externalId,\n  node_reference('springfield_sap', cast(worder.`sourceId`\
+    \ as STRING) as externalId,\n  node_reference('springfield_instances', cast(worder.`sourceId`\
     \ as STRING)) as maintenanceOrder\nfrom\n  sap_s4hana.`worktask` as task\njoin\n\
     \  worder_unique as worder\non\n  task.`WORKORDER_NUMBER` = worder.`WORKORDER_NUMBER`\n\
     where\n  isnotnull(task.`sourceId`) AND\n  isnotnull(task.`WORKORDER_NUMBER`)\

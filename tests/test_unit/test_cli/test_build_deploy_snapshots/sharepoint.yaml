@@ -38,7 +38,7 @@ Group:
       scope:
         spaceIdScope:
           spaceIds:
-          - files_metadata_instances
+          - springfield_instances
   - dataModelsAcl:
       actions:
       - READ
@@ -56,12 +56,12 @@ Space:
 
     '
   name: Springfield Sharepoint instance space
-  space: files_metadata_instances
+  space: springfield_instances
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
   destination:
-    instanceSpace: files_metadata_instances
+    instanceSpace: springfield_instances
     type: nodes
     view:
       externalId: CogniteFile

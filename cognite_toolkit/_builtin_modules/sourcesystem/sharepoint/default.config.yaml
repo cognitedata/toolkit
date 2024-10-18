@@ -4,4 +4,4 @@ rawDatabase: files_metadata_staging # can also contain location, for example fil
 transformationServicePrincipalGroupObjectId: <not set>
 dataset: files_metadata_transformations # can also contain location, for example files_metadata_springfield_transformations
 schemaSpace: cdf_cdm
-instanceSpace: files_metadata_instances
+instanceSpace: springfield_instances

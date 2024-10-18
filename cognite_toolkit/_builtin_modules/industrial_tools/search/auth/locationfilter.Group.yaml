@@ -1,0 +1,12 @@
+name: gp_locationfilter_all_users_read
+members: 'allUserAccounts'
+metadata:
+  origin: 'cognite-toolkit'
+capabilities:
+ - locationFiltersAcl:
+      actions:
+      - READ
+      scope:
+        idScope:
+          ids:
+          - {{ location }}_location_filter
