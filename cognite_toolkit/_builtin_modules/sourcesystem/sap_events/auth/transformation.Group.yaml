@@ -1,4 +1,4 @@
-name: gp_transformations_{{ sourceId }}
+name: gp_transformations_{{ sourceId }}_events
 sourceId: {{ transformationServicePrincipalGroupObjectId }}
 metadata:
   origin: cognite-toolkit
