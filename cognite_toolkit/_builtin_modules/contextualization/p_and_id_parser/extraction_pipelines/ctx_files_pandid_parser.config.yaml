@@ -3,4 +3,16 @@ config:
   parameters:
     matchThreshold: 0.85
   data:
-    -
+    instanceSpaces:
+      {{ instanceSpaces }}
+    inputFileViews:
+      - space: {{ schemaSpace }}
+        externalId: CogniteFile
+        version: v1
+    entities:
+      - space: {{ schemaSpace }}
+        externalId: CogniteAsset
+        version: v1
+      - space: {{ schemaSpace }}
+        externalId: CogniteEquipment
+        version: v1
