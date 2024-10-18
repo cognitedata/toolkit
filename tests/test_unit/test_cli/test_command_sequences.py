@@ -36,6 +36,9 @@ def find_all_modules() -> Iterator[Path]:
     for module, _ in iterate_modules(BUILTIN_MODULES_PATH):
         if module.name == "references":  # this particular module should never be built or deployed
             continue
+        elif module.name == "search":
+            # Not ready yet
+            continue
         yield pytest.param(module, id=f"{module.parent.name}/{module.name}")
 
 

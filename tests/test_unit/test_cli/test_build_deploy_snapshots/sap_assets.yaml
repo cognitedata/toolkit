@@ -48,7 +48,7 @@ Group:
           - cdf_cdm
   metadata:
     origin: cognite-toolkit
-  name: gp_transformations_sap_springfield_s4hana
+  name: gp_transformations_sap_springfield_s4hana_assets
   sourceId: <not set>
 Space:
 - description: 'This space contains all data from the SAP system SAP Springfield S/4HANA.
