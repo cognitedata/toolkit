@@ -5,6 +5,6 @@ dataset: ds_p_and_id_parser
 schemaSpace: cdf_cdm
 instanceSpaces:
   - files_metadata_instances
-  - sap_springfield_s4hana
+  - springfield_sap
 function_clientId: ${P_AND_ID_PARSER_CLIENT_ID}
 function_clientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
