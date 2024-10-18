@@ -54,7 +54,7 @@ Group:
       scope:
         spaceIdScope:
           spaceIds:
-          - springfield_pi
+          - springfield_instances
   - dataModelInstancesAcl:
       actions:
       - READ
@@ -79,12 +79,12 @@ Space:
 
     '
   name: Springfield AVEVA PI instance space
-  space: springfield_pi
+  space: springfield_instances
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
   destination:
-    instanceSpace: springfield_pi
+    instanceSpace: springfield_instances
     type: nodes
     view:
       externalId: CogniteTimeSeries

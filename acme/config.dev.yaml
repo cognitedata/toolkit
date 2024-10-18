@@ -1,0 +1,14 @@
+environment:
+  name: dev
+  project: <my-project-dev>
+  type: dev
+  selected:
+  - modules/
+
+variables:
+  modules:
+    industrial_tools:
+      search:
+        location: springfield
+        locationName: Springfield
+        instanceSpace: springfield_instances
