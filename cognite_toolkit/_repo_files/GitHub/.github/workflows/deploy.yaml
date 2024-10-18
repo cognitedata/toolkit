@@ -12,15 +12,13 @@ jobs:
     environment: dev
     name: Deploy
     container:
-      image: cognite/toolkit:0.3.3
+      image: cognite/toolkit:0.3.4
       env:
         CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
         CDF_PROJECT: ${{ vars.CDF_PROJECT }}
         IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
         IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
         IDP_TENANT_ID: ${{ vars.IDP_TENANT_ID }}
-      volumes:
-        - :/app
     steps:
       - uses: actions/checkout@v4
       - name: Build the modules
