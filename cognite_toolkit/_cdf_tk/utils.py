@@ -505,6 +505,7 @@ class CDFToolConfig:
         token: str | None = None,
         cluster: str | None = None,
         project: str | None = None,
+        cdf_url: str | None = None,
         skip_initialization: bool = False,
     ) -> None:
         self._cache = self._Cache()
@@ -518,6 +519,8 @@ class CDFToolConfig:
             self._environ["CDF_CLUSTER"] = cluster
         if token:
             self._environ["CDF_TOKEN"] = token
+        if cdf_url:
+            self._environ["CDF_URL"] = cdf_url
 
         # ClientName is used for logging usage of the CDF-Toolkit.
         self._client_name = f"CDF-Toolkit:{__version__}"

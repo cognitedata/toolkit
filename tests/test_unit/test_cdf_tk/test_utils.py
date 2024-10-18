@@ -173,7 +173,9 @@ CDF_TOKEN=12345
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com"""
         with monkeypatch_toolkit_client() as _:
-            config = CDFToolConfig(token="12345", cluster="my_cluster", project="my_project")
+            config = CDFToolConfig(
+                token="12345", cluster="my_cluster", project="my_project", cdf_url="https://my_cluster.cognitedata.com"
+            )
             env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
         not_equal = set(env_file.splitlines()) ^ set(expected.splitlines())
         assert not not_equal, "Found differences in the generated .env file: \n" + "\n".join(not_equal)
