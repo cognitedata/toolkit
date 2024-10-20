@@ -1,5 +1,5 @@
 - name: {{ contextualizationName }}
-  externalId: contextualization_p_and_id_parser
+  externalId: contextualization_p_and_id_annotater
   owner: 'Anonymous'
   description: 'Contextualization of P&ID files creating annotations'
   functionPath: 'handler.py'
