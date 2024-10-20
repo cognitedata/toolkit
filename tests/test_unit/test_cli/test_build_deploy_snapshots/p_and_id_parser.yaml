@@ -150,7 +150,7 @@ Workflow:
 WorkflowTrigger:
 - externalId: contextualization_p_and_id
   triggerRule:
-    cronExpression: 0 4 * * MON
+    cronExpression: 0 4 * * *
     triggerType: schedule
   workflowExternalId: p_and_id_parser
   workflowVersion: v1
