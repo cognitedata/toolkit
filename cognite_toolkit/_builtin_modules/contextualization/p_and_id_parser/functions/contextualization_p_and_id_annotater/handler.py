@@ -2,6 +2,7 @@ import time
 from collections.abc import Iterable
 from typing import Literal, cast, Any
 from hashlib import sha256
+from datetime import datetime, timezone
 from cognite.client import CogniteClient
 from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite, Row
 from cognite.client.data_classes.contextualization import DiagramDetectResults
@@ -10,12 +11,14 @@ from cognite.client import data_modeling as dm
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 import yaml
+from win32ctypes.pywin32.pywintypes import datetime
 
+FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
 RAW_DATABASE = "contextualizationState"
 RAW_TABLE = "diagramParsing"
 EXTERNAL_ID_LIMIT = 256
-
+SOURCE_ID = dm.DirectRelationReference("sp_p_and_id_parser", "p_and_id_parser")
 
 def handle(data: dict, client: CogniteClient) -> dict:
     try:
@@ -136,21 +139,26 @@ class Entity(BaseModel, alias_generator=to_camel):
 ################# Functions #################
 
 def execute(data: dict, client: CogniteClient) -> None:
-    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))
-    logger.debug("Starting diagram parsing contextualization")
+    logger = CogniteFunctionLogger(data.get("logLevel", "INFO")) # type: ignore[arg-type]
+    logger.debug("Starting diagram parsing annotation")
     config = load_config(client, logger)
-    logger.debug("Loaded config")
+    logger.debug("Loaded config successfully")
 
     jobs = trigger_diagram_detection_jobs(client, config, logger)
 
     logger.info(f"Detection jobs created: {len(jobs)}")
+
     annotation_count = 0
     for job, result in wait_for_completion(jobs, client, logger):
         annotations = write_annotations(job, result, client, config, logger)
         annotation_count += len(annotations)
 
-    logger.info(f"Annotations created: {annotation_count}")
+        job.last_completed_entity_cursor = job.last_entity_cursor
+        job.latest_job_id = None
+        job.failed_attempts = 0
+        job.write_to_cdf(client)
 
+    logger.info(f"Annotations created: {annotation_count}")
 
 
 def trigger_diagram_detection_jobs(client: CogniteClient, config: Config,logger: CogniteFunctionLogger) -> list[ParsingJob]:
@@ -223,7 +231,7 @@ def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.
         if confidence is not None and confidence >= config.parameters.auto_approval_threshold:
             status = "Approved"
         vertices = raw_annotation["vertices"]
-
+        now = datetime.now(timezone.utc).replace(microsecond=0)
         return CogniteDiagramAnnotationApply(
             space=config.annotation_space,
             external_id=external_id,
@@ -239,7 +247,13 @@ def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.
             start_node_x_max=max(v["x"] for v in vertices),
             start_node_y_min=min(v["y"] for v in vertices),
             start_node_y_max=max(v["y"] for v in vertices),
+            source=SOURCE_ID,
+            source_created_time=now,
+            source_updated_time=now,
+            source_created_user=FUNCTION_ID,
+            source_updated_user=FUNCTION_ID,
         )
+
 
 def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text: str) -> str:
     naive = f"{file_id.space}:{file_id.external_id}:{node_id.space}:{node_id.external_id}:{text}"
