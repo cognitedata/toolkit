@@ -51,3 +51,18 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - extractionConfigsAcl:
+      actions:
+          - READ
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - extractionRunsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
