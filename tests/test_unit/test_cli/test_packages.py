@@ -61,7 +61,9 @@ def get_packages() -> list[str]:
     # The Bootcamp package has intentionally warnings that is part of the learning experience.
     # Examples and sourcesystems are tested separately, in that each example is tested individually as they
     # should be independent of each other.
-    packages = (name for name in packages.keys() if name not in ["bootcamp", "examples", "sourcesystem"])
+    packages = (
+        name for name in packages.keys() if name not in ["bootcamp", "examples", "sourcesystem", "contextualization"]
+    )
     return sorted(packages)
 
 
