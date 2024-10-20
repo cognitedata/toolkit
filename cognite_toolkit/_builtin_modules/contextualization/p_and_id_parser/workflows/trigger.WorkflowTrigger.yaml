@@ -1,7 +1,7 @@
 externalId: contextualization_p_and_id
 triggerRule:
   triggerType: schedule
-  cronExpression: "0 4 * * MON"
+  cronExpression: "0 4 * * *"
 workflowExternalId: {{ workflow }}
 workflowVersion: v1
 authentication:
