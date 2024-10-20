@@ -11,7 +11,7 @@ from cognite.client import data_modeling as dm
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 import yaml
-from win32ctypes.pywin32.pywintypes import datetime
+
 
 FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
