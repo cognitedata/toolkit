@@ -1,4 +1,4 @@
-space: {{ annotation_space }}
+space: {{ annotationSpace }}
 externalId: {{ contextualizationId }}
 sources:
   - source:

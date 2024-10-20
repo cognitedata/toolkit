@@ -5,5 +5,5 @@ triggerRule:
 workflowExternalId: {{ workflow }}
 workflowVersion: v1
 authentication:
-  clientId: {{ functionClientId }}
-  clientSecret: {{ functionClientSecret }}
+  clientId: {{ workflowClientId }}
+  clientSecret: {{ workflowClientSecret }}
