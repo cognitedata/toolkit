@@ -8,3 +8,5 @@ instanceSpaces:
   - springfield_sap
 function_clientId: ${P_AND_ID_PARSER_CLIENT_ID}
 function_clientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+rawDatabase: contextualizationState
+rawTable: diagramParsing
