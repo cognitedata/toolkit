@@ -15,6 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+- Added new package `contextualization` with modules
+  - `p_and_id_parser`
+
 ## [0.3.4] - 2024-10-18
 
 - Added new package `sourcesystem` with modules
