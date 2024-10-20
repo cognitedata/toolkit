@@ -74,6 +74,7 @@ capabilities:
         tableScope:
           dbsToTables:
             {{ rawDatabase }}: {}
+# Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:
         - READ
