@@ -246,13 +246,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.63.5"
+version = "7.63.6"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "cognite_sdk-7.63.5-py3-none-any.whl", hash = "sha256:5ea34853afb140ffb51a86148bc9223913b9cf99a7dea4ee5ee8122e14fe06b4"},
-    {file = "cognite_sdk-7.63.5.tar.gz", hash = "sha256:b77411d824ac365993381d7199cf99229d0c5de64a71e5c24310a9b216ee14f4"},
+    {file = "cognite_sdk-7.63.6-py3-none-any.whl", hash = "sha256:44ef09b13aded899a07335db548c9ff7889e933243c644f1591e05fe98b98c42"},
+    {file = "cognite_sdk-7.63.6.tar.gz", hash = "sha256:94968fb5736807f6d1928c3ed90c35daf25b83bb552c02eee0d1258376b263a1"},
 ]
 
 [package.dependencies]
@@ -592,6 +592,7 @@ files = [
     {file = "fastparquet-2024.5.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:5626fc72204001b7e82fedb4b02174ecb4e2d4143b38b4ea8d2f9eb65f6b000e"},
     {file = "fastparquet-2024.5.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:c8b2e86fe6488cce0e3d41263bb0296ef9bbb875a2fca09d67d7685640017a66"},
     {file = "fastparquet-2024.5.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:2a951106782d51e5ab110beaad29c4aa0537f045711bb0bf146f65aeaed14174"},
+    {file = "fastparquet-2024.5.0-cp312-cp312-win_amd64.whl", hash = "sha256:cd3473d3e299bfb04c0ac7726cca5d13ee450cc2387ee7fd70587ca150647315"},
     {file = "fastparquet-2024.5.0-cp39-cp39-macosx_10_9_universal2.whl", hash = "sha256:47695037fdc534ef4247f25ccf17dcbd8825be6ecb70c54ca54d588a794f4a6d"},
     {file = "fastparquet-2024.5.0-cp39-cp39-macosx_11_0_arm64.whl", hash = "sha256:fc3d35ff8341cd65baecac71062e9d73393d7afda207b3421709c1d3f4baa194"},
     {file = "fastparquet-2024.5.0-cp39-cp39-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:691348cc85890663dd3c0bb02544d38d4c07a0c3d68837324dc01007301150b5"},
