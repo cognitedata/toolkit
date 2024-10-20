@@ -125,7 +125,7 @@ def execute(data: dict, client: CogniteClient) -> None:
     state = State.from_cdf(client)
     connection_count = 0
     for annotation_list in iterate_new_approved_annotations(state, client, config.data.annotation_space, logger):
-        annotation_by_source_by_node = to_annotation_by_source_by_node(annotation_list, config.data.mappings, logger)
+        annotation_by_source_by_node = to_direct_relations_by_source_by_node(annotation_list, config.data.mappings, logger)
         connections = write_connections(annotation_by_source_by_node, client, logger)
         connection_count += connections
 
@@ -139,7 +139,7 @@ def chunker(items: Sequence[T], chunk_size: int) -> Iterable[list[T]]:
         yield items[i:i + chunk_size]
 
 
-def iterate_new_approved_annotations(state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int=1000) -> Iterable[list[CogniteDiagramAnnotationApply]]
+def iterate_new_approved_annotations(state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int=1000) -> Iterable[list[CogniteDiagramAnnotationApply]]:
     query = create_query(state.last_cursor, annotation_space)
     edges = client.data_modeling.instances.sync(query)
     logger.debug(f"Retrieved {len(edges)} new annotations")
