@@ -6,11 +6,11 @@ import yaml
 
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import ExtractionPipelineRunWrite
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
-from matplotlib.backend_tools import cursors
+from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply, CogniteDiagramAnnotation
+
 from mypy.checkexpr import defaultdict
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
@@ -100,18 +100,24 @@ class State(BaseModel):
 
     @classmethod
     def from_cdf(cls, client: CogniteClient) -> "State":
-        row = client.raw.rows.retrieve(database=RAW_DATABASE, table=RAW_TABLE, key=cls.key)
+        row = client.raw.rows.retrieve(db_name=RAW_DATABASE, table_name=RAW_TABLE, key=cls.key)
         if row is None:
             return cls()
         return cls.model_validate(row.columns)
 
     def to_cdf(self, client: CogniteClient) -> None:
         client.raw.rows.insert(
-            database=RAW_DATABASE,
-            table=RAW_TABLE,
-            row_key=self.key,
-            columns=self.model_dump()
+            db_name=RAW_DATABASE,
+            table_name=RAW_TABLE,
+            row=self._as_row(),
         )
+
+    def _as_row(self) -> RowWrite:
+        return RowWrite(
+            key=self.key,
+            columns=self.model_dump(),
+        )
+
 
 
 ################# Functions #################
@@ -139,13 +145,14 @@ def chunker(items: Sequence[T], chunk_size: int) -> Iterable[list[T]]:
         yield items[i:i + chunk_size]
 
 
-def iterate_new_approved_annotations(state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int=1000) -> Iterable[list[CogniteDiagramAnnotationApply]]:
+def iterate_new_approved_annotations(state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int=1000) -> Iterable[list[CogniteDiagramAnnotation]]:
     query = create_query(state.last_cursor, annotation_space)
-    edges = client.data_modeling.instances.sync(query)
-    logger.debug(f"Retrieved {len(edges)} new annotations")
+    result = client.data_modeling.instances.sync(query)
+    edges = result["annotations"]
+    logger.debug(f"Retrieved {len(edges)} new approved annotations")
     state.last_cursor = edges.cursor
-    for edge_list in chunker(edges, chunk_size):
-        yield [CogniteDiagramAnnotationApply._load(edge.dump()) for edge in edge_list]
+    for edge_list in chunker(list(edges), chunk_size):
+        yield [CogniteDiagramAnnotation._load(edge.dump()) for edge in edge_list]
 
 
 def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]], client: CogniteClient, logger: CogniteFunctionLogger) -> int:
@@ -173,11 +180,11 @@ def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.Nod
             updated_nodes.append(existing_node)
 
     updated = client.data_modeling.instances.apply(updated_nodes)
-    logger.debug(f"Updated {updated} nodes")
+    logger.debug(f"Updated {len(updated.nodes)} nodes")
     return connection_count
 
 
-def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotationApply], mappings: list[Mapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
+def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[Mapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
     mapping_by_entity_source: dict[dm.ViewId, Mapping] = {mapping.entity_source.as_view_id(): mapping for mapping in
                                                           mappings}
     annotation_by_source_by_node: dict[
@@ -193,23 +200,26 @@ def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnota
             update_node = annotation.start_node
             direct_relation_property = mapping.file_source.direct_relation_property
             other_side = annotation.end_node
+            view_id = mapping.file_source.as_view_id()
         elif mapping.entity_source.direct_relation_property is not None:
             update_node = annotation.end_node
             direct_relation_property = mapping.entity_source.direct_relation_property
             other_side = annotation.start_node
+            view_id = mapping.entity_source.as_view_id()
         else:
             raise ValueError(
                 f"Neither file source nor entity source has a direct relation property for annotation {annotation.external_id}")
         node = dm.NodeId(update_node.space, update_node.external_id)
-        annotation_by_source_by_node[entity_source][(node, direct_relation_property)].append(dm.DirectRelationReference(other_side.space, other_side.external_id))
+        annotation_by_source_by_node[view_id][(node, direct_relation_property)].append(dm.DirectRelationReference(other_side.space, other_side.external_id))
     return annotation_by_source_by_node
 
 
-def create_query(last_cursor: str | None, annotation_space) -> dm.query.Query:
+def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.Query:
+    view_id = CogniteDiagramAnnotationApply.get_source()
     is_annotation = dm.filters.And(
         dm.filters.Equals(["edge", "space"], annotation_space),
-        dm.filters.HasData(views=[CogniteDiagramAnnotationApply.get_source()]),
-        dm.filters.Equals(["edge", "status"], "Approved"),
+        dm.filters.HasData(views=[view_id]),
+        dm.filters.Equals(view_id.as_property_ref("status"), "Approved"),
     )
     return dm.query.Query(
         with_={
@@ -222,7 +232,7 @@ def create_query(last_cursor: str | None, annotation_space) -> dm.query.Query:
             "annotations": dm.query.Select(
                 [dm.query.SourceSelector(
                 source=CogniteDiagramAnnotationApply.get_source(),
-                properties=["*"])]
+                properties=["sourceContext"])]
             )
         },
         cursors={

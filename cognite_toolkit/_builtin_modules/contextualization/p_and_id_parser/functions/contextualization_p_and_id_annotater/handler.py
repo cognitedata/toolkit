@@ -1,7 +1,8 @@
 import json
 import time
+from collections import defaultdict
 from collections.abc import Iterable
-from typing import Literal, cast, Any
+from typing import Literal, Any
 from hashlib import sha256
 from datetime import datetime, timezone
 from cognite.client import CogniteClient
@@ -9,7 +10,7 @@ from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite, Ro
 from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
 from cognite.client import data_modeling as dm
-from mypy.checkexpr import defaultdict
+
 from pydantic import BaseModel, Field
 from pydantic.alias_generators import to_camel
 import yaml
