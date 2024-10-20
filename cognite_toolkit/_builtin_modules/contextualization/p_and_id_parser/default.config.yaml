@@ -7,6 +7,7 @@ annotationSpace: sp_p_and_id_parser
 instanceSpaces:
   - files_metadata_instances
   - springfield_sap
+  - sp_p_and_id_parser
 workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
 workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
 rawDatabase: contextualizationState

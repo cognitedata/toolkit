@@ -31,3 +31,4 @@ config:
           version: v1
           directRelationProperty: files
           searchProperty: name
+# Unique Entity Source externalId is assumed in sync call
