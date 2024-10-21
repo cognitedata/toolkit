@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
+from pathlib import Path
 from typing import Literal, ClassVar, TypeVar
 
 import yaml
@@ -13,11 +14,8 @@ from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
-EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
-RAW_DATABASE = "contextualizationState"
-RAW_TABLE = "diagramParsing"
+EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline").read_text())["externalId"]
 EXTERNAL_ID_LIMIT = 256
-SOURCE_ID = dm.DirectRelationReference("sp_p_and_id_parser", "p_and_id_parser")
 
 
 def handle(data: dict, client: CogniteClient) -> dict:
@@ -82,15 +80,20 @@ class Mapping(BaseModel, alias_generator=to_camel):
     entity_source: ViewProperty
 
 
-
 class ConfigData(BaseModel, alias_generator=to_camel):
     instance_spaces: list[str]
     annotation_space: str
     mappings: list[Mapping]
 
 
+class ConfigState(BaseModel, alias_generator=to_camel):
+    raw_database: str
+    raw_table: str
+
+
 class Config(BaseModel, alias_generator=to_camel):
     data: ConfigData
+    state: ConfigState
 
 
 class State(BaseModel):
@@ -98,16 +101,16 @@ class State(BaseModel):
     last_cursor: str | None = None
 
     @classmethod
-    def from_cdf(cls, client: CogniteClient) -> "State":
-        row = client.raw.rows.retrieve(db_name=RAW_DATABASE, table_name=RAW_TABLE, key=cls.key)
+    def from_cdf(cls, client: CogniteClient, state: ConfigState) -> "State":
+        row = client.raw.rows.retrieve(db_name=state.raw_database, table_name=state.raw_table, key=cls.key)
         if row is None:
             return cls()
         return cls.model_validate(row.columns)
 
-    def to_cdf(self, client: CogniteClient) -> None:
+    def to_cdf(self, client: CogniteClient, state: ConfigState) -> None:
         client.raw.rows.insert(
-            db_name=RAW_DATABASE,
-            table_name=RAW_TABLE,
+            db_name=state.raw_database,
+            table_name=state.raw_table,
             row=self._as_row(),
         )
 
@@ -127,14 +130,14 @@ def execute(data: dict, client: CogniteClient) -> None:
     config = load_config(client, logger)
     logger.debug("Loaded config successfully")
 
-    state = State.from_cdf(client)
+    state = State.from_cdf(client, config.state)
     connection_count = 0
     for annotation_list in iterate_new_approved_annotations(state, client, config.data.annotation_space, logger):
         annotation_by_source_by_node = to_direct_relations_by_source_by_node(annotation_list, config.data.mappings, logger)
         connections = write_connections(annotation_by_source_by_node, client, logger)
         connection_count += connections
 
-    state.to_cdf(client)
+    state.to_cdf(client, config.state)
     logger.info(f"Created {connection_count} connections")
 
 T = TypeVar("T")

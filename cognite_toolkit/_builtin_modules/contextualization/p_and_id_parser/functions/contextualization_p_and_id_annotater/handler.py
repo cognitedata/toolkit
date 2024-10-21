@@ -2,6 +2,7 @@ import json
 import time
 from collections import defaultdict
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Literal, Any
 from hashlib import sha256
 from datetime import datetime, timezone
@@ -11,17 +12,15 @@ from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
 from cognite.client import data_modeling as dm
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic.alias_generators import to_camel
 import yaml
 
 
 FUNCTION_ID = "p_and_id_annotater"
-EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
-RAW_DATABASE = "contextualizationState"
-RAW_TABLE = "diagramParsing"
+EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline").read_text())["externalId"]
 EXTERNAL_ID_LIMIT = 256
-SOURCE_ID = dm.DirectRelationReference("sp_p_and_id_parser", "p_and_id_parser")
+
 
 def handle(data: dict, client: CogniteClient) -> dict:
     try:
@@ -77,8 +76,21 @@ class ConfigData(BaseModel, alias_generator=to_camel):
     mappings: list[Mapping]
 
 
+class ConfigState(BaseModel, alias_generator=to_camel):
+    raw_database: str
+    raw_table: str
+    source_system: dm.DirectRelationReference
+
+    @field_validator("source_system", mode="before")
+    def pares_direct_relation(self, value: Any) -> Any:
+        if isinstance(value, dict):
+            return dm.DirectRelationReference.load(value)
+        return value
+
+
 class Config(BaseModel, alias_generator=to_camel):
     parameters: Parameters
+    state: ConfigState
     data: ConfigData
 
 
@@ -113,12 +125,12 @@ class AnnotationJob(BaseModel):
     error_message: str | None = None
 
     @classmethod
-    def from_cdf(cls, client: CogniteClient, file_id: dm.NodeId) -> "AnnotationJob":
-        row = client.raw.rows.retrieve(db_name=RAW_DATABASE, table_name=RAW_TABLE, key=cls._row_key(file_id))
+    def from_cdf(cls, client: CogniteClient, file_id: dm.NodeId, state: ConfigState) -> "AnnotationJob":
+        row = client.raw.rows.retrieve(db_name=state.raw_database, table_name=state.raw_table, key=cls._row_key(file_id))
         return cls._from_row(file_id, row)
 
-    def write_to_cdf(self, client: CogniteClient) -> None:
-        client.raw.rows.insert(db_name=RAW_DATABASE, table_name=RAW_TABLE, row=self._to_row())
+    def write_to_cdf(self, client: CogniteClient, state: ConfigState) -> None:
+        client.raw.rows.insert(db_name=state.raw_database, table_name=state.raw_table, row=self._to_row())
 
     @classmethod
     def _from_row(cls, file_id: dm.NodeId, row: Row | None) -> "AnnotationJob":
@@ -169,14 +181,14 @@ def execute(data: dict, client: CogniteClient) -> None:
     logger.info(f"Detection jobs created: {len(jobs)}")
 
     annotation_count = 0
-    for job, result in wait_for_completion(jobs, client, logger):
-        annotations = write_annotations(job, result, client, config.data.annotation_space, config.parameters, logger)
+    for job, result in wait_for_completion(jobs, client, config.state, logger):
+        annotations = write_annotations(job, result, client, config.data.annotation_space, config.state.source_system, config.parameters, logger)
         annotation_count += len(annotations)
 
         job.last_completed_entity_cursor = job.last_entity_cursors
         job.latest_job_id = None
         job.failed_attempts = 0
-        job.write_to_cdf(client)
+        job.write_to_cdf(client, config.state)
 
     logger.info(f"Annotations created: {annotation_count}")
 
@@ -199,7 +211,7 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
             file_id = file_node.as_id()
             logger.debug(f"Processing file {file_id}")
 
-            job = AnnotationJob.from_cdf(client, file_id)
+            job = AnnotationJob.from_cdf(client, file_id, config.state)
 
             if job.failed_attempts >= max_failed_attempts:
                 logger.warning(f"Failed to detect diagram for {file_id} "
@@ -209,7 +221,7 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
             job_id = trigger_detection_job(job, client, entity_sources, logger)
             job.latest_job_id = job_id
 
-            job.write_to_cdf(client)
+            job.write_to_cdf(client, config.state)
             jobs.append(job)
     return jobs
 
@@ -274,7 +286,7 @@ def create_entity_query(entity_sources: list[ViewProperty], cursors: dict[str, s
     )
 
 
-def wait_for_completion(jobs: list[AnnotationJob], client: CogniteClient, logger: CogniteFunctionLogger) -> Iterable[tuple[AnnotationJob, DiagramDetectResults]]:
+def wait_for_completion(jobs: list[AnnotationJob], client: CogniteClient, state: ConfigState, logger: CogniteFunctionLogger) -> Iterable[tuple[AnnotationJob, DiagramDetectResults]]:
     while jobs:
         job = jobs.pop(0)
         if job.latest_job_id is None:
@@ -288,7 +300,7 @@ def wait_for_completion(jobs: list[AnnotationJob], client: CogniteClient, logger
             logger.warning(f"Job {job.latest_job_id} {status}")
             job.failed_attempts += 1
             job.error_message = job_result.error_message
-            job.write_to_cdf(client)
+            job.write_to_cdf(client, state)
         else:
             jobs.append(job)
             logger.debug(f"Job {job.latest_job_id} {status}, will check again later")
@@ -296,13 +308,13 @@ def wait_for_completion(jobs: list[AnnotationJob], client: CogniteClient, logger
             time.sleep(10)
 
 
-def write_annotations(job: AnnotationJob, result: DiagramDetectResults, client: CogniteClient, annotation_space: str, parameter: Parameters, logger: CogniteFunctionLogger) -> list[CogniteDiagramAnnotationApply]:
+def write_annotations(job: AnnotationJob, result: DiagramDetectResults, client: CogniteClient, annotation_space: str, source: dm.DirectRelationReference, parameter: Parameters, logger: CogniteFunctionLogger) -> list[CogniteDiagramAnnotationApply]:
     annotation_list: list[CogniteDiagramAnnotationApply] = []
     for detection in result.items:
         for raw_annotation in detection.annotations or []:
             entities = Entity.from_annotation(raw_annotation)
             for entity in entities:
-                annotation = load_annotation(raw_annotation, entity, job.file_id, annotation_space, parameter)
+                annotation = load_annotation(raw_annotation, entity, job.file_id, annotation_space, source, parameter)
                 annotation_list.append(annotation)
 
     created = client.data_modeling.instances.apply(annotation_list).edges
@@ -314,7 +326,7 @@ def write_annotations(job: AnnotationJob, result: DiagramDetectResults, client: 
     return annotation_list
 
 
-def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.NodeId, annotation_space: str, parameters: Parameters) -> CogniteDiagramAnnotationApply:
+def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.NodeId, annotation_space: str, source: dm.DirectRelationReference, parameters: Parameters) -> CogniteDiagramAnnotationApply:
         text = raw_annotation["text"]
         external_id = create_annotation_id(file_id, entity.node_id, text, raw_annotation)
         confidence = raw_annotation["confidence"] if "confidence" in raw_annotation else None
@@ -341,7 +353,7 @@ def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.
             start_node_x_max=max(v["x"] for v in vertices),
             start_node_y_min=min(v["y"] for v in vertices),
             start_node_y_max=max(v["y"] for v in vertices),
-            source=SOURCE_ID,
+            source=source,
             source_created_time=now,
             source_updated_time=now,
             source_created_user=FUNCTION_ID,

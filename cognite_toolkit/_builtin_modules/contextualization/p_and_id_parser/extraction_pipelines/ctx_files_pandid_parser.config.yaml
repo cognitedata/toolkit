@@ -4,6 +4,12 @@ config:
     autoApprovalThreshold: 0.85
     autoRejectThreshold: 0.25
     maxFailedAttempts: 3
+  state:
+    rawDatabase: {{ rawDatabase }}
+    rawTable: {{ rawTable }}
+    sourceSystem:
+      space: {{ annotationSpace }}
+      externalId: {{ contextualizationId }}
   data:
     annotationSpace: '{{ annotationSpace }}'
     instanceSpaces:

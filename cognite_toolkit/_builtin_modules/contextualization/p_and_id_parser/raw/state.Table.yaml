@@ -1,2 +1,2 @@
 dbName: {{ rawDatabase }}
-tableName: {{ rawTable}}
+tableName: {{ rawTable }}
