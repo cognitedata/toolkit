@@ -12,8 +12,8 @@ ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
 authentication:
-  clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-  clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+  clientId: ${TRANSFORMATIONS_CLIENT_ID}
+  clientSecret: ${TRANSFORMATIONS_CLIENT_SECRET}
   tokenUri: ${IDP_TOKEN_URL}
   cdfProjectName: ${CDF_PROJECT}
   audience: ${CDF_URL}
