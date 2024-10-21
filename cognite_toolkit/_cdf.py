@@ -38,7 +38,7 @@ if USE_SENTRY:
     import sentry_sdk
 
     sentry_sdk.init(
-        dsn="https://ea8b03f98a675ce080056f1583ed9ce7@o124058.ingest.sentry.io/4506429021093888",
+        dsn="https://20552f92b525fe551e9adc939024d526@o4508040730968064.ingest.de.sentry.io/4508160801374288",
         release=current_version,
         before_send=sentry_exception_filter,
         # Set traces_sample_rate to 1.0 to capture 100%
