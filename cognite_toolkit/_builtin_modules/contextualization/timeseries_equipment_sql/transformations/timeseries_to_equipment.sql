@@ -1,7 +1,9 @@
 select
+  /* three first properties are required */
   cast(timeseries.`externalId` as STRING) as externalId, 
   cast(timeseries.`isStep` as BOOLEAN) as isStep,
   cast(timeseries.`type` as STRING) as type,
+  /* direct relation */
   array(
     node_reference(
       '{{ instanceSpace }}',
@@ -20,6 +22,8 @@ left join cdf_data_models(
     "CogniteProcessIndustries",
     "v1",
     "CogniteEquipment"
-  ) as equipment_lookup on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) == equipment_lookup.`name`
+  ) as equipment_lookup 
+  /* update to the correct matching criteria for your data */
+  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) == equipment_lookup.`name`
 where
   timeseries.space == '{{ instanceSpace }}'
