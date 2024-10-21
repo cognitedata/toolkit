@@ -15,6 +15,11 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [O.3.5] - TBD
+
+- Added new package `industrial_tool` for data exploration and analytics with modules
+  - `search` for setting up location filters
+
 ## [0.3.4] - 2024-10-18
 
 - Added new package `sourcesystem` with modules
