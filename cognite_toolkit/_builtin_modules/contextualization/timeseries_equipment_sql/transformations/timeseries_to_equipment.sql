@@ -22,4 +22,4 @@ left join cdf_data_models(
     "CogniteEquipment"
   ) as equipment_lookup on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) == equipment_lookup.`name`
 where
-  timeseries.space == '{{ instanceSpace }}',}}'
+  timeseries.space == '{{ instanceSpace }}'
