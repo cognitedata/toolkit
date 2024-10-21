@@ -18,7 +18,7 @@ import yaml
 
 
 FUNCTION_ID = "p_and_id_annotater"
-EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline").read_text())["externalId"]
+EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline.yaml").read_text())["externalId"]
 EXTERNAL_ID_LIMIT = 256
 
 

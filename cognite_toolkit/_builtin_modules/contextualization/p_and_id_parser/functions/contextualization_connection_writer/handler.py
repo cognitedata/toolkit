@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
-EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline").read_text())["externalId"]
+EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline.yaml").read_text())["externalId"]
 EXTERNAL_ID_LIMIT = 256
 
 
