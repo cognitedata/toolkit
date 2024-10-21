@@ -7,12 +7,14 @@ DataSet:
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
-  description: Annotation of P&ID documents and connections to the Cognite Data Platform
+  description: Annotation of P&ID documents and connections in Cognite Data Fusion
   externalId: p_and_id_parser
   name: P&ID Parser
 ExtractionPipelineConfig:
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
-    \  maxFailedAttempts: 3\ndata:\n  annotationSpace: sp_p_and_id_parser\n  instanceSpaces:\n\
+    \  maxFailedAttempts: 3\nstate:\n  rawDatabase: contextualizationState\n  rawTable:\
+    \ diagramParsing\n  sourceSystem:\n    space: sp_p_and_id_parser\n    externalId:\
+    \ p_and_id_parser\ndata:\n  annotationSpace: sp_p_and_id_parser\n  instanceSpaces:\n\
     \    ['files_metadata_instances', 'springfield_sap', 'sp_p_and_id_parser']\n \
     \ mappings:\n    - fileSource:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
     \        version: v1\n        directRelationProperty: assets\n      entitySource:\n\
@@ -29,7 +31,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: b752c67e01c48d7f5ce891a1398368a8f3e8cccfb8497f5b761f6ccd5fedf683
+    cdf-toolkit-function-hash: 0932e0019458043141bba17e8a3422865d29c8ee19f2419e5cac9ff8234edf60
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 - description: Creates annotations for P&ID diagrams.
@@ -37,7 +39,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: cf7aeb1c4908458cfdabf9f38bcb606da8deff3325cccc43f457e7755ceb0e29
+    cdf-toolkit-function-hash: a35dea1363f7f17d20ae10e1c7d87b4d16e8fde746a2034bf3f759d7351fef79
   name: P&ID Annotator
   owner: Anonymous
 Group:
