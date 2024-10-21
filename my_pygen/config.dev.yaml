@@ -1,0 +1,73 @@
+environment:
+  name: dev
+  project: python-pygen
+  type: dev
+  selected:
+  - modules/
+
+variables:
+  modules:
+    contextualization:
+      p_and_id_parser:
+        contextualizationId: p_and_id_parser
+        contextualizationName: P&ID Parser
+        functionServicePrincipalGroupObjectId: 6e7743a1-cdab-4cfa-a6f2-48b1c0235b30
+        dataset: ds_p_and_id_parser
+        schemaSpace: cdf_cdm
+        annotationSpace: sp_p_and_id_parser
+        instanceSpaces:
+        - files_metadata_instances
+        - springfield_sap
+        - sp_p_and_id_parser
+        workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+        workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+        rawDatabase: contextualizationState
+        rawTable: diagramParsing
+        workflow: p_and_id_parser
+
+    enterprise:
+      models:
+        idm_extension:
+          organization: Pygen
+          schema_space: sp_enterprise_pygen
+
+    sourcesystem:
+      pi:
+        sourceName: Springfield AVEVA PI
+        sourceId: springfield_aveva_pi # can also contain location, for example sap_springfield_s4hana
+        rawDatabase: aveva_pi_staging # can also contain location, for example aveva_pi_springfield_staging
+        transformationServicePrincipalGroupObjectId: 365d7f88-4e75-48b6-8379-32bd429cb14c
+        dataset: aveva_pi_population # can also contain location aveva_pi_springfield_population
+        schemaSpace: cdf_cdm
+        instanceSpace: springfield_pi
+
+      sap_assets:
+        instanceSpace: springfield_sap
+        sourceName: SAP Springfield S/4HANA
+        sourceId: sap_springfield_s4hana
+        rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+        source: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+        transformationServicePrincipalGroupObjectId: 365d7f88-4e75-48b6-8379-32bd429cb14c
+        workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+        dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
+        schemaSpace: cdf_cdm
+
+      sap_events:
+        instanceSpace: springfield_sap
+        sourceName: SAP Springfield S/4HANA
+        sourceId: sap_springfield_s4hana
+        rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+        source: sap_s4hana_event # can also contain location, for example sap_springfield_s4hana
+        transformationServicePrincipalGroupObjectId: 365d7f88-4e75-48b6-8379-32bd429cb14c
+        workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+        dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
+        schemaSpace: cdf_idm
+
+      sharepoint:
+        sourceName: Springfield Sharepoint
+        sourceId: springfield_sharepoint
+        rawDatabase: files_metadata_staging # can also contain location, for example files_metadata_springfield_staging
+        transformationServicePrincipalGroupObjectId: 365d7f88-4e75-48b6-8379-32bd429cb14c
+        dataset: files_metadata_transformations # can also contain location, for example files_metadata_springfield_transformations
+        schemaSpace: cdf_cdm
+        instanceSpace: files_metadata_instances

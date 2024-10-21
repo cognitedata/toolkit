@@ -1,0 +1,2 @@
+externalId: {{ workflow }}
+description: This workflow creates annotations for P&ID diagrams and writes the approved annotations into the data.

@@ -1,0 +1,2 @@
+dbName: {{ rawDatabase }}
+tableName: files_metadata

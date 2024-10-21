@@ -1,0 +1,34 @@
+externalId: '{{ contextualizationId }}'
+config:
+  parameters:
+    autoApprovalThreshold: 0.85
+    autoRejectThreshold: 0.25
+    maxFailedAttempts: 3
+  data:
+    annotationSpace: '{{ annotationSpace }}'
+    instanceSpaces:
+      {{ instanceSpaces }}
+    mappings:
+      - fileSource:
+          space: {{ schemaSpace }}
+          externalId: CogniteFile
+          version: v1
+          directRelationProperty: assets
+        entitySource:
+          space: {{ schemaSpace }}
+          externalId: CogniteAsset
+          version: v1
+          searchProperty: name
+      - fileSource:
+          type: view
+          space: {{ schemaSpace }}
+          externalId: CogniteFile
+          version: v1
+        entitySource:
+          type: viewProperty
+          space: {{ schemaSpace }}
+          externalId: CogniteEquipment
+          version: v1
+          directRelationProperty: files
+          searchProperty: name
+# Unique Entity Source externalId is assumed in sync call

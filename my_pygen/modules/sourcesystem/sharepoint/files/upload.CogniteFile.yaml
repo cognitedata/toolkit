@@ -1,0 +1,3 @@
+- externalId: $FILENAME
+  space: {{ instanceSpace }}
+  name: $FILENAME

@@ -1,0 +1,5 @@
+space: {{ instanceSpace }}
+name: {{ sourceName }} instance space
+description: |
+  This space contains all data from the SAP system {{ sourceName }}.
+  The data is ingested from the SAP system using the SAP extractor

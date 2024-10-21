@@ -1,0 +1,26 @@
+environment:
+  name: dev
+  project: python-pygen
+  type: dev
+  selected:
+  - modules/
+
+variables:
+  modules:
+    contextualization:
+      p_and_id_parser:
+        contextualizationId: p_and_id_parser
+        contextualizationName: P&ID Parser
+        functionServicePrincipalGroupObjectId: 6e7743a1-cdab-4cfa-a6f2-48b1c0235b30
+        dataset: ds_p_and_id_parser
+        schemaSpace: cdf_cdm
+        annotationSpace: sp_p_and_id_parser
+        instanceSpaces:
+        - files_metadata_instances
+        - springfield_sap
+        - sp_p_and_id_parser
+        workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+        workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+        rawDatabase: contextualizationState
+        rawTable: diagramParsing
+        workflow: p_and_id_parser
