@@ -1,0 +1,4 @@
+space: {{ instanceSpace }}
+name: {{ locationName }} instance space
+description: |
+  This space contains data for location {{ locationName }}.

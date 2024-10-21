@@ -15,8 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [O.3.5] - TBD
 
+### Added
+
+- Added new package `industrial_tool` for data exploration and analytics with modules
+  - `search` for setting up location filters
 - Added new package `contextualization` with modules
   - `p_and_id_parser`
 
