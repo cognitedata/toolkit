@@ -1,4 +1,4 @@
 externalId: '{{ contextualizationId }}'
 name: '{{ contextualizationName }}'
 dataSetExternalId: {{ dataset }}
-description: 'Annotation of P&ID documents and connections to the Cognite Data Platform'
+description: 'Annotation of P&ID documents and connections in Cognite Data Fusion'

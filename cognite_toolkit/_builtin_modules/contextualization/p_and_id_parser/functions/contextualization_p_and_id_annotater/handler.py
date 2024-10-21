@@ -195,8 +195,7 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
     jobs: list[AnnotationJob] = []
     for file_view, entity_sources in entity_sources_by_file_view.items():
         is_view = dm.filters.HasData(views=[file_view])
-        # Todo Bug in SDK when iterating ove nodes using the instances(...) method
-        for file_node in client.data_modeling.instances.list(instance_type="node", space=instance_spaces, filter=is_view, limit=-1):
+        for file_node in client.data_modeling.instances(instance_type="node", space=instance_spaces, filter=is_view):
             file_id = file_node.as_id()
             logger.debug(f"Processing file {file_id}")
 
