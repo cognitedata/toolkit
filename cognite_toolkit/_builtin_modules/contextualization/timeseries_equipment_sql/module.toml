@@ -1,0 +1,11 @@
+[module]
+title = "Contextualisation of timeseries-equipment via direct relation transformation"
+is_selected_by_default = false
+
+[packages]
+tags = [
+    "contextualization",
+]
+
+[dependencies]
+modules = []
