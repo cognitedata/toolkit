@@ -1,0 +1,7 @@
+[module]
+title = "Contextualization P&ID Diagram Parser"
+
+[packages]
+tags = [
+    "contextualization",
+]

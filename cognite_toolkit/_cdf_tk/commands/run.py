@@ -53,7 +53,7 @@ intended to test the function before deploying it to CDF or to debug issues with
 
 def main() -> None:
     validate_function_folder(
-        root_path="code/",
+        root_path="local_code/",
         function_path="{handler_py}",
         skip_folder_validation=False,
     )
@@ -67,7 +67,7 @@ from pprint import pprint
 from cognite.client import CogniteClient, ClientConfig
 from cognite.client.credentials import {credentials_cls}
 
-from code.{handler_import} import handle
+from local_code.{handler_import} import handle
 
 
 def main() -> None:
@@ -298,7 +298,7 @@ if __name__ == "__main__":
             f"'requirements.txt' file is valid."
         )
 
-        function_destination_code = function_venv / "code"
+        function_destination_code = function_venv / "local_code"
         if function_destination_code.exists():
             shutil.rmtree(function_destination_code)
         shutil.copytree(function_source_code, function_destination_code)

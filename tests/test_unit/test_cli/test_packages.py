@@ -64,7 +64,9 @@ def get_packages() -> list[str]:
     # Examples and sourcesystems are tested separately, in that each example is tested individually as they
     # should be independent of each other.
     packages = (
-        name for name in packages.keys() if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools"]
+        name
+        for name in packages.keys()
+        if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization"]
     )
     return sorted(packages)
 
