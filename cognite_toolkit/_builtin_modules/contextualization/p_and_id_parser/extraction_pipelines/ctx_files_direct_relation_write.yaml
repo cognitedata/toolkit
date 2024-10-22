@@ -1,0 +1,4 @@
+externalId: '{{ directRelationJob }}'
+name: 'Direct Relation Writer'
+dataSetExternalId: {{ dataset }}
+description: Writes direct relations based on annotations.

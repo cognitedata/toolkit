@@ -18,7 +18,7 @@ import yaml
 
 
 FUNCTION_ID = "p_and_id_annotater"
-EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
+EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_pandid_annotater"
 EXTERNAL_ID_LIMIT = 256
 
 

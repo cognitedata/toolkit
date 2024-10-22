@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
-EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
+EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_direct_relation_write"
 EXTERNAL_ID_LIMIT = 256
 
 

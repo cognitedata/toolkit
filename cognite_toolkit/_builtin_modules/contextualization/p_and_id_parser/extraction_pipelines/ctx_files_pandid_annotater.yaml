@@ -1,0 +1,4 @@
+externalId: '{{ annotatorJob }}'
+name: 'P&ID Annotater'
+dataSetExternalId: {{ dataset }}
+description: 'Annotation of P&ID documents'
