@@ -18,7 +18,7 @@ import yaml
 
 
 FUNCTION_ID = "p_and_id_annotater"
-EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline.yaml").read_text())["externalId"]
+EXTRACTION_PIPELINE_EXTERNAL_ID = "p_and_id_parser"
 EXTERNAL_ID_LIMIT = 256
 
 
@@ -53,7 +53,6 @@ class Parameters(BaseModel, alias_generator=to_camel):
     auto_reject_threshold: float = Field(gt=0.0, le=1.0)
     max_failed_attempts: int = Field(gt=0)
 
-
 class ViewProperty(BaseModel, alias_generator=to_camel):
     space: str
     external_id: str
@@ -64,8 +63,12 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
     def as_view_id(self) -> dm.ViewId:
         return dm.ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
+class AnnotationJobConfig(BaseModel, alias_generator=to_camel):
+    file_source: ViewProperty
+    entity_views: list[ViewProperty]
 
-class Mapping(BaseModel, alias_generator=to_camel):
+
+class DirectRelationMapping(BaseModel, alias_generator=to_camel):
     file_source: ViewProperty
     entity_source: ViewProperty
 
@@ -73,7 +76,8 @@ class Mapping(BaseModel, alias_generator=to_camel):
 class ConfigData(BaseModel, alias_generator=to_camel):
     instance_spaces: list[str]
     annotation_space: str
-    mappings: list[Mapping]
+    annotation_jobs: list[AnnotationJobConfig]
+    direct_relation_mapping: list[DirectRelationMapping]
 
 
 class ConfigState(BaseModel, alias_generator=to_camel):
