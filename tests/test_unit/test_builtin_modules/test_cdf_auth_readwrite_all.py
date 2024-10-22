@@ -2,7 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from cognite.client.data_classes import GroupWrite
+from cognite.client._api.iam import IAMAPI
+from cognite.client.data_classes import GroupWrite, capabilities
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -11,6 +12,23 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+
+SKIP_ACLS = frozenset(
+    {
+        capabilities.LegacyGenericsAcl,
+        capabilities.LegacyModelHostingAcl,
+        capabilities.ExperimentsAcl,
+    }
+)
+
+READ_ACTIONS = frozenset(
+    {
+        "READ",
+        "USE",
+        "LIST",
+        "MEMBEROF",
+    }
+)
 
 
 @pytest.fixture(scope="session")
@@ -54,9 +72,33 @@ def readonly_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) -> G
     return groups[0]
 
 
+def get_all_capabilities(readonly: bool = False) -> list[capabilities.Capability]:
+    all_capabilities: list[capabilities.Capability] = []
+    for name, capability_cls in capabilities._CAPABILITY_CLASS_BY_NAME.items():
+        if capability_cls in SKIP_ACLS:
+            continue
+        actions = list(capability_cls.Action)
+        if readonly:
+            actions = [action for action in actions if action.name in READ_ACTIONS]
+        available_scopes = vars(capability_cls.Scope)
+        if "All" not in available_scopes:
+            raise ValueError(f"Capability {capability_cls} does not have a scope named 'All'")
+        scope = available_scopes["All"]
+
+        capability = capability_cls(actions=actions, scope=scope())
+        all_capabilities.append(capability)
+    return all_capabilities
+
+
 class TestCDFAuthReadWriteAll:
     def test_read_write_group_is_up_to_date(self, read_write_group: GroupWrite) -> None:
-        assert True
+        missing_capabilities = IAMAPI.compare_capabilities(
+            read_write_group.capabilities, get_all_capabilities(readonly=False)
+        )
+        assert not missing_capabilities, f"Missing {len(missing_capabilities)} capabilities: {missing_capabilities}"
 
     def test_readdonly_group_is_up_to_date(self, readonly_group: GroupWrite) -> None:
-        assert True
+        missing_capabilities = IAMAPI.compare_capabilities(
+            readonly_group.capabilities, get_all_capabilities(readonly=True)
+        )
+        assert not missing_capabilities, f"Missing {len(missing_capabilities)} capabilities: {missing_capabilities}"
