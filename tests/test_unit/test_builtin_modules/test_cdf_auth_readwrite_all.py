@@ -101,6 +101,13 @@ class TestCDFAuthReadWriteAll:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
             missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
+
+        # This test will fail typically after you have updated the cognite-sdk-python package.
+        # It checks that all capabilities that are available in the SDK are also available in the group
+        # 'gp_admin_read_write'.
+        # For your convenience, the missing capabilities will be copied to your clipboard. You
+        # need to go to the 'cognite_toolkit/builtin_modules' and find the 'cdf_auth_readwrite_all' module,
+        # and update the capabilities in the 'gp_admin_read_write' group.
         assert (
             not missing_capabilities
         ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."
@@ -113,6 +120,10 @@ class TestCDFAuthReadWriteAll:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
             missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
+
+        # Similar to the previous test, this test will fail typically after you have updated the
+        # cognite-sdk-python package.
+        # Running this you need to update the 'gp_admin_readonly' group in the 'cdf_auth_readwrite_all' module.
 
         assert (
             not missing_capabilities
