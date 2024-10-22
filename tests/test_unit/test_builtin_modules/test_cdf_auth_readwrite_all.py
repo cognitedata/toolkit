@@ -1,11 +1,13 @@
 from pathlib import Path
 from typing import Any
 
+import pyperclip
 import pytest
+import yaml
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand
+from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuiltModule,
@@ -95,6 +97,10 @@ class TestCDFAuthReadWriteAll:
         missing_capabilities = IAMAPI.compare_capabilities(
             read_write_group.capabilities, get_all_capabilities(readonly=False)
         )
+        if missing_capabilities:
+            merged = AuthCommand._merge_capabilities(missing_capabilities)
+            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            pyperclip.copy(missing_yaml)
         assert (
             not missing_capabilities
         ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."

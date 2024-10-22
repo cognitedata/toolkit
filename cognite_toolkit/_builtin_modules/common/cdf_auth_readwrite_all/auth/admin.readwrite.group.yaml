@@ -147,3 +147,169 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - analyticsAcl:
+      actions:
+      - EXECUTE
+      - LIST
+      - READ
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+      - WRITE
+      - SUGGEST
+      - REVIEW
+      - READ
+      scope:
+        all: {}
+  - auditlogAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - digitalTwinAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - documentFeedbackAcl:
+      actions:
+      - DELETE
+      - CREATE
+      - READ
+      scope:
+        all: {}
+  - documentPipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - filePipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - geospatialAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - geospatialCrsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - hostedExtractorsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - monitoringTasksAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - notificationsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - pipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - postgresGatewayAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - DELETE
+      - CREATE
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - DELETE
+      - UPDATE
+      - CREATE
+      - READ
+      scope:
+        all: {}
+  - scheduledCalculationsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - seismicAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - templateGroupsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - templateInstancesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - typesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - userProfilesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - wellsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
