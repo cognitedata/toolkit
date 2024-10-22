@@ -5,7 +5,12 @@ from collections.abc import Iterable
 from typing import Literal, Any
 from hashlib import sha256
 from datetime import datetime, timezone
+from cognite.client.config import global_config
 
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
 from cognite.client import CogniteClient
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.contextualization import DiagramDetectResults
@@ -161,8 +166,8 @@ def execute(data: dict, client: CogniteClient) -> None:
     annotation_count = 0
     for result in wait_for_completion(jobs, logger):
         if result.errors:
-            logger.error(f"Job {result.job_id} {len(result.errors)} files failed:")
-            logger.error("\n    ".join(sorted(set(result.errors))))
+            errors_str = '\n  - '.join(sorted(set(result.errors)))
+            logger.error(f"Job {result.job_id} {len(result.errors)} files failed: \n  - {errors_str}")
             continue
         annotations = write_annotations(result, client, config.data.annotation_space, config.source_system, config.parameters, logger)
         annotation_count += len(annotations)
