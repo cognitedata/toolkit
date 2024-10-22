@@ -79,6 +79,10 @@ class Mapping(BaseModel, alias_generator=to_camel):
     file_source: ViewProperty
     entity_source: ViewProperty
 
+class DirectRelationMapping(BaseModel, alias_generator=to_camel):
+    file_source: ViewProperty
+    entity_source: ViewProperty
+    direct_relation_mapping: list[DirectRelationMapping]
 
 class ConfigData(BaseModel, alias_generator=to_camel):
     instance_spaces: list[str]
