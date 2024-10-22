@@ -2,7 +2,7 @@ import json
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
 from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, ClassVar, TypeVar, Self
 
 import yaml
 from cognite.client import CogniteClient
@@ -10,7 +10,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply, CogniteDiagramAnnotation
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
@@ -69,25 +69,25 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
     external_id: str
     version: str
     direct_relation_property: str | None = None
-    search_property: str = "name"
 
     def as_view_id(self) -> dm.ViewId:
         return dm.ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
 
-class Mapping(BaseModel, alias_generator=to_camel):
-    file_source: ViewProperty
-    entity_source: ViewProperty
-
 class DirectRelationMapping(BaseModel, alias_generator=to_camel):
     file_source: ViewProperty
     entity_source: ViewProperty
-    direct_relation_mapping: list[DirectRelationMapping]
+
+    @model_validator(mode="after")
+    def direct_relation_is_set(self) -> Self:
+        if sum(1 for prop in (self.file_source.direct_relation_property, self.entity_source.direct_relation_property) if prop is not None) != 1:
+            raise ValueError("You must set 'directRelationProperty' for at either of 'fileSource' or 'entitySource'")
+        return self
+
 
 class ConfigData(BaseModel, alias_generator=to_camel):
-    instance_spaces: list[str]
     annotation_space: str
-    mappings: list[Mapping]
+    direct_relation_mapping: list[DirectRelationMapping]
 
 
 class ConfigState(BaseModel, alias_generator=to_camel):
@@ -123,7 +123,6 @@ class State(BaseModel):
             key=self.key,
             columns=self.model_dump(),
         )
-
 
 
 ################# Functions #################
@@ -190,8 +189,8 @@ def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.Nod
     return connection_count
 
 
-def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[Mapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
-    mapping_by_entity_source: dict[dm.ViewId, Mapping] = {mapping.entity_source.as_view_id(): mapping for mapping in
+def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[DirectRelationMapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
+    mapping_by_entity_source: dict[dm.ViewId, DirectRelationMapping] = {mapping.entity_source.as_view_id(): mapping for mapping in
                                                           mappings}
     annotation_by_source_by_node: dict[
         dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]] = defaultdict(lambda: defaultdict(list))
@@ -202,6 +201,9 @@ def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnota
             logger.warning(f"Could not parse source context for annotation {annotation.external_id}")
             continue
         mapping = mapping_by_entity_source.get(entity_source)
+        if mapping is None:
+            logger.warning(f"No mapping found for entity source {entity_source}")
+            continue
         if mapping.file_source.direct_relation_property is not None:
             update_node = annotation.start_node
             direct_relation_property = mapping.file_source.direct_relation_property

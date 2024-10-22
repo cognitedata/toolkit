@@ -5,8 +5,6 @@ config:
     rawTable: {{ rawTable }}
   data:
     annotationSpace: '{{ annotationSpace }}'
-    instanceSpaces:
-      {{ instanceSpaces }}
     directRelationMappings:
       - fileSource:
           space: {{ schemaSpace }}
