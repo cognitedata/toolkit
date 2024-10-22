@@ -166,7 +166,8 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
         file_view = job_config.file_source.as_view_id()
         is_view = dm.filters.HasData(views=[file_view])
         is_uploaded = dm.filters.Equals(file_view.as_property_ref("isUploaded"), True)
-        is_selected = dm.filters.And(is_view, is_uploaded)
+        is_file_type = dm.filters.In(file_view.as_property_ref("mimeType"), ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff'])
+        is_selected = dm.filters.And(is_view, is_uploaded, is_file_type)
 
         entities = get_entities(client, job_config, instance_spaces, logger)
 
