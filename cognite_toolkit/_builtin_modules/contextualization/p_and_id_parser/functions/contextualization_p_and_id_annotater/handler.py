@@ -25,6 +25,7 @@ FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_pandid_annotater"
 EXTERNAL_ID_LIMIT = 256
 MAX_FILES_PER_JOB = 50
+EXTRACTION_RUN_MESSAGE_LIMIT = 1000
 
 
 def handle(data: dict, client: CogniteClient) -> dict:
@@ -39,7 +40,12 @@ def handle(data: dict, client: CogniteClient) -> dict:
 
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
-        message = f'ERROR {FUNCTION_ID}: "{e!s}"{suffix}'[:1000]
+        prefix = f"ERROR {FUNCTION_ID}: "
+        error_msg = '"{e!s}"'
+        message = prefix + error_msg + suffix
+        if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
+            error_msg = error_msg[:EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix)- 3]
+            message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
         message = FUNCTION_ID
