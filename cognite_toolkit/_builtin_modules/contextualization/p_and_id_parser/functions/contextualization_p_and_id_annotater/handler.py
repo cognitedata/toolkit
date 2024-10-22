@@ -15,7 +15,6 @@ from cognite.client import data_modeling as dm
 from pydantic import BaseModel, Field, field_validator
 from pydantic.alias_generators import to_camel
 import yaml
-from win32com.server import exception
 
 FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_pandid_annotater"
@@ -27,7 +26,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
     try:
         execute(data, client)
     except Exception as e:
-        tb = traceback.extract_tb(exception.__traceback__)
+        tb = traceback.extract_tb(e.__traceback__)
         last_entry = tb[-1]
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API

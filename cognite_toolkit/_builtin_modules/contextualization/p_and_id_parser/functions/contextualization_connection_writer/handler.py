@@ -1,7 +1,6 @@
 import json
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
-from pathlib import Path
 from typing import Literal, ClassVar, TypeVar, Self
 
 import yaml
@@ -10,7 +9,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply, CogniteDiagramAnnotation
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel,  model_validator
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
