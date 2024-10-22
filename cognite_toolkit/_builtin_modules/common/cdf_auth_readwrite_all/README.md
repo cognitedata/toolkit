@@ -2,7 +2,7 @@
 
 This module contains two groups that are used to grant access to all resources in a CDF project. This
 should **never** be used for production projects, as it grants read-write access to all resources in the project.
-However, it is useful for sandbox projects to allow members of the `gp_cicd_all_read_write` group to have full access.
+However, it is useful for sandbox projects to allow members of the `gp_admin_read_write` group to have full access.
 It can also be used for demo projects where you want to give full read access `gp_admin_readonly` access to
 all resources to a group of users.
 
@@ -10,8 +10,8 @@ all resources to a group of users.
 
 This module manages the following resources:
 
-1. a group with read-write access (`gp_cicd_all_read_write`) to everything in a CDF project.
-2. a group with read-only access `gp_cicd_all_read_only` (for viewing configurations from UI).
+1. a group with read-write access (`gp_admin_read_write`) to everything in a CDF project.
+2. a group with read-only access `gp_admin_readonly` (for viewing configurations from UI).
 
 ## Variables
 
