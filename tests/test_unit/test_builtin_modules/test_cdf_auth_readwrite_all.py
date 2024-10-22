@@ -95,10 +95,14 @@ class TestCDFAuthReadWriteAll:
         missing_capabilities = IAMAPI.compare_capabilities(
             read_write_group.capabilities, get_all_capabilities(readonly=False)
         )
-        assert not missing_capabilities, f"Missing {len(missing_capabilities)} capabilities: {missing_capabilities}"
+        assert (
+            not missing_capabilities
+        ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."
 
     def test_readdonly_group_is_up_to_date(self, readonly_group: GroupWrite) -> None:
         missing_capabilities = IAMAPI.compare_capabilities(
             readonly_group.capabilities, get_all_capabilities(readonly=True)
         )
-        assert not missing_capabilities, f"Missing {len(missing_capabilities)} capabilities: {missing_capabilities}"
+        assert (
+            not missing_capabilities
+        ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard"
