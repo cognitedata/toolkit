@@ -81,13 +81,13 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
 
 
 class DirectRelationMapping(BaseModel, alias_generator=to_camel):
-    file_source: ViewProperty
-    entity_source: ViewProperty
+    start_node: ViewProperty
+    end_node: ViewProperty
 
     @model_validator(mode="after")
     def direct_relation_is_set(self) -> Self:
-        if sum(1 for prop in (self.file_source.direct_relation_property, self.entity_source.direct_relation_property) if prop is not None) != 1:
-            raise ValueError("You must set 'directRelationProperty' for at either of 'fileSource' or 'entitySource'")
+        if sum(1 for prop in (self.start_node.direct_relation_property, self.end_node.direct_relation_property) if prop is not None) != 1:
+            raise ValueError("You must set 'directRelationProperty' for at either of 'startNode' or 'endNode'")
         return self
 
 
@@ -196,8 +196,8 @@ def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.Nod
 
 
 def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[DirectRelationMapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
-    mapping_by_entity_source: dict[dm.ViewId, DirectRelationMapping] = {mapping.entity_source.as_view_id(): mapping for mapping in
-                                                          mappings}
+    mapping_by_entity_source: dict[dm.ViewId, DirectRelationMapping] = {mapping.end_node.as_view_id(): mapping for mapping in
+                                                                        mappings}
     annotation_by_source_by_node: dict[
         dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]] = defaultdict(lambda: defaultdict(list))
     for annotation in annotations:
@@ -210,16 +210,16 @@ def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnota
         if mapping is None:
             logger.warning(f"No mapping found for entity source {entity_source}")
             continue
-        if mapping.file_source.direct_relation_property is not None:
+        if mapping.start_node.direct_relation_property is not None:
             update_node = annotation.start_node
-            direct_relation_property = mapping.file_source.direct_relation_property
+            direct_relation_property = mapping.start_node.direct_relation_property
             other_side = annotation.end_node
-            view_id = mapping.file_source.as_view_id()
-        elif mapping.entity_source.direct_relation_property is not None:
+            view_id = mapping.start_node.as_view_id()
+        elif mapping.end_node.direct_relation_property is not None:
             update_node = annotation.end_node
-            direct_relation_property = mapping.entity_source.direct_relation_property
+            direct_relation_property = mapping.end_node.direct_relation_property
             other_side = annotation.start_node
-            view_id = mapping.entity_source.as_view_id()
+            view_id = mapping.end_node.as_view_id()
         else:
             raise ValueError(
                 f"Neither file source nor entity source has a direct relation property for annotation {annotation.external_id}")

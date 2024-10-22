@@ -6,21 +6,21 @@ config:
   data:
     annotationSpace: '{{ annotationSpace }}'
     directRelationMappings:
-      - fileSource:
+      - startNode:
           space: {{ schemaSpace }}
           externalId: CogniteFile
           version: v1
           directRelationProperty: assets
-        entitySource:
+        endNode:
           space: {{ schemaSpace }}
           externalId: CogniteAsset
           version: v1
-      - fileSource:
+      - startNode:
           type: view
           space: {{ schemaSpace }}
           externalId: CogniteFile
           version: v1
-        entitySource:
+        endNode:
           type: viewProperty
           space: {{ schemaSpace }}
           externalId: CogniteEquipment
