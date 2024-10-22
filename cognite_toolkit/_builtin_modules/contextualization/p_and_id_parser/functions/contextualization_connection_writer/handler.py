@@ -16,6 +16,7 @@ from pydantic.alias_generators import to_camel
 FUNCTION_ID = "connection_writer"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_direct_relation_write"
 EXTERNAL_ID_LIMIT = 256
+EXTRACTION_RUN_MESSAGE_LIMIT = 1000
 
 
 def handle(data: dict, client: CogniteClient) -> dict:
@@ -30,7 +31,12 @@ def handle(data: dict, client: CogniteClient) -> dict:
 
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
-        message = f'ERROR {FUNCTION_ID}: "{e!s}"{suffix}'[:1000]
+        prefix = f"ERROR {FUNCTION_ID}: "
+        error_msg = f'"{e!s}"'
+        message = prefix + error_msg + suffix
+        if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
+            error_msg = error_msg[:EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix)- 3]
+            message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
         message = FUNCTION_ID
@@ -93,7 +99,7 @@ class DirectRelationMapping(BaseModel, alias_generator=to_camel):
 
 class ConfigData(BaseModel, alias_generator=to_camel):
     annotation_space: str
-    direct_relation_mapping: list[DirectRelationMapping]
+    direct_relation_mappings: list[DirectRelationMapping]
 
 
 class ConfigState(BaseModel, alias_generator=to_camel):
@@ -142,7 +148,9 @@ def execute(data: dict, client: CogniteClient) -> None:
     state = State.from_cdf(client, config.state)
     connection_count = 0
     for annotation_list in iterate_new_approved_annotations(state, client, config.data.annotation_space, logger):
-        annotation_by_source_by_node = to_direct_relations_by_source_by_node(annotation_list, config.data.mappings, logger)
+        annotation_by_source_by_node = to_direct_relations_by_source_by_node(
+            annotation_list, config.data.direct_relation_mappings, logger
+        )
         connections = write_connections(annotation_by_source_by_node, client, logger)
         connection_count += connections
 
@@ -240,6 +248,7 @@ def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.Que
             "annotations": dm.query.EdgeResultSetExpression(
                 from_=None,
                 filter=is_annotation,
+                limit=1000,
             )
         },
         select={
