@@ -42,12 +42,6 @@ Group:
     origin: cognite-toolkit
   name: gp_transformations_timeseries_to_equipment
   sourceId: <not set>
-Space:
-- description: 'This space contains data to contextualize.
-
-    '
-  name: Instance space
-  space: springfield_instances
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
