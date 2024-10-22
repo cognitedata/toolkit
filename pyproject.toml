@@ -43,6 +43,7 @@ pytest-freezegun = "^0.4.2"
 pytest-cov = "^5.0.0"
 setuptools = "^75.0.0"
 fastparquet = "^2024.5.0"
+pyperclip = "^1.9.0"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
