@@ -27,10 +27,14 @@ def handle(data: dict, client: CogniteClient) -> dict:
         execute(data, client)
     except Exception as e:
         tb = traceback.extract_tb(e.__traceback__)
-        last_entry = tb[-1]
+        last_entry_this_file = next((entry for entry in reversed(tb) if entry.filename == __file__), None)
+        suffix = ""
+        if last_entry_this_file:
+            suffix = f" in function {last_entry_this_file.name} on line {last_entry_this_file.lineno}: {last_entry_this_file.line}"
+
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
-        message = f"ERROR {FUNCTION_ID}: {e!s} on {last_entry.lineno}"[:1000]
+        message = f'ERROR {FUNCTION_ID}: "{e!s}"{suffix}'[:1000]
     else:
         status = "success"
         message = FUNCTION_ID
@@ -120,7 +124,7 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
         return [cls.from_node(node, search_property) for node in nodes]
 
     @classmethod
-    def from_node(cls, node: dm.Node, search_property) -> "Entity":
+    def from_node(cls, node: dm.Node, search_property: str) -> "Entity":
 
         view_id, properties = next(iter(node.properties.items()))
 
@@ -156,7 +160,7 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
     instance_spaces = config.data.instance_spaces
     jobs: list[DiagramDetectResults] = []
     for job_config in config.data.annotation_jobs:
-        file_view = config.file_source.as_view_id()
+        file_view = job_config.file_source.as_view_id()
         is_view = dm.filters.HasData(views=[file_view])
         is_uploaded = dm.filters.Equals(file_view.as_property_ref("isUploaded"), True)
         is_selected = dm.filters.And(is_view, is_uploaded)
@@ -203,8 +207,7 @@ def get_entities(client: CogniteClient, job_config: AnnotationJobConfig, instanc
     entity_list: list[Entity] = []
     for entity_view in job_config.entity_views:
         for node_list in client.data_modeling.instances(chunk_size=1_000, instance_type="node", space=instance_spaces, sources=[entity_view.as_view_id()]):
-
-            entity_list.append(Entity.from_node(node_list, entity_view.search_property))
+            entity_list.extend(Entity.from_nodes(node_list, entity_view.search_property))
     logger.debug(f"Found {len(entity_list)} entities for {job_config.file_source.external_id}")
     return entity_list
 
@@ -243,7 +246,7 @@ def write_annotations(result: DiagramDetectResults, client: CogniteClient, annot
     create_count = sum([1 for result in created if result.was_modified and result.created_time == result.last_updated_time])
     update_count = sum([1 for result in created if result.was_modified and result.created_time != result.last_updated_time])
     unchanged_count = len(created) - create_count - update_count
-    logger.info(f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {job.file_id}")
+    logger.info(f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {result.job_id}")
     return annotation_list
 
 
