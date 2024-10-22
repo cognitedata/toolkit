@@ -20,6 +20,8 @@ SKIP_ACLS = frozenset(
         capabilities.LegacyGenericsAcl,
         capabilities.LegacyModelHostingAcl,
         capabilities.ExperimentsAcl,
+        capabilities.ProjectsAcl,
+        capabilities.UserProfilesAcl,
     }
 )
 

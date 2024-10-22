@@ -183,12 +183,6 @@ Group:
       - READ
       scope:
         all: {}
-  - projectsAcl:
-      actions:
-      - CREATE
-      - DELETE
-      scope:
-        all: {}
   - rawAcl:
       actions:
       - LIST
@@ -285,11 +279,6 @@ Group:
   - typesAcl:
       actions:
       - WRITE
-      - READ
-      scope:
-        all: {}
-  - userProfilesAcl:
-      actions:
       - READ
       scope:
         all: {}
