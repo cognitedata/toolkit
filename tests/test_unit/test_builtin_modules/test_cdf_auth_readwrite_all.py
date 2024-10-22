@@ -57,9 +57,7 @@ def read_write_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) ->
     assert read_write_resource is not None
 
     loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None)
-    groups = loader.load_resource(read_write_resource.destination, cdf_tool_mock, skip_validation=False)
-    assert len(groups) == 1
-    return groups[0]
+    return loader.load_resource(read_write_resource.destination, cdf_tool_mock, skip_validation=False)
 
 
 @pytest.fixture
@@ -69,9 +67,7 @@ def readonly_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) -> G
     assert readonly_resource is not None
 
     loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None)
-    groups = loader.load_resource(readonly_resource.destination, cdf_tool_mock, skip_validation=False)
-    assert len(groups) == 1
-    return groups[0]
+    return loader.load_resource(readonly_resource.destination, cdf_tool_mock, skip_validation=False)
 
 
 def get_all_capabilities(readonly: bool = False) -> list[capabilities.Capability]:

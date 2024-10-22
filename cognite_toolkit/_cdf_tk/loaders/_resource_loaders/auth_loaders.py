@@ -276,7 +276,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for key, method in source.items()
         }
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> GroupWriteList:
+    def load_resource(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> GroupWrite | GroupWriteList | None:
         raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
 
         group_write_list = GroupWriteList([])
@@ -316,6 +318,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
             group_write_list.append(loaded)
 
+        if len(group_write_list) == 0:
+            return None
+        if len(group_write_list) == 1:
+            return group_write_list[0]
         return group_write_list
 
     def _are_equal(
