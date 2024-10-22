@@ -1,4 +1,5 @@
 import json
+import traceback
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
 from typing import Literal, ClassVar, TypeVar, Self
@@ -21,9 +22,15 @@ def handle(data: dict, client: CogniteClient) -> dict:
     try:
         execute(data, client)
     except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        last_entry_this_file = next((entry for entry in reversed(tb) if entry.filename == __file__), None)
+        suffix = ""
+        if last_entry_this_file:
+            suffix = f" in function {last_entry_this_file.name} on line {last_entry_this_file.lineno}: {last_entry_this_file.line}"
+
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
-        message = f"ERROR {FUNCTION_ID}: {e!s}"[:1000]
+        message = f'ERROR {FUNCTION_ID}: "{e!s}"{suffix}'[:1000]
     else:
         status = "success"
         message = FUNCTION_ID
