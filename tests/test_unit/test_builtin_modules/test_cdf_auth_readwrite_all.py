@@ -81,7 +81,7 @@ def get_all_capabilities(readonly: bool = False) -> list[capabilities.Capability
             continue
         actions = list(capability_cls.Action)
         if readonly:
-            actions = [action for action in actions if action.name in READ_ACTIONS]
+            actions = [action for action in actions if action.value in READ_ACTIONS]
         available_scopes = vars(capability_cls.Scope)
         if "All" not in available_scopes:
             raise ValueError(f"Capability {capability_cls} does not have a scope named 'All'")
@@ -112,7 +112,7 @@ class TestCDFAuthReadWriteAll:
             not missing_capabilities
         ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."
 
-    def test_readdonly_group_is_up_to_date(self, readonly_group: GroupWrite) -> None:
+    def test_readonly_group_is_up_to_date(self, readonly_group: GroupWrite) -> None:
         missing_capabilities = IAMAPI.compare_capabilities(
             readonly_group.capabilities, get_all_capabilities(readonly=True)
         )
@@ -124,7 +124,6 @@ class TestCDFAuthReadWriteAll:
         # Similar to the previous test, this test will fail typically after you have updated the
         # cognite-sdk-python package.
         # Running this you need to update the 'gp_admin_readonly' group in the 'cdf_auth_readwrite_all' module.
-
         assert (
             not missing_capabilities
         ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard"
