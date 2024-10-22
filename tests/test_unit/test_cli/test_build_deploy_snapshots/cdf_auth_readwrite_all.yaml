@@ -7,145 +7,312 @@ Group:
       - UPDATE
       scope:
         all: {}
-  - groupsAcl:
+  - analyticsAcl:
       actions:
-      - LIST
       - READ
-      - CREATE
-      - UPDATE
-      - DELETE
+      - EXECUTE
+      - LIST
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+      - WRITE
+      - REVIEW
+      - READ
+      - SUGGEST
       scope:
         all: {}
   - assetsAcl:
       actions:
-      - READ
       - WRITE
+      - READ
       scope:
         all: {}
-  - filesAcl:
+  - auditlogAcl:
       actions:
       - READ
-      - WRITE
-      scope:
-        all: {}
-  - rawAcl:
-      actions:
-      - READ
-      - WRITE
-      - LIST
-      scope:
-        all: {}
-  - timeSeriesAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        all: {}
-  - dataModelsAcl:
-      actions:
-      - READ
-      - WRITE
       scope:
         all: {}
   - dataModelInstancesAcl:
       actions:
-      - READ
+      - WRITE_PROPERTIES
       - WRITE
+      - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+      - WRITE
+      - READ
       scope:
         all: {}
   - datasetsAcl:
       actions:
-      - READ
       - WRITE
       - OWNER
+      - READ
       scope:
         all: {}
-  - extractionPipelinesAcl:
+  - digitalTwinAcl:
       actions:
-      - READ
       - WRITE
+      - READ
       scope:
         all: {}
-  - extractionRunsAcl:
+  - documentFeedbackAcl:
       actions:
+      - CREATE
       - READ
+      - DELETE
+      scope:
+        all: {}
+  - documentPipelinesAcl:
+      actions:
       - WRITE
+      - READ
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+      - WRITE
+      - READ
       scope:
         all: {}
   - extractionConfigsAcl:
       actions:
-      - READ
       - WRITE
+      - READ
+      scope:
+        all: {}
+  - extractionPipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - extractionRunsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - filePipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+      - WRITE
+      - READ
       scope:
         all: {}
   - functionsAcl:
       actions:
-      - READ
       - WRITE
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - LIST
-      - CREATE
-      - DELETE
-      scope:
-        all: {}
-  - transformationsAcl:
-      actions:
       - READ
-      - WRITE
       scope:
         all: {}
-  - workflowOrchestrationAcl:
+  - geospatialAcl:
       actions:
+      - WRITE
       - READ
-      - WRITE
       scope:
         all: {}
-  - securityCategoriesAcl:
+  - geospatialCrsAcl:
       actions:
-      - LIST
-      - MEMBEROF
-      - DELETE
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
       - CREATE
       - UPDATE
+      - READ
+      - LIST
+      - DELETE
       scope:
         all: {}
-  - timeSeriesSubscriptionsAcl:
+  - hostedExtractorsAcl:
       actions:
-      - READ
       - WRITE
+      - READ
       scope:
         all: {}
   - labelsAcl:
       actions:
-      - READ
       - WRITE
-      scope:
-        all: {}
-  - threedAcl:
-      actions:
       - READ
-      - CREATE
-      - UPDATE
-      - DELETE
       scope:
         all: {}
   - locationFiltersAcl:
       actions:
-      - READ
       - WRITE
+      - READ
+      scope:
+        all: {}
+  - monitoringTasksAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - notificationsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - pipelinesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - postgresGatewayAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - CREATE
+      - DELETE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - LIST
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - CREATE
+      - UPDATE
+      - READ
+      - DELETE
+      scope:
+        all: {}
+  - scheduledCalculationsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+      - CREATE
+      - MEMBEROF
+      - UPDATE
+      - LIST
+      - DELETE
+      scope:
+        all: {}
+  - seismicAcl:
+      actions:
+      - WRITE
+      - READ
       scope:
         all: {}
   - sequencesAcl:
       actions:
-      - READ
       - WRITE
+      - READ
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      - LIST
+      - DELETE
+      scope:
+        all: {}
+  - templateGroupsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - templateInstancesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - threedAcl:
+      actions:
+      - CREATE
+      - UPDATE
+      - READ
+      - DELETE
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - typesAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - userProfilesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - wellsAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - workflowOrchestrationAcl:
+      actions:
+      - WRITE
+      - READ
       scope:
         all: {}
   metadata:
-    origin: cdf-project-templates
+    origin: cognite-toolkit
   name: gp_admin_read_write
   sourceId: <change_me>
 - capabilities:
@@ -155,9 +322,14 @@ Group:
       - READ
       scope:
         all: {}
-  - groupsAcl:
+  - analyticsAcl:
       actions:
+      - READ
       - LIST
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
       - READ
       scope:
         all: {}
@@ -166,26 +338,9 @@ Group:
       - READ
       scope:
         all: {}
-  - filesAcl:
+  - auditlogAcl:
       actions:
       - READ
-      scope:
-        all: {}
-  - rawAcl:
-      actions:
-      - READ
-      - LIST
-      scope:
-        all: {}
-  - timeSeriesAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - dataModelsAcl:
-      actions:
-      - READ
-      - WRITE
       scope:
         all: {}
   - dataModelInstancesAcl:
@@ -193,7 +348,42 @@ Group:
       - READ
       scope:
         all: {}
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - datasetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - digitalTwinAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - documentFeedbackAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - documentPipelinesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - extractionConfigsAcl:
       actions:
       - READ
       scope:
@@ -208,7 +398,12 @@ Group:
       - READ
       scope:
         all: {}
-  - extractionConfigsAcl:
+  - filePipelinesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - filesAcl:
       actions:
       - READ
       scope:
@@ -218,67 +413,23 @@ Group:
       - READ
       scope:
         all: {}
-  - sessionsAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
-  - transformationsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - filePipelinesAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - annotationsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - documentFeedbackAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - securityCategoriesAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
-  - hostedExtractorsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - visionModelAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  - roboticsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
   - geospatialAcl:
       actions:
       - READ
       scope:
         all: {}
-  - workflowOrchestrationAcl:
+  - geospatialCrsAcl:
       actions:
       - READ
       scope:
         all: {}
-  - securityCategoriesAcl:
+  - groupsAcl:
       actions:
+      - READ
       - LIST
       scope:
         all: {}
-  - timeSeriesSubscriptionsAcl:
+  - hostedExtractorsAcl:
       actions:
       - READ
       scope:
@@ -288,18 +439,129 @@ Group:
       - READ
       scope:
         all: {}
+  - locationFiltersAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - monitoringTasksAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - notificationsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - pipelinesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - postgresGatewayAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - relationshipsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - scheduledCalculationsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - securityCategoriesAcl:
+      actions:
+      - LIST
+      - MEMBEROF
+      scope:
+        all: {}
+  - seismicAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - sequencesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - templateGroupsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - templateInstancesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - threedAcl:
       actions:
       - READ
       scope:
         all: {}
-  - locationFiltersAcl:
+  - timeSeriesAcl:
       actions:
       - READ
-      - WRITE
+      scope:
+        all: {}
+  - timeSeriesSubscriptionsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - typesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - userProfilesAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - wellsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - workflowOrchestrationAcl:
+      actions:
+      - READ
       scope:
         all: {}
   metadata:
-    origin: cdf-project-templates
+    origin: cognite-toolkit
   name: gp_admin_readonly
   sourceId: <change_me>
