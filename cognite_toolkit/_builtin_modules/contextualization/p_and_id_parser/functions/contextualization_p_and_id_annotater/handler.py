@@ -57,8 +57,6 @@ def handle(data: dict, client: CogniteClient) -> dict:
             message=message
         )
     )
-    # Need to run at least daily or the sync endpoint will forget the cursors
-    # (max time is 3 days).
     return {"status": status, "message": message}
 
 ################# Data Classes #################
