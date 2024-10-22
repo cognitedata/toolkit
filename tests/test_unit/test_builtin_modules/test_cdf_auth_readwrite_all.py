@@ -109,6 +109,11 @@ class TestCDFAuthReadWriteAll:
         missing_capabilities = IAMAPI.compare_capabilities(
             readonly_group.capabilities, get_all_capabilities(readonly=True)
         )
+        if missing_capabilities:
+            merged = AuthCommand._merge_capabilities(missing_capabilities)
+            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            pyperclip.copy(missing_yaml)
+
         assert (
             not missing_capabilities
         ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard"
