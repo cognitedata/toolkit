@@ -41,7 +41,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
         prefix = f"ERROR {FUNCTION_ID}: "
-        error_msg = '"{e!s}"'
+        error_msg = f'"{e!s}"'
         message = prefix + error_msg + suffix
         if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
             error_msg = error_msg[:EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix)- 3]
