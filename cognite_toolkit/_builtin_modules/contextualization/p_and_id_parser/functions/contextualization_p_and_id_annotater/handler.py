@@ -150,6 +150,9 @@ def execute(data: dict, client: CogniteClient) -> None:
 
     annotation_count = 0
     for result in wait_for_completion(jobs, logger):
+        if result.errors:
+            logger.warning(f"Job {result.job_id} failed: {result.errors}")
+            continue
         annotations = write_annotations(result, client, config.data.annotation_space, config.source_system, config.parameters, logger)
         annotation_count += len(annotations)
 
