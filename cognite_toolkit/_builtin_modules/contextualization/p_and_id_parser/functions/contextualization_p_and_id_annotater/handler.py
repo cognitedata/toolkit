@@ -98,20 +98,30 @@ class CogniteFunctionLogger:
     def __init__(self, log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"):
         self.log_level = log_level.upper()
 
+    def _print(self, prefix: str, message: str) -> None:
+        if "\n" not in message:
+            print(f"{prefix} {message}")
+            return
+        lines = message.split("\n")
+        print(f"{prefix} {lines[0]}")
+        prefix_len = len(prefix)
+        for line in lines[1:]:
+            print(f"{' ' * prefix_len} {line}")
+
     def debug(self, message: str):
         if self.log_level == "DEBUG":
-            print(f"[DEBUG] {message}")
+            self._print("[DEBUG]", message)
 
     def info(self, message: str):
         if self.log_level in ("DEBUG", "INFO"):
-            print(f"[INFO] {message}")
+            self._print("[INFO]", message)
 
     def warning(self, message: str):
         if self.log_level in ("DEBUG", "INFO", "WARNING"):
-            print(f"[WARNING] {message}")
+            self._print("[WARNING]", message)
 
     def error(self, message: str):
-        print(f"[ERROR] {message}")
+        self._print("[ERROR]", message)
 
 
 class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
@@ -151,7 +161,8 @@ def execute(data: dict, client: CogniteClient) -> None:
     annotation_count = 0
     for result in wait_for_completion(jobs, logger):
         if result.errors:
-            logger.warning(f"Job {result.job_id} failed: {result.errors}")
+            logger.error(f"Job {result.job_id} {len(result.errors)} files failed:")
+            logger.error("\n    ".join(sorted(set(result.errors))))
             continue
         annotations = write_annotations(result, client, config.data.annotation_space, config.source_system, config.parameters, logger)
         annotation_count += len(annotations)
