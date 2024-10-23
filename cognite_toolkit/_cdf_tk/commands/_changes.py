@@ -68,7 +68,7 @@ After `your_file.FileMetadata.yaml`:
                     if loader is None:
                         print(f"Could not find loader for {source_file}")
                         continue
-                    if source_file.stem.casefold().endswith(loader.kind):
+                    if source_file.stem.casefold().endswith(loader.kind.casefold()):
                         continue
                     source_file.rename(source_file.with_name(f"{source_file.stem}.{loader.kind}{source_file.suffix}"))
                     changed.add(source_file)
