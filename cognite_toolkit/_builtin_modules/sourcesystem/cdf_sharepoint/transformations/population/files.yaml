@@ -12,10 +12,10 @@ ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
 authentication:
-  clientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
-  clientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
-  tokenUri: ${IDP_TOKEN_URL}
-  cdfProjectName: ${CDF_PROJECT}
-  audience: ${CDF_URL}
+  clientId: {{ transformationClientId }}
+  clientSecret: {{ transformationClientSecret }}
+  tokenUri: {{ transformationTokenUri }}
+  cdfProjectName: {{ transformationCdfProjectName }}
+  audience: {{ transformationAudience}}
   scopes:
-  - ${IDP_SCOPES}
+  - {{ transformationScope }}
