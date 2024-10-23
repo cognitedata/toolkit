@@ -13,6 +13,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.builders import get_loader
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -62,7 +63,11 @@ After `your_file.FileMetadata.yaml`:
         for module in module_directories:
             for resource_folder, source_files in module.source_paths_by_resource_folder.items():
                 for source_file in source_files:
-                    loader, warning = get_loader(source_file, resource_folder)
+                    try:
+                        loader, warning = get_loader(source_file, resource_folder)
+                    except ToolkitError:
+                        # Unsupported file type
+                        continue
                     if loader is None:
                         print(f"Could not find loader for {source_file}")
                         continue
