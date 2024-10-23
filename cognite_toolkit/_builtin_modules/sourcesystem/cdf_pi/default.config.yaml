@@ -5,3 +5,9 @@ transformationServicePrincipalGroupObjectId: <not set>
 dataset: aveva_pi_population # can also contain location aveva_pi_springfield_population
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
+transformationClientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+transformationClientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+transformationTokenUri: ${IDP_TOKEN_URL}
+transformationCdfProjectName: ${CDF_PROJECT}
+transformationAudience: ${CDF_URL}
+transformationScope: ${IDP_SCOPES}
