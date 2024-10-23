@@ -1,30 +1,47 @@
 import json
+import traceback
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
-from pathlib import Path
-from typing import Literal, ClassVar, TypeVar
+from typing import Literal, ClassVar, TypeVar, Self
+from cognite.client.config import global_config
 
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
 import yaml
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply, CogniteDiagramAnnotation
 
-from pydantic import BaseModel
+from pydantic import BaseModel,  model_validator
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "connection_writer"
-EXTRACTION_PIPELINE_EXTERNAL_ID = yaml.safe_load(Path("extraction_pipeline.yaml").read_text())["externalId"]
+EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_direct_relation_write"
 EXTERNAL_ID_LIMIT = 256
+EXTRACTION_RUN_MESSAGE_LIMIT = 1000
 
 
 def handle(data: dict, client: CogniteClient) -> dict:
     try:
         execute(data, client)
     except Exception as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        last_entry_this_file = next((entry for entry in reversed(tb) if entry.filename == __file__), None)
+        suffix = ""
+        if last_entry_this_file:
+            suffix = f" in function {last_entry_this_file.name} on line {last_entry_this_file.lineno}: {last_entry_this_file.line}"
+
         status: Literal["failure", "success"] = "failure"
         # Truncate the error message to 1000 characters the maximum allowed by the API
-        message = f"ERROR {FUNCTION_ID}: {e!s}"[:1000]
+        prefix = f"ERROR {FUNCTION_ID}: "
+        error_msg = f'"{e!s}"'
+        message = prefix + error_msg + suffix
+        if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
+            error_msg = error_msg[:EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix)- 3]
+            message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
         message = FUNCTION_ID
@@ -48,20 +65,30 @@ class CogniteFunctionLogger:
     def __init__(self, log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"):
         self.log_level = log_level.upper()
 
+    def _print(self, prefix: str, message: str) -> None:
+        if "\n" not in message:
+            print(f"{prefix} {message}")
+            return
+        lines = message.split("\n")
+        print(f"{prefix} {lines[0]}")
+        prefix_len = len(prefix)
+        for line in lines[1:]:
+            print(f"{' ' * prefix_len} {line}")
+
     def debug(self, message: str):
         if self.log_level == "DEBUG":
-            print(f"[DEBUG] {message}")
+            self._print("[DEBUG]", message)
 
     def info(self, message: str):
         if self.log_level in ("DEBUG", "INFO"):
-            print(f"[INFO] {message}")
+            self._print("[INFO]", message)
 
     def warning(self, message: str):
         if self.log_level in ("DEBUG", "INFO", "WARNING"):
-            print(f"[WARNING] {message}")
+            self._print("[WARNING]", message)
 
     def error(self, message: str):
-        print(f"[ERROR] {message}")
+        self._print("[ERROR]", message)
 
 
 class ViewProperty(BaseModel, alias_generator=to_camel):
@@ -69,21 +96,25 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
     external_id: str
     version: str
     direct_relation_property: str | None = None
-    search_property: str = "name"
 
     def as_view_id(self) -> dm.ViewId:
         return dm.ViewId(space=self.space, external_id=self.external_id, version=self.version)
 
 
-class Mapping(BaseModel, alias_generator=to_camel):
-    file_source: ViewProperty
-    entity_source: ViewProperty
+class DirectRelationMapping(BaseModel, alias_generator=to_camel):
+    start_node_view: ViewProperty
+    end_node_view: ViewProperty
+
+    @model_validator(mode="after")
+    def direct_relation_is_set(self) -> Self:
+        if sum(1 for prop in (self.start_node_view.direct_relation_property, self.end_node_view.direct_relation_property) if prop is not None) != 1:
+            raise ValueError("You must set 'directRelationProperty' for at either of 'startNode' or 'endNode'")
+        return self
 
 
 class ConfigData(BaseModel, alias_generator=to_camel):
-    instance_spaces: list[str]
     annotation_space: str
-    mappings: list[Mapping]
+    direct_relation_mappings: list[DirectRelationMapping]
 
 
 class ConfigState(BaseModel, alias_generator=to_camel):
@@ -121,7 +152,6 @@ class State(BaseModel):
         )
 
 
-
 ################# Functions #################
 
 def execute(data: dict, client: CogniteClient) -> None:
@@ -133,7 +163,9 @@ def execute(data: dict, client: CogniteClient) -> None:
     state = State.from_cdf(client, config.state)
     connection_count = 0
     for annotation_list in iterate_new_approved_annotations(state, client, config.data.annotation_space, logger):
-        annotation_by_source_by_node = to_direct_relations_by_source_by_node(annotation_list, config.data.mappings, logger)
+        annotation_by_source_by_node = to_direct_relations_by_source_by_node(
+            annotation_list, config.data.direct_relation_mappings, logger
+        )
         connections = write_connections(annotation_by_source_by_node, client, logger)
         connection_count += connections
 
@@ -186,28 +218,38 @@ def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.Nod
     return connection_count
 
 
-def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[Mapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
-    mapping_by_entity_source: dict[dm.ViewId, Mapping] = {mapping.entity_source.as_view_id(): mapping for mapping in
-                                                          mappings}
+def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[DirectRelationMapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
+    mapping_by_entity_source: dict[tuple[dm.ViewId, dm.ViewId], DirectRelationMapping] = {
+        (mapping.start_node_view.as_view_id(), mapping.end_node_view.as_view_id()): mapping for mapping in
+                                                                        mappings}
     annotation_by_source_by_node: dict[
         dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]] = defaultdict(lambda: defaultdict(list))
     for annotation in annotations:
         try:
-            entity_source = dm.ViewId.load(json.loads(annotation.source_context)["source"])
-        except (json.JSONDecodeError, KeyError):
-            logger.warning(f"Could not parse source context for annotation {annotation.external_id}")
+            source_context = json.loads(annotation.source_context)
+        except json.JSONDecodeError:
+            logger.error(f"Could not parse source context for annotation {annotation.external_id}")
             continue
-        mapping = mapping_by_entity_source.get(entity_source)
-        if mapping.file_source.direct_relation_property is not None:
+        try:
+            start_view = dm.ViewId.load(source_context["start"])
+            end_view = dm.ViewId.load(source_context["end"])
+        except KeyError:
+            logger.error(f"Missing start or end in source context for annotation {annotation.external_id}")
+            continue
+        mapping = mapping_by_entity_source.get((start_view, end_view))
+        if mapping is None:
+            logger.warning(f"No mapping found for entity source {(start_view, end_view)} for annotation {annotation.external_id}")
+            continue
+        if mapping.start_node_view.direct_relation_property is not None:
             update_node = annotation.start_node
-            direct_relation_property = mapping.file_source.direct_relation_property
+            direct_relation_property = mapping.start_node_view.direct_relation_property
             other_side = annotation.end_node
-            view_id = mapping.file_source.as_view_id()
-        elif mapping.entity_source.direct_relation_property is not None:
+            view_id = mapping.start_node_view.as_view_id()
+        elif mapping.end_node_view.direct_relation_property is not None:
             update_node = annotation.end_node
-            direct_relation_property = mapping.entity_source.direct_relation_property
+            direct_relation_property = mapping.end_node_view.direct_relation_property
             other_side = annotation.start_node
-            view_id = mapping.entity_source.as_view_id()
+            view_id = mapping.end_node_view.as_view_id()
         else:
             raise ValueError(
                 f"Neither file source nor entity source has a direct relation property for annotation {annotation.external_id}")
@@ -228,6 +270,7 @@ def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.Que
             "annotations": dm.query.EdgeResultSetExpression(
                 from_=None,
                 filter=is_annotation,
+                limit=1000,
             )
         },
         select={

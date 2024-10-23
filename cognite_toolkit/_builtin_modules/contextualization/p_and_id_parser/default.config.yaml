@@ -13,3 +13,5 @@ workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
 rawDatabase: contextualizationState
 rawTable: diagramParsing
 workflow: p_and_id_parser
+annotatorJob: ctx_files_pandid_annotater
+directRelationJob: ctx_files_direct_relation_write
