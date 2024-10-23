@@ -8,28 +8,69 @@ ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
   description: Writes direct relations based on annotations.
+  documentation: "# Direct Relation Writer\nThis extraction pipeline is responsible\
+    \ for writing the direct relations into  a data model based on annotations.\n\
+    ## Annotations Annotations are found based on three criteria:\n1. It has to have\
+    \ data in the (`cdf_cdm\", \"CogniteAnnotation`, `v1`) view. 2. It is stored in\
+    \ the space configured in the `annotationSpace`. 3. It has to have a `sourceContext`\
+    \ that contains the views of the start and end nodes of the relations.\n```json\
+    \ {\"start\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\": \"CogniteFile\"\
+    ,\n  \"version\": \"v1\"\n}, \"end\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\"\
+    : \"CogniteAsset\",\n  \"version\": \"v1\"\n}} ```\n## Configuration\nThe configuration\
+    \ of the direct relation writer:\n```yaml state: # The Annotation writer uses\
+    \ the instances/sync endpoint to fetch annotations. \n  # The state stores the\
+    \ last cursor.\n  rawDatabase: <>\n  rawTable: <>\ndata:\n  annotationSpace: <>\
+    \ # The space the edges for the annotations are stored.\n  directRelationMapping:\
+    \ # How to go from Annotation to DirectRelation\n    - startNodeView: # The view\
+    \ of the start node.\n       space: <> .\n       externalId: <>\n       version:\
+    \ <> \n       directRelationProperty: <> # The property that contains the direct\
+    \ relation.\n        # Must be set either on the start or end node.\n      endNodeView:\
+    \ # The view of the end node.\n        space: <>\n        externalId: <>\n   \
+    \     version: <>\n        # directRelationProperty: <> # Must be set either on\
+    \ the start or end node.\n```\n"
   externalId: ctx_files_direct_relation_write
   name: Direct Relation Writer
 - createdBy: unknown
   dataSetId: 42
   description: Annotation of P&ID documents
+  documentation: "# P&ID Annotator\nThis extraction pipeline is responsible for annotating\
+    \ P&ID diagrams. This means it looks for, for example, assets, equipments, timeseries,\
+    \ and so on, in a PDF file containing a P&ID diagram.\n## Configuration\n```yaml\n\
+    \  parameters:\n    autoApprovalThreshold: # Automatically set the annotation\
+    \ as approved if the confidence is above this threshold\n    autoRejectThreshold:\
+    \ # Automatically reject the annotation if the confidence is below this threshold\n\
+    \  sourceSystem: # The source system of the annotations written by this pipeline\n\
+    \    space: <>\n    externalId: <>\n  data:\n    annotationSpace: # The space\
+    \ to write the annotations to\n    instanceSpaces:\n      - # The space to fetch\
+    \ entities such as Assets, Equipment, etc. from\n      - # Another space to fetch\
+    \ entities from\n    annotationJobs:\n      - fileView: # The file view containing\
+    \ the P&ID diagram.\n            # This is expected to be or implement the (cdf_cdm,\
+    \ CogniteFile, v1) view.\n            # In addition, a file should be uploaded\
+    \ and be of mimeType \n            # 'application/pdf', 'image/jpeg', 'image/png',\
+    \  or 'image/tiff'.\n          space: <>\n          externalId: <>\n         \
+    \ version: <>\n      entityViews: # The views to find the entities.\n        -\
+    \ space: <view space>\n          externalId: <view external ID>\n          version:\
+    \ <view version>\n          searchProperty: <view property> # The TEXT/STRING\
+    \ property with the \n            # entity name to search for in the P&ID diagram(s).\n\
+    \        - space: <>\n          externalId: <>\n          version: <>\n      \
+    \    searchProperty: <>\n```\n"
   externalId: ctx_files_pandid_annotater
   name: P&ID Annotater
 ExtractionPipelineConfig:
 - config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
     data:\n  annotationSpace: sp_p_and_id_parser\n  directRelationMappings:\n    -\
-    \ startNode:\n        space: cdf_cdm\n        externalId: CogniteFile\n      \
-    \  version: v1\n        directRelationProperty: assets\n      endNode:\n     \
-    \   space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n  \
-    \  - startNode:\n        type: view\n        space: cdf_cdm\n        externalId:\
-    \ CogniteFile\n        version: v1\n      endNode:\n        type: viewProperty\n\
+    \ startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n  \
+    \      version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
+    \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
+    \ CogniteFile\n        version: v1\n      endNodeView:\n        type: viewProperty\n\
     \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
     \ v1\n        directRelationProperty: files\n"
   externalId: ctx_files_direct_relation_write
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
     sourceSystem:\n  space: sp_p_and_id_parser\n  externalId: p_and_id_parser\ndata:\n\
     \  annotationSpace: sp_p_and_id_parser\n  instanceSpaces:\n    ['files_metadata_instances',\
-    \ 'springfield_sap', 'sp_p_and_id_parser']\n  annotationJobs:\n    - fileSource:\n\
+    \ 'springfield_sap', 'sp_p_and_id_parser']\n  annotationJobs:\n    - fileView:\n\
     \        space: cdf_cdm\n        externalId: CogniteFile\n        version: v1\n\
     \      entityViews:\n        - space: cdf_cdm\n          externalId: CogniteEquipment\n\
     \          version: v1\n          searchProperty: name\n        - space: cdf_cdm\n\
@@ -43,7 +84,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 8b5be8d056a946987542ae1ef25686fbb587927bebe13b3e70758ee71b01a2ff
+    cdf-toolkit-function-hash: 4cddb9fa53f9c0610242b8c214a2a084e4a4c4ea6bd5f64536af50a0962749c5
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 - description: Creates annotations for P&ID diagrams.
@@ -51,7 +92,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 06d921f081b204f5754531a49c34d564672e414b057143599e5072b150a42503
+    cdf-toolkit-function-hash: 9aee40f69795011b6d8ddf2d94003461ee8635950c3434c90a5096fadcef1c91
   name: P&ID Annotator
   owner: Anonymous
 Group:
