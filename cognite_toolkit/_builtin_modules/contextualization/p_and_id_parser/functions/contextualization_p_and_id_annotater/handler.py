@@ -191,6 +191,9 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
         is_selected = dm.filters.And(is_view, is_uploaded, is_file_type)
 
         entities = get_entities(client, job_config, instance_spaces, logger)
+        if not entities:
+            logger.warning(f"No entities found for {job_config.file_view.external_id}")
+            continue
 
         for file_list in client.data_modeling.instances(instance_type="node", space=instance_spaces, filter=is_selected, chunk_size=MAX_FILES_PER_JOB):
             file_ids = file_list.as_ids()
@@ -292,7 +295,7 @@ def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.
             external_id=external_id,
             start_node=(file_id.space, file_id.external_id),
             end_node=(entity.node_id.space, entity.node_id.external_id),
-            type=(annotation_space, entity.view_id.external_id),
+            type=(annotation_space, entity.entity_view.external_id),
             name=text,
             confidence=confidence,
             status=status,
