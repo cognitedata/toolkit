@@ -11,7 +11,7 @@ config:
     instanceSpaces:
       {{ instanceSpaces }}
     annotationJobs:
-      - fileSource:
+      - fileView:
           space: {{ schemaSpace }}
           externalId: CogniteFile
           version: v1

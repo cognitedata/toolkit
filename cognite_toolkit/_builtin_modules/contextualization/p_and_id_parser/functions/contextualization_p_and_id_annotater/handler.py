@@ -79,7 +79,7 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
 
 
 class AnnotationJobConfig(BaseModel, alias_generator=to_camel):
-    file_source: ViewProperty
+    file_view: ViewProperty
     entity_views: list[ViewProperty]
 
 
@@ -135,19 +135,20 @@ class CogniteFunctionLogger:
 
 class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
     node_id: dm.NodeId
-    view_id: dm.ViewId
+    entity_view: dm.ViewId
+    file_view: dm.ViewId
     name: str
 
     @classmethod
-    def from_nodes(cls, nodes: dm.NodeList, search_property: str) -> "list[Entity]":
-        return [cls.from_node(node, search_property) for node in nodes]
+    def from_nodes(cls, nodes: dm.NodeList, file_view: dm.ViewId, search_property: str) -> "list[Entity]":
+        return [cls.from_node(node, file_view, search_property) for node in nodes]
 
     @classmethod
-    def from_node(cls, node: dm.Node, search_property: str) -> "Entity":
+    def from_node(cls, node: dm.Node, file_view: dm.ViewId, search_property: str) -> "Entity":
 
         view_id, properties = next(iter(node.properties.items()))
 
-        return cls(nodeId=node.as_id(), viewId=view_id, name=properties[search_property])
+        return cls(nodeId=node.as_id(), entityView=view_id, fileView=file_view, name=properties[search_property])
 
     @classmethod
     def from_annotation(cls, data) -> "list[Entity]":
@@ -183,7 +184,7 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
     instance_spaces = config.data.instance_spaces
     jobs: list[DiagramDetectResults] = []
     for job_config in config.data.annotation_jobs:
-        file_view = job_config.file_source.as_view_id()
+        file_view = job_config.file_view.as_view_id()
         is_view = dm.filters.HasData(views=[file_view])
         is_uploaded = dm.filters.Equals(file_view.as_property_ref("isUploaded"), True)
         is_file_type = dm.filters.In(file_view.as_property_ref("mimeType"), ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff'])
@@ -231,8 +232,8 @@ def get_entities(client: CogniteClient, job_config: AnnotationJobConfig, instanc
     entity_list: list[Entity] = []
     for entity_view in job_config.entity_views:
         for node_list in client.data_modeling.instances(chunk_size=1_000, instance_type="node", space=instance_spaces, sources=[entity_view.as_view_id()]):
-            entity_list.extend(Entity.from_nodes(node_list, entity_view.search_property))
-    logger.debug(f"Found {len(entity_list)} entities for {job_config.file_source.external_id}")
+            entity_list.extend(Entity.from_nodes(node_list, job_config.file_view.as_view_id(), entity_view.search_property))
+    logger.debug(f"Found {len(entity_list)} entities for {job_config.file_view.external_id}")
     return entity_list
 
 
@@ -306,7 +307,7 @@ def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.
             source_updated_time=now,
             source_created_user=FUNCTION_ID,
             source_updated_user=FUNCTION_ID,
-            source_context=json.dumps({"source": entity.view_id.dump()})
+            source_context=json.dumps({"end": entity.entity_view.dump(), "start": entity.file_view.dump()})
         )
 
 
