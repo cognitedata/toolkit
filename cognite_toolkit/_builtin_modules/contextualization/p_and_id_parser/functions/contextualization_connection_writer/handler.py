@@ -60,20 +60,30 @@ class CogniteFunctionLogger:
     def __init__(self, log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"):
         self.log_level = log_level.upper()
 
+    def _print(self, prefix: str, message: str) -> None:
+        if "\n" not in message:
+            print(f"{prefix} {message}")
+            return
+        lines = message.split("\n")
+        print(f"{prefix} {lines[0]}")
+        prefix_len = len(prefix)
+        for line in lines[1:]:
+            print(f"{' ' * prefix_len} {line}")
+
     def debug(self, message: str):
         if self.log_level == "DEBUG":
-            print(f"[DEBUG] {message}")
+            self._print("[DEBUG]", message)
 
     def info(self, message: str):
         if self.log_level in ("DEBUG", "INFO"):
-            print(f"[INFO] {message}")
+            self._print("[INFO]", message)
 
     def warning(self, message: str):
         if self.log_level in ("DEBUG", "INFO", "WARNING"):
-            print(f"[WARNING] {message}")
+            self._print("[WARNING]", message)
 
     def error(self, message: str):
-        print(f"[ERROR] {message}")
+        self._print("[ERROR]", message)
 
 
 class ViewProperty(BaseModel, alias_generator=to_camel):
@@ -87,12 +97,12 @@ class ViewProperty(BaseModel, alias_generator=to_camel):
 
 
 class DirectRelationMapping(BaseModel, alias_generator=to_camel):
-    start_node: ViewProperty
-    end_node: ViewProperty
+    start_node_view: ViewProperty
+    end_node_view: ViewProperty
 
     @model_validator(mode="after")
     def direct_relation_is_set(self) -> Self:
-        if sum(1 for prop in (self.start_node.direct_relation_property, self.end_node.direct_relation_property) if prop is not None) != 1:
+        if sum(1 for prop in (self.start_node_view.direct_relation_property, self.end_node_view.direct_relation_property) if prop is not None) != 1:
             raise ValueError("You must set 'directRelationProperty' for at either of 'startNode' or 'endNode'")
         return self
 
@@ -204,30 +214,37 @@ def write_connections(annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.Nod
 
 
 def to_direct_relations_by_source_by_node(annotations: list[CogniteDiagramAnnotation], mappings: list[DirectRelationMapping], logger: CogniteFunctionLogger) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
-    mapping_by_entity_source: dict[dm.ViewId, DirectRelationMapping] = {mapping.end_node.as_view_id(): mapping for mapping in
+    mapping_by_entity_source: dict[tuple[dm.ViewId, dm.ViewId], DirectRelationMapping] = {
+        (mapping.start_node_view.as_view_id(), mapping.end_node_view.as_view_id()): mapping for mapping in
                                                                         mappings}
     annotation_by_source_by_node: dict[
         dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]] = defaultdict(lambda: defaultdict(list))
     for annotation in annotations:
         try:
-            entity_source = dm.ViewId.load(json.loads(annotation.source_context)["source"])
-        except (json.JSONDecodeError, KeyError):
-            logger.warning(f"Could not parse source context for annotation {annotation.external_id}")
+            source_context = json.loads(annotation.source_context)
+        except json.JSONDecodeError:
+            logger.error(f"Could not parse source context for annotation {annotation.external_id}")
             continue
-        mapping = mapping_by_entity_source.get(entity_source)
+        try:
+            start_view = dm.ViewId.load(source_context["start"])
+            end_view = dm.ViewId.load(source_context["end"])
+        except KeyError:
+            logger.error(f"Missing start or end in source context for annotation {annotation.external_id}")
+            continue
+        mapping = mapping_by_entity_source.get((start_view, end_view))
         if mapping is None:
-            logger.warning(f"No mapping found for entity source {entity_source}")
+            logger.warning(f"No mapping found for entity source {(start_view, end_view)} for annotation {annotation.external_id}")
             continue
-        if mapping.start_node.direct_relation_property is not None:
+        if mapping.start_node_view.direct_relation_property is not None:
             update_node = annotation.start_node
-            direct_relation_property = mapping.start_node.direct_relation_property
+            direct_relation_property = mapping.start_node_view.direct_relation_property
             other_side = annotation.end_node
-            view_id = mapping.start_node.as_view_id()
-        elif mapping.end_node.direct_relation_property is not None:
+            view_id = mapping.start_node_view.as_view_id()
+        elif mapping.end_node_view.direct_relation_property is not None:
             update_node = annotation.end_node
-            direct_relation_property = mapping.end_node.direct_relation_property
+            direct_relation_property = mapping.end_node_view.direct_relation_property
             other_side = annotation.start_node
-            view_id = mapping.end_node.as_view_id()
+            view_id = mapping.end_node_view.as_view_id()
         else:
             raise ValueError(
                 f"Neither file source nor entity source has a direct relation property for annotation {annotation.external_id}")
