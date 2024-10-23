@@ -304,6 +304,7 @@ module_upgrade/cdf.toml
 ice-cream-dataops
 module_upgrade/*.log
 needle/
-my_*/
 
 tmp.py
+
+my_*/
