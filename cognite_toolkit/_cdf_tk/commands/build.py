@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
+    DataLoader,
     DataModelLoader,
     ExtractionPipelineConfigLoader,
     NodeLoader,
@@ -310,6 +311,8 @@ class BuildCommand(ToolkitCommand):
                     self.warning_list.extend(destination)
                     continue
                 safe_write(destination.path, destination.content)
+                if issubclass(destination.loader, DataLoader):
+                    continue
 
                 file_warnings, identifiers_kind_pairs = self.check_built_resource(
                     destination.loaded,
