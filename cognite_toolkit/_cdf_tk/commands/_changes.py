@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import re
+import shutil
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
@@ -10,7 +11,9 @@ from packaging.version import Version
 from packaging.version import parse as parse_version
 from rich import print
 
+from cognite_toolkit._cdf_tk.builders import get_loader
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
+from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
 from cognite_toolkit._version import __version__
 
@@ -42,6 +45,35 @@ class ManualChange(Change):
 
     def instructions(self, files: set[Path]) -> str:
         return ""
+
+
+class SetKindOnFile(AutomaticChange):
+    """Adds the kind to the filename of all resource files.
+
+Before `your_file.yaml`:
+After `your_file.FileMetadata.yaml`:
+    """
+
+    deprecated_from = Version("0.4.0")
+    has_file_changes = True
+
+    def do(self) -> set[Path]:
+        module_directories = ModuleDirectories.load(self._organization_dir)
+        changed: set[Path] = set()
+        for module in module_directories:
+            for resource_folder, source_files in module.source_paths_by_resource_folder.items():
+                for source_file in source_files:
+                    loader, warning = get_loader(source_file, resource_folder)
+                    if loader is None:
+                        print(f"Could not find loader for {source_file}")
+                        continue
+                    if source_file.name.endswith(loader.kind):
+                        continue
+                    new_source_file = source_file.rename(source_file.with_name(f"{source_file.stem}.{loader.kind}{source_file.suffix}"))
+                    changed.add(source_file)
+                    shutil.move(source_file, new_source_file)
+
+        return changed
 
 
 class FixViewBasedLocationFilter(AutomaticChange):
