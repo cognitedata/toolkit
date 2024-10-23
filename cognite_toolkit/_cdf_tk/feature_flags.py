@@ -24,6 +24,9 @@ class Flags(Enum):
         "description": "Require kind in all config file names. For example, `my.FileMetadata.yaml`",
     }
 
+    def is_enabled(self) -> bool:
+        return FeatureFlag.is_enabled(self)
+
 
 class FeatureFlag:
     @staticmethod
