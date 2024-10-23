@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import itertools
 import re
-import shutil
 from collections.abc import Iterator, MutableSequence
 from functools import lru_cache
 from pathlib import Path
@@ -69,9 +68,9 @@ After `your_file.FileMetadata.yaml`:
                         continue
                     if source_file.name.casefold().endswith(loader.kind):
                         continue
-                    new_source_file = source_file.rename(source_file.with_name(f"{source_file.stem}.{loader.kind}{source_file.suffix}"))
+                    source_file.rename(source_file.with_name(f"{source_file.stem}.{loader.kind}{source_file.suffix}"))
                     changed.add(source_file)
-                    shutil.move(source_file, new_source_file)
+
 
         return changed
 
