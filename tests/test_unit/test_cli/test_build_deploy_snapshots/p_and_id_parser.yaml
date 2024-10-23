@@ -84,7 +84,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 4cddb9fa53f9c0610242b8c214a2a084e4a4c4ea6bd5f64536af50a0962749c5
+    cdf-toolkit-function-hash: f82ca969d55859a267f5be25960f1a724e3c202d349b795d86b8173ea32ec93c
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 - description: Creates annotations for P&ID diagrams.
@@ -92,7 +92,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 9aee40f69795011b6d8ddf2d94003461ee8635950c3434c90a5096fadcef1c91
+    cdf-toolkit-function-hash: d9599266d4ef3db61f71a511ff7c15545088526d85a87dea89985e0b94365b20
   name: P&ID Annotator
   owner: Anonymous
 Group:
