@@ -427,27 +427,6 @@ RobotCapability:
     type: object
   method: ptz
   name: ptz
-Row:
-- args: []
-  dataframe:
-    empty_count: 0
-    first_row:
-      categoryId: '1'
-      description: This is an example
-      name: Example 1
-    index_name: key
-    last_row:
-      categoryId: '2'
-      description: This is a third example
-      name: Example 3
-    nan_count: 0
-    null_count: 0
-    shape: 3x3
-  kwargs:
-    db_name: db_complete_org
-    ensure_parent: false
-    table_name: asset
-  name: db_complete_org_asset_False
 SecurityCategory:
 - name: sc_demo_category
 Sequence:
