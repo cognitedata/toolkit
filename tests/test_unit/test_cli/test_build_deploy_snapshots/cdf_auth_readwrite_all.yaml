@@ -530,11 +530,6 @@ Group:
       - READ
       scope:
         all: {}
-  - userProfilesAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
   - visionModelAcl:
       actions:
       - READ
