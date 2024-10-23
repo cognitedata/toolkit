@@ -73,9 +73,10 @@ After `your_file.FileMetadata.yaml`:
                     new_name = source_file.with_name(f"{source_file.stem}.{loader.kind}{source_file.suffix}")
                     source_file.rename(new_name)
                     changed.add(source_file)
-                    if (sql_file := source_file.with_suffix(".sql")).exists():
-                        sql_file.rename(new_name.with_suffix(".sql"))
-                        changed.add(sql_file)
+                    for suffix in [".sql", ".csv", ".parquet"]:
+                        if (adjacent_file := source_file.with_suffix(suffix)).exists():
+                            adjacent_file.rename(new_name.with_suffix(suffix))
+                            changed.add(adjacent_file)
 
         return changed
 
