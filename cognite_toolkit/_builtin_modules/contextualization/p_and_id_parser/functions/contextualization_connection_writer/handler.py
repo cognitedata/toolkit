@@ -3,7 +3,12 @@ import traceback
 from collections.abc import Iterable, Sequence
 from collections import defaultdict
 from typing import Literal, ClassVar, TypeVar, Self
+from cognite.client.config import global_config
 
+
+# Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+global_config.disable_pypi_version_check = True
+global_config.silence_feature_preview_warnings = True
 import yaml
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
