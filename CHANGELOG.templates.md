@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Added
 
+- Added new module `cdf_sharepoint` to the `sourcesystem` package.
 - Added new package `industrial_tool` for data exploration and analytics with modules
   - `cdf_search` for setting up location filters
 - Added new package `contextualization` with modules
