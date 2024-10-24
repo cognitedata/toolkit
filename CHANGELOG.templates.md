@@ -15,14 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## [O.3.5] - TBD
+## TBD
 
 ### Added
 
 - Added new package `industrial_tool` for data exploration and analytics with modules
-  - `search` for setting up location filters
+  - `cdf_search` for setting up location filters
 - Added new package `contextualization` with modules
-  - `p_and_id_parser`
+  - `cdf_p_and_id_parser`
+  - `cdf_timeseries_equipment_sql`
 
 ## [0.3.4] - 2024-10-18
 
