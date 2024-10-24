@@ -1,0 +1,21 @@
+externalId: timeseries_to_equipment
+dataSetExternalId: {{ dataset }}
+name: TimeSeries to equipment Connection Transformation
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+authentication:
+  clientId: ${TRANSFORMATIONS_CLIENT_ID}
+  clientSecret: ${TRANSFORMATIONS_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  audience: ${CDF_URL}
+  scopes:
+  - ${IDP_SCOPES}
