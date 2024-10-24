@@ -1,0 +1,13 @@
+sourceName: Springfield AVEVA PI
+sourceId: springfield_aveva_pi # can also contain location, for example sap_springfield_s4hana
+rawDatabase: aveva_pi_staging # can also contain location, for example aveva_pi_springfield_staging
+transformationServicePrincipalGroupObjectId: <not set>
+dataset: aveva_pi_population # can also contain location aveva_pi_springfield_population
+schemaSpace: cdf_cdm
+instanceSpace: springfield_instances
+transformationClientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+transformationClientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+transformationTokenUri: ${IDP_TOKEN_URL}
+transformationCdfProjectName: ${CDF_PROJECT}
+transformationAudience: ${CDF_URL}
+transformationScope: ${IDP_SCOPES}

@@ -1,0 +1,16 @@
+instanceSpace: springfield_instances
+sourceName: SAP Springfield S/4HANA
+sourceId: sap_springfield_s4hana
+rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+source: sap_s4hana_event # can also contain location, for example sap_springfield_s4hana
+transformationServicePrincipalGroupObjectId: <not set>
+workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
+schemaSpace: cdf_idm
+transformationClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+transformationClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+transformationTokenUri: ${IDP_TOKEN_URL}
+transformationCdfProjectName: ${CDF_PROJECT}
+transformationAudience: ${CDF_URL}
+transformationScope: ${IDP_SCOPES}
+
