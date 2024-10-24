@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.5] - 2024-10-24
+
+No changes to cdf CLI.
+
 ## [0.3.4] - 2024-10-18
 
 ### Fixed
