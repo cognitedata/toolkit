@@ -1,0 +1,17 @@
+contextualizationId: p_and_id_parser
+contextualizationName: P&ID Parser
+functionServicePrincipalGroupObjectId: <not_set>
+dataset: ds_p_and_id_parser
+schemaSpace: cdf_cdm
+annotationSpace: sp_p_and_id_parser
+instanceSpaces:
+  - files_metadata_instances
+  - springfield_sap
+  - sp_p_and_id_parser
+workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+rawDatabase: contextualizationState
+rawTable: diagramParsing
+workflow: p_and_id_parser
+annotatorJob: ctx_files_pandid_annotater
+directRelationJob: ctx_files_direct_relation_write

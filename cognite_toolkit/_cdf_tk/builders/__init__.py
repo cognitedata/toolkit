@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ._base import Builder, DefaultBuilder
+from ._base import Builder, DefaultBuilder, get_loader
 from ._datamodels import DataModelBuilder
 from ._file import FileBuilder
 from ._function import FunctionBuilder
@@ -28,4 +28,5 @@ __all__ = [
     "TransformationBuilder",
     "DataModelBuilder",
     "create_builder",
+    "get_loader",
 ]

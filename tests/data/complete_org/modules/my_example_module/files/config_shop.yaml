@@ -1,0 +1,4 @@
+run: 1000
+constraints:
+  - type: shop
+    value: 1

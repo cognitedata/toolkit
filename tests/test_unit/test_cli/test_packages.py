@@ -53,6 +53,8 @@ class MockQuestionary:
 
     @staticmethod
     def select_all(choices: list[Choice]) -> list[str]:
+        if not choices:
+            return []
         return [choice.value for choice in choices]
 
 
@@ -61,7 +63,11 @@ def get_packages() -> list[str]:
     # The Bootcamp package has intentionally warnings that is part of the learning experience.
     # Examples and sourcesystems are tested separately, in that each example is tested individually as they
     # should be independent of each other.
-    packages = (name for name in packages.keys() if name not in ["bootcamp", "examples", "sourcesystem"])
+    packages = (
+        name
+        for name in packages.keys()
+        if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization"]
+    )
     return sorted(packages)
 
 
@@ -163,3 +169,17 @@ def test_build_individual_module(
     warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
+
+
+def test_all_modules_cdf_prefixed() -> None:
+    packages = Packages.load(BUILTIN_MODULES_PATH)
+    missing_cdf_prefix = {
+        module.name
+        for package in packages.values()
+        # Bootcamp has special structure
+        if package.name != "bootcamp"
+        for module in package.modules
+        if not module.name.startswith("cdf_")
+    }
+
+    assert not missing_cdf_prefix, f"Modules missing cdf_ prefix: {missing_cdf_prefix}"

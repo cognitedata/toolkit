@@ -1,0 +1,89 @@
+DataSet:
+- description: Transformations for Springfield Sharepoint dataset
+  externalId: files_metadata_transformations
+  metadata: {}
+  name: Springfield Sharepoint Transformations
+  writeProtected: false
+Group:
+- capabilities:
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            files_metadata_staging:
+              tables: []
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+  metadata:
+    origin: cognite-toolkit
+  name: gp_transformations_springfield_sharepoint
+  sourceId: <not set>
+Space:
+- description: 'This space contains metadata from the file management system Springfield
+    Sharepoint.
+
+    '
+  name: Springfield Sharepoint instance space
+  space: springfield_instances
+Transformation:
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteFile
+      space: cdf_cdm
+      version: v1
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+    clientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: file_springfield_sharepoint
+  ignoreNullFields: true
+  isPublic: true
+  name: File Transformations for Springfield Sharepoint
+  query: "select \n\texternal_id as externalId, \n \tname, \n\tsource as sourceId,\n\
+    \tmime_type as mimeType\nfrom `files_metadata_staging`.`files_metadata`"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+    clientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy

@@ -1,0 +1,21 @@
+externalId: pi_timeseries_{{ sourceId }}
+dataSetExternalId: {{ dataset }}
+name: TimeSeries Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+authentication:
+  clientId: {{ transformationClientId }}
+  clientSecret: {{ transformationClientSecret }}
+  tokenUri: {{ transformationTokenUri }}
+  cdfProjectName: {{ transformationCdfProjectName }}
+  audience: {{ transformationAudience}}
+  scopes:
+  - {{ transformationScope }}

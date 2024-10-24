@@ -1,0 +1,113 @@
+DataSet:
+- description: Transformations for Springfield AVEVA PI dataset
+  externalId: aveva_pi_population
+  metadata: {}
+  name: Springfield AVEVA PI Transformations
+  writeProtected: false
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 42
+  description: Extractor configuration and monitoring for Springfield AVEVA PI
+  documentation: '# Writing TimeSeries metadata from Springfield AVEVA PI into aveva_pi_staging.timeseries_metadata
+    so that the Transformation can populate CogniteTimeSeries instances.
+
+    '
+  externalId: springfield_aveva_pi_extractors
+  name: Springfield AVEVA PI
+  rawTables:
+  - dbName: aveva_pi_staging
+    tableName: timeseries_metadata
+  source: Springfield AVEVA PI
+ExtractionPipelineConfig:
+- config: "data:\n  debug: True\n"
+  externalId: springfield_aveva_pi_extractors
+Group:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            aveva_pi_staging:
+              tables: []
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+          - cdf_cdm_units
+  metadata:
+    origin: Cognite Toolkit
+  name: gp_transformations_springfield_aveva_pi
+  sourceId: <not set>
+Space:
+- description: 'This space contains all data from PI system  Springfield AVEVA PI.
+
+    '
+  name: Springfield AVEVA PI instance space
+  space: springfield_instances
+Transformation:
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteTimeSeries
+      space: cdf_cdm
+      version: v1
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+    clientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: pi_timeseries_springfield_aveva_pi
+  ignoreNullFields: true
+  isPublic: true
+  name: TimeSeries Transformations for Springfield AVEVA PI
+  query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
+    \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
+    \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `aveva_pi_staging`.`timeseries_metadata`"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+    clientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy

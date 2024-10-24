@@ -87,49 +87,55 @@ class Builder(ABC):
         return destination_path
 
     def _get_loader(self, source_path: Path) -> tuple[None, ToolkitWarning] | tuple[type[ResourceLoader], None]:
-        folder_loaders = LOADER_BY_FOLDER_NAME.get(self.resource_folder, [])
-        if not folder_loaders:
-            return None, ToolkitNotSupportedWarning(
-                f"resource of type {self.resource_folder!r} in {source_path.name}.",
-                details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
-            )
+        return get_loader(source_path, self.resource_folder)
 
-        loaders = [loader for loader in folder_loaders if loader.is_supported_file(source_path)]
-        if len(loaders) == 0:
-            suggestion: str | None = None
-            if "." in source_path.stem:
-                core, kind = source_path.stem.rsplit(".", 1)
-                match = difflib.get_close_matches(kind, [loader.kind for loader in folder_loaders])
-                if match:
-                    suggested_name = f"{core}.{match[0]}{source_path.suffix}"
-                    suggestion = f"Did you mean to call the file {suggested_name!r}?"
+
+def get_loader(
+    source_path: Path, resource_folder: str
+) -> tuple[None, ToolkitWarning] | tuple[type[ResourceLoader], None]:
+    folder_loaders = LOADER_BY_FOLDER_NAME.get(resource_folder, [])
+    if not folder_loaders:
+        return None, ToolkitNotSupportedWarning(
+            f"resource of type {resource_folder!r} in {source_path.name}.",
+            details=f"Available resources are: {', '.join(LOADER_BY_FOLDER_NAME.keys())}",
+        )
+
+    loaders = [loader for loader in folder_loaders if loader.is_supported_file(source_path)]
+    if len(loaders) == 0:
+        suggestion: str | None = None
+        if "." in source_path.stem:
+            core, kind = source_path.stem.rsplit(".", 1)
+            match = difflib.get_close_matches(kind, [loader.kind for loader in folder_loaders])
+            if match:
+                suggested_name = f"{core}.{match[0]}{source_path.suffix}"
+                suggestion = f"Did you mean to call the file {suggested_name!r}?"
+        else:
+            kinds = [loader.kind for loader in folder_loaders]
+            if len(kinds) == 1:
+                suggestion = f"Did you mean to call the file '{source_path.stem}.{kinds[0]}{source_path.suffix}'?"
             else:
-                kinds = [loader.kind for loader in folder_loaders]
-                if len(kinds) == 1:
-                    suggestion = f"Did you mean to call the file '{source_path.stem}.{kinds[0]}{source_path.suffix}'?"
-                else:
-                    suggestion = (
-                        f"All files in the {self.resource_folder!r} folder must have a file extension that matches "
-                        f"the resource type. Supported types are: {humanize_collection(kinds)}."
-                    )
-            return None, UnknownResourceTypeWarning(source_path, suggestion)
-        elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
-            # Multiple raw loaders load from the same file.
-            return RawTableLoader, None
-        elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
-            # There are two group loaders, one for resource scoped and one for all scoped.
-            return GroupLoader, None
-        elif len(loaders) > 1:
-            names = humanize_collection(
-                [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in loaders], bind_word="or"
-            )
-            raise AmbiguousResourceFileError(
-                f"Ambiguous resource file {source_path.name} in {self.resource_folder} folder. "
-                f"Unclear whether it is {humanize_collection([loader.kind for loader in loaders], bind_word='or')}."
-                f"\nPlease name the file {names}."
-            )
+                suggestion = (
+                    f"All files in the {resource_folder!r} folder must have a file extension that matches "
+                    f"the resource type. Supported types are: {humanize_collection(kinds)}."
+                )
+        return None, UnknownResourceTypeWarning(source_path, suggestion)
+    elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
+        # Multiple raw loaders load from the same file.
+        return RawTableLoader, None
+    elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
+        # There are two group loaders, one for resource scoped and one for all scoped.
+        return GroupLoader, None
+    elif len(loaders) > 1:
+        names = humanize_collection(
+            [f"'{source_path.stem}.{loader.kind}{source_path.suffix}'" for loader in loaders], bind_word="or"
+        )
+        raise AmbiguousResourceFileError(
+            f"Ambiguous resource file {source_path.name} in {resource_folder} folder. "
+            f"Unclear whether it is {humanize_collection([loader.kind for loader in loaders], bind_word='or')}."
+            f"\nPlease name the file {names}."
+        )
 
-        return cast(type[ResourceLoader], loaders[0]), None
+    return cast(type[ResourceLoader], loaders[0]), None
 
 
 class DefaultBuilder(Builder):
