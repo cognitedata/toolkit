@@ -1,8 +1,4 @@
 [cdf]
-# organization_dir is the top level directory for configuration across environments. It is typically
-# the same as 'your-organization' in https://<your-organization>.fusion.cognite.com
-# when you log in to Cognite Data Fusion.
-# Note any string without white-space is allowed.
 default_organization_dir = "cognite_toolkit"
 #default_env = "dev"
 
