@@ -31,4 +31,4 @@ description = "Module templates for setting up a data pipeline from a source sys
 
 [packages.contextualization]
 title = "Contextualization"
-description = "Module templates for contextualize data"
+description = "Module templates for data contextualization"
