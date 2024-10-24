@@ -10,7 +10,7 @@ jobs:
     name: Run linters
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -55,7 +55,7 @@ jobs:
           # Skipping  3.11 as we assume it is covered by 3.10 and 3.12
           - "3.12"
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -81,7 +81,7 @@ jobs:
       IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
       IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
     steps:
-      - uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - uses: actions/setup-python@v5
         with:
           python-version: 3.11
