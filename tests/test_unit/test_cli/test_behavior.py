@@ -103,7 +103,7 @@ def test_pull_transformation(
         / "examples"
         / "cdf_example_pump_asset_hierarchy"
         / "transformations"
-        / "pump_asset_hierarchy-load-collections_pump.yaml"
+        / "pump_asset_hierarchy-load-collections_pump.Transformation.yaml"
     )
     loader = TransformationLoader.create_loader(cdf_tool_mock, None)
 

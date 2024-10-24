@@ -146,6 +146,8 @@ FileLoader:
   space: sp_nodes
 - external_id: classicFileMetadata
   filehash: c646656c
+- external_id: shopConfigFile
+  filehash: 09d16fb3
 FileMetadata:
 - dataSetId: 42
   directory: /files
@@ -154,6 +156,14 @@ FileMetadata:
     origin: cognite-toolkit
   mimeType: text/plain
   name: classicfile.txt
+  source: doctrino
+- dataSetId: 42
+  directory: /files
+  externalId: shopConfigFile
+  metadata:
+    origin: cognite-toolkit
+  mimeType: application/yaml
+  name: config_shop.yaml
   source: doctrino
 Frame:
 - externalId: rootCoordinateFrame
