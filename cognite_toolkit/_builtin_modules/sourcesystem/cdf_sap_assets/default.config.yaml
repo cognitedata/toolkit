@@ -7,3 +7,9 @@ transformationServicePrincipalGroupObjectId: <not set>
 workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
 dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
 schemaSpace: cdf_cdm
+transformationClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+transformationClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+transformationTokenUri: ${IDP_TOKEN_URL}
+transformationCdfProjectName: ${CDF_PROJECT}
+transformationAudience: ${CDF_URL}
+transformationScope: ${IDP_SCOPES}

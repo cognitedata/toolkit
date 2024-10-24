@@ -1,0 +1,21 @@
+externalId: sap_equipment_{{ source }}
+dataSetExternalId: {{ dataset }}
+name: Equipment Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteEquipment
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+authentication:
+  clientId: {{ transformationClientId }}
+  clientSecret: {{ transformationClientSecret }}
+  tokenUri: {{ transformationTokenUri }}
+  cdfProjectName: {{ transformationCdfProjectName }}
+  audience: {{ transformationAudience}}
+  scopes:
+  - {{ transformationScope }}

@@ -1,0 +1,21 @@
+externalId: file_{{ sourceId }}
+dataSetExternalId: {{ dataset }}
+name: File Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteFile
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+authentication:
+  clientId: {{ transformationClientId }}
+  clientSecret: {{ transformationClientSecret }}
+  tokenUri: {{ transformationTokenUri }}
+  cdfProjectName: {{ transformationCdfProjectName }}
+  audience: {{ transformationAudience}}
+  scopes:
+  - {{ transformationScope }}

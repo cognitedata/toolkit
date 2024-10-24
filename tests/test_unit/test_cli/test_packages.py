@@ -169,3 +169,17 @@ def test_build_individual_module(
     warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
+
+
+def test_all_modules_cdf_prefixed() -> None:
+    packages = Packages.load(BUILTIN_MODULES_PATH)
+    missing_cdf_prefix = {
+        module.name
+        for package in packages.values()
+        # Bootcamp has special structure
+        if package.name != "bootcamp"
+        for module in package.modules
+        if not module.name.startswith("cdf_")
+    }
+
+    assert not missing_cdf_prefix, f"Modules missing cdf_ prefix: {missing_cdf_prefix}"
