@@ -92,9 +92,34 @@ jobs:
 
           RUN_LINK="[$GITHUB_RUN_ID]($REPO_URL/actions/runs/$GITHUB_RUN_ID)"
 
-          COMMENT=$(printf 'Toolkit dry run triggered: %s\n\n%s\n%s\n\n```\n%s\n```\n' \
-            "$RUN_LINK" "$B_STATUS" "$DR_STATUS" "$MSG")
+          printf 'Toolkit dry run triggered: %s\n\n%s\n%s\n\n```\n%s\n```\n' \
+            "$RUN_LINK" "$B_STATUS" "$DR_STATUS" "$MSG" > pr-comment-body.txt
 
-          gh pr comment $PR_NUMBER -b "$COMMENT"
+          gh pr comment $PR_NUMBER -F pr-comment-body.txt 2> pr-comment-error.log
+
+          if [ "$?" -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ -f pr-comment-error.log ]; then
+            if [ $(grep -c -i 'body is too long' < pr-comment-error.log) -gt 0]; then
+              # truncate the file and try posting the comment again
+
+              head -20 pr-comment-body.txt > pr-comment-body-truncated.txt
+              print '\n... (content truncated, see the workflow run for details) ...\n' >> pr-comment-body-truncated.txt
+              tail -50 pr-comment-body.txt >> pr-comment-body-truncated.txt
+
+              if [ $(wc -c < pr-comment-body-truncated.txt) -lt 65536 ]; then
+                gh pr comment $PR_NUMBER -F pr-comment-body.txt
+              else
+                MSG='Log too long... See workflow run for details.\n'
+                COMMENT=$(printf 'Toolkit dry run triggered: %s\n\n%s\n%s\n\n```\n%s\n```\n' \
+                  "$RUN_LINK" "$B_STATUS" "$DR_STATUS" "$MSG")
+                gh pr comment $PR_NUMBER -b "$COMMENT"
+            else
+              print 'Could not create a PR comment. Error:\n'
+              cat pr-comment-error.log
+            fi
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
