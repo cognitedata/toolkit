@@ -31,4 +31,3 @@ config:
             version: v1
             searchProperty: name
             type: diagrams.FileLink
-# Unique Entity Source externalId is assumed in sync call
