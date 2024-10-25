@@ -306,5 +306,5 @@ module_upgrade/*.log
 needle/
 
 tmp.py
-
+tmp_all.py
 my_*/
