@@ -1,0 +1,102 @@
+space: cdf_cdm
+externalId: CogniteEquipment
+name: Equipment
+description: Equipment represents physical supplies or devices.
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
+version: v1
+properties:
+  asset:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: asset
+    name: Asset
+    description: The asset the equipment is related to.
+    source:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      version: v1
+      type: view
+  serialNumber:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: serialNumber
+    name: Serial number
+    description: The serial number of the equipment.
+  manufacturer:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: manufacturer
+    name: Manufacturer
+    description: The manufacturer of the equipment.
+  equipmentType:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: equipmentType
+    name: Equipment type
+    description: Specifies the type of the equipment. It's a direct relation to CogniteEquipmentType.
+    source:
+      space: cdf_cdm
+      externalId: CogniteEquipmentType
+      version: v1
+      type: view
+  files:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: files
+    name: Files
+    description: A list of files the equipment relates to.
+    source:
+      space: cdf_cdm
+      externalId: CogniteFile
+      version: v1
+      type: view
+  activities:
+    source:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteActivity
+        version: v1
+        type: view
+      identifier: equipment
+    name: Activities
+    description: An automatically updated list of activities related to the equipment.
+    connectionType: multi_reverse_direct_relation
+  timeSeries:
+    source:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteTimeSeries
+        version: v1
+        type: view
+      identifier: equipment
+    name: Time series
+    description: An automatically updated list of time series related to the equipment.
+    connectionType: multi_reverse_direct_relation

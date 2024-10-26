@@ -1,0 +1,105 @@
+space: cdf_idm
+externalId: CogniteOperation
+name: Operation
+description: Operations represent a specific part of the work included in a maintenance
+  order. Often called a 'work order item'.
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSchedulable
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteActivity
+  version: v1
+  type: view
+version: v1
+properties:
+  maintenanceOrder:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: maintenanceOrder
+    name: Maintenance order
+    description: The maintenance order the operation is related to.
+    source:
+      space: cdf_idm
+      externalId: CogniteMaintenanceOrder
+      version: v1
+      type: view
+  mainAsset:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: mainAsset
+    name: Main asset
+    description: The primary asset (functional location) the operation is related
+      to.
+    source:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      version: v1
+      type: view
+  phase:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: phase
+    name: Phase
+    description: The code for the phase the operation belongs to. Each operation belongs
+      to a single phase, for example, 'Scaffolding'.
+  status:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: status
+    name: Status
+    description: The lifecycle status of the operation, for example, 'Partially complete'.
+      It's often derived from the UserStatus field in SAP.
+  sequence:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: sequence
+    name: Sequence
+    description: A number that shows the order in which the operations are performed.
+      Lower numbers mean they happen earlier, and 0 means it's the first operation.
+  mainDiscipline:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: mainDiscipline
+    name: Main discipline
+    description: The primary skill or resource required to perform the operation,
+      for example, 'maintenance technician').
+  numberOfMainDiscipline:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: numberOfMainDiscipline
+    name: Number of main discipline
+    description: The number of resources required to perform the operation, for example,
+      the number of required maintenance technicians.
+  personHours:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: personHours
+    name: Person hours
+    description: The number of hours required to perform the maintenance operation.
+      The duration is calculated by dividing the personHours by the numberOfMainDiscipline.

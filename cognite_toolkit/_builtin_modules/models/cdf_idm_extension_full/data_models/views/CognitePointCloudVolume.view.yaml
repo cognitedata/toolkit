@@ -1,0 +1,77 @@
+space: cdf_cdm
+externalId: CognitePointCloudVolume
+description: PointCloud volume definition
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+version: v1
+properties:
+  object3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: object3D
+    description: Direct relation to object3D grouping for this node
+    source:
+      space: cdf_cdm
+      externalId: Cognite3DObject
+      version: v1
+      type: view
+  model3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: model3D
+    description: Direct relation to Cognite3DModel instance
+    source:
+      space: cdf_cdm
+      externalId: CogniteCADModel
+      version: v1
+      type: view
+  volumeReferences:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: volumeReferences
+    description: Unique volume metric hashes used to access the 3D specialized data
+      storage
+  revisions:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: revisions
+    description: List of direct relations to revision information
+    source:
+      space: cdf_cdm
+      externalId: CogniteCADRevision
+      version: v1
+      type: view
+  volumeType:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: volumeType
+    description: Type of volume (Cylinder or Box)
+  volume:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: volume
+    description: Relevant coordinates for the volume type, 9 floats in total, that
+      defines the volume
+  formatVersion:
+    container:
+      space: cdf_cdm_3d
+      externalId: CognitePointCloudVolume
+      type: container
+    containerPropertyIdentifier: formatVersion
+    description: "Specifies the version the \u2018volume\u2019 field is following.\
+      \ Volume definition is today 9 floats (property volume)\n"

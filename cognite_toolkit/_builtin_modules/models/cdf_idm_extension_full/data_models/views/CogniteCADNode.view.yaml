@@ -1,0 +1,75 @@
+space: cdf_cdm
+externalId: CogniteCADNode
+description: Represents nodes from the 3D model that have been contextualized
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+version: v1
+properties:
+  object3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: object3D
+    description: Direct relation to object3D grouping for this node
+    source:
+      space: cdf_cdm
+      externalId: Cognite3DObject
+      version: v1
+      type: view
+  model3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: model3D
+    description: Direct relation to Cognite3DModel
+    source:
+      space: cdf_cdm
+      externalId: CogniteCADModel
+      version: v1
+      type: view
+  cadNodeReference:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: cadNodeReference
+    description: Reference to a node within a CAD model from the 3D API
+  revisions:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: revisions
+    description: List of direct relations to instances of Cognite3DRevision which
+      this CogniteCADNode exists in.
+    source:
+      space: cdf_cdm
+      externalId: CogniteCADRevision
+      version: v1
+      type: view
+  treeIndexes:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: treeIndexes
+    description: 'List of tree indexes in the same order as revisions. Used by Reveal
+      and similar applications to map from CogniteCADNode to tree index
+
+      '
+  subTreeSizes:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: subTreeSizes
+    description: 'List of subtree sizes in the same order as revisions. Used by Reveal
+      and similar applications to know how many nodes exists below this node in the
+      hierarchy
+
+      '

@@ -1,0 +1,35 @@
+space: cdf_cdm
+externalId: CogniteSchedulable
+description: CogniteSchedulable represents the metadata about when an activity (or
+  similar) starts and ends.
+implements: []
+version: v1
+properties:
+  startTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: startTime
+    description: The actual start time of an activity (or similar that extends this)
+  endTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: endTime
+    description: The actual end time of an activity (or similar that extends this)
+  scheduledStartTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: scheduledStartTime
+    description: The planned start time of an activity (or similar that extends this)
+  scheduledEndTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: scheduledEndTime
+    description: The planned end time of an activity (or similar that extends this)

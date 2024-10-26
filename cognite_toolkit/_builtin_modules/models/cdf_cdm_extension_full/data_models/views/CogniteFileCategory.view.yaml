@@ -1,0 +1,38 @@
+space: cdf_cdm
+externalId: CogniteFileCategory
+name: File category
+description: Represents the categories of files as determined by contextualization
+  or categorization.
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+version: v1
+properties:
+  code:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: An identifier for the category, for example, 'AA' for Accounting
+      (from Norsok.)
+  standard:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: The name of the standard the category originates from, for example,
+      'Norsok'.
+  standardReference:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: standardReference
+    name: Standard reference
+    description: A reference to the source of the category standard.
