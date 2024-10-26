@@ -73,10 +73,11 @@ ExtractionPipelineConfig:
     \ 'springfield_sap', 'sp_p_and_id_parser']\n  annotationJobs:\n    - fileView:\n\
     \        space: cdf_cdm\n        externalId: CogniteFile\n        version: v1\n\
     \      entityViews:\n        - space: cdf_cdm\n          externalId: CogniteEquipment\n\
-    \          version: v1\n          searchProperty: name\n        - space: cdf_cdm\n\
-    \          externalId: CogniteAsset\n          version: v1\n          searchProperty:\
-    \ name\n        - space: cdf_cdm\n          externalId: CogniteTimeSeries\n  \
-    \        version: v1\n          searchProperty: name\n"
+    \          version: v1\n          searchProperty: name\n          type: diagrams.FileLink\n\
+    \        - space: cdf_cdm\n          externalId: CogniteAsset\n          version:\
+    \ v1\n          searchProperty: name\n          type: diagrams.AssetLink\n   \
+    \     - space: cdf_cdm\n          externalId: CogniteTimeSeries\n          version:\
+    \ v1\n          searchProperty: name\n          type: diagrams.FileLink\n"
   externalId: ctx_files_pandid_annotater
 Function:
 - description: Writes all approved Annotations as direct relations connections.
@@ -92,7 +93,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: d9599266d4ef3db61f71a511ff7c15545088526d85a87dea89985e0b94365b20
+    cdf-toolkit-function-hash: e89456250e6ca8135040f171726e540152ab9417f6d05e3cc4ac8808474e0cb8
   name: P&ID Annotator
   owner: Anonymous
 Group:
