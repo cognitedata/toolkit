@@ -30,7 +30,7 @@ class DumpCommand(ToolkitCommand):
         verbose: bool,
     ) -> None:
         if selected_data_model is None:
-            data_model_id = self._interactive_select_data_model(ToolGlobals, include_global=False)
+            data_model_id = self._interactive_select_data_model(ToolGlobals, include_global=True)
         else:
             data_model_id = selected_data_model
 

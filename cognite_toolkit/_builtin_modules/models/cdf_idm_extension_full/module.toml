@@ -3,5 +3,5 @@ title = "Example of CogniteProcessIndustries Extension Model"
 
 [packages]
 tags = [
-    "examples",
+    "models",
 ]
