@@ -1,0 +1,62 @@
+space: {{ schema_space }}
+externalId: {{ organization }}Unit
+description: Represents a single unit of measurement
+implements: []
+version: v1
+properties:
+  symbol:
+    container:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      type: container
+    containerPropertyIdentifier: symbol
+    description: The symbol for the unit of measurement
+  quantity:
+    container:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      type: container
+    containerPropertyIdentifier: quantity
+    description: Specifies the physical quantity the unit measures
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      type: container
+    containerPropertyIdentifier: source
+    description: Source of the unit definition
+  sourceReference:
+    container:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      type: container
+    containerPropertyIdentifier: sourceReference
+    description: Reference to the source of the unit definition
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node
