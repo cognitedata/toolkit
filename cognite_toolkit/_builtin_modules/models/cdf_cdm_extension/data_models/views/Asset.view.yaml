@@ -3,11 +3,7 @@ externalId: {{ organization }}Asset
 name: Asset
 description: Assets represent systems that support industrial functions or processes.
   Assets are often called 'functional location'.
-implements:
-- space: cdf_cdm
-  externalId: CogniteAsset
-  version: v1
-  type: view
+implements: []
 version: v1
 properties:
   parent:
@@ -52,6 +48,14 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
+  pathLastUpdatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    containerPropertyIdentifier: assetHierarchy_path_last_updated_time
+    name: Path last updated time
+    description: The last time the path was updated for this asset.
   assetClass:
     container:
       space: cdf_cdm
@@ -159,6 +163,21 @@ properties:
     name: Time series
     description: An automatically updated list of time series related to the asset.
     connectionType: multi_reverse_direct_relation
+  sourceId:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Identifier from the source system
+  sourceContext:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceContext
+    description: Context of the source id. For systems where the sourceId is globally
+      unique, the sourceContext is expected to not be set.
   source:
     container:
       space: cdf_cdm
@@ -171,11 +190,62 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
-  object3D:
+  sourceCreatedTime:
     container:
       space: cdf_cdm
-      externalId: CogniteVisualizable
+      externalId: CogniteSourceable
       type: container
-    containerPropertyIdentifier: object3D
-    description: This is not used, overwritten to point to nothing to avoid including 3D.
-    # Note that source is not included.
+    containerPropertyIdentifier: sourceCreatedTime
+    description: When the instance was created in source system (if available)
+  sourceUpdatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedTime
+    description: When the instance was last updated in the source system (if available)
+  sourceCreatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedUser
+    description: User identifier from the source system on who created the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  sourceUpdatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedUser
+    description: User identifier from the source system on who last updated the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node
+

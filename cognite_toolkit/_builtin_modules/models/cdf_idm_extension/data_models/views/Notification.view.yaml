@@ -3,11 +3,7 @@ externalId: {{ organization }}Notification
 name: Notification```
 description: A formal record to report maintenance issues, defects, or requests, starting
   the process for planning and running maintenance activities.
-implements:
-- space: cdf_idm
-  externalId: CogniteNotification
-  version: v1
-  type: view
+implements: []
 version: v1
 properties:
   maintenanceOrder:
@@ -36,6 +32,84 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
+  type:
+    container:
+      space: cdf_idm
+      externalId: CogniteNotification
+      type: container
+    containerPropertyIdentifier: type
+    name: Type
+    description: The code for the notification type, for example, 'M1' for  'Maintenance
+      request'.
+  status:
+    container:
+      space: cdf_idm
+      externalId: CogniteNotification
+      type: container
+    containerPropertyIdentifier: status
+    name: Status
+    description: The current lifecycle status of the notification, for example, 'order
+      created'.
+  priority:
+    container:
+      space: cdf_idm
+      externalId: CogniteNotification
+      type: container
+    containerPropertyIdentifier: priority
+    name: Priority
+    description: A number that shows how important the notification is. Lower numbers
+      mean it's more important, and 0 means it's the most important.
+  priorityDescription:
+    container:
+      space: cdf_idm
+      externalId: CogniteNotification
+      type: container
+    containerPropertyIdentifier: priorityDescription
+    name: Priority description
+    description: Describes the priority of the notification.
+  startTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: startTime
+    description: The actual start time of an activity (or similar that extends this)
+  endTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: endTime
+    description: The actual end time of an activity (or similar that extends this)
+  scheduledStartTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: scheduledStartTime
+    description: The planned start time of an activity (or similar that extends this)
+  scheduledEndTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSchedulable
+      type: container
+    containerPropertyIdentifier: scheduledEndTime
+    description: The planned end time of an activity (or similar that extends this)
+  sourceId:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Identifier from the source system
+  sourceContext:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceContext
+    description: Context of the source id. For systems where the sourceId is globally
+      unique, the sourceContext is expected to not be set.
   source:
     container:
       space: cdf_cdm
@@ -48,3 +122,61 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
+  sourceCreatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedTime
+    description: When the instance was created in source system (if available)
+  sourceUpdatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedTime
+    description: When the instance was last updated in the source system (if available)
+  sourceCreatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedUser
+    description: User identifier from the source system on who created the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  sourceUpdatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedUser
+    description: User identifier from the source system on who last updated the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node

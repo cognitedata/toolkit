@@ -2,11 +2,7 @@ space: {{ schema_space }}
 externalId: {{ organization }}Equipment
 name: Equipment
 description: Equipment represents physical supplies or devices.
-implements:
-- space: cdf_cdm
-  externalId: CogniteEquipment
-  version: v1
-  type: view
+implements: []
 version: v1
 properties:
   asset:
@@ -22,6 +18,22 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
+  serialNumber:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: serialNumber
+    name: Serial number
+    description: The serial number of the equipment.
+  manufacturer:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: manufacturer
+    name: Manufacturer
+    description: The manufacturer of the equipment.
   equipmentType:
     container:
       space: cdf_cdm
@@ -80,6 +92,21 @@ properties:
     name: Time series
     description: An automatically updated list of time series related to the equipment.
     connectionType: multi_reverse_direct_relation
+  sourceId:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Identifier from the source system
+  sourceContext:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceContext
+    description: Context of the source id. For systems where the sourceId is globally
+      unique, the sourceContext is expected to not be set.
   source:
     container:
       space: cdf_cdm
@@ -92,3 +119,61 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
+  sourceCreatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedTime
+    description: When the instance was created in source system (if available)
+  sourceUpdatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedTime
+    description: When the instance was last updated in the source system (if available)
+  sourceCreatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedUser
+    description: User identifier from the source system on who created the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  sourceUpdatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedUser
+    description: User identifier from the source system on who last updated the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node
