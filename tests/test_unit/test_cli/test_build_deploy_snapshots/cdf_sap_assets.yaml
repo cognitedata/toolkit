@@ -188,7 +188,7 @@ Transformation:
   isPublic: true
   name: Equipment to Asset Transformations for SAP Springfield S/4HANA
   query: "select\n  concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,\n\
-    \  node_reference('springfield_instances',  concat('WMT', cast(d2.`WMT_TAG_NAME`\
+    \  node_reference('springfield_instances',  concat('WMT:', cast(d2.`WMT_TAG_NAME`\
     \ as STRING))) as asset\nfrom\n    sap_s4hana.`dump` d1\njoin\n  sap_s4hana.`dump`\
     \ d2\non\n  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`\nwhere\n  isnotnull(d1.`WMT_TAG_NAME`)\
     \ AND\n  cast(d1.`WMT_CATEGORY_ID` as INT) != 1157 AND\n  isnotnull(d2.`WMT_TAG_NAME`)\
