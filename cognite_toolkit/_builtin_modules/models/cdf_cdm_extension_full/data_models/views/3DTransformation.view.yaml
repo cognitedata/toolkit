@@ -1,0 +1,79 @@
+space: {{ schema_space }}
+externalId: {{ organization }}3DTransformation
+description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
+  enabling precise adjustments to an object''s position, orientation, and size in
+  the 3D coordinate system. It allows for the translation of objects along the three
+  spatial axes, rotation around these axes using Euler angles, and scaling along each
+  axis to modify the object''s dimensions. The object''s transformation is defined
+  in "CDF space", a coordinate system where the positive Z axis is the up direction
+
+  '
+implements: []
+version: v1
+properties:
+  translationX:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: translationX
+    description: The displacement of the object along the X-axis in the 3D coordinate
+      system
+  translationY:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: translationY
+    description: The displacement of the object along the Y-axis in the 3D coordinate
+      system
+  translationZ:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: translationZ
+    description: The displacement of the object along the Z-axis in the 3D coordinate
+      system
+  eulerRotationX:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: eulerRotationX
+    description: The rotation of the object around the X-axis in radians
+  eulerRotationY:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: eulerRotationY
+    description: The rotation of the object around the Y-axis in radians
+  eulerRotationZ:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: eulerRotationZ
+    description: The rotation of the object around the Z-axis in radians
+  scaleX:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: scaleX
+    description: The scaling factor applied to the object along the X-axis
+  scaleY:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: scaleY
+    description: The scaling factor applied to the object along the Y-axis
+  scaleZ:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DTransformation
+      type: container
+    containerPropertyIdentifier: scaleZ
+    description: The scaling factor applied to the object along the Z-axis

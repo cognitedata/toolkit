@@ -1,0 +1,65 @@
+space: {{ schema_space }}
+externalId: {{ organization }}AssetType
+name: Asset type
+description: Represents the type of an asset.
+implements: []
+version: v1
+properties:
+  code:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: A unique identifier for the type of asset.
+  standard:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: A text string to specify which standard the type is from.
+  assetClass:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: assetClass
+    name: Asset class
+    description: Specifies the class the type belongs to. It's a direct relation to
+      CogniteAssetClass.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
+      version: v1
+      type: view
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node
