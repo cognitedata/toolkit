@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
+    DEV_ONLY_MODULES,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     YAML_SUFFIX,
@@ -63,6 +64,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     DuplicatedItemWarning,
     FileReadWarning,
     LowSeverityWarning,
+    MediumSeverityWarning,
     MissingDependencyWarning,
     UnresolvedVariableWarning,
     WarningList,
@@ -71,6 +73,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifi
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     calculate_str_or_file_hash,
+    humanize_collection,
     quote_int_value_by_key_in_yaml,
     read_yaml_content,
     safe_read,
@@ -353,8 +356,8 @@ class BuildCommand(ToolkitCommand):
         builder = self._builder_by_resource_folder[resource_name]
         return builder
 
-    @staticmethod
     def _validate_modules(
+        self,
         modules: ModuleDirectories,
         config: BuildConfigYAML,
         packages: dict[str, list[str]],
@@ -398,6 +401,15 @@ class BuildCommand(ToolkitCommand):
             raise ToolkitEnvError(
                 f"No selected modules specified in {config.filepath!s}, have you configured "
                 f"the environment ({config.environment.name})?"
+            )
+
+        dev_modules = modules.available_names & DEV_ONLY_MODULES
+        if dev_modules and config.environment.build_type != "dev":
+            self.warn(
+                MediumSeverityWarning(
+                    "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
+                    f"{humanize_collection(dev_modules)!r}",
+                )
             )
 
     def _replace_variables(

@@ -42,6 +42,8 @@ MIN_TIMESTAMP_MS = -2208988800000  # 1900-01-01 00:00:00.000
 MAX_TIMESTAMP_MS = 4102444799999  # 2099-12-31 23:59:59.999
 HAS_DATA_FILTER_LIMIT = 10
 
+DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
+
 DEFAULT_ENV = "dev"
 # Add any other files below that should be included in a build
 EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
