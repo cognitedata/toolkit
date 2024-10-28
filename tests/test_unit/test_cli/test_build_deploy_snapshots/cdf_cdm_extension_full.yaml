@@ -1,159 +1,147 @@
 DataModel:
-- description: ToolkitIDM enterprise model
-  externalId: ToolkitIDMProcessIndustries
-  name: ToolkitIDM enterprise model
-  space: sp_enterprise_idm_schema
+- description: Toolkit enterprise model
+  externalId: ToolkitEnterprise
+  name: Toolkit enterprise model
+  space: sp_enterprise_schema
   version: v1
   views:
-  - externalId: ToolkitIDMMaintenanceOrder
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitDescribable
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMOperation
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitSourceable
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMNotification
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitSourceSystem
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMDescribable
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitSchedulable
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMSourceable
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitVisualizable
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMSourceSystem
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit3DTransformation
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMSchedulable
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitCubeMap
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMVisualizable
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit3DObject
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM3DTransformation
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit3DModel
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMCubeMap
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitCADModel
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM3DObject
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit3DRevision
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM3DModel
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitPointCloudModel
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMCADModel
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit360ImageModel
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM3DRevision
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitCADRevision
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMPointCloudModel
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitPointCloudRevision
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM360ImageModel
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit360ImageCollection
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMCADRevision
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitCADNode
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMPointCloudRevision
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitPointCloudVolume
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM360ImageCollection
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit360Image
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMCADNode
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit360ImageStation
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMPointCloudVolume
-    space: sp_enterprise_idm_schema
+  - externalId: Toolkit360ImageAnnotation
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM360Image
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitAsset
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM360ImageStation
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitAssetClass
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDM360ImageAnnotation
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitAssetType
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMAsset
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitEquipment
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMAssetClass
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitEquipmentType
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMAssetType
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitFile
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMEquipment
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitFileCategory
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMEquipmentType
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitActivity
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMFile
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitTimeSeries
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMFileCategory
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitAnnotation
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMActivity
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitDiagramAnnotation
+    space: sp_enterprise_schema
     type: view
     version: v1
-  - externalId: ToolkitIDMTimeSeries
-    space: sp_enterprise_idm_schema
-    type: view
-    version: v1
-  - externalId: ToolkitIDMAnnotation
-    space: sp_enterprise_idm_schema
-    type: view
-    version: v1
-  - externalId: ToolkitIDMDiagramAnnotation
-    space: sp_enterprise_idm_schema
-    type: view
-    version: v1
-  - externalId: ToolkitIDMUnit
-    space: sp_enterprise_idm_schema
+  - externalId: ToolkitUnit
+    space: sp_enterprise_schema
     type: view
     version: v1
 Space:
-- space: sp_enterprise_idm_schema
+- space: sp_enterprise_schema
 View:
 - description: ''
-  externalId: ToolkitIDM360Image
+  externalId: Toolkit360Image
   implements: []
   properties:
     back:
@@ -165,8 +153,8 @@ View:
       description: Direct relation to a file holding the back projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     bottom:
@@ -178,8 +166,8 @@ View:
       description: Direct relation to a file holding the bottom projection of the
         cube map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     collection360:
@@ -190,8 +178,8 @@ View:
       containerPropertyIdentifier: collection360
       description: Direct relation to Cognite360ImageCollection
       source:
-        externalId: ToolkitIDM360ImageCollection
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit360ImageCollection
+        space: sp_enterprise_schema
         type: view
         version: v1
     eulerRotationX:
@@ -224,8 +212,8 @@ View:
       description: Direct relation to a file holding the front projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     left:
@@ -237,8 +225,8 @@ View:
       description: Direct relation to a file holding the left projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     right:
@@ -250,8 +238,8 @@ View:
       description: Direct relation to a file holding the right projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     scaleX:
@@ -284,8 +272,8 @@ View:
       description: Direct relation to Cognite3DGroup instance that groups different
         Cognite360Image instances to the same station
       source:
-        externalId: ToolkitIDM360ImageStation
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit360ImageStation
+        space: sp_enterprise_schema
         type: view
         version: v1
     takenAt:
@@ -304,8 +292,8 @@ View:
       description: Direct relation to a file holding the top projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     translationX:
@@ -332,10 +320,10 @@ View:
       containerPropertyIdentifier: translationZ
       description: The displacement of the object along the Z-axis in the 3D coordinate
         system
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: ''
-  externalId: ToolkitIDM360ImageAnnotation
+  externalId: Toolkit360ImageAnnotation
   implements: []
   properties:
     aliases:
@@ -388,8 +376,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -452,10 +440,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents a logical collection of Cognite360Image instances
-  externalId: ToolkitIDM360ImageCollection
+  externalId: Toolkit360ImageCollection
   filter:
     and:
     - hasData:
@@ -491,8 +479,8 @@ View:
         type: container
       containerPropertyIdentifier: model3D
       source:
-        externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     name:
@@ -527,10 +515,10 @@ View:
         space: cdf_cdm_3d
         type: container
       containerPropertyIdentifier: type
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing Cognite360ImageModel instances
-  externalId: ToolkitIDM360ImageModel
+  externalId: Toolkit360ImageModel
   filter:
     and:
     - hasData:
@@ -556,8 +544,8 @@ View:
       connectionType: multi_reverse_direct_relation
       description: List Cognite360Image collections for this instance
       source:
-        externalId: ToolkitIDM360ImageCollection
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit360ImageCollection
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -596,8 +584,8 @@ View:
       containerPropertyIdentifier: thumbnail
       description: Thumbnail of the 3D model
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     type:
@@ -607,11 +595,11 @@ View:
         type: container
       containerPropertyIdentifier: type
       description: CAD, PointCloud or Image360
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: A way to group images across collections. Used for creating visual
     scan history
-  externalId: ToolkitIDM360ImageStation
+  externalId: Toolkit360ImageStation
   filter:
     and:
     - hasData:
@@ -661,11 +649,11 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
     Image360)
-  externalId: ToolkitIDM3DModel
+  externalId: Toolkit3DModel
   implements: []
   properties:
     aliases:
@@ -704,8 +692,8 @@ View:
       containerPropertyIdentifier: thumbnail
       description: Thumbnail of the 3D model
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     type:
@@ -715,11 +703,11 @@ View:
         type: container
       containerPropertyIdentifier: type
       description: CAD, PointCloud or Image360
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: This is the virtual position representation of an object in the physical
     world, connecting an asset to one or more 3D resources
-  externalId: ToolkitIDM3DObject
+  externalId: Toolkit3DObject
   implements: []
   properties:
     aliases:
@@ -733,8 +721,8 @@ View:
       connectionType: single_reverse_direct_relation
       description: Asset that is tied to this 3D object
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -748,8 +736,8 @@ View:
       connectionType: multi_reverse_direct_relation
       description: List of up to 1000 CADNodes that represents the connected CogniteAsset
       source:
-        externalId: ToolkitIDMCADNode
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADNode
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -777,8 +765,8 @@ View:
         type: view
         version: v1
       source:
-        externalId: ToolkitIDM360Image
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit360Image
+        space: sp_enterprise_schema
         type: view
         version: v1
       type:
@@ -796,8 +784,8 @@ View:
       description: List of up to 1000 PointCloudVolumes that represents the connected
         CogniteAsset
       source:
-        externalId: ToolkitIDMPointCloudVolume
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitPointCloudVolume
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -856,13 +844,13 @@ View:
         type: container
       containerPropertyIdentifier: zMin
       description: Lowest Z value in bounding box
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: 'Shared revision information for various 3D data types. Normally not
     used directly, but through CognitePointCloudRevision, Image360Collection or CogniteCADRevision
 
     '
-  externalId: ToolkitIDM3DRevision
+  externalId: Toolkit3DRevision
   implements: []
   properties:
     model3D:
@@ -872,8 +860,8 @@ View:
         type: container
       containerPropertyIdentifier: model3D
       source:
-        externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     published:
@@ -894,7 +882,7 @@ View:
         space: cdf_cdm_3d
         type: container
       containerPropertyIdentifier: type
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
     enabling precise adjustments to an object''s position, orientation, and size in
@@ -905,7 +893,7 @@ View:
     direction
 
     '
-  externalId: ToolkitIDM3DTransformation
+  externalId: Toolkit3DTransformation
   implements: []
   properties:
     eulerRotationX:
@@ -974,11 +962,11 @@ View:
       containerPropertyIdentifier: translationZ
       description: The displacement of the object along the Z-axis in the 3D coordinate
         system
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents activities. Activities typically happen over a period and
     have a start and end time.
-  externalId: ToolkitIDMActivity
+  externalId: ToolkitActivity
   implements: []
   name: Activity
   properties:
@@ -998,8 +986,8 @@ View:
       description: A list of assets the activity is related to.
       name: Assets
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     description:
@@ -1025,8 +1013,8 @@ View:
       description: A list of equipment the activity is related to.
       name: Equipment
       source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitEquipment
+        space: sp_enterprise_schema
         type: view
         version: v1
     name:
@@ -1059,8 +1047,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -1132,14 +1120,14 @@ View:
       description: A list of time series the activity is related to.
       name: Time series
       source:
-        externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitTimeSeries
+        space: sp_enterprise_schema
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Annotation represents contextualization results or links
-  externalId: ToolkitIDMAnnotation
+  externalId: ToolkitAnnotation
   implements: []
   properties:
     aliases:
@@ -1178,8 +1166,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -1242,11 +1230,11 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Assets represent systems that support industrial functions or processes.
     Assets are often called 'functional location'.
-  externalId: ToolkitIDMAsset
+  externalId: ToolkitAsset
   implements: []
   name: Asset
   properties:
@@ -1255,8 +1243,8 @@ View:
       description: An automatically updated list of activities related to the asset.
       name: Activities
       source:
-        externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitActivity
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1282,8 +1270,8 @@ View:
       description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
       name: Asset class
       source:
-        externalId: ToolkitIDMAssetClass
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAssetClass
+        space: sp_enterprise_schema
         type: view
         version: v1
     children:
@@ -1292,8 +1280,8 @@ View:
         parent.
       name: Children
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1315,8 +1303,8 @@ View:
       description: An automatically updated list of equipment related to the asset.
       name: Equipment
       source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitEquipment
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1331,8 +1319,8 @@ View:
       description: An automatically updated list of files related to the asset.
       name: Files
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1357,8 +1345,8 @@ View:
       containerPropertyIdentifier: object3D
       description: Direct relation to an Object3D instance representing the 3D resource
       source:
-        externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DObject
+        space: sp_enterprise_schema
         type: view
         version: v1
     parent:
@@ -1370,8 +1358,8 @@ View:
       description: The parent of the asset.
       name: Parent
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     path:
@@ -1385,8 +1373,8 @@ View:
         under a parent.
       name: Path
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     pathLastUpdatedTime:
@@ -1407,8 +1395,8 @@ View:
         hierarchy.
       name: Root
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     source:
@@ -1419,8 +1407,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -1481,8 +1469,8 @@ View:
       description: An automatically updated list of time series related to the asset.
       name: Time series
       source:
-        externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitTimeSeries
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1501,14 +1489,14 @@ View:
       description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
       name: Asset type
       source:
-        externalId: ToolkitIDMAssetType
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAssetType
+        space: sp_enterprise_schema
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents the class of an asset.
-  externalId: ToolkitIDMAssetClass
+  externalId: ToolkitAssetClass
   implements: []
   name: Asset class
   properties:
@@ -1556,10 +1544,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents the type of an asset.
-  externalId: ToolkitIDMAssetType
+  externalId: ToolkitAssetType
   implements: []
   name: Asset type
   properties:
@@ -1580,8 +1568,8 @@ View:
         to CogniteAssetClass.
       name: Asset class
       source:
-        externalId: ToolkitIDMAssetClass
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAssetClass
+        space: sp_enterprise_schema
         type: view
         version: v1
     code:
@@ -1621,10 +1609,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CogniteCADModel instances
-  externalId: ToolkitIDMCADModel
+  externalId: ToolkitCADModel
   filter:
     and:
     - hasData:
@@ -1664,8 +1652,8 @@ View:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this CAD model
       source:
-        externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADRevision
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -1690,8 +1678,8 @@ View:
       containerPropertyIdentifier: thumbnail
       description: Thumbnail of the 3D model
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     type:
@@ -1701,10 +1689,10 @@ View:
         type: container
       containerPropertyIdentifier: type
       description: CAD, PointCloud or Image360
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents nodes from the 3D model that have been contextualized
-  externalId: ToolkitIDMCADNode
+  externalId: ToolkitCADNode
   implements: []
   properties:
     aliases:
@@ -1736,8 +1724,8 @@ View:
       containerPropertyIdentifier: model3D
       description: Direct relation to Cognite3DModel
       source:
-        externalId: ToolkitIDMCADModel
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     name:
@@ -1755,8 +1743,8 @@ View:
       containerPropertyIdentifier: object3D
       description: Direct relation to object3D grouping for this node
       source:
-        externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DObject
+        space: sp_enterprise_schema
         type: view
         version: v1
     revisions:
@@ -1768,8 +1756,8 @@ View:
       description: List of direct relations to instances of Cognite3DRevision which
         this CogniteCADNode exists in.
       source:
-        externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADRevision
+        space: sp_enterprise_schema
         type: view
         version: v1
     subTreeSizes:
@@ -1800,10 +1788,10 @@ View:
         and similar applications to map from CogniteCADNode to tree index
 
         '
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: ''
-  externalId: ToolkitIDMCADRevision
+  externalId: ToolkitCADRevision
   filter:
     and:
     - hasData:
@@ -1825,8 +1813,8 @@ View:
         type: container
       containerPropertyIdentifier: model3D
       source:
-        externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     published:
@@ -1854,13 +1842,13 @@ View:
         space: cdf_cdm_3d
         type: container
       containerPropertyIdentifier: type
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: 'The cube map holds references to 6 images in used to visually represent
     the surrounding environment
 
     '
-  externalId: ToolkitIDMCubeMap
+  externalId: ToolkitCubeMap
   implements: []
   properties:
     back:
@@ -1872,8 +1860,8 @@ View:
       description: Direct relation to a file holding the back projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     bottom:
@@ -1885,8 +1873,8 @@ View:
       description: Direct relation to a file holding the bottom projection of the
         cube map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     front:
@@ -1898,8 +1886,8 @@ View:
       description: Direct relation to a file holding the front projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     left:
@@ -1911,8 +1899,8 @@ View:
       description: Direct relation to a file holding the left projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     right:
@@ -1924,8 +1912,8 @@ View:
       description: Direct relation to a file holding the right projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     top:
@@ -1937,17 +1925,17 @@ View:
       description: Direct relation to a file holding the top projection of the cube
         map
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: 'The describable core concept is used as a standard way of holding
     the bare minimum of information about the instance
 
     '
-  externalId: ToolkitIDMDescribable
+  externalId: ToolkitDescribable
   implements: []
   properties:
     aliases:
@@ -1978,10 +1966,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Annotation for diagrams
-  externalId: ToolkitIDMDiagramAnnotation
+  externalId: ToolkitDiagramAnnotation
   implements: []
   properties:
     aliases:
@@ -2084,8 +2072,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -2205,10 +2193,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Equipment represents physical supplies or devices.
-  externalId: ToolkitIDMEquipment
+  externalId: ToolkitEquipment
   implements: []
   name: Equipment
   properties:
@@ -2217,8 +2205,8 @@ View:
       description: An automatically updated list of activities related to the equipment.
       name: Activities
       source:
-        externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitActivity
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -2244,8 +2232,8 @@ View:
       description: The asset the equipment is related to.
       name: Asset
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     description:
@@ -2265,8 +2253,8 @@ View:
         CogniteEquipmentType.
       name: Equipment type
       source:
-        externalId: ToolkitIDMEquipmentType
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitEquipmentType
+        space: sp_enterprise_schema
         type: view
         version: v1
     files:
@@ -2278,8 +2266,8 @@ View:
       description: A list of files the equipment relates to.
       name: Files
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     manufacturer:
@@ -2313,8 +2301,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -2375,8 +2363,8 @@ View:
       description: An automatically updated list of time series related to the equipment.
       name: Time series
       source:
-        externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitTimeSeries
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -2386,10 +2374,10 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents the type of equipment.
-  externalId: ToolkitIDMEquipmentType
+  externalId: ToolkitEquipmentType
   implements: []
   name: Equipment type
   properties:
@@ -2454,10 +2442,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents files.
-  externalId: ToolkitIDMFile
+  externalId: ToolkitFile
   implements: []
   name: File
   properties:
@@ -2477,8 +2465,8 @@ View:
       description: A list of assets this file is related to.
       name: Assets
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     category:
@@ -2491,8 +2479,8 @@ View:
         relation to an instance of CogniteFileCategory.
       name: Category
       source:
-        externalId: ToolkitIDMFileCategory
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFileCategory
+        space: sp_enterprise_schema
         type: view
         version: v1
     description:
@@ -2517,8 +2505,8 @@ View:
         to.
       name: Equipment
       source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitEquipment
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -2560,8 +2548,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -2625,11 +2613,11 @@ View:
       containerPropertyIdentifier: uploadedTime
       description: The time the file upload completed.
       name: Uploaded time
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents the categories of files as determined by contextualization
     or categorization.
-  externalId: ToolkitIDMFileCategory
+  externalId: ToolkitFileCategory
   implements: []
   name: File category
   properties:
@@ -2687,666 +2675,10 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
-  version: v1
-- description: A formal request or directive to perform maintenance tasks such as
-    repair, inspection, or servicing of equipment or assets. It's often called a 'work
-    order'.
-  externalId: ToolkitIDMMaintenanceOrder
-  implements: []
-  name: Maintenance order
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    assets:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: assets
-      description: A list of assets the activity is related to.
-      name: Assets
-      source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    endTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endTime
-      description: The actual end time of an activity (or similar that extends this)
-    equipment:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: equipment
-      description: A list of equipment the activity is related to.
-      name: Equipment
-      source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    mainAsset:
-      container:
-        externalId: CogniteMaintenanceOrder
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: mainAsset
-      description: The primary asset (functional location) the maintenance order refers
-        to.
-      name: Main asset
-      source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    operations:
-      connectionType: multi_reverse_direct_relation
-      description: Lists the individual work items on the maintenance order. An automatically
-        populated list of operations related to the maintenance order.
-      name: Operations
-      source:
-        externalId: ToolkitIDMOperation
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-      through:
-        identifier: maintenanceOrder
-        source:
-          externalId: CogniteOperation
-          space: cdf_idm
-          type: view
-          version: v1
-    priority:
-      container:
-        externalId: CogniteMaintenanceOrder
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: priority
-      description: A number that shows how important this maintenance order is. Lower
-        numbers mean it's more important, and 0 means it's the most important.
-      name: Priority
-    priorityDescription:
-      container:
-        externalId: CogniteMaintenanceOrder
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: priorityDescription
-      description: Describes the priority of the maintenance order.
-      name: Priority description
-    scheduledEndTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledEndTime
-      description: The planned end time of an activity (or similar that extends this)
-    scheduledStartTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledStartTime
-      description: The planned start time of an activity (or similar that extends
-        this)
-    source:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Direct relation to a source system
-      source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    startTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startTime
-      description: The actual start time of an activity (or similar that extends this)
-    status:
-      container:
-        externalId: CogniteMaintenanceOrder
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: status
-      description: The lifecycle status of the maintenance order, for example, 'Partially
-        complete'. It's often derived from the 'SystemStatus' field in SAP.
-      name: Status
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    timeSeries:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: timeSeries
-      description: A list of time series the activity is related to.
-      name: Time series
-      source:
-        externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    type:
-      container:
-        externalId: CogniteMaintenanceOrder
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: type
-      description: The code for the type of maintenance order, for example, 'PM01'
-        for 'Corrective maintenance'.
-      name: Type
-  space: sp_enterprise_idm_schema
-  version: v1
-- description: A formal record to report maintenance issues, defects, or requests,
-    starting the process for planning and running maintenance activities.
-  externalId: ToolkitIDMNotification
-  implements: []
-  name: Notification```
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    asset:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: asset
-      description: The asset (functional location) the notification is related to.
-      name: Asset
-      source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    endTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endTime
-      description: The actual end time of an activity (or similar that extends this)
-    maintenanceOrder:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: maintenanceOrder
-      description: The maintenance order that was created from the notification.
-      name: Maintenance order
-      source:
-        externalId: ToolkitIDMMaintenanceOrder
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    priority:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: priority
-      description: A number that shows how important the notification is. Lower numbers
-        mean it's more important, and 0 means it's the most important.
-      name: Priority
-    priorityDescription:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: priorityDescription
-      description: Describes the priority of the notification.
-      name: Priority description
-    scheduledEndTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledEndTime
-      description: The planned end time of an activity (or similar that extends this)
-    scheduledStartTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledStartTime
-      description: The planned start time of an activity (or similar that extends
-        this)
-    source:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Direct relation to a source system
-      source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    startTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startTime
-      description: The actual start time of an activity (or similar that extends this)
-    status:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: status
-      description: The current lifecycle status of the notification, for example,
-        'order created'.
-      name: Status
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    type:
-      container:
-        externalId: CogniteNotification
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: type
-      description: The code for the notification type, for example, 'M1' for  'Maintenance
-        request'.
-      name: Type
-  space: sp_enterprise_idm_schema
-  version: v1
-- description: Operations represent a specific part of the work included in a maintenance
-    order. Often called a 'work order item'.
-  externalId: ToolkitIDMOperation
-  implements: []
-  name: Operation
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    assets:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: assets
-      description: A list of assets the activity is related to.
-      name: Assets
-      source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    endTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endTime
-      description: The actual end time of an activity (or similar that extends this)
-    equipment:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: equipment
-      description: A list of equipment the activity is related to.
-      name: Equipment
-      source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    mainAsset:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: mainAsset
-      description: The primary asset (functional location) the operation is related
-        to.
-      name: Main asset
-      source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    mainDiscipline:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: mainDiscipline
-      description: The primary skill or resource required to perform the operation,
-        for example, 'maintenance technician').
-      name: Main discipline
-    maintenanceOrder:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: maintenanceOrder
-      description: The maintenance order the operation is related to.
-      name: Maintenance order
-      source:
-        externalId: ToolkitIDMMaintenanceOrder
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    numberOfMainDiscipline:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: numberOfMainDiscipline
-      description: The number of resources required to perform the operation, for
-        example, the number of required maintenance technicians.
-      name: Number of main discipline
-    personHours:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: personHours
-      description: The number of hours required to perform the maintenance operation.
-        The duration is calculated by dividing the personHours by the numberOfMainDiscipline.
-      name: Person hours
-    phase:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: phase
-      description: The code for the phase the operation belongs to. Each operation
-        belongs to a single phase, for example, 'Scaffolding'.
-      name: Phase
-    scheduledEndTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledEndTime
-      description: The planned end time of an activity (or similar that extends this)
-    scheduledStartTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledStartTime
-      description: The planned start time of an activity (or similar that extends
-        this)
-    sequence:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: sequence
-      description: A number that shows the order in which the operations are performed.
-        Lower numbers mean they happen earlier, and 0 means it's the first operation.
-      name: Sequence
-    source:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Direct relation to a source system
-      source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    startTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startTime
-      description: The actual start time of an activity (or similar that extends this)
-    status:
-      container:
-        externalId: CogniteOperation
-        space: cdf_idm
-        type: container
-      containerPropertyIdentifier: status
-      description: The lifecycle status of the operation, for example, 'Partially
-        complete'. It's often derived from the UserStatus field in SAP.
-      name: Status
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    timeSeries:
-      container:
-        externalId: CogniteActivity
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: timeSeries
-      description: A list of time series the activity is related to.
-      name: Time series
-      source:
-        externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
-        type: view
-        version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CognitePointCloudModel instances
-  externalId: ToolkitIDMPointCloudModel
+  externalId: ToolkitPointCloudModel
   filter:
     and:
     - hasData:
@@ -3386,8 +2718,8 @@ View:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this PointCloud model
       source:
-        externalId: ToolkitIDMPointCloudRevision
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitPointCloudRevision
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -3412,8 +2744,8 @@ View:
       containerPropertyIdentifier: thumbnail
       description: Thumbnail of the 3D model
       source:
-        externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
         type: view
         version: v1
     type:
@@ -3423,10 +2755,10 @@ View:
         type: container
       containerPropertyIdentifier: type
       description: CAD, PointCloud or Image360
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CognitePointCloudRevision instances
-  externalId: ToolkitIDMPointCloudRevision
+  externalId: ToolkitPointCloudRevision
   filter:
     and:
     - hasData:
@@ -3448,8 +2780,8 @@ View:
         type: container
       containerPropertyIdentifier: model3D
       source:
-        externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     published:
@@ -3477,10 +2809,10 @@ View:
         space: cdf_cdm_3d
         type: container
       containerPropertyIdentifier: type
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: PointCloud volume definition
-  externalId: ToolkitIDMPointCloudVolume
+  externalId: ToolkitPointCloudVolume
   implements: []
   properties:
     aliases:
@@ -3515,8 +2847,8 @@ View:
       containerPropertyIdentifier: model3D
       description: Direct relation to Cognite3DModel instance
       source:
-        externalId: ToolkitIDMCADModel
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADModel
+        space: sp_enterprise_schema
         type: view
         version: v1
     name:
@@ -3534,8 +2866,8 @@ View:
       containerPropertyIdentifier: object3D
       description: Direct relation to object3D grouping for this node
       source:
-        externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DObject
+        space: sp_enterprise_schema
         type: view
         version: v1
     revisions:
@@ -3546,8 +2878,8 @@ View:
       containerPropertyIdentifier: revisions
       description: List of direct relations to revision information
       source:
-        externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitCADRevision
+        space: sp_enterprise_schema
         type: view
         version: v1
     tags:
@@ -3580,11 +2912,11 @@ View:
         type: container
       containerPropertyIdentifier: volumeType
       description: Type of volume (Cylinder or Box)
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: CogniteSchedulable represents the metadata about when an activity (or
     similar) starts and ends.
-  externalId: ToolkitIDMSchedulable
+  externalId: ToolkitSchedulable
   implements: []
   properties:
     endTime:
@@ -3616,11 +2948,11 @@ View:
         type: container
       containerPropertyIdentifier: startTime
       description: The actual start time of an activity (or similar that extends this)
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: The CogniteSourceSystem core concept is used to standardize the way
     source system is stored.
-  externalId: ToolkitIDMSourceSystem
+  externalId: ToolkitSourceSystem
   implements: []
   properties:
     aliases:
@@ -3665,9 +2997,9 @@ View:
         type: container
       containerPropertyIdentifier: version
       description: Version identifier for the source system
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
-- externalId: ToolkitIDMSourceable
+- externalId: ToolkitSourceable
   implements: []
   properties:
     source:
@@ -3678,8 +3010,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -3728,10 +3060,10 @@ View:
       description: User identifier from the source system on who last updated the
         source data. This identifier is not guaranteed to match the user identifiers
         in CDF
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents a series of data points in time order."
-  externalId: ToolkitIDMTimeSeries
+  externalId: ToolkitTimeSeries
   implements: []
   name: Time series
   properties:
@@ -3741,8 +3073,8 @@ View:
         related to.
       name: Activities
       source:
-        externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitActivity
+        space: sp_enterprise_schema
         type: view
         version: v1
       through:
@@ -3768,8 +3100,8 @@ View:
       description: A list of assets the time series is related to.
       name: Assets
       source:
-        externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
         type: view
         version: v1
     description:
@@ -3788,8 +3120,8 @@ View:
       description: A list of equipment the time series is related to.
       name: Equipment
       source:
-        externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitEquipment
+        space: sp_enterprise_schema
         type: view
         version: v1
     isStep:
@@ -3815,8 +3147,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
         type: view
         version: v1
     sourceContext:
@@ -3897,14 +3229,14 @@ View:
       description: The unit of the time series.
       name: Unit
       source:
-        externalId: ToolkitIDMUnit
-        space: sp_enterprise_idm_schema
+        externalId: ToolkitUnit
+        space: sp_enterprise_schema
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: Represents a single unit of measurement
-  externalId: ToolkitIDMUnit
+  externalId: ToolkitUnit
   implements: []
   properties:
     aliases:
@@ -3963,11 +3295,11 @@ View:
         type: container
       containerPropertyIdentifier: tags
       description: Text based labels for generic use, limited to 1000
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
 - description: CogniteVisualizable defines the standard way to reference a related
     3D resource
-  externalId: ToolkitIDMVisualizable
+  externalId: ToolkitVisualizable
   implements: []
   properties:
     object3D:
@@ -3978,9 +3310,9 @@ View:
       containerPropertyIdentifier: object3D
       description: Direct relation to an Object3D instance representing the 3D resource
       source:
-        externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        externalId: Toolkit3DObject
+        space: sp_enterprise_schema
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_schema
   version: v1
