@@ -1,0 +1,62 @@
+space: {{ schema_space }}
+externalId: {{ organization }}FileCategory
+name: File category
+description: Represents the categories of files as determined by contextualization
+  or categorization.
+implements: []
+version: v1
+properties:
+  code:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: An identifier for the category, for example, 'AA' for Accounting
+      (from Norsok.)
+  standard:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: The name of the standard the category originates from, for example,
+      'Norsok'.
+  standardReference:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      type: container
+    containerPropertyIdentifier: standardReference
+    name: Standard reference
+    description: A reference to the source of the category standard.
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node

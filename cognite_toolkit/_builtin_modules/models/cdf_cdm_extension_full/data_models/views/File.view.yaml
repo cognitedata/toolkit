@@ -1,0 +1,169 @@
+space: {{ schema_space }}
+externalId: {{ organization }}File
+name: File
+description: Represents files.
+implements: []
+version: v1
+properties:
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets this file is related to.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  mimeType:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: mimeType
+    name: MIME type
+    description: The MIME type of the file.
+  directory:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: directory
+    name: Directory
+    description: Contains the path elements from the source (if the source system
+      has a file system hierarchy or similar.)
+  isUploaded:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: isUploaded
+    name: Is uploaded
+    description: Specifies if the file content has been uploaded to Cognite Data Fusion
+      or not.
+  uploadedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: uploadedTime
+    name: Uploaded time
+    description: The time the file upload completed.
+  category:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: category
+    name: Category
+    description: Specifies the detected category the file belongs to. It's a direct
+      relation to an instance of CogniteFileCategory.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}FileCategory
+      version: v1
+      type: view
+  equipment:
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteEquipment
+        version: v1
+        type: view
+      identifier: files
+    name: Equipment
+    description: An automatically updated list of equipment this file is related to.
+    connectionType: multi_reverse_direct_relation
+  sourceId:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceId
+    description: Identifier from the source system
+  sourceContext:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceContext
+    description: Context of the source id. For systems where the sourceId is globally
+      unique, the sourceContext is expected to not be set.
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  sourceCreatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedTime
+    description: When the instance was created in source system (if available)
+  sourceUpdatedTime:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedTime
+    description: When the instance was last updated in the source system (if available)
+  sourceCreatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceCreatedUser
+    description: User identifier from the source system on who created the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  sourceUpdatedUser:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: sourceUpdatedUser
+    description: User identifier from the source system on who last updated the source
+      data. This identifier is not guaranteed to match the user identifiers in CDF
+  name:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: name
+    description: Name of the instance
+  description:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: description
+    description: Description of the instance
+  tags:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: tags
+    description: Text based labels for generic use, limited to 1000
+  aliases:
+    container:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    containerPropertyIdentifier: aliases
+    description: Alternative names for the node
