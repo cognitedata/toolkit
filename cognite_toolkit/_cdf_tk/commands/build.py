@@ -407,7 +407,7 @@ class BuildCommand(ToolkitCommand):
         if dev_modules and config.environment.build_type != "dev":
             self.warn(
                 MediumSeverityWarning(
-                    "The following modules should [bold]only[/bold] be used a CDF Project development: "
+                    "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
                     f"{humanize_collection(dev_modules)!r}",
                 )
             )
