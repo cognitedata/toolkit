@@ -119,6 +119,40 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
+      externalId: CogniteAsset
+      space: cdf_cdm
+      version: v1
+  destinationOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+  externalId: sap_asset_to_asset_sap_s4hana
+  ignoreNullFields: true
+  isPublic: true
+  name: Asset to Asset Transformations for SAP Springfield S/4HANA
+  query: "select\n  concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,\n\
+    \  node_reference('springfield_instances',  concat('WMT:', cast(d2.`WMT_TAG_NAME`\
+    \ as STRING))) as parent\nfrom\n\t`sap_s4hana`.`dump` as d1\njoin\n  `sap_s4hana`.`dump`\
+    \ as d2\non\n  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`\nwhere\n  isnotnull(d1.`WMT_TAG_NAME`)\
+    \ AND\n  cast(d1.`WMT_CATEGORY_ID` as INT) = 1157 AND\n  isnotnull(d2.`WMT_TAG_NAME`)\
+    \ AND\n/* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while\
+    \ equipment is everything else */\n  cast(d2.`WMT_CATEGORY_ID` as INT) = 1157\n"
+  sourceOidcCredentials:
+    audience: https://bluefield.cognitedata.com
+    cdfProjectName: pytest-project
+    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+    scopes: https://bluefield.cognitedata.com/.default
+    tokenUri: dummy
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
       externalId: CogniteEquipment
       space: cdf_cdm
       version: v1
