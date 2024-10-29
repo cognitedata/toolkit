@@ -11,7 +11,7 @@ select
   cast(task.`sourceId` as STRING) as externalId,
   node_reference('{{ instanceSpace }}', cast(worder.`sourceId` as STRING)) as maintenanceOrder
 from
-  {{ rawDatabase }}.`worktask` as task
+  {{ rawDatabase }}.`workitem` as task
 join
   worder_unique as worder
 on
