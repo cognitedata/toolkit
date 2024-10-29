@@ -142,7 +142,11 @@ Space:
 View:
 - description: ''
   externalId: Toolkit360Image
-  implements: []
+  implements:
+  - externalId: Cognite360Image
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     back:
       container:
@@ -182,27 +186,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    eulerRotationX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationX
-      description: The rotation of the object around the X-axis in radians
-    eulerRotationY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationY
-      description: The rotation of the object around the Y-axis in radians
-    eulerRotationZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationZ
-      description: The rotation of the object around the Z-axis in radians
     front:
       container:
         externalId: CogniteCubeMap
@@ -242,27 +225,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    scaleX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleX
-      description: The scaling factor applied to the object along the X-axis
-    scaleY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleY
-      description: The scaling factor applied to the object along the Y-axis
-    scaleZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleZ
-      description: The scaling factor applied to the object along the Z-axis
     station360:
       container:
         externalId: Cognite360Image
@@ -276,13 +238,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    takenAt:
-      container:
-        externalId: Cognite360Image
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: takenAt
-      description: The timestamp when the 6 photos were taken
     top:
       container:
         externalId: CogniteCubeMap
@@ -296,78 +251,16 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    translationX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationX
-      description: The displacement of the object along the X-axis in the 3D coordinate
-        system
-    translationY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationY
-      description: The displacement of the object along the Y-axis in the 3D coordinate
-        system
-    translationZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationZ
-      description: The displacement of the object along the Z-axis in the 3D coordinate
-        system
   space: sp_enterprise_schema
   version: v1
 - description: ''
   externalId: Toolkit360ImageAnnotation
-  implements: []
+  implements:
+  - externalId: Cognite360ImageAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    confidence:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: confidence
-      description: The confidence that the annotation is a good match
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    formatVersion:
-      container:
-        externalId: Cognite360ImageAnnotation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: formatVersion
-      description: Specifies the storage representation for the polygon
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    polygon:
-      container:
-        externalId: Cognite360ImageAnnotation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: polygon
-      description: List of floats representing the polygon. Format depends on formatVersion
     source:
       container:
         externalId: CogniteSourceable
@@ -380,66 +273,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    status:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: status
-      description: The status of the annotation
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
   space: sp_enterprise_schema
   version: v1
 - description: Represents a logical collection of Cognite360Image instances
@@ -456,22 +289,12 @@ View:
         - Cognite3DModel
         - type
         value: Image360
-  implements: []
+  implements:
+  - externalId: Cognite360ImageCollection
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     model3D:
       container:
         externalId: Cognite3DRevision
@@ -483,38 +306,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    published:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: published
-    status:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: status
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    type:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
   space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing Cognite360ImageModel instances
@@ -531,15 +322,12 @@ View:
         - Cognite3DModel
         - type
         value: Image360
-  implements: []
+  implements:
+  - externalId: Cognite360ImageModel
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     collections:
       connectionType: multi_reverse_direct_relation
       description: List Cognite360Image collections for this instance
@@ -555,27 +343,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     thumbnail:
       container:
         externalId: Cognite3DModel
@@ -588,13 +355,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    type:
-      container:
-        externalId: Cognite3DModel
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
-      description: CAD, PointCloud or Image360
   space: sp_enterprise_schema
   version: v1
 - description: A way to group images across collections. Used for creating visual
@@ -612,78 +372,23 @@ View:
         - Cognite3DGroup
         - groupType
         value: Station360
-  implements: []
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    groupType:
-      container:
-        externalId: Cognite3DGroup
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: groupType
-      description: Type of group
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  implements:
+  - externalId: Cognite360ImageStation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
     Image360)
   externalId: Toolkit3DModel
-  implements: []
+  implements:
+  - externalId: Cognite3DModel
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     thumbnail:
       container:
         externalId: Cognite3DModel
@@ -696,27 +401,17 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    type:
-      container:
-        externalId: Cognite3DModel
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
-      description: CAD, PointCloud or Image360
   space: sp_enterprise_schema
   version: v1
 - description: This is the virtual position representation of an object in the physical
     world, connecting an asset to one or more 3D resources
   externalId: Toolkit3DObject
-  implements: []
+  implements:
+  - externalId: Cognite3DObject
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     asset:
       connectionType: single_reverse_direct_relation
       description: Asset that is tied to this 3D object
@@ -747,13 +442,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     images360:
       connectionType: multi_edge_connection
       description: Edge connection to Cognite360Image annotations that represents
@@ -772,13 +460,6 @@ View:
       type:
         externalId: image-360-annotation
         space: cdf_cdm
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     pointCloudVolumes:
       connectionType: multi_reverse_direct_relation
       description: List of up to 1000 PointCloudVolumes that represents the connected
@@ -795,55 +476,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    xMax:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: xMax
-      description: Highest X value in bounding box
-    xMin:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: xMin
-      description: Lowest X value in bounding box
-    yMax:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: yMax
-      description: Highest Y value in bounding box
-    yMin:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: yMin
-      description: Lowest Y value in bounding box
-    zMax:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: zMax
-      description: Highest Z value in bounding box
-    zMin:
-      container:
-        externalId: Cognite3DObject
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: zMin
-      description: Lowest Z value in bounding box
   space: sp_enterprise_schema
   version: v1
 - description: 'Shared revision information for various 3D data types. Normally not
@@ -851,7 +483,11 @@ View:
 
     '
   externalId: Toolkit3DRevision
-  implements: []
+  implements:
+  - externalId: Cognite3DRevision
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     model3D:
       container:
@@ -864,24 +500,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    published:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: published
-    status:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: status
-    type:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
   space: sp_enterprise_schema
   version: v1
 - description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
@@ -894,89 +512,24 @@ View:
 
     '
   externalId: Toolkit3DTransformation
-  implements: []
-  properties:
-    eulerRotationX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationX
-      description: The rotation of the object around the X-axis in radians
-    eulerRotationY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationY
-      description: The rotation of the object around the Y-axis in radians
-    eulerRotationZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: eulerRotationZ
-      description: The rotation of the object around the Z-axis in radians
-    scaleX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleX
-      description: The scaling factor applied to the object along the X-axis
-    scaleY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleY
-      description: The scaling factor applied to the object along the Y-axis
-    scaleZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: scaleZ
-      description: The scaling factor applied to the object along the Z-axis
-    translationX:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationX
-      description: The displacement of the object along the X-axis in the 3D coordinate
-        system
-    translationY:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationY
-      description: The displacement of the object along the Y-axis in the 3D coordinate
-        system
-    translationZ:
-      container:
-        externalId: Cognite3DTransformation
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: translationZ
-      description: The displacement of the object along the Z-axis in the 3D coordinate
-        system
+  implements:
+  - externalId: Cognite3DTransformation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Represents activities. Activities typically happen over a period and
     have a start and end time.
   externalId: ToolkitActivity
-  implements: []
+  implements:
+  - externalId: CogniteActivity
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Activity
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     assets:
       container:
         externalId: CogniteActivity
@@ -990,20 +543,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    endTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endTime
-      description: The actual end time of an activity (or similar that extends this)
     equipment:
       container:
         externalId: CogniteActivity
@@ -1017,28 +556,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    scheduledEndTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledEndTime
-      description: The planned end time of an activity (or similar that extends this)
-    scheduledStartTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledStartTime
-      description: The planned start time of an activity (or similar that extends
-        this)
     source:
       container:
         externalId: CogniteSourceable
@@ -1051,66 +568,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    startTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startTime
-      description: The actual start time of an activity (or similar that extends this)
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     timeSeries:
       container:
         externalId: CogniteActivity
@@ -1128,36 +585,12 @@ View:
   version: v1
 - description: Annotation represents contextualization results or links
   externalId: ToolkitAnnotation
-  implements: []
+  implements:
+  - externalId: CogniteAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    confidence:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: confidence
-      description: The confidence that the annotation is a good match
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     source:
       container:
         externalId: CogniteSourceable
@@ -1170,72 +603,16 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    status:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: status
-      description: The status of the annotation
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
   space: sp_enterprise_schema
   version: v1
 - description: Assets represent systems that support industrial functions or processes.
     Assets are often called 'functional location'.
   externalId: ToolkitAsset
-  implements: []
+  implements:
+  - externalId: CogniteAsset
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Asset
   properties:
     activities:
@@ -1254,13 +631,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     assetClass:
       container:
         externalId: CogniteAsset
@@ -1291,13 +661,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     equipment:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of equipment related to the asset.
@@ -1330,13 +693,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     object3D:
       container:
         externalId: CogniteVisualizable
@@ -1377,14 +733,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    pathLastUpdatedTime:
-      container:
-        externalId: CogniteAsset
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: assetHierarchy_path_last_updated_time
-      description: The last time the path was updated for this asset.
-      name: Path last updated time
     root:
       container:
         externalId: CogniteAsset
@@ -1411,59 +759,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     timeSeries:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of time series related to the asset.
@@ -1497,67 +792,24 @@ View:
   version: v1
 - description: Represents the class of an asset.
   externalId: ToolkitAssetClass
-  implements: []
+  implements:
+  - externalId: CogniteAssetClass
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Asset class
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    code:
-      container:
-        externalId: CogniteAssetClass
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: code
-      description: A unique identifier for the class of asset.
-      name: Code
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    standard:
-      container:
-        externalId: CogniteAssetClass
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standard
-      description: A text string to specify which standard the class is from.
-      name: Standard
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Represents the type of an asset.
   externalId: ToolkitAssetType
-  implements: []
+  implements:
+  - externalId: CogniteAssetType
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Asset type
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     assetClass:
       container:
         externalId: CogniteAssetType
@@ -1572,43 +824,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    code:
-      container:
-        externalId: CogniteAssetType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: code
-      description: A unique identifier for the type of asset.
-      name: Code
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    standard:
-      container:
-        externalId: CogniteAssetType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standard
-      description: A text string to specify which standard the type is from.
-      name: Standard
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
   space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CogniteCADModel instances
@@ -1625,29 +840,12 @@ View:
         - Cognite3DModel
         - type
         value: CAD
-  implements: []
+  implements:
+  - externalId: CogniteCADModel
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     revisions:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this CAD model
@@ -1663,13 +861,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     thumbnail:
       container:
         externalId: Cognite3DModel
@@ -1682,40 +873,16 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    type:
-      container:
-        externalId: Cognite3DModel
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
-      description: CAD, PointCloud or Image360
   space: sp_enterprise_schema
   version: v1
 - description: Represents nodes from the 3D model that have been contextualized
   externalId: ToolkitCADNode
-  implements: []
+  implements:
+  - externalId: CogniteCADNode
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    cadNodeReference:
-      container:
-        externalId: CogniteCADNode
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: cadNodeReference
-      description: Reference to a node within a CAD model from the 3D API
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     model3D:
       container:
         externalId: CogniteCADNode
@@ -1728,13 +895,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     object3D:
       container:
         externalId: CogniteCADNode
@@ -1760,34 +920,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    subTreeSizes:
-      container:
-        externalId: CogniteCADNode
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: subTreeSizes
-      description: 'List of subtree sizes in the same order as revisions. Used by
-        Reveal and similar applications to know how many nodes exists below this node
-        in the hierarchy
-
-        '
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    treeIndexes:
-      container:
-        externalId: CogniteCADNode
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: treeIndexes
-      description: 'List of tree indexes in the same order as revisions. Used by Reveal
-        and similar applications to map from CogniteCADNode to tree index
-
-        '
   space: sp_enterprise_schema
   version: v1
 - description: ''
@@ -1804,7 +936,11 @@ View:
         - Cognite3DModel
         - type
         value: CAD
-  implements: []
+  implements:
+  - externalId: CogniteCADRevision
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     model3D:
       container:
@@ -1817,31 +953,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    published:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: published
-    revisionId:
-      container:
-        externalId: CogniteCADRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: revisionId
-      description: The 3D API revision identifier for this CAD model
-    status:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: status
-    type:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
   space: sp_enterprise_schema
   version: v1
 - description: 'The cube map holds references to 6 images in used to visually represent
@@ -1849,7 +960,11 @@ View:
 
     '
   externalId: ToolkitCubeMap
-  implements: []
+  implements:
+  - externalId: CogniteCubeMap
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     back:
       container:
@@ -1936,134 +1051,22 @@ View:
 
     '
   externalId: ToolkitDescribable
-  implements: []
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  implements:
+  - externalId: CogniteDescribable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Annotation for diagrams
   externalId: ToolkitDiagramAnnotation
-  implements: []
+  implements:
+  - externalId: CogniteDiagramAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    confidence:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: confidence
-      description: The confidence that the annotation is a good match
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    endNodePageNumber:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodePageNumber
-      description: 'The number of the page on which this annotation is located in
-        the endNode File if an endNode is present. The first page has number 1
-
-        '
-    endNodeText:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodeText
-      description: 'The text extracted from within the bounding box on the endNode.
-        Only applicable if an endNode is defined
-
-        '
-    endNodeXMax:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodeXMax
-      description: 'Value between [0,1]. Maximum abscissa of the bounding box (right
-        edge). Must be strictly more than endNodeXMin. Only applicable if an endNode
-        is defined
-
-        '
-    endNodeXMin:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodeXMin
-      description: 'Value between [0,1]. Minimum abscissa of the bounding box (left
-        edge). Must be strictly less than endNodeXMax. Only applicable if an endNode
-        is defined
-
-        '
-    endNodeYMax:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodeYMax
-      description: 'Value between [0,1]. Maximum ordinate of the bounding box (top
-        edge). Must be strictly more than endNodeYMin. Only applicable if an endNode
-        is defined
-
-        '
-    endNodeYMin:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endNodeYMin
-      description: 'Value between [0,1]. Minimum ordinate of the bounding box (bottom
-        edge). Must be strictly less than endNodeYMax. Only applicable if an endNode
-        is defined
-
-        '
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     source:
       container:
         externalId: CogniteSourceable
@@ -2076,128 +1079,15 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    startNodePageNumber:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodePageNumber
-      description: 'The number of the page on which this annotation is located in
-        `startNode` File. The first page has number 1
-
-        '
-    startNodeText:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodeText
-      description: The text extracted from within the bounding box on the startNode
-    startNodeXMax:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodeXMax
-      description: 'Value between [0,1]. Maximum abscissa of the bounding box (right
-        edge). Must be strictly more than startNodeXMin
-
-        '
-    startNodeXMin:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodeXMin
-      description: 'Value between [0,1]. Minimum abscissa of the bounding box (left
-        edge). Must be strictly less than startNodeXMax
-
-        '
-    startNodeYMax:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodeYMax
-      description: 'Value between [0,1]. Maximum ordinate of the bounding box (top
-        edge). Must be strictly more than startNodeYMin
-
-        '
-    startNodeYMin:
-      container:
-        externalId: CogniteDiagramAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startNodeYMin
-      description: 'Value between [0,1]. Minimum ordinate of the bounding box (bottom
-        edge). Must be strictly less than startNodeYMax
-
-        '
-    status:
-      container:
-        externalId: CogniteAnnotation
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: status
-      description: The status of the annotation
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
   space: sp_enterprise_schema
   version: v1
 - description: Equipment represents physical supplies or devices.
   externalId: ToolkitEquipment
-  implements: []
+  implements:
+  - externalId: CogniteEquipment
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Equipment
   properties:
     activities:
@@ -2216,13 +1106,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     asset:
       container:
         externalId: CogniteEquipment
@@ -2236,13 +1119,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     equipmentType:
       container:
         externalId: CogniteEquipment
@@ -2270,29 +1146,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    manufacturer:
-      container:
-        externalId: CogniteEquipment
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: manufacturer
-      description: The manufacturer of the equipment.
-      name: Manufacturer
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    serialNumber:
-      container:
-        externalId: CogniteEquipment
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: serialNumber
-      description: The serial number of the equipment.
-      name: Serial number
     source:
       container:
         externalId: CogniteSourceable
@@ -2305,59 +1158,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     timeSeries:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of time series related to the equipment.
@@ -2378,84 +1178,24 @@ View:
   version: v1
 - description: Represents the type of equipment.
   externalId: ToolkitEquipmentType
-  implements: []
+  implements:
+  - externalId: CogniteEquipmentType
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Equipment type
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    code:
-      container:
-        externalId: CogniteEquipmentType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: code
-      description: A unique identifier for the type of equipment.
-      name: Code
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    equipmentClass:
-      container:
-        externalId: CogniteEquipmentType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: equipmentClass
-      description: Represents the class of equipment.
-      name: Equipment class
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    standard:
-      container:
-        externalId: CogniteEquipmentType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standard
-      description: An identifier for the standard this equipment type is sourced from,
-        for example, ISO14224.
-      name: Standard
-    standardReference:
-      container:
-        externalId: CogniteEquipmentType
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standardReference
-      description: A reference to the source of the equipment standard.
-      name: Standard reference
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Represents files.
   externalId: ToolkitFile
-  implements: []
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
   name: File
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     assets:
       container:
         externalId: CogniteFile
@@ -2483,22 +1223,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    directory:
-      container:
-        externalId: CogniteFile
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: directory
-      description: Contains the path elements from the source (if the source system
-        has a file system hierarchy or similar.)
-      name: Directory
     equipment:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of equipment this file is related
@@ -2516,30 +1240,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    isUploaded:
-      container:
-        externalId: CogniteFile
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: isUploaded
-      description: Specifies if the file content has been uploaded to Cognite Data
-        Fusion or not.
-      name: Is uploaded
-    mimeType:
-      container:
-        externalId: CogniteFile
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: mimeType
-      description: The MIME type of the file.
-      name: MIME type
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     source:
       container:
         externalId: CogniteSourceable
@@ -2552,129 +1252,18 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    uploadedTime:
-      container:
-        externalId: CogniteFile
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: uploadedTime
-      description: The time the file upload completed.
-      name: Uploaded time
   space: sp_enterprise_schema
   version: v1
 - description: Represents the categories of files as determined by contextualization
     or categorization.
   externalId: ToolkitFileCategory
-  implements: []
+  implements:
+  - externalId: CogniteFileCategory
+    space: cdf_cdm
+    type: view
+    version: v1
   name: File category
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    code:
-      container:
-        externalId: CogniteFileCategory
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: code
-      description: An identifier for the category, for example, 'AA' for Accounting
-        (from Norsok.)
-      name: Code
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    standard:
-      container:
-        externalId: CogniteFileCategory
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standard
-      description: The name of the standard the category originates from, for example,
-        'Norsok'.
-      name: Standard
-    standardReference:
-      container:
-        externalId: CogniteFileCategory
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: standardReference
-      description: A reference to the source of the category standard.
-      name: Standard reference
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CognitePointCloudModel instances
@@ -2691,29 +1280,12 @@ View:
         - Cognite3DModel
         - type
         value: PointCloud
-  implements: []
+  implements:
+  - externalId: CognitePointCloudModel
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     revisions:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this PointCloud model
@@ -2729,13 +1301,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
     thumbnail:
       container:
         externalId: Cognite3DModel
@@ -2748,13 +1313,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    type:
-      container:
-        externalId: Cognite3DModel
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
-      description: CAD, PointCloud or Image360
   space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CognitePointCloudRevision instances
@@ -2771,7 +1329,11 @@ View:
         - Cognite3DModel
         - type
         value: PointCloud
-  implements: []
+  implements:
+  - externalId: CognitePointCloudRevision
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     model3D:
       container:
@@ -2784,61 +1346,16 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    published:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: published
-    revisionId:
-      container:
-        externalId: CognitePointCloudRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: revisionId
-      description: The 3D API revision identifier for this PointCloud model
-    status:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: status
-    type:
-      container:
-        externalId: Cognite3DRevision
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: type
   space: sp_enterprise_schema
   version: v1
 - description: PointCloud volume definition
   externalId: ToolkitPointCloudVolume
-  implements: []
+  implements:
+  - externalId: CognitePointCloudVolume
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    formatVersion:
-      container:
-        externalId: CognitePointCloudVolume
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: formatVersion
-      description: 'Specifies the version the ‘volume’ field is following. Volume
-        definition is today 9 floats (property volume)
-
-        '
     model3D:
       container:
         externalId: CognitePointCloudVolume
@@ -2851,13 +1368,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     object3D:
       container:
         externalId: CognitePointCloudVolume
@@ -2882,125 +1392,36 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    volume:
-      container:
-        externalId: CognitePointCloudVolume
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: volume
-      description: Relevant coordinates for the volume type, 9 floats in total, that
-        defines the volume
-    volumeReferences:
-      container:
-        externalId: CognitePointCloudVolume
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: volumeReferences
-      description: Unique volume metric hashes used to access the 3D specialized data
-        storage
-    volumeType:
-      container:
-        externalId: CognitePointCloudVolume
-        space: cdf_cdm_3d
-        type: container
-      containerPropertyIdentifier: volumeType
-      description: Type of volume (Cylinder or Box)
   space: sp_enterprise_schema
   version: v1
 - description: CogniteSchedulable represents the metadata about when an activity (or
     similar) starts and ends.
   externalId: ToolkitSchedulable
-  implements: []
-  properties:
-    endTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: endTime
-      description: The actual end time of an activity (or similar that extends this)
-    scheduledEndTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledEndTime
-      description: The planned end time of an activity (or similar that extends this)
-    scheduledStartTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: scheduledStartTime
-      description: The planned start time of an activity (or similar that extends
-        this)
-    startTime:
-      container:
-        externalId: CogniteSchedulable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: startTime
-      description: The actual start time of an activity (or similar that extends this)
+  implements:
+  - externalId: CogniteSchedulable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: The CogniteSourceSystem core concept is used to standardize the way
     source system is stored.
   externalId: ToolkitSourceSystem
-  implements: []
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    manufacturer:
-      container:
-        externalId: CogniteSourceSystem
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: manufacturer
-      description: Manufacturer of the source system
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    version:
-      container:
-        externalId: CogniteSourceSystem
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: version
-      description: Version identifier for the source system
+  implements:
+  - externalId: CogniteSourceSystem
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - externalId: ToolkitSourceable
-  implements: []
+  implements:
+  - externalId: CogniteSourceable
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     source:
       container:
@@ -3014,57 +1435,15 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
   space: sp_enterprise_schema
   version: v1
 - description: Represents a series of data points in time order."
   externalId: ToolkitTimeSeries
-  implements: []
+  implements:
+  - externalId: CogniteTimeSeries
+    space: cdf_cdm
+    type: view
+    version: v1
   name: Time series
   properties:
     activities:
@@ -3084,13 +1463,6 @@ View:
           space: cdf_cdm
           type: view
           version: v1
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
     assets:
       container:
         externalId: CogniteTimeSeries
@@ -3104,13 +1476,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
     equipment:
       container:
         externalId: CogniteTimeSeries
@@ -3124,21 +1489,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    isStep:
-      container:
-        externalId: CogniteTimeSeries
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: isStep
-      description: Specifies whether the time series is a step time series or not.
-      name: Is step
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
     source:
       container:
         externalId: CogniteSourceable
@@ -3151,75 +1501,6 @@ View:
         space: sp_enterprise_schema
         type: view
         version: v1
-    sourceContext:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceContext
-      description: Context of the source id. For systems where the sourceId is globally
-        unique, the sourceContext is expected to not be set.
-    sourceCreatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedTime
-      description: When the instance was created in source system (if available)
-    sourceCreatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceCreatedUser
-      description: User identifier from the source system on who created the source
-        data. This identifier is not guaranteed to match the user identifiers in CDF
-    sourceId:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceId
-      description: Identifier from the source system
-    sourceUnit:
-      container:
-        externalId: CogniteTimeSeries
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUnit
-      description: The unit specified in the source system.
-      name: Source unit
-    sourceUpdatedTime:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedTime
-      description: When the instance was last updated in the source system (if available)
-    sourceUpdatedUser:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceUpdatedUser
-      description: User identifier from the source system on who last updated the
-        source data. This identifier is not guaranteed to match the user identifiers
-        in CDF
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
-    type:
-      container:
-        externalId: CogniteTimeSeries
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: type
-      description: Specifies the data type of the data points.
-      name: Type
     unit:
       container:
         externalId: CogniteTimeSeries
@@ -3237,70 +1518,22 @@ View:
   version: v1
 - description: Represents a single unit of measurement
   externalId: ToolkitUnit
-  implements: []
-  properties:
-    aliases:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: aliases
-      description: Alternative names for the node
-    description:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: description
-      description: Description of the instance
-    name:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: name
-      description: Name of the instance
-    quantity:
-      container:
-        externalId: CogniteUnit
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: quantity
-      description: Specifies the physical quantity the unit measures
-    source:
-      container:
-        externalId: CogniteUnit
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Source of the unit definition
-    sourceReference:
-      container:
-        externalId: CogniteUnit
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: sourceReference
-      description: Reference to the source of the unit definition
-    symbol:
-      container:
-        externalId: CogniteUnit
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: symbol
-      description: The symbol for the unit of measurement
-    tags:
-      container:
-        externalId: CogniteDescribable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: tags
-      description: Text based labels for generic use, limited to 1000
+  implements:
+  - externalId: CogniteUnit
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties: {}
   space: sp_enterprise_schema
   version: v1
 - description: CogniteVisualizable defines the standard way to reference a related
     3D resource
   externalId: ToolkitVisualizable
-  implements: []
+  implements:
+  - externalId: CogniteVisualizable
+    space: cdf_cdm
+    type: view
+    version: v1
   properties:
     object3D:
       container:
