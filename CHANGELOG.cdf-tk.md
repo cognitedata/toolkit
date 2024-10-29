@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When running `cdf modules add`, the Toolkit removed trailing slash in the module path causing a
+  build error. This is now fixed.
+
 ## [0.3.5] - 2024-10-24
 
 No changes to cdf CLI.
