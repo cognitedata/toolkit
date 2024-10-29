@@ -135,3 +135,11 @@ variable4: "value with #in it" # But a comment after
 
         assert ("variables", "modules", "infield", "shared_variable") in config.keys()
         assert ("variables", "modules", "infield", "cdf_infield_common", "shared_variable") not in config.keys()
+
+    def test_trailing_slash_in_selected(self, config_yaml: str) -> None:
+        existing_config = InitConfigYAML.load_existing(config_yaml).load_defaults(PROJECT_FOR_TEST)
+        dumped_config = existing_config.dump_yaml_with_comments()
+
+        dumped_config_dict = yaml.safe_load(dumped_config)
+
+        assert dumped_config_dict["environment"]["selected"][0] == "modules/"

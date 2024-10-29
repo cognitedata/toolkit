@@ -109,7 +109,9 @@ class Environment:
             "name": self.name,
             "project": self.project,
             "type": self.build_type,
-            "selected": [selected.as_posix() if isinstance(selected, Path) else selected for selected in self.selected],
+            "selected": [
+                selected.as_posix() + "/" if isinstance(selected, Path) else selected for selected in self.selected
+            ],
         }
 
     def get_selected_modules(self, modules_by_package: dict[str, list[str]]) -> set[str | Path]:
