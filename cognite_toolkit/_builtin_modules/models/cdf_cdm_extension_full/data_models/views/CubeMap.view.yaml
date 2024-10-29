@@ -4,7 +4,11 @@ description: 'The cube map holds references to 6 images in used to visually repr
   the surrounding environment
 
   '
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteCubeMap
+  version: v1
+  type: view
 version: v1
 properties:
   front:

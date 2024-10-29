@@ -4,27 +4,13 @@ description: 'Shared revision information for various 3D data types. Normally no
   used directly, but through CognitePointCloudRevision, Image360Collection or CogniteCADRevision
 
   '
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DRevision
+  version: v1
+  type: view
 version: v1
 properties:
-  status:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DRevision
-      type: container
-    containerPropertyIdentifier: status
-  published:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DRevision
-      type: container
-    containerPropertyIdentifier: published
-  type:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DRevision
-      type: container
-    containerPropertyIdentifier: type
   model3D:
     container:
       space: cdf_cdm_3d
