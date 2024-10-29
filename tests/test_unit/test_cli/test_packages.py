@@ -60,13 +60,14 @@ class MockQuestionary:
 
 def get_packages() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
-    # The Bootcamp package has intentionally warnings that is part of the learning experience.
-    # Examples and sourcesystems are tested separately, in that each example is tested individually as they
+    # - The Bootcamp package has intentionally warnings that is part of the learning experience.
+    # - Examples and sourcesystems are tested separately, in that each example is tested individually as they
+    # - Custom is just scaffolding and should never issue warnings.
     # should be independent of each other.
     packages = (
         name
         for name in packages.keys()
-        if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization"]
+        if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization", "custom"]
     )
     return sorted(packages)
 
@@ -177,7 +178,7 @@ def test_all_modules_cdf_prefixed() -> None:
         module.name
         for package in packages.values()
         # Bootcamp has special structure
-        if package.name != "bootcamp"
+        if package.name not in {"bootcamp", "custom"}
         for module in package.modules
         if not module.name.startswith("cdf_")
     }
