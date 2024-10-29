@@ -50,6 +50,7 @@
         "--override-env",
         "modules",
         "init",
+        "my_org"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -60,12 +61,11 @@
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
         "--override-env",
         "modules",
         "add",
         "-o", 
-        "acme"
+        "my_org"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

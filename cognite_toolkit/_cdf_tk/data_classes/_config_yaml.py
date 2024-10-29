@@ -93,7 +93,10 @@ class Environment:
     def load_selected(cls, raw: list[str] | None, organization_dir: Path | None = None) -> list[str | Path]:
         cleaned = (selected.replace("\\", "/") for selected in raw or [])
         all_selected: Iterable[str | Path] = (
-            Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
+            Path(selected)
+            if not (selected.count(MODULE_PATH_SEP) == 1 and selected.endswith(MODULE_PATH_SEP))
+            else selected
+            for selected in cleaned
         )
         if organization_dir:
             all_selected = (
