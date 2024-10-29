@@ -3,7 +3,11 @@ externalId: {{ organization }}Operation
 name: Operation
 description: Operations represent a specific part of the work included in a maintenance
   order. Often called a 'work order item'.
-implements: []
+implements:
+- space: cdf_idm
+  externalId: CogniteOperation
+  version: v1
+  type: view
 version: v1
 properties:
   maintenanceOrder:
@@ -33,60 +37,6 @@ properties:
       externalId: {{ organization }}Asset
       version: v1
       type: view
-  phase:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: phase
-    name: Phase
-    description: The code for the phase the operation belongs to. Each operation belongs
-      to a single phase, for example, 'Scaffolding'.
-  status:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: status
-    name: Status
-    description: The lifecycle status of the operation, for example, 'Partially complete'.
-      It's often derived from the UserStatus field in SAP.
-  sequence:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: sequence
-    name: Sequence
-    description: A number that shows the order in which the operations are performed.
-      Lower numbers mean they happen earlier, and 0 means it's the first operation.
-  mainDiscipline:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: mainDiscipline
-    name: Main discipline
-    description: The primary skill or resource required to perform the operation,
-      for example, 'maintenance technician').
-  numberOfMainDiscipline:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: numberOfMainDiscipline
-    name: Number of main discipline
-    description: The number of resources required to perform the operation, for example,
-      the number of required maintenance technicians.
-  personHours:
-    container:
-      space: cdf_idm
-      externalId: CogniteOperation
-      type: container
-    containerPropertyIdentifier: personHours
-    name: Person hours
-    description: The number of hours required to perform the maintenance operation.
-      The duration is calculated by dividing the personHours by the numberOfMainDiscipline.
   assets:
     container:
       space: cdf_cdm
@@ -126,49 +76,6 @@ properties:
       externalId: {{ organization }}TimeSeries
       version: v1
       type: view
-  startTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSchedulable
-      type: container
-    containerPropertyIdentifier: startTime
-    description: The actual start time of an activity (or similar that extends this)
-  endTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSchedulable
-      type: container
-    containerPropertyIdentifier: endTime
-    description: The actual end time of an activity (or similar that extends this)
-  scheduledStartTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSchedulable
-      type: container
-    containerPropertyIdentifier: scheduledStartTime
-    description: The planned start time of an activity (or similar that extends this)
-  scheduledEndTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSchedulable
-      type: container
-    containerPropertyIdentifier: scheduledEndTime
-    description: The planned end time of an activity (or similar that extends this)
-  sourceId:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceId
-    description: Identifier from the source system
-  sourceContext:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceContext
-    description: Context of the source id. For systems where the sourceId is globally
-      unique, the sourceContext is expected to not be set.
   source:
     container:
       space: cdf_cdm
@@ -181,61 +88,3 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
-  sourceCreatedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceCreatedTime
-    description: When the instance was created in source system (if available)
-  sourceUpdatedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceUpdatedTime
-    description: When the instance was last updated in the source system (if available)
-  sourceCreatedUser:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceCreatedUser
-    description: User identifier from the source system on who created the source
-      data. This identifier is not guaranteed to match the user identifiers in CDF
-  sourceUpdatedUser:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceUpdatedUser
-    description: User identifier from the source system on who last updated the source
-      data. This identifier is not guaranteed to match the user identifiers in CDF
-  name:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: name
-    description: Name of the instance
-  description:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: description
-    description: Description of the instance
-  tags:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: tags
-    description: Text based labels for generic use, limited to 1000
-  aliases:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: aliases
-    description: Alternative names for the node
