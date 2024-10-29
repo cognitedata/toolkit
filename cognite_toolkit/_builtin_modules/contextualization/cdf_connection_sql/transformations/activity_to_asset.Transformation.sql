@@ -1,29 +1,30 @@
 select
   /* three first properties are required */
-  cast(timeseries.`externalId` as STRING) as externalId, 
-  cast(timeseries.`isStep` as BOOLEAN) as isStep,
-  cast(timeseries.`type` as STRING) as type,
+  cast(activity.`externalId` as STRING) as externalId,
   /* direct relation */
   array(
     node_reference(
       '{{ instanceSpace }}',
-      equipment_lookup.`externalId`
+      asset_lookup.`externalId`
     )
-  ) as equipment
+  ) as asset
 from
   cdf_data_models(
-    "cdf_idm",
-    "CogniteProcessIndustries",
+    "cdf_cdm",
+    "CogniteCore",
     "v1",
-    "CogniteTimeSeries"
-  ) as timeseries
+    "CogniteActivity"
+  ) as activity
 left join cdf_data_models(
-    "cdf_idm",
-    "CogniteProcessIndustries",
+    "cdf_cdm",
+    "CogniteCore",
     "v1",
-    "CogniteEquipment"
-  ) as equipment_lookup 
+    "CogniteAsset"
+  ) as asset_lookup
   /* update to the correct matching criteria for your data */
-  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) == equipment_lookup.`name`
+on
+  activity.`tags`[0]  == asset_lookup.`name`
 where
-  timeseries.space == '{{ instanceSpace }}'
+  activity.space == '{{ instanceSpace }}' and
+  isnotnull(activity.tags) and
+  isnotnull(asset_lookup.`externalId`)
