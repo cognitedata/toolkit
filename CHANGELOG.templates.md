@@ -24,6 +24,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - Removed unused variables from default InRobot configuration.
+- Added missing transformation `asset to asset` in `cdf_sap_asset` module.
 
 ## [0.3.5] - 2024-10-24
 
