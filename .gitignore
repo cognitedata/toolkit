@@ -308,3 +308,4 @@ needle/
 tmp.py
 tmp*.py
 my_*/
+!cognite_toolkit/_builtin_modules/custom/my_module/
