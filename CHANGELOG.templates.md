@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- The `modules init` wizard provides an option for an empty, custom module scaffolding.
+
 ### Fixed
 
 - Removed unused variables from default InRobot configuration.

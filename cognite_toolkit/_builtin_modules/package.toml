@@ -36,3 +36,8 @@ description = "Module templates for data contextualization"
 [packages.models]
 title = "Models"
 description = "Module templates for data models"
+
+[packages.custom]
+title = "None"
+description = "start with an empty module"
+
