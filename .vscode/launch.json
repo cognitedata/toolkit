@@ -50,6 +50,7 @@
         "--override-env",
         "modules",
         "init",
+        "my_org"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
