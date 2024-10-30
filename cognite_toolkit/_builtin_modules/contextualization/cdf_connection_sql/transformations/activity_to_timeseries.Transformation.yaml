@@ -1,4 +1,4 @@
-externalId: activity_to_timeseries
+externalId: {{ activityToTimeSeriesTransformationExternalId}}
 dataSetExternalId: {{ dataset }}
 name: Activity to timeseries Connection Transformation
 destination:

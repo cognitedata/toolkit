@@ -1,4 +1,4 @@
-externalId: timeseries_to_asset
+externalId: {{ timeSeriesToAssetTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: TimeSeries to asset Connection Transformation
 destination:

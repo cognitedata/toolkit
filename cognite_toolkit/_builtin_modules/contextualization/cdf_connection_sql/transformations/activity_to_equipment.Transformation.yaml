@@ -1,4 +1,4 @@
-externalId: activity_to_equipment
+externalId: {{ activityToEquipmentTransformationExternalId}}
 dataSetExternalId: {{ dataset }}
 name: Activity to equipment Connection Transformation
 destination:

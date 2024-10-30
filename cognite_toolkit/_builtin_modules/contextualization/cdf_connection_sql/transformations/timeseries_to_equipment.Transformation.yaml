@@ -1,4 +1,4 @@
-externalId: timeseries_to_equipment
+externalId: {{ timeSeriesToEquipmentTransformationExternalId}}
 dataSetExternalId: {{ dataset }}
 name: TimeSeries to equipment Connection Transformation
 destination:
