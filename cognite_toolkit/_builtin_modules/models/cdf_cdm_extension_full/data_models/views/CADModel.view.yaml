@@ -13,7 +13,11 @@ filter:
       - Cognite3DModel
       - type
       value: CAD
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteCADModel
+  version: v1
+  type: view
 version: v1
 properties:
   revisions:
@@ -31,13 +35,6 @@ properties:
       identifier: model3D
     description: List of revisions for this CAD model
     connectionType: multi_reverse_direct_relation
-  type:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DModel
-      type: container
-    containerPropertyIdentifier: type
-    description: CAD, PointCloud or Image360
   thumbnail:
     container:
       space: cdf_cdm_3d
@@ -50,31 +47,3 @@ properties:
       externalId: {{ organization }}File
       version: v1
       type: view
-  name:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: name
-    description: Name of the instance
-  description:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: description
-    description: Description of the instance
-  tags:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: tags
-    description: Text based labels for generic use, limited to 1000
-  aliases:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: aliases
-    description: Alternative names for the node

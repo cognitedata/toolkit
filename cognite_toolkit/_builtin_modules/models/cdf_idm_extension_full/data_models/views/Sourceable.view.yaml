@@ -1,23 +1,12 @@
 space: {{ schema_space }}
 externalId: {{ organization }}Sourceable
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
 version: v1
 properties:
-  sourceId:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceId
-    description: Identifier from the source system
-  sourceContext:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceContext
-    description: Context of the source id. For systems where the sourceId is globally
-      unique, the sourceContext is expected to not be set.
   source:
     container:
       space: cdf_cdm
@@ -30,33 +19,3 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
-  sourceCreatedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceCreatedTime
-    description: When the instance was created in source system (if available)
-  sourceUpdatedTime:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceUpdatedTime
-    description: When the instance was last updated in the source system (if available)
-  sourceCreatedUser:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceCreatedUser
-    description: User identifier from the source system on who created the source
-      data. This identifier is not guaranteed to match the user identifiers in CDF
-  sourceUpdatedUser:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceable
-      type: container
-    containerPropertyIdentifier: sourceUpdatedUser
-    description: User identifier from the source system on who last updated the source
-      data. This identifier is not guaranteed to match the user identifiers in CDF

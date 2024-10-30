@@ -2,48 +2,10 @@ space: {{ schema_space }}
 externalId: {{ organization }}SourceSystem
 description: The CogniteSourceSystem core concept is used to standardize the way source
   system is stored.
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: CogniteSourceSystem
+  version: v1
+  type: view
 version: v1
-properties:
-  version:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceSystem
-      type: container
-    containerPropertyIdentifier: version
-    description: Version identifier for the source system
-  manufacturer:
-    container:
-      space: cdf_cdm
-      externalId: CogniteSourceSystem
-      type: container
-    containerPropertyIdentifier: manufacturer
-    description: Manufacturer of the source system
-  name:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: name
-    description: Name of the instance
-  description:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: description
-    description: Description of the instance
-  tags:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: tags
-    description: Text based labels for generic use, limited to 1000
-  aliases:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: aliases
-    description: Alternative names for the node
+properties: {}

@@ -21,6 +21,10 @@ views:
   version: v1
   type: view
 - space: {{ schema_space }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
+- space: {{ schema_space }}
   externalId: {{ organization }}Asset
   version: v1
   type: view

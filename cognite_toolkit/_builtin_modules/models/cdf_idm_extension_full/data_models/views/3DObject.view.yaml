@@ -2,51 +2,13 @@ space: {{ schema_space }}
 externalId: {{ organization }}3DObject
 description: This is the virtual position representation of an object in the physical
   world, connecting an asset to one or more 3D resources
-implements: []
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DObject
+  version: v1
+  type: view
 version: v1
 properties:
-  xMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: xMin
-    description: Lowest X value in bounding box
-  xMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: xMax
-    description: Highest X value in bounding box
-  yMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: yMin
-    description: Lowest Y value in bounding box
-  yMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: yMax
-    description: Highest Y value in bounding box
-  zMin:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: zMin
-    description: Lowest Z value in bounding box
-  zMax:
-    container:
-      space: cdf_cdm_3d
-      externalId: Cognite3DObject
-      type: container
-    containerPropertyIdentifier: zMax
-    description: Highest Z value in bounding box
   asset:
     source:
       space: {{ schema_space }}
@@ -111,31 +73,3 @@ properties:
     description: List of up to 1000 PointCloudVolumes that represents the connected
       CogniteAsset
     connectionType: multi_reverse_direct_relation
-  name:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: name
-    description: Name of the instance
-  description:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: description
-    description: Description of the instance
-  tags:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: tags
-    description: Text based labels for generic use, limited to 1000
-  aliases:
-    container:
-      space: cdf_cdm
-      externalId: CogniteDescribable
-      type: container
-    containerPropertyIdentifier: aliases
-    description: Alternative names for the node
