@@ -1,0 +1,3 @@
+workflow: ingestion
+ingestionClientId: ${INGESTION_CLIENT_ID}
+ingestionClientSecret: ${INGESTION_CLIENT_SECRET}

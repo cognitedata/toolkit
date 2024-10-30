@@ -1,0 +1,89 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+  - externalId: populate_assets
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_asset_sap_s4hana
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: populate_equipment
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_equipment_sap_s4hana
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: connect_equipment_assets
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_equipment_to_asset_sap_s4hana
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+    dependsOn:
+    - externalId: populate_assets
+    - externalId: populate_equipment
+  - externalId: populate_maintenance_orders
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_maintenance_order_sap_s4hana_event
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: populate_operations
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_operation_sap_s4hana_event
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: connect_maintenance_order_operations
+    type: transformation
+    parameters:
+      transformation:
+        externalId: sap_operation_to_maintenance_order_sap_s4hana_event
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+    dependsOn:
+      - externalId: populate_maintenance_orders
+      - externalId: populate_operations
+  - externalId: populate_timeseries
+    type: transformation
+    parameters:
+      transformation:
+        externalId: pi_timeseries_springfield_aveva_pi
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: populate_files
+    type: transformation
+    parameters:
+      transformation:
+        externalId: file_springfield_sharepoint
+        concurrencyPolicy: fail
+    onFailure: abortWorkflow
+  - externalId: annotate_p_and_ids
+    type: function
+    parameters:
+      function:
+        externalId: contextualization_p_and_id_annotater
+        data:
+          logLevel: INFO
+    onFailure: abortWorkflow
+    dependsOn:
+      - externalId: populate_files
+      - externalId: populate_assets
+      - externalId: populate_equipment
+      - externalId: populate_timeseries
+  - externalId: connect_files
+    type: function
+    parameters:
+      function:
+        externalId: contextualization_connection_writer
+        data:
+          logLevel: INFO
+    onFailure: abortWorkflow
+    dependsOn:
+      - externalId: annotate_p_and_ids
