@@ -1,5 +1,5 @@
 select 
-	external_id as externalId, 
+	name as externalId,
  	name, 
 	source as sourceId,
 	mime_type as mimeType
