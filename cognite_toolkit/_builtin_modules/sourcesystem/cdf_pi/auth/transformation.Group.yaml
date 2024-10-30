@@ -1,5 +1,5 @@
 name: gp_transformations_{{ sourceId }}
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+sourceId: {{ groupSourceId }}
 metadata:
   origin: 'Cognite Toolkit'
 capabilities:

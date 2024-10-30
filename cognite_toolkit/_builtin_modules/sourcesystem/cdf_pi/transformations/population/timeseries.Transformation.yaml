@@ -1,4 +1,4 @@
-externalId: pi_timeseries_{{ sourceId }}
+externalId: {{ timeseriesTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: TimeSeries Transformations for {{ sourceName }}
 destination:
