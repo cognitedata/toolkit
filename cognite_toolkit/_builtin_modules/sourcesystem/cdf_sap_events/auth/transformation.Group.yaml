@@ -1,5 +1,5 @@
 name: gp_transformations_{{ sourceId }}_events
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+sourceId: {{ groupSourceId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
@@ -44,4 +44,3 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
-  

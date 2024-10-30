@@ -1,4 +1,4 @@
-externalId: sap_operation_{{ source }}
+externalId: {{ operationTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: Operation Transformations for {{ sourceName }}
 destination:

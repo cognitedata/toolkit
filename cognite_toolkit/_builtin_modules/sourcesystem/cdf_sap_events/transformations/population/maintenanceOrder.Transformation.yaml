@@ -1,4 +1,4 @@
-externalId: sap_maintenance_order_{{ source }}
+externalId: {{ maintenanceOrderTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: Maintenance Order Transformations for {{ sourceName }}
 destination:
