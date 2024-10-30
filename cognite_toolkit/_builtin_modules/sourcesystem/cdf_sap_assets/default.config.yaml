@@ -1,12 +1,16 @@
-instanceSpace: springfield_instances
 sourceName: SAP Springfield S/4HANA
-sourceId: sap_springfield_s4hana
-rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
-source: sap_s4hana # can also contain location, for example sap_springfield_s4hana
-transformationServicePrincipalGroupObjectId: <not set>
-workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+sourceId: sap_springfield_s4hana # can also contain location, for example sap_springfield_s4hana
+assetTransformationExternalId: sap_assets_springfield_s4hana
+equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+assetToAssetTransformationExternalId: sap_asset_to_asset_springfield_s4hana
+equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
 dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
+rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+groupSourceId: <not set>
 schemaSpace: cdf_cdm
+instanceSpace: springfield_instances
+
+workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
 transformationClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
 transformationClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
 transformationTokenUri: ${IDP_TOKEN_URL}

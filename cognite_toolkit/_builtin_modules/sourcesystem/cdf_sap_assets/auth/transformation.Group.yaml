@@ -1,5 +1,5 @@
 name: gp_transformations_{{ sourceId }}_assets
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+sourceId: {{ groupSourceId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
