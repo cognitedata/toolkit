@@ -1,7 +1,7 @@
+dataset: contextualisation_transformations
 instanceSpace: springfield_instances
 schemaSpace: cdf_cdm
-transformationServicePrincipalGroupObjectId: <not set>
-dataset: contextualisation_transformations
+groupSourceId: <not set>
 transformationClientId: ${TRANSFORMATION_CLIENT_ID}
 transformationClientSecret: ${TRANSFORMATION_CLIENT_SECRET}
 transformationTokenUri: ${IDP_TOKEN_URL}
