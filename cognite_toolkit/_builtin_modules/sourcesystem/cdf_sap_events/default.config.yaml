@@ -5,11 +5,11 @@ operationTransformationExternalId: sap_operations_springfield_s4hana
 operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
 dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
 rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
-groupSourceId: <not set>
 schemaSpace: cdf_idm
 instanceSpace: springfield_instances
 
 workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+groupSourceId: <not set>
 transformationClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
 transformationClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
 transformationTokenUri: ${IDP_TOKEN_URL}

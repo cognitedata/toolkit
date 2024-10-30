@@ -1,10 +1,11 @@
 sourceName: Springfield Sharepoint
 sourceId: springfield_sharepoint
-rawDatabase: files_metadata_staging # can also contain location, for example files_metadata_springfield_staging
-transformationServicePrincipalGroupObjectId: <not set>
+fileTransformationExternalId: files_metadata_springfield
 dataset: files_metadata_transformations # can also contain location, for example files_metadata_springfield_transformations
+rawDatabase: files_metadata_staging # can also contain location, for example files_metadata_springfield_staging
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
+groupSourceId: <not set>
 transformationClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
 transformationClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
 transformationTokenUri: ${IDP_TOKEN_URL}
