@@ -78,8 +78,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: File Transformations for Springfield Sharepoint
-  query: "select \n\texternal_id as externalId, \n \tname, \n\tsource as sourceId,\n\
-    \tmime_type as mimeType\nfrom `files_metadata_staging`.`files_metadata`"
+  query: "select \n\tname as externalId,\n \tname, \n\tsource as sourceId,\n\tmime_type\
+    \ as mimeType\nfrom `files_metadata_staging`.`files_metadata`"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project

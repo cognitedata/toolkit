@@ -1,0 +1,21 @@
+externalId: timeseries_to_asset
+dataSetExternalId: {{ dataset }}
+name: TimeSeries to asset Connection Transformation
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+authentication:
+  clientId: {{ transformationClientId }}
+  clientSecret: {{ transformationClientSecret }}
+  tokenUri: {{ transformationTokenUri }}
+  cdfProjectName: {{ transformationCdfProjectName }}
+  audience: {{ transformationAudience}}
+  scopes:
+  - {{ transformationScope }}
