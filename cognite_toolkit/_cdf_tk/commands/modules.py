@@ -136,7 +136,10 @@ class ModulesCommand(ToolkitCommand):
                         shutil.rmtree(target_dir)
                     else:
                         continue
-                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns("default.*"))
+                ignore_patterns = ["default.*"]
+                if package.name == "quickstart":
+                    ignore_patterns.append("workflows/**")
+                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
 
         for environment in environments:
             if mode == "update":
