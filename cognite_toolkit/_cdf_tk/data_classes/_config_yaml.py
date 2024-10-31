@@ -419,8 +419,8 @@ class WildcardSet(set, Set[_WildcardSequence]):
     """Sets that support wildcard matching."""
 
     @classmethod
-    def load(cls, patterns: Sequence[Sequence[str]]) -> WildcardSet:
-        return cls(_WildcardSequence(pattern) for pattern in patterns)
+    def load(cls, items: Sequence[Sequence[str]]) -> WildcardSet:
+        return cls(_WildcardSequence(item) for item in items)
 
     def __contains__(self, key: Any) -> bool:
         if not isinstance(key, Sequence):

@@ -166,3 +166,9 @@ variable4: "value with #in it" # But a comment after
             ("variables", "modules", "parent_module", "child_module", "child_variable"),
             ("variables", "modules", "a_module", "readwrite_source_id"),
         }
+
+    @pytest.mark.skip("in progress")
+    def test_lift_variables(self, dummy_environment) -> None:
+        config = InitConfigYAML(dummy_environment).load_defaults(PROJECT_FOR_TEST)
+
+        config.lift()
