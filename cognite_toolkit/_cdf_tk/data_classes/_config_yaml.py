@@ -425,7 +425,12 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
     def as_build_config(self) -> BuildConfigYAML:
         return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
 
-    def load_defaults(self, cognite_root_module: Path, selected_paths: set[Path] | None = None) -> InitConfigYAML:
+    def load_defaults(
+        self,
+        cognite_root_module: Path,
+        selected_paths: set[Path] | None = None,
+        ignore_patterns: list[tuple[str, ...]] | None = None,
+    ) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module."""
 
         default_files_iterable: Iterable[Path]

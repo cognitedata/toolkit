@@ -78,7 +78,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         cls,
         raw_variable: dict[str, Any],
         available_modules: set[Path],
-        selected_modules: set[Path],
+        selected_modules: set[Path] | None = None,
     ) -> BuildVariables:
         """Loads the variables from the user input."""
         variables = []
@@ -94,7 +94,8 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     continue
                 else:
                     hashable_values = tuple(value) if isinstance(value, list) else value
-                    variables.append(BuildVariable(key, hashable_values, path in selected_modules, path))
+                    is_selected = selected_modules is None or path in selected_modules
+                    variables.append(BuildVariable(key, hashable_values, is_selected, path))
 
         return cls(variables)
 
