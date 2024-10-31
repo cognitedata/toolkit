@@ -1,3 +1,15 @@
 workflow: ingestion
+groupSourceId: <not set>
 ingestionClientId: ${INGESTION_CLIENT_ID}
 ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+
+assetTransformationExternalId: sap_assets_springfield_s4hana
+equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+assetToAssetTransformationExternalId: sap_asset_to_asset_springfield_s4hana
+equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
+rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+schemaSpace: cdf_cdm
+instanceSpaces:
+  - springfield_instances
+  - cdf_cdm_units
