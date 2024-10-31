@@ -1,4 +1,4 @@
-externalId: file_{{ sourceId }}
+externalId: {{ fileTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: File Transformations for {{ sourceName }}
 destination:
