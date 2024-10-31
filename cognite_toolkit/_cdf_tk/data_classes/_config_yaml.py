@@ -5,7 +5,7 @@ import os
 import re
 from abc import ABC
 from collections import UserDict, defaultdict
-from collections.abc import Iterable, Sequence, Set
+from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Literal, get_args
@@ -621,7 +621,23 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     def lift(self) -> None:
         """Lift variables that are used in multiple modules to the highest shared level"""
-        raise NotImplementedError()
+        variable_by_key_value: dict[
+            tuple[str, float | int | str | bool | tuple[Hashable] | None], list[ConfigEntry]
+        ] = defaultdict(list)
+        for key, entry in self.items():
+            value = tuple(entry.value) if isinstance(entry.value, list) else entry.value  # type: ignore[arg-type]
+            variable_by_key_value[(key[-1], value)].append(entry)
+
+        for entries in variable_by_key_value.values():
+            if len(entries) == 1:
+                continue
+            shared_parent = self._find_common_parent([entry.key_path for entry in entries])
+            new_key = (*shared_parent, entries[0].key_path[-1])
+            self[new_key] = ConfigEntry(
+                key_path=new_key, current_value=entries[0].current_value, default_value=entries[0].default_value
+            )
+            for entry in entries:
+                del self[entry.key_path]
 
     @property
     def removed(self) -> list[ConfigEntry]:

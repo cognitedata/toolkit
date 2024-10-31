@@ -173,3 +173,5 @@ variable4: "value with #in it" # But a comment after
         config.lift()
 
         assert ("variables", "modules", "dataset") in config.keys()
+        assert ("variables", "modules", "a_module", "dataset") not in config.keys()
+        assert ("variables", "modules", "another_module", "dataset") not in config.keys()
