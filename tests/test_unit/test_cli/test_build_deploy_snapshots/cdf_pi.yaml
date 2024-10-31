@@ -1,6 +1,6 @@
 DataSet:
 - description: Transformations for populating data
-  externalId: aveva_pi_population
+  externalId: ingestion
   metadata: {}
   name: Population Transformations
   writeProtected: false
@@ -8,14 +8,14 @@ ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
   description: Extractor configuration and monitoring for Springfield AVEVA PI
-  documentation: '# Writing TimeSeries metadata from Springfield AVEVA PI into aveva_pi_staging.timeseries_metadata
+  documentation: '# Writing TimeSeries metadata from Springfield AVEVA PI into ingestion.timeseries_metadata
     so that the Transformation can populate CogniteTimeSeries instances.
 
     '
   externalId: springfield_aveva_pi_extractors
   name: Springfield AVEVA PI
   rawTables:
-  - dbName: aveva_pi_staging
+  - dbName: ingestion
     tableName: timeseries_metadata
   source: Springfield AVEVA PI
 ExtractionPipelineConfig:
@@ -41,4 +41,4 @@ Transformation:
   name: TimeSeries Transformations for Springfield AVEVA PI
   query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
     \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
-    \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `aveva_pi_staging`.`timeseries_metadata`"
+    \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `ingestion`.`timeseries_metadata`"

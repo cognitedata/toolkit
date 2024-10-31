@@ -2,9 +2,9 @@ DataSet:
 - description: Asset data for oid
   externalId: ds_asset_oid
   metadata:
-    consoleSource: '{"names": ["workmate"]}'
-    rawTables: '[{"databaseName": "asset_oid_workmate", "tableName": "assets"}]'
-    transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
+    consoleSource: '{"names": ["fileshare"]}'
+    rawTables: '[{"databaseName": "asset_oid_fileshare", "tableName": "assets"}]'
+    transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
   writeProtected: false
@@ -12,7 +12,7 @@ ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
   description: Asset source extraction pipeline with configuration for DB extractor
-    reading data from oid:workmate
+    reading data from oid:fileshare
   documentation: "The DB Extractor is a general database extractor that connects to\
     \ a database, executes one or several queries and sends the result to CDF RAW.\n\
     \nThe extractor connects to a database over ODBC, which means that you need an\
@@ -24,12 +24,12 @@ ExtractionPipeline:
     \nFurther documentation is available [here](./docs/documentation.md)\n\nFor information\
     \ on development, consider the following guides:\n\n * [Development guide](guides/development.md)\n\
     \ * [Release guide](guides/release.md)"
-  externalId: ep_src_asset_oid_workmate
-  name: src:asset:oid:workmate
+  externalId: ep_src_asset_oid_fileshare
+  name: src:asset:oid:fileshare
   rawTables:
-  - dbName: asset_oid_workmate
+  - dbName: asset_oid_fileshare
     tableName: assets
-  source: workmate
+  source: fileshare
 ExtractionPipelineConfig:
 - config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
     \ \"file.log\"\n# List of databases\ndatabases:\n  - type: odbc\n    name: postgres\n\
@@ -39,8 +39,8 @@ ExtractionPipelineConfig:
     \ >= '{start_at}'\n      ORDER BY\n\n        {incremental_field} ASC\n    incremental-field:\
     \ \"id\"\n    initial-start: 0\n    destination:\n      type: raw\n      database:\
     \ \"db-extractor\"\n      table: \"postgres\"\n    primary-key: \"{id}\"\n"
-  description: DB extractor config reading data from oid:workmate
-  externalId: ep_src_asset_oid_workmate
+  description: DB extractor config reading data from oid:fileshare
+  externalId: ep_src_asset_oid_fileshare
 Group:
 - capabilities:
   - rawAcl:
@@ -50,7 +50,7 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            asset_oid_workmate:
+            asset_oid_fileshare:
               tables: []
   - extractionConfigsAcl:
       actions:
@@ -71,7 +71,7 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            asset_oid_workmate:
+            asset_oid_fileshare:
               tables: []
   - transformationsAcl:
       actions:
@@ -122,10 +122,10 @@ Transformation:
     clientSecret: dummy
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
-  externalId: tr_asset_oid_workmate_asset_hierarchy
+  externalId: tr_asset_oid_fileshare_asset_hierarchy
   ignoreNullFields: true
   isPublic: true
-  name: asset:oid:workmate:asset_hierarchy
+  name: asset:oid:fileshare:asset_hierarchy
   query: "--\n-- Create Asset Hierarchy using Transformation\n--\n-- Input data from\
     \ RAW DB table (using example data)\n--\n-- Root node has parentExternal id =\
     \ ''\n-- Transformation is connected to asset data set\n-- All metadata expect\
@@ -144,6 +144,6 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 TransformationSchedule:
-- externalId: tr_asset_oid_workmate_asset_hierarchy
+- externalId: tr_asset_oid_fileshare_asset_hierarchy
   interval: 7 * * * *
   isPaused: true

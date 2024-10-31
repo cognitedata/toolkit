@@ -1,6 +1,6 @@
 DataSet:
 - description: Transformations for populating data
-  externalId: files_metadata_transformations
+  externalId: ingestion
   metadata: {}
   name: Population Transformations
   writeProtected: false
@@ -23,4 +23,4 @@ Transformation:
   isPublic: true
   name: File Transformations for Springfield Sharepoint
   query: "select \n\tname as externalId,\n \tname, \n\tsource as sourceId,\n\tmime_type\
-    \ as mimeType\nfrom `files_metadata_staging`.`files_metadata`"
+    \ as mimeType\nfrom `ingestion`.`files_metadata`"
