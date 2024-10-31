@@ -7,4 +7,3 @@ workflowVersion: v1
 authentication:
   clientId: {{ ingestionClientId }}
   clientSecret: {{ ingestionClientSecret }}
-
