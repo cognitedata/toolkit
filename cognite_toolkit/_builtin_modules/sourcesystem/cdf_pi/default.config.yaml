@@ -7,5 +7,6 @@ schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 
 groupSourceId: <not set>
+workflow: aveva_pi_population # can also contain location aveva_pi_springfield_population
 workflowClientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
 workflowClientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}

@@ -1,2 +1,2 @@
 externalId: {{ workflow }}
-description: This workflow populates the Cognite Data Platform with data from the SAP system {{ sourceName }}.
+description: This workflow populates the Cognite Data Platform with data from the {{ sourceName }}.
