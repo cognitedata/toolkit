@@ -1,10 +1,10 @@
-sourceName: SAP Springfield S/4HANA
-sourceId: sap_springfield_s4hana
+sourceName: SAP Springfield S/4HANA Activities
+sourceId: sap_springfield_s4hana_activities # can also contain location, for example sap_springfield_s4hana
 maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
 operationTransformationExternalId: sap_operations_springfield_s4hana
 operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
-dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
-rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+dataset: ingestion
+rawSourceDatabase: ingestion
 schemaSpace: cdf_idm
 instanceSpace: springfield_instances
 

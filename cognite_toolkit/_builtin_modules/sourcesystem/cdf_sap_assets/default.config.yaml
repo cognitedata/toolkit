@@ -1,11 +1,11 @@
-sourceName: SAP Springfield S/4HANA
-sourceId: sap_springfield_s4hana # can also contain location, for example sap_springfield_s4hana
+sourceName: SAP Springfield S/4HANA Assets
+sourceId: sap_springfield_s4hana_assets # can also contain location, for example sap_springfield_s4hana
 assetTransformationExternalId: sap_assets_springfield_s4hana
 equipmentTransformationExternalId: sap_equipment_springfield_s4hana
 assetToAssetTransformationExternalId: sap_asset_to_asset_springfield_s4hana
 equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
-dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
-rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+dataset: ingestion
+rawSourceDatabase: ingestion
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 
