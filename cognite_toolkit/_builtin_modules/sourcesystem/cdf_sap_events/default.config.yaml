@@ -10,9 +10,5 @@ instanceSpace: springfield_instances
 
 workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
 groupSourceId: <not set>
-transformationClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-transformationClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-transformationTokenUri: ${IDP_TOKEN_URL}
-transformationCdfProjectName: ${CDF_PROJECT}
-transformationAudience: ${CDF_URL}
-transformationScope: ${IDP_SCOPES}
+workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}

@@ -6,9 +6,6 @@ rawDatabase: files_metadata_staging # can also contain location, for example fil
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 groupSourceId: <not set>
-transformationClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
-transformationClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
-transformationTokenUri: ${IDP_TOKEN_URL}
-transformationCdfProjectName: ${CDF_PROJECT}
-transformationAudience: ${CDF_URL}
-transformationScope: ${IDP_SCOPES}
+workflow:
+workflowClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+workflowClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}

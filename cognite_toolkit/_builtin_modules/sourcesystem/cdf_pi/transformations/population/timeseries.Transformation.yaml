@@ -11,11 +11,4 @@ destination:
 conflictMode: upsert
 isPublic: true
 ignoreNullFields: true
-authentication:
-  clientId: {{ transformationClientId }}
-  clientSecret: {{ transformationClientSecret }}
-  tokenUri: {{ transformationTokenUri }}
-  cdfProjectName: {{ transformationCdfProjectName }}
-  audience: {{ transformationAudience}}
-  scopes:
-  - {{ transformationScope }}
+
