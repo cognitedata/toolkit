@@ -18,7 +18,7 @@ Transformation:
       externalId: CogniteFile
       space: cdf_cdm
       version: v1
-  externalId: file_springfield_sharepoint
+  externalId: files_metadata_springfield
   ignoreNullFields: true
   isPublic: true
   name: File Transformations for Springfield Sharepoint
