@@ -149,7 +149,7 @@ class ModulesCommand(ToolkitCommand):
                 ).load_defaults(self._builtin_modules_path, selected_paths)
             else:
                 ignore_variable_patterns: list[tuple[str, ...]] | None = None
-                if "quickstart" in selected_packages:
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
                     ignore_variable_patterns = []
 
                     for to_ignore in ["sourcesystem", "contextualization"]:
@@ -171,7 +171,7 @@ class ModulesCommand(ToolkitCommand):
                     )
                 ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)
 
-                if "quickstart" in selected_packages:
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
                     config_init.lift()
 
             print(
