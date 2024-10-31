@@ -619,6 +619,10 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                     self[key_path] = ConfigEntry(key_path=key_path, current_value="<Not Set>")
         return self
 
+    def lift(self) -> None:
+        """Lift variables that are used in multiple modules to the highest shared level"""
+        raise NotImplementedError()
+
     @property
     def removed(self) -> list[ConfigEntry]:
         return [entry for entry in self.values() if entry.is_removed]
