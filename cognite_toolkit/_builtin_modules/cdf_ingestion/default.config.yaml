@@ -21,8 +21,9 @@ pandidContextualizationFunction: contextualization_p_and_id_annotater
 contextualization_connection_writer: contextualization_connection_writer
 
 
-dataset: sap_s4hana_transformations # can also contain location sap_springfield_s4hana_transformations
-rawDatabase: sap_s4hana # can also contain location, for example sap_springfield_s4hana
+dataset: ingestion
+rawSourceDatabase: ingestion
+rawStateDatabase: contextualizationState
 schemaSpace: cdf_cdm
 instanceSpaces:
   - springfield_instances

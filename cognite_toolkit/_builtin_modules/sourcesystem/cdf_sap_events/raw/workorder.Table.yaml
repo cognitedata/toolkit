@@ -1,2 +1,2 @@
-dbName: {{ rawDatabase }}
+dbName: {{ rawSourceDatabase }}
 tableName: workorder

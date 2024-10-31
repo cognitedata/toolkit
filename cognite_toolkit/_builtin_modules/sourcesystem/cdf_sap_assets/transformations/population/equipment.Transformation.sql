@@ -11,7 +11,7 @@ select
   cast(`WMT_CONTRACTOR_ID` as STRING) as manufacturer,
   cast(`WMT_TAG_GLOBALID` as STRING) as serialNumber
 from
-  `{{ rawDatabase }}`.`dump`
+  `{{ rawSourceDatabase }}`.`dump`
 where
   isnotnull(`WMT_TAG_NAME`) AND
   cast(`WMT_CATEGORY_ID` as INT) != 1157
