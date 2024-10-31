@@ -138,7 +138,7 @@ class ModulesCommand(ToolkitCommand):
                         continue
                 ignore_patterns = ["default.*"]
                 if package.name == "quickstart" and module.name != "ingestion":
-                    ignore_patterns.append("workflows")
+                    ignore_patterns.extend(["workflows", "auth"])
 
                 shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
 
