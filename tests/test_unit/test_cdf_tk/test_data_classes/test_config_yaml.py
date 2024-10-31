@@ -11,8 +11,10 @@ from tests.data import PROJECT_FOR_TEST
 
 
 class TestConfigYAML:
-    def test_producing_correct_keys(self, config_yaml: str, dummy_environment: Environment) -> None:
-        expected_keys = set(flatten_dict(yaml.safe_load(config_yaml)))
+    def test_producing_correct_keys(
+        self, project_for_test_config_dev_yaml: str, dummy_environment: Environment
+    ) -> None:
+        expected_keys = set(flatten_dict(yaml.safe_load(project_for_test_config_dev_yaml)))
         # Custom keys are not loaded from the module folder.
         # This custom key is added to the dev.config.yaml for other tests.
         expected_keys.remove(("variables", "custom_modules", "my_example_module", "transformation_is_paused"))
@@ -27,7 +29,7 @@ class TestConfigYAML:
         extra = actual_keys - expected_keys
         assert not extra, f"Extra keys: {extra}"
 
-    def test_extract_extract_config_yaml_comments(self, config_yaml: str) -> None:
+    def test_extract_extract_config_yaml_comments(self, project_for_test_config_dev_yaml: str) -> None:
         expected_comments = {
             ("variables", "modules", "a_module", "readonly_source_id"): YAMLComment(
                 above=["This is a comment in the middle of the file"], after=[]
@@ -41,7 +43,7 @@ class TestConfigYAML:
             ),
         }
 
-        actual_comments = InitConfigYAML._extract_comments(config_yaml)
+        actual_comments = InitConfigYAML._extract_comments(project_for_test_config_dev_yaml)
 
         assert actual_comments == expected_comments
 
@@ -75,18 +77,18 @@ variable4: "value with #in it" # But a comment after
         actual_comments = InitConfigYAML._extract_comments(raw_file, key_prefix)
         assert actual_comments == expected_comments
 
-    def test_persist_variable_with_comment(self, config_yaml: str) -> None:
+    def test_persist_variable_with_comment(self, project_for_test_config_dev_yaml: str) -> None:
         custom_comment = "This is an extra comment added to the config only 'lore ipsum'"
 
-        config = InitConfigYAML.load_existing(config_yaml).load_defaults(PROJECT_FOR_TEST)
+        config = InitConfigYAML.load_existing(project_for_test_config_dev_yaml).load_defaults(PROJECT_FOR_TEST)
 
         dumped = config.dump_yaml_with_comments()
         loaded = yaml.safe_load(dumped)
         assert loaded["variables"]["modules"]["another_module"]["source_asset"] == "my_new_workmate"
         assert custom_comment in dumped
 
-    def test_added_and_removed_variables(self, config_yaml: str) -> None:
-        existing_config_yaml = yaml.safe_load(config_yaml)
+    def test_added_and_removed_variables(self, project_for_test_config_dev_yaml: str) -> None:
+        existing_config_yaml = yaml.safe_load(project_for_test_config_dev_yaml)
         # Added = Exists in the BUILD_CONFIG directory default.config.yaml files but not in config.yaml
         existing_config_yaml["variables"]["modules"]["another_module"].pop("source_asset")
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
@@ -136,8 +138,8 @@ variable4: "value with #in it" # But a comment after
         assert ("variables", "modules", "infield", "shared_variable") in config.keys()
         assert ("variables", "modules", "infield", "cdf_infield_common", "shared_variable") not in config.keys()
 
-    def test_trailing_slash_in_selected(self, config_yaml: str) -> None:
-        existing_config = InitConfigYAML.load_existing(config_yaml).load_defaults(PROJECT_FOR_TEST)
+    def test_trailing_slash_in_selected(self, project_for_test_config_dev_yaml: str) -> None:
+        existing_config = InitConfigYAML.load_existing(project_for_test_config_dev_yaml).load_defaults(PROJECT_FOR_TEST)
         dumped_config = existing_config.dump_yaml_with_comments()
 
         dumped_config_dict = yaml.safe_load(dumped_config)
