@@ -195,6 +195,7 @@ class CoreApp(typer.Typer):
                 build_env_name,
                 no_clean,
                 ToolGlobals,
+                on_error="raise",
             )
         )
 
