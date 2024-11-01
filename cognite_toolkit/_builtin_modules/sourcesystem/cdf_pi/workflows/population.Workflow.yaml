@@ -1,2 +1,2 @@
 externalId: {{ workflow }}
-description: This workflow populates the Cognite Data Platform with data from the {{ sourceName }}.
+description: This workflow populates Cognite Data Fusion with data from {{ sourceName }}.

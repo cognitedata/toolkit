@@ -28,7 +28,7 @@ class Package:
     name: str
     title: str
     description: str | None = None
-    can_sherry_pick: bool = True
+    can_cherry_pick: bool = True
     modules: list[ModuleLocation] = field(default_factory=list)
 
     @property
@@ -42,7 +42,7 @@ class Package:
             name=name,
             title=package_definition["title"],
             description=package_definition.get("description"),
-            can_sherry_pick=package_definition.get("canSherryPick", True),
+            can_cherry_pick=package_definition.get("canCherryPick", True),
         )
 
 

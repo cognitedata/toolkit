@@ -345,7 +345,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 style=custom_style_fancy,
             ).ask()
 
-            if package.can_sherry_pick and (
+            if package.can_cherry_pick and (
                 len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)
             ):
                 selection = self._select_modules_in_package(package)
