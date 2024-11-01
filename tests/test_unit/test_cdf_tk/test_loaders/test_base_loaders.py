@@ -5,7 +5,7 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
 import requests
@@ -316,6 +316,31 @@ class TestResourceLoaders:
         duplicated.pop("auth")
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
+
+    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    def test_env_var_replacement(self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig) -> None:
+        resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
+            loader_cls.resource_write_cls
+        )
+
+        before = resource.dump(camel_case=True)
+        property = next(iter(before))
+        before[property] = "${SOME_ENV_VAR}"
+
+        tool_globals_mock = MagicMock()
+        tool_globals_mock.environment_variables.return_value = {"SOME_ENV_VAR": "TEST_VALUE"}
+
+        with patch("pathlib.Path.open", mock_open(read_data=yaml.dump(before))):
+            loader = loader_cls.create_loader(cdf_tool_mock, None)
+            resource = loader.load_resource(
+                filepath=Path("test.yaml"), ToolGlobals=tool_globals_mock, skip_validation=True
+            )
+            resource = resource if isinstance(resource, loader_cls.resource_write_cls) else resource[0]
+            if not loader_cls.do_environment_variable_injection:
+                assert getattr(resource, property) == "${SOME_ENV_VAR}"
+            else:
+                assert getattr(resource, property) == "TEST_VALUE"
+        pass
 
 
 class TestLoaders:
