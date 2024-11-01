@@ -276,7 +276,11 @@ class ContainerLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_yaml = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
@@ -660,7 +664,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        raw_yaml = (
+            load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(raw_str, {})
+        )
         if isinstance(raw_yaml, list):
             return ViewApplyList.load(raw_yaml)
         else:
@@ -806,7 +814,11 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        raw_yaml = (
+            load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(raw_str, {})
+        )
         if isinstance(raw_yaml, list):
             return DataModelApplyList.load(raw_yaml)
         else:
@@ -911,7 +923,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         raw_list = raw if isinstance(raw, list) else [raw]
         return NodeApplyList._load(raw_list, cognite_client=self.client)
 
@@ -1077,8 +1093,11 @@ class GraphQLLoader(
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-
-        raw = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        raw = (
+            load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(raw_str, {})
+        )
         raw_list = raw if isinstance(raw, list) else [raw]
         models = GraphQLDataModelWriteList._load(raw_list)
 

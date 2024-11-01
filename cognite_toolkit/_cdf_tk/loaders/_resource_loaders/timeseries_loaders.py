@@ -121,7 +121,11 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             yield AssetLoader, item["assetExternalId"]
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
-        resources = load_yaml_inject_variables(filepath, {})
+        resources = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         if not isinstance(resources, list):
             resources = [resources]
         for resource in resources:

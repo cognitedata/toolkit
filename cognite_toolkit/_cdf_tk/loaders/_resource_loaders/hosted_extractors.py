@@ -183,7 +183,11 @@ class HostedExtractorDestinationLoader(
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_yaml = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
 
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         loaded = DestinationWriteList([])

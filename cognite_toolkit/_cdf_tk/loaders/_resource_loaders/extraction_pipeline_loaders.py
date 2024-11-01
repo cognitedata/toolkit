@@ -131,7 +131,11 @@ class ExtractionPipelineLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
-        resources = load_yaml_inject_variables(filepath, {})
+        resources = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         if isinstance(resources, dict):
             resources = [resources]
 

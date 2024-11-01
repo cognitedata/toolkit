@@ -163,7 +163,11 @@ class ThreeDModelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ThreeDModelWriteList:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         resources = raw if isinstance(raw, list) else [raw]
 
         for resource in resources:

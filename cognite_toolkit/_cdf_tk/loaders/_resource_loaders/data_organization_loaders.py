@@ -258,7 +258,11 @@ class LabelLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw_yaml = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
         for item in items:
             if "dataSetExternalId" in item:

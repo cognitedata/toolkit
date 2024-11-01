@@ -204,7 +204,11 @@ class TransformationLoader(
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-        resources = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        resources = (
+            load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(raw_str, {})
+        )
         # The `authentication` key is custom for this template:
 
         if isinstance(resources, dict):
@@ -393,7 +397,11 @@ class TransformationScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        raw = (
+            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            if self.do_environment_variable_injection
+            else load_yaml_inject_variables(filepath, {})
+        )
         if isinstance(raw, dict):
             return TransformationScheduleWrite.load(raw)
         else:

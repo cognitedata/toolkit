@@ -141,7 +141,12 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> AssetWriteList:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
-            raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+            raw = (
+                load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+                if self.do_environment_variable_injection
+                else load_yaml_inject_variables(filepath, {})
+            )
+
             resources = [raw] if isinstance(raw, dict) else raw
         elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
             if filepath.suffix == ".csv":
