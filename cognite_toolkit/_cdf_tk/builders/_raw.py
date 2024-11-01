@@ -3,6 +3,7 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -23,14 +24,22 @@ class RawBuilder(Builder):
             if loaded is None:
                 continue
             loaded_list = loaded if isinstance(loaded, list) else [loaded]
+            seen_databases: set[tuple] = set()
             entry_by_loader: dict[type[ResourceLoader], list[dict[str, Any]]] = defaultdict(list)
             for item in loaded_list:
                 try:
-                    RawTableLoader.get_id(item)
+                    table_id = RawTableLoader.get_id(item)
                 except KeyError:
+                    seen_databases.add(tuple(item.items()))
                     entry_by_loader[RawDatabaseLoader].append(item)
                 else:
                     entry_by_loader[RawTableLoader].append(item)
+                    db_item = RawDatabaseLoader.dump_id(RawDatabase(table_id.db_name))
+                    hashable_db_item = tuple(db_item.items())
+                    if hashable_db_item not in seen_databases:
+                        seen_databases.add(hashable_db_item)
+                        entry_by_loader[RawDatabaseLoader].append(db_item)
+
             for loader, entries in entry_by_loader.items():
                 if not entries:
                     continue
