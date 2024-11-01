@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_cicd_environment
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -113,7 +113,8 @@ class CoreApp(typer.Typer):
         else:
             if not (dotenv_file := Path.cwd() / ".env").is_file():
                 if not (dotenv_file := Path.cwd().parent / ".env").is_file():
-                    print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+                    if get_cicd_environment() == "local":
+                        print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
 
         if dotenv_file.is_file():
             has_loaded = load_dotenv(dotenv_file, override=override_env)
@@ -194,6 +195,7 @@ class CoreApp(typer.Typer):
                 build_env_name,
                 no_clean,
                 ToolGlobals,
+                on_error="raise",
             )
         )
 
