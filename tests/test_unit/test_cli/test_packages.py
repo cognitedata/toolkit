@@ -91,7 +91,7 @@ def test_build_packages_without_warnings(
         True,
         ["dev"],
     ]
-    if package.can_sherry_pick:
+    if package.can_cherry_pick:
         answers.insert(1, MockQuestionary.select_all)
 
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
