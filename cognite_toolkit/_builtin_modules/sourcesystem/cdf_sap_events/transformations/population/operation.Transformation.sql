@@ -4,7 +4,7 @@ with unique_workitem as (
     *,
     row_number() over (partition by `sourceId` order by `sourceId`) as rn
   from
-    `{{ rawDatabase }}`.`workitem`
+    `{{ rawSourceDatabase }}`.`workitem`
 )
 select
   cast(`sourceId` as STRING) as externalId,

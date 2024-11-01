@@ -5,14 +5,14 @@ with unique_workitem as (
     *,
     row_number() over (partition by `sourceId` order by `sourceId`) as rn
   from
-    {{ rawDatabase }}.`workitem`
+    {{ rawSourceDatabase }}.`workitem`
 ),
 worder_unique as (
   select
     *,
     row_number() over (partition by `WORKORDER_NUMBER` order by `sourceId`) as rn
   from
-    {{ rawDatabase }}.`workorder`
+    {{ rawSourceDatabase }}.`workorder`
 )
 select
   cast(task.`sourceId` as STRING) as externalId,

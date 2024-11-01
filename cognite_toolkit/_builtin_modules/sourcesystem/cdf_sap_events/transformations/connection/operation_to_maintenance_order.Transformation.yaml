@@ -1,4 +1,4 @@
-externalId: sap_operation_to_maintenance_order_{{ source }}
+externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: Operation to Maintenance Order for {{ sourceName }}
 destination:
@@ -11,11 +11,3 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
-authentication:
-  clientId: {{ transformationClientId }}
-  clientSecret: {{ transformationClientSecret }}
-  tokenUri: {{ transformationTokenUri }}
-  cdfProjectName: {{ transformationCdfProjectName }}
-  audience: {{ transformationAudience}}
-  scopes:
-  - {{ transformationScope }}

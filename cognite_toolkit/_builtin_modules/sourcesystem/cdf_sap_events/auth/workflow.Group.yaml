@@ -1,9 +1,14 @@
-name: gp_transformations_timeseries_to_equipment
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+name: gp_transformations_{{ sourceId }}_events
+sourceId: {{ groupSourceId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
   # minimum runtime capabilities
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
   - projectsAcl:
       actions:
         - READ
@@ -15,12 +20,14 @@ capabilities:
         - LIST
       scope:
         all: {}
-  - sessionsAcl:
+  # transformation-specific capabilities
+  - rawAcl:
       actions:
-        - CREATE
+        - READ
       scope:
-        all: {}
-  # query-specific capabilities
+        tableScope:
+          dbsToTables:
+            {{ rawSourceDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ

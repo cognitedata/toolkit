@@ -6,4 +6,4 @@ select
   if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units', try_get_unit(`unit`)), NULL) as unit,
   `unit` as sourceUnit
   
-from `{{ rawDatabase }}`.`timeseries_metadata`
+from `{{ rawSourceDatabase }}`.`timeseries_metadata`

@@ -1,47 +1,9 @@
 DataSet:
 - description: Transformations for contextualisations
-  externalId: contextualisation_transformations
+  externalId: ingestion
   metadata: {}
   name: Contextualisation Transformations
   writeProtected: false
-Group:
-- capabilities:
-  - projectsAcl:
-      actions:
-      - READ
-      - LIST
-      scope:
-        all: {}
-  - groupsAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - CREATE
-      scope:
-        all: {}
-  - dataModelInstancesAcl:
-      actions:
-      - READ
-      - WRITE
-      - WRITE_PROPERTIES
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - springfield_instances
-  - dataModelsAcl:
-      actions:
-      - READ
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - cdf_cdm
-  metadata:
-    origin: cognite-toolkit
-  name: gp_transformations_timeseries_to_equipment
-  sourceId: <not set>
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
@@ -52,13 +14,6 @@ Transformation:
       externalId: CogniteActivity
       space: cdf_cdm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
   externalId: activity_to_asset
   ignoreNullFields: true
   isPublic: true
@@ -72,13 +27,6 @@ Transformation:
     \ ) as asset_lookup\n  /* update to the correct matching criteria for your data\
     \ */\non\n  activity.`tags`[0]  == asset_lookup.`name`\nwhere\n  activity.space\
     \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  isnotnull(asset_lookup.`externalId`)\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -88,13 +36,6 @@ Transformation:
       externalId: CogniteActivity
       space: cdf_cdm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
   externalId: activity_to_equipment
   ignoreNullFields: true
   isPublic: true
@@ -108,13 +49,6 @@ Transformation:
     \n  ) as equipment_lookup\n  /* update to the correct matching criteria for your\
     \ data */\non\n  activity.`tags`[0]  == equipment_lookup.`name`\nwhere\n  activity.space\
     \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  isnotnull(equipment_lookup.`externalId`)\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -124,13 +58,6 @@ Transformation:
       externalId: CogniteActivity
       space: cdf_cdm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
   externalId: activity_to_timeseries
   ignoreNullFields: true
   isPublic: true
@@ -146,13 +73,6 @@ Transformation:
     \ 'VAL_', ''), ':', 1)\nwhere\n  activity.space == 'springfield_instances' and\n\
     \  isnotnull(activity.tags) and\n  isnotnull(activity.`externalId`) and\n  isnotnull(timeseries_lookup.`name`)\n\
     group by\n  activity.`externalId`"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -162,13 +82,6 @@ Transformation:
       externalId: CogniteTimeSeries
       space: cdf_cdm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
   externalId: timeseries_to_asset
   ignoreNullFields: true
   isPublic: true
@@ -184,13 +97,6 @@ Transformation:
     \ */\n  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) ==\
     \ asset_lookup.`name`\nwhere\n  timeseries.space == 'springfield_instances' and\n\
     \  isnotnull(asset_lookup.`externalId`)\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -200,13 +106,6 @@ Transformation:
       externalId: CogniteTimeSeries
       space: cdf_cdm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
   externalId: timeseries_to_equipment
   ignoreNullFields: true
   isPublic: true
@@ -221,10 +120,3 @@ Transformation:
     \n  ) as equipment_lookup \n  /* update to the correct matching criteria for your\
     \ data */\n  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1)\
     \ == equipment_lookup.`name`\nwhere\n  timeseries.space == 'springfield_instances'\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${TRANSFORMATION_CLIENT_ID}
-    clientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy

@@ -1,62 +1,12 @@
 DataSet:
-- description: Transformations for SAP Springfield S/4HANA dataset
-  externalId: sap_s4hana_transformations
+- description: Transformations for populating data
+  externalId: ingestion
   metadata: {}
-  name: SAP Springfield S/4HANA Transformations
+  name: Population Transformations
   writeProtected: false
-Group:
-- capabilities:
-  - sessionsAcl:
-      actions:
-      - CREATE
-      scope:
-        all: {}
-  - projectsAcl:
-      actions:
-      - READ
-      - LIST
-      scope:
-        all: {}
-  - groupsAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
-  - rawAcl:
-      actions:
-      - READ
-      scope:
-        tableScope:
-          dbsToTables:
-            sap_s4hana:
-              tables: []
-  - dataModelInstancesAcl:
-      actions:
-      - READ
-      - WRITE
-      - WRITE_PROPERTIES
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - springfield_instances
-  - dataModelsAcl:
-      actions:
-      - READ
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - cdf_idm
-  metadata:
-    origin: cognite-toolkit
-  name: gp_transformations_sap_springfield_s4hana_events
-  sourceId: <not set>
 Space:
-- description: 'This space contains all data from the SAP system SAP Springfield S/4HANA.
-
-    The data is ingested from the SAP system using the SAP extractor
-
-    '
-  name: SAP Springfield S/4HANA instance space
+- description: This space contains data
+  name: Instance space
   space: springfield_instances
 Transformation:
 - conflictMode: upsert
@@ -68,17 +18,10 @@ Transformation:
       externalId: CogniteMaintenanceOrder
       space: cdf_idm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
-  externalId: sap_maintenance_order_sap_s4hana_event
+  externalId: sap_maintenance_orders_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
-  name: Maintenance Order Transformations for SAP Springfield S/4HANA
+  name: Maintenance Order Transformations for SAP Springfield S/4HANA Activities
   query: "/* MAPPING_MODE_ENABLED: false */\n/* {\"version\":1,\"sourceType\":\"raw\"\
     ,\"mappings\":[{\"from\":\"externalId\",\"to\":\"externalId\",\"asType\":\"STRING\"\
     },{\"from\":\"\",\"to\":\"aliases\",\"asType\":\"ARRAY<STRING>\"},{\"from\":\"\
@@ -106,15 +49,8 @@ Transformation:
     \ as TIMESTAMP) as startTime,\n  cast(`WORKORDER_COMPLETIONDATE` as TIMESTAMP)\
     \ as endTime,\n  cast(`WORKORDER_CREATEDDATE` as TIMESTAMP) as sourceCreatedTime,\n\
     \  cast(`WORKORDER_MAITENANCETYPE` as STRING) as type,\n  cast(`WORKORDER_PRIORITYDESC`\
-    \ as STRING) as priorityDescription\nfrom\n  `sap_s4hana`.`workorder`\nwhere\n\
+    \ as STRING) as priorityDescription\nfrom\n  `ingestion`.`workorder`\nwhere\n\
     \  isnotnull(`sourceId`)\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
 - conflictMode: upsert
   dataSetId: 42
   destination:
@@ -124,113 +60,39 @@ Transformation:
       externalId: CogniteOperation
       space: cdf_idm
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
-  externalId: sap_operation_sap_s4hana_event
+  externalId: sap_operation_to_maintenance_order_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
-  name: Operation Transformations for SAP Springfield S/4HANA
-  query: "-- The source data has duplicates this filters them out.\nwith unique_workitem\
-    \ as (\n  select\n    *,\n    row_number() over (partition by `sourceId` order\
-    \ by `sourceId`) as rn\n  from\n    `sap_s4hana`.`workitem`\n)\nselect\n  cast(`sourceId`\
-    \ as STRING) as externalId,\n  cast(`WORKORDER_TASKNAME` as STRING) as name,\n\
-    \  cast(`WORKORDER_STATUS` as STRING) as status,\n  array(cast(`WORKORDER_ITEMNAME`\
-    \ as STRING)) as tags\nfrom\n  unique_workitem\nwhere\n  isnotnull(`sourceId`)\
-    \ and\n  rn = 1"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
-- conflictMode: upsert
-  dataSetId: 42
-  destination:
-    instanceSpace: springfield_instances
-    type: nodes
-    view:
-      externalId: CogniteOperation
-      space: cdf_idm
-      version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
-  externalId: sap_operation_to_maintenance_order_sap_s4hana_event
-  ignoreNullFields: true
-  isPublic: true
-  name: Operation to Maintenance Order for SAP Springfield S/4HANA
+  name: Operation to Maintenance Order for SAP Springfield S/4HANA Activities
   query: "/* The WORKORDER_NUMBER is not unique in the workorder table,\nso use the\
     \ following query to select the first match. */\nwith unique_workitem as (\n \
     \ select\n    *,\n    row_number() over (partition by `sourceId` order by `sourceId`)\
-    \ as rn\n  from\n    sap_s4hana.`workitem`\n),\nworder_unique as (\n  select\n\
+    \ as rn\n  from\n    ingestion.`workitem`\n),\nworder_unique as (\n  select\n\
     \    *,\n    row_number() over (partition by `WORKORDER_NUMBER` order by `sourceId`)\
-    \ as rn\n  from\n    sap_s4hana.`workorder`\n)\nselect\n  cast(task.`sourceId`\
+    \ as rn\n  from\n    ingestion.`workorder`\n)\nselect\n  cast(task.`sourceId`\
     \ as STRING) as externalId,\n  node_reference('springfield_instances', cast(worder.`sourceId`\
     \ as STRING)) as maintenanceOrder\nfrom\n  unique_workitem as task\njoin\n  worder_unique\
     \ as worder\non\n  task.`WORKORDER_NUMBER` = worder.`WORKORDER_NUMBER`\nwhere\n\
     \  isnotnull(task.`sourceId`) AND\n  isnotnull(task.`WORKORDER_NUMBER`) AND\n\
     \  isnotnull(worder.`WORKORDER_NUMBER`) AND\n  isnotnull(worder.`sourceId`) AND\n\
     \  worder.rn = 1 AND\n  task.rn = 1\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
-    cdfProjectName: pytest-project
-    clientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
-    clientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
-Workflow:
-- description: This workflow populates the Cognite Data Platform with data from the
-    SAP system SAP Springfield S/4HANA.
-  externalId: sap_s4hana_population_events
-WorkflowTrigger:
-- externalId: sap_population_sap_s4hana_event
-  triggerRule:
-    cronExpression: 0 4 * * MON
-    triggerType: schedule
-  workflowExternalId: sap_s4hana_population_events
-  workflowVersion: v1
-WorkflowVersion:
-- version: v1
-  workflowDefinition:
-    tasks:
-    - externalId: sap_s4hana_population_events_task1
-      onFailure: abortWorkflow
-      parameters:
-        transformation:
-          concurrencyPolicy: fail
-          externalId: sap_maintenance_order_sap_s4hana_event
-      retries: null
-      timeout: null
-      type: transformation
-    - externalId: sap_s4hana_population_events_task2
-      onFailure: abortWorkflow
-      parameters:
-        transformation:
-          concurrencyPolicy: fail
-          externalId: sap_operation_sap_s4hana_event
-      retries: null
-      timeout: null
-      type: transformation
-    - dependsOn:
-      - externalId: sap_s4hana_population_events_task1
-      - externalId: sap_s4hana_population_events_task2
-      externalId: sap_s4hana_population_events_task3
-      onFailure: abortWorkflow
-      parameters:
-        transformation:
-          concurrencyPolicy: fail
-          externalId: sap_operation_to_maintenance_order_sap_s4hana_event
-      retries: null
-      timeout: null
-      type: transformation
-  workflowExternalId: sap_s4hana_population_events
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteOperation
+      space: cdf_idm
+      version: v1
+  externalId: sap_operations_springfield_s4hana
+  ignoreNullFields: true
+  isPublic: true
+  name: Operation Transformations for SAP Springfield S/4HANA Activities
+  query: "-- The source data has duplicates this filters them out.\nwith unique_workitem\
+    \ as (\n  select\n    *,\n    row_number() over (partition by `sourceId` order\
+    \ by `sourceId`) as rn\n  from\n    `ingestion`.`workitem`\n)\nselect\n  cast(`sourceId`\
+    \ as STRING) as externalId,\n  cast(`WORKORDER_TASKNAME` as STRING) as name,\n\
+    \  cast(`WORKORDER_STATUS` as STRING) as status,\n  array(cast(`WORKORDER_ITEMNAME`\
+    \ as STRING)) as tags\nfrom\n  unique_workitem\nwhere\n  isnotnull(`sourceId`)\
+    \ and\n  rn = 1"

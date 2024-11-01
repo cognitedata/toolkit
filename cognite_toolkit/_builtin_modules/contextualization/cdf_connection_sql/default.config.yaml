@@ -1,10 +1,10 @@
+activityToAssetTransformationExternalId: activity_to_asset
+activityToEquipmentTransformationExternalId: activity_to_equipment
+activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+
+dataset: ingestion
 instanceSpace: springfield_instances
 schemaSpace: cdf_cdm
-transformationServicePrincipalGroupObjectId: <not set>
-dataset: contextualisation_transformations
-transformationClientId: ${TRANSFORMATION_CLIENT_ID}
-transformationClientSecret: ${TRANSFORMATION_CLIENT_SECRET}
-transformationTokenUri: ${IDP_TOKEN_URL}
-transformationCdfProjectName: ${CDF_PROJECT}
-transformationAudience: ${CDF_URL}
-transformationScope: ${IDP_SCOPES}
+groupSourceId: <not set>

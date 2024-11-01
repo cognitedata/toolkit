@@ -1,14 +1,9 @@
-name: gp_transformations_{{ sourceId }}_events
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+name: gp_transformations_{{ sourceId }}_assets
+sourceId: {{ groupSourceId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
   # minimum runtime capabilities
-  - sessionsAcl:
-      actions:
-        - CREATE
-      scope:
-        all: {}
   - projectsAcl:
       actions:
         - READ
@@ -20,14 +15,19 @@ capabilities:
         - LIST
       scope:
         all: {}
-  # transformation-specific capabilities
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
   - rawAcl:
       actions:
         - READ
       scope:
         tableScope:
           dbsToTables:
-            {{ rawDatabase }}: {}
+            {{ rawSourceDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ
@@ -44,4 +44,3 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
-  

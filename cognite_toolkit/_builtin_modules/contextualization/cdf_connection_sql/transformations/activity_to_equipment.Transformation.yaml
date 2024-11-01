@@ -1,4 +1,4 @@
-externalId: activity_to_equipment
+externalId: {{ activityToEquipmentTransformationExternalId}}
 dataSetExternalId: {{ dataset }}
 name: Activity to equipment Connection Transformation
 destination:
@@ -11,11 +11,4 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
-authentication:
-  clientId: {{ transformationClientId }}
-  clientSecret: {{ transformationClientSecret }}
-  tokenUri: {{ transformationTokenUri }}
-  cdfProjectName: {{ transformationCdfProjectName }}
-  audience: {{ transformationAudience}}
-  scopes:
-  - {{ transformationScope }}
+

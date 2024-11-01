@@ -10,7 +10,7 @@ from tests.test_unit.test_cdf_tk.constants import BUILD_DIR
 
 
 class TestBuildConfigYAML:
-    def test_build_config_create_valid_build_folder(self, config_yaml: str) -> None:
+    def test_build_config_create_valid_build_folder(self, project_for_test_config_dev_yaml: str) -> None:
         build_env_name = "dev"
         cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)

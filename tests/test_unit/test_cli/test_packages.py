@@ -4,13 +4,14 @@ from typing import Any
 
 import pytest
 import typer
+from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes import Packages
-from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
+from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.tk_warnings import DuplicatedItemWarning, TemplateVariableWarning
 
 
 class MockQuestion:
@@ -58,38 +59,40 @@ class MockQuestionary:
         return [choice.value for choice in choices]
 
 
-def get_packages() -> list[str]:
+def get_packages() -> list[ParameterSet]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
     # - The Bootcamp package has intentionally warnings that is part of the learning experience.
     # - Examples and sourcesystems are tested separately, in that each example is tested individually as they
     # - Custom is just scaffolding and should never issue warnings.
     # should be independent of each other.
     packages = (
-        name
-        for name in packages.keys()
-        if name not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization", "custom"]
+        package
+        for package in packages.values()
+        if package.name
+        not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization", "custom"]
     )
-    return sorted(packages)
+    return [pytest.param(package, id=package.name) for package in sorted(packages, key=lambda p: p.name)]
 
 
 @pytest.mark.parametrize("package", get_packages())
 def test_build_packages_without_warnings(
-    package: str, tmp_path: Path, build_tmp_path: Path, monkeypatch: MonkeyPatch
+    package: Package, tmp_path: Path, build_tmp_path: Path, monkeypatch: MonkeyPatch
 ) -> None:
     organization_dir = tmp_path
 
     module_cmd = ModulesCommand(silent=True, skip_tracking=True)
 
     def select_package(choices: Sequence[Choice]) -> Any:
-        return next(choice.value for choice in choices if choice.value.name == package)
+        return next(choice.value for choice in choices if choice.value.name == package.name)
 
     answers = [
         select_package,
-        MockQuestionary.select_all,
         False,
         True,
         ["dev"],
     ]
+    if package.can_cherry_pick:
+        answers.insert(1, MockQuestionary.select_all)
 
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
         module_cmd.init(organization_dir, clean=True)
@@ -112,6 +115,9 @@ def test_build_packages_without_warnings(
     # TemplateVariableWarning is when <change_me> is not replaced in the config file.
     # This is expected to be replaced by the users, and will thus raise when we run a fully automated test.
     warnings = [warning for warning in build_cmd.warning_list if not isinstance(warning, TemplateVariableWarning)]
+    if package.name == "quickstart":
+        # QuickStart combines modules that have the same spaces/datasets etc.
+        warnings = [warning for warning in warnings if not isinstance(warning, DuplicatedItemWarning)]
 
     assert not warnings, f"{len(warnings)} warnings found: {warnings}"
 

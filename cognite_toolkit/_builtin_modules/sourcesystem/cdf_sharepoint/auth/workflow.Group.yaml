@@ -1,5 +1,5 @@
-name: gp_transformations_{{ sourceId }}
-sourceId: {{ transformationServicePrincipalGroupObjectId }}
+name: gp_{{ workflow }}
+sourceId: {{ groupSourceId }}
 metadata:
   origin: cognite-toolkit
 capabilities:
@@ -27,7 +27,7 @@ capabilities:
       scope:
         tableScope:
           dbsToTables:
-            {{ rawDatabase }}: {}
+            {{ rawSourceDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ

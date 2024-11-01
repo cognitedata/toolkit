@@ -1,4 +1,3 @@
 space: '{{ instanceSpace }}'
-name: '{{ sourceName }} instance space'
-description: |
-  This space contains all data from PI system  {{ sourceName }}.
+name: 'Instance space'
+description: This space contains data

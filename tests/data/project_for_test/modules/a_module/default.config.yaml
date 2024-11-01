@@ -1,3 +1,4 @@
 readwrite_source_id: <change_me>
 # This is a comment in the middle of the file
 readonly_source_id: <change_me>
+dataset: my_dataset
