@@ -4,6 +4,8 @@ DataSet:
   metadata: {}
   name: Population Transformations
   writeProtected: false
+Database:
+- name: ingestion
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -25,6 +27,9 @@ Space:
 - description: This space contains data
   name: Instance space
   space: springfield_instances
+Table:
+- createdTime: 1
+  name: timeseries_metadata
 Transformation:
 - conflictMode: upsert
   dataSetId: 42

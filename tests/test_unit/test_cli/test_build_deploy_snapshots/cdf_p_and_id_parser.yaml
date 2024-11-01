@@ -4,6 +4,8 @@ DataSet:
   metadata: {}
   name: P&ID Parser
   writeProtected: false
+Database:
+- name: contextualizationState
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -116,3 +118,6 @@ Space:
 - description: Space for storing annotations
   name: springfield_instances
   space: springfield_instances
+Table:
+- createdTime: 1
+  name: diagramParsing

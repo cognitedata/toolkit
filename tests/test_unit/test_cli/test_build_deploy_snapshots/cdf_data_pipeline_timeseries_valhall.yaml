@@ -18,6 +18,8 @@ DataSet:
       {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_manual_input"}]'
   name: timeseries:oid
   writeProtected: false
+Database:
+- name: timeseries_oid_opcua
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -336,3 +338,10 @@ Row:
     ensure_parent: false
     table_name: contextualization_manual_input
   name: timeseries_oid_opcua_contextualization_manual_input_False
+Table:
+- createdTime: 1
+  name: contextualization_bad
+- createdTime: 1
+  name: contextualization_good
+- createdTime: 1
+  name: contextualization_manual_input
