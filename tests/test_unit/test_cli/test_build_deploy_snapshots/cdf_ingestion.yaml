@@ -22,7 +22,9 @@ Group:
       scope:
         tableScope:
           dbsToTables:
-            sap_s4hana:
+            contextualizationState:
+              tables: []
+            ingestion:
               tables: []
   - dataModelInstancesAcl:
       actions:

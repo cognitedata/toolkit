@@ -5,7 +5,11 @@ from typing import Any
 import pytest
 import yaml
 
-from cognite_toolkit._cdf_tk.data_classes import ConfigEntry, Environment, InitConfigYAML
+from cognite_toolkit._cdf_tk.data_classes import (
+    ConfigEntry,
+    Environment,
+    InitConfigYAML,
+)
 from cognite_toolkit._cdf_tk.utils import YAMLComment, flatten_dict
 from tests.data import PROJECT_FOR_TEST
 
@@ -145,3 +149,29 @@ variable4: "value with #in it" # But a comment after
         dumped_config_dict = yaml.safe_load(dumped_config)
 
         assert dumped_config_dict["environment"]["selected"][0] == "modules/"
+
+    def test_ignoring_patterns(self, dummy_environment: Environment) -> None:
+        ignore_pattern = [
+            ("modules", "parent_module", "*", "child_variable"),
+            ("modules", "a_module", "readwrite_source_id"),
+        ]
+
+        config = InitConfigYAML(dummy_environment).load_defaults(PROJECT_FOR_TEST)
+        config_with_ignore = InitConfigYAML(dummy_environment).load_defaults(
+            PROJECT_FOR_TEST, ignore_patterns=ignore_pattern
+        )
+
+        ignored = set(config.keys()) - set(config_with_ignore.keys())
+        assert ignored == {
+            ("variables", "modules", "parent_module", "child_module", "child_variable"),
+            ("variables", "modules", "a_module", "readwrite_source_id"),
+        }
+
+    def test_lift_variables(self, dummy_environment) -> None:
+        config = InitConfigYAML(dummy_environment).load_defaults(PROJECT_FOR_TEST)
+
+        config.lift()
+
+        assert ("variables", "modules", "dataset") in config.keys()
+        assert ("variables", "modules", "a_module", "dataset") not in config.keys()
+        assert ("variables", "modules", "another_module", "dataset") not in config.keys()

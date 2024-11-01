@@ -27,7 +27,7 @@ capabilities:
       scope:
         tableScope:
           dbsToTables:
-            {{ rawDatabase }}: {}
+            {{ rawSourceDatabase }}: {}
   - dataModelInstancesAcl:
       actions:
         - READ

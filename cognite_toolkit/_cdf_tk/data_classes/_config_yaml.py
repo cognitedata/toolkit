@@ -5,7 +5,7 @@ import os
 import re
 from abc import ABC
 from collections import UserDict, defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Literal, get_args
@@ -403,6 +403,31 @@ class ConfigEntry:
         return ".".join(self.key_path)
 
 
+class _WildcardSequence(tuple, Sequence[str]):
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, Sequence)
+            and len(other) == len(self)
+            and all(a == b or a == "*" for a, b in zip(self, other))
+        )
+
+    def __hash__(self) -> int:
+        return hash(tuple(self))
+
+
+class WildcardSet(set, Set[_WildcardSequence]):
+    """Sets that support wildcard matching."""
+
+    @classmethod
+    def load(cls, items: Sequence[Sequence[str]]) -> WildcardSet:
+        return cls(_WildcardSequence(item) for item in items)
+
+    def __contains__(self, key: Any) -> bool:
+        if not isinstance(key, Sequence):
+            return False
+        return any(pattern == key for pattern in self)
+
+
 @dataclass
 class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLCore):
     """This represents the 'config.[env].yaml' file in the root of the project.
@@ -425,7 +450,12 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
     def as_build_config(self) -> BuildConfigYAML:
         return BuildConfigYAML(environment=self.environment, variables=self.dump()[self._variables], filepath=Path(""))
 
-    def load_defaults(self, cognite_root_module: Path, selected_paths: set[Path] | None = None) -> InitConfigYAML:
+    def load_defaults(
+        self,
+        cognite_root_module: Path,
+        selected_paths: set[Path] | None = None,
+        ignore_patterns: list[tuple[str, ...]] | None = None,
+    ) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module."""
 
         default_files_iterable: Iterable[Path]
@@ -447,9 +477,11 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             )
 
         default_files = sorted(default_files_iterable, key=lambda f: f.relative_to(cognite_root_module))
-        return self._load_defaults(cognite_root_module, default_files)
+        return self._load_defaults(cognite_root_module, default_files, ignore_patterns)
 
-    def _load_defaults(self, cognite_root_module: Path, defaults_files: list[Path]) -> InitConfigYAML:
+    def _load_defaults(
+        self, cognite_root_module: Path, defaults_files: list[Path], ignore_patterns: list[tuple[str, ...]] | None
+    ) -> InitConfigYAML:
         """Loads all default.config.yaml files in the cognite root module.
 
         This extracts the default values from the default.config.yaml files and
@@ -462,6 +494,8 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             self
         """
 
+        ignore_set = WildcardSet.load(ignore_patterns) if ignore_patterns else None
+
         for default_config in defaults_files:
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = safe_read(default_config)
@@ -473,6 +507,8 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 else:
                     key_path = (self._variables, MODULES, *parts, key)
                 local_file_path = (*parts, key)
+                if ignore_set and key_path[1:] in ignore_set:
+                    continue
                 if key_path in self:
                     self[key_path].default_value = value
                     self[key_path].default_comment = file_comments.get(local_file_path)
@@ -582,6 +618,26 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
                 else:
                     self[key_path] = ConfigEntry(key_path=key_path, current_value="<Not Set>")
         return self
+
+    def lift(self) -> None:
+        """Lift variables that are used in multiple modules to the highest shared level"""
+        variable_by_key_value: dict[
+            tuple[str, float | int | str | bool | tuple[Hashable] | None], list[ConfigEntry]
+        ] = defaultdict(list)
+        for key, entry in self.items():
+            value = tuple(entry.value) if isinstance(entry.value, list) else entry.value  # type: ignore[arg-type]
+            variable_by_key_value[(key[-1], value)].append(entry)
+
+        for entries in variable_by_key_value.values():
+            if len(entries) == 1:
+                continue
+            shared_parent = self._find_common_parent([entry.key_path for entry in entries])
+            new_key = (*shared_parent, entries[0].key_path[-1])
+            self[new_key] = ConfigEntry(
+                key_path=new_key, current_value=entries[0].current_value, default_value=entries[0].default_value
+            )
+            for entry in entries:
+                del self[entry.key_path]
 
     @property
     def removed(self) -> list[ConfigEntry]:

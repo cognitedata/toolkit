@@ -148,6 +148,20 @@ class ModulesCommand(ToolkitCommand):
                     (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
                 ).load_defaults(self._builtin_modules_path, selected_paths)
             else:
+                ignore_variable_patterns: list[tuple[str, ...]] | None = None
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
+                    ignore_variable_patterns = []
+
+                    for to_ignore in ["sourcesystem", "contextualization"]:
+                        ignore_variable_patterns.extend(
+                            [
+                                ("modules", to_ignore, "*", "workflow"),
+                                ("modules", to_ignore, "*", "workflowClientId"),
+                                ("modules", to_ignore, "*", "workflowClientSecret"),
+                                ("modules", to_ignore, "*", "groupSourceId"),
+                            ]
+                        )
+
                 config_init = InitConfigYAML(
                     Environment(
                         name=environment,
@@ -155,7 +169,11 @@ class ModulesCommand(ToolkitCommand):
                         build_type=environment,
                         selected=[f"{MODULES}/"],
                     )
-                ).load_defaults(self._builtin_modules_path, selected_paths)
+                ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)
+
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
+                    config_init.lift()
+
             print(
                 f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]{'Updating' if mode == 'update' else 'Creating'} config.{environment}.yaml[/]"
             )
@@ -344,6 +362,9 @@ default_organization_dir = "{organization_dir.name}"''',
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
+
+            if package is None:
+                raise typer.Exit(code=0)
 
             if package.can_cherry_pick and (
                 len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)

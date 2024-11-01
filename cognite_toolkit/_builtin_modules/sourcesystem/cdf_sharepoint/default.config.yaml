@@ -1,8 +1,8 @@
 sourceName: Springfield Sharepoint
 sourceId: springfield_sharepoint
 fileTransformationExternalId: files_metadata_springfield
-dataset: files_metadata_transformations # can also contain location, for example files_metadata_springfield_transformations
-rawDatabase: files_metadata_staging # can also contain location, for example files_metadata_springfield_staging
+dataset: ingestion
+rawSourceDatabase: ingestion
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 groupSourceId: <not set>

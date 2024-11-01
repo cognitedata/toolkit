@@ -73,7 +73,7 @@ capabilities:
       scope:
         tableScope:
           dbsToTables:
-            {{ rawDatabase }}: {}
+            {{ rawStateDatabase }}: {}
 # Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:
