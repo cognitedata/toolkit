@@ -22,6 +22,10 @@ Changes are grouped as follows:
 - When running `cdf modules add`, the Toolkit removed trailing slash in the module path causing a
   build error. This is now fixed.
 - When running `cdf build`, the Toolkit now stops if an error is encountered.
+- `Asset` resources without `metadata` are no longer always redeployed when running `cdf deploy`,
+  only if the local is different than the CDF configuration.
+- Asset centric `LocationFilter`s are no longer always redeployed when running `cdf deploy`,
+  only if the local is different than the CDF configuration.
 
 ## [0.3.5] - 2024-10-24
 
