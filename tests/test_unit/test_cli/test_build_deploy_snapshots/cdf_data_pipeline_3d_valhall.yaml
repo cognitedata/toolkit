@@ -17,6 +17,8 @@ DataSet:
       "Transformations"}]'
   name: asset:oid
   writeProtected: false
+Database:
+- name: 3d_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -276,6 +278,13 @@ Row:
     ensure_parent: false
     table_name: contextualization_manual_input
   name: 3d_oid_fileshare_contextualization_manual_input_False
+Table:
+- createdTime: 1
+  name: contextualization_bad
+- createdTime: 1
+  name: contextualization_good
+- createdTime: 1
+  name: contextualization_manual_input
 ThreeDModel:
 - createdTime: 1
   dataSetId: 42
