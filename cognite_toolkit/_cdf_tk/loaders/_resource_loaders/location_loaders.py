@@ -92,6 +92,12 @@ class LocationFilterLoader(
         raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for raw in raw_list:
+            if "parentExternalId" in raw:
+                parent_external_id = raw.pop("parentExternalId")
+                raw["parentId"] = ToolGlobals.verify_locationfilter(
+                    parent_external_id, skip_validation, action="replace parentExternalId with parentExternalId"
+                )
+
             if "assetCentric" not in raw:
                 continue
             asset_centric = raw["assetCentric"]
@@ -158,6 +164,22 @@ class LocationFilterLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
+        spec.add(
+            ParameterSpec(
+                ("parentExternalId",),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                ("parentId",),
+                frozenset({"int"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
         spec.add(
             ParameterSpec(
                 (
