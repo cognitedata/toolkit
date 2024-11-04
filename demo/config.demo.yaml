@@ -255,6 +255,12 @@ variables:
         raw_db: pump_assets
         data_set: src:lift_pump_stations
 
+    industrial_tools:
+      cdf_search:
+        location: springfield
+        locationName: Springfield
+        instanceSpace: springfield_instances
+
       cdf_location_filter_asset_centric:
         ds_asset: ds_asset_location_filter
         root_asset: my_root_asset
@@ -264,12 +270,6 @@ variables:
       cdf_location_filter_datamodel_based:
         instance_space1: my_instance_space1
         instance_space2: my_instance_space2
-
-    industrial_tools:
-      cdf_search:
-        location: springfield
-        locationName: Springfield
-        instanceSpace: springfield_instances
 
     infield:
       # The root asset external id should be
