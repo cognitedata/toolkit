@@ -27,6 +27,8 @@ Changes are grouped as follows:
 - Asset centric `LocationFilter`s are no longer always redeployed when running `cdf deploy`,
   only if the local is different than the CDF configuration.
 - When deleting a `Function` the file is also removed if it exists.
+- The `parentExternalId` in `LocationFilter` is now correctly replaced by `parentId` when running `cdf deploy`.
+
 
 ## [0.3.5] - 2024-10-24
 
