@@ -7,7 +7,7 @@ from tests.data import PROJECT_FOR_TEST
 
 
 @pytest.fixture(scope="session")
-def config_yaml() -> str:
+def project_for_test_config_dev_yaml() -> str:
     return (PROJECT_FOR_TEST / "config.dev.yaml").read_text()
 
 

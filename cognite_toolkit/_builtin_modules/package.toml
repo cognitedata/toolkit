@@ -4,6 +4,7 @@ title = "Built-in Cognite packages"
 [packages.quickstart]
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
+canCherryPick = false
 
 [packages.infield]
 title = "InField"
@@ -24,6 +25,7 @@ description = "Examples of how to configure Cognite Data Fusion"
 [packages.bootcamp]
 title = "Bootcamp"
 description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
+canCherryPick = false
 
 [packages.sourcesystem]
 title = "SourceSystem"
@@ -32,3 +34,12 @@ description = "Module templates for setting up a data pipeline from a source sys
 [packages.contextualization]
 title = "Contextualization"
 description = "Module templates for data contextualization"
+
+[packages.models]
+title = "Models"
+description = "Module templates for data models"
+
+[packages.custom]
+title = "None"
+description = "start with an empty module"
+

@@ -1,0 +1,12 @@
+[module]
+title = "Contextualisation direct relation transformation"
+is_selected_by_default = false
+
+[packages]
+tags = [
+    "contextualization",
+    "quickstart",
+]
+
+[dependencies]
+modules = []

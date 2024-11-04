@@ -13,6 +13,6 @@ select
   cast(`WORKORDER_MAITENANCETYPE` as STRING) as type,
   cast(`WORKORDER_PRIORITYDESC` as STRING) as priorityDescription
 from
-  `{{ rawDatabase }}`.`workorder`
+  `{{ rawSourceDatabase }}`.`workorder`
 where
   isnotnull(`sourceId`)

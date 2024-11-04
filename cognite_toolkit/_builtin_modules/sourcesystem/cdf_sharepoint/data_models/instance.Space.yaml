@@ -1,4 +1,3 @@
-space: {{ instanceSpace }}
-name: {{ sourceName }} instance space
-description: |
-  This space contains metadata from the file management system {{ sourceName }}.
+space: '{{ instanceSpace }}'
+name: 'Instance space'
+description: This space contains data

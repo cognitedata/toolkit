@@ -15,10 +15,22 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.6] - 2024-11-04
+
+### Added
+
+- The `modules init` wizard provides an option for an empty, custom module scaffolding.
+
+### Fixed
+
+- Removed unused variables from default InRobot configuration.
+- Added missing transformation `asset to asset` in `cdf_sap_asset` module.
+
 ## [0.3.5] - 2024-10-24
 
 ### Added
 
+- Added new module `cdf_sharepoint` to the `sourcesystem` package.
 - Added new package `industrial_tool` for data exploration and analytics with modules
   - `cdf_search` for setting up location filters
 - Added new package `contextualization` with modules

@@ -1,0 +1,14 @@
+externalId: {{ assetToAssetTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: Asset to Asset Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteAsset
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+

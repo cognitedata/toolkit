@@ -4,3 +4,4 @@ source_workorder: workmate
 source_files: fileshare # This is a comment after a variable
 source_timeseries: pi
 model_space: sp_model_space
+dataset: my_dataset

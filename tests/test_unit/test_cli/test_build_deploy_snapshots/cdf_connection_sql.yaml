@@ -1,0 +1,122 @@
+DataSet:
+- description: Transformations for contextualisations
+  externalId: ingestion
+  metadata: {}
+  name: Contextualisation Transformations
+  writeProtected: false
+Transformation:
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteActivity
+      space: cdf_cdm
+      version: v1
+  externalId: activity_to_asset
+  ignoreNullFields: true
+  isPublic: true
+  name: Activity to asset Connection Transformation
+  query: "select\n  /* three first properties are required */\n  cast(activity.`externalId`\
+    \ as STRING) as externalId,\n  /* direct relation */\n  array(\n    node_reference(\n\
+    \      'springfield_instances',\n      asset_lookup.`externalId`\n    )\n  ) as\
+    \ asset\nfrom\n  cdf_data_models(\n    \"cdf_cdm\",\n    \"CogniteCore\",\n  \
+    \  \"v1\",\n    \"CogniteActivity\"\n  ) as activity\nleft join cdf_data_models(\n\
+    \    \"cdf_cdm\",\n    \"CogniteCore\",\n    \"v1\",\n    \"CogniteAsset\"\n \
+    \ ) as asset_lookup\n  /* update to the correct matching criteria for your data\
+    \ */\non\n  activity.`tags`[0]  == asset_lookup.`name`\nwhere\n  activity.space\
+    \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  isnotnull(asset_lookup.`externalId`)\n"
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteActivity
+      space: cdf_cdm
+      version: v1
+  externalId: activity_to_equipment
+  ignoreNullFields: true
+  isPublic: true
+  name: Activity to equipment Connection Transformation
+  query: "select\n  /* three first properties are required */\n  cast(activity.`externalId`\
+    \ as STRING) as externalId,\n  /* direct relation */\n  array(\n    node_reference(\n\
+    \      'springfield_instances',\n      equipment_lookup.`externalId`\n    )\n\
+    \  ) as equipment\nfrom\n  cdf_data_models(\n    \"cdf_cdm\",\n    \"CogniteCore\"\
+    ,\n    \"v1\",\n    \"CogniteActivity\"\n  ) as activity\nleft join cdf_data_models(\n\
+    \    \"cdf_cdm\",\n    \"CogniteCore\",\n    \"v1\",\n    \"CogniteEquipment\"\
+    \n  ) as equipment_lookup\n  /* update to the correct matching criteria for your\
+    \ data */\non\n  activity.`tags`[0]  == equipment_lookup.`name`\nwhere\n  activity.space\
+    \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  isnotnull(equipment_lookup.`externalId`)\n"
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteActivity
+      space: cdf_cdm
+      version: v1
+  externalId: activity_to_timeseries
+  ignoreNullFields: true
+  isPublic: true
+  name: Activity to timeseries Connection Transformation
+  query: "select\n  /* three first properties are required */\n  cast(activity.`externalId`\
+    \ as STRING) as externalId,\n  /* direct relation */\n  collect_list(\n    node_reference(\n\
+    \      'springfield_instances',\n      timeseries_lookup.`externalId`\n    )\n\
+    \  ) as timeSeries\nfrom\n  cdf_data_models(\n    \"cdf_cdm\",\n    \"CogniteCore\"\
+    ,\n    \"v1\",\n    \"CogniteActivity\"\n  ) as activity\nleft join cdf_data_models(\n\
+    \    \"cdf_cdm\",\n    \"CogniteCore\",\n    \"v1\",\n    \"CogniteTimeSeries\"\
+    \n  ) as timeseries_lookup\n  /* update to the correct matching criteria for your\
+    \ data */\non\n  activity.`tags`[0]  = substring_index(replace(timeseries_lookup.`name`,\
+    \ 'VAL_', ''), ':', 1)\nwhere\n  activity.space == 'springfield_instances' and\n\
+    \  isnotnull(activity.tags) and\n  isnotnull(activity.`externalId`) and\n  isnotnull(timeseries_lookup.`name`)\n\
+    group by\n  activity.`externalId`"
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteTimeSeries
+      space: cdf_cdm
+      version: v1
+  externalId: timeseries_to_asset
+  ignoreNullFields: true
+  isPublic: true
+  name: TimeSeries to asset Connection Transformation
+  query: "select\n  /* three first properties are required */\n  cast(timeseries.`externalId`\
+    \ as STRING) as externalId,\n  cast(timeseries.`isStep` as BOOLEAN) as isStep,\n\
+    \  cast(timeseries.`type` as STRING) as type,\n  /* direct relation */\n  array(\n\
+    \    node_reference(\n      'springfield_instances',\n      asset_lookup.`externalId`\n\
+    \    )\n  ) as assets\nfrom\n  cdf_data_models(\n    \"cdf_cdm\",\n    \"CogniteCore\"\
+    ,\n    \"v1\",\n    \"CogniteTimeSeries\"\n  ) as timeseries\nleft join cdf_data_models(\n\
+    \    \"cdf_cdm\",\n    \"CogniteCore\",\n    \"v1\",\n    \"CogniteAsset\"\n \
+    \ ) as asset_lookup\n  /* update to the correct matching criteria for your data\
+    \ */\n  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) ==\
+    \ asset_lookup.`name`\nwhere\n  timeseries.space == 'springfield_instances' and\n\
+    \  isnotnull(asset_lookup.`externalId`)\n"
+- conflictMode: upsert
+  dataSetId: 42
+  destination:
+    instanceSpace: springfield_instances
+    type: nodes
+    view:
+      externalId: CogniteTimeSeries
+      space: cdf_cdm
+      version: v1
+  externalId: timeseries_to_equipment
+  ignoreNullFields: true
+  isPublic: true
+  name: TimeSeries to equipment Connection Transformation
+  query: "select\n  /* three first properties are required */\n  cast(timeseries.`externalId`\
+    \ as STRING) as externalId, \n  cast(timeseries.`isStep` as BOOLEAN) as isStep,\n\
+    \  cast(timeseries.`type` as STRING) as type,\n  /* direct relation */\n  array(\n\
+    \    node_reference(\n      'springfield_instances',\n      equipment_lookup.`externalId`\n\
+    \    )\n  ) as equipment\nfrom\n  cdf_data_models(\n    \"cdf_idm\",\n    \"CogniteProcessIndustries\"\
+    ,\n    \"v1\",\n    \"CogniteTimeSeries\"\n  ) as timeseries\nleft join cdf_data_models(\n\
+    \    \"cdf_idm\",\n    \"CogniteProcessIndustries\",\n    \"v1\",\n    \"CogniteEquipment\"\
+    \n  ) as equipment_lookup \n  /* update to the correct matching criteria for your\
+    \ data */\n  on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1)\
+    \ == equipment_lookup.`name`\nwhere\n  timeseries.space == 'springfield_instances'\n"

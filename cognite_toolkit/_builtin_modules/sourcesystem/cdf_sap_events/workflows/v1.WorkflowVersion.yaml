@@ -2,27 +2,27 @@ workflowExternalId: {{ workflow }}
 version: 'v1'
 workflowDefinition:
   tasks:
-    - externalId: {{ workflow}}_task1
+    - externalId: {{ maintenanceOrderTransformationExternalId }}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_maintenance_order_{{ source }}
+          externalId: {{ maintenanceOrderTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ workflow}}_task2
+    - externalId: {{ operationTransformationExternalId }}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_operation_{{ source }}
+          externalId: {{ operationTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ workflow}}_task3
+    - externalId: {{ operationToMaintenanceOrderTransformationExternalId}}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_operation_to_maintenance_order_{{ source }}
+          externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
       dependsOn:
-        - externalId: {{ workflow }}_task1
-        - externalId: {{ workflow }}_task2
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}

@@ -1,16 +1,3 @@
-Group:
-- capabilities:
-  - locationFiltersAcl:
-      actions:
-      - READ
-      scope:
-        idScope:
-          ids:
-          - 1
-  members: allUserAccounts
-  metadata:
-    origin: cognite-toolkit
-  name: gp_locationfilter_all_users_read
 LocationFilter:
 - dataModels:
   - externalId: CogniteProcessIndustries

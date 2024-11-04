@@ -1,8 +1,8 @@
 externalId: '{{ directRelationJob }}'
 config:
   state:
-    rawDatabase: {{ rawDatabase }}
-    rawTable: {{ rawTable }}
+    rawDatabase: {{ rawStateDatabase }}
+    rawTable: {{ rawStateTable }}
   data:
     annotationSpace: '{{ annotationSpace }}'
     directRelationMappings:

@@ -17,11 +17,11 @@ DataModel:
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgSourceable
+  - externalId: YourOrgSourceSystem
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgSourceSystem
+  - externalId: YourOrgSourceable
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1

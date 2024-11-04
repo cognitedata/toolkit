@@ -8,6 +8,8 @@ DataSet:
       "Transformations"}]'
   name: asset:oid
   writeProtected: false
+Database:
+- name: asset_oid_workmate
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -110,6 +112,9 @@ Group:
     origin: cdf-project-templates
   name: gp_asset_oid_read
   sourceId: <change_me>
+Table:
+- createdTime: 1
+  name: assets
 Transformation:
 - conflictMode: upsert
   dataSetId: 42

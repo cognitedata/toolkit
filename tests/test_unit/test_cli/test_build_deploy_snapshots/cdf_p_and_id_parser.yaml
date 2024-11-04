@@ -1,9 +1,11 @@
 DataSet:
 - description: P&ID Parser
-  externalId: ds_p_and_id_parser
+  externalId: ingestion
   metadata: {}
   name: P&ID Parser
   writeProtected: false
+Database:
+- name: contextualizationState
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -58,9 +60,9 @@ ExtractionPipeline:
   name: P&ID Annotater
 ExtractionPipelineConfig:
 - config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
-    data:\n  annotationSpace: sp_p_and_id_parser\n  directRelationMappings:\n    -\
-    \ startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n  \
-    \      version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
+    data:\n  annotationSpace: springfield_instances\n  directRelationMappings:\n \
+    \   - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
+    \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
     \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
     \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
     \ CogniteFile\n        version: v1\n      endNodeView:\n        type: viewProperty\n\
@@ -68,15 +70,16 @@ ExtractionPipelineConfig:
     \ v1\n        directRelationProperty: files\n"
   externalId: ctx_files_direct_relation_write
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
-    sourceSystem:\n  space: sp_p_and_id_parser\n  externalId: p_and_id_parser\ndata:\n\
-    \  annotationSpace: sp_p_and_id_parser\n  instanceSpaces:\n    ['files_metadata_instances',\
-    \ 'springfield_sap', 'sp_p_and_id_parser']\n  annotationJobs:\n    - fileView:\n\
-    \        space: cdf_cdm\n        externalId: CogniteFile\n        version: v1\n\
-    \      entityViews:\n        - space: cdf_cdm\n          externalId: CogniteEquipment\n\
-    \          version: v1\n          searchProperty: name\n        - space: cdf_cdm\n\
-    \          externalId: CogniteAsset\n          version: v1\n          searchProperty:\
-    \ name\n        - space: cdf_cdm\n          externalId: CogniteTimeSeries\n  \
-    \        version: v1\n          searchProperty: name\n"
+    sourceSystem:\n  space: springfield_instances\n  externalId: p_and_id_parser\n\
+    data:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n    ['springfield_instances']\n\
+    \  annotationJobs:\n    - fileView:\n        space: cdf_cdm\n        externalId:\
+    \ CogniteFile\n        version: v1\n      entityViews:\n        - space: cdf_cdm\n\
+    \          externalId: CogniteEquipment\n          version: v1\n          searchProperty:\
+    \ name\n          type: diagrams.FileLink\n        - space: cdf_cdm\n        \
+    \  externalId: CogniteAsset\n          version: v1\n          searchProperty:\
+    \ name\n          type: diagrams.AssetLink\n        - space: cdf_cdm\n       \
+    \   externalId: CogniteTimeSeries\n          version: v1\n          searchProperty:\
+    \ name\n          type: diagrams.FileLink\n"
   externalId: ctx_files_pandid_annotater
 Function:
 - description: Writes all approved Annotations as direct relations connections.
@@ -92,92 +95,9 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: d9599266d4ef3db61f71a511ff7c15545088526d85a87dea89985e0b94365b20
+    cdf-toolkit-function-hash: e89456250e6ca8135040f171726e540152ab9417f6d05e3cc4ac8808474e0cb8
   name: P&ID Annotator
   owner: Anonymous
-Group:
-- capabilities:
-  - projectsAcl:
-      actions:
-      - READ
-      - LIST
-      scope:
-        all: {}
-  - groupsAcl:
-      actions:
-      - LIST
-      scope:
-        all: {}
-  - sessionsAcl:
-      actions:
-      - CREATE
-      scope:
-        all: {}
-  - dataModelInstancesAcl:
-      actions:
-      - READ
-      - WRITE
-      - WRITE_PROPERTIES
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - files_metadata_instances
-          - springfield_sap
-          - sp_p_and_id_parser
-  - dataModelsAcl:
-      actions:
-      - READ
-      scope:
-        spaceIdScope:
-          spaceIds:
-          - cdf_cdm
-  - annotationsAcl:
-      actions:
-      - READ
-      - WRITE
-      - SUGGEST
-      - REVIEW
-      scope:
-        all: {}
-  - entitymatchingAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        all: {}
-  - extractionConfigsAcl:
-      actions:
-      - READ
-      scope:
-        datasetScope:
-          ids:
-          - 42
-  - extractionRunsAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        datasetScope:
-          ids:
-          - 42
-  - rawAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        tableScope:
-          dbsToTables:
-            contextualizationState:
-              tables: []
-  - assetsAcl:
-      actions:
-      - READ
-      scope:
-        all: {}
-  metadata:
-    origin: cognite-toolkit
-  name: gp_function_p_and_id_parser
-  sourceId: <not_set>
 Node:
 - externalId: p_and_id_parser
   instanceType: node
@@ -193,46 +113,11 @@ Node:
       space: cdf_cdm
       type: view
       version: v1
-  space: sp_p_and_id_parser
+  space: springfield_instances
 Space:
 - description: Space for storing annotations
-  name: sp_p_and_id_parser
-  space: sp_p_and_id_parser
-Workflow:
-- description: This workflow creates annotations for P&ID diagrams and writes the
-    approved annotations into the data.
-  externalId: p_and_id_parser
-WorkflowTrigger:
-- externalId: contextualization_p_and_id
-  triggerRule:
-    cronExpression: 0 4 * * *
-    triggerType: schedule
-  workflowExternalId: p_and_id_parser
-  workflowVersion: v1
-WorkflowVersion:
-- version: v1
-  workflowDefinition:
-    tasks:
-    - externalId: p_and_id_parser_task1
-      onFailure: skipTask
-      parameters:
-        function:
-          data:
-            logLevel: INFO
-          externalId: contextualization_p_and_id_annotater
-      retries: null
-      timeout: null
-      type: function
-    - dependsOn:
-      - externalId: p_and_id_parser_task1
-      externalId: p_and_id_parser_task2
-      onFailure: abortWorkflow
-      parameters:
-        function:
-          data:
-            logLevel: INFO
-          externalId: contextualization_connection_writer
-      retries: null
-      timeout: null
-      type: function
-  workflowExternalId: p_and_id_parser
+  name: springfield_instances
+  space: springfield_instances
+Table:
+- createdTime: 1
+  name: diagramParsing

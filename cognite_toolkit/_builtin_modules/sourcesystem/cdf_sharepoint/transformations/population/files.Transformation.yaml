@@ -1,4 +1,4 @@
-externalId: file_{{ sourceId }}
+externalId: {{ fileTransformationExternalId }}
 dataSetExternalId: {{ dataset }}
 name: File Transformations for {{ sourceName }}
 destination:
@@ -11,11 +11,3 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
-authentication:
-  clientId: {{ transformationClientId }}
-  clientSecret: {{ transformationClientSecret }}
-  tokenUri: {{ transformationTokenUri }}
-  cdfProjectName: {{ transformationCdfProjectName }}
-  audience: {{ transformationAudience}}
-  scopes:
-  - {{ transformationScope }}

@@ -2,27 +2,36 @@ workflowExternalId: {{ workflow }}
 version: 'v1'
 workflowDefinition:
   tasks:
-    - externalId: {{ workflow}}_task1
+    - externalId: {{ assetTransformationExternalId}}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_asset_{{ source }}
+          externalId: {{ assetTransformationExternalId}}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ workflow}}_task2
+    - externalId: {{ equipmentTransformationExternalId }}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_equipment_{{ source }}
+          externalId: {{ equipmentTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ workflow}}_task3
+    - externalId: {{ assetToAssetTransformationExternalId}}
       type: transformation
       parameters:
         transformation:
-          externalId: sap_equipment_to_asset_{{ source }}
+          externalId: {{ assetToAssetTransformationExternalId}}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
       dependsOn:
-        - externalId: {{ workflow }}_task1
-        - externalId: {{ workflow }}_task2
+        - externalId: {{ assetTransformationExternalId}}
+    - externalId: {{ equipmentToAssetTransformationExternalId}}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ equipmentToAssetTransformationExternalId}}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ assetTransformationExternalId }}
+        - externalId: {{ equipmentTransformationExternalId }}

@@ -31,14 +31,158 @@ variables:
     # Daily at 1:35 AM
     scheduleDaily: 35 1 * * *
 
+    cdf_ingestion:
+      workflow: ingestion
+      groupSourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+      ingestionClientId: ${INGESTION_CLIENT_ID}
+      ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+      assetTransformationExternalId: sap_assets_springfield_s4hana
+      equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+      assetToAssetTransformationExternalId: sap_asset_to_asset_springfield_s4hana
+      equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+      timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+      maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+      operationTransformationExternalId: sap_operations_springfield_s4hana
+      operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+      fileTransformationExternalId: files_metadata_springfield
+      activityToAssetTransformationExternalId: activity_to_asset
+      activityToEquipmentTransformationExternalId: activity_to_equipment
+      activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+      timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+      timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+      pandidContextualizationFunction: contextualization_p_and_id_annotater
+      contextualization_connection_writer: contextualization_connection_writer
+      dataset: ingestion
+      rawSourceDatabase: ingestion
+      rawStateDatabase: contextualizationState
+      schemaSpace: cdf_cdm
+      instanceSpaces:
+        - springfield_instances
+        - cdf_cdm_units
+
+
+    bootcamp:
+      CDF_PROJECT: <YOUR CDF PROJECT> # ex. cdf-bootcamp-01-test
+      IDP_CLIENT_ID: ${IDP_CLIENT_ID} # replaced by .env
+      IDP_CLIENT_SECRET: ${IDP_CLIENT_SECRET} # replaced by .env
+      IDP_TENANT_ID: ${IDP_TENANT_ID} # replaced by .env
+      # This is related to the cluster where the CDF project is hosted.
+      CDF_URL: https://westeurope-1.cognitedata.com
+      IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
+      IDP_TOKEN_URL: ${IDP_TOKEN_URL} # replaced by .env
+      # Groups
+      # OBJECT ID FOR TEST/PROD DATA PIPELINE OEE ENTRA GROUP
+      data_pipeline_oee_source_id: <NotSet>
+      # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
+      readwrite_source_id: <NotSet>
+      # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
+      readonly_source_id: <NotSet>
+      # OBJECT ID FOR TEST/PROD ICAPI EXTRACTORS ENTRA GROUP
+      icapi_extractors_source_id: <NotSet>
+      # Client Ids
+      data_pipeline_oee_client_id: ${DATA_PIPELINE_OEE_CLIENT_ID} # replaced by .env
+      data_pipeline_oee_client_secret: ${DATA_PIPELINE_OEE_CLIENT_SECRET} # replaced by .env
+      icapi_extractors_client_id: ${ICAPI_EXTRACTORS_CLIENT_ID} # replaced by .env
+      icapi_extractors_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET} # replaced by .env
+      # Variables shared by modules
+      icapi_ds_external_id: ds_icapi
+      use_cases:
+        oee:
+          uc_oee_ds_external_id: ds_uc_oee
+
     common:
+      cdf_apm_base:
+        apm_datamodel_space: APM_SourceData
+
       cdf_auth_readwrite_all:
         readonly_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
         readwrite_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
 
+    contextualization:
+      cdf_connection_sql:
+        activityToAssetTransformationExternalId: activity_to_asset
+        activityToEquipmentTransformationExternalId: activity_to_equipment
+        activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+        timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+        timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+        dataset: ingestion
+        instanceSpace: springfield_instances
+        schemaSpace: cdf_cdm
+        groupSourceId: <not set>
+
+      cdf_p_and_id_parser:
+        contextualizationId: p_and_id_parser
+        contextualizationName: P&ID Parser
+        annotatorJob: ctx_files_pandid_annotater
+        directRelationJob: ctx_files_direct_relation_write
+        dataset: ingestion
+        rawStateDatabase: contextualizationState
+        rawStateTable: diagramParsing
+        schemaSpace: cdf_cdm
+        annotationSpace: springfield_instances
+        instanceSpaces:
+        - springfield_instances
+        groupSourceId: <not set>
+        workflow: p_and_id_parser
+        workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+        workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+
+    custom:
+      my_module:
+        my_var: my_value
+
     examples:
+      cdf_cluster: ${CDF_CLUSTER}
+      cicd_clientId: ${IDP_CLIENT_ID}
+      cicd_clientSecret: ${IDP_CLIENT_SECRET}
+      cicd_tokenUri: ${IDP_TOKEN_URL}
+      cdfProjectName: ${CDF_PROJECT}
+      # Optional: If idP requires providing the scopes
+      cicd_scopes:
+      - ${IDP_SCOPES}
+      # Optional: If idP requires providing the audience
+      cicd_audience: ${IDP_AUDIENCE}
+      # Seven minutes past each hour
+      scheduleHourly: 7 * * * *
+      # Every fifteen minutes
+      scheduleQuarterly: 0/15 * * * *
+      # Daily at 1:35 AM
+      scheduleDaily: 35 1 * * *
+      # In the example below we are setting up a project based on the Open Industry Data (OID),
+      # that originates from the Valhall oil rig. Note that the location/site is NOT used
+      # to structure the data when on-boarding. The expectation is that a single source system
+      # and it's data pipeline may supply data for multiple locations/sites.
+      # The structuring of the data based on site/location should happen as part of processing
+      # the data in CDF, i.e. contextualisation.
+      #
+      # Each of data resource types have assigned the source system where the data originates from.
+      # This information will be used to construct RAW database names, and to create data sets in CDF,
+      # and can be used to control access.
       default_location: oid
       source_asset: workmate
+      source_event: workmate
+      source_workorder: workmate
+      source_files: fileshare
+      source_timeseries: pi
+      cdf_data_pipeline_3d_valhall:
+        # This is the configuration file used for the example data from The Open Industrial Data (oid)
+        #
+        # The data originates from a single compressor on Aker BP’s Valhall oil platform
+        # in the North Sea. Aker BP selected the first stage compressor on the Valhall
+        # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+        # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
+        version: 0.0.1
+        # location based on OID example data
+        location_name: oid
+        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+        source_name: fileshare
+        3d_dataset: ds_3d_oid
+        3d_model_name: Valhall
+        external_root_id_asset: WMT:VAL
+        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
+        3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        3d_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        3d_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
       cdf_data_pipeline_asset_valhall:
         # This is the configuration file used for the example data from The Open Industrial Data (oid)
@@ -49,7 +193,7 @@ variables:
         # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
         # location based on OID example data
         location_name: oid
-        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
+        # specify the name of the source making it possible to identify where the data orginates from, ex: 'workmate', 'sap', 'oracle',..
         source_name: workmate
         asset_dataset: ds_asset_oid
         asset_raw_input_db: asset_oid_workmate
@@ -59,23 +203,6 @@ variables:
         asset_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         asset_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         asset_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-
-      cdf_data_pipeline_3d_valhall:
-
-        # location based on OID example data
-        location_name: oid
-
-        # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
-        source_name: fileshare
-        3d_model_name: Valhall
-        3d_dataset: ds_3d_oid
-        external_root_id_asset: WMT:VAL
-        version: 0.0.1
-
-        # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        3d_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        3d_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        3d_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
       cdf_data_pipeline_files_valhall:
         # This is the configuration file used for the example data from The Open Industrial Data (oid)
@@ -87,19 +214,25 @@ variables:
         version: 0.0.1
         # location based on OID example data
         location_name: oid
-        external_root_id_asset: WMT:VAL
         # specify the name of the source making it possible to identify where the data originates from, ex: 'workmate', 'sap', 'oracle',..
         source_name: fileshare
         files_dataset: ds_files_oid
         pause_transformations: true
         files_raw_input_db: files_oid_fileshare
         files_raw_input_table: files_metadata
+        external_root_id_asset: WMT:VAL
         # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
         files_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         files_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
         files_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
 
       cdf_data_pipeline_timeseries_valhall:
+        # This is the configuration file used for the example data from The Open Industrial Data (oid)
+        #
+        # The data originates from a single compressor on Aker BP’s Valhall oil platform
+        # in the North Sea. Aker BP selected the first stage compressor on the Valhall
+        # because it is a subsystem with clearly defined boundaries, rich in time series and maintenance data.
+        # specify the site/asset location where data comes from, ex 'valhall_oid' or if they are generic for all assets use 'all'
         version: 0.0.1
         # location based on OID example data
         location_name: oid
@@ -109,39 +242,34 @@ variables:
         external_root_id_asset: WMT:VAL
         # configuration for local OPC-UA simulator ( not part of CDF)
         opcua_endpoint_url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer
-        opcua_id_prefix: "opc-ua:"
+        opcua_id_prefix: 'opc-ua:'
         opcua_root_namespace_uri: http://www.prosysopc.com/OPCUA/SimulationNodes/
         opcua_root_node_id: s=85/0:Simulation
         # source ID from Azure AD for the corresponding groups, ex 'c74797ce-9191-4a4a-9186-8fe21c54c3de'
-        timeseries_location_extractor_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
-        timeseries_location_processing_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        timeseries_location_extractor_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
+        timeseries_location_processing_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
         timeseries_location_read_group_source_id: 7bdcb20c-3e6a-400c-b9ef-cf835f64f05e
-
-      cdf_oid_example_data:
-        # Only valid for this module, loads template variables from environment
-        #
-        # In the example below we are setting up a project based on the Open Industry Data (OID),
-        # that originates from the Valhall oil rig. Note that the location/site is NOT used
-        # to structure the data when on-boarding. The expectation is that a single source system
-        # and it's data pipeline may supply data for multiple locations/sites.
-        # The structuring of the data based on site/location should happen as part of processing
-        # the data in CDF, i.e. contextualisation.
-        #
-        # Each of data resource types have assigned the source system where the data originates from.
-        # This information will be used to construct RAW database names, and to create data sets in CDF,
-        # and can be used to control access.
-        default_location: oid
-        source_asset: workmate
-        source_event: workmate
-        source_workorder: workmate
-        source_files: fileshare
-        source_timeseries: pi
 
       cdf_example_pump_asset_hierarchy:
         # Only valid for this module, loads template variables from environment
         raw_db: pump_assets
         data_set: src:lift_pump_stations
 
+    industrial_tools:
+      cdf_search:
+        location: springfield
+        locationName: Springfield
+        instanceSpace: springfield_instances
+
+      cdf_location_filter_asset_centric:
+        ds_asset: ds_asset_location_filter
+        root_asset: my_root_asset
+        root_asset2: my_root_asset2
+        ts_prefix: sensor
+
+      cdf_location_filter_datamodel_based:
+        instance_space1: my_instance_space1
+        instance_space2: my_instance_space2
 
     infield:
       # The root asset external id should be
@@ -208,47 +336,90 @@ variables:
       first_location: workmate
       robot_1_dataset_ext_id: ds_robot_1
       cdf_inrobot_common:
-        run_function_user_group_source_id: <change_me>
-        run_function_client_id: <change_me>
-        run_function_secret: <change_me>
+        run_function_user_group_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        run_function_client_id: ${RUN_FUNCTION_CLIENT_ID}
+        run_function_secret: ${RUN_FUNCTION_CLIENT_SECRET}
 
       cdf_inrobot_location:
-        inrobot_admin_first_location_source_id: <change_me>
-        inrobot_users_first_location_source_id: <change_me>
-        robot_1_first_location_source_id: <change_me>
-        three_d_model_name: <change_me>
-        three_d_type: <change_me>
-        three_d_model_id: <change_me>
-        three_d_revision_id: <change_me>
+        inrobot_admin_first_location_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        inrobot_users_first_location_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        robot_1_first_location_source_id: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
+        three_d_model_name: my_model
+        three_d_type: my_type
+        three_d_model_id: id_1
+        three_d_revision_id: rev_1
 
-    bootcamp:
-      CDF_PROJECT: <YOUR CDF PROJECT> # ex. cdf-bootcamp-01-test
-      IDP_CLIENT_ID: ${IDP_CLIENT_ID} # replaced by .env
-      IDP_CLIENT_SECRET: ${IDP_CLIENT_SECRET} # replaced by .env
-      IDP_TENANT_ID: ${IDP_TENANT_ID} # replaced by .env
-      # This is related to the cluster where the CDF project is hosted.
-      CDF_URL: https://westeurope-1.cognitedata.com
-      IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
-      IDP_TOKEN_URL: ${IDP_TOKEN_URL} # replaced by .env
-      # Groups
-      # OBJECT ID FOR TEST/PROD DATA DEVELOPER ENTRA GROUP
-      data_developer_source_id: <NotSet>
-      # OBJECT ID FOR TEST/PROD DATA PIPELINE OEE ENTRA GROUP
-      data_pipeline_oee_source_id: <NotSet>
-      # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
-      readwrite_source_id: <NotSet>
-      # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
-      readonly_source_id: <NotSet>
-      # OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP
-      icapi_extractors_source_id: <NotSet>
-      # Client Ids
-      data_pipeline_oee_client_id: ${DATA_PIPELINE_OEE_CLIENT_ID} # replaced by .env
-      data_pipeline_oee_client_secret: ${DATA_PIPELINE_OEE_CLIENT_SECRET} # replaced by .env
-      icapi_extractors_client_id: ${ICAPI_EXTRACTORS_CLIENT_ID} # replaced by .env
-      icapi_extractors_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET} # replaced by .env
-      ice_cream_api:
-        icapi_ds_external_id: ds_icapi
+    models:
+      cdf_cdm_extension:
+        organization: ToolkitMinimum
+        schema_space: sp_enterprise_min_schema
 
-      use_cases:
-        oee:
-          uc_oee_ds_external_id: ds_uc_oee
+      cdf_cdm_extension_full:
+        organization: Toolkit
+        schema_space: sp_enterprise_schema
+
+      cdf_idm_extension:
+        organization: YourOrg
+        schema_space: sp_enterprise_min_schema_idm
+
+      cdf_idm_extension_full:
+        organization: ToolkitIDM
+        schema_space: sp_enterprise_idm_schema
+
+    sourcesystem:
+      cdf_pi:
+        sourceName: Springfield AVEVA PI
+        sourceId: springfield_aveva_pi
+        timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        schemaSpace: cdf_cdm
+        instanceSpace: springfield_instances
+        groupSourceId: <not set>
+        workflow: aveva_pi_population # can also contain location aveva_pi_springfield_population
+        workflowClientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+        workflowClientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+
+      cdf_sap_assets:
+        sourceName: SAP Springfield S/4HANA Assets
+        sourceId: sap_springfield_s4hana_assets
+        assetTransformationExternalId: sap_assets_springfield_s4hana
+        equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+        assetToAssetTransformationExternalId: sap_asset_to_asset_springfield_s4hana
+        equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        schemaSpace: cdf_cdm
+        instanceSpace: springfield_instances
+        groupSourceId: <not set>
+        workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+        workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+        workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+
+      cdf_sap_events:
+        sourceName: SAP Springfield S/4HANA Activities
+        sourceId: sap_springfield_s4hana_activities
+        maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+        operationTransformationExternalId: sap_operations_springfield_s4hana
+        operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        schemaSpace: cdf_idm
+        instanceSpace: springfield_instances
+        workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+        groupSourceId: <not set>
+        workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+        workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+
+      cdf_sharepoint:
+        sourceName: Springfield Sharepoint
+        sourceId: springfield_sharepoint
+        fileTransformationExternalId: files_metadata_springfield
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        schemaSpace: cdf_cdm
+        instanceSpace: springfield_instances
+        groupSourceId: <not set>
+        workflow: files_metadata_population # can also contain location files_metadata_springfield_population
+        workflowClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+        workflowClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}

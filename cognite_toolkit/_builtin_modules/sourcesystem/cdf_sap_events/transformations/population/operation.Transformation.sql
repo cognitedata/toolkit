@@ -1,10 +1,18 @@
+-- The source data has duplicates this filters them out.
+with unique_workitem as (
+  select
+    *,
+    row_number() over (partition by `sourceId` order by `sourceId`) as rn
+  from
+    `{{ rawSourceDatabase }}`.`workitem`
+)
 select
   cast(`sourceId` as STRING) as externalId,
   cast(`WORKORDER_TASKNAME` as STRING) as name,
-  cast(`WORKORDER_TASKDESC` as STRING) as description,
-  cast(`WORKORDER_TASKCOMPLETEDDATE` as TIMESTAMP) as endTime,
-  cast(`WORKORDER_TASKDISCIPLINEDESC` as STRING) as mainDiscipline
+  cast(`WORKORDER_STATUS` as STRING) as status,
+  array(cast(`WORKORDER_ITEMNAME` as STRING)) as tags
 from
-  `{{ rawDatabase }}`.`worktask`
+  unique_workitem
 where
-  isnotnull(`sourceId`)
+  isnotnull(`sourceId`) and
+  rn = 1

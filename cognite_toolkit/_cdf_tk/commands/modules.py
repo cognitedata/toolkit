@@ -53,7 +53,7 @@ from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
     [
-        ("qmark", "fg:#673ab7 bold"),  # token in front of the question
+        ("qmark", "fg:#673ab7"),  # token in front of the question
         ("question", "bold"),  # question text
         ("answer", "fg:#f44336 bold"),  # submitted answer text behind the question
         ("pointer", "fg:#673ab7 bold"),  # pointer used in select and checkbox prompts
@@ -136,7 +136,11 @@ class ModulesCommand(ToolkitCommand):
                         shutil.rmtree(target_dir)
                     else:
                         continue
-                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns("default.*"))
+                ignore_patterns = ["default.*"]
+                if package.name == "quickstart" and module.name != "cdf_ingestion":
+                    ignore_patterns.extend(["workflows", "auth"])
+
+                shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
 
         for environment in environments:
             if mode == "update":
@@ -144,6 +148,20 @@ class ModulesCommand(ToolkitCommand):
                     (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
                 ).load_defaults(self._builtin_modules_path, selected_paths)
             else:
+                ignore_variable_patterns: list[tuple[str, ...]] | None = None
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
+                    ignore_variable_patterns = []
+
+                    for to_ignore in ["sourcesystem", "contextualization"]:
+                        ignore_variable_patterns.extend(
+                            [
+                                ("modules", to_ignore, "*", "workflow"),
+                                ("modules", to_ignore, "*", "workflowClientId"),
+                                ("modules", to_ignore, "*", "workflowClientSecret"),
+                                ("modules", to_ignore, "*", "groupSourceId"),
+                            ]
+                        )
+
                 config_init = InitConfigYAML(
                     Environment(
                         name=environment,
@@ -151,7 +169,11 @@ class ModulesCommand(ToolkitCommand):
                         build_type=environment,
                         selected=[f"{MODULES}/"],
                     )
-                ).load_defaults(self._builtin_modules_path, selected_paths)
+                ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)
+
+                if len(selected_packages) == 1 and "quickstart" in selected_packages:
+                    config_init.lift()
+
             print(
                 f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]{'Updating' if mode == 'update' else 'Creating'} config.{environment}.yaml[/]"
             )
@@ -188,9 +210,8 @@ default_organization_dir = "{organization_dir.name}"''',
             new_line = "\n    "
             message = (
                 f"Which directory would you like to create templates in? (default: current directory){new_line}"
-                f"HINT It is recommended to use an organization directory if you use the{new_line}repository for more than Toolkit. "
-                f"If this repository is only used for Toolkit,{new_line}it is recommended to use the current directory "
-                f"(assumed to be the{new_line}root of the repository):"
+                f"HINT Use an organization directory if you use the repository for more than Toolkit. "
+                f"If not, use the current (repository root) directory '.':"
             )
             organization_dir_raw = questionary.text(message=message, default="").ask()
             organization_dir = Path(organization_dir_raw.strip())
@@ -211,7 +232,7 @@ default_organization_dir = "{organization_dir.name}"''',
             Panel(
                 "\n".join(
                     [
-                        "Interactive process for selecting initial modules"
+                        "Wizard for selecting initial modules"
                         "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
                         "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
                     ]
@@ -262,10 +283,10 @@ default_organization_dir = "{organization_dir.name}"''',
             )
         )
 
-        if "empty" in selected:
+        if "custom" in selected:
             print(
                 Panel(
-                    "Please check out https://developer.cognite.com/sdks/toolkit/modules/ for guidance on writing custom modules",
+                    "Please check out https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/modules/custom for guidance on writing custom modules",
                 )
             )
 
@@ -325,20 +346,27 @@ default_organization_dir = "{organization_dir.name}"''',
                 print("No more modules available.")
                 break
 
+            choices = [
+                questionary.Choice(
+                    title=f"{package.title}: {package.description} ({len(package.modules)})", value=package
+                )
+                for package in [
+                    package for package in packages.values() if len(package.modules) > 0 or package.name == "empty"
+                ]
+            ]
+
             package: Package = questionary.select(
                 "Which package would you like to use?",
                 instruction="Use arrow up/down and ⮐  to save",
-                choices=[
-                    questionary.Choice(
-                        title=f"{package.title}: {package.description} ({len(package.modules)})", value=package
-                    )
-                    for package in [package for package in packages.values() if len(package.modules) > 0]
-                ],
+                choices=choices,
                 pointer=POINTER,
                 style=custom_style_fancy,
             ).ask()
 
-            if package.name != "bootcamp" and (
+            if package is None:
+                raise typer.Exit(code=0)
+
+            if package.can_cherry_pick and (
                 len(package.modules) > 1 or (adding_to_existing and len(package.modules) > 0)
             ):
                 selection = self._select_modules_in_package(package)
