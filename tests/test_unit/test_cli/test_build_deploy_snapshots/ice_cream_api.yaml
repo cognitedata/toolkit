@@ -26,13 +26,3 @@ Function:
   name: Ice Cream API Assets Extractor
   owner: Bootcamp Team
   runtime: py311
-FunctionSchedule:
-- cronExpression: 0 0 * * *
-  data:
-    backfill: true
-    hours: 720
-  functionExternalId: icapi_datapoints_extractor
-  name: Backfill once a day for the last 30 days (gap filling)
-- cronExpression: '*/10 * * * *'
-  functionExternalId: icapi_datapoints_extractor
-  name: Frontfill every 10 minutes last hour of data (streamer)
