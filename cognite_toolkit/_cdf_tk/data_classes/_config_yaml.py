@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.constants import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitEnvError, ToolkitMissingModuleError
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, RawDatabaseLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     MediumSeverityWarning,
@@ -309,6 +309,9 @@ class BuildEnvironment(Environment):
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
         for resource_folder, resources in self.built_resources.items():
+            if resource_folder == RawDatabaseLoader.folder_name:
+                # We modify the hash for RawDatabaseLoader, so we skip checking the hash for this folder.
+                continue
             for resource in resources:
                 to_check = [resource.source, *(resource.extra_sources or [])]
                 for source in to_check:

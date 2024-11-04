@@ -29,6 +29,11 @@ DataSet:
   metadata: {}
   name: transformations:oid
   writeProtected: false
+Database:
+- name: asset_oid_workmate
+- name: files_oid_fileshare
+- name: timeseries_oid_fileshare
+- name: workorder_oid_workmate
 Datapoints:
 - args: []
   dataframe:
@@ -372,6 +377,25 @@ Row:
     ensure_parent: false
     table_name: workorders
   name: workorder_oid_workmate_workorders_False
+Table:
+- createdTime: 1
+  name: asset2children
+- createdTime: 1
+  name: assets
+- createdTime: 1
+  name: files_metadata
+- createdTime: 1
+  name: timeseries2assets
+- createdTime: 1
+  name: workitem2assets
+- createdTime: 1
+  name: workitems
+- createdTime: 1
+  name: workorder2assets
+- createdTime: 1
+  name: workorder2items
+- createdTime: 1
+  name: workorders
 TimeSeries:
 - dataSetId: 42
   description: PH 1st Stg Disch Gas Coolers
