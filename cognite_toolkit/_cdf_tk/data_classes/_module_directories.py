@@ -6,7 +6,7 @@ from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import SupportsIndex, overload
+from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
@@ -137,6 +137,38 @@ class ModuleLocation:
 
     def __str__(self) -> str:
         return self.name
+
+    def as_read_module(self) -> ReadModule:
+        return ReadModule(
+            dir=self.dir,
+            resource_directories=tuple(self.resource_directories),
+        )
+
+
+@dataclass(frozen=True)
+class ReadModule:
+    """This is a short representation of a module.
+
+    Args:
+        dir: The absolute path to the module directory.
+        resource_directories: The resource directories in the module.
+    """
+
+    dir: Path
+    resource_directories: tuple[str, ...]
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> ReadModule:
+        return cls(
+            dir=Path(data["dir"]),
+            resource_directories=tuple(data["resource_directories"]),
+        )
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "dir": self.dir.as_posix(),
+            "resource_directories": list(self.resource_directories),
+        }
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):
