@@ -295,6 +295,7 @@ class WorkflowTriggerLoader(
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
+    do_environment_variable_injection = True
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)

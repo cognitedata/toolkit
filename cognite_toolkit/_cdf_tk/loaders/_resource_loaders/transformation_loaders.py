@@ -109,6 +109,7 @@ class TransformationLoader(
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
+    do_environment_variable_injection = True
 
     @classmethod
     def get_required_capability(

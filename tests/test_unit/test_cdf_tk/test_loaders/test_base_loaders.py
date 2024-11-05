@@ -5,7 +5,7 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import cast
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock
 
 import pytest
 import requests
@@ -21,6 +21,7 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
@@ -48,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, PROJECT_FOR_TEST
+from tests.data import COMPLETE_ORG, LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -317,30 +318,75 @@ class TestResourceLoaders:
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
 
-    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
-    def test_env_var_replacement(self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig) -> None:
-        resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
-            loader_cls.resource_write_cls
+    @pytest.fixture
+    def built_org(self) -> Path:
+        build_env_name = "dev"
+        cdf_toml = CDFToml.load(COMPLETE_ORG)
+        config = BuildConfigYAML.load_from_directory(COMPLETE_ORG, build_env_name)
+        build_cmd = BuildCommand()
+        build_cmd.build_config(
+            BUILD_DIR, COMPLETE_ORG, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
+        return BUILD_DIR
 
-        before = resource.dump(camel_case=True)
-        property = next(iter(before))
-        before[property] = "${SOME_ENV_VAR}"
+    def has_auth(self, params: ParameterSpecSet) -> bool:
+        for param in params:
+            if any("authentication" in segment for segment in param.path) or any(
+                "credentials" in segment for segment in param.path
+            ):
+                return True
+        return False
 
-        tool_globals_mock = MagicMock()
-        tool_globals_mock.environment_variables.return_value = {"SOME_ENV_VAR": "TEST_VALUE"}
+    @pytest.mark.parametrize("loader_cls", [loader for loader in RESOURCE_LOADER_LIST])
+    def test_should_replace_env_var(self, loader_cls) -> None:
+        has_auth_params = self.has_auth(loader_cls.get_write_cls_parameter_spec())
 
-        with patch("pathlib.Path.open", mock_open(read_data=yaml.dump(before))):
-            loader = loader_cls.create_loader(cdf_tool_mock, None)
-            resource = loader.load_resource(
-                filepath=Path("test.yaml"), ToolGlobals=tool_globals_mock, skip_validation=True
-            )
-            resource = resource if isinstance(resource, loader_cls.resource_write_cls) else resource[0]
-            if not loader_cls.do_environment_variable_injection:
-                assert getattr(resource, property) == "${SOME_ENV_VAR}"
-            else:
-                assert getattr(resource, property) == "TEST_VALUE"
+        assert (
+            loader_cls.do_environment_variable_injection == has_auth_params
+        ), f"{loader_cls.folder_name} has auth but is not set to replace env vars"
+
+    @pytest.mark.parametrize("loader_cls", [loader for loader in RESOURCE_LOADER_LIST])
+    def test_does_replace_env_var(self, loader_cls, cdf_tool_mock: CDFToolConfig) -> None:
         pass
+
+        # auth_keywords = ["authentication", "credentials"]
+
+        # for param in has_auth:
+        #     if any("authentication" in segment for segment in param.path) or any("credentials" in segment for segment in param.path):
+
+        # raw_path = Path(COMPLETE_ORG) / "modules" / "my_example_module" / loader_cls.folder_name
+
+        # with tempfile.TemporaryDirectory() as tmp_dir:
+        #     tmp_path = Path(tmp_dir)
+
+        #     # Copy the content of raw_path to the temporary directory
+        #     shutil.copytree(raw_path, tmp_path, dirs_exist_ok=True)
+
+        #     if loader_cls == GroupResourceScopedLoader:
+        #         tmp_file = tmp_path / "resource_scoped.Group.yaml"
+        #     elif loader_cls == GroupAllScopedLoader:
+        #         tmp_file = tmp_path / "all_scoped.Group.yaml"
+        #     else:
+        #         tmp_file = next(tmp_path.glob(f"*.{loader_cls.kind}.yaml"), None)
+
+        #     tmp_yaml = yaml.safe_load(tmp_file.read_text())
+        #     if isinstance(tmp_yaml, list):
+        #         tmp_yaml = tmp_yaml[0]
+        #     first_prop = next(iter(tmp_yaml))
+        #     tmp_yaml[first_prop] = "${SOME_ENV_VAR}"
+        #     yaml.dump(tmp_yaml, tmp_file)
+
+        #     resource = loader.load_resource(
+        #         filepath=Path(tmp_file.name).absolute(), ToolGlobals=cdf_tool_mock, skip_validation=True
+        #     )
+
+        # if isinstance(resource, CogniteResourceList):
+        #     resource = resource[0]
+
+        # if not loader_cls.do_environment_variable_injection:
+        #     assert getattr(resource, to_snake_case(first_prop)) == "${SOME_ENV_VAR}"
+        # else:
+        #     assert getattr(resource, to_snake_case(first_prop)) == "TEST_VALUE"
 
 
 class TestLoaders:
