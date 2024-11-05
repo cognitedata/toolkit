@@ -48,6 +48,7 @@ from cognite_toolkit._version import __version__
 from . import BuiltModuleList
 from ._base import ConfigCore, _load_version_variable
 from ._built_resources import BuiltResourceList
+from ._module_directories import ModuleDirectories, ReadModule
 
 _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 
@@ -188,7 +189,9 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         variables = data.get("variables", {})
         return cls(environment=environment, variables=variables, filepath=filepath)
 
-    def create_build_environment(self, built_modules: BuiltModuleList) -> BuildEnvironment:
+    def create_build_environment(
+        self, built_modules: BuiltModuleList, selected_modules: ModuleDirectories
+    ) -> BuildEnvironment:
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
@@ -196,6 +199,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
             built_resources=built_modules.as_resources_by_folder(),
+            read_modules=[module.as_read_module() for module in selected_modules],
         )
 
     def get_selected_modules(
@@ -250,6 +254,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 class BuildEnvironment(Environment):
     cdf_toolkit_version: str = __version__
     built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
+    read_modules: list[ReadModule] = field(default_factory=list)
 
     def dump(self) -> dict[str, Any]:
         output = super().dump()
@@ -259,6 +264,8 @@ class BuildEnvironment(Environment):
                 resource_folder: resources.dump(resource_folder, include_destination=True)
                 for resource_folder, resources in self.built_resources.items()
             }
+        if self.read_modules:
+            output["read_modules"] = [module.dump() for module in self.read_modules]
         return output
 
     def dump_to_file(self, build_dir: Path) -> None:
@@ -286,6 +293,9 @@ class BuildEnvironment(Environment):
                 resource_folder: BuiltResourceList.load(resources, resource_folder)
                 for resource_folder, resources in data["built_resources"].items()
             }
+        read_modules: list[ReadModule] = []
+        if "read_modules" in data:
+            read_modules = [ReadModule.load(module_data) for module_data in data["read_modules"]]
 
         try:
             return cls(
@@ -295,6 +305,7 @@ class BuildEnvironment(Environment):
                 selected=data["selected"],
                 cdf_toolkit_version=version,
                 built_resources=built_resources,
+                read_modules=read_modules,
             )
         except KeyError:
             raise ToolkitEnvError(
