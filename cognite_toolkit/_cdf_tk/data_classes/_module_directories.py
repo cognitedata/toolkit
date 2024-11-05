@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
@@ -73,7 +72,8 @@ class ModuleLocation:
     @cached_property
     def resource_directories(self) -> set[str]:
         """The resource directories in the module."""
-        return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
+        source_path_by_resource_folder, _ = self._source_paths_by_resource_folder
+        return set(source_path_by_resource_folder.keys())
 
     @property
     def _source_paths_by_resource_folder(self) -> tuple[dict[str, list[Path]], set[str]]:
