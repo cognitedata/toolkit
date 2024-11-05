@@ -15,7 +15,7 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.6] - 2024-11-04
 
 ### Fixed
 
@@ -26,6 +26,8 @@ Changes are grouped as follows:
   only if the local is different than the CDF configuration.
 - Asset centric `LocationFilter`s are no longer always redeployed when running `cdf deploy`,
   only if the local is different than the CDF configuration.
+- When deleting a `Function` the file is also removed if it exists.
+- The `parentExternalId` in `LocationFilter` is now correctly replaced by `parentId` when running `cdf deploy`.
 
 ## [0.3.5] - 2024-10-24
 

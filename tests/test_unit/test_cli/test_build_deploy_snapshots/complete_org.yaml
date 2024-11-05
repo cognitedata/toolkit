@@ -87,6 +87,8 @@ DataSet:
   metadata: {}
   name: Example dataset.
   writeProtected: false
+Database:
+- name: db_complete_org
 DatapointSubscription:
 - description: All timeseries with externalId starting with ts_value
   externalId: my_subscription
@@ -484,6 +486,9 @@ Space:
 - space: DataModelSpace
 - space: sp_nodes
 - space: sp_schema
+Table:
+- createdTime: 1
+  name: asset
 ThreeDModel:
 - createdTime: 1
   dataSetId: 42

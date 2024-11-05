@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceList,
     ModuleDirectories,
     ModuleLocation,
+    SourceLocation,
     SourceLocationEager,
     SourceLocationLazy,
 )
@@ -97,7 +98,7 @@ class BuildCommand(ToolkitCommand):
         # Built State
         self._module_names_by_variable_key: dict[str, list[str]] = defaultdict(list)
         self._builder_by_resource_folder: dict[str, Builder] = {}
-        self._ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, Path]] = defaultdict(dict)
+        self._ids_by_resource_type: dict[type[ResourceLoader], dict[Hashable, SourceLocation]] = defaultdict(dict)
         self._dependencies_by_required: dict[tuple[type[ResourceLoader], Hashable], list[tuple[Hashable, Path]]] = (
             defaultdict(list)
         )
@@ -320,7 +321,7 @@ class BuildCommand(ToolkitCommand):
                 file_warnings, identifiers_kind_pairs = self.check_built_resource(
                     destination.loaded,
                     destination.loader,
-                    destination.source.path,
+                    destination.source,
                 )
                 file_warnings.extend(destination.warnings)
 
@@ -521,7 +522,7 @@ class BuildCommand(ToolkitCommand):
         self,
         parsed: dict[str, Any] | list[dict[str, Any]],
         loader: type[ResourceLoader],
-        source_path: Path,
+        source: SourceLocation,
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
 
@@ -544,27 +545,28 @@ class BuildCommand(ToolkitCommand):
                         item_loader = RawDatabaseLoader
                     except KeyError:
                         warning_list.append(
-                            MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args)
+                            MissingRequiredIdentifierWarning(source.path, element_no, tuple(), error.args)
                         )
                 else:
-                    warning_list.append(MissingRequiredIdentifierWarning(source_path, element_no, tuple(), error.args))
+                    warning_list.append(MissingRequiredIdentifierWarning(source.path, element_no, tuple(), error.args))
 
             if identifier:
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self._ids_by_resource_type[item_loader].get(identifier):
-                    warning_list.append(DuplicatedItemWarning(source_path, identifier, first_seen))
+                    if first_seen.hash != source.hash:
+                        warning_list.append(DuplicatedItemWarning(source.path, identifier, first_seen.path))
                 else:
-                    self._ids_by_resource_type[item_loader][identifier] = source_path
+                    self._ids_by_resource_type[item_loader][identifier] = source
 
                 for dependency in item_loader.get_dependent_items(item):
-                    self._dependencies_by_required[dependency].append((identifier, source_path))
+                    self._dependencies_by_required[dependency].append((identifier, source.path))
 
             api_spec = item_loader.safe_get_write_cls_parameter_spec()
             if api_spec is not None:
-                resource_warnings = validate_resource_yaml(parsed, api_spec, source_path, element_no)
+                resource_warnings = validate_resource_yaml(parsed, api_spec, source.path, element_no)
                 warning_list.extend(resource_warnings)
 
-            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source_path)
+            data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source.path)
             warning_list.extend(data_set_warnings)
 
         return warning_list, identifier_kind_pairs

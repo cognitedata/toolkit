@@ -247,7 +247,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
+        functions = self.retrieve(ids)
+
         self.client.functions.delete(external_id=ids)
+        file_ids = {func.file_id for func in functions if func.file_id}
+        self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
 
     def iterate(self) -> Iterable[Function]:

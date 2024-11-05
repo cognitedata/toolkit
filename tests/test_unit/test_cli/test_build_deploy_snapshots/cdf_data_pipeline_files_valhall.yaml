@@ -17,6 +17,8 @@ DataSet:
       "Transformations"}]'
   name: files:oid
   writeProtected: false
+Database:
+- name: files_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 42
@@ -265,6 +267,9 @@ Group:
     origin: cdf-project-templates
   name: gp_files_oid_read
   sourceId: <change_me>
+Table:
+- createdTime: 1
+  name: files_metadata
 Transformation:
 - conflictMode: upsert
   dataSetId: 42
