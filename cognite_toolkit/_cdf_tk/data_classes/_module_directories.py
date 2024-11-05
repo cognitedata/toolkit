@@ -157,6 +157,20 @@ class ReadModule:
     dir: Path
     resource_directories: tuple[str, ...]
 
+    def resource_dir_path(self, resource_folder: str) -> Path | None:
+        """Returns the path to a resource in the module.
+
+        Args:
+            resource_folder: The name of the resource.
+
+        Returns:
+            The path to the resource if it exists, otherwise None.
+        """
+        for resource_dir in self.resource_directories:
+            if resource_dir == resource_folder and (resource_path := self.dir / resource_folder).exists():
+                return resource_path
+        return None
+
     @classmethod
     def load(cls, data: dict[str, Any]) -> ReadModule:
         return cls(

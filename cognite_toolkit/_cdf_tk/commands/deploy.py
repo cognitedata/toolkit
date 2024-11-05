@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
+    TABLE_FORMATS,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -184,7 +185,7 @@ class DeployCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
-            return self._deploy_resources(loader, ToolGlobals, dry_run, has_done_drop, has_dropped_data, verbose)
+            return self._deploy_resources(loader, ToolGlobals, state, dry_run, has_done_drop, has_dropped_data, verbose)
         elif isinstance(loader, DataLoader):
             return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
         else:
@@ -194,12 +195,21 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: ResourceLoader,
         ToolGlobals: CDFToolConfig,
+        state: BuildEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         filepaths = loader.find_files()
+
+        for read_module in state.read_modules:
+            if resource_dir := read_module.resource_dir_path(loader.folder_name):
+                # As of 05/11/24, Asset support csv and parquet files in addition to YAML.
+                # These table formats are not built, i.e., no variable replacement is done,
+                # so we load them directly from the source module.
+                filepaths.extend(loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
+
         if not filepaths:
             self.warn(LowSeverityWarning(f"No {loader.display_name} files found. Skipping..."))
             return None
