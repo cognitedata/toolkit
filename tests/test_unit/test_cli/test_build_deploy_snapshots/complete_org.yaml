@@ -1,5 +1,12 @@
 Asset:
 - dataSetId: 42
+  description: The root asset in the SAP hierarchy
+  externalId: my_root_asset
+  metadata:
+    origin: cdf-toolkit
+  name: SAP hierarchy
+  source: SAP
+- dataSetId: 42
   description: This is the root asset
   externalId: root
   metadata:
