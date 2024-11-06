@@ -1,0 +1,7 @@
+externalId: myJob
+sourceId: my_eventhub
+destinationId: EventHubTarget
+format:
+  type: value
+  encoding: utf16
+  compression: gzip

@@ -119,7 +119,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             # This is to allow arbitrary YAML files inside the function code folder.
             return None
 
-        functions = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        functions = load_yaml_inject_variables(filepath, use_environment_variables)
 
         if isinstance(functions, dict):
             functions = [functions]
@@ -283,6 +286,7 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
+    do_environment_variable_injection = True
 
     @property
     def display_name(self) -> str:
@@ -331,7 +335,11 @@ class FunctionScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWriteList:
-        schedules = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        schedules = load_yaml_inject_variables(filepath, use_environment_variables)
+
         if isinstance(schedules, dict):
             schedules = [schedules]
 

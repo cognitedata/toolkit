@@ -1,0 +1,6 @@
+# This is an arbitrary YAML file that is not a function config
+# It will be copied to the build directory as is
+mapping:
+  key1: value1
+  key2: value2
+  key3: value3

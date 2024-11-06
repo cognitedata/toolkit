@@ -46,6 +46,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     kind = "Source"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
+    do_environment_variable_injection = True
 
     @property
     def display_name(self) -> str:
@@ -129,6 +130,7 @@ class HostedExtractorDestinationLoader(
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
+    do_environment_variable_injection = True
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
@@ -183,7 +185,10 @@ class HostedExtractorDestinationLoader(
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
 
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         loaded = DestinationWriteList([])
