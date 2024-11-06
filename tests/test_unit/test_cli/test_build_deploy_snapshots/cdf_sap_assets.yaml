@@ -4,10 +4,15 @@ DataSet:
   metadata: {}
   name: Population Transformations
   writeProtected: false
+Database:
+- name: ingestion
 Space:
 - description: This space contains data
   name: Instance space
   space: springfield_instances
+Table:
+- createdTime: 1
+  name: dump
 Transformation:
 - conflictMode: upsert
   dataSetId: 42

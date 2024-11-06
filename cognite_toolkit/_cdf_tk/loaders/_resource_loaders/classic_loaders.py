@@ -198,6 +198,13 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         ):
             local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
 
+        # Remove metadata if it is empty to avoid false negatives
+        # as a result of cdf_resource.metadata = {} != local.metadata = None
+        if not local_dumped.get("metadata"):
+            local_dumped.pop("metadata", None)
+        if not cdf_dumped.get("metadata"):
+            cdf_dumped.pop("metadata", None)
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 

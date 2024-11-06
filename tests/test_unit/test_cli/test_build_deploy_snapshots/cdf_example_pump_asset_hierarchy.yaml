@@ -4,6 +4,8 @@ DataSet:
   metadata: {}
   name: Lift Pump Stations
   writeProtected: false
+Database:
+- name: pump_assets
 Row:
 - args: []
   dataframe:
@@ -82,6 +84,9 @@ Row:
     ensure_parent: false
     table_name: collections_pump
   name: pump_assets_collections_pump_False
+Table:
+- createdTime: 1
+  name: collections_pump
 Transformation:
 - conflictMode: upsert
   dataSetId: 42

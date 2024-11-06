@@ -97,6 +97,12 @@ class LocationFilterLoader(
 
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         for raw in raw_list:
+            if "parentExternalId" in raw:
+                parent_external_id = raw.pop("parentExternalId")
+                raw["parentId"] = ToolGlobals.verify_locationfilter(
+                    parent_external_id, skip_validation, action="replace parentExternalId with parentExternalId"
+                )
+
             if "assetCentric" not in raw:
                 continue
             asset_centric = raw["assetCentric"]
@@ -163,6 +169,22 @@ class LocationFilterLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
+        spec.add(
+            ParameterSpec(
+                ("parentExternalId",),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                ("parentId",),
+                frozenset({"int"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
         spec.add(
             ParameterSpec(
                 (
@@ -288,3 +310,33 @@ class LocationFilterLoader(
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield DataModelLoader, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
+
+    def _are_equal(
+        self, local: LocationFilterWrite, cdf_resource: LocationFilter, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+
+        if "assetCentric" in local_dumped and "assetCentric" in cdf_dumped:
+            local_centric = local_dumped["assetCentric"]
+            cdf_centric = cdf_dumped["assetCentric"]
+            if (
+                "dataSetIds" in local_centric
+                and "dataSetIds" in cdf_centric
+                and all(data_set_id == -1 for data_set_id in local_centric["dataSetIds"])
+            ):
+                # Dry run
+                local_centric["dataSetIds"] = cdf_centric["dataSetIds"]
+            for subfilter_name in self.subfilter_names:
+                if subfilter_name in local_centric and subfilter_name in cdf_centric:
+                    local_subfilter = local_centric[subfilter_name]
+                    cdf_subfilter = cdf_centric[subfilter_name]
+                    if (
+                        "dataSetIds" in local_subfilter
+                        and "dataSetIds" in cdf_subfilter
+                        and all(data_set_id == -1 for data_set_id in local_subfilter["dataSetIds"])
+                    ):
+                        # Dry run
+                        local_subfilter["dataSetIds"] = cdf_subfilter["dataSetIds"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)

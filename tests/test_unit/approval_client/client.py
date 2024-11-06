@@ -22,6 +22,8 @@ from cognite.client.data_classes import (
     FunctionCall,
     Group,
     GroupList,
+    Table,
+    TableList,
     ThreeDModel,
     Workflow,
     WorkflowVersion,
@@ -53,6 +55,7 @@ from cognite.client.utils._text import to_camel_case
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
@@ -299,19 +302,26 @@ class ApprovalToolkitClient:
         resource_cls = resource.resource_cls
         resource_list_cls = resource.list_cls
 
-        def create(*args, **kwargs) -> Any:
+        def _create(*args, **kwargs) -> Sequence:
             created = []
             is_single_resource: bool | None = None
             for value in itertools.chain(args, kwargs.values()):
-                if isinstance(value, write_resource_cls):
-                    created.append(value)
-                    if is_single_resource is None:
-                        is_single_resource = True
-                elif isinstance(value, Sequence) and all(isinstance(v, write_resource_cls) for v in value):
-                    created.extend(value)
-                    is_single_resource = False
-                elif isinstance(value, str) and issubclass(write_resource_cls, Database):
-                    created.append(Database(name=value))
+                if isinstance(value, Iterable):
+                    values = value
+                else:
+                    values = [value]
+                for item in values:
+                    if isinstance(item, write_resource_cls):
+                        created.append(item)
+                        if is_single_resource is None:
+                            is_single_resource = True
+                        else:
+                            is_single_resource = False
+                    elif isinstance(item, Sequence) and all(isinstance(v, write_resource_cls) for v in item):
+                        created.extend(item)
+                        is_single_resource = False
+                    elif isinstance(item, str) and issubclass(write_resource_cls, RawDatabase):
+                        created.append(Database(name=item))
             created_resources[resource_cls.__name__].extend(created)
             if resource_cls is View:
                 return write_list_cls(created)
@@ -343,9 +353,23 @@ class ApprovalToolkitClient:
                 ],
                 cognite_client=client,
             )
-            if len(created) == 1 and is_single_resource:
-                return read_list[0]
             return read_list
+
+        def create_multiple(*args, **kwargs) -> Any:
+            return _create(*args, **kwargs)
+
+        def create_single(*args, **kwargs) -> Sequence:
+            return _create(*args, **kwargs)[0]
+
+        def create_raw_table(db_name: str, name: str | list[str]) -> Table | TableList:
+            if isinstance(name, str):
+                created = Table(name=name, created_time=1)
+                created_resources[resource_cls.__name__].append(created)
+                return created
+            else:
+                created_list = TableList([Table(name=n, created_time=1) for n in name])
+                created_resources[resource_cls.__name__].extend(created_list)
+                return created_list
 
         def _group_write_to_read(group: GroupWrite) -> Group:
             return Group(
@@ -547,7 +571,8 @@ class ApprovalToolkitClient:
         available_create_methods = {
             fn.__name__: fn
             for fn in [
-                create,
+                create_multiple,
+                create_single,
                 insert_dataframe,
                 upload,
                 upsert,
@@ -557,6 +582,7 @@ class ApprovalToolkitClient:
                 upload_file_content_files_api,
                 create_3dmodel,
                 apply_dml,
+                create_raw_table,
             ]
         }
         if mock_method not in available_create_methods:

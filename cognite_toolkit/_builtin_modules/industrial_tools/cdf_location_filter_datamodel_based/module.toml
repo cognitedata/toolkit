@@ -3,5 +3,5 @@ title = "Example location filter datamodel based"
 
 [packages]
 tags = [
-    "examples",
+    "industrial_tools",
 ]

@@ -3,5 +3,5 @@ title = "Example location filter asset centric"
 
 [packages]
 tags = [
-    "examples",
+    "industrial_tools",
 ]
