@@ -125,7 +125,10 @@ class FileMetadataLoader(
             yield AssetLoader, asset_external_id
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> FileMetadataWriteList:
-        loaded = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        loaded = load_yaml_inject_variables(filepath, use_environment_variables)
 
         loaded_list = [loaded] if isinstance(loaded, dict) else loaded
 

@@ -279,14 +279,17 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GroupWrite | GroupWriteList | None:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
 
         group_write_list = GroupWriteList([])
 
-        if isinstance(raw, dict):
-            raw = [raw]
+        if isinstance(raw_yaml, dict):
+            raw_yaml = [raw_yaml]
 
-        for raw_group in raw:
+        for raw_group in raw_yaml:
             is_resource_scoped = any(
                 any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
                 for capability in raw_group.get("capabilities", [])

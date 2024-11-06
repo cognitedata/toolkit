@@ -6,10 +6,9 @@ from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import SupportsIndex, overload
+from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
 
 from ._module_toml import ModuleToml
@@ -73,7 +72,8 @@ class ModuleLocation:
     @cached_property
     def resource_directories(self) -> set[str]:
         """The resource directories in the module."""
-        return {path.name for path in self.source_paths if path.is_dir() and path.name in LOADER_BY_FOLDER_NAME}
+        source_path_by_resource_folder, _ = self._source_paths_by_resource_folder
+        return set(source_path_by_resource_folder.keys())
 
     @property
     def _source_paths_by_resource_folder(self) -> tuple[dict[str, list[Path]], set[str]]:
@@ -137,6 +137,52 @@ class ModuleLocation:
 
     def __str__(self) -> str:
         return self.name
+
+    def as_read_module(self) -> ReadModule:
+        return ReadModule(
+            dir=self.dir,
+            resource_directories=tuple(self.resource_directories),
+        )
+
+
+@dataclass(frozen=True)
+class ReadModule:
+    """This is a short representation of a module.
+
+    Args:
+        dir: The absolute path to the module directory.
+        resource_directories: The resource directories in the module.
+    """
+
+    dir: Path
+    resource_directories: tuple[str, ...]
+
+    def resource_dir_path(self, resource_folder: str) -> Path | None:
+        """Returns the path to a resource in the module.
+
+        Args:
+            resource_folder: The name of the resource.
+
+        Returns:
+            The path to the resource if it exists, otherwise None.
+        """
+        for resource_dir in self.resource_directories:
+            if resource_dir == resource_folder and (resource_path := self.dir / resource_folder).exists():
+                return resource_path
+        return None
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> ReadModule:
+        return cls(
+            dir=Path(data["dir"]),
+            resource_directories=tuple(data["resource_directories"]),
+        )
+
+    def dump(self) -> dict[str, Any]:
+        return {
+            "dir": self.dir.as_posix(),
+            "resource_directories": list(self.resource_directories),
+        }
 
 
 class ModuleDirectories(tuple, Sequence[ModuleLocation]):

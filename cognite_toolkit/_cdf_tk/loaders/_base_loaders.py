@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence, Set, Sized
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
@@ -76,13 +76,13 @@ class Loader(ABC):
     def doc_url(cls) -> str:
         return cls._doc_base_url + cls._doc_url
 
-    def find_files(self, dir_or_file: Path | None = None) -> list[Path]:
+    def find_files(self, dir_or_file: Path | None = None, include_formats: Set[str] | None = None) -> list[Path]:
         """Find all files that are supported by this loader in the given directory or file.
 
         Args:
             dir_or_file (Path): The directory or file to search in. If no path is given,
                 the build directory is used.
-
+            include_formats (set[str]): A set of file formats to include. If not set, all formats are included.
 
         Returns:
             list[Path]: A sorted list of all files that are supported by this loader.
@@ -96,7 +96,11 @@ class Loader(ABC):
                 raise ValueError("Invalid file type")
             return [dir_or_file]
         elif dir_or_file.is_dir():
-            file_paths = [file for file in dir_or_file.glob("**/*") if self.is_supported_file(file)]
+            file_paths = [
+                file
+                for file in dir_or_file.glob("**/*")
+                if self.is_supported_file(file) and (include_formats is None or file.suffix in include_formats)
+            ]
             return sorted(file_paths)
         else:
             return []
@@ -158,6 +162,7 @@ class ResourceLoader(
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
+    do_environment_variable_injection = False
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -216,7 +221,11 @@ class ResourceLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
         else:

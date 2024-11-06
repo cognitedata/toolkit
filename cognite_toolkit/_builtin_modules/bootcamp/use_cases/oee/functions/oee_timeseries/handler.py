@@ -36,7 +36,7 @@ def process_site(client, data_set_id, lookback_minutes, site):
     }
 
     for asset, latest_dps in assets_dps.items():
-        end = min([dp.timestamp[0] for dp in latest_dps if latest_dps and dp.timestamp], default=None)
+        end = max([dp.timestamp[0] for dp in latest_dps if latest_dps and dp.timestamp], default=None)
         if end:
             dps_df = client.time_series.data.retrieve_dataframe(
                 external_id=[dp.external_id for dp in latest_dps],

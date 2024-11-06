@@ -40,6 +40,7 @@ class RawDatabaseLoader(
 ):
     item_name = "raw tables"
     folder_name = "raw"
+    filename_pattern = r"^(?!.*Table$).*$"
     resource_cls = RawDatabase
     resource_write_cls = RawDatabase
     list_cls = RawDatabaseList
@@ -147,6 +148,7 @@ class RawDatabaseLoader(
 class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTableList, RawTableList]):
     item_name = "raw rows"
     folder_name = "raw"
+    filename_pattern = r"^(?!.*Database$).*$"
     resource_cls = RawTable
     resource_write_cls = RawTable
     list_cls = RawTableList

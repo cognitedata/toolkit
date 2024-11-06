@@ -208,7 +208,7 @@ IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
 
         with mock.patch.dict(os.environ, envs, clear=True):
             with MonkeyPatch.context() as mp:
-                mp.setattr("cognite_toolkit._cdf_tk.utils.OAuthInteractive", MagicMock(spec=OAuthInteractive))
+                mp.setattr("cognite_toolkit._cdf_tk.utils.auth.OAuthInteractive", MagicMock(spec=OAuthInteractive))
                 with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()
                     env_file = AuthVariables.from_env(config._environ).create_dotenv_file()
@@ -245,7 +245,7 @@ IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
         with mock.patch.dict(os.environ, envs, clear=True):
             with MonkeyPatch.context() as mp:
                 mp.setattr(
-                    "cognite_toolkit._cdf_tk.utils.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials)
+                    "cognite_toolkit._cdf_tk.utils.auth.OAuthClientCredentials", MagicMock(spec=OAuthClientCredentials)
                 )
                 with monkeypatch_toolkit_client() as _:
                     config = CDFToolConfig()

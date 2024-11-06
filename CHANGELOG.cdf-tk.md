@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.7] - 2024-11-06
+
+### Fixed
+
+- Deploying RAW Tables/Databases no longer raises a `ToolkitRequiredValueError`.
+- Deploying Asset given as `.csv`/`.parquet` is now supported again.
+- Running `cdf deploy` no longer complains about `!keyvault` syntax in `ExtractionPipelineConfig` resources.
+
 ## [0.3.6] - 2024-11-04
 
 ### Fixed

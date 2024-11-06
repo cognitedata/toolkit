@@ -1,0 +1,13 @@
+externalId: MyTrigger
+triggerRule:
+  triggerType: schedule
+  cronExpression: "5 4 * * *"
+workflowExternalId: workflow_external_id
+workflowVersion: "1"
+authentication:
+  clientId: ${SOME_VARIABLE}
+  clientSecret: ${ANOTHER_VARIABLE}
+  tokenUri: https://foo.bar
+  cdfProjectName: foo
+  scopes: bar
+  audience: baz

@@ -52,6 +52,7 @@ SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])
 # Which files to process for template variable replacement
 TEMPLATE_VARS_FILE_SUFFIXES = frozenset([".yaml", ".yml", ".sql", ".json", ".graphql"])
+TABLE_FORMATS = frozenset([".csv", ".parquet"])
 ROOT_PATH = Path(__file__).parent.parent
 COGNITE_MODULES_PATH = ROOT_PATH / COGNITE_MODULES
 MODULES_PATH = ROOT_PATH / MODULES
