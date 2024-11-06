@@ -78,3 +78,17 @@ def test_run_local_function(cdf_tool_mock: CDFToolConfig) -> None:
         schedule="daily-8pm-utc",
         rebuild_env=False,
     )
+
+
+def test_run_local_function_with_workflow(cdf_tool_mock: CDFToolConfig) -> None:
+    cmd = RunFunctionCommand()
+
+    cmd.run_local(
+        ToolGlobals=cdf_tool_mock,
+        organization_dir=RUN_DATA,
+        build_env_name="dev",
+        external_id="fn_test3",
+        schedule="daily-8pm-utc",
+        rebuild_env=False,
+        workflow="workflow",
+    )
