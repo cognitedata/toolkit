@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Deploying RAW Tables/Databases no longer raises a `ToolkitRequiredValueError`.
 - Deploying Asset given as `.csv`/`.parquet` is now supported again.
+- Running `cdf deploy` no longer complains about `!keyvault` syntax in `ExtractionPipelineConfig` resources.
 
 ## [0.3.6] - 2024-11-04
 
