@@ -16,6 +16,7 @@ from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive, Token
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
+from cognite.client.data_classes.workflows import WorkflowVersionId
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
 from rich import print
@@ -32,8 +33,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotADirectoryError,
     ToolkitNotSupported,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader
+from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
@@ -103,7 +105,7 @@ if __name__ == "__main__":
         organization_dir: Path,
         build_env_name: str | None,
         external_id: str | None = None,
-        schedule: str | None = None,
+        data_source: str | WorkflowVersionId | None = None,
         wait: bool = False,
     ) -> bool:
         if organization_dir in {Path("."), Path("./")}:
@@ -113,7 +115,7 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        schedule_dict = self._get_schedule_dict(ToolGlobals, schedule, external_id, resources, is_interactive) or {}
+        schedule_dict = self._get_data_dict(ToolGlobals, data_source, external_id, resources, is_interactive) or {}
         if "data" not in schedule_dict and schedule_dict:
             raise ToolkitMissingResourceError(f"The schedule {schedule_dict['name']} has no data")
         input_data = schedule_dict.get("data", None)
@@ -200,40 +202,49 @@ if __name__ == "__main__":
         return function_builds_by_identifier[external_id]
 
     @staticmethod
-    def _get_schedule_dict(
+    def _get_data_dict(
         ToolGlobals: CDFToolConfig,
-        schedule_name: str | None,
-        external_id: str,
+        data_source: str | WorkflowVersionId | None,
+        function_external_id: str,
         resources: ModuleResources,
         is_interactive: bool,
     ) -> dict | None:
-        if schedule_name is None and (
+        if data_source is None and (
             not is_interactive or not questionary.confirm("Do you want to provide input data for the function?").ask()
         ):
             return None
         schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
         if is_interactive:
             # Interactive mode
             options = {
                 f"FunctionSchedule {schedule.identifier.name}": schedule
                 for schedule in schedules
-                if schedule.identifier.function_external_id == external_id
+                if schedule.identifier.function_external_id == function_external_id
             }
+            if Flags.RUN_WORKFLOW.is_enabled():
+                raise NotImplementedError("Workflow is not supported yet.")
+
             if len(options) == 0:
-                print(f"No schedules found for this {external_id} function.")
+                print(f"No schedules found for this {function_external_id} function.")
                 return None
             selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
             selected = options[selected_name]
         else:
-            for schedule in schedules:
-                if (
-                    schedule.identifier.function_external_id == external_id
-                    and schedule.identifier.name == schedule_name
-                ):
-                    selected = schedule
-                    break
+            if isinstance(data_source, str):
+                for schedule in schedules:
+                    if (
+                        schedule.identifier.function_external_id == function_external_id
+                        and schedule.identifier.name == data_source
+                    ):
+                        selected = schedule
+                        break
+                else:
+                    raise ToolkitMissingResourceError(f"Could not find data for schedule {data_source}")
+            elif isinstance(data_source, WorkflowVersionId):
+                raise NotImplementedError("WorkflowVersionId is not supported yet.")
             else:
-                raise ToolkitMissingResourceError(f"Could not find data for schedule {schedule_name}")
+                raise ToolkitNotSupported(f"Data source {data_source} is not supported.")
         return selected.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
 
     def run_local(
@@ -242,7 +253,7 @@ if __name__ == "__main__":
         organization_dir: Path,
         build_env_name: str | None,
         external_id: str | None = None,
-        schedule: str | None = None,
+        data_source: str | WorkflowVersionId | None = None,
         rebuild_env: bool = False,
     ) -> None:
         try:
@@ -332,11 +343,11 @@ if __name__ == "__main__":
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
         is_interactive = external_id is None
-        schedule_dict = (
-            self._get_schedule_dict(ToolGlobals, schedule, function_build.identifier, resources, is_interactive) or {}
+        data_dict = (
+            self._get_data_dict(ToolGlobals, data_source, function_build.identifier, resources, is_interactive) or {}
         )
         run_check_py, env = self._create_run_check_file_with_env(
-            ToolGlobals, args, function_dict, function_external_id, handler_file, schedule_dict
+            ToolGlobals, args, function_dict, function_external_id, handler_file, data_dict
         )
         if platform.system() == "Windows":
             if system_root := os.environ.get("SYSTEMROOT"):

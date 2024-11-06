@@ -61,7 +61,7 @@ def test_run_function(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: App
         organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test3",
-        schedule="daily-8pm-utc",
+        data_source="daily-8pm-utc",
         wait=False,
     )
     assert toolkit_client_approval.mock_client.functions.call.called
@@ -75,7 +75,7 @@ def test_run_local_function(cdf_tool_mock: CDFToolConfig) -> None:
         organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test3",
-        schedule="daily-8pm-utc",
+        data_source="daily-8pm-utc",
         rebuild_env=False,
     )
 
@@ -88,7 +88,6 @@ def test_run_local_function_with_workflow(cdf_tool_mock: CDFToolConfig) -> None:
         organization_dir=RUN_DATA,
         build_env_name="dev",
         external_id="fn_test3",
-        schedule="daily-8pm-utc",
+        data_source="daily-8pm-utc",
         rebuild_env=False,
-        workflow="workflow",
     )
