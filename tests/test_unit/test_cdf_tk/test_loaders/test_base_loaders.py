@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FileMetadataLoader,
     FunctionScheduleLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
@@ -44,6 +45,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
     get_loader,
 )
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     tmp_build_directory,
@@ -350,13 +352,23 @@ class TestResourceLoaders:
         monkeypatch.setenv("ANOTHER_VARIABLE", "another_test_value")
 
         loader = loader_cls.create_loader(cdf_tool_mock, None)
-        resource = loader.load_resource(tmp_file, ToolGlobals=cdf_tool_mock, skip_validation=True)[0]
+        resource = loader.load_resource(tmp_file, ToolGlobals=cdf_tool_mock, skip_validation=True)
+        if isinstance(resource, Iterable):
+            resource = next(iter(resource))
 
         # special case: auth object is moved to extra_configs
         if isinstance(loader, FunctionScheduleLoader):
             extras = next(iter(loader.extra_configs.items()))[1]
             assert extras["authentication"]["clientId"] == "test_value"
             assert extras["authentication"]["clientSecret"] == "another_test_value"
+        elif isinstance(loader, WorkflowTriggerLoader):
+            extras = next(iter(loader._authentication_by_id.items()), None)[1]
+            assert extras.client_id == "test_value"
+            assert extras.client_secret == "another_test_value"
+        elif isinstance(loader, HostedExtractorDestinationLoader):
+            pytest.skip(
+                "Hosted Extractor Destination Loader converts credentials to nonce using the session API, skipping"
+            )
         else:
             txt = str(resource.dump())
             assert "test_value" in txt
