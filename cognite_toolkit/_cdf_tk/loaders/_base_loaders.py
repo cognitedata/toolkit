@@ -162,6 +162,7 @@ class ResourceLoader(
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
+    do_environment_variable_injection = False
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -220,7 +221,11 @@ class ResourceLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:
-        raw_yaml = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
         else:

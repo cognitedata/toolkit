@@ -109,6 +109,7 @@ class TransformationLoader(
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
+    do_environment_variable_injection = True
 
     @classmethod
     def get_required_capability(
@@ -204,7 +205,11 @@ class TransformationLoader(
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-        resources = load_yaml_inject_variables(raw_str, ToolGlobals.environment_variables())
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        resources = load_yaml_inject_variables(raw_str, use_environment_variables)
+
         # The `authentication` key is custom for this template:
 
         if isinstance(resources, dict):
@@ -393,11 +398,15 @@ class TransformationScheduleLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
-        raw = load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-        if isinstance(raw, dict):
-            return TransformationScheduleWrite.load(raw)
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+
+        if isinstance(raw_yaml, dict):
+            return TransformationScheduleWrite.load(raw_yaml)
         else:
-            return TransformationScheduleWriteList.load(raw)
+            return TransformationScheduleWriteList.load(raw_yaml)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:

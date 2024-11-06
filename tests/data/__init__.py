@@ -5,6 +5,7 @@ DATA_FOLDER = Path(__file__).resolve().parent
 DESCRIPTIONS_FOLDER = DATA_FOLDER / "describe_data"
 AUTH_DATA = DATA_FOLDER / "auth_data"
 PROJECT_NO_COGNITE_MODULES = DATA_FOLDER / "project_no_cognite_modules"
+RESOURCES_WITH_ENVIRONMENT_VARIABLES = DATA_FOLDER / "resources_with_environment_variables"
 PROJECT_WITH_DUPLICATES = DATA_FOLDER / "project_with_duplicates"
 PROJECT_FOR_TEST = DATA_FOLDER / "project_for_test"
 LOAD_DATA = DATA_FOLDER / "load_data"
@@ -31,4 +32,5 @@ __all__ = [
     "BUILD_GROUP_WITH_UNKNOWN_ACL",
     "COMPLETE_ORG",
     "CDF_TOML_DATA",
+    "RESOURCES_WITH_ENVIRONMENT_VARIABLES",
 ]

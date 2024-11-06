@@ -21,6 +21,7 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
+from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
@@ -34,7 +35,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
+    FunctionScheduleLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
@@ -42,13 +45,14 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
     get_loader,
 )
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     tmp_build_directory,
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, PROJECT_FOR_TEST
+from tests.data import LOAD_DATA, PROJECT_FOR_TEST, RESOURCES_WITH_ENVIRONMENT_VARIABLES
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -80,6 +84,15 @@ def test_loader_class(
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
+
+
+def has_auth(params: ParameterSpecSet) -> bool:
+    for param in params:
+        if any("authentication" in segment for segment in param.path) or any(
+            "credentials" in segment for segment in param.path
+        ):
+            return True
+    return False
 
 
 class TestDeployResources:
@@ -316,6 +329,50 @@ class TestResourceLoaders:
         duplicated.pop("auth")
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
+
+    @pytest.mark.parametrize("loader_cls", [loader for loader in RESOURCE_LOADER_LIST])
+    def test_should_replace_env_var(self, loader_cls) -> None:
+        has_auth_params = has_auth(loader_cls.get_write_cls_parameter_spec())
+
+        assert (
+            loader_cls.do_environment_variable_injection == has_auth_params
+        ), f"{loader_cls.folder_name} has auth but is not set to replace env vars (or vice versa)"
+
+    @pytest.mark.parametrize(
+        "loader_cls",
+        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if has_auth(loader_cls.get_write_cls_parameter_spec())],
+    )
+    def test_does_replace_env_var(self, loader_cls, cdf_tool_mock: CDFToolConfig, monkeypatch) -> None:
+        raw_path = Path(RESOURCES_WITH_ENVIRONMENT_VARIABLES) / "modules" / "example_module" / loader_cls.folder_name
+
+        tmp_file = next((file for file in raw_path.glob(f"*.{loader_cls.kind}.yaml")), None)
+        assert tmp_file is not None, f"No yaml file found in {raw_path}"
+
+        monkeypatch.setenv("SOME_VARIABLE", "test_value")
+        monkeypatch.setenv("ANOTHER_VARIABLE", "another_test_value")
+
+        loader = loader_cls.create_loader(cdf_tool_mock, None)
+        resource = loader.load_resource(tmp_file, ToolGlobals=cdf_tool_mock, skip_validation=True)
+        if isinstance(resource, Iterable):
+            resource = next(iter(resource))
+
+        # special case: auth object is moved to extra_configs
+        if isinstance(loader, FunctionScheduleLoader):
+            extras = next(iter(loader.extra_configs.items()))[1]
+            assert extras["authentication"]["clientId"] == "test_value"
+            assert extras["authentication"]["clientSecret"] == "another_test_value"
+        elif isinstance(loader, WorkflowTriggerLoader):
+            extras = next(iter(loader._authentication_by_id.items()), None)[1]
+            assert extras.client_id == "test_value"
+            assert extras.client_secret == "another_test_value"
+        elif isinstance(loader, HostedExtractorDestinationLoader):
+            pytest.skip(
+                "Hosted Extractor Destination Loader converts credentials to nonce using the session API, skipping"
+            )
+        else:
+            txt = str(resource.dump())
+            assert "test_value" in txt
+            assert "${SOME_VARIABLE}" not in txt
 
 
 class TestLoaders:

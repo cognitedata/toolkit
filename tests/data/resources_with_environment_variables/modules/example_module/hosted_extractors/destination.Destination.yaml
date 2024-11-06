@@ -1,0 +1,5 @@
+externalId: EventHubTarget
+credentials:
+  clientId: ${SOME_VARIABLE}
+  clientSecret: ${ANOTHER_VARIABLE}
+targetDataSetExternalId: ds_complete_org
