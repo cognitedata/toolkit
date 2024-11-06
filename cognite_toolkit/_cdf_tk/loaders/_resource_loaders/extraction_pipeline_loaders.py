@@ -292,7 +292,7 @@ class ExtractionPipelineConfigLoader(
             if isinstance(config_raw, str):
                 # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
                 # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
-                # replace it with `connection-string: keyvalut secret` to make it valid.
+                # replace it with `connection-string: keyvault secret` to make it valid.
                 config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
                 try:
                     yaml.safe_load(config_raw)
