@@ -558,7 +558,18 @@ class BuildCommand(ToolkitCommand):
                 else:
                     self._ids_by_resource_type[item_loader][identifier] = source
 
-                for dependency in item_loader.get_dependent_items(item):
+                try:
+                    dependencies = list(item_loader.get_dependent_items(item))
+                except (AttributeError, ValueError, TypeError, KeyError):
+                    if element_no:
+                        location = f" at element {element_no}"
+                    else:
+                        location = ""
+                    raise ToolkitYAMLFormatError(
+                        f"Error in {source.path.as_posix()}{location}. "
+                        f"Failed to extract dependencies from {item_loader.kind}."
+                    )
+                for dependency in dependencies:
                     self._dependencies_by_required[dependency].append((identifier, source.path))
 
             api_spec = item_loader.safe_get_write_cls_parameter_spec()
