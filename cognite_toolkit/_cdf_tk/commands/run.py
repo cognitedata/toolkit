@@ -215,7 +215,7 @@ if __name__ == "__main__":
         if is_interactive:
             # Interactive mode
             options = {
-                schedule.identifier.name: schedule
+                f"FunctionSchedule {schedule.identifier.name}": schedule
                 for schedule in schedules
                 if schedule.identifier.function_external_id == external_id
             }
