@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Deploying RAW Tables/Databases no longer raises a `ToolkitRequiredValueError`.
+- Deploying Asset given as `.csv`/`.parquet` is now supported again.
+
 ## [0.3.6] - 2024-11-04
 
 ### Fixed
