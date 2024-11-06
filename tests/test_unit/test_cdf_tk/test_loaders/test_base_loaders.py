@@ -343,7 +343,7 @@ class TestResourceLoaders:
         [loader_cls for loader_cls in RESOURCE_LOADER_LIST if has_auth(loader_cls.get_write_cls_parameter_spec())],
     )
     def test_does_replace_env_var(self, loader_cls, cdf_tool_mock: CDFToolConfig, monkeypatch) -> None:
-        raw_path = Path(RESOURCES_WITH_ENVIRONMENT_VARIABLES) / "modules" / "my_example_module" / loader_cls.folder_name
+        raw_path = Path(RESOURCES_WITH_ENVIRONMENT_VARIABLES) / "modules" / "example_module" / loader_cls.folder_name
 
         tmp_file = next((file for file in raw_path.glob(f"*.{loader_cls.kind}.yaml")), None)
         assert tmp_file is not None, f"No yaml file found in {raw_path}"
