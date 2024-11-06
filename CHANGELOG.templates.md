@@ -21,10 +21,16 @@ Changes are grouped as follows:
 
 - The `modules init` wizard provides an option for an empty, custom module scaffolding.
 
+### Changed
+
+- Module Bootcamp removed schedules and file from ice_cream_api
+- Module Bootcamp removed function definitions from ice_cream_api
+
 ### Fixed
 
 - Removed unused variables from default InRobot configuration.
 - Added missing transformation `asset to asset` in `cdf_sap_asset` module.
+- Module Bootcamp OEE function now correctly calculates current OEE time series
 
 ## [0.3.5] - 2024-10-24
 
