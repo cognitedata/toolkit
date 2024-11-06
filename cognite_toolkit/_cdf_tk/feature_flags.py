@@ -23,6 +23,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Require kind in all config file names. For example, `my.FileMetadata.yaml`",
     }
+    RUN_WORKFLOW: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for running workflows",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
