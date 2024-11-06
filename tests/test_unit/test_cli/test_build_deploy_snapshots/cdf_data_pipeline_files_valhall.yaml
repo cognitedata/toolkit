@@ -82,8 +82,8 @@ Function:
 - cpu: 0.6
   description: Contextualization of P&ID files creating annotations
   envVars:
-    CDF_ENV: dev
-    ENV_TYPE: dev
+    CDF_ENV: ${CDF_ENVIRON}
+    ENV_TYPE: ${CDF_BUILD_TYPE}
   externalId: fn_context_files_oid_fileshare_annotation
   fileId: -1
   functionPath: handler.py
@@ -96,21 +96,21 @@ Function:
 - cpu: 0.6
   description: Workflow scheduler for Contextualization of P&ID files creating annotations
   envVars:
-    CDF_ENV: dev
-    ENV_TYPE: dev
+    CDF_ENV: ${CDF_ENVIRON}
+    ENV_TYPE: ${CDF_BUILD_TYPE}
   externalId: fn_workflow_files_oid_fileshare_annotation
   fileId: -1
   functionPath: handler.py
   metadata:
     cdf-toolkit-function-hash: c59aa6c790b492bdf98483455c9774921ff7e3b1167e0b96c7951c6d13140f14
-    cdf-toolkit-secret-hash: 3c751aaf4bd17e8ea97201022e5a416a2ac6cd4ab4e5cadfb560bc8a66aba388a0167391a65934653ec1908a610fe609abbde319378e4e517bc0ad49daeff311
+    cdf-toolkit-secret-hash: 862e372bd68632da6bebf14471055fac3b54bf02887871899c98c68518c47b8a75885f5b191d399f48d7bdb1571d139d248a4affd9e1fef67cad07a6378ae1ff
     version: 0.0.1
   name: workflow:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
   secrets:
-    client-id: dummy
-    client-secret: dummy
+    client-id: ${IDP_CLIENT_ID}
+    client-secret: ${IDP_CLIENT_SECRET}
 FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:
