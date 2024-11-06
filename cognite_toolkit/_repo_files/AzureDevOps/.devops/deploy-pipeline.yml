@@ -3,6 +3,11 @@ trigger:
     include:
       - main
 
+variables: 
+  - group: 'dev-toolkit-credentials'
+
+
+
 jobs:
   - job: build_modules
     displayName: 'Deploy Dry Run'
