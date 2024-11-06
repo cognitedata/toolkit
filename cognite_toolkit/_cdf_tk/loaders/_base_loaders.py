@@ -217,11 +217,11 @@ class ResourceLoader(
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:
-        raw_yaml = (
-            load_yaml_inject_variables(filepath, ToolGlobals.environment_variables())
-            if self.do_environment_variable_injection
-            else load_yaml_inject_variables(filepath, {})
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+
         if isinstance(raw_yaml, list):
             return self.list_write_cls.load(raw_yaml)
         else:
