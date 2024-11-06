@@ -173,8 +173,8 @@ Frame:
 Function:
 - description: Returns the input data, secrets, and function info.
   envVars:
-    CDF_ENV: dev
-    ENV_TYPE: dev
+    CDF_ENV: ${CDF_ENVIRON}
+    ENV_TYPE: ${CDF_BUILD_TYPE}
   externalId: fn_first_function
   fileId: -1
   functionPath: ./src/handler.py

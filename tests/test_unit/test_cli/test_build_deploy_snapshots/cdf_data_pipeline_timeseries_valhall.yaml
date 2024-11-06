@@ -152,8 +152,8 @@ Function:
 - cpu: 0.6
   description: Contextualization of timeseries and asset data for oid:opcua
   envVars:
-    CDF_ENV: dev
-    ENV_TYPE: dev
+    CDF_ENV: ${CDF_ENVIRON}
+    ENV_TYPE: ${CDF_BUILD_TYPE}
   externalId: fn_context_timeseries_oid_opcua_asset
   fileId: -1
   functionPath: ./handler.py
