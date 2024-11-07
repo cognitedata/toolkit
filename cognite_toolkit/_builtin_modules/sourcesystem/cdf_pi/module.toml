@@ -12,6 +12,7 @@ tags = [
 modules = []
 
 [[data]]
-url = "https://github.com/cognitedata/toolkit-data.git"
+repoType = "GitHub"
+repo = "cognitedata/toolkit-data"
 source = "data/publicdata/cdf_pi.Table.csv"
 destination = "raw/timeseries.Table.csv"
