@@ -43,10 +43,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
-from ..loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from ._base import ToolkitCommand
 
 
@@ -241,20 +241,18 @@ if __name__ == "__main__":
 
         if cls._is_environ_var(credentials.client_id):
             env_var = cls._clean_environ_var(credentials.client_id)
-            if env_var not in environment_variables:
+            if not (client_id_value := environment_variables.get(env_var)):
                 raise ToolkitValueError(f"Missing environment variable {env_var} for function client ID")
             client_id_name = env_var
-            client_id_value = environment_variables[env_var]
         else:
             client_id_name = None
             client_id_value = credentials.client_id
 
         if cls._is_environ_var(credentials.client_secret):
             env_var = cls._clean_environ_var(credentials.client_secret)
-            if env_var not in environment_variables:
+            if not (client_secret_value := environment_variables.get(env_var)):
                 raise ToolkitValueError(f"Missing environment variable {env_var} for function client secret")
             client_secret_name = env_var
-            client_secret_value = environment_variables[env_var]
         else:
             client_secret_name = None
             client_secret_value = credentials.client_secret
@@ -312,11 +310,10 @@ if __name__ == "__main__":
                             isinstance(task.parameters, FunctionTaskParameters)
                             and task.parameters.external_id == function_external_id
                         ):
-                            data = task.parameters.data
+                            data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
                             found = True
                             break
-            triggers = resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind)
-            for trigger in triggers:
+            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
@@ -343,10 +340,10 @@ if __name__ == "__main__":
                 schedule.identifier.function_external_id == function_external_id
                 and schedule.identifier.name == data_source
             ):
-                loaded = schedule.load_resource_dict({}, validate=False)
-                return loaded.get("data", {}), ClientCredentials.load(
-                    loaded["authentication"]
-                ) if "authentication" in loaded else None
+                raw_schedule = schedule.load_resource_dict({}, validate=False)
+                return raw_schedule.get("data", {}), ClientCredentials.load(
+                    raw_schedule["authentication"]
+                ) if "authentication" in raw_schedule else None
         raise ToolkitMissingResourceError(f"Could not find data for source {data_source}")
 
     def run_local(
@@ -485,14 +482,15 @@ if __name__ == "__main__":
                     f"Missing environment variable for clientSecret in schedule authentication, {authentication.client_secret}"
                 )
             print(f"Using schedule authentication to run {function_external_id!r}.")
+            secret_env_name = call_args.client_secret_env_name or "IDP_CLIENT_SECRET"
             credentials_args = {
                 "token_url": f'"{ToolGlobals._token_url}"',
                 "client_id": f'"{authentication.client_id}"',
-                "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
+                "client_secret": f'os.environ["{secret_env_name}"]',
                 "scopes": str(ToolGlobals._scopes),
             }
             env = {
-                "IDP_CLIENT_SECRET": authentication.client_secret,
+                secret_env_name: authentication.client_secret,
             }
             credentials_cls = OAuthClientCredentials.__name__
         else:

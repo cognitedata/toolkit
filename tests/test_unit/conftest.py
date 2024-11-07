@@ -67,6 +67,10 @@ def cdf_tool_mock(
         "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
         "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
         "CDF_URL": "https://bluefield.cognitedata.com",
+        "IDP_FUN_CLIENT_ID": "dummy",
+        "IDP_FUN_CLIENT_SECRET": "dummy",
+        "IDP_WF_CLIENT_ID": "dummy",
+        "IDP_WF_CLIENT_SECRET": "dummy",
     }
     existing = {}
     for key, value in environment_variables.items():
@@ -90,6 +94,7 @@ def cdf_tool_mock(
         cdf_tool._project = "pytest-project"
         cdf_tool._client_name = "pytest"
         cdf_tool._cdf_url = "https://bluefield.cognitedata.com"
+        cdf_tool._token_url = "dummy-url"
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42
