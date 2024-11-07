@@ -273,22 +273,61 @@ if __name__ == "__main__":
     def _get_call_args_interactive(
         function_external_id: str, resources: ModuleResources
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
-        raise NotImplementedError("Interactive mode is not supported yet.")
-        # schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
-        # options = {
-        #     f"FunctionSchedule {schedule.identifier.name}": schedule
-        #     for schedule in schedules
-        #     if schedule.identifier.function_external_id == function_external_id
-        # }
-        # if Flags.RUN_WORKFLOW.is_enabled():
-        #     raise NotImplementedError("Workflow is not supported yet.")
-        #
-        # if len(options) == 0:
-        #     print(f"No schedules found for this {function_external_id} function.")
-        #     return None
-        # selected_name: str = questionary.select("Select schedule to run",
-        #                                         choices=options).ask()  # type: ignore[arg-type]
-        # selected = options[selected_name]
+        schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
+        options: dict[str, Any] = {
+            f"FunctionSchedule {schedule.identifier.name}": schedule
+            for schedule in schedules
+            if schedule.identifier.function_external_id == function_external_id
+        }
+        if Flags.RUN_WORKFLOW.is_enabled():
+            workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+            raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
+            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
+                raw_trigger = trigger.load_resource_dict({}, validate=False)
+                loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
+                raw_trigger_by_workflow_id[
+                    WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
+                ] = raw_trigger
+
+            for workflow in workflows:
+                raw_workflow = workflow.load_resource_dict({}, validate=False)
+                loaded = WorkflowVersionUpsert.load(raw_workflow)
+                for task in loaded.workflow_definition.tasks:
+                    if (
+                        isinstance(task.parameters, FunctionTaskParameters)
+                        and task.parameters.external_id == function_external_id
+                    ):
+                        data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
+                        raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
+                        options[f"Workflow {workflow.identifier.workflow_external_id}"] = (
+                            data,
+                            raw_trigger.get("authentication"),
+                        )
+
+        if len(options) == 0:
+            items = "schedules or workflows" if Flags.RUN_WORKFLOW.is_enabled() else "schedules"
+            print(f"No {items} found for this {function_external_id} function.")
+            return {}, None
+        selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
+
+        selected = options[selected_name]
+        if isinstance(selected, BuiltResourceFull):
+            # Schedule
+            raw_schedule = selected.load_resource_dict({}, validate=False)
+            return raw_schedule.get("data", {}), ClientCredentials.load(
+                raw_schedule["authentication"]
+            ) if "authentication" in raw_schedule else None
+        elif (
+            isinstance(selected, tuple)
+            and len(selected) == 2
+            and isinstance(selected[0], dict)
+            and isinstance(selected[1], dict)
+        ):
+            return selected[0], ClientCredentials.load(selected[1]["authentication"]) if "authentication" in selected[
+                1
+            ] else None
+        else:
+            raise ToolkitValueError(f"Selected value {selected} is not a valid schedule or workflow.")
 
     @staticmethod
     def _geta_call_args_from_data_source(
