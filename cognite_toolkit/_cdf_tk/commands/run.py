@@ -651,11 +651,8 @@ class RunWorkflowCommand(ToolkitCommand):
             raise ToolkitMissingResourceError("No workflows found in modules.")
         if external_id is None:
             # Interactive mode
-            workflow_builds_by_identifier = {build.identifier: build for build in workflows}
-            workflow_id = questionary.select(
-                "Select workflow to run", choices=[f"{id_!r}" for id_ in workflow_builds_by_identifier.keys()]
-            ).ask()
-            selected = workflow_builds_by_identifier[workflow_id]
+            choices = [questionary.Choice(title=f"{build.identifier!r}", value=build) for build in workflows]
+            selected = questionary.select("Select workflow to run", choices=choices).ask()
         else:
             selected_ = next(
                 (
