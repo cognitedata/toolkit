@@ -11,7 +11,7 @@ from .init import InitCommand
 from .modules import ModulesCommand
 from .pull import PullCommand
 from .repo import RepoCommand
-from .run import RunFunctionCommand, RunTransformationCommand
+from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 
 __all__ = [
     "InitCommand",
@@ -25,6 +25,7 @@ __all__ = [
     "PullCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
+    "RunWorkflowCommand",
     "ModulesCommand",
     "RepoCommand",
     "DumpAssetsCommand",

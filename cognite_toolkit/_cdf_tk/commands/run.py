@@ -631,3 +631,16 @@ class RunTransformationCommand(ToolkitCommand):
                 print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
                 print(e)
         return True
+
+
+class RunWorkflowCommand(ToolkitCommand):
+    def run_workflow(
+        self,
+        ToolGlobals: CDFToolConfig,
+        organization_dir: Path,
+        build_env_name: str | None,
+        external_id: str | None,
+        version: str | None,
+    ) -> bool:
+        """Run a workflow in CDF"""
+        raise NotImplementedError("This method is not implemented yet.")
