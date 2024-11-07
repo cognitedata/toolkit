@@ -644,8 +644,72 @@ class RunWorkflowCommand(ToolkitCommand):
         wait: bool,
     ) -> bool:
         """Run a workflow in CDF"""
+        resources = ModuleResources(organization_dir, build_env_name)
+        is_interactive = external_id is None
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        if len(workflows) == 0:
+            raise ToolkitMissingResourceError("No workflows found in modules.")
+        if external_id is None:
+            # Interactive mode
+            workflow_builds_by_identifier = {build.identifier: build for build in workflows}
+            workflow_id = questionary.select(
+                "Select workflow to run", choices=[f"{id_!r}" for id_ in workflow_builds_by_identifier.keys()]
+            ).ask()
+            selected = workflow_builds_by_identifier[workflow_id]
+        else:
+            selected_ = next(
+                (
+                    build
+                    for build in workflows
+                    if build.identifier.workflow_external_id == external_id
+                    and (version is None or (build.identifier.version == version))
+                ),
+                None,
+            )
+            if selected_ is None:
+                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
+            selected = selected_
+        id_ = selected.identifier
+        triggers = resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind)
+
+        credentials: ClientCredentials | None = None
+        input_: dict | None = None
+        for trigger in triggers:
+            trigger_dict = trigger.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
+            if (
+                trigger_dict["workflow_external_id"] == id_.workflow_external_id
+                and trigger_dict["workflow_version"] == id_.version
+            ):
+                credentials = (
+                    ClientCredentials.load(trigger_dict["authentication"]) if "authentication" in trigger_dict else None
+                )
+                input_ = trigger_dict.get("input")
+                break
+
+        if credentials:
+            client = ToolGlobals.create_client(credentials)
+            nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+        else:
+            nonce = ToolGlobals.toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+
+        if is_interactive:
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").ask()
+        if id_.version is None:
+            raise ToolkitValueError("Version is required for workflow.")
         result = ToolGlobals.toolkit_client.workflows.executions.run(
-            workflow_external_id=, version=, input=, metadata=, nonce=nonce,
+            workflow_external_id=id_.workflow_external_id,
+            version=id_.version,
+            input=input_,
+            nonce=nonce,
         )
+        table = Table(title=f"Workflow {id_!r}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Execution id", str(result.id))
+        table.add_row("Status", str(result.status))
+        table.add_row("Created time", str(ms_to_datetime(result.start_time or 0)))
+        print(table)
 
-
+        if not wait:
+            return True
+        raise NotImplementedError("Waiting for workflow to complete is not yet implemented.")
