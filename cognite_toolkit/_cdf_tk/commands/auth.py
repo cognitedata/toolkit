@@ -147,7 +147,10 @@ class AuthCommand(ToolkitCommand):
             missing_capabilities = self._check_missing_capabilities(
                 ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
-            if is_interactive:
+            if (
+                is_interactive
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+            ):
                 has_added_capabilities = self._update_missing_capabilities(
                     ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run
                 )
@@ -159,7 +162,10 @@ class AuthCommand(ToolkitCommand):
             missing_capabilities = self._check_missing_capabilities(
                 ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
-            if is_interactive:
+            if (
+                is_interactive
+                and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
+            ):
                 self._update_missing_capabilities(ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run)
         else:
             print(f"Group {toolkit_group.name!r} does not exist in the CDF project.")

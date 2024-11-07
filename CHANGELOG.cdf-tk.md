@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - Running `cdf run function local` no longer defaults to `IDP_CLIENT_SECRET` as the environment variable
   for the client secret. Instead, it will use the name specified in the function schedule configuration.
+- `cdf auth verify` now asks the user to verify before updating the capabilities of the service principal.
 
 ## [0.3.7] - 2024-11-06
 

@@ -5,7 +5,7 @@ import pytest
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation
-from cognite.client.data_classes.workflows import WorkflowVersion, WorkflowDefinition
+from cognite.client.data_classes.workflows import WorkflowDefinition, WorkflowVersion
 
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
@@ -162,20 +162,32 @@ class TestRunWorkflow:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        # This is only used to verify that the workflow is found, so we don't need to populate it with data
         workflow = WorkflowVersion(
             workflow_external_id="workflow",
             version="v1",
             workflow_definition=WorkflowDefinition(
                 hash_="123",
-                tasks=[],
+                tasks=[
+                    {
+                        "name": "task1",
+                        "type": "python",
+                        "source": "print('Hello, world!')",
+                        "dependencies": [],
+                    }
+                ],
                 description="Test workflow",
-            )
+            ),
         )
         toolkit_client_approval.append(WorkflowVersion, workflow)
 
-        assert RunWorkflowCommand().run_workflow(
-            cdf_tool_mock,
-            organization_dir=RUN_DATA,
-            build_env_name="dev",
-            external_id="workflow",version="v1", wait=False) is True
+        assert (
+            RunWorkflowCommand().run_workflow(
+                cdf_tool_mock,
+                organization_dir=RUN_DATA,
+                build_env_name="dev",
+                external_id="workflow",
+                version="v1",
+                wait=False,
+            )
+            is True
+        )
