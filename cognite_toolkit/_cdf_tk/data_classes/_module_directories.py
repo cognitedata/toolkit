@@ -31,6 +31,10 @@ class ModuleLocation:
     definition: ModuleToml | None = None
 
     @property
+    def has_example_data(self) -> bool:
+        return bool(self.definition and self.definition.data)
+
+    @property
     def name(self) -> str:
         """The name of the module."""
         return self.dir.name

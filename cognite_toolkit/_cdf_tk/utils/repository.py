@@ -13,11 +13,11 @@ class GitHubFileDownloader:
     def __init__(self, repo: str) -> None:
         self.repo = repo
 
-    def copy(self, source: str, destination: str) -> None:
+    def copy(self, source: str, destination: Path) -> None:
         source_path = Path(source)
         to_download = list(self._find_files(source_path))
         for path, url in track(to_download, description=f"Downloading from {source_path.as_posix()!r}"):
-            self._download_file(url, path, Path(destination))
+            self._download_file(url, path, destination)
 
     def _find_files(self, source: Path) -> Iterable[tuple[Path, str]]:
         search = [""]
