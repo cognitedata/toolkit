@@ -10,3 +10,8 @@ tags = [
 
 [dependencies]
 modules = []
+
+[[data]]
+url = "https://github.com/cognitedata/toolkit-data.git"
+source = "data/publicdata/cdf_pi.Table.csv"
+destination = "raw/timeseries.Table.csv"
