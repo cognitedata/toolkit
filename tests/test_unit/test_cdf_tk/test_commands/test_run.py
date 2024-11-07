@@ -5,7 +5,9 @@ import pytest
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation
-from cognite.client.data_classes.workflows import WorkflowDefinition, WorkflowVersion
+from cognite.client.data_classes.workflows import (
+    WorkflowExecution,
+)
 
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
@@ -162,23 +164,13 @@ class TestRunWorkflow:
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        workflow = WorkflowVersion(
+        toolkit_client_approval.mock_client.workflows.executions.run.return_value = WorkflowExecution(
+            id="1234567890",
             workflow_external_id="workflow",
+            status="running",
+            created_time=int(datetime.now().timestamp() / 1000),
             version="v1",
-            workflow_definition=WorkflowDefinition(
-                hash_="123",
-                tasks=[
-                    {
-                        "name": "task1",
-                        "type": "python",
-                        "source": "print('Hello, world!')",
-                        "dependencies": [],
-                    }
-                ],
-                description="Test workflow",
-            ),
         )
-        toolkit_client_approval.append(WorkflowVersion, workflow)
 
         assert (
             RunWorkflowCommand().run_workflow(
