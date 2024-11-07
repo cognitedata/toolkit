@@ -5,5 +5,5 @@ triggerRule:
 workflowExternalId: {{ workflow }}
 workflowVersion: v1
 authentication:
-    clientId: {{cicd_clientId}}
-    clientSecret: {{cicd_clientSecret}}
+    clientId: {{workflowClientId}}
+    clientSecret: {{workflowClientSecret}}
