@@ -275,7 +275,7 @@ if __name__ == "__main__":
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
         options: dict[str, Any] = {
-            f"FunctionSchedule {schedule.identifier.name}": schedule
+            f"FunctionSchedule: {schedule.identifier.name}": schedule
             for schedule in schedules
             if schedule.identifier.function_external_id == function_external_id
         }
@@ -299,7 +299,7 @@ if __name__ == "__main__":
                     ):
                         data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
                         raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
-                        options[f"Workflow {workflow.identifier.workflow_external_id}"] = (
+                        options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
                             data,
                             raw_trigger.get("authentication"),
                         )
