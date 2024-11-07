@@ -20,6 +20,7 @@ from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
+    WorkflowExecutionDetailed,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
@@ -726,20 +727,29 @@ class RunWorkflowCommand(ToolkitCommand):
         if workflow is None:
             raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
 
-        max_time = sum(t.timeout * t.retries for t in workflow.workflow_definition.tasks)
-        result = ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id)
+        total = len(workflow.workflow_definition.tasks)
+        max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in workflow.workflow_definition.tasks)
+        result = cast(
+            WorkflowExecutionDetailed, ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id)
+        )
         with Progress() as progress:
-            call_task = progress.add_task("Waiting for workflow execution to complete...", total=max_time)
+            call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
             start_time = time.time()
             duration = 0.0
             sleep_time = 1
-            while (result is None or result.status.casefold() == "running") and duration < max_time:
+            while (result is None or result.status.upper() == "RUNNING") and duration < max_time:
                 time.sleep(sleep_time)
                 sleep_time = min(sleep_time * 2, 60)
-                result = ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id)
+                result = cast(
+                    WorkflowExecutionDetailed,
+                    ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id),
+                )
                 duration = time.time() - start_time
-                progress.advance(call_task, advance=duration)
-            progress.advance(call_task, advance=max_time - duration)
+                completed_count = sum(
+                    1 for task in result.executed_tasks if task.status.upper() not in {"IN_PROGRESS", "SCHEDULED"}
+                )
+                progress.advance(call_task, advance=completed_count)
+            progress.advance(call_task, advance=total)
             progress.stop()
         if result is None:
             print(f"Could not find execution {execution.id}")
@@ -757,7 +767,7 @@ class RunWorkflowCommand(ToolkitCommand):
 
         for task in result.executed_tasks:
             task_duration = (
-                f"{datetime.timedelta(seconds=task.end_time - task.start_time).total_seconds()} seconds"
+                f"{datetime.timedelta(seconds=(task.end_time - task.start_time)/1000).total_seconds():.1f} seconds"
                 if task.end_time and task.start_time
                 else ""
             )
