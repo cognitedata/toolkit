@@ -641,6 +641,11 @@ class RunWorkflowCommand(ToolkitCommand):
         build_env_name: str | None,
         external_id: str | None,
         version: str | None,
+        wait: bool,
     ) -> bool:
         """Run a workflow in CDF"""
-        raise NotImplementedError("This method is not implemented yet.")
+        result = ToolGlobals.toolkit_client.workflows.executions.run(
+            workflow_external_id=, version=, input=, metadata=, nonce=nonce,
+        )
+
+

@@ -5,9 +5,9 @@ import pytest
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation
-from cognite.client.data_classes.workflows import WorkflowVersion
+from cognite.client.data_classes.workflows import WorkflowVersion, WorkflowDefinition
 
-from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand
+from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.data_classes import ModuleResources
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
@@ -158,11 +158,24 @@ class TestRunFunction:
 
 
 class TestRunWorkflow:
-    def test_run_workflow(self, toolkit_client_approval: ApprovalToolkitClient):
+    def test_run_workflow(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
         cdf_tool = MagicMock(spec=CDFToolConfig)
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        workflow = WorkflowVersion()
+        # This is only used to verify that the workflow is found, so we don't need to populate it with data
+        workflow = WorkflowVersion(
+            workflow_external_id="workflow",
+            version="v1",
+            workflow_definition=WorkflowDefinition(
+                hash_="123",
+                tasks=[],
+                description="Test workflow",
+            )
+        )
         toolkit_client_approval.append(WorkflowVersion, workflow)
 
-        assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
+        assert RunWorkflowCommand().run_workflow(
+            cdf_tool_mock,
+            organization_dir=RUN_DATA,
+            build_env_name="dev",
+            external_id="workflow",version="v1", wait=False) is True

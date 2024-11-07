@@ -85,12 +85,20 @@ class RunApp(typer.Typer):
                     help="Name of the build environment to use. If not provided, the default environment will be used.",
                 ),
             ] = CDF_TOML.cdf.default_env,
+            wait: Annotated[
+                bool,
+                typer.Option(
+                    "--wait",
+                    "-w",
+                    help="Whether to wait for the workflow to complete.",
+                ),
+            ] = False,
         ) -> None:
             """This command will run the specified workflow."""
             cmd = RunWorkflowCommand()
             cmd.run(
                 lambda: cmd.run_workflow(
-                    CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, version
+                    CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, version, wait
                 )
             )
 
