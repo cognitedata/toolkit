@@ -11,6 +11,6 @@ tags = [
 modules = []
 
 [[data]]
-url = "https://github.com/cognitedata/toolkit-data.git"
+repo = "https://github.com/cognitedata/toolkit-data.git"
 source = "data/publicdata/assets.Table.csv"
 destination = "raw/dump.Table.csv"
