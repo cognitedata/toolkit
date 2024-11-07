@@ -717,7 +717,7 @@ class RunWorkflowCommand(ToolkitCommand):
         table.add_column("Value", justify="left", style="green")
         table.add_row("Execution id", str(execution.id))
         table.add_row("Status", str(execution.status))
-        table.add_row("Created time", str(ms_to_datetime(execution.start_time or 0)))
+        table.add_row("Created time", f"{ms_to_datetime(execution.start_time or 0):%Y-%m-%d %H:%M:%S}")
         print(table)
 
         if not wait:
