@@ -13,6 +13,7 @@ else:
 
 @dataclass(frozen=True)
 class ExampleData:
+    repoType: str
     repo: str
     source: str
     description: str
@@ -20,6 +21,7 @@ class ExampleData:
     @classmethod
     def load(cls, data: dict[str, Any]) -> ExampleData:
         return cls(
+            repoType=data["repoType"],
             repo=data["repo"],
             source=data["source"],
             description=data["description"],

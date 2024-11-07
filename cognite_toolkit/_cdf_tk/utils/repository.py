@@ -32,7 +32,7 @@ class GitHubFileDownloader:
                 elif item["type"] == "dir" and repo_path in parents:
                     search.append(item["path"])
 
-    @lru_cache(maxsize=10)
+    @lru_cache
     def _get_repo_contents(self, path: str = "") -> list[dict[str, str]]:
         url = f"{self.api_url}/repos/{self.repo}/contents/{path}"
         response = requests.get(url)
