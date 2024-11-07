@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- `cdf auth verify` now asks the user to verify before updating the capabilities of the service principal.
+
 ## [0.3.7] - 2024-11-06
 
 ### Fixed
