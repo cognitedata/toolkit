@@ -311,14 +311,15 @@ default_organization_dir = "{organization_dir.name}"''',
 
         raise typer.Exit()
 
-    def _get_download_data(self, selected: Packages) -> bool:
+    @staticmethod
+    def _get_download_data(selected: Packages) -> bool:
         example_data = {
             module.name for package in selected.values() for module in package.modules if module.has_example_data
         }
         download_data = False
         if example_data:
             download_data = questionary.confirm(
-                f"The modules {humanize_collection(example_data)} has example data. Would you like to downlaod it?",
+                f"The modules {humanize_collection(example_data)} has example data. Would you like to download it?",
                 default=True,
             ).ask()
         return download_data
