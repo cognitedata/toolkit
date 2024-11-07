@@ -38,13 +38,16 @@ def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
 
     assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
 
+
 @pytest.fixture(scope="session")
 def functon_module_resources() -> ModuleResources:
-    return  ModuleResources(RUN_DATA, "dev")
+    return ModuleResources(RUN_DATA, "dev")
 
 
 class TestRunFunction:
-    def test_run_function_live(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> None:
+    def test_run_function_live(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
         function = Function(
             id=1234567890,
             name="test3",
@@ -75,7 +78,6 @@ class TestRunFunction:
         )
         assert toolkit_client_approval.mock_client.functions.call.called
 
-
     def test_run_local_function(self, cdf_tool_mock: CDFToolConfig) -> None:
         cmd = RunFunctionCommand()
 
@@ -87,7 +89,6 @@ class TestRunFunction:
             data_source="daily-8pm-utc",
             rebuild_env=False,
         )
-
 
     def test_run_local_function_with_workflow(self, cdf_tool_mock: CDFToolConfig) -> None:
         cmd = RunFunctionCommand()
@@ -101,45 +102,54 @@ class TestRunFunction:
             rebuild_env=False,
         )
 
-    @pytest.mark.parametrize("data_source, expected", [
-        pytest.param("workflow", FunctionCallArgs(
-            data= {
-                "breakfast": "today: egg and bacon",
-                "lunch": "today: a chicken",
-                "dinner": "today: steak with stakes on the side",
-            },
-            authentication=ClientCredentials(
-                client_id="workflow_client_id",
-                client_secret="workflow_client_secret",
+    @pytest.mark.parametrize(
+        "data_source, expected",
+        [
+            pytest.param(
+                "workflow",
+                FunctionCallArgs(
+                    data={
+                        "breakfast": "today: egg and bacon",
+                        "lunch": "today: a chicken",
+                        "dinner": "today: steak with stakes on the side",
+                    },
+                    authentication=ClientCredentials(
+                        client_id="workflow_client_id",
+                        client_secret="workflow_client_secret",
+                    ),
+                    client_id_env_name="IDP_WF_CLIENT_ID",
+                    client_secret_env_name="IDP_WF_CLIENT_SECRET",
+                ),
+                id="workflow",
             ),
-            client_id_env_name="IDP_WF_CLIENT_ID",
-            client_secret_env_name="IDP_WF_CLIENT_SECRET",
-        ), id="workflow"),
-        pytest.param("daily-8am-utc", FunctionCallArgs(
-            data= {
-                "breakfast": "today: peanut butter sandwich and coffee",
-                "lunch": "today: greek salad and water",
-                "dinner": "today: steak and red wine",
-            },
-            authentication=ClientCredentials(
-                client_id="function_client_id",
-                client_secret="function_client_secret",
+            pytest.param(
+                "daily-8am-utc",
+                FunctionCallArgs(
+                    data={
+                        "breakfast": "today: peanut butter sandwich and coffee",
+                        "lunch": "today: greek salad and water",
+                        "dinner": "today: steak and red wine",
+                    },
+                    authentication=ClientCredentials(
+                        client_id="function_client_id",
+                        client_secret="function_client_secret",
+                    ),
+                    client_id_env_name="IDP_FUN_CLIENT_ID",
+                    client_secret_env_name="IDP_FUN_CLIENT_SECRET",
+                ),
+                id="daily-8pm-utc",
             ),
-            client_id_env_name="IDP_FUN_CLIENT_ID",
-            client_secret_env_name="IDP_FUN_CLIENT_SECRET",
-        ), id="daily-8pm-utc"),
-    ])
-    def test_get_call_args(self, data_source: str, expected: FunctionCallArgs, functon_module_resources: ModuleResources) -> None:
+        ],
+    )
+    def test_get_call_args(
+        self, data_source: str, expected: FunctionCallArgs, functon_module_resources: ModuleResources
+    ) -> None:
         environment_variables = {
             expected.client_id_env_name: expected.authentication.client_id,
             expected.client_secret_env_name: expected.authentication.client_secret,
         }
         actual = RunFunctionCommand._get_call_args(
-            data_source,
-            "fn_test3",
-            functon_module_resources,
-            environment_variables,
-            is_interactive=False
+            data_source, "fn_test3", functon_module_resources, environment_variables, is_interactive=False
         )
 
         assert actual == expected

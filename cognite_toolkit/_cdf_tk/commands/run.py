@@ -8,9 +8,9 @@ import platform
 import re
 import shutil
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
-from dataclasses import dataclass, field
 
 import questionary
 from cognite.client._api.functions import ALLOWED_HANDLE_ARGS
@@ -18,11 +18,13 @@ from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive,
 from cognite.client.data_classes import ClientCredentials, WorkflowTriggerUpsert
 from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
-from cognite.client.data_classes.workflows import WorkflowVersionId, WorkflowVersion, FunctionTaskParameters, \
-    WorkflowVersionUpsert
+from cognite.client.data_classes.workflows import (
+    FunctionTaskParameters,
+    WorkflowVersionId,
+    WorkflowVersionUpsert,
+)
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils import ms_to_datetime
-
 from rich import print
 from rich.progress import Progress
 from rich.table import Table
@@ -44,8 +46,8 @@ from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 
-from ._base import ToolkitCommand
 from ..loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
+from ._base import ToolkitCommand
 
 
 @dataclass
@@ -129,7 +131,9 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        call_args = self._get_call_args(data_source, external_id, resources, ToolGlobals.environment_variables(), is_interactive)
+        call_args = self._get_call_args(
+            data_source, external_id, resources, ToolGlobals.environment_variables(), is_interactive
+        )
 
         client = ToolGlobals.toolkit_client
         function = client.functions.retrieve(external_id=external_id)
@@ -227,9 +231,9 @@ if __name__ == "__main__":
         ):
             return FunctionCallArgs()
         if is_interactive:
-            data, credentials =  cls._get_call_args_interactive(function_external_id, resources)
+            data, credentials = cls._get_call_args_interactive(function_external_id, resources)
         elif data_source is not None:
-            data, credentials =  cls._geta_call_args_from_data_source(data_source, function_external_id, resources)
+            data, credentials = cls._geta_call_args_from_data_source(data_source, function_external_id, resources)
         else:
             raise ToolkitValueError("Data source is required when not in interactive mode.")
         if credentials is None:
@@ -255,9 +259,9 @@ if __name__ == "__main__":
             client_secret_name = None
             client_secret_value = credentials.client_secret
 
-        return FunctionCallArgs(data, ClientCredentials(client_id_value, client_secret_value), client_id_name, client_secret_name)
-
-
+        return FunctionCallArgs(
+            data, ClientCredentials(client_id_value, client_secret_value), client_id_name, client_secret_name
+        )
 
     @staticmethod
     def _is_environ_var(value: str) -> bool:
@@ -268,7 +272,9 @@ if __name__ == "__main__":
         return value.removeprefix("${").removesuffix("}")
 
     @staticmethod
-    def _get_call_args_interactive(function_external_id: str, resources: ModuleResources) -> tuple[dict[str, Any], ClientCredentials | None]:
+    def _get_call_args_interactive(
+        function_external_id: str, resources: ModuleResources
+    ) -> tuple[dict[str, Any], ClientCredentials | None]:
         raise NotImplementedError("Interactive mode is not supported yet.")
         # schedules = resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind)
         # options = {
@@ -286,20 +292,26 @@ if __name__ == "__main__":
         #                                         choices=options).ask()  # type: ignore[arg-type]
         # selected = options[selected_name]
 
-
     @staticmethod
-    def _geta_call_args_from_data_source(data_source: str | WorkflowVersionId, function_external_id: str, resources: ModuleResources) -> tuple[dict[str, Any], ClientCredentials | None]:
+    def _geta_call_args_from_data_source(
+        data_source: str | WorkflowVersionId, function_external_id: str, resources: ModuleResources
+    ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
         if Flags.RUN_WORKFLOW.is_enabled():
             workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
             found = False
             for workflow in workflows:
-                if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source):
+                if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
+                    isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
+                ):
                     raw_workflow = workflow.load_resource_dict({}, validate=False)
                     loaded = WorkflowVersionUpsert.load(raw_workflow)
                     for task in loaded.workflow_definition.tasks:
-                        if isinstance(task.parameters, FunctionTaskParameters) and task.parameters.external_id == function_external_id:
+                        if (
+                            isinstance(task.parameters, FunctionTaskParameters)
+                            and task.parameters.external_id == function_external_id
+                        ):
                             data = task.parameters.data
                             found = True
                             break
@@ -308,7 +320,9 @@ if __name__ == "__main__":
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
                 if (isinstance(data_source, str) and loaded_trigger.workflow_external_id == data_source) or (
-                    isinstance(data_source, WorkflowVersionId) and WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version) == data_source
+                    isinstance(data_source, WorkflowVersionId)
+                    and WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
+                    == data_source
                 ):
                     if "authentication" in raw_trigger:
                         try:
@@ -326,13 +340,14 @@ if __name__ == "__main__":
 
         for schedule in resources.list_resources(FunctionScheduleID, "functions", FunctionScheduleLoader.kind):
             if (
-                    schedule.identifier.function_external_id == function_external_id
-                    and schedule.identifier.name == data_source
+                schedule.identifier.function_external_id == function_external_id
+                and schedule.identifier.name == data_source
             ):
                 loaded = schedule.load_resource_dict({}, validate=False)
-                return loaded.get("data", {}), ClientCredentials.load(loaded["authentication"]) if "authentication" in loaded else None
+                return loaded.get("data", {}), ClientCredentials.load(
+                    loaded["authentication"]
+                ) if "authentication" in loaded else None
         raise ToolkitMissingResourceError(f"Could not find data for source {data_source}")
-
 
     def run_local(
         self,
@@ -430,7 +445,9 @@ if __name__ == "__main__":
         print(f"    [green]✓ 3/4[/green] Function {function_external_id!r} successfully imported code.")
 
         is_interactive = external_id is None
-        call_args = self._get_call_args(data_source, function_build.identifier, resources, ToolGlobals.environment_variables(), is_interactive)
+        call_args = self._get_call_args(
+            data_source, function_build.identifier, resources, ToolGlobals.environment_variables(), is_interactive
+        )
 
         run_check_py, env = self._create_run_check_file_with_env(
             ToolGlobals, args, function_dict, function_external_id, handler_file, call_args
@@ -470,7 +487,7 @@ if __name__ == "__main__":
             print(f"Using schedule authentication to run {function_external_id!r}.")
             credentials_args = {
                 "token_url": f'"{ToolGlobals._token_url}"',
-                "client_id": '"{}"'.format(authentication.client_id),
+                "client_id": f'"{authentication.client_id}"',
                 "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
                 "scopes": str(ToolGlobals._scopes),
             }
