@@ -13,10 +13,11 @@ class GitHubFileDownloader:
     def __init__(self, repo: str) -> None:
         self.repo = repo
 
-    def copy(self, source: Path, destination: Path) -> None:
-        to_download = list(self._find_files(source))
-        for path, url in track(to_download, description="Downloading files"):
-            self._download_file(url, path, destination)
+    def copy(self, source: str, destination: str) -> None:
+        source_path = Path(source)
+        to_download = list(self._find_files(source_path))
+        for path, url in track(to_download, description=f"Downloading from {source_path.as_posix()!r}"):
+            self._download_file(url, path, Path(destination))
 
     def _find_files(self, source: Path) -> Iterable[tuple[Path, str]]:
         search = [""]
@@ -42,11 +43,9 @@ class GitHubFileDownloader:
     def _download_file(url: str, source: Path, destination: Path) -> None:
         response = requests.get(url)
         response.raise_for_status()
-        if destination.is_file():
+        if destination.suffix:
             destination_path = destination
-        elif destination.is_dir():
-            destination_path = destination / source.name
         else:
-            raise ValueError(f"Destination {destination} is not a file or directory")
+            destination_path = destination / source.name
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         destination_path.write_bytes(response.content)
