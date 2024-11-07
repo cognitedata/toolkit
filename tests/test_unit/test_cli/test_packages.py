@@ -94,6 +94,10 @@ def test_build_packages_without_warnings(
     if package.can_cherry_pick:
         answers.insert(1, MockQuestionary.select_all)
 
+    if package.name == "quickstart":
+        # Skip downloading example data.
+        answers.append(False)
+
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
         module_cmd.init(organization_dir, clean=True)
 
@@ -152,6 +156,9 @@ def test_build_individual_module(
         True,
         ["dev"],
     ]
+    if package == "sourcesystem":
+        # Answer no to download example data.
+        answers.append(False)
 
     with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers), pytest.raises(typer.Exit) as exc_info:
         module_cmd.init(organization_dir, clean=True)
