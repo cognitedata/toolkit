@@ -27,6 +27,7 @@ Group:
   - functionsAcl:
       actions:
       - READ
+      - WRITE
       scope:
         all: {}
   - rawAcl:
