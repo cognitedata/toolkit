@@ -5,6 +5,7 @@ from ._datamodels import DataModelBuilder
 from ._file import FileBuilder
 from ._function import FunctionBuilder
 from ._raw import RawBuilder
+from ._streamlit import StreamlitBuilder
 from ._transformation import TransformationBuilder
 
 
@@ -27,6 +28,7 @@ __all__ = [
     "RawBuilder",
     "TransformationBuilder",
     "DataModelBuilder",
+    "StreamlitBuilder",
     "create_builder",
     "get_loader",
 ]

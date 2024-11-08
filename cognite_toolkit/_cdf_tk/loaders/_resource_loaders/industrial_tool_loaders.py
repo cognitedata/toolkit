@@ -118,11 +118,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     @lru_cache
     def _as_json_string(self, external_id: str, entrypoint: str) -> str:
         source_file = self._source_file_by_external_id[external_id]
-        if "." in source_file.name:
-            app_folder = source_file.name.split(".", maxsplit=1)[0]
-        else:
-            app_folder = source_file.name
-        app_path = source_file.parent / app_folder
+        app_path = source_file.with_name(external_id)
         if not app_path.exists():
             raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
         requirements_txt = app_path / "requirements.txt"
