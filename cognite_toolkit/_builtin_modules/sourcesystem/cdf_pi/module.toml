@@ -14,5 +14,5 @@ modules = []
 [[data]]
 repoType = "GitHub"
 repo = "cognitedata/toolkit-data"
-source = "data/publicdata/cdf_pi.Table.csv"
+source = "data/publicdata/pi_timeseries.Table.csv"
 destination = "raw/timeseries.Table.csv"
