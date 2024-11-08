@@ -24,6 +24,7 @@ from .fileread import (
 )
 from .other import (
     HighSeverityWarning,
+    HTTPWarning,
     IncorrectResourceWarning,
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -68,4 +69,5 @@ __all__ = [
     "MissingFileWarning",
     "MissingCapabilityWarning",
     "ToolkitDeprecationWarning",
+    "HTTPWarning",
 ]

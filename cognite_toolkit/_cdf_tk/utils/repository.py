@@ -2,16 +2,22 @@ import fnmatch
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 import requests
+from requests import Response
+from rich import print
 from rich.progress import track
+
+from cognite_toolkit._cdf_tk.tk_warnings import HTTPWarning
 
 
 class GitHubFileDownloader:
     api_url = "https://api.github.com"
 
-    def __init__(self, repo: str) -> None:
+    def __init__(self, repo: str, errors: Literal["continue", "raise"] = "continue") -> None:
         self.repo = repo
+        self.errors = errors
 
     def copy(self, source: str, destination: Path) -> None:
         source_path = Path(source)
@@ -35,14 +41,24 @@ class GitHubFileDownloader:
     @lru_cache
     def _get_repo_contents(self, path: str = "") -> list[dict[str, str]]:
         url = f"{self.api_url}/repos/{self.repo}/contents/{path}"
-        response = requests.get(url)
-        response.raise_for_status()
+        response = self._requests(url, "get repo contents")
+        if response is None:
+            return []
         return response.json()
 
-    @staticmethod
-    def _download_file(url: str, source: Path, destination: Path) -> None:
+    def _requests(self, url: str, action: str) -> Response | None:
         response = requests.get(url)
-        response.raise_for_status()
+        if response.status_code >= 400:
+            if self.errors == "raise":
+                response.raise_for_status()
+            print(HTTPWarning(action, response.text, response.status_code).get_message())
+            return None
+        return response
+
+    def _download_file(self, url: str, source: Path, destination: Path) -> None:
+        response = self._requests(url, f"download {source}")
+        if response is None:
+            return
         if destination.suffix:
             destination_path = destination
         else:
