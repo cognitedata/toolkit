@@ -126,6 +126,8 @@ class Streamlit(_StreamlitCore):
             dumped.update(dumped.pop("metadata"))
         if "cdf-toolkit-app-hash" in dumped:
             dumped["app_hash"] = dumped.pop("cdf-toolkit-app-hash")
+        if "entrypoint" not in dumped:
+            dumped["entrypoint"] = "MISSING"
         return cls._load(dumped)
 
     def as_write(self) -> StreamlitWrite:
