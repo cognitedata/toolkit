@@ -116,6 +116,13 @@ class Streamlit(_StreamlitCore):
                 args[key] = resource[key]
         return cls(**args)
 
+    @classmethod
+    def from_file(cls, file: FileMetadata) -> "Streamlit":
+        dumped = file.dump()
+        if "metadata" in dumped:
+            dumped.update(dumped.pop("metadata"))
+        return cls._load(dumped)
+
     def as_write(self) -> StreamlitWrite:
         return StreamlitWrite(
             external_id=self.external_id,

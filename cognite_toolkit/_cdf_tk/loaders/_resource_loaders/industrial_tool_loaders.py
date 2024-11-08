@@ -1,8 +1,10 @@
+import json
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, final
+from typing import Any, cast, final
 
+from cognite.client import _version as CogniteSDKVersion
 from cognite.client.data_classes.capabilities import (
     Capability,
     FilesAcl,
@@ -10,15 +12,14 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
     Streamlit,
     StreamlitList,
     StreamlitWrite,
     StreamlitWriteList,
 )
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitRequiredValueError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
@@ -40,6 +41,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     kind = "Streamlit"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Files/operation/initFileUpload"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        super().__init__(client, build_dir)
+        self._source_file_by_external_id: dict[str, Path] = {}
 
     @classmethod
     def get_required_capability(
@@ -88,7 +93,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in streamlit"
                 )
-        return StreamlitWriteList._load(resources)
+        loaded = cast(StreamlitWriteList, StreamlitWriteList._load(resources))
+        for item in loaded:
+            self._source_file_by_external_id[item.external_id] = filepath
+        return loaded
 
     def _are_equal(
         self, local: StreamlitWrite, cdf_resource: Streamlit, return_dumped: bool = False
@@ -102,20 +110,58 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
+    def _as_json_string(self, item: StreamlitWrite) -> str:
+        source_file = self._source_file_by_external_id[item.external_id]
+        if "." in source_file.name:
+            app_folder = source_file.name.split(".", maxsplit=1)[0]
+        else:
+            app_folder = source_file.name
+        app_path = source_file.parent / app_folder
+        if not app_path.exists():
+            raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
+        requirements_txt = app_path / "requirements.txt"
+        if requirements_txt.exists():
+            requirements_txt_lines = requirements_txt.read_text().splitlines()
+        else:
+            requirements_txt_lines = ["pyodide-http==0.2.1", f"cognite-sdk=={CogniteSDKVersion.__version__}"]
+        files = {
+            py_file.relative_to(app_path).as_posix(): {"content": {"text": py_file.read_text(), "$case": "text"}}
+            for py_file in app_path.rglob("*.py")
+            if py_file.is_file()
+        }
+
+        return json.dumps(
+            {
+                "entrypoint": item.entrypoint,
+                "files": files,
+                "requirements": requirements_txt_lines,
+            }
+        )
+
     def create(self, items: StreamlitWriteList) -> StreamlitList:
-        raise NotImplementedError("Streamlit creation is not supported")
+        created = StreamlitList([])
+        for item in items:
+            created_file, _ = self.client.files.create(item.as_file())
+            self.client.files.upload_bytes(self._as_json_string(item), item.external_id)
+            created.append(Streamlit.from_file(created_file))
+        return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> StreamlitList:
-        raise NotImplementedError("Streamlit retrieval is not supported")
+        files = self.client.files.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+        return StreamlitList([Streamlit.from_file(file) for file in files])
 
     def update(self, items: StreamlitWriteList) -> StreamlitList:
-        raise NotImplementedError("Streamlit update is not supported")
+        files = items.as_file_list()
+        updated = self.client.files.update(files, mode="replace")
+        return StreamlitList([Streamlit.from_file(file) for file in updated])
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        raise NotImplementedError("Streamlit deletion is not supported")
+        self.client.files.delete(external_id=ids)
+        return len(ids)
 
     def iterate(self) -> Iterable[Streamlit]:
-        raise NotImplementedError("Streamlit iteration is not supported")
+        for file in self.client.files:
+            yield Streamlit.from_file(file)
 
     @classmethod
     @lru_cache(maxsize=1)
