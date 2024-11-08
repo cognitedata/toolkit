@@ -32,6 +32,7 @@ capabilities:
   - functionsAcl:
       actions:
           - READ
+          - WRITE
       scope:
           all: {}
   - rawAcl:
