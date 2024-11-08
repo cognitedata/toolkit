@@ -20,6 +20,7 @@ from cognite.client.data_classes.transformations import TransformationList
 from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
+    WorkflowExecutionDetailed,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
@@ -33,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionSchedu
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
 from cognite_toolkit._cdf_tk.exceptions import (
+    AuthorizationError,
     ToolkitFileNotFoundError,
     ToolkitInvalidFunctionError,
     ToolkitMissingResourceError,
@@ -630,4 +632,152 @@ class RunTransformationCommand(ToolkitCommand):
             except CogniteAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
                 print(e)
+        return True
+
+
+class RunWorkflowCommand(ToolkitCommand):
+    def run_workflow(
+        self,
+        ToolGlobals: CDFToolConfig,
+        organization_dir: Path,
+        build_env_name: str | None,
+        external_id: str | None,
+        version: str | None,
+        wait: bool,
+    ) -> bool:
+        """Run a workflow in CDF"""
+        resources = ModuleResources(organization_dir, build_env_name)
+        is_interactive = external_id is None
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        if len(workflows) == 0:
+            raise ToolkitMissingResourceError("No workflows found in modules.")
+        if external_id is None:
+            # Interactive mode
+            choices = [questionary.Choice(title=f"{build.identifier!r}", value=build) for build in workflows]
+            selected = questionary.select("Select workflow to run", choices=choices).ask()
+        else:
+            selected_ = next(
+                (
+                    build
+                    for build in workflows
+                    if build.identifier.workflow_external_id == external_id
+                    and (version is None or (build.identifier.version == version))
+                ),
+                None,
+            )
+            if selected_ is None:
+                raise ToolkitMissingResourceError(f"Could not find workflow with external id {external_id}")
+            selected = selected_
+        id_ = selected.identifier
+        triggers = resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind)
+
+        credentials: ClientCredentials | None = None
+        input_: dict | None = None
+        for trigger in triggers:
+            trigger_dict = trigger.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
+            if (
+                trigger_dict["workflowExternalId"] == id_.workflow_external_id
+                and trigger_dict["workflowVersion"] == id_.version
+            ):
+                print(f"Found trigger {trigger.identifier!r} for workflow {id_!r}")
+                if (
+                    is_interactive
+                    and not questionary.confirm(
+                        "Do you want to use input data and authentication from this trigger?"
+                    ).ask()
+                ):
+                    break
+                credentials = (
+                    ClientCredentials.load(trigger_dict["authentication"]) if "authentication" in trigger_dict else None
+                )
+                input_ = trigger_dict.get("input")
+                break
+
+        try:
+            if credentials:
+                client = ToolGlobals.create_client(credentials)
+                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+            else:
+                nonce = ToolGlobals.toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+        except CogniteAPIError as e:
+            raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
+
+        if is_interactive:
+            wait = questionary.confirm("Do you want to wait for the workflow to complete?").ask()
+        if id_.version is None:
+            raise ToolkitValueError("Version is required for workflow.")
+        execution = ToolGlobals.toolkit_client.workflows.executions.run(
+            workflow_external_id=id_.workflow_external_id,
+            version=id_.version,
+            input=input_,
+            nonce=nonce,
+        )
+        table = Table(title=f"Workflow {id_!r}")
+        table.add_column("Info", justify="left")
+        table.add_column("Value", justify="left", style="green")
+        table.add_row("Execution id", str(execution.id))
+        table.add_row("Status", str(execution.status))
+        table.add_row("Created time", f"{ms_to_datetime(execution.start_time or 0):%Y-%m-%d %H:%M:%S}")
+        print(table)
+
+        if not wait:
+            return True
+
+        workflow = ToolGlobals.toolkit_client.workflows.versions.retrieve(id_.workflow_external_id, id_.version)
+        if workflow is None:
+            raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
+
+        total = len(workflow.workflow_definition.tasks)
+        max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in workflow.workflow_definition.tasks)
+        result = cast(
+            WorkflowExecutionDetailed, ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id)
+        )
+        with Progress() as progress:
+            call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
+            start_time = time.time()
+            duration = 0.0
+            sleep_time = 1
+            while (result is None or result.status.upper() == "RUNNING") and duration < max_time:
+                time.sleep(sleep_time)
+                sleep_time = min(sleep_time * 2, 60)
+                result = cast(
+                    WorkflowExecutionDetailed,
+                    ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id),
+                )
+                duration = time.time() - start_time
+                completed_count = sum(
+                    1 for task in result.executed_tasks if task.status.upper() not in {"IN_PROGRESS", "SCHEDULED"}
+                )
+                progress.advance(call_task, advance=completed_count)
+            progress.advance(call_task, advance=total)
+            progress.stop()
+        if result is None:
+            print(f"Could not find execution {execution.id}")
+            return False
+
+        print(f"Workflow {id_!r} execution {execution.id} completed with status {result.status}")
+
+        table = Table(title=f"Workflow Tasks {id_!r}")
+        table.add_column("Task")
+        table.add_column("Status")
+        table.add_column("Start Time")
+        table.add_column("End Time")
+        table.add_column("Duration")
+        table.add_column("ReasonForIncompletion")
+
+        for task in result.executed_tasks:
+            task_duration = (
+                f"{datetime.timedelta(seconds=(task.end_time - task.start_time)/1000).total_seconds():.1f} seconds"
+                if task.end_time and task.start_time
+                else ""
+            )
+            table.add_row(
+                task.external_id,
+                task.status,
+                f"{ms_to_datetime(task.start_time):%Y-%m-%d %H:%M:%S}" if task.start_time else "",
+                f"{ms_to_datetime(task.end_time):%Y-%m-%d %H:%M:%S}" if task.end_time else "",
+                task_duration,
+                task.reason_for_incompletion,
+            )
+        print(table)
         return True
