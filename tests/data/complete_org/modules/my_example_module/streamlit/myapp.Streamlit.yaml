@@ -1,0 +1,7 @@
+externalId: myapp
+name: MySuperApp
+creator: doctrino@github.com
+description: This is a super app
+published: true
+theme: Light
+thumbnail: "data:image/webp;base64,...."
