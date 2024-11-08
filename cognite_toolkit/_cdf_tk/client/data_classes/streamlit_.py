@@ -2,6 +2,7 @@ from abc import ABC
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
+from cognite.client.data_classes import FileMetadata, FileMetadataList, FileMetadataWrite, FileMetadataWriteList
 from cognite.client.data_classes._base import (
     CogniteResourceList,
     ExternalIDTransformerMixin,
@@ -33,11 +34,26 @@ class _StreamlitCore(WriteableCogniteResource["StreamlitWrite"], ABC):
         self.thumbnail = thumbnail
         self.data_set_id = data_set_id
 
+    def _as_file_args(self) -> dict[str, Any]:
+        metadata = {
+            "creator": self.creator,
+            "description": self.description,
+            "name": self.name,
+            "published": self.published,
+            "theme": self.theme,
+        }
+        if self.thumbnail:
+            metadata["thumbnail"] = self.thumbnail
+        return {
+            "external_id": self.external_id,
+            "name": f"{self.name}-source.json",
+            "data_set_id": self.data_set_id,
+            "directory": "/streamlit-apps/",
+            "metadata": metadata,
+        }
+
 
 class StreamlitWrite(_StreamlitCore):
-    def as_write(self) -> "StreamlitWrite":
-        return self
-
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> "StreamlitWrite":
         args = dict(
@@ -54,6 +70,12 @@ class StreamlitWrite(_StreamlitCore):
             if key in resource:
                 args[key] = resource[key]
         return cls(**args)
+
+    def as_write(self) -> "StreamlitWrite":
+        return self
+
+    def as_file(self) -> FileMetadataWrite:
+        return FileMetadataWrite(**self._as_file_args())
 
 
 class Streamlit(_StreamlitCore):
@@ -107,9 +129,20 @@ class Streamlit(_StreamlitCore):
             data_set_id=self.data_set_id,
         )
 
+    def as_file(self) -> FileMetadata:
+        args = self._as_file_args()
+        args.update(
+            created_time=self.created_time,
+            last_updated_time=self.last_updated_time,
+        )
+        return FileMetadata(**args)
+
 
 class StreamlitWriteList(CogniteResourceList[StreamlitWrite], ExternalIDTransformerMixin):
     _RESOURCE = StreamlitWrite
+
+    def as_file_list(self) -> FileMetadataList:
+        return FileMetadataList([item.as_file() for item in self])
 
 
 class StreamlitList(WriteableCogniteResourceList[StreamlitWrite, Streamlit], ExternalIDTransformerMixin):
@@ -117,3 +150,6 @@ class StreamlitList(WriteableCogniteResourceList[StreamlitWrite, Streamlit], Ext
 
     def as_write(self) -> StreamlitWriteList:
         return StreamlitWriteList([item.as_write() for item in self])
+
+    def as_file_list(self) -> FileMetadataWriteList:
+        return FileMetadataWriteList([item.as_file() for item in self])
