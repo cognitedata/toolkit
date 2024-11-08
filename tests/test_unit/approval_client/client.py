@@ -59,7 +59,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
-from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -361,6 +361,9 @@ class ApprovalToolkitClient:
         def create_single(*args, **kwargs) -> Sequence:
             return _create(*args, **kwargs)[0]
 
+        def create_filemetadata(*args, **kwargs) -> tuple[FileMetadata, str]:
+            return create_single(*args, **kwargs), "upload link"
+
         def create_raw_table(db_name: str, name: str | list[str]) -> Table | TableList:
             if isinstance(name, str):
                 created = Table(name=name, created_time=1)
@@ -516,8 +519,26 @@ class ApprovalToolkitClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def upload_file_content_files_api(
+        def upload_file_content_path_files_api(
             path: str,
+            external_id: str | None = None,
+            instance_id: NodeId | None = None,
+        ) -> FileMetadata:
+            return _upload_file_content_files_api(
+                calculate_bytes_or_file_hash(Path(path), shorten=True), external_id=external_id, instance_id=instance_id
+            )
+
+        def upload_file_content_bytes_files_api(
+            content: str,
+            external_id: str | None = None,
+            instance_id: NodeId | None = None,
+        ) -> FileMetadata:
+            return _upload_file_content_files_api(
+                calculate_str_or_file_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
+            )
+
+        def _upload_file_content_files_api(
+            filehash: str,
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
@@ -528,7 +549,7 @@ class ApprovalToolkitClient:
                 entry = {"external_id": external_id}
             else:
                 entry = instance_id.dump(include_instance_type=False)
-            entry["filehash"] = calculate_bytes_or_file_hash(Path(path), shorten=True)
+            entry["filehash"] = filehash
 
             created_resources[FileLoader.__name__].append(entry)
 
@@ -573,13 +594,15 @@ class ApprovalToolkitClient:
             for fn in [
                 create_multiple,
                 create_single,
+                create_filemetadata,
                 insert_dataframe,
                 upload,
                 upsert,
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                upload_file_content_files_api,
+                upload_file_content_path_files_api,
+                upload_file_content_bytes_files_api,
                 create_3dmodel,
                 apply_dml,
                 create_raw_table,

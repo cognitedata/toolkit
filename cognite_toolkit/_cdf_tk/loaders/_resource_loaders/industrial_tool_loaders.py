@@ -103,7 +103,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def _are_equal(
         self, local: StreamlitWrite, cdf_resource: Streamlit, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_hash = calculate_str_or_file_hash(self._as_json_string(local.external_id, local.entrypoint))
+        local_hash = calculate_str_or_file_hash(self._as_json_string(local.external_id, local.entrypoint), shorten=True)
         local_dumped = local.dump()
         local_dumped[self._metadata_hash_key] = local_hash
         cdf_dumped = cdf_resource.as_write().dump()
@@ -145,10 +145,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
             to_create = item.as_file()
-            to_create.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content)  # type: ignore[index]
+            to_create.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content, shorten=True)  # type: ignore[index]
             created_file, _ = self.client.files.create(to_create)
 
-            self.client.files.upload_bytes(content, item.external_id)
+            self.client.files.upload_content_bytes(content, item.external_id)
             created.append(Streamlit.from_file(created_file))
         return created
 
