@@ -4,7 +4,7 @@ name: Operation Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: cdf_idm
+    space: {{ schemaSpace2 }}
     externalId: CogniteOperation
     version: v1
   instanceSpace: {{ instanceSpace }}

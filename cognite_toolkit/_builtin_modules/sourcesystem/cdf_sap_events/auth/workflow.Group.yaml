@@ -43,4 +43,4 @@ capabilities:
       scope:
         spaceIdScope:
           spaceIds:
-            - {{ schemaSpace }}
+            - {{ schemaSpace2 }}
