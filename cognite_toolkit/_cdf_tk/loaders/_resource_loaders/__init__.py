@@ -12,6 +12,7 @@ from .hosted_extractors import (
     HostedExtractorMappingLoader,
     HostedExtractorSourceLoader,
 )
+from .industrial_tool_loaders import StreamlitLoader
 from .location_loaders import LocationFilterLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 from .robotics_loaders import (
@@ -67,4 +68,5 @@ __all__ = [
     "GraphQLLoader",
     "HostedExtractorSourceLoader",
     "HostedExtractorMappingLoader",
+    "StreamlitLoader",
 ]

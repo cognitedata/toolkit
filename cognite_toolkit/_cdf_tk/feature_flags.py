@@ -27,6 +27,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for running workflows",
     }
+    STREAMLIT: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for deploying Streamlit apps",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
