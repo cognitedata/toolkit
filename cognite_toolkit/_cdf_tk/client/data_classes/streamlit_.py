@@ -2,7 +2,7 @@ from abc import ABC
 from typing import Any, Literal
 
 from cognite.client import CogniteClient
-from cognite.client.data_classes import FileMetadata, FileMetadataList, FileMetadataWrite, FileMetadataWriteList
+from cognite.client.data_classes import FileMetadata, FileMetadataWrite, FileMetadataWriteList
 from cognite.client.data_classes._base import (
     CogniteResourceList,
     ExternalIDTransformerMixin,
@@ -153,8 +153,8 @@ class Streamlit(_StreamlitCore):
 class StreamlitWriteList(CogniteResourceList[StreamlitWrite], ExternalIDTransformerMixin):
     _RESOURCE = StreamlitWrite
 
-    def as_file_list(self) -> FileMetadataList:
-        return FileMetadataList([item.as_file() for item in self])
+    def as_file_list(self) -> FileMetadataWriteList:
+        return FileMetadataWriteList([item.as_file() for item in self])
 
 
 class StreamlitList(WriteableCogniteResourceList[StreamlitWrite, Streamlit], ExternalIDTransformerMixin):
