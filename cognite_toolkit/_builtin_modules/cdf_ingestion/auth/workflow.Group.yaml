@@ -21,6 +21,14 @@ capabilities:
       scope:
         all: {}
   # query-specific capabilities
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
   - rawAcl:
       actions:
         - READ
