@@ -5,8 +5,11 @@ import pytest
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.functions import Function, FunctionCall
 from cognite.client.data_classes.transformations import Transformation
+from cognite.client.data_classes.workflows import (
+    WorkflowExecution,
+)
 
-from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand
+from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.data_classes import ModuleResources
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
@@ -25,18 +28,19 @@ def test_get_oneshot_session(toolkit_client_approval: ApprovalToolkitClient):
     assert session.type == "ONESHOT_TOKEN_EXCHANGE"
 
 
-def test_run_transformation(toolkit_client_approval: ApprovalToolkitClient):
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-    cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-    transformation = Transformation(
-        name="Test transformation",
-        external_id="test",
-        query="SELECT * FROM timeseries",
-    )
-    toolkit_client_approval.append(Transformation, transformation)
+class TestRunTransformation:
+    def test_run_transformation(self, toolkit_client_approval: ApprovalToolkitClient):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        transformation = Transformation(
+            name="Test transformation",
+            external_id="test",
+            query="SELECT * FROM timeseries",
+        )
+        toolkit_client_approval.append(Transformation, transformation)
 
-    assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
+        assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
 
 
 @pytest.fixture(scope="session")
@@ -153,3 +157,29 @@ class TestRunFunction:
         )
 
         assert actual == expected
+
+
+class TestRunWorkflow:
+    def test_run_workflow(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
+        cdf_tool = MagicMock(spec=CDFToolConfig)
+        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+        toolkit_client_approval.mock_client.workflows.executions.run.return_value = WorkflowExecution(
+            id="1234567890",
+            workflow_external_id="workflow",
+            status="running",
+            created_time=int(datetime.now().timestamp() / 1000),
+            version="v1",
+        )
+
+        assert (
+            RunWorkflowCommand().run_workflow(
+                cdf_tool_mock,
+                organization_dir=RUN_DATA,
+                build_env_name="dev",
+                external_id="workflow",
+                version="v1",
+                wait=False,
+            )
+            is True
+        )
