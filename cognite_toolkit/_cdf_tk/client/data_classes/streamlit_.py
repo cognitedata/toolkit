@@ -41,6 +41,7 @@ class _StreamlitCore(WriteableCogniteResource["StreamlitWrite"], ABC):
             "name": self.name,
             "published": self.published,
             "theme": self.theme,
+            "entrypoint": self.entrypoint,
         }
         if self.thumbnail:
             metadata["thumbnail"] = self.thumbnail
@@ -87,7 +88,7 @@ class Streamlit(_StreamlitCore):
         entrypoint: str,
         created_time: int,
         last_updated_time: int,
-        app_hash: str,
+        app_hash: str = "MISSING",
         description: str | None = None,
         published: bool = False,
         theme: Literal["Light", "Dark"] = "Light",
@@ -125,8 +126,6 @@ class Streamlit(_StreamlitCore):
             dumped.update(dumped.pop("metadata"))
         if "cdf-toolkit-app-hash" in dumped:
             dumped["app_hash"] = dumped.pop("cdf-toolkit-app-hash")
-        else:
-            dumped["app_hash"] = "MISSING"
         return cls._load(dumped)
 
     def as_write(self) -> StreamlitWrite:

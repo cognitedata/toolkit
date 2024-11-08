@@ -155,6 +155,8 @@ FileLoader:
   space: sp_nodes
 - external_id: classicFileMetadata
   filehash: c646656c
+- external_id: myapp
+  filehash: c59dc2b6
 - external_id: shopConfigFile
   filehash: 09d16fb3
 FileMetadata:
@@ -166,6 +168,19 @@ FileMetadata:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
+- dataSetId: 42
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: true
+    theme: Light
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 - dataSetId: 42
   directory: /files
   externalId: shopConfigFile
