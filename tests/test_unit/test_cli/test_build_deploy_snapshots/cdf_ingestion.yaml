@@ -16,6 +16,14 @@ Group:
       - CREATE
       scope:
         all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
   - rawAcl:
       actions:
       - READ
