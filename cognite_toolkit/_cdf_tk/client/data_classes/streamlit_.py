@@ -87,6 +87,7 @@ class Streamlit(_StreamlitCore):
         entrypoint: str,
         created_time: int,
         last_updated_time: int,
+        app_hash: str,
         description: str | None = None,
         published: bool = False,
         theme: Literal["Light", "Dark"] = "Light",
@@ -94,6 +95,7 @@ class Streamlit(_StreamlitCore):
         data_set_id: int | None = None,
     ) -> None:
         super().__init__(external_id, name, creator, entrypoint, description, published, theme, thumbnail, data_set_id)
+        self.app_hash = app_hash
         self.created_time = created_time
         self.last_updated_time = last_updated_time
 
@@ -121,6 +123,10 @@ class Streamlit(_StreamlitCore):
         dumped = file.dump()
         if "metadata" in dumped:
             dumped.update(dumped.pop("metadata"))
+        if "cdf-toolkit-app-hash" in dumped:
+            dumped["app_hash"] = dumped.pop("cdf-toolkit-app-hash")
+        else:
+            dumped["app_hash"] = "MISSING"
         return cls._load(dumped)
 
     def as_write(self) -> StreamlitWrite:

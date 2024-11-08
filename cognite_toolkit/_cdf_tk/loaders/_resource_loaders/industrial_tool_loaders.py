@@ -25,6 +25,7 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     load_yaml_inject_variables,
 )
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -41,6 +42,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     kind = "Streamlit"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Files/operation/initFileUpload"
+    _metadata_hash_key = "cdf-toolkit-app-hash"
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
@@ -101,8 +103,11 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def _are_equal(
         self, local: StreamlitWrite, cdf_resource: Streamlit, return_dumped: bool = False
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_hash = calculate_str_or_file_hash(self._as_json_string(local.external_id, local.entrypoint))
         local_dumped = local.dump()
+        local_dumped[self._metadata_hash_key] = local_hash
         cdf_dumped = cdf_resource.as_write().dump()
+        cdf_dumped[self._metadata_hash_key] = cdf_resource.app_hash
 
         # If dataSetId is not set in the local, but are set in the CDF, it is a dry run
         # and we assume they are the same.
@@ -110,8 +115,9 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def _as_json_string(self, item: StreamlitWrite) -> str:
-        source_file = self._source_file_by_external_id[item.external_id]
+    @lru_cache
+    def _as_json_string(self, external_id: str, entrypoint: str) -> str:
+        source_file = self._source_file_by_external_id[external_id]
         if "." in source_file.name:
             app_folder = source_file.name.split(".", maxsplit=1)[0]
         else:
@@ -132,7 +138,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
 
         return json.dumps(
             {
-                "entrypoint": item.entrypoint,
+                "entrypoint": entrypoint,
                 "files": files,
                 "requirements": requirements_txt_lines,
             }
@@ -141,8 +147,12 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def create(self, items: StreamlitWriteList) -> StreamlitList:
         created = StreamlitList([])
         for item in items:
-            created_file, _ = self.client.files.create(item.as_file())
-            self.client.files.upload_bytes(self._as_json_string(item), item.external_id)
+            content = self._as_json_string(item.external_id, item.entrypoint)
+            to_create = item.as_file()
+            to_create.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content)  # type: ignore[index]
+            created_file, _ = self.client.files.create(to_create)
+
+            self.client.files.upload_bytes(content, item.external_id)
             created.append(Streamlit.from_file(created_file))
         return created
 
