@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- The `sourcesystem` modules now has example data.
+
 ## [0.3.7] - 2024-11-06
 
 No changes to templates.

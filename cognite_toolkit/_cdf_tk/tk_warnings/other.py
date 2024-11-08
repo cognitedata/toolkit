@@ -145,3 +145,14 @@ class ToolkitDeprecationWarning(ToolkitWarning, DeprecationWarning):
             msg += f"\nUse {self.alternative!r} instead."
 
         return msg
+
+
+@dataclass(frozen=True)
+class HTTPWarning(ToolkitWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
+    action: str
+    message: str
+    status_code: int
+
+    def get_message(self) -> str:
+        return f"Failed to {self.action}. HTTP status code {self.status_code}: {self.message}"
