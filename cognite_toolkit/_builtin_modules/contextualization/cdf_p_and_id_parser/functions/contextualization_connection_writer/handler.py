@@ -1,8 +1,9 @@
 import json
+import sys
 import traceback
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from typing import ClassVar, Literal, Self, TypeVar, cast
+from typing import ClassVar, Literal, TypeVar, cast
 
 from cognite.client.config import global_config
 
@@ -17,6 +18,12 @@ from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotation, CogniteDiagramAnnotationApply
 from pydantic import BaseModel, model_validator
 from pydantic.alias_generators import to_camel
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
 
 FUNCTION_ID = "connection_writer"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_direct_relation_write"
