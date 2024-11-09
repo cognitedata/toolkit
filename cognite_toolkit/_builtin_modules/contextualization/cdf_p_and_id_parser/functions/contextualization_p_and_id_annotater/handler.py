@@ -235,30 +235,6 @@ def trigger_diagram_detection_jobs(
             jobs.append(diagram_result)
     return jobs
 
-    # Trigger detection jobs for each file view
-    jobs: list[AnnotationJob] = []
-    for file_view, entity_sources in entity_sources_by_file_view.items():
-        is_view = dm.filters.HasData(views=[file_view])
-        for file_node in client.data_modeling.instances(instance_type="node", space=instance_spaces, filter=is_view):
-            file_id = file_node.as_id()
-            logger.debug(f"Processing file {file_id}")
-
-            job = AnnotationJob.from_cdf(client, file_id, config.state)
-
-            if job.failed_attempts >= max_failed_attempts:
-                logger.warning(
-                    f"Failed to detect diagram for {file_id} "
-                    f"after {max_failed_attempts} failed attempts. Will not try again."
-                )
-                continue
-
-            job_id = trigger_detection_job(job, client, entity_sources, logger)
-            job.latest_job_id = job_id
-
-            job.write_to_cdf(client, config.state)
-            jobs.append(job)
-    return jobs
-
 
 def get_entities(
     client: CogniteClient, job_config: AnnotationJobConfig, instance_spaces: list[str], logger: CogniteFunctionLogger
