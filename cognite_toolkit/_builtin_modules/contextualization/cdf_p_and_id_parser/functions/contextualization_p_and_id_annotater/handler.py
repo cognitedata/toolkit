@@ -2,24 +2,23 @@ import json
 import time
 import traceback
 from collections.abc import Iterable
-from typing import Literal, Any
-from hashlib import sha256
 from datetime import datetime, timezone
-from cognite.client.config import global_config
+from hashlib import sha256
+from typing import Any, Literal
 
+from cognite.client.config import global_config
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
+import yaml
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
-from cognite.client import data_modeling as dm
-
 from pydantic import BaseModel, Field, field_validator
 from pydantic.alias_generators import to_camel
-import yaml
 
 FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_pandid_annotater"

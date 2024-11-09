@@ -71,7 +71,11 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
-exclude = ["cognite_toolkit/_builtin_modules/examples/*"]
+exclude = [
+    "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/inrobot/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
+]
 
 [tool.ruff]
 line-length = 120
@@ -82,12 +86,14 @@ exclude = [
     "cognite_toolkit/_cdf_tk/commands/_changes.py",
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
 ]
 
 [tool.ruff.lint]
 exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
 ]
 
 [build-system]
