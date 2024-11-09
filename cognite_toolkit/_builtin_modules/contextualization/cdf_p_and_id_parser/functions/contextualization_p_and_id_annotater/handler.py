@@ -1,5 +1,3 @@
-# This is to turn off the import warnings in the Cognite SDK
-# ruff: noqa: E402
 import json
 import time
 import traceback
@@ -11,6 +9,7 @@ from typing import Any, Literal
 from cognite.client.config import global_config
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+# ruff: noqa: E402
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
 import yaml
