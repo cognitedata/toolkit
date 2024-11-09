@@ -4,7 +4,7 @@ import traceback
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from hashlib import sha256
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from cognite.client.config import global_config
 
@@ -115,23 +115,23 @@ class CogniteFunctionLogger:
         for line in lines[1:]:
             print(f"{' ' * prefix_len} {line}")
 
-    def debug(self, message: str):
+    def debug(self, message: str) -> None:
         if self.log_level == "DEBUG":
             self._print("[DEBUG]", message)
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
         if self.log_level in ("DEBUG", "INFO"):
             self._print("[INFO]", message)
 
-    def warning(self, message: str):
+    def warning(self, message: str) -> None:
         if self.log_level in ("DEBUG", "INFO", "WARNING"):
             self._print("[WARNING]", message)
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
         self._print("[ERROR]", message)
 
 
-class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
+class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_name=True):
     node_id: dm.NodeId
     start_view: dm.ViewId
     end_view: dm.ViewId
@@ -153,23 +153,31 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
         cls,
         node: dm.Node,
         file_view: dm.ViewId,
-        type: Literal["diagrams.FileLink", "diagrams.AssetLink"],
+        type_: Literal["diagrams.FileLink", "diagrams.AssetLink"],
         search_property: str,
     ) -> "Entity":
         view_id, properties = next(iter(node.properties.items()))
-        if type == "diagrams.FileLink":
+        if type_ == "diagrams.FileLink":
             start_view = file_view
             end_view = view_id
         else:
             start_view = view_id
             end_view = file_view
 
+        name = properties[search_property]
+        if not isinstance(name, str):
+            raise ValueError(f"Expected {search_property} to be a string, but got {type(name)}")
+
         return cls(
-            nodeId=node.as_id(), startView=start_view, endView=end_view, type=type, name=properties[search_property]
+            node_id=node.as_id(),
+            start_view=start_view,
+            end_view=end_view,
+            type=type_,
+            name=name,
         )
 
     @classmethod
-    def from_annotation(cls, data) -> "list[Entity]":
+    def from_annotation(cls, data: dict[str, Any]) -> "list[Entity]":
         return [cls.model_validate(item) for item in data["entities"]]
 
 
@@ -261,7 +269,7 @@ def wait_for_completion(
 
         job.update_status()
 
-        status = job.status.casefold()
+        status = cast(str, job.status).casefold()
         if status == "completed":
             yield job
         elif status in ("failed", "timeout"):
@@ -282,15 +290,16 @@ def write_annotations(
     logger: CogniteFunctionLogger,
 ) -> list[CogniteDiagramAnnotationApply]:
     annotation_list: list[CogniteDiagramAnnotationApply] = []
-    for detection in result.items:
+    for detection in result.items or []:
         for raw_annotation in detection.annotations or []:
             entities = Entity.from_annotation(raw_annotation)
             for entity in entities:
-                file_id = dm.NodeId.load(detection.file_instance_id)
-                annotation = load_annotation(raw_annotation, entity, file_id, annotation_space, source, parameter)
-                annotation_list.append(annotation)
+                if detection.file_instance_id is not None:
+                    file_id = dm.NodeId.load(detection.file_instance_id)
+                    annotation = load_annotation(raw_annotation, entity, file_id, annotation_space, source, parameter)
+                    annotation_list.append(annotation)
 
-    created = client.data_modeling.instances.apply(annotation_list).edges
+    created = client.data_modeling.instances.apply(edges=annotation_list).edges
 
     create_count = sum(
         [1 for result in created if result.was_modified and result.created_time == result.last_updated_time]
@@ -355,7 +364,7 @@ def load_annotation(
     )
 
 
-def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text, raw_annotation: dict[str, Any]) -> str:
+def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text: str, raw_annotation: dict[str, Any]) -> str:
     hash_ = sha256(json.dumps(raw_annotation, sort_keys=True).encode()).hexdigest()[:10]
     naive = f"{file_id.space}:{file_id.external_id}:{node_id.space}:{node_id.external_id}:{text}:{hash_}"
     if len(naive) < EXTERNAL_ID_LIMIT:
@@ -369,6 +378,8 @@ def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text, raw_annot
 
 def load_config(client: CogniteClient, logger: CogniteFunctionLogger) -> Config:
     raw_config = client.extraction_pipelines.config.retrieve(EXTRACTION_PIPELINE_EXTERNAL_ID)
+    if raw_config.config is None:
+        raise ValueError("No config found for extraction pipeline")
     try:
         return Config.model_validate(yaml.safe_load(raw_config.config))
     except ValueError as e:
