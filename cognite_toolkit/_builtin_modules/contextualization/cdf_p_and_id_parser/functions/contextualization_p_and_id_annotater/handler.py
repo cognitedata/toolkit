@@ -1,3 +1,5 @@
+# This is to turn off the import warnings in the Cognite SDK
+# ruff: noqa: E402
 import json
 import time
 import traceback
