@@ -77,7 +77,6 @@ exclude = ["cognite_toolkit/_builtin_modules/examples/*"]
 line-length = 120
 
 [tool.ruff.format]
-
 exclude = [
     # Ruff messes up the docstrings which are expected to be in Markdown format
     "cognite_toolkit/_cdf_tk/commands/_changes.py",
@@ -86,7 +85,10 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-exclude = ["cognite_toolkit/_builtin_modules/*"]
+exclude = [
+    "cognite_toolkit/_builtin_modules/inrobot/*",
+    "cognite_toolkit/_builtin_modules/examples/*",
+]
 
 [build-system]
 requires = ["poetry-core"]

@@ -8,6 +8,7 @@ class ExtractorConfig:
     api_url: str
     data_set_ext_id: str
 
+
 @dataclass
 class Config(BaseConfig):
     extractor: ExtractorConfig
