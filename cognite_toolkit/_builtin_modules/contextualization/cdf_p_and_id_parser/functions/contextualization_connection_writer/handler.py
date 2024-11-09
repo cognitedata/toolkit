@@ -2,7 +2,7 @@ import json
 import traceback
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
-from typing import ClassVar, Literal, Self, TypeVar
+from typing import ClassVar, Literal, Self, TypeVar, cast
 
 from cognite.client.config import global_config
 
@@ -181,7 +181,7 @@ def execute(data: dict, client: CogniteClient) -> None:
 T = TypeVar("T")
 
 
-def chunker(items: Sequence[T], chunk_size: int) -> Iterable[list[T]]:
+def chunker(items: Sequence[T], chunk_size: int) -> Iterable[Sequence[T]]:
     for i in range(0, len(items), chunk_size):
         yield items[i : i + chunk_size]
 
@@ -199,31 +199,33 @@ def iterate_new_approved_annotations(
 
 
 def write_connections(
-    annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]],
+    annotation_by_source_by_property_by_view: dict[
+        dm.ViewId, dict[tuple[dm.NodeId, str], list[dm.DirectRelationReference]]
+    ],
     client: CogniteClient,
     logger: CogniteFunctionLogger,
 ) -> int:
     connection_count = 0
     updated_nodes: list[dm.NodeApply] = []
-    for view_id, annotation_by_source_by_node in annotation_by_source_by_node.items():
-        node_ids = [node_id for node_id, _ in annotation_by_source_by_node.keys()]
+    for view_id, annotation_by_source_by_property in annotation_by_source_by_property_by_view.items():
+        node_ids = [node_id for node_id, _ in annotation_by_source_by_property.keys()]
         existing_node_list = client.data_modeling.instances.retrieve(node_ids, sources=[view_id]).nodes
         existing_node_by_id = {node.as_id(): node.as_write() for node in existing_node_list}
 
-        for (node_id, direct_relation_property), direct_relation_ids in annotation_by_source_by_node.items():
+        for (node_id, direct_relation_property), direct_relation_ids in annotation_by_source_by_property.items():
             existing_node = existing_node_by_id.get(node_id)
             if existing_node is None:
                 logger.warning(f"Node {node_id} not found in view {view_id}")
                 continue
             for entity_source in existing_node.sources:
                 if entity_source.source == view_id:
-                    existing_connections = entity_source.properties.get(direct_relation_property, [])
+                    existing_connections = cast(list[dict], entity_source.properties.get(direct_relation_property, []))
                     before = len(existing_connections)
                     all_connections = {
                         dm.DirectRelationReference.load(connection) for connection in existing_connections
                     } | set(direct_relation_ids)
                     after = len(all_connections)
-                    entity_source.properties[direct_relation_property] = [
+                    entity_source.properties[direct_relation_property] = [  # type: ignore[index]
                         connection.dump() for connection in all_connections
                     ]
                     connection_count += after - before
@@ -237,11 +239,11 @@ def write_connections(
 
 def to_direct_relations_by_source_by_node(
     annotations: list[CogniteDiagramAnnotation], mappings: list[DirectRelationMapping], logger: CogniteFunctionLogger
-) -> dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]]:
+) -> dict[dm.ViewId, dict[tuple[dm.NodeId, str], list[dm.DirectRelationReference]]]:
     mapping_by_entity_source: dict[tuple[dm.ViewId, dm.ViewId], DirectRelationMapping] = {
         (mapping.start_node_view.as_view_id(), mapping.end_node_view.as_view_id()): mapping for mapping in mappings
     }
-    annotation_by_source_by_node: dict[dm.ViewId, dict[(dm.NodeId, str), list[dm.DirectRelationReference]]] = (
+    annotation_by_source_by_node: dict[dm.ViewId, dict[tuple[dm.NodeId, str], list[dm.DirectRelationReference]]] = (
         defaultdict(lambda: defaultdict(list))
     )
     for annotation in annotations:
@@ -313,6 +315,8 @@ def create_query(last_cursor: str | None, annotation_space: str) -> dm.query.Que
 
 def load_config(client: CogniteClient, logger: CogniteFunctionLogger) -> Config:
     raw_config = client.extraction_pipelines.config.retrieve(EXTRACTION_PIPELINE_EXTERNAL_ID)
+    if raw_config.config is None:
+        raise ValueError(f"Config for extraction pipeline {EXTRACTION_PIPELINE_EXTERNAL_ID} is empty")
     try:
         return Config.model_validate(yaml.safe_load(raw_config.config))
     except ValueError as e:
