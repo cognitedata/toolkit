@@ -1,0 +1,2 @@
+externalId: {{ workflow }}
+description: This workflow entity matches and writes the approved annotations into the data.

@@ -1,0 +1,5 @@
+externalId: '{{ annotatorJob }}'
+name: 'Entity Matcher'
+dataSetExternalId: {{ dataset }}
+description: "Matches entities based on their properties"
+documentation: "missing"

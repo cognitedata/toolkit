@@ -1,0 +1,3 @@
+externalId: '{{ annotatorJob }}'
+config:
+  unknown: 'unknown'
