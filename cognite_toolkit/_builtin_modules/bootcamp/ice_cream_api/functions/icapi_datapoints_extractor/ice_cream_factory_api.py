@@ -29,9 +29,7 @@ class IceCreamFactoryAPI:
         response.raise_for_status()
         return response
 
-    def get_datapoints(
-        self, timeseries_ext_id: str, start: Union[str, int, float], end: Union[str, int, float]
-    ):
+    def get_datapoints(self, timeseries_ext_id: str, start: Union[str, int, float], end: Union[str, int, float]):
         """
         Get datapoints for a timeseries external id. This will also return datapoints for an associated timeseries
 

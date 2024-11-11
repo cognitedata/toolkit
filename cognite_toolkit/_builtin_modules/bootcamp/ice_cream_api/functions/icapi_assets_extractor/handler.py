@@ -9,26 +9,23 @@ from config import Config
 from ice_cream_factory_api import IceCreamFactoryAPI
 
 
-def run_extractor(
-    client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event
-) -> None:
+def run_extractor(client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     ice_cream_api = IceCreamFactoryAPI(base_url=config.extractor.api_url)
 
     sites_csv = ice_cream_api.get_sites_csv()
     sites_df = pandas.read_csv(
-        StringIO(sites_csv),
-        sep=",",
-        usecols=["name", "external_id", "description", "metadata", "parent_external_id"]
+        StringIO(sites_csv), sep=",", usecols=["name", "external_id", "description", "metadata", "parent_external_id"]
     )
 
     client.raw.rows.insert_dataframe(
         dataframe=sites_df,
         db_name=config.extractor.dest.database,
         table_name=config.extractor.dest.table,
-        ensure_parent=True
+        ensure_parent=True,
     )
 
-def handle(client: CogniteClient = None, data = None):
+
+def handle(client: CogniteClient = None, data=None):
     if data:
         config_file_path = data.get("config_file_path", "extractor_config.yaml")
     else:

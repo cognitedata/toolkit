@@ -7,10 +7,7 @@ from config import Config
 from ice_cream_factory_api import IceCreamFactoryAPI
 
 
-def run_extractor(
-    client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event
-) -> None:
-
+def run_extractor(client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     ice_cream_api = IceCreamFactoryAPI(base_url=config.extractor.api_url)
     time_series = ice_cream_api.get_timeseries()
 
@@ -25,7 +22,8 @@ def run_extractor(
 
     client.time_series.upsert(item=time_series)
 
-def handle(client: CogniteClient = None, data = None):
+
+def handle(client: CogniteClient = None, data=None):
     if data:
         config_file_path = data.get("config_file_path", "extractor_config.yaml")
     else:
@@ -40,6 +38,7 @@ def handle(client: CogniteClient = None, data = None):
         run_handle=run_extractor,
     ) as extractor:
         extractor.run()
+
 
 if __name__ == "__main__":
     handle()

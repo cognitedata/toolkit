@@ -14,19 +14,15 @@ from ice_cream_factory_api import IceCreamFactoryAPI
 def get_timeseries_for_site(client: CogniteClient, site, config: Config):
     this_site = site.lower()
     ts = client.time_series.list(
-        data_set_external_ids=config.extractor.data_set_ext_id,
-        metadata={"site": this_site},
-        limit=None
+        data_set_external_ids=config.extractor.data_set_ext_id, metadata={"site": this_site}, limit=None
     )
 
     # filter returned list because the API returns connected timeseries. planned_status -> status, good -> count
     ts = [item for item in ts if any(substring in item.external_id for substring in ["planned_status", "good"])]
     return ts
 
-def run_extractor(
-    client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event
-) -> None:
 
+def run_extractor(client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
     # The only way to pass variables to and Extractor's run function
     if "SITES" in os.environ:
         config.extractor.sites = literal_eval(os.environ["SITES"])
@@ -57,8 +53,7 @@ def run_extractor(
             latest_dps = {
                 dp.external_id: dp.timestamp
                 for dp in client.time_series.data.retrieve_latest(
-                    external_id=[ts.external_id for ts in time_series],
-                    ignore_unknown_ids=True
+                    external_id=[ts.external_id for ts in time_series], ignore_unknown_ids=True
                 )
             }
 
@@ -80,7 +75,8 @@ def run_extractor(
         # trigger upload for this site
         upload_queue.upload()
 
-def handle(client: CogniteClient = None, data = None):
+
+def handle(client: CogniteClient = None, data=None):
     config_file_path = "extractor_config.yaml"
 
     # Can't pass parameters to the Extractor, so create environment variables
@@ -105,4 +101,3 @@ def handle(client: CogniteClient = None, data = None):
         run_handle=run_extractor,
     ) as extractor:
         extractor.run()
-
