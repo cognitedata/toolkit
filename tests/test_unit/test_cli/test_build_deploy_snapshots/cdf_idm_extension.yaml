@@ -78,6 +78,12 @@ View:
     version: v1
   name: Activity
   properties:
+    UUID:
+      container:
+        externalId: YourOrgActivity
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteActivity
@@ -141,6 +147,12 @@ View:
     version: v1
   name: Asset
   properties:
+    UUID:
+      container:
+        externalId: YourOrgAsset
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the asset.
@@ -320,7 +332,13 @@ View:
     type: view
     version: v1
   name: Asset class
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgAssetClass
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - description: Represents the type of an asset.
@@ -332,6 +350,12 @@ View:
     version: v1
   name: Asset type
   properties:
+    UUID:
+      container:
+        externalId: YourOrgAssetType
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     assetClass:
       container:
         externalId: CogniteAssetType
@@ -357,6 +381,12 @@ View:
     version: v1
   name: Equipment
   properties:
+    UUID:
+      container:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the equipment.
@@ -451,7 +481,13 @@ View:
     type: view
     version: v1
   name: Equipment type
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgEquipmentType
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - description: Represents files.
@@ -463,6 +499,12 @@ View:
     version: v1
   name: File
   properties:
+    UUID:
+      container:
+        externalId: YourOrgFile
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteFile
@@ -530,7 +572,13 @@ View:
     type: view
     version: v1
   name: File category
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgFileCategory
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - description: A formal request or directive to perform maintenance tasks such as
@@ -544,6 +592,12 @@ View:
     version: v1
   name: Maintenance order
   properties:
+    UUID:
+      container:
+        externalId: YourOrgMaintenanceOrder
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteActivity
@@ -638,6 +692,12 @@ View:
     version: v1
   name: Notification```
   properties:
+    UUID:
+      container:
+        externalId: YourOrgNotification
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     asset:
       container:
         externalId: CogniteNotification
@@ -688,6 +748,12 @@ View:
     version: v1
   name: Operation
   properties:
+    UUID:
+      container:
+        externalId: YourOrgOperation
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteActivity
@@ -776,7 +842,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgSourceSystem
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - externalId: YourOrgSourceable
@@ -786,6 +858,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: YourOrgSourceable
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -809,6 +887,12 @@ View:
     version: v1
   name: Time series
   properties:
+    UUID:
+      container:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities the time series is
@@ -886,6 +970,12 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgUnit
+        space: sp_enterprise_min_schema_idm
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1

@@ -66,6 +66,12 @@ View:
     version: v1
   name: Activity
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumActivity
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteActivity
@@ -129,6 +135,12 @@ View:
     version: v1
   name: Asset
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumAsset
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the asset.
@@ -308,7 +320,13 @@ View:
     type: view
     version: v1
   name: Asset class
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumAssetClass
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1
 - description: Represents the type of an asset.
@@ -320,6 +338,12 @@ View:
     version: v1
   name: Asset type
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumAssetType
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assetClass:
       container:
         externalId: CogniteAssetType
@@ -345,6 +369,12 @@ View:
     version: v1
   name: Equipment
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumEquipment
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the equipment.
@@ -439,7 +469,13 @@ View:
     type: view
     version: v1
   name: Equipment type
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumEquipmentType
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1
 - description: Represents files.
@@ -451,6 +487,12 @@ View:
     version: v1
   name: File
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumFile
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteFile
@@ -518,7 +560,13 @@ View:
     type: view
     version: v1
   name: File category
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumFileCategory
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1
 - description: The CogniteSourceSystem core concept is used to standardize the way
@@ -529,7 +577,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumSourceSystem
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1
 - externalId: ToolkitMinimumSourceable
@@ -539,6 +593,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumSourceable
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -562,6 +622,12 @@ View:
     version: v1
   name: Time series
   properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumTimeSeries
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities the time series is
@@ -639,6 +705,12 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitMinimumUnit
+        space: sp_enterprise_min_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1

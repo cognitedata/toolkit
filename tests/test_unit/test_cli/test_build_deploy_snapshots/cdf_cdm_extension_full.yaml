@@ -137,6 +137,10 @@ DataModel:
     space: sp_enterprise_schema
     type: view
     version: v1
+Node:
+- externalId: ToolkitCADNode
+  instanceType: node
+  space: sp_enterprise_schema
 Space:
 - space: sp_enterprise_schema
 View:
@@ -148,6 +152,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit360Image
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     back:
       container:
         externalId: CogniteCubeMap
@@ -261,6 +271,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit360ImageAnnotation
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -295,6 +311,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit360ImageCollection
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: Cognite3DRevision
@@ -328,6 +350,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit360ImageModel
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     collections:
       connectionType: multi_reverse_direct_relation
       description: List Cognite360Image collections for this instance
@@ -377,7 +405,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: Toolkit360ImageStation
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
@@ -389,6 +423,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit3DModel
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     thumbnail:
       container:
         externalId: Cognite3DModel
@@ -412,6 +452,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit3DObject
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     asset:
       connectionType: single_reverse_direct_relation
       description: Asset that is tied to this 3D object
@@ -489,6 +535,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: Toolkit3DRevision
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: Cognite3DRevision
@@ -517,7 +569,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: Toolkit3DTransformation
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Represents activities. Activities typically happen over a period and
@@ -530,6 +588,12 @@ View:
     version: v1
   name: Activity
   properties:
+    UUID:
+      container:
+        externalId: ToolkitActivity
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteActivity
@@ -591,6 +655,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitAnnotation
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -615,6 +685,12 @@ View:
     version: v1
   name: Asset
   properties:
+    UUID:
+      container:
+        externalId: ToolkitAsset
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the asset.
@@ -798,7 +874,13 @@ View:
     type: view
     version: v1
   name: Asset class
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitAssetClass
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Represents the type of an asset.
@@ -810,6 +892,12 @@ View:
     version: v1
   name: Asset type
   properties:
+    UUID:
+      container:
+        externalId: ToolkitAssetType
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assetClass:
       container:
         externalId: CogniteAssetType
@@ -846,6 +934,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitCADModel
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     revisions:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this CAD model
@@ -883,6 +977,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitCADNode
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: CogniteCADNode
@@ -942,6 +1042,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitCADRevision
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: Cognite3DRevision
@@ -966,6 +1072,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitCubeMap
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     back:
       container:
         externalId: CogniteCubeMap
@@ -1056,7 +1168,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitDescribable
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Annotation for diagrams
@@ -1067,6 +1185,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitDiagramAnnotation
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -1090,6 +1214,12 @@ View:
     version: v1
   name: Equipment
   properties:
+    UUID:
+      container:
+        externalId: ToolkitEquipment
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities related to the equipment.
@@ -1184,7 +1314,13 @@ View:
     type: view
     version: v1
   name: Equipment type
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitEquipmentType
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Represents files.
@@ -1196,6 +1332,12 @@ View:
     version: v1
   name: File
   properties:
+    UUID:
+      container:
+        externalId: ToolkitFile
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     assets:
       container:
         externalId: CogniteFile
@@ -1263,7 +1405,13 @@ View:
     type: view
     version: v1
   name: File category
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitFileCategory
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: Navigational aid for traversing CognitePointCloudModel instances
@@ -1286,6 +1434,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitPointCloudModel
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     revisions:
       connectionType: multi_reverse_direct_relation
       description: List of revisions for this PointCloud model
@@ -1335,6 +1489,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitPointCloudRevision
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: Cognite3DRevision
@@ -1356,6 +1516,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitPointCloudVolume
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     model3D:
       container:
         externalId: CognitePointCloudVolume
@@ -1402,7 +1568,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitSchedulable
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: The CogniteSourceSystem core concept is used to standardize the way
@@ -1413,7 +1585,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitSourceSystem
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - externalId: ToolkitSourceable
@@ -1423,6 +1601,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitSourceable
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     source:
       container:
         externalId: CogniteSourceable
@@ -1446,6 +1630,12 @@ View:
     version: v1
   name: Time series
   properties:
+    UUID:
+      container:
+        externalId: ToolkitTimeSeries
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     activities:
       connectionType: multi_reverse_direct_relation
       description: An automatically updated list of activities the time series is
@@ -1523,7 +1713,13 @@ View:
     space: cdf_cdm
     type: view
     version: v1
-  properties: {}
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitUnit
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
   space: sp_enterprise_schema
   version: v1
 - description: CogniteVisualizable defines the standard way to reference a related
@@ -1535,6 +1731,12 @@ View:
     type: view
     version: v1
   properties:
+    UUID:
+      container:
+        externalId: ToolkitVisualizable
+        space: sp_enterprise_schema
+        type: container
+      containerPropertyIdentifier: UUID
     object3D:
       container:
         externalId: CogniteVisualizable
