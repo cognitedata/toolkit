@@ -28,6 +28,7 @@ where
   activity.space == '{{ instanceSpace }}' and
   isnotnull(activity.tags) and
   isnotnull(activity.`externalId`) and
+  timeseries_lookup.space == '{{ instanceSpace }}' and
   isnotnull(timeseries_lookup.`name`)
 group by
   activity.`externalId`

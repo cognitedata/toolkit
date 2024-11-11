@@ -2,24 +2,24 @@ import json
 import time
 import traceback
 from collections.abc import Iterable
-from typing import Literal, Any
-from hashlib import sha256
 from datetime import datetime, timezone
+from hashlib import sha256
+from typing import Any, Literal, cast
+
 from cognite.client.config import global_config
 
-
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
+# ruff: noqa: E402
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
+import yaml
 from cognite.client import CogniteClient
+from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.contextualization import DiagramDetectResults
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
-from cognite.client import data_modeling as dm
-
 from pydantic import BaseModel, Field, field_validator
 from pydantic.alias_generators import to_camel
-import yaml
 
 FUNCTION_ID = "p_and_id_annotater"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_files_pandid_annotater"
@@ -44,20 +44,17 @@ def handle(data: dict, client: CogniteClient) -> dict:
         error_msg = f'"{e!s}"'
         message = prefix + error_msg + suffix
         if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
-            error_msg = error_msg[:EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix)- 3]
+            error_msg = error_msg[: EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix) - 3]
             message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
         message = FUNCTION_ID
 
     client.extraction_pipelines.runs.create(
-        ExtractionPipelineRunWrite(
-            extpipe_external_id=EXTRACTION_PIPELINE_EXTERNAL_ID,
-            status=status,
-            message=message
-        )
+        ExtractionPipelineRunWrite(extpipe_external_id=EXTRACTION_PIPELINE_EXTERNAL_ID, status=status, message=message)
     )
     return {"status": status, "message": message}
+
 
 ################# Data Classes #################
 
@@ -118,23 +115,23 @@ class CogniteFunctionLogger:
         for line in lines[1:]:
             print(f"{' ' * prefix_len} {line}")
 
-    def debug(self, message: str):
+    def debug(self, message: str) -> None:
         if self.log_level == "DEBUG":
             self._print("[DEBUG]", message)
 
-    def info(self, message: str):
+    def info(self, message: str) -> None:
         if self.log_level in ("DEBUG", "INFO"):
             self._print("[INFO]", message)
 
-    def warning(self, message: str):
+    def warning(self, message: str) -> None:
         if self.log_level in ("DEBUG", "INFO", "WARNING"):
             self._print("[WARNING]", message)
 
-    def error(self, message: str):
+    def error(self, message: str) -> None:
         self._print("[ERROR]", message)
 
 
-class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
+class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_name=True):
     node_id: dm.NodeId
     start_view: dm.ViewId
     end_view: dm.ViewId
@@ -142,32 +139,55 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow"):
     name: str
 
     @classmethod
-    def from_nodes(cls, nodes: dm.NodeList, file_view: dm.ViewId, type: Literal["diagrams.FileLink", "diagrams.AssetLink"], search_property: str) -> "list[Entity]":
+    def from_nodes(
+        cls,
+        nodes: dm.NodeList,
+        file_view: dm.ViewId,
+        type: Literal["diagrams.FileLink", "diagrams.AssetLink"],
+        search_property: str,
+    ) -> "list[Entity]":
         return [cls.from_node(node, file_view, type, search_property) for node in nodes]
 
     @classmethod
-    def from_node(cls, node: dm.Node, file_view: dm.ViewId, type: Literal["diagrams.FileLink", "diagrams.AssetLink"], search_property: str) -> "Entity":
-
+    def from_node(
+        cls,
+        node: dm.Node,
+        file_view: dm.ViewId,
+        type_: Literal["diagrams.FileLink", "diagrams.AssetLink"],
+        search_property: str,
+    ) -> "Entity":
         view_id, properties = next(iter(node.properties.items()))
-        if type == "diagrams.FileLink":
+        if type_ == "diagrams.FileLink":
             start_view = file_view
             end_view = view_id
         else:
             start_view = view_id
             end_view = file_view
 
-        return cls(nodeId=node.as_id(), startView=start_view, endView=end_view, type=type, name=properties[search_property])
+        name = properties[search_property]
+        if not isinstance(name, str):
+            raise ValueError(f"Expected {search_property} to be a string, but got {type(name)}")
+
+        return cls(
+            node_id=node.as_id(),
+            start_view=start_view,
+            end_view=end_view,
+            type=type_,
+            name=name,
+        )
 
     @classmethod
-    def from_annotation(cls, data) -> "list[Entity]":
+    def from_annotation(cls, data: dict[str, Any]) -> "list[Entity]":
         return [cls.model_validate(item) for item in data["entities"]]
+
 
 #####################################################
 
 ################# Functions #################
 
+
 def execute(data: dict, client: CogniteClient) -> None:
-    logger = CogniteFunctionLogger(data.get("logLevel", "INFO")) # type: ignore[arg-type]
+    logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
     logger.debug("Starting diagram parsing annotation")
     config = load_config(client, logger)
     logger.debug("Loaded config successfully")
@@ -179,23 +199,29 @@ def execute(data: dict, client: CogniteClient) -> None:
     annotation_count = 0
     for result in wait_for_completion(jobs, logger):
         if result.errors:
-            errors_str = '\n  - '.join(sorted(set(result.errors)))
+            errors_str = "\n  - ".join(sorted(set(result.errors)))
             logger.error(f"Job {result.job_id} {len(result.errors)} files failed: \n  - {errors_str}")
             continue
-        annotations = write_annotations(result, client, config.data.annotation_space, config.source_system, config.parameters, logger)
+        annotations = write_annotations(
+            result, client, config.data.annotation_space, config.source_system, config.parameters, logger
+        )
         annotation_count += len(annotations)
 
     logger.info(f"Annotations created: {annotation_count}")
 
 
-def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger: CogniteFunctionLogger) -> list[DiagramDetectResults]:
+def trigger_diagram_detection_jobs(
+    client: CogniteClient, config: Config, logger: CogniteFunctionLogger
+) -> list[DiagramDetectResults]:
     instance_spaces = config.data.instance_spaces
     jobs: list[DiagramDetectResults] = []
     for job_config in config.data.annotation_jobs:
         file_view = job_config.file_view
         is_view = dm.filters.HasData(views=[file_view])
         is_uploaded = dm.filters.Equals(file_view.as_property_ref("isUploaded"), True)
-        is_file_type = dm.filters.In(file_view.as_property_ref("mimeType"), ['application/pdf', 'image/jpeg', 'image/png', 'image/tiff'])
+        is_file_type = dm.filters.In(
+            file_view.as_property_ref("mimeType"), ["application/pdf", "image/jpeg", "image/png", "image/tiff"]
+        )
         is_selected = dm.filters.And(is_view, is_uploaded, is_file_type)
 
         entities = get_entities(client, job_config, instance_spaces, logger)
@@ -203,7 +229,9 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
             logger.warning(f"No entities found for {job_config.file_view.external_id}")
             continue
 
-        for file_list in client.data_modeling.instances(instance_type="node", space=instance_spaces, filter=is_selected, chunk_size=MAX_FILES_PER_JOB):
+        for file_list in client.data_modeling.instances(
+            instance_type="node", space=instance_spaces, filter=is_selected, chunk_size=MAX_FILES_PER_JOB
+        ):
             file_ids = file_list.as_ids()
 
             diagram_result = client.diagrams.detect(
@@ -211,51 +239,37 @@ def trigger_diagram_detection_jobs(client: CogniteClient, config: Config, logger
                 search_field="name",
                 file_instance_ids=file_ids,
                 partial_match=True,
-                min_tokens=2
+                min_tokens=2,
             )
             jobs.append(diagram_result)
     return jobs
 
 
-    # Trigger detection jobs for each file view
-    jobs: list[AnnotationJob] = []
-    for file_view, entity_sources in entity_sources_by_file_view.items():
-        is_view = dm.filters.HasData(views=[file_view])
-        for file_node in client.data_modeling.instances(instance_type="node", space=instance_spaces, filter=is_view):
-            file_id = file_node.as_id()
-            logger.debug(f"Processing file {file_id}")
-
-            job = AnnotationJob.from_cdf(client, file_id, config.state)
-
-            if job.failed_attempts >= max_failed_attempts:
-                logger.warning(f"Failed to detect diagram for {file_id} "
-                               f"after {max_failed_attempts} failed attempts. Will not try again.")
-                continue
-
-            job_id = trigger_detection_job(job, client, entity_sources, logger)
-            job.latest_job_id = job_id
-
-            job.write_to_cdf(client, config.state)
-            jobs.append(job)
-    return jobs
-
-def get_entities(client: CogniteClient, job_config: AnnotationJobConfig, instance_spaces: list[str], logger: CogniteFunctionLogger) -> list[Entity]:
+def get_entities(
+    client: CogniteClient, job_config: AnnotationJobConfig, instance_spaces: list[str], logger: CogniteFunctionLogger
+) -> list[Entity]:
     entity_list: list[Entity] = []
     for entity_view in job_config.entity_views:
-        for node_list in client.data_modeling.instances(chunk_size=1_000, instance_type="node", space=instance_spaces, sources=[entity_view.as_view_id()]):
-            entity_list.extend(Entity.from_nodes(node_list, job_config.file_view, entity_view.type, entity_view.search_property))
+        for node_list in client.data_modeling.instances(
+            chunk_size=1_000, instance_type="node", space=instance_spaces, sources=[entity_view.as_view_id()]
+        ):
+            entity_list.extend(
+                Entity.from_nodes(node_list, job_config.file_view, entity_view.type, entity_view.search_property)
+            )
     logger.debug(f"Found {len(entity_list)} entities for {job_config.file_view.external_id}")
     return entity_list
 
 
-def wait_for_completion(jobs: list[DiagramDetectResults], logger: CogniteFunctionLogger) -> Iterable[DiagramDetectResults]:
+def wait_for_completion(
+    jobs: list[DiagramDetectResults], logger: CogniteFunctionLogger
+) -> Iterable[DiagramDetectResults]:
     # The Cognite Function will eventually time out, so we don't need to worry about running forever
     while jobs:
         job = jobs.pop(0)
 
         job.update_status()
 
-        status = job.status.casefold()
+        status = cast(str, job.status).casefold()
         if status == "completed":
             yield job
         elif status in ("failed", "timeout"):
@@ -267,69 +281,90 @@ def wait_for_completion(jobs: list[DiagramDetectResults], logger: CogniteFunctio
             time.sleep(10)
 
 
-def write_annotations(result: DiagramDetectResults, client: CogniteClient, annotation_space: str, source: dm.DirectRelationReference, parameter: Parameters, logger: CogniteFunctionLogger) -> list[CogniteDiagramAnnotationApply]:
+def write_annotations(
+    result: DiagramDetectResults,
+    client: CogniteClient,
+    annotation_space: str,
+    source: dm.DirectRelationReference,
+    parameter: Parameters,
+    logger: CogniteFunctionLogger,
+) -> list[CogniteDiagramAnnotationApply]:
     annotation_list: list[CogniteDiagramAnnotationApply] = []
-    for detection in result.items:
+    for detection in result.items or []:
         for raw_annotation in detection.annotations or []:
             entities = Entity.from_annotation(raw_annotation)
             for entity in entities:
-                file_id = dm.NodeId.load(detection.file_instance_id)
-                annotation = load_annotation(raw_annotation, entity, file_id, annotation_space, source, parameter)
-                annotation_list.append(annotation)
+                if detection.file_instance_id is not None:
+                    file_id = dm.NodeId.load(detection.file_instance_id)
+                    annotation = load_annotation(raw_annotation, entity, file_id, annotation_space, source, parameter)
+                    annotation_list.append(annotation)
 
-    created = client.data_modeling.instances.apply(annotation_list).edges
+    created = client.data_modeling.instances.apply(edges=annotation_list).edges
 
-    create_count = sum([1 for result in created if result.was_modified and result.created_time == result.last_updated_time])
-    update_count = sum([1 for result in created if result.was_modified and result.created_time != result.last_updated_time])
+    create_count = sum(
+        [1 for result in created if result.was_modified and result.created_time == result.last_updated_time]
+    )
+    update_count = sum(
+        [1 for result in created if result.was_modified and result.created_time != result.last_updated_time]
+    )
     unchanged_count = len(created) - create_count - update_count
-    logger.info(f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {result.job_id}")
+    logger.info(
+        f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {result.job_id}"
+    )
     return annotation_list
 
 
-def load_annotation(raw_annotation: dict[str, Any], entity: Entity, file_id: dm.NodeId, annotation_space: str, source: dm.DirectRelationReference, parameters: Parameters) -> CogniteDiagramAnnotationApply:
-        text = raw_annotation["text"]
-        external_id = create_annotation_id(file_id, entity.node_id, text, raw_annotation)
-        confidence = raw_annotation["confidence"] if "confidence" in raw_annotation else None
-        status: Literal["Approved", "Suggested", "Rejected"] = "Suggested"
-        if confidence is not None and confidence >= parameters.auto_approval_threshold:
-            status = "Approved"
-        elif confidence is not None and confidence <= parameters.auto_reject_threshold:
-            status = "Rejected"
-        region = raw_annotation["region"]
-        vertices = region["vertices"]
-        now = datetime.now(timezone.utc).replace(microsecond=0)
-        if entity.type == "diagrams.AssetLink":
-            start_node = (file_id.space, file_id.external_id)
-            end_node = (entity.node_id.space, entity.node_id.external_id)
-        else:
-            start_node = (entity.node_id.space, entity.node_id.external_id)
-            end_node = (file_id.space, file_id.external_id)
+def load_annotation(
+    raw_annotation: dict[str, Any],
+    entity: Entity,
+    file_id: dm.NodeId,
+    annotation_space: str,
+    source: dm.DirectRelationReference,
+    parameters: Parameters,
+) -> CogniteDiagramAnnotationApply:
+    text = raw_annotation["text"]
+    external_id = create_annotation_id(file_id, entity.node_id, text, raw_annotation)
+    confidence = raw_annotation["confidence"] if "confidence" in raw_annotation else None
+    status: Literal["Approved", "Suggested", "Rejected"] = "Suggested"
+    if confidence is not None and confidence >= parameters.auto_approval_threshold:
+        status = "Approved"
+    elif confidence is not None and confidence <= parameters.auto_reject_threshold:
+        status = "Rejected"
+    region = raw_annotation["region"]
+    vertices = region["vertices"]
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    if entity.type == "diagrams.AssetLink":
+        start_node = (file_id.space, file_id.external_id)
+        end_node = (entity.node_id.space, entity.node_id.external_id)
+    else:
+        start_node = (entity.node_id.space, entity.node_id.external_id)
+        end_node = (file_id.space, file_id.external_id)
 
-        return CogniteDiagramAnnotationApply(
-            space=annotation_space,
-            external_id=external_id,
-            start_node=start_node,
-            end_node=end_node,
-            type=(annotation_space, entity.type),
-            name=text,
-            confidence=confidence,
-            status=status,
-            start_node_text=text,
-            start_node_page_number=region["page"],
-            start_node_x_min=min(v["x"] for v in vertices),
-            start_node_x_max=max(v["x"] for v in vertices),
-            start_node_y_min=min(v["y"] for v in vertices),
-            start_node_y_max=max(v["y"] for v in vertices),
-            source=source,
-            source_created_time=now,
-            source_updated_time=now,
-            source_created_user=FUNCTION_ID,
-            source_updated_user=FUNCTION_ID,
-            source_context=json.dumps({"end": entity.start_view.dump(), "start": entity.end_view.dump()})
-        )
+    return CogniteDiagramAnnotationApply(
+        space=annotation_space,
+        external_id=external_id,
+        start_node=start_node,
+        end_node=end_node,
+        type=(annotation_space, entity.type),
+        name=text,
+        confidence=confidence,
+        status=status,
+        start_node_text=text,
+        start_node_page_number=region["page"],
+        start_node_x_min=min(v["x"] for v in vertices),
+        start_node_x_max=max(v["x"] for v in vertices),
+        start_node_y_min=min(v["y"] for v in vertices),
+        start_node_y_max=max(v["y"] for v in vertices),
+        source=source,
+        source_created_time=now,
+        source_updated_time=now,
+        source_created_user=FUNCTION_ID,
+        source_updated_user=FUNCTION_ID,
+        source_context=json.dumps({"end": entity.start_view.dump(), "start": entity.end_view.dump()}),
+    )
 
 
-def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text, raw_annotation: dict[str, Any]) -> str:
+def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text: str, raw_annotation: dict[str, Any]) -> str:
     hash_ = sha256(json.dumps(raw_annotation, sort_keys=True).encode()).hexdigest()[:10]
     naive = f"{file_id.space}:{file_id.external_id}:{node_id.space}:{node_id.external_id}:{text}:{hash_}"
     if len(naive) < EXTERNAL_ID_LIMIT:
@@ -338,11 +373,13 @@ def create_annotation_id(file_id: dm.NodeId, node_id: dm.NodeId, text, raw_annot
     shorten = f"{prefix}:{hash_}"
     if len(shorten) < EXTERNAL_ID_LIMIT:
         return shorten
-    return prefix[:EXTERNAL_ID_LIMIT - 10] + hash_
+    return prefix[: EXTERNAL_ID_LIMIT - 10] + hash_
 
 
 def load_config(client: CogniteClient, logger: CogniteFunctionLogger) -> Config:
     raw_config = client.extraction_pipelines.config.retrieve(EXTRACTION_PIPELINE_EXTERNAL_ID)
+    if raw_config.config is None:
+        raise ValueError("No config found for extraction pipeline")
     try:
         return Config.model_validate(yaml.safe_load(raw_config.config))
     except ValueError as e:

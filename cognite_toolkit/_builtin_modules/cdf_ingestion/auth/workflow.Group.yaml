@@ -21,6 +21,20 @@ capabilities:
       scope:
         all: {}
   # query-specific capabilities
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - functionsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+          all: {}
   - rawAcl:
       actions:
         - READ
@@ -45,6 +59,7 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
+            - {{ schemaSpace2 }}
             - cdf_cdm_units
   - annotationsAcl:
       actions:

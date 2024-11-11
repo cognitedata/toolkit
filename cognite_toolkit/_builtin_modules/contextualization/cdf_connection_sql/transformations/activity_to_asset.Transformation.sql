@@ -27,4 +27,5 @@ on
 where
   activity.space == '{{ instanceSpace }}' and
   isnotnull(activity.tags) and
+  asset_lookup.space == '{{ instanceSpace }}' and
   isnotnull(asset_lookup.`externalId`)

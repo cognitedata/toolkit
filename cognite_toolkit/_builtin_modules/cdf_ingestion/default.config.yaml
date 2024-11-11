@@ -25,6 +25,7 @@ dataset: ingestion
 rawSourceDatabase: ingestion
 rawStateDatabase: contextualizationState
 schemaSpace: cdf_cdm
+schemaSpace2: cdf_idm
 instanceSpaces:
   - springfield_instances
   - cdf_cdm_units
