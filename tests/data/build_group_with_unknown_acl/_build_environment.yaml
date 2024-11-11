@@ -4,4 +4,4 @@ project: pytest-project
 type: dev
 selected:
 - modules
-cdf_toolkit_version: 0.3.7
+cdf_toolkit_version: 0.3.8
