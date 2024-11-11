@@ -1,3 +1,160 @@
+Container:
+- constraints: {}
+  externalId: ToolkitMinimumActivity
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumAsset
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumAssetClass
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumAssetType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumEquipment
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumEquipmentType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumFile
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumFileCategory
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumSourceSystem
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumSourceable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumTimeSeries
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
+- constraints: {}
+  externalId: ToolkitMinimumUnit
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_min_schema
 DataModel:
 - description: ToolkitMinimum enterprise model
   externalId: ToolkitMinimumEnterprise

@@ -1,3 +1,472 @@
+Container:
+- constraints: {}
+  externalId: ToolkitIDM360Image
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM360ImageAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM360ImageCollection
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM360ImageModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM360ImageStation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM3DModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM3DObject
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM3DRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDM3DTransformation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMActivity
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMAsset
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMAssetClass
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMAssetType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMCADModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMCADNode
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMCADRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMCubeMap
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMDescribable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMDiagramAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMEquipment
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMEquipmentType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMFile
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMFileCategory
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMMaintenanceOrder
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMNotification
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMOperation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMPointCloudModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMPointCloudRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMPointCloudVolume
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMSchedulable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMSourceSystem
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMSourceable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMTimeSeries
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMUnit
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
+- constraints: {}
+  externalId: ToolkitIDMVisualizable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_idm_schema
 DataModel:
 - description: ToolkitIDM enterprise model
   externalId: ToolkitIDMProcessIndustries
@@ -149,10 +618,6 @@ DataModel:
     space: sp_enterprise_idm_schema
     type: view
     version: v1
-Node:
-- externalId: ToolkitIDMCADNode
-  instanceType: node
-  space: sp_enterprise_idm_schema
 Space:
 - space: sp_enterprise_idm_schema
 View:

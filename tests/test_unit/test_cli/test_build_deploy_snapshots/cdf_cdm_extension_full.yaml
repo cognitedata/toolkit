@@ -1,3 +1,433 @@
+Container:
+- constraints: {}
+  externalId: Toolkit360Image
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit360ImageAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit360ImageCollection
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit360ImageModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit360ImageStation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit3DModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit3DObject
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit3DRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: Toolkit3DTransformation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitActivity
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitAsset
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitAssetClass
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitAssetType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitCADModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitCADNode
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitCADRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitCubeMap
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitDescribable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitDiagramAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitEquipment
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitEquipmentType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitFile
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitFileCategory
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitPointCloudModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitPointCloudRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitPointCloudVolume
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitSchedulable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitSourceSystem
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitSourceable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitTimeSeries
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitUnit
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
+- constraints: {}
+  externalId: ToolkitVisualizable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_schema
 DataModel:
 - description: Toolkit enterprise model
   externalId: ToolkitEnterprise
@@ -137,10 +567,6 @@ DataModel:
     space: sp_enterprise_schema
     type: view
     version: v1
-Node:
-- externalId: ToolkitCADNode
-  instanceType: node
-  space: sp_enterprise_schema
 Space:
 - space: sp_enterprise_schema
 View:
