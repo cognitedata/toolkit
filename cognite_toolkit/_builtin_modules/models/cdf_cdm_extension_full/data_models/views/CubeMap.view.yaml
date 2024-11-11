@@ -89,3 +89,9 @@ properties:
       externalId: {{ organization }}File
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}CubeMap
+      type: container
+    containerPropertyIdentifier: UUID

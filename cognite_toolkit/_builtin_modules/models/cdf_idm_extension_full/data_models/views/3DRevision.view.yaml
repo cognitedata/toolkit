@@ -22,3 +22,9 @@ properties:
       externalId: {{ organization }}3DModel
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DRevision
+      type: container
+    containerPropertyIdentifier: UUID

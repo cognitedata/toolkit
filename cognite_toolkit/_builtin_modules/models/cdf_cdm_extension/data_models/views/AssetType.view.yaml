@@ -23,3 +23,9 @@ properties:
       externalId: {{ organization }}AssetClass
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetType
+      type: container
+    containerPropertyIdentifier: UUID

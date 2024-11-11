@@ -111,3 +111,9 @@ properties:
       externalId: {{ organization }}File
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}360Image
+      type: container
+    containerPropertyIdentifier: UUID

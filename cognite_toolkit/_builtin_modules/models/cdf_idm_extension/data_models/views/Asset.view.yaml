@@ -179,3 +179,9 @@ properties:
     containerPropertyIdentifier: object3D
     description: This is not used, overwritten to point to nothing to avoid including 3D.
     # Note that source is not included.
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      type: container
+    containerPropertyIdentifier: UUID

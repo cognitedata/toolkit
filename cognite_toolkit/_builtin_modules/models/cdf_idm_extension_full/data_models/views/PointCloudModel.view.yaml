@@ -47,3 +47,9 @@ properties:
       externalId: {{ organization }}File
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}PointCloudModel
+      type: container
+    containerPropertyIdentifier: UUID

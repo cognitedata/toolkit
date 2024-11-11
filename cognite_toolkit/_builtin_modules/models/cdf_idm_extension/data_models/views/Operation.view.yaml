@@ -88,3 +88,9 @@ properties:
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Operation
+      type: container
+    containerPropertyIdentifier: UUID

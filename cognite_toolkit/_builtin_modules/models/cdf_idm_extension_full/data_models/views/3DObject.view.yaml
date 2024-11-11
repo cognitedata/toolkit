@@ -73,3 +73,9 @@ properties:
     description: List of up to 1000 PointCloudVolumes that represents the connected
       CogniteAsset
     connectionType: multi_reverse_direct_relation
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}3DObject
+      type: container
+    containerPropertyIdentifier: UUID

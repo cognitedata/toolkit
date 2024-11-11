@@ -21,3 +21,9 @@ properties:
       externalId: {{ organization }}3DObject
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Visualizable
+      type: container
+    containerPropertyIdentifier: UUID
