@@ -44,6 +44,7 @@ pytest-cov = "^6.0.0"
 setuptools = "^75.0.0"
 fastparquet = "^2024.5.0"
 pyperclip = "^1.9.0"
+pydantic = "^2.9.0"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
@@ -71,22 +72,30 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 follow_imports = "normal"
 ignore_missing_imports = true
-exclude = ["cognite_toolkit/cognite_modules",
-            "cognite_toolkit/build*",
-            "tests/data/_builtin_modules/*",
-            "cognite_toolkit/_builtin_modules/*"]
+exclude = [
+    "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/inrobot/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
+]
+
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.format]
-# Ruff messes up the docstrings which are expected to be in Markdown format
-exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py",
-            "cognite_toolkit/cognite_modules/inrobot/*",
-            "tests/data/_builtin_modules/*",
-            "cognite_toolkit/_builtin_modules/*"]
+exclude = [
+    # Ruff messes up the docstrings which are expected to be in Markdown format
+    "cognite_toolkit/_cdf_tk/commands/_changes.py",
+    "cognite_toolkit/_builtin_modules/inrobot/*",
+    "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
+]
 
 [tool.ruff.lint]
-exclude = ["cognite_toolkit/_builtin_modules/*"]
+exclude = [
+    "cognite_toolkit/_builtin_modules/inrobot/*",
+    "cognite_toolkit/_builtin_modules/examples/*",
+    "cognite_toolkit/_builtin_modules/bootcamp/*",
+]
 
 [build-system]
 requires = ["poetry-core"]

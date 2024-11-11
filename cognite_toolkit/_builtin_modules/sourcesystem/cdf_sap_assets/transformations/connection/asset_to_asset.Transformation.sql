@@ -2,9 +2,9 @@ select
   concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,
   node_reference('{{ instanceSpace }}',  concat('WMT:', cast(d2.`WMT_TAG_NAME` as STRING))) as parent
 from
-	`{{ rawSourceDatabase }}`.`dump` as d1
+    {{ rawSourceDatabase }}.`dump` d1
 join
-  `{{ rawSourceDatabase }}`.`dump` as d2
+  {{ rawSourceDatabase }}.`dump` d2
 on
   d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`
 where

@@ -56,6 +56,7 @@ variables:
       rawSourceDatabase: ingestion
       rawStateDatabase: contextualizationState
       schemaSpace: cdf_cdm
+      schemaSpace2: cdf_idm
       instanceSpaces:
         - springfield_instances
         - cdf_cdm_units
@@ -404,7 +405,7 @@ variables:
         operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
         dataset: ingestion
         rawSourceDatabase: ingestion
-        schemaSpace: cdf_idm
+        schemaSpace2: cdf_idm
         instanceSpace: springfield_instances
         workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
         groupSourceId: <not set>
