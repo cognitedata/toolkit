@@ -16,6 +16,20 @@ Group:
       - CREATE
       scope:
         all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
   - rawAcl:
       actions:
       - READ
@@ -43,6 +57,7 @@ Group:
         spaceIdScope:
           spaceIds:
           - cdf_cdm
+          - cdf_idm
           - cdf_cdm_units
   - annotationsAcl:
       actions:

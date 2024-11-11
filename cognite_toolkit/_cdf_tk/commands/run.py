@@ -739,7 +739,7 @@ class RunWorkflowCommand(ToolkitCommand):
             sleep_time = 1
             while (result is None or result.status.upper() == "RUNNING") and duration < max_time:
                 time.sleep(sleep_time)
-                sleep_time = min(sleep_time * 2, 60)
+                sleep_time = min(sleep_time * 2, 15)
                 result = cast(
                     WorkflowExecutionDetailed,
                     ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id),
