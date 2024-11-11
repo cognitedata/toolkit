@@ -183,3 +183,9 @@ properties:
       externalId: {{ organization }}3DObject
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}Asset
+      type: container
+    containerPropertyIdentifier: UUID
