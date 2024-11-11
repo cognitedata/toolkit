@@ -7,6 +7,8 @@ graphql = true
 import-cmd = true
 ado-pipelines = true
 require-kind = true
+run-workflow = true
+streamlit = true
 
 [plugins]
 run = true
@@ -16,4 +18,4 @@ dump = true
 [modules]
 # This is the version of the modules. It should not be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
-version = "0.3.7"
+version = "0.3.8"

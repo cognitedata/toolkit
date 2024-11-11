@@ -9,4 +9,10 @@ implements:
   version: v1
   type: view
 version: v1
-properties: {}
+properties:
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}FileCategory
+      type: container
+    containerPropertyIdentifier: UUID

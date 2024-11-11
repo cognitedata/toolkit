@@ -6,3 +6,12 @@ tags = [
     "sourcesystem",
     "quickstart",
 ]
+
+[dependencies]
+modules = []
+
+[[data]]
+repoType = "GitHub"
+repo = "cognitedata/toolkit-data"
+source = "data/publicdata/assets.Table.csv"
+destination = "raw/dump.Table.csv"

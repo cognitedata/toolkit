@@ -6,3 +6,15 @@ tags = [
     "sourcesystem",
     "quickstart",
 ]
+
+[[data]]
+repoType = "GitHub"
+repo = "cognitedata/toolkit-data"
+source = "data/publicdata/files/*.pdf"
+destination = "files/"
+
+[[data]]
+repoType = "GitHub"
+repo = "cognitedata/toolkit-data"
+source = "data/publicdata/valhall_file_metadata.csv"
+destination = "raw/files.Table.csv"

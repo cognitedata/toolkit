@@ -33,6 +33,7 @@ from cognite.client.credentials import (
     OAuthInteractive,
     Token,
 )
+from cognite.client.data_classes import ClientCredentials
 from cognite.client.data_classes.capabilities import (
     AssetsAcl,
     Capability,
@@ -513,10 +514,10 @@ class CDFToolConfig:
             self._initialize_in_browser()
             return
 
-        auth_vars = AuthVariables.from_env(self._environ)
+        self._auth_vars = AuthVariables.from_env(self._environ)
         if not skip_initialization:
-            self.initialize_from_auth_variables(auth_vars)
-        self._login_flow = auth_vars.login_flow
+            self.initialize_from_auth_variables(self._auth_vars)
+        self._login_flow = self._auth_vars.login_flow
 
     def _initialize_in_browser(self) -> None:
         try:
@@ -625,6 +626,7 @@ class CDFToolConfig:
             )
         )
         self._update_environment_variables()
+        self._auth_vars = auth
 
     def _update_environment_variables(self) -> None:
         """This updates the cache environment variables with the auth
@@ -1054,3 +1056,24 @@ class CDFToolConfig:
             return self._cache.locationfilter_id_by_external_id[external_id]
         else:
             return [self._cache.locationfilter_id_by_external_id[ext_id] for ext_id in external_id]
+
+    def create_client(self, credentials: ClientCredentials) -> ToolkitClient:
+        if self._auth_vars.token_url is None or self._auth_vars.scopes is None:
+            raise AuthenticationError("Token URL and Scopes are required to create a client.")
+        if self._project is None or self._cdf_url is None:
+            raise AuthenticationError("Project and CDF URL are required to create a client.")
+        service_credentials = OAuthClientCredentials(
+            token_url=self._auth_vars.token_url,
+            client_id=credentials.client_id,
+            client_secret=credentials.client_secret,
+            scopes=[self._auth_vars.scopes],
+        )
+
+        return ToolkitClient(
+            config=ClientConfig(
+                client_name=self._client_name,
+                project=self._project,
+                base_url=self._cdf_url,
+                credentials=service_credentials,
+            )
+        )

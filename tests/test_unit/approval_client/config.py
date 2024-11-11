@@ -425,10 +425,13 @@ API_RESOURCES = [
         methods={
             "create": [
                 Method(api_class_method="upload", mock_class_method="upload"),
-                Method(api_class_method="create", mock_class_method="create_single"),
+                Method(api_class_method="create", mock_class_method="create_filemetadata"),
                 # This is used by functions to upload the file used for deployment.
                 Method(api_class_method="upload_bytes", mock_class_method="upload_bytes_files_api"),
-                Method(api_class_method="upload_content", mock_class_method="upload_file_content_files_api"),
+                Method(
+                    api_class_method="upload_content_bytes", mock_class_method="upload_file_content_bytes_files_api"
+                ),
+                Method(api_class_method="upload_content", mock_class_method="upload_file_content_path_files_api"),
             ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [

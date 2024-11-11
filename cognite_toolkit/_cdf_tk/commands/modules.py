@@ -48,7 +48,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import read_yaml_file
+from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.repository import GitHubFileDownloader
 from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
@@ -103,6 +104,7 @@ class ModulesCommand(ToolkitCommand):
         selected_packages: Packages,
         environments: list[EnvType],
         mode: Literal["new", "clean", "update"] | None,
+        download_data: bool = False,
     ) -> None:
         modules_root_dir = organization_dir / MODULES
         if mode == "clean" and modules_root_dir.is_dir():
@@ -113,6 +115,7 @@ class ModulesCommand(ToolkitCommand):
 
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
+        downloader_by_repo: dict[str, GitHubFileDownloader] = {}
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -141,6 +144,21 @@ class ModulesCommand(ToolkitCommand):
                     ignore_patterns.extend(["workflows", "auth"])
 
                 shutil.copytree(module.dir, target_dir, ignore=shutil.ignore_patterns(*ignore_patterns))
+
+                if module.definition is not None and download_data:
+                    for example_data in module.definition.data:
+                        if example_data.repo_type.casefold() != "github":
+                            self.warn(
+                                MediumSeverityWarning(
+                                    f"Unsupported repo type for example data: {example_data.repo_type}"
+                                )
+                            )
+                            continue
+                        if example_data.repo not in downloader_by_repo:
+                            downloader_by_repo[example_data.repo] = GitHubFileDownloader(example_data.repo)
+
+                        downloader = downloader_by_repo[example_data.repo]
+                        downloader.copy(example_data.source, target_dir / example_data.destination)
 
         for environment in environments:
             if mode == "update":
@@ -274,7 +292,8 @@ default_organization_dir = "{organization_dir.name}"''',
             style=custom_style_fancy,
         ).ask()
 
-        self._create(organization_dir, selected, environments, mode)
+        download_data = self._get_download_data(selected)
+        self._create(organization_dir, selected, environments, mode, download_data)
 
         print(
             Panel(
@@ -291,6 +310,19 @@ default_organization_dir = "{organization_dir.name}"''',
             )
 
         raise typer.Exit()
+
+    @staticmethod
+    def _get_download_data(selected: Packages) -> bool:
+        example_data = {
+            module.name for package in selected.values() for module in package.modules if module.has_example_data
+        }
+        download_data = False
+        if example_data:
+            download_data = questionary.confirm(
+                f"The modules {humanize_collection(example_data)} has example data. Would you like to download it?",
+                default=True,
+            ).ask()
+        return download_data
 
     def _select_modules_in_package(self, package: Package) -> list[ModuleLocation]:
         dependencies: set[str] = set()
@@ -580,4 +612,5 @@ default_organization_dir = "{organization_dir.name}"''',
         added_packages = self._select_packages(available_packages, existing_module_names)
 
         environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
-        self._create(organization_dir, added_packages, environments, "update")
+        download_data = self._get_download_data(added_packages)
+        self._create(organization_dir, added_packages, environments, "update", download_data)

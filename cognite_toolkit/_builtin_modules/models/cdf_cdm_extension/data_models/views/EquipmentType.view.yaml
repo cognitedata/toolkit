@@ -8,4 +8,10 @@ implements:
   version: v1
   type: view
 version: v1
-properties: {}
+properties:
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: UUID

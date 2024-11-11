@@ -1,0 +1,14 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    - externalId: {{ workflow}}_task1
+      type: function
+      parameters:
+        function:
+          externalId: fn_test3
+          data:
+            breakfast: "today: egg and bacon"
+            lunch: "today: a chicken"
+            dinner: "today: steak with stakes on the side"
+      onFailure: skipTask

@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.8] - 2024-11-11
+
+### Added
+
+- The `sourcesystem` modules now has example data.
+
+### Fixed
+
+- Ensure uniqueness of joins in the transformations of the `cdf_connection_sql` module.
+
 ## [0.3.7] - 2024-11-06
 
 No changes to templates.

@@ -44,3 +44,9 @@ properties:
       externalId: {{ organization }}CADRevision
       version: v1
       type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}PointCloudVolume
+      type: container
+    containerPropertyIdentifier: UUID

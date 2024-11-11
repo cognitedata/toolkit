@@ -12,10 +12,9 @@ class ExtractorConfig:
     hours: int
     sites: List[str]
     state_store: StateStoreConfig = field(
-        default_factory=StateStoreConfig(
-            raw=RawStateStoreConfig(database=None, table=None)
-        )
+        default_factory=StateStoreConfig(raw=RawStateStoreConfig(database=None, table=None))
     )
+
 
 @dataclass
 class Config(BaseConfig):
