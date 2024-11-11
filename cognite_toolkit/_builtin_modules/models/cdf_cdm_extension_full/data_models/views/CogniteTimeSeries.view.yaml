@@ -1,0 +1,95 @@
+space: cdf_cdm
+externalId: CogniteTimeSeries
+name: Time series
+description: Represents a series of data points in time order."
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
+version: v1
+properties:
+  isStep:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: isStep
+    name: Is step
+    description: Specifies whether the time series is a step time series or not.
+  type:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: type
+    name: Type
+    description: Specifies the data type of the data points.
+  sourceUnit:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: sourceUnit
+    name: Source unit
+    description: The unit specified in the source system.
+  unit:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: unit
+    name: Unit
+    description: The unit of the time series.
+    source:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      version: v1
+      type: view
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets the time series is related to.
+    source:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      version: v1
+      type: view
+  equipment:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: equipment
+    name: Equipment
+    description: A list of equipment the time series is related to.
+    source:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      version: v1
+      type: view
+  activities:
+    source:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      version: v1
+      type: view
+    through:
+      source:
+        space: cdf_cdm
+        externalId: CogniteActivity
+        version: v1
+        type: view
+      identifier: timeSeries
+    name: Activities
+    description: An automatically updated list of activities the time series is related
+      to.
+    connectionType: multi_reverse_direct_relation

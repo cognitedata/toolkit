@@ -1,0 +1,41 @@
+space: cdf_cdm
+externalId: CogniteAssetType
+name: Asset type
+description: Represents the type of an asset.
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+version: v1
+properties:
+  code:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: code
+    name: Code
+    description: A unique identifier for the type of asset.
+  standard:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: standard
+    name: Standard
+    description: A text string to specify which standard the type is from.
+  assetClass:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: assetClass
+    name: Asset class
+    description: Specifies the class the type belongs to. It's a direct relation to
+      CogniteAssetClass.
+    source:
+      space: cdf_cdm
+      externalId: CogniteAssetClass
+      version: v1
+      type: view
