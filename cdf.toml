@@ -8,6 +8,7 @@ import-cmd = true
 ado-pipelines = true
 require-kind = true
 run-workflow = true
+streamlit = true
 
 [plugins]
 run = true

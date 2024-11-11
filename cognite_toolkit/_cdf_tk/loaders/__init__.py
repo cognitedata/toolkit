@@ -52,6 +52,7 @@ from ._resource_loaders import (
     SecurityCategoryLoader,
     SequenceLoader,
     SpaceLoader,
+    StreamlitLoader,
     ThreeDModelLoader,
     TimeSeriesLoader,
     TransformationLoader,
@@ -70,6 +71,8 @@ else:
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
+if not Flags.STREAMLIT.is_enabled():
+    _EXCLUDED_LOADERS.add(StreamlitLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -92,23 +95,43 @@ RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, R
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
 RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
 
-ResourceTypes: TypeAlias = Literal[
-    "3dmodels",
-    "auth",
-    "classic",
-    "data_models",
-    "data_sets",
-    "hosted_extractors",
-    "locations",
-    "transformations",
-    "files",
-    "timeseries",
-    "extraction_pipelines",
-    "functions",
-    "raw",
-    "robotics",
-    "workflows",
-]
+if not Flags.STREAMLIT.is_enabled():
+    ResourceTypes: TypeAlias = Literal[
+        "3dmodels",
+        "auth",
+        "classic",
+        "data_models",
+        "data_sets",
+        "hosted_extractors",
+        "locations",
+        "transformations",
+        "files",
+        "timeseries",
+        "extraction_pipelines",
+        "functions",
+        "raw",
+        "robotics",
+        "workflows",
+    ]
+else:
+    ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
+        "3dmodels",
+        "auth",
+        "classic",
+        "data_models",
+        "data_sets",
+        "hosted_extractors",
+        "locations",
+        "transformations",
+        "files",
+        "timeseries",
+        "extraction_pipelines",
+        "functions",
+        "raw",
+        "robotics",
+        "streamlit",
+        "workflows",
+    ]
 
 
 def get_loader(resource_dir: str, kind: str) -> type[Loader]:
@@ -150,6 +173,7 @@ __all__ = [
     "ResourceTypes",
     "WorkflowLoader",
     "WorkflowVersionLoader",
+    "StreamlitLoader",
     "ThreeDModelLoader",
     "RobotCapabilityLoader",
     "RoboticFrameLoader",
