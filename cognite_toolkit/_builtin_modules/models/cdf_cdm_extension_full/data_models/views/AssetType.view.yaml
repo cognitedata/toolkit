@@ -1,0 +1,31 @@
+space: {{ schema_space }}
+externalId: {{ organization }}AssetType
+name: Asset type
+description: Represents the type of an asset.
+implements:
+- space: cdf_cdm
+  externalId: CogniteAssetType
+  version: v1
+  type: view
+version: v1
+properties:
+  assetClass:
+    container:
+      space: cdf_cdm
+      externalId: CogniteAssetType
+      type: container
+    containerPropertyIdentifier: assetClass
+    name: Asset class
+    description: Specifies the class the type belongs to. It's a direct relation to
+      CogniteAssetClass.
+    source:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetClass
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}AssetType
+      type: container
+    containerPropertyIdentifier: UUID

@@ -1,0 +1,17 @@
+space: {{ schema_space }}
+externalId: {{ organization }}EquipmentType
+name: Equipment type
+description: Represents the type of equipment.
+implements:
+- space: cdf_cdm
+  externalId: CogniteEquipmentType
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schema_space }}
+      externalId: {{ organization }}EquipmentType
+      type: container
+    containerPropertyIdentifier: UUID
