@@ -27,7 +27,7 @@ class StreamlitBuilder(Builder):
             if source_file.loaded is None:
                 continue
             if source_file.source.path.parent.parent != module.dir:
-                # Streamlit YAML files must be in the resource folder top levl
+                # Streamlit YAML files must be in the resource folder top level
                 continue
 
             loader, warning = self._get_loader(source_file.source.path)
@@ -64,7 +64,7 @@ class StreamlitBuilder(Builder):
                 warnings.append(
                     HighSeverityWarning(
                         f"StreamlitApp in {source_file.source.path.as_posix()!r} has no externalId defined. "
-                        f"This is used to match the StreamlitAPp to directory."
+                        f"This is used to match the Streamlit App to directory."
                     )
                 )
                 continue
@@ -72,7 +72,7 @@ class StreamlitBuilder(Builder):
 
             if not app_directory.is_dir():
                 raise ToolkitNotADirectoryError(
-                    f"StreamlitApp directory not found for externalId {external_id} defined in {source_file.source.path.as_posix()!r}."
+                    f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
 
             destination = self.build_dir / self.resource_folder / external_id
