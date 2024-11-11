@@ -26,4 +26,7 @@ left join cdf_data_models(
   /* update to the correct matching criteria for your data */
   on substring_index(replace(timeseries.`name`, 'VAL_', ''), ':', 1) == equipment_lookup.`name`
 where
-  timeseries.space == '{{ instanceSpace }}'
+  timeseries.space == '{{ instanceSpace }}' and
+  isnotnull(timeseries.`externalId`) and
+  equipment_lookup.space == '{{ instanceSpace }}' and
+  isnotnull(equipment_lookup.`externalId`)

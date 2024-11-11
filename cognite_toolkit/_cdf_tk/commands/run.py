@@ -748,6 +748,10 @@ class RunWorkflowCommand(ToolkitCommand):
                 completed_count = sum(
                     1 for task in result.executed_tasks if task.status.upper() not in {"IN_PROGRESS", "SCHEDULED"}
                 )
+                # Todo remove this print statement. It is added to check why the progress goes early to 100%.
+                task_statuses = {task.external_id: task.status for task in result.executed_tasks}
+                print(f"Status: {task_statuses}")
+                print(f"Complete count: {completed_count}, total: {total}")
                 progress.advance(call_task, advance=completed_count)
             progress.advance(call_task, advance=total)
             progress.stop()
