@@ -249,6 +249,7 @@ def run_modules_upgrade(
             dry_run=True,
             drop=False,
             drop_data=False,
+            force_update=False,
             include=list(LOADER_BY_FOLDER_NAME),
             verbose=False,
         )

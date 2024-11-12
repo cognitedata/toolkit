@@ -31,6 +31,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying Streamlit apps",
     }
+    FORCE_UPDATE: ClassVar[dict[str, Any]] = {
+        "visible": False,
+        "description": "Adding the --force-update flag to the deploy command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

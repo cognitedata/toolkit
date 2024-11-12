@@ -9,6 +9,7 @@ ado-pipelines = true
 require-kind = true
 run-workflow = true
 streamlit = true
+force-update = true
 
 [plugins]
 run = true

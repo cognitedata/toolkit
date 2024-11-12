@@ -67,6 +67,7 @@ class DeployCommand(ToolkitCommand):
         dry_run: bool,
         drop: bool,
         drop_data: bool,
+        force_update: bool,
         include: list[str],
         verbose: bool,
     ) -> None:
@@ -162,6 +163,7 @@ class DeployCommand(ToolkitCommand):
                 dry_run=dry_run,
                 has_done_drop=drop,
                 has_dropped_data=drop_data,
+                force_update=force_update,
                 verbose=verbose,
             )
             if result:
@@ -182,10 +184,13 @@ class DeployCommand(ToolkitCommand):
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
+        force_update: bool = False,
         verbose: bool = False,
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
-            return self._deploy_resources(loader, ToolGlobals, state, dry_run, has_done_drop, has_dropped_data, verbose)
+            return self._deploy_resources(
+                loader, ToolGlobals, state, dry_run, has_done_drop, has_dropped_data, force_update, verbose
+            )
         elif isinstance(loader, DataLoader):
             return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
         else:
@@ -199,6 +204,7 @@ class DeployCommand(ToolkitCommand):
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
+        force_update: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
         filepaths = loader.find_files()
@@ -251,6 +257,9 @@ class DeployCommand(ToolkitCommand):
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)
+        if force_update:
+            to_update.extend(unchanged)
+            unchanged.clear()
 
         if dry_run:
             if (

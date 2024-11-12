@@ -269,6 +269,7 @@ class CoreApp(typer.Typer):
                 dry_run,
                 drop,
                 drop_data,
+                False,
                 include,
                 verbose,
             )
