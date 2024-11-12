@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitValidationError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_cicd_environment
 from cognite_toolkit._version import __version__ as current_version
@@ -199,80 +200,167 @@ class CoreApp(typer.Typer):
             )
         )
 
-    def deploy(
-        self,
-        ctx: typer.Context,
-        build_dir: Annotated[
-            Path,
-            typer.Argument(
-                help="Where to find the module templates to deploy from. Defaults to current directory.",
-                allow_dash=True,
-            ),
-        ] = Path("./build"),
-        build_env_name: Annotated[
-            Optional[str],
-            typer.Option(
-                "--env",
-                "-e",
-                help="CDF project environment to use for deployment. This is optional and "
-                "if passed it is used to verify against the build environment",
-            ),
-        ] = None,
-        drop: Annotated[
-            bool,
-            typer.Option(
-                "--drop",
-                "-d",
-                help="Whether to drop existing configurations, drop per resource if present.",
-            ),
-        ] = False,
-        drop_data: Annotated[
-            bool,
-            typer.Option(
-                "--drop-data",
-                help="Whether to drop existing data in data model containers and spaces.",
-            ),
-        ] = False,
-        dry_run: Annotated[
-            bool,
-            typer.Option(
-                "--dry-run",
-                "-r",
-                help="Whether to do a dry-run, do dry-run if present.",
-            ),
-        ] = False,
-        include: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--include",
-                help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
-            ),
-        ] = None,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """Deploys the configuration files in the build directory to the CDF project."""
-        cmd = DeployCommand(print_warning=True)
-        include = _process_include(include)
-        ToolGlobals = CDFToolConfig.from_context(ctx)
-        cmd.run(
-            lambda: cmd.execute(
-                ToolGlobals,
-                build_dir,
-                build_env_name,
-                dry_run,
-                drop,
-                drop_data,
-                include,
-                verbose,
+    if Flags.FORCE_UPDATE.is_enabled():
+
+        def deploy(
+            self,
+            ctx: typer.Context,
+            build_dir: Annotated[
+                Path,
+                typer.Argument(
+                    help="Where to find the module templates to deploy from. Defaults to current directory.",
+                    allow_dash=True,
+                ),
+            ] = Path("./build"),
+            build_env_name: Annotated[
+                Optional[str],
+                typer.Option(
+                    "--env",
+                    "-e",
+                    help="CDF project environment to use for deployment. This is optional and "
+                    "if passed it is used to verify against the build environment",
+                ),
+            ] = None,
+            drop: Annotated[
+                bool,
+                typer.Option(
+                    "--drop",
+                    "-d",
+                    help="Whether to drop existing configurations, drop per resource if present.",
+                ),
+            ] = False,
+            drop_data: Annotated[
+                bool,
+                typer.Option(
+                    "--drop-data",
+                    help="Whether to drop existing data in data model containers and spaces.",
+                ),
+            ] = False,
+            dry_run: Annotated[
+                bool,
+                typer.Option(
+                    "--dry-run",
+                    "-r",
+                    help="Whether to do a dry-run, do dry-run if present.",
+                ),
+            ] = False,
+            include: Annotated[
+                Optional[list[str]],
+                typer.Option(
+                    "--include",
+                    help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
+                ),
+            ] = None,
+            force_update: Annotated[
+                bool,
+                typer.Option(
+                    "--force-update",
+                    help="Whether to force update the resources in the CDF project even if they are considered unchanged.",
+                ),
+            ] = False,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Turn on to get more verbose output when running the command",
+                ),
+            ] = False,
+        ) -> None:
+            """Deploys the configuration files in the build directory to the CDF project."""
+            cmd = DeployCommand(print_warning=True)
+            include = _process_include(include)
+            ToolGlobals = CDFToolConfig.from_context(ctx)
+            cmd.run(
+                lambda: cmd.execute(
+                    ToolGlobals=ToolGlobals,
+                    build_dir=build_dir,
+                    build_env_name=build_env_name,
+                    dry_run=dry_run,
+                    drop=drop,
+                    drop_data=drop_data,
+                    force_update=force_update,
+                    include=include,
+                    verbose=verbose,
+                )
             )
-        )
+    else:
+
+        def deploy(  # type: ignore[misc]
+            self,
+            ctx: typer.Context,
+            build_dir: Annotated[
+                Path,
+                typer.Argument(
+                    help="Where to find the module templates to deploy from. Defaults to current directory.",
+                    allow_dash=True,
+                ),
+            ] = Path("./build"),
+            build_env_name: Annotated[
+                Optional[str],
+                typer.Option(
+                    "--env",
+                    "-e",
+                    help="CDF project environment to use for deployment. This is optional and "
+                    "if passed it is used to verify against the build environment",
+                ),
+            ] = None,
+            drop: Annotated[
+                bool,
+                typer.Option(
+                    "--drop",
+                    "-d",
+                    help="Whether to drop existing configurations, drop per resource if present.",
+                ),
+            ] = False,
+            drop_data: Annotated[
+                bool,
+                typer.Option(
+                    "--drop-data",
+                    help="Whether to drop existing data in data model containers and spaces.",
+                ),
+            ] = False,
+            dry_run: Annotated[
+                bool,
+                typer.Option(
+                    "--dry-run",
+                    "-r",
+                    help="Whether to do a dry-run, do dry-run if present.",
+                ),
+            ] = False,
+            include: Annotated[
+                Optional[list[str]],
+                typer.Option(
+                    "--include",
+                    help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
+                ),
+            ] = None,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Turn on to get more verbose output when running the command",
+                ),
+            ] = False,
+        ) -> None:
+            """Deploys the configuration files in the build directory to the CDF project."""
+            cmd = DeployCommand(print_warning=True)
+            include = _process_include(include)
+            ToolGlobals = CDFToolConfig.from_context(ctx)
+            cmd.run(
+                lambda: cmd.execute(
+                    ToolGlobals=ToolGlobals,
+                    build_dir=build_dir,
+                    build_env_name=build_env_name,
+                    dry_run=dry_run,
+                    drop=drop,
+                    drop_data=drop_data,
+                    force_update=False,
+                    include=include,
+                    verbose=verbose,
+                )
+            )
 
     def clean(
         self,

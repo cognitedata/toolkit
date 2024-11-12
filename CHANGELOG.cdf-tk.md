@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.9] - 2024-11-12
+
+### Added
+
+- [alpha-feature] `--force-update` flag to `cdf deploy` to force update of all resources even if they are not changed.
+
 ## [0.3.8] - 2024-11-11
 
 ### Fixed
