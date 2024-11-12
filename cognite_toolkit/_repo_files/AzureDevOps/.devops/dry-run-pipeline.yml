@@ -16,7 +16,7 @@ jobs:
     pool:
       vmImage: 'ubuntu-latest'
     container: 
-      image: 'cognite/toolkit:0.3.8'
+      image: 'cognite/toolkit:0.3.9'
       env:
         CDF_CLUSTER: $(CDF_CLUSTER)
         CDF_PROJECT: $(CDF_PROJECT)
