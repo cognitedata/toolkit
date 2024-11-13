@@ -77,6 +77,7 @@ def main() -> None:
         function_path="{handler_py}",
         skip_folder_validation=False,
     )
+    print("Import check successful.")
 
 if __name__ == "__main__":
     main()
