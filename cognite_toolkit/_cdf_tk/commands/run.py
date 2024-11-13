@@ -68,19 +68,16 @@ This directory contains virtual environments for running functions locally. This
 intended to test the function before deploying it to CDF or to debug issues with a deployed function.
 
 """
-    import_check_py = """from cognite.client._api.functions import validate_function_folder
+    import_check_py = """from local_code.{handler_import} import handle
 
 
 def main() -> None:
-    validate_function_folder(
-        root_path="local_code/",
-        function_path="{handler_py}",
-        skip_folder_validation=False,
-    )
-    print("Import check successful.")
+    print("Imported function successfully: " + handle.__name__)
+
 
 if __name__ == "__main__":
     main()
+
 """
     run_check_py = """import os
 from pprint import pprint
@@ -477,7 +474,9 @@ if __name__ == "__main__":
         )
 
         import_check = "import_check.py"
-        (function_venv / import_check).write_text(self.import_check_py.format(handler_py=handler_file))
+        (function_venv / import_check).write_text(
+            self.import_check_py.format(handler_import=self._create_handler_import(handler_file))
+        )
 
         virtual_env.execute(Path(import_check), f"import_check {function_external_id}")
 
@@ -571,9 +570,11 @@ if __name__ == "__main__":
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
+        handler_import = self._create_handler_import(handler_file)
+
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,
-            handler_import=re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix("."),
+            handler_import=handler_import,
             client_name=ToolGlobals._client_name,
             project=ToolGlobals._project,
             base_url=ToolGlobals._cdf_url,
@@ -592,6 +593,10 @@ if __name__ == "__main__":
         if handle_function is None:
             raise ToolkitInvalidFunctionError(f"No {function_name} function found in {py_file}")
         return {a.arg for a in handle_function.args.args}
+
+    @staticmethod
+    def _create_handler_import(handler_file: str) -> str:
+        return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
 
 
 class RunTransformationCommand(ToolkitCommand):
