@@ -96,8 +96,8 @@ ExtractionPipelineConfig:
 Function:
 - description: Contextualization of 3d model and asset data for oid:fileshare
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_context_3d_oid_fileshare_asset
   fileId: -1
   functionPath: ./handler.py

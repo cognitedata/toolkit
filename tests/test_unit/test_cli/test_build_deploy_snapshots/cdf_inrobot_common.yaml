@@ -148,8 +148,8 @@ DataSet:
 Function:
 - description: Contextualize data uploaded to CDF from robots.
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_contextualize_robot_data
   fileId: -1
   functionPath: ./handler.py
@@ -160,8 +160,8 @@ Function:
   runtime: py39
 - description: Reads the gauge data from the robot.
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_gauge_reading
   fileId: -1
   functionPath: ./handler.py
@@ -172,8 +172,8 @@ Function:
   runtime: py39
 - description: Extracts the IR data from the raw IR info.
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_get_ir_data_from_ir_raw
   fileId: -1
   functionPath: ./handler.py
@@ -184,8 +184,8 @@ Function:
   runtime: py39
 - description: Process 360 images into streetview
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_threesixty
   fileId: -1
   functionPath: ./handler.py

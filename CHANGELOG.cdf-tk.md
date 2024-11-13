@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - [alpha-feature] `--force-update` flag to `cdf deploy` to force update of all resources even if they are not changed.
 
+### Fixed
+
+- Environment variables were not replaced in Functions. This is now fixed.
+
 ## [0.3.8] - 2024-11-11
 
 ### Fixed
