@@ -15,6 +15,16 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- `run function local` now works with functions that are importing adjacent modules.
+
+### Improved
+
+- `run function local` give a more informative error message if the function code cannot be imported.
+
 ## [0.3.9] - 2024-11-12
 
 ### Added
