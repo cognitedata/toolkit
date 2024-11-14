@@ -15,15 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Environment variables were not replaced in Functions. This is now fixed.
+
 ## [0.3.9] - 2024-11-12
 
 ### Added
 
 - [alpha-feature] `--force-update` flag to `cdf deploy` to force update of all resources even if they are not changed.
-
-### Fixed
-
-- Environment variables were not replaced in Functions. This is now fixed.
 
 ## [0.3.8] - 2024-11-11
 
