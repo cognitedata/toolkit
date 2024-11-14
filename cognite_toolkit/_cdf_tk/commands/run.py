@@ -7,6 +7,7 @@ import os
 import platform
 import re
 import shutil
+import textwrap
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,27 +69,37 @@ This directory contains virtual environments for running functions locally. This
 intended to test the function before deploying it to CDF or to debug issues with a deployed function.
 
 """
-    import_check_py = """from cognite.client._api.functions import validate_function_folder
+    import_check_py = """import sys
+from pathlib import Path
+
+# This is necessary to import adjacent modules in the function code.
+sys.path.insert(0, str(Path(__file__).parent / "local_code"))
+
+from local_code.{handler_import} import handle # noqa: E402
 
 
 def main() -> None:
-    validate_function_folder(
-        root_path="local_code/",
-        function_path="{handler_py}",
-        skip_folder_validation=False,
-    )
+    print("Imported function successfully: " + handle.__name__)
+
 
 if __name__ == "__main__":
     main()
+
 """
     run_check_py = """import os
+import sys
+
+from pathlib import Path
 from pprint import pprint
 
 from cognite.client import CogniteClient, ClientConfig
 from cognite.client.credentials import {credentials_cls}
 
-from local_code.{handler_import} import handle
+# This is necessary to import adjacent modules in the function code.
+sys.path.insert(0, str(Path(__file__).parent / "local_code"))
 
+from local_code.{handler_import} import handle # noqa: E402
+{load_dotenv}
 
 def main() -> None:
     credentials = {credentials_cls}(
@@ -476,7 +487,9 @@ if __name__ == "__main__":
         )
 
         import_check = "import_check.py"
-        (function_venv / import_check).write_text(self.import_check_py.format(handler_py=handler_file))
+        (function_venv / import_check).write_text(
+            self.import_check_py.format(handler_import=self._create_handler_import(handler_file))
+        )
 
         virtual_env.execute(Path(import_check), f"import_check {function_external_id}")
 
@@ -488,7 +501,7 @@ if __name__ == "__main__":
         )
 
         run_check_py, env = self._create_run_check_file_with_env(
-            ToolGlobals, args, function_dict, function_external_id, handler_file, call_args
+            ToolGlobals, args, function_dict, function_external_id, handler_file, call_args, function_venv
         )
         if platform.system() == "Windows":
             if system_root := os.environ.get("SYSTEMROOT"):
@@ -512,6 +525,7 @@ if __name__ == "__main__":
         function_external_id: str,
         handler_file: str,
         call_args: FunctionCallArgs,
+        function_venv_dir: Path,
     ) -> tuple[str, dict[str, str]]:
         if authentication := call_args.authentication:
             if authentication.client_id.startswith("${"):
@@ -570,15 +584,32 @@ if __name__ == "__main__":
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
+        load_dotenv = ""
+        if (Path.cwd() / ".env").is_file():
+            levels = len(function_venv_dir.parts)
+            load_dotenv = textwrap.dedent(f"""
+                try:
+                    from dotenv import load_dotenv
+
+                    ROOT = Path(__file__).resolve().parents[{levels}]
+
+                    load_dotenv(ROOT / '.env')
+                except ImportError:
+                    ...
+            """)
+
+        handler_import = self._create_handler_import(handler_file)
+
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,
-            handler_import=re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix("."),
+            handler_import=handler_import,
             client_name=ToolGlobals._client_name,
             project=ToolGlobals._project,
             base_url=ToolGlobals._cdf_url,
             credentials_args="\n        ".join(f"{k}={v}," for k, v in credentials_args.items()),
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
             function_external_id=function_external_id,
+            load_dotenv=load_dotenv,
         )
         return run_check_py, env
 
@@ -591,6 +622,10 @@ if __name__ == "__main__":
         if handle_function is None:
             raise ToolkitInvalidFunctionError(f"No {function_name} function found in {py_file}")
         return {a.arg for a in handle_function.args.args}
+
+    @staticmethod
+    def _create_handler_import(handler_file: str) -> str:
+        return re.sub(r"\.+", ".", handler_file.replace(".py", "").replace("/", ".")).removeprefix(".")
 
 
 class RunTransformationCommand(ToolkitCommand):

@@ -15,6 +15,20 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.10] - 2024-11-14
+
+### Fixed
+
+- `cdf auth verify` no longer asks to update missing capabilities if there are no missing capabilities.
+- `run function local` now works with functions that are importing adjacent modules.
+- Environment variables were not replaced in Functions. This is now fixed.
+
+### Improved
+
+- `run function local` give a more informative error message if the function code cannot be imported.
+- `run function local` now automatically loads environment variables from `.env` file. This is useful if you want to
+  run the `run_check.py` script manually, for example, in debug mode with your IDE.
+
 ## [0.3.9] - 2024-11-12
 
 ### Added

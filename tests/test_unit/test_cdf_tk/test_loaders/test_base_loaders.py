@@ -88,8 +88,12 @@ def test_loader_class(
 
 def has_auth(params: ParameterSpecSet) -> bool:
     for param in params:
-        if any("authentication" in segment for segment in param.path) or any(
-            "credentials" in segment for segment in param.path
+        path_segments = param.path if isinstance(param.path, (list, tuple)) else [param.path]
+        if (
+            any("authentication" in segment for segment in path_segments)
+            or any("credentials" in segment for segment in path_segments)
+            or any("secrets" in segment for segment in path_segments)
+            or any("envVars" in segment for segment in path_segments)
         ):
             return True
     return False
@@ -334,9 +338,14 @@ class TestResourceLoaders:
     def test_should_replace_env_var(self, loader_cls) -> None:
         has_auth_params = has_auth(loader_cls.get_write_cls_parameter_spec())
 
-        assert (
-            loader_cls.do_environment_variable_injection == has_auth_params
-        ), f"{loader_cls.folder_name} has auth but is not set to replace env vars (or vice versa)"
+        if has_auth_params:
+            assert (
+                loader_cls.do_environment_variable_injection
+            ), f"{loader_cls.folder_name} has auth but is not set to replace env vars"
+        else:
+            assert (
+                not loader_cls.do_environment_variable_injection
+            ), f"{loader_cls.folder_name} has no auth but is set to replace env vars"
 
     @pytest.mark.parametrize(
         "loader_cls",

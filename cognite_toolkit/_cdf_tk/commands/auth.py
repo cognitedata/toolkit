@@ -149,6 +149,7 @@ class AuthCommand(ToolkitCommand):
             )
             if (
                 is_interactive
+                and missing_capabilities
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
             ):
                 has_added_capabilities = self._update_missing_capabilities(
@@ -164,6 +165,7 @@ class AuthCommand(ToolkitCommand):
             )
             if (
                 is_interactive
+                and missing_capabilities
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
             ):
                 self._update_missing_capabilities(ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run)

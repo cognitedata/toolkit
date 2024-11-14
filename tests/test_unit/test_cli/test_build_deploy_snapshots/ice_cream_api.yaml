@@ -16,7 +16,7 @@ Function:
     IDP_CLIENT_ID: ${ICAPI_EXTRACTORS_CLIENT_ID}
     IDP_CLIENT_SECRET: ${ICAPI_EXTRACTORS_CLIENT_SECRET}
     IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
-    IDP_TENANT_ID: ${IDP_TENANT_ID}
+    IDP_TENANT_ID: dummy
   externalId: icapi_assets_extractor
   fileId: -1
   functionPath: ./handler.py

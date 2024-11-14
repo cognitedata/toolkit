@@ -57,6 +57,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     kind = "Function"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
+    do_environment_variable_injection = True
 
     class _MetadataKey:
         function_hash = "cdf-toolkit-function-hash"
