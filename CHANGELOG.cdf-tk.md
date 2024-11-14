@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- `cdf auth verify` no longer asks to update missing capabilities if there are no missing capabilities.
+
 ## [0.3.9] - 2024-11-12
 
 ### Added
