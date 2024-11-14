@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- `cdf auth verify` no longer asks to update missing capabilities if there are no missing capabilities.
 - `run function local` now works with functions that are importing adjacent modules.
 - Environment variables were not replaced in Functions. This is now fixed.
 
