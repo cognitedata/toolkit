@@ -68,7 +68,13 @@ This directory contains virtual environments for running functions locally. This
 intended to test the function before deploying it to CDF or to debug issues with a deployed function.
 
 """
-    import_check_py = """from local_code.{handler_import} import handle
+    import_check_py = """import sys
+from pathlib import Path
+
+# This is necessary to import adjacent modules in the function code.
+sys.path.insert(0, str(Path(__file__).parent / "local_code"))
+
+from local_code.{handler_import} import handle # noqa: E402
 
 
 def main() -> None:
@@ -80,12 +86,18 @@ if __name__ == "__main__":
 
 """
     run_check_py = """import os
+import sys
+
+from pathlib import Path
 from pprint import pprint
 
 from cognite.client import CogniteClient, ClientConfig
 from cognite.client.credentials import {credentials_cls}
 
-from local_code.{handler_import} import handle
+# This is necessary to import adjacent modules in the function code.
+sys.path.insert(0, str(Path(__file__).parent / "local_code"))
+
+from local_code.{handler_import} import handle # noqa: E402
 
 
 def main() -> None:
