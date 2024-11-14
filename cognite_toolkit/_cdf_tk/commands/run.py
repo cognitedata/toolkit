@@ -7,6 +7,7 @@ import os
 import platform
 import re
 import shutil
+import textwrap
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -92,7 +93,7 @@ from pathlib import Path
 from pprint import pprint
 
 from cognite.client import CogniteClient, ClientConfig
-from cognite.client.credentials import {credentials_cls}{import_dotenv}
+from cognite.client.credentials import {credentials_cls}
 
 # This is necessary to import adjacent modules in the function code.
 sys.path.insert(0, str(Path(__file__).parent / "local_code"))
@@ -583,13 +584,19 @@ if __name__ == "__main__":
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
-        import_dotenv = ""
         load_dotenv = ""
-        cwd = Path.cwd()
-        if (cwd / ".env").is_file() and function_venv_dir.is_relative_to(cwd):
-            import_dotenv = "\nfrom dotenv import load_dotenv"
-            levels = len(function_venv_dir.relative_to(cwd).parts)
-            load_dotenv = f"\n\nROOT = Path(__file__).resolve().parents[{levels}]\n\nload_dotenv(ROOT / '.env')"
+        if (Path.cwd() / ".env").is_file():
+            levels = len(function_venv_dir.parts)
+            load_dotenv = textwrap.dedent(f"""
+                try:
+                    from dotenv import load_dotenv
+
+                    ROOT = Path(__file__).resolve().parents[{levels}]
+
+                    load_dotenv(ROOT / '.env')
+                except ImportError:
+                    ...
+            """)
 
         handler_import = self._create_handler_import(handler_file)
 
@@ -602,7 +609,6 @@ if __name__ == "__main__":
             credentials_args="\n        ".join(f"{k}={v}," for k, v in credentials_args.items()),
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
             function_external_id=function_external_id,
-            import_dotenv=import_dotenv,
             load_dotenv=load_dotenv,
         )
         return run_check_py, env

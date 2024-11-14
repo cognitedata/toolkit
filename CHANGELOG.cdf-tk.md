@@ -24,6 +24,8 @@ Changes are grouped as follows:
 ### Improved
 
 - `run function local` give a more informative error message if the function code cannot be imported.
+- `run function local` now automatically loads environment variables from `.env` file. This is useful if you want to
+  run the `run_check.py` script manually, for example, in debug mode in your IDE.
 
 ## [0.3.9] - 2024-11-12
 
