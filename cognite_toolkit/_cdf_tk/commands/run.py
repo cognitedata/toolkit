@@ -92,13 +92,13 @@ from pathlib import Path
 from pprint import pprint
 
 from cognite.client import CogniteClient, ClientConfig
-from cognite.client.credentials import {credentials_cls}
+from cognite.client.credentials import {credentials_cls}{import_dotenv}
 
 # This is necessary to import adjacent modules in the function code.
 sys.path.insert(0, str(Path(__file__).parent / "local_code"))
 
 from local_code.{handler_import} import handle # noqa: E402
-
+{load_dotenv}
 
 def main() -> None:
     credentials = {credentials_cls}(
@@ -500,7 +500,7 @@ if __name__ == "__main__":
         )
 
         run_check_py, env = self._create_run_check_file_with_env(
-            ToolGlobals, args, function_dict, function_external_id, handler_file, call_args
+            ToolGlobals, args, function_dict, function_external_id, handler_file, call_args, function_venv
         )
         if platform.system() == "Windows":
             if system_root := os.environ.get("SYSTEMROOT"):
@@ -524,6 +524,7 @@ if __name__ == "__main__":
         function_external_id: str,
         handler_file: str,
         call_args: FunctionCallArgs,
+        function_venv_dir: Path,
     ) -> tuple[str, dict[str, str]]:
         if authentication := call_args.authentication:
             if authentication.client_id.startswith("${"):
@@ -582,6 +583,14 @@ if __name__ == "__main__":
         if "function_call_info" in args:
             handler_args["function_call_info"] = str({"local": True})
 
+        import_dotenv = ""
+        load_dotenv = ""
+        cwd = Path.cwd()
+        if (cwd / ".env").is_file() and function_venv_dir.is_relative_to(cwd):
+            import_dotenv = "\nfrom dotenv import load_dotenv"
+            levels = len(function_venv_dir.relative_to(cwd).parts)
+            load_dotenv = f"\n\nROOT = Path(__file__).resolve().parents[{levels}]\n\nload_dotenv(ROOT / '.env')"
+
         handler_import = self._create_handler_import(handler_file)
 
         run_check_py = self.run_check_py.format(
@@ -593,6 +602,8 @@ if __name__ == "__main__":
             credentials_args="\n        ".join(f"{k}={v}," for k, v in credentials_args.items()),
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
             function_external_id=function_external_id,
+            import_dotenv=import_dotenv,
+            load_dotenv=load_dotenv,
         )
         return run_check_py, env
 
