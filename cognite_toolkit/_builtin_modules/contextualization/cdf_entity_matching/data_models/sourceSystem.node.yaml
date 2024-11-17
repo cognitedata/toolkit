@@ -8,6 +8,6 @@ sources:
       version: v1
     properties:
       name: '{{ contextualizationName }}'
-      description: 'Creates annotations for P&ID diagrams which are used to connect nodes.'
+      description: 'Creates Entity Matching annotations which are used to connect nodes.'
       version: "v1"
       manufacturer: "Cognite"

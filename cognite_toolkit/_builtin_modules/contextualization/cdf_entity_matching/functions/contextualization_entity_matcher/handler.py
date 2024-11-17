@@ -1,11 +1,13 @@
 import itertools
+import json
+import time
 import traceback
-from collections.abc import Iterable, MutableSequence
-from typing import Any, Literal
+from collections.abc import Iterable, MutableSequence, Sequence
+from datetime import datetime, timezone
+from hashlib import sha256
+from typing import Any, Literal, cast
 
 from cognite.client.config import global_config
-
-from my_dev.function_local_venvs.contextualization_p_and_id_annotater.local_code.handler import wait_for_completion
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 # ruff: noqa: E402
@@ -24,6 +26,7 @@ FUNCTION_ID = "contextualization_entity_matcher"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_entity_matching"
 EXTERNAL_ID_LIMIT = 256
 EXTRACTION_RUN_MESSAGE_LIMIT = 1000
+EDGE_TYPE = "entity.match"
 
 
 def handle(data: dict, client: CogniteClient) -> dict:
@@ -120,7 +123,7 @@ class Cursors:
 
     def _lookup_cursor(self, key: str) -> str | None:
         row = self._client.raw.rows.retrieve(db_name=self._raw_database, table_name=self._raw_table, key=key)
-        if row is None:
+        if row is None or row.columns is None:
             return None
         return row.columns.get("cursor")
 
@@ -136,7 +139,7 @@ class Cursors:
 class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_name=True):
     node_id: dm.NodeId
     view: dm.ViewId
-    properties: dict[str, str]
+    standardized_properties: dict[str, str]
     name_by_alias: dict[str, str]
 
     @classmethod
@@ -144,19 +147,19 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
         if not node.properties:
             raise ValueError(f"Node {node.as_id()} does not have properties")
         view_id, node_properties = next(iter(node.properties.items()))
-        properties: dict[str, str] = {}
+        standardized_properties: dict[str, str] = {}
         name_by_alias: dict[str, str] = {}
         for no, prop in enumerate(properties):
             if prop in node_properties:
                 # We standardize the property names to prop0, prop1, prop2, ...
                 # This is such that we can easily match the properties to multiple target entities
                 alias = f"prop{no}"
-                properties[alias] = node_properties[prop]
+                standardized_properties[alias] = str(node_properties[prop])
                 name_by_alias[alias] = prop
         return cls(
             node_id=node.as_id(),
             view=view_id,
-            properties=properties,
+            standardized_properties=standardized_properties,
             name_by_alias=name_by_alias,
         )
 
@@ -168,7 +171,7 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
         return {
             "nodeId": self.node_id.dump(),
             "view": self.view.dump(),
-            "properties": self.properties,
+            **self.standardized_properties,
             "nameByAlias": self.name_by_alias,
         }
 
@@ -179,20 +182,34 @@ class EntityList(list, MutableSequence[Entity]):
         return set().union(*[entity.properties.keys() for entity in self])
 
     @classmethod
-    def from_nodes(cls, nodes: list[dm.Node], properties: list[str]) -> "EntityList":
+    def from_nodes(cls, nodes: Sequence[dm.Node], properties: list[str]) -> "EntityList":
         return cls([Entity.from_node(node, properties) for node in nodes])
 
     def dump(self) -> list[dict[str, Any]]:
         return [entity.dump() for entity in self]
 
-    def property_product(self, other: "EntityList") -> list[dict[str, str]]:
+    def property_product(self, other: "EntityList") -> list[tuple[str, str]]:
         return [
-            {
-                "source": source,
-                "target": target,
-            }
-            for source, target in itertools.product(self.unique_properties, other.unique_properties)
+            (source, target) for source, target in itertools.product(self.unique_properties, other.unique_properties)
         ]
+
+
+class MatchItem(BaseModel, alias_generator=to_camel):
+    score: float
+    target: Entity
+
+
+class MatchResult(BaseModel, alias_generator=to_camel):
+    source: Entity
+    matches: list[MatchItem]
+
+    @property
+    def best_match(self) -> MatchItem | None:
+        return max(self.matches, key=lambda match: match.score) if self.matches else None
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "MatchResult":
+        return cls.model_validate(data)
 
 
 # Logger using print
@@ -239,27 +256,30 @@ def execute(data: dict, client: CogniteClient) -> None:
 
     cursors = Cursors(client, config.state)
     job_by_name = trigger_matching_jobs(client, cursors, config, logger)
-
+    job_name_by_id = {job.job_id: name for name, job in job_by_name.items()}
+    jobs = list(job_by_name.values())
     logger.info(f"Matching jobs triggered: {len(job_by_name)}")
 
     annotation_count = 0
-    for result in wait_for_completion(job_by_name, logger):
-        if result.errors:
-            errors_str = "\n  - ".join(sorted(set(result.errors)))
-            logger.error(f"Job {result.job_id} {len(result.errors)} matching failed: \n  - {errors_str}")
+    for completed_job in wait_for_completion(jobs, logger):
+        if completed_job.error_message:
+            logger.error(f"Job {completed_job.job_id} entity matching failed: \n  - {completed_job.error_message}")
             continue
         annotations = write_annotations(
-            result, client, config.data.annotation_space, config.source_system, config.parameters, logger
+            completed_job, client, config.data.annotation_space, config.source_system, config.parameters, logger
         )
         annotation_count += len(annotations)
+        job_name = job_name_by_id[cast(int, completed_job.job_id)]
+        cursors.store(job_name)
+
     logger.info(f"Annotations created: {annotation_count}")
 
 
 def trigger_matching_jobs(
     client: CogniteClient, cursors: Cursors, config: Config, logger: CogniteFunctionLogger
-) -> list[ContextualizationJob]:
+) -> dict[str, ContextualizationJob]:
     instance_spaces = config.data.instance_spaces
-    jobs: list = []
+    jobs: dict[str, ContextualizationJob] = {}
 
     for job_name, job_config in config.data.matching_jobs.items():
         last_cursor = cursors.get_cursor(job_name)
@@ -290,7 +310,8 @@ def trigger_matching_jobs(
                 num_matches=1,
                 score_threshold=config.parameters.auto_reject_threshold,
             )
-            jobs.append(job)
+            jobs[job_name] = job
+            logger.debug(f"Triggered matching job {job_name} with {len(source_entities)} entities")
     return jobs
 
 
@@ -312,19 +333,93 @@ def _create_query(view: ViewProperties, instance_spaces: list[str], last_cursor:
     )
 
 
-def wait_for_completion(jobs: list, logger: CogniteFunctionLogger) -> Iterable:
-    raise NotImplementedError("Diagram detection is not yet implemented")
+def wait_for_completion(
+    jobs: list[ContextualizationJob], logger: CogniteFunctionLogger
+) -> Iterable[ContextualizationJob]:
+    # The Cognite Function will eventually time out, so we don't need to worry about running forever
+    while jobs:
+        job = jobs.pop(0)
+
+        job.update_status()
+
+        status = cast(str, job.status).casefold()
+        if status == "completed":
+            yield job
+        elif status in ("failed", "timeout"):
+            logger.warning(f"Job {job.job_id} {status}: {job.error_message}")
+        else:
+            jobs.append(job)
+            logger.debug(f"Job {job.job_id} {status}, will check again later")
+            # Sleep for a bit to avoid hammering the API
+            time.sleep(10)
 
 
 def write_annotations(
-    result: Any,
+    job: ContextualizationJob,
     client: CogniteClient,
     annotation_space: str,
     source: dm.DirectRelationReference,
-    parameter: Parameters,
+    parameters: Parameters,
     logger: CogniteFunctionLogger,
 ) -> list[CogniteAnnotationApply]:
-    raise NotImplementedError("Diagram detection is not yet implemented")
+    annotation_list: list[CogniteAnnotationApply] = []
+    for match_raw in job.result["items"]:
+        match = MatchResult.load(match_raw)
+        if (best_match := match.best_match) is None:
+            logger.debug(f"No match found for {match.source.node_id!r}")
+            continue
+        source_id = match.source.node_id
+        target_id = best_match.target.node_id
+        now = datetime.now(timezone.utc).replace(microsecond=0)
+        score = best_match.score
+        status: Literal["Approved", "Suggested", "Rejected"] = "Suggested"
+        if score >= parameters.auto_approval_threshold:
+            status = "Approved"
+        elif score <= parameters.auto_reject_threshold:
+            status = "Rejected"
+        external_id = create_annotation_id(source_id, target_id, EDGE_TYPE)
+        annotation = CogniteAnnotationApply(
+            space=annotation_space,
+            external_id=external_id,
+            start_node=(source_id.space, source_id.external_id),
+            end_node=(target_id.space, target_id.external_id),
+            type=(annotation_space, EDGE_TYPE),
+            confidence=score,
+            status=status,
+            source=source,
+            source_created_time=now,
+            source_updated_time=now,
+            source_created_user=FUNCTION_ID,
+            source_updated_user=FUNCTION_ID,
+            source_context=json.dumps({"end": best_match.target.view.dump(), "start": match.source.view.dump()}),
+        )
+        annotation_list.append(annotation)
+
+    created = client.data_modeling.instances.apply(edges=annotation_list).edges
+
+    create_count = sum(
+        [1 for result in created if result.was_modified and result.created_time == result.last_updated_time]
+    )
+    update_count = sum(
+        [1 for result in created if result.was_modified and result.created_time != result.last_updated_time]
+    )
+    unchanged_count = len(created) - create_count - update_count
+    logger.info(
+        f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {job.job_id}"
+    )
+    return annotation_list
+
+
+def create_annotation_id(start: dm.NodeId, end: dm.NodeId, type: str) -> str:
+    naive = f"{start.space}:{start.external_id}:{end.space}:{end.external_id}:{type}"
+    if len(naive) < EXTERNAL_ID_LIMIT:
+        return naive
+    full_hash = sha256(naive.encode()).hexdigest()[:10]
+    prefix = f"{start.external_id}:{end.external_id}:{type}"
+    shorten = f"{prefix}:{full_hash}"
+    if len(shorten) < EXTERNAL_ID_LIMIT:
+        return shorten
+    return prefix[: EXTERNAL_ID_LIMIT - 10] + full_hash
 
 
 def load_config(client: CogniteClient, logger: CogniteFunctionLogger) -> Config:
