@@ -207,6 +207,18 @@ capabilities:
       - DELETE
       scope:
         all: {}
+  - sapWritebackAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - WRITE
+      - LIST
+      scope:
+        all: {}
   - scheduledCalculationsAcl:
       actions:
       - WRITE
