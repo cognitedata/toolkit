@@ -1,0 +1,245 @@
+DataSet:
+- description: Entity Matcher
+  externalId: ingestion
+  metadata: {}
+  name: Entity Matcher
+  writeProtected: false
+Database:
+- name: contextualizationState
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 42
+  description: Matches entities based on their properties
+  documentation: "# Entity Matcher\nThis extraction pipeline is responsible for matching\
+    \ entities based on their properties. This means it looks for, for example, how\
+    \ to match time series to assets, or time series to equipment, based on the properties\
+    \ of these. This is useful when you have data from different sources and you only\
+    \ have partially the same information.\n## Configuration\n  \n```yaml\n  parameters:\n\
+    \      autoApprovalThreshold: # Automatically set the annotation as approved if\
+    \ the confidence is above this threshold\n      autoRejectThreshold: # Automatically\
+    \ reject the annotation if the confidence is below this threshold\n      featureType:\
+    \ \"bigram\" # The type of features to use for the matching. \n        # \"simple\"\
+    \ \"insensitive\" \"bigram\" \"frequencyweightedbigram\" \"bigramextratokenizers\"\
+    \ \"bigramcombo\"\n  sourceSystem: # The source system of the annotations written\
+    \ by this pipeline\n    space: <>\n    externalId: <>\n  state: # The entity matcher\
+    \ uses the instances/sync endpoint to fetch sources entities,i.e, ensuring they\
+    \ are only used once.\n    rawDatabase: <>\n    rawTable: <>\n  data:\n    annotationSpace:\
+    \ # The space to write the annotations to\n    instanceSpaces:\n      - # The\
+    \ space to fetch entities such as Assets, Equipment, etc. from\n      - # Another\
+    \ space to fetch entities from\n    matchingJobs:\n      jobName:\n        sourceView:\n\
+    \          space: <>\n          externalId: <>\n          version: <>\n      \
+    \    properties: # The properties to use for the matching\n            - propertyA\n\
+    \            - propertyB\n        targetViews:\n         -  space: <>\n      \
+    \      externalId: <>\n            version: <>\n            properties: # The\
+    \ properties to use for the matching\n              - propertyA\n            \
+    \  - propertyB\n```"
+  externalId: ctx_entity_matching
+  name: Entity Matcher
+- createdBy: unknown
+  dataSetId: 42
+  description: Writes direct relations based on annotations.
+  documentation: "# Direct Relation Writer\nThis extraction pipeline is responsible\
+    \ for writing the direct relations into  a data model based on annotations.\n\
+    ## Annotations Annotations are found based on three criteria:\n1. It has to have\
+    \ data in the (`cdf_cdm\", \"CogniteAnnotation`, `v1`) view. 2. It is stored in\
+    \ the space configured in the `annotationSpace`. 3. It has to have a `sourceContext`\
+    \ that contains the views of the start and end nodes of the relations.\n```json\
+    \ {\"start\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\": \"CogniteFile\"\
+    ,\n  \"version\": \"v1\"\n}, \"end\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\"\
+    : \"CogniteAsset\",\n  \"version\": \"v1\"\n}} ```\n## Configuration\nThe configuration\
+    \ of the direct relation writer:\n```yaml state: # The Annotation writer uses\
+    \ the instances/sync endpoint to fetch annotations. \n  # The state stores the\
+    \ last cursor.\n  rawDatabase: <>\n  rawTable: <>\ndata:\n  annotationSpace: <>\
+    \ # The space the edges for the annotations are stored.\n  directRelationMapping:\
+    \ # How to go from Annotation to DirectRelation\n    - startNodeView: # The view\
+    \ of the start node.\n       space: <> .\n       externalId: <>\n       version:\
+    \ <> \n       directRelationProperty: <> # The property that contains the direct\
+    \ relation.\n        # Must be set either on the start or end node.\n      endNodeView:\
+    \ # The view of the end node.\n        space: <>\n        externalId: <>\n   \
+    \     version: <>\n        # directRelationProperty: <> # Must be set either on\
+    \ the start or end node.\n```\n"
+  externalId: ctx_files_direct_relation_write
+  name: Direct Relation Writer
+ExtractionPipelineConfig:
+- config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
+    \  featureType: \"bigram\"\nsourceSystem:\n  space: springfield_instances\n  externalId:\
+    \ entity_matcher\ndata:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n\
+    \    ['springfield_instances']\n  state:\n    rawDatabase: contextualizationState\n\
+    \    rawTable: entityMatching\n  matchingJobs:\n    job1:\n      sourceView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteTimeSeries\n        version:\
+    \ v1\n        properties:\n          - name\n      targetViews:\n        - space:\
+    \ cdf_cdm\n          externalId: CogniteEquipment\n          version: v1\n   \
+    \       properties:\n            - name\n        - space: cdf_cdm\n          externalId:\
+    \ CogniteAsset\n          version: v1\n          properties:\n            - name\n"
+  externalId: ctx_entity_matching
+- config: "state:\n  rawDatabase: contextualizationState\n  rawTable: entityMatching\n\
+    data:\n  annotationSpace: springfield_instances\n  directRelationMappings:\n \
+    \   - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteTimeSeries\n\
+    \        version: v1\n        directRelationProperty: equipment\n      endNodeView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
+    \ v1\n    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteTimeSeries\n\
+    \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n"
+  externalId: ctx_files_direct_relation_write
+Function:
+- description: Writes all approved Annotations as direct relations connections.
+  externalId: contextualization_connection_writer
+  fileId: -1
+  functionPath: handler.py
+  metadata:
+    cdf-toolkit-function-hash: fe27998b8d93a88766ff77a55f13c302556e8ae0502eb2ea70f242d3cb082d68
+  name: Annotation to Direct Relations Writer
+  owner: Anonymous
+- description: Matches entities based on their properties
+  externalId: contextualization_entity_matcher
+  fileId: -1
+  functionPath: handler.py
+  metadata:
+    cdf-toolkit-function-hash: 123577ad0c05853d58f3478b4f378f3d12793af1805f98ff8a920b6365123e8e
+  name: Entity Matching Function
+  owner: Anonymous
+Group:
+- capabilities:
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+  - annotationsAcl:
+      actions:
+      - READ
+      - WRITE
+      - SUGGEST
+      - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - rawAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            contextualizationState:
+              tables: []
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  metadata:
+    origin: cognite-toolkit
+  name: gp_workflow_entity_matcher
+  sourceId: <not set>
+Node:
+- externalId: entity.match
+  instanceType: node
+  space: springfield_instances
+- externalId: entity_matcher
+  instanceType: node
+  sources:
+  - properties:
+      description: Creates Entity Matching annotations which are used to connect nodes.
+      manufacturer: Cognite
+      name: Entity Matcher
+      version: v1
+    source:
+      externalId: CogniteSourceSystem
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: springfield_instances
+Space:
+- description: Space for storing annotations
+  name: springfield_instances
+  space: springfield_instances
+Table:
+- createdTime: 1
+  name: entityMatching
+Workflow:
+- description: This workflow entity matches and writes the approved annotations into
+    the data.
+  externalId: entity_matching
+WorkflowTrigger:
+- externalId: entity_matching_trigger
+  triggerRule:
+    cronExpression: 0 4 * * *
+    triggerType: schedule
+  workflowExternalId: entity_matching
+  workflowVersion: v1
+WorkflowVersion:
+- version: v1
+  workflowDefinition:
+    tasks:
+    - externalId: entity_matching_task1
+      onFailure: skipTask
+      parameters:
+        function:
+          data:
+            logLevel: INFO
+          externalId: ctx_entity_matching
+      retries: null
+      timeout: null
+      type: function
+    - dependsOn:
+      - externalId: entity_matching_task1
+      externalId: entity_matching_task2
+      onFailure: abortWorkflow
+      parameters:
+        function:
+          data:
+            logLevel: INFO
+          externalId: contextualization_connection_writer
+      retries: null
+      timeout: null
+      type: function
+  workflowExternalId: entity_matching
