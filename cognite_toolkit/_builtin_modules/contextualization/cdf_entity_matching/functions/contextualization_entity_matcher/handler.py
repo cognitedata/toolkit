@@ -1,10 +1,5 @@
-import json
-import time
 import traceback
-from collections.abc import Iterable
-from datetime import datetime, timezone
-from hashlib import sha256
-from typing import Any, Literal, cast
+from typing import Literal
 
 from cognite.client.config import global_config
 
@@ -12,14 +7,8 @@ from cognite.client.config import global_config
 # ruff: noqa: E402
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
-import yaml
 from cognite.client import CogniteClient
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite
-from cognite.client.data_classes.contextualization import DiagramDetectResults
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteDiagramAnnotationApply
-from pydantic import BaseModel, Field, field_validator
-from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "contextualization_entity_matcher"
 EXTRACTION_PIPELINE_EXTERNAL_ID = "ctx_entity_matching"
@@ -87,7 +76,6 @@ class CogniteFunctionLogger:
 
     def error(self, message: str) -> None:
         self._print("[ERROR]", message)
-
 
 
 #####################################################
