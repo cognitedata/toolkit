@@ -7,13 +7,13 @@ config:
   sourceSystem:
     space: {{ annotationSpace }}
     externalId: {{ contextualizationId }}
+  state:
+    rawDatabase: {{ rawStateDatabase }}
+    rawTable: {{ rawStateTable }}
   data:
     annotationSpace: '{{ annotationSpace }}'
     instanceSpaces:
       {{ instanceSpaces }}
-    state:
-      rawDatabase: {{ rawStateDatabase }}
-      rawTable: {{ rawStateTable }}
     matchingJobs:
       job1:
         sourceView:
