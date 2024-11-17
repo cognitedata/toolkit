@@ -21,13 +21,17 @@ documentation: >
     sourceSystem: # The source system of the annotations written by this pipeline
       space: <>
       externalId: <>
+    state: # The entity matcher uses the instances/sync endpoint to fetch sources entities,i.e, ensuring they are only used once.
+      rawDatabase: <>
+      rawTable: <>
     data:
       annotationSpace: # The space to write the annotations to
       instanceSpaces:
         - # The space to fetch entities such as Assets, Equipment, etc. from
         - # Another space to fetch entities from
       matchingJobs:
-        - sourceView:
+        jobName:
+          sourceView:
             space: <>
             externalId: <>
             version: <>

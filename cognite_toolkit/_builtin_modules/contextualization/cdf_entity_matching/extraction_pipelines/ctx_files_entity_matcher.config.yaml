@@ -11,8 +11,12 @@ config:
     annotationSpace: '{{ annotationSpace }}'
     instanceSpaces:
       {{ instanceSpaces }}
+    state:
+      rawDatabase: {{ rawStateDatabase }}
+      rawTable: {{ rawStateTable }}
     matchingJobs:
-      - sourceView:
+      job1:
+        sourceView:
           space: {{ schemaSpace }}
           externalId: CogniteTimeSeries
           version: v1
