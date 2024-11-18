@@ -135,8 +135,9 @@ def set_alpha(off: bool = False) -> None:
     is_feature_flag = False
     new_lines = []
     for line in CDF_TOML.read_text().splitlines():
-        if header_match := re.match(r"\[(\w\_)+\]", line):
+        if header_match := re.match(r"\[(\w+)\]", line.strip()):
             header = header_match.group(1)
+            print(header)
             if header == "feature_flags":
                 is_feature_flag = True
             else:
@@ -145,7 +146,7 @@ def set_alpha(off: bool = False) -> None:
             line = line.replace("true", "false")
         new_lines.append(line)
 
-    CDF_TOML.write_text("\n".join(new_lines))
+    CDF_TOML.write_text("\n".join(new_lines) + "\n")
 
 
 # This is just for demo purposes, to test the secret plugin in the Toolkit CLI
