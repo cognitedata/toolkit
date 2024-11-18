@@ -19,7 +19,7 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import ExtractionPipelineRunWrite, RowWrite
 from cognite.client.data_classes.contextualization import ContextualizationJob
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAnnotationApply
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 FUNCTION_ID = "contextualization_entity_matcher"
@@ -45,7 +45,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
         error_msg = f'"{e!s}"'
         message = prefix + error_msg + suffix
         if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
-            error_msg = error_msg[: EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix) - 3]
+            error_msg = error_msg[: EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix) - 3 - 1]
             message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
@@ -145,6 +145,34 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
     standardized_properties: dict[str, str]
     name_by_alias: dict[str, str]
 
+    @model_validator(mode="before")
+    def pack_properties(cls, values: dict[str, Any]) -> dict[str, Any]:
+        if "standardized_properties" in values or "standardizedProperties" in values:
+            return values
+        standardized_properties: dict[str, str] = {}
+        for key in list(values.keys()):
+            if key.startswith("prop"):
+                standardized_properties[key] = values.pop(key)
+        return {**values, "standardized_properties": standardized_properties}
+
+    @field_validator("node_id", "view", "name_by_alias", mode="before")
+    def load_json(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return json.loads(value)
+        return value
+
+    @field_validator("node_id", mode="before")
+    def load_node_id(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return dm.NodeId.load(value)
+        return value
+
+    @field_validator("view", mode="before")
+    def load_view_id(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return dm.ViewId.load(value)
+        return value
+
     @classmethod
     def from_node(cls, node: dm.Node, properties: list[str]) -> "Entity":
         if not node.properties:
@@ -172,10 +200,10 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
 
     def dump(self) -> dict[str, Any]:
         return {
-            "nodeId": self.node_id.dump(),
-            "view": self.view.dump(),
+            "nodeId": json.dumps(self.node_id.dump()),
+            "view": json.dumps(self.view.dump()),
             **self.standardized_properties,
-            "nameByAlias": self.name_by_alias,
+            "nameByAlias": json.dumps(self.name_by_alias),
         }
 
 
