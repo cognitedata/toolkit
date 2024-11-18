@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
+
 ## [0.3.10] - 2024-11-14
 
 ### Fixed
