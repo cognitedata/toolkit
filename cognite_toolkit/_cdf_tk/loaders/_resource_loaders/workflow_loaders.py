@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 
 from .auth_loaders import GroupAllScopedLoader
+from .data_organization_loaders import DataSetsLoader
 from .function_loaders import FunctionLoader
 from .transformation_loaders import TransformationLoader
 
@@ -74,6 +75,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
             GroupAllScopedLoader,
             TransformationLoader,
             FunctionLoader,
+            DataSetsLoader,
         }
     )
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
@@ -112,7 +114,14 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
         resource = load_yaml_inject_variables(filepath, {})
 
-        workflows = [resource] if isinstance(resource, dict) else resource
+        workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
+        for workflow in workflows:
+            if "dataSetExternalId" in workflow:
+                ds_external_id = workflow.pop("dataSetExternalId")
+                workflow["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in workflow"
+                )
+
         return WorkflowUpsertList.load(workflows)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
@@ -146,6 +155,49 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def iterate(self) -> Iterable[Workflow]:
         return self.client.workflows.list(limit=-1)
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        spec.add(
+            ParameterSpec(
+                ("dataSetExternalId",),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
+        spec.discard(
+            ParameterSpec(
+                ("dataSetId",),
+                frozenset({"str"}),
+                is_required=False,
+                _is_nullable=True,
+            )
+        )
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+
+    def _are_equal(
+        self, local: WorkflowUpsert, cdf_resource: Workflow, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 @final
