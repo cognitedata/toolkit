@@ -121,6 +121,9 @@ class Cursors:
             self._cursor_by_key[key] = self._lookup_cursor(key)
         return self._cursor_by_key[key]
 
+    def set_cursor(self, key: str, cursor: str | None) -> None:
+        self._cursor_by_key[key] = cursor
+
     def _lookup_cursor(self, key: str) -> str | None:
         row = self._client.raw.rows.retrieve(db_name=self._raw_database, table_name=self._raw_table, key=key)
         if row is None or row.columns is None:
@@ -282,9 +285,6 @@ def trigger_matching_jobs(
     jobs: dict[str, ContextualizationJob] = {}
 
     for job_name, job_config in config.data.matching_jobs.items():
-        last_cursor = cursors.get_cursor(job_name)
-        query = _create_query(job_config.source_view, instance_spaces, last_cursor)
-
         target_entities = EntityList()
         for target_view in job_config.target_views:
             target_nodes = client.data_modeling.instances.list(
@@ -295,27 +295,35 @@ def trigger_matching_jobs(
             )
             target_entities.extend(EntityList.from_nodes(target_nodes, target_view.properties))
 
-        for source_nodes in client.data_modeling.instances.sync(query):
-            source_entities = EntityList.from_nodes(source_nodes, job_config.source_view.properties)
-            combinations = source_entities.property_product(target_entities)
-            unsupervised_model = client.entity_matching.fit(
-                sources=source_entities.dump(),
-                targets=target_entities.dump(),
-                feature_type=config.parameters.feature_type,
-                match_fields=combinations,
-            )
-            job = unsupervised_model.predict(
-                sources=source_entities.dump(),
-                targets=target_entities.dump(),
-                num_matches=1,
-                score_threshold=config.parameters.auto_reject_threshold,
-            )
-            jobs[job_name] = job
-            logger.debug(f"Triggered matching job {job_name} with {len(source_entities)} entities")
+        last_cursor = cursors.get_cursor(job_name)
+
+        query = _create_query(job_config.source_view, instance_spaces, last_cursor, job_name)
+        query_result = client.data_modeling.instances.sync(query)
+        cursors.set_cursor(job_name, query_result.cursors[job_name])
+        source_nodes = query_result.get_nodes(job_name)
+
+        source_entities = EntityList.from_nodes(source_nodes, job_config.source_view.properties)
+        combinations = source_entities.property_product(target_entities)
+        unsupervised_model = client.entity_matching.fit(
+            sources=source_entities.dump(),
+            targets=target_entities.dump(),
+            feature_type=config.parameters.feature_type,
+            match_fields=combinations,
+        )
+        job = unsupervised_model.predict(
+            sources=source_entities.dump(),
+            targets=target_entities.dump(),
+            num_matches=1,
+            score_threshold=config.parameters.auto_reject_threshold,
+        )
+        jobs[job_name] = job
+        logger.debug(f"Triggered matching job {job_name} with {len(source_entities)} entities")
     return jobs
 
 
-def _create_query(view: ViewProperties, instance_spaces: list[str], last_cursor: str | None) -> dm.query.Query:
+def _create_query(
+    view: ViewProperties, instance_spaces: list[str], last_cursor: str | None, name: str
+) -> dm.query.Query:
     view_id = view.as_view_id()
     is_selected = dm.filters.And(
         dm.filters.In(["node", "space"], instance_spaces),
@@ -323,13 +331,13 @@ def _create_query(view: ViewProperties, instance_spaces: list[str], last_cursor:
     )
     return dm.query.Query(
         with_={
-            "entities": dm.query.NodeResultSetExpression(
+            name: dm.query.NodeResultSetExpression(
                 filter=is_selected,
                 limit=1000,
             )
         },
-        select={"entities": dm.query.Select([dm.query.SourceSelector(source=view_id, properties=view.properties)])},
-        cursors={"entities": last_cursor},
+        select={name: dm.query.Select([dm.query.SourceSelector(source=view_id, properties=view.properties)])},
+        cursors={name: last_cursor},
     )
 
 
