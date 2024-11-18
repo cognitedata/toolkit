@@ -130,6 +130,8 @@ def bump(
 
 @app.command("alpha")
 def set_alpha(off: bool = False) -> None:
+    if not off:
+        return
     is_feature_flag = False
     new_lines = []
     for line in CDF_TOML.read_text().splitlines():
