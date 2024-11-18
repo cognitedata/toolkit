@@ -5,8 +5,6 @@ and fails if they have changed.
 If the changes are desired, you can update the snapshot by running `pytest tests/ --force-regen`.
 """
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
@@ -243,6 +241,13 @@ def test_complete_org_is_complete() -> None:
             for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
+    if Flags.STREAMLIT.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.REQUIRE_KIND.is_enabled():
+        alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
+        for module in alpha_modules:
+            for resource_folder, files in module.source_paths_by_resource_folder.items():
+                for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+                    if any(loader.is_supported_file(file) for file in files):
+                        used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader
