@@ -1,5 +1,6 @@
 """This is a small CLI used to develop Toolkit."""
 
+import re
 from datetime import date
 from pathlib import Path
 
@@ -14,8 +15,10 @@ CHANGELOG = REPO_ROOT / "CHANGELOG.cdf-tk.md"
 TEMPLATE_CHANGELOG = REPO_ROOT / "CHANGELOG.templates.md"
 TBD_HEADING = "## TBD"
 IMAGE_NAME = "cognite/toolkit"
+CDF_TOML = REPO_ROOT / "cdf.toml"
 
-bump_app = typer.Typer(
+
+app = typer.Typer(
     add_completion=False,
     help=__doc__,
     pretty_exceptions_short=False,
@@ -24,7 +27,7 @@ bump_app = typer.Typer(
 )
 
 
-@bump_app.command()
+@app.command()
 def bump(
     major: bool = False,
     minor: bool = False,
@@ -125,6 +128,24 @@ def bump(
     typer.echo(f"Bumped version from {version} to {new_version} in {len(version_files)} files.")
 
 
+@app.command("alpha")
+def set_alpha(turn_off: bool = False) -> None:
+    is_feature_flag = False
+    new_lines = []
+    for line in CDF_TOML.read_text().splitlines():
+        if header_match := re.match(r"\[(\w-)+\]"):
+            header = header_match.group(1)
+            if header == "feature-flags":
+                is_feature_flag = True
+            else:
+                is_feature_flag = False
+        if is_feature_flag:
+            line = line.replace("true", "false")
+        new_lines.append(line)
+
+    CDF_TOML.write_text("\n".join(new_lines))
+
+
 # This is just for demo purposes, to test the secret plugin in the Toolkit CLI
 import_app = typer.Typer(
     pretty_exceptions_short=False, pretty_exceptions_show_locals=False, pretty_exceptions_enable=False
@@ -140,9 +161,9 @@ def cdf(
 
 
 CDF_TK_PLUGIN = {
-    "bump": bump_app,
+    "bump": app,
     "import": import_app,
 }
 
 if __name__ == "__main__":
-    bump_app()
+    app()

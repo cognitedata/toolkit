@@ -37,6 +37,29 @@ jobs:
       - name: Linting and static code checks try 2
         if: steps.pre-commit-first-run.outcome != 'success'
         uses: pre-commit/action@v3.0.1
+  test-no-alpha:
+    name: Run tests
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: false
+      - name: Install core dependencies
+        run: poetry install
+      - name: Turn off alpha features
+        run:
+
+      - name: Run pytest
+        env:
+          IS_GITHUB_ACTIONS: "true"
+        run: pytest tests/test_unit -n8
+
   test:
     name: Run tests
     runs-on: ubuntu-latest
