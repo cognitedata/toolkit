@@ -63,14 +63,14 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
     \  featureType: \"bigram\"\nsourceSystem:\n  space: springfield_instances\n  externalId:\
-    \ entity_matcher\ndata:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n\
-    \    ['springfield_instances']\n  state:\n    rawDatabase: contextualizationState\n\
-    \    rawTable: entityMatching\n  matchingJobs:\n    job1:\n      sourceView:\n\
-    \        space: cdf_cdm\n        externalId: CogniteTimeSeries\n        version:\
-    \ v1\n        properties:\n          - name\n      targetViews:\n        - space:\
-    \ cdf_cdm\n          externalId: CogniteEquipment\n          version: v1\n   \
-    \       properties:\n            - name\n        - space: cdf_cdm\n          externalId:\
-    \ CogniteAsset\n          version: v1\n          properties:\n            - name\n"
+    \ entity_matcher\nstate:\n  rawDatabase: contextualizationState\n  rawTable: entityMatching\n\
+    data:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n    ['springfield_instances']\n\
+    \  matchingJobs:\n    job1:\n      sourceView:\n        space: cdf_cdm\n     \
+    \   externalId: CogniteTimeSeries\n        version: v1\n        properties:\n\
+    \          - name\n      targetViews:\n        - space: cdf_cdm\n          externalId:\
+    \ CogniteEquipment\n          version: v1\n          properties:\n           \
+    \ - name\n        - space: cdf_cdm\n          externalId: CogniteAsset\n     \
+    \     version: v1\n          properties:\n            - name\n"
   externalId: ctx_entity_matching
 - config: "state:\n  rawDatabase: contextualizationState\n  rawTable: entityMatching\n\
     data:\n  annotationSpace: springfield_instances\n  directRelationMappings:\n \
@@ -87,7 +87,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: fe27998b8d93a88766ff77a55f13c302556e8ae0502eb2ea70f242d3cb082d68
+    cdf-toolkit-function-hash: f1ef5d5ef1ff3880b1dcb69b3d598b1d59b7dd309474809d792bb4fba65fed63
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 - description: Matches entities based on their properties
@@ -95,7 +95,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 123577ad0c05853d58f3478b4f378f3d12793af1805f98ff8a920b6365123e8e
+    cdf-toolkit-function-hash: bd8fe6e3123879e2cb360f43fbd60c47f23006263ca621dadc45a160adceb001
   name: Entity Matching Function
   owner: Anonymous
 Group:
@@ -206,7 +206,8 @@ Table:
 - createdTime: 1
   name: entityMatching
 Workflow:
-- description: This workflow entity matches and writes the approved annotations into
+- dataSetId: 42
+  description: This workflow entity matches and writes the approved annotations into
     the data.
   externalId: entity_matching
 WorkflowTrigger:
