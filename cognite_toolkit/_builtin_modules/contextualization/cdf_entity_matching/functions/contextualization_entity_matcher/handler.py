@@ -182,7 +182,7 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
 class EntityList(list, MutableSequence[Entity]):
     @property
     def unique_properties(self) -> set[str]:
-        return set().union(*[entity.properties.keys() for entity in self])
+        return set().union(*[entity.standardized_properties.keys() for entity in self])
 
     @classmethod
     def from_nodes(cls, nodes: Sequence[dm.Node], properties: list[str]) -> "EntityList":
@@ -268,10 +268,11 @@ def execute(data: dict, client: CogniteClient) -> None:
         if completed_job.error_message:
             logger.error(f"Job {completed_job.job_id} entity matching failed: \n  - {completed_job.error_message}")
             continue
-        annotations = write_annotations(
-            completed_job, client, config.data.annotation_space, config.source_system, config.parameters, logger
+        annotation_list = create_annotations(
+            completed_job, config.data.annotation_space, config.source_system, config.parameters, logger
         )
-        annotation_count += len(annotations)
+        write_annotations(annotation_list, client, completed_job.job_id or 0, logger)
+        annotation_count += len(annotation_list)
         job_name = job_name_by_id[cast(int, completed_job.job_id)]
         cursors.store(job_name)
 
@@ -362,9 +363,8 @@ def wait_for_completion(
             time.sleep(10)
 
 
-def write_annotations(
+def create_annotations(
     job: ContextualizationJob,
-    client: CogniteClient,
     annotation_space: str,
     source: dm.DirectRelationReference,
     parameters: Parameters,
@@ -402,7 +402,15 @@ def write_annotations(
             source_context=json.dumps({"end": best_match.target.view.dump(), "start": match.source.view.dump()}),
         )
         annotation_list.append(annotation)
+    return annotation_list
 
+
+def write_annotations(
+    annotation_list: list[CogniteAnnotationApply],
+    client: CogniteClient,
+    job_id: int,
+    logger: CogniteFunctionLogger,
+) -> None:
     created = client.data_modeling.instances.apply(edges=annotation_list).edges
 
     create_count = sum(
@@ -413,9 +421,8 @@ def write_annotations(
     )
     unchanged_count = len(created) - create_count - update_count
     logger.info(
-        f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {job.job_id}"
+        f"Created {create_count} updated {update_count}, and {unchanged_count} unchanged annotations for {job_id}"
     )
-    return annotation_list
 
 
 def create_annotation_id(start: dm.NodeId, end: dm.NodeId, type: str) -> str:
