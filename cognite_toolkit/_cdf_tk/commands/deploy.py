@@ -97,18 +97,20 @@ class DeployCommand(ToolkitCommand):
         if not _RUNNING_IN_BROWSER:
             environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
 
-        action = ""
+        verb = "Deploying"
         if dry_run:
-            action = "(dry-run) "
+            verb = "Checking"
 
         print(
             Panel(
-                f"[bold]Deploying {action}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                f"[bold]{verb}[/]resource files from {build_dir} directory." f"{environment_vars}",
                 expand=False,
             )
         )
 
-        selected_loaders = self._clean_command.get_selected_loaders(build_dir, include)
+        selected_loaders = self._clean_command.get_selected_loaders(
+            build_dir, deploy_state.read_resource_folders, include
+        )
 
         results = DeployResults([], "deploy", dry_run=dry_run)
 
