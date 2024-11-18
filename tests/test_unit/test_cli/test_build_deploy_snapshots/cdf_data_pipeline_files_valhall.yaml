@@ -309,7 +309,8 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 Workflow:
-- description: Annotation process on files
+- dataSetId: 42
+  description: Annotation process on files
   externalId: wf_oid_files_annotation
 WorkflowVersion:
 - version: '1'

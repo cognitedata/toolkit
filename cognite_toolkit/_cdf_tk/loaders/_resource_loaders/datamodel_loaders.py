@@ -1078,6 +1078,9 @@ class GraphQLLoader(
             cdf_dumped["description"] = description
         else:
             cdf_dumped["graphql_file"] = ""
+
+        # Reference to the GraphQL file will cause the comparison to always be False.
+        local_dumped.pop("dml", None)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource(

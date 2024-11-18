@@ -1,2 +1,3 @@
 externalId: wf_{{location_name}}_files_annotation
 description: Annotation process on files
+dataSetExternalId: ds_files_{{location_name}}

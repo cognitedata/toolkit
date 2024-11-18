@@ -204,6 +204,18 @@ Group:
       - DELETE
       scope:
         all: {}
+  - sapWritebackAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - WRITE
+      - LIST
+      scope:
+        all: {}
   - scheduledCalculationsAcl:
       actions:
       - WRITE
@@ -467,6 +479,16 @@ Group:
   - roboticsAcl:
       actions:
       - READ
+      scope:
+        all: {}
+  - sapWritebackAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - LIST
       scope:
         all: {}
   - scheduledCalculationsAcl:
