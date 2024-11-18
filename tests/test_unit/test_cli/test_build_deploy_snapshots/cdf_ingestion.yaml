@@ -1,3 +1,9 @@
+DataSet:
+- description: Ingestion pipeline
+  externalId: ingestion
+  metadata: {}
+  name: Ingestion
+  writeProtected: false
 Group:
 - capabilities:
   - projectsAcl:
@@ -98,7 +104,8 @@ Group:
   name: gp_ingestion
   sourceId: <not set>
 Workflow:
-- description: This runs the full ingestion with population and contextualization
+- dataSetId: 42
+  description: This runs the full ingestion with population and contextualization
   externalId: ingestion
 WorkflowTrigger:
 - externalId: ingestion

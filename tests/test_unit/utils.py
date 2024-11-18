@@ -47,7 +47,11 @@ from cognite.client.data_classes.hosted_extractors import (
     RestConfig,
 )
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
-from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTaskParameters
+from cognite.client.data_classes.workflows import (
+    WorkflowTaskOutput,
+    WorkflowTaskParameters,
+    WorkflowTriggerDataModelingQuery,
+)
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
@@ -229,7 +233,7 @@ class FakeCogniteResourceGenerator:
             else:
                 keyword_arguments.pop("filter", None)
 
-        if resource_cls is Query:
+        if resource_cls is Query or resource_cls is WorkflowTriggerDataModelingQuery:
             # The fake generator makes all dicts from 1-3 values, we need to make sure that the query is valid
             # by making sure that the list of equal length, so we make both to length 1.
             with_key, with_value = next(iter(keyword_arguments["with_"].items()))
