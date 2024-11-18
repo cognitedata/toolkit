@@ -53,8 +53,7 @@ jobs:
       - name: Install core dependencies
         run: poetry install
       - name: Turn off alpha features
-        run:
-
+        run: python dev.py alpha --off
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
