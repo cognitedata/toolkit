@@ -133,7 +133,7 @@ def set_alpha(off: bool = False) -> None:
     is_feature_flag = False
     new_lines = []
     for line in CDF_TOML.read_text().splitlines():
-        if header_match := re.match(r"\[(\w-)+\]"):
+        if header_match := re.match(r"\[(\w-)+\]", line):
             header = header_match.group(1)
             if header == "feature-flags":
                 is_feature_flag = True
