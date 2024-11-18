@@ -2,14 +2,14 @@
 default_organization_dir = "cognite_toolkit"
 #default_env = "dev"
 
-#[feature_flags]
-#graphql = true
-#import-cmd = true
-#ado-pipelines = true
-#require-kind = true
-#run-workflow = true
-#streamlit = true
-#force-update = true
+[feature_flags]
+graphql = true
+import-cmd = true
+ado-pipelines = true
+require-kind = true
+run-workflow = true
+streamlit = true
+force-update = true
 
 [plugins]
 run = true
