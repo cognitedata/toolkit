@@ -106,4 +106,4 @@ modules:
         apm_sourcedata_model_version = next(
             (variable for variable in local_variables if variable.key == "apm_sourcedata_model_version"), None
         )
-        assert apm_sourcedata_model_version == "1"
+        assert apm_sourcedata_model_version.value == "1"
