@@ -50,11 +50,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
-    KINDS_BY_FOLDER_NAME,
     ContainerLoader,
     DataLoader,
     DataModelLoader,
     ExtractionPipelineConfigLoader,
+    FileLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -316,6 +316,10 @@ class BuildCommand(ToolkitCommand):
                     # is warnings
                     self.warning_list.extend(destination)
                     continue
+                if Flags.REQUIRE_KIND.is_enabled() and destination.loader is FileLoader:
+                    # This is a content file that we should not copy to the build directory.
+                    continue
+
                 safe_write(destination.path, destination.content)
                 if issubclass(destination.loader, DataLoader):
                     continue
@@ -427,16 +431,6 @@ class BuildCommand(ToolkitCommand):
 
         for source_path in resource_files:
             if source_path.suffix.lower() not in TEMPLATE_VARS_FILE_SUFFIXES:
-                continue
-            if (
-                Flags.REQUIRE_KIND.is_enabled()
-                and source_path.suffix in YAML_SUFFIX
-                and all(
-                    not source_path.stem.casefold().endswith(kind.casefold())
-                    for kind in KINDS_BY_FOLDER_NAME[resource_name]
-                )
-            ):
-                # Skipping files that are not of the correct kind.
                 continue
 
             if verbose:
