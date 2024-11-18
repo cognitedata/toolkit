@@ -38,7 +38,7 @@ jobs:
         if: steps.pre-commit-first-run.outcome != 'success'
         uses: pre-commit/action@v3.0.1
   test-no-alpha:
-    name: Run tests
+    name: Run tests without alpha features
     runs-on: ubuntu-latest
     environment: dev
     steps:
