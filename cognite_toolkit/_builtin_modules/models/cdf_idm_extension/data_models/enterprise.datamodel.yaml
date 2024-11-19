@@ -16,40 +16,40 @@ views:
   externalId: {{ organization }}Notification
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}SourceSystem
+- space: cdf_cdm
+  externalId: CogniteSourceSystem
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Sourceable
+- space: cdf_cdm
+  externalId: CogniteSourceable
   version: v1
   type: view
 - space: {{ schema_space }}
   externalId: {{ organization }}Asset
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}AssetClass
+- space: cdf_cdm
+  externalId: CogniteAssetClass
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}AssetType
+- space: cdf_cdm
+  externalId: CogniteAssetType
   version: v1
   type: view
 - space: {{ schema_space }}
   externalId: {{ organization }}Equipment
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}EquipmentType
+- space: cdf_cdm
+  externalId: CogniteEquipmentType
   version: v1
   type: view
 - space: {{ schema_space }}
   externalId: {{ organization }}File
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}FileCategory
+- space: cdf_cdm
+  externalId: CogniteFileCategory
   version: v1
   type: view
 - space: {{ schema_space }}
@@ -60,7 +60,7 @@ views:
   externalId: {{ organization }}TimeSeries
   version: v1
   type: view
-- space: {{ schema_space }}
-  externalId: {{ organization }}Unit
+- space: cdf_cdm
+  externalId: CogniteUnit
   version: v1
   type: view

@@ -32,8 +32,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_idm
-        externalId: CogniteOperation
+        space: {{ schema_space }}
+        externalId: {{ organization }}Operation
         version: v1
         type: view
       identifier: maintenanceOrder
@@ -88,8 +88,8 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}SourceSystem
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
       version: v1
       type: view
   UUID:
