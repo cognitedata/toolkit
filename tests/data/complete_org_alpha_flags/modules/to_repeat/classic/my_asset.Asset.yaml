@@ -1,0 +1,5 @@
+externalId: {{ location }}_root
+name: RootAsset
+description: This is the root asset on {{ location }}
+source: doctrino
+dataSetExternalId: ds_{{ location }}_assets
