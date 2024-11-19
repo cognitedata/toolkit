@@ -277,8 +277,9 @@ class BuildCommand(ToolkitCommand):
                 module_warnings = len(self.warning_list) - warning_count
                 warning_count = len(self.warning_list)
 
+                name = module.name if len(module_variable_sets) == 1 else f"{module.name} (iteration {iteration})"
                 built_module = BuiltModule(
-                    name=module.name,
+                    name=name,
                     location=SourceLocationLazy(
                         path=module.relative_path,
                         absolute_path=module.dir,
