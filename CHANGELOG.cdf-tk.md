@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [Alpha feature] Support for specifying list of variables under modules in `config.[env].yaml` file.
+  This allows you to reuse the same module with different variables.
+
 ## [0.3.11] - 2024-11-19
 
 ### Fixed
