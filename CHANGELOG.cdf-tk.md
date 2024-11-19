@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
+- [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
 
 ## [0.3.10] - 2024-11-14
 
