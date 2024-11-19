@@ -57,7 +57,7 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: cdf
+      space: cdf_cdm
       externalId: CogniteSourceSystem
       version: v1
       type: view
