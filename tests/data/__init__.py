@@ -15,6 +15,7 @@ PROJECT_WITH_BAD_MODULES = DATA_FOLDER / "project_with_bad_modules"
 
 BUILD_GROUP_WITH_UNKNOWN_ACL = DATA_FOLDER / "build_group_with_unknown_acl"
 COMPLETE_ORG = DATA_FOLDER / "complete_org"
+COMPLETE_ORG_ALPHA_FLAGS = DATA_FOLDER / "complete_org_alpha_flags"
 CDF_TOML_DATA = DATA_FOLDER / "cdf_toml_data"
 
 __all__ = [
@@ -28,7 +29,6 @@ __all__ = [
     "RUN_DATA",
     "TRANSFORMATION_CLI",
     "PROJECT_WITH_BAD_MODULES",
-    "BUILD_CORE_MODEL",
     "BUILD_GROUP_WITH_UNKNOWN_ACL",
     "COMPLETE_ORG",
     "CDF_TOML_DATA",
