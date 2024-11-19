@@ -94,6 +94,12 @@ LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
 RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
+KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
+for loader in LOADER_LIST:
+    if loader.folder_name not in KINDS_BY_FOLDER_NAME:
+        KINDS_BY_FOLDER_NAME[loader.folder_name] = set()
+    KINDS_BY_FOLDER_NAME[loader.folder_name].add(loader.kind)
+del loader  # cleanup module namespace
 
 if not Flags.STREAMLIT.is_enabled():
     ResourceTypes: TypeAlias = Literal[
@@ -195,4 +201,5 @@ __all__ = [
     "RESOURCE_LOADER_LIST",
     "RESOURCE_CONTAINER_LOADER_LIST",
     "RESOURCE_DATA_LOADER_LIST",
+    "KINDS_BY_FOLDER_NAME",
 ]

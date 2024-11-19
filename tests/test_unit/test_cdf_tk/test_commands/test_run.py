@@ -12,6 +12,7 @@ from cognite.client.data_classes.workflows import (
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.data_classes import ModuleResources
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -94,6 +95,7 @@ class TestRunFunction:
             rebuild_env=False,
         )
 
+    @pytest.mark.skipif(not Flags.RUN_WORKFLOW.is_enabled(), reason="Neets workflow feature flag enabled")
     def test_run_local_function_with_workflow(self, cdf_tool_mock: CDFToolConfig) -> None:
         cmd = RunFunctionCommand()
 
@@ -106,6 +108,9 @@ class TestRunFunction:
             rebuild_env=False,
         )
 
+    # Note we are skipping a tests that does not require the feature flag to be enabled
+    # However, this is a cleaner way to ship the tests, and that test will be run when the feature flag is enabled
+    @pytest.mark.skipif(not Flags.RUN_WORKFLOW.is_enabled(), reason="Neets workflow feature flag enabled")
     @pytest.mark.parametrize(
         "data_source, expected",
         [
