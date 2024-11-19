@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import time
+import warnings
 from collections import defaultdict
 from time import sleep
 
@@ -260,11 +261,17 @@ class AuthCommand(ToolkitCommand):
         is_interactive: bool,
     ) -> list[Capability]:
         print(f"\nChecking if the {existing_group.name} has the all required capabilities...")
-        missing_capabilities = ToolGlobals.toolkit_client.iam.compare_capabilities(
-            existing_group.capabilities or [],
-            toolkit_group.capabilities or [],
-            project=ToolGlobals.project,
-        )
+        with warnings.catch_warnings():
+            # If the user has unknown capabilities, we don't want the user to see the warning:
+            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
+            # This is irrelevant for the user as we are only checking the capabilities below
+            # (triggered by the verify_authorization calls)
+            warnings.simplefilter("ignore")
+            missing_capabilities = ToolGlobals.toolkit_client.iam.compare_capabilities(
+                existing_group.capabilities or [],
+                toolkit_group.capabilities or [],
+                project=ToolGlobals.project,
+            )
         if not missing_capabilities:
             print(f"  [bold green]OK[/] - The {existing_group.name} has all the required capabilities.")
             return []
@@ -302,11 +309,17 @@ class AuthCommand(ToolkitCommand):
         else:
             updated_toolkit_group.capabilities.extend(missing_capabilities)
 
-        adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
-            existing_group.capabilities or [],
-            updated_toolkit_group.capabilities or [],
-            project=ToolGlobals.project,
-        )
+        with warnings.catch_warnings():
+            # If the user has unknown capabilities, we don't want the user to see the warning:
+            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
+            # This is irrelevant for the user as we are only checking the capabilities below
+            # (triggered by the verify_authorization calls)
+            warnings.simplefilter("ignore")
+            adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
+                existing_group.capabilities or [],
+                updated_toolkit_group.capabilities or [],
+                project=ToolGlobals.project,
+            )
         adding = self._merge_capabilities(adding)
         capability_str = "capabilities" if len(adding) > 1 else "capability"
         if dry_run:
@@ -400,44 +413,50 @@ class AuthCommand(ToolkitCommand):
             "Checking basic project and group manipulation access rights "
             "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
-        try:
-            ToolGlobals.verify_authorization(
-                [
-                    ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                    GroupsAcl(
-                        [
-                            GroupsAcl.Action.Read,
-                            GroupsAcl.Action.List,
-                            GroupsAcl.Action.Create,
-                            GroupsAcl.Action.Update,
-                            GroupsAcl.Action.Delete,
-                        ],
-                        GroupsAcl.Scope.All(),
-                    ),
-                ]
-            )
-            print("  [bold green]OK[/]")
-        except AuthorizationError:
-            self.warn(
-                HighSeverityWarning(
-                    "The service principal/application configured for this client "
-                    "does not have the basic group write access rights."
-                )
-            )
-            print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
+        with warnings.catch_warnings():
+            # If the user has unknown capabilities, we don't want the user to see the warning:
+            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
+            # This is irrelevant for the user as we are only checking the capabilities below
+            # (triggered by the verify_authorization calls)
+            warnings.simplefilter("ignore")
             try:
                 ToolGlobals.verify_authorization(
-                    capabilities=[
+                    [
                         ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                        GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
+                        GroupsAcl(
+                            [
+                                GroupsAcl.Action.Read,
+                                GroupsAcl.Action.List,
+                                GroupsAcl.Action.Create,
+                                GroupsAcl.Action.Update,
+                                GroupsAcl.Action.Delete,
+                            ],
+                            GroupsAcl.Scope.All(),
+                        ),
                     ]
                 )
-                print("  [bold green]OK[/] - can continue with checks.")
+                print("  [bold green]OK[/]")
             except AuthorizationError:
-                raise AuthorizationError(
-                    "Unable to continue, the service principal/application configured for this client does not"
-                    " have the basic read group access rights."
+                self.warn(
+                    HighSeverityWarning(
+                        "The service principal/application configured for this client "
+                        "does not have the basic group write access rights."
+                    )
                 )
+                print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
+                try:
+                    ToolGlobals.verify_authorization(
+                        capabilities=[
+                            ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
+                            GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
+                        ]
+                    )
+                    print("  [bold green]OK[/] - can continue with checks.")
+                except AuthorizationError:
+                    raise AuthorizationError(
+                        "Unable to continue, the service principal/application configured for this client does not"
+                        " have the basic read group access rights."
+                    )
 
     def check_identity_provider(self, ToolGlobals: CDFToolConfig, cdf_project: str) -> None:
         print("Checking identity provider settings...")
