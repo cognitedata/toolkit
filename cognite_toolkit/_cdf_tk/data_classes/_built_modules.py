@@ -24,7 +24,7 @@ class BuiltModule:
     resources: dict[str, BuiltResourceList]
     warning_count: int
     status: str
-    iteration: int | None = None
+    iteration: int
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> BuiltModule:
@@ -38,7 +38,7 @@ class BuiltModule:
             },
             warning_count=data.get("warning_count", 0),
             status=data.get("status", "Success"),
-            iteration=data.get("iteration", None),
+            iteration=data.get("iteration", 1),
         )
 
     def dump(self) -> dict[str, Any]:
