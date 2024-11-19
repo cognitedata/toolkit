@@ -97,9 +97,7 @@ class DeployCommand(ToolkitCommand):
         if not _RUNNING_IN_BROWSER:
             environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
 
-        verb = "Deploying"
-        if dry_run:
-            verb = "Checking"
+        verb = "Checking" if dry_run else "Deploying"
 
         print(
             Panel(
