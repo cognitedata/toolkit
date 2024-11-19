@@ -267,7 +267,7 @@ class BuildCommand(ToolkitCommand):
                     if on_error == "raise":
                         raise
 
--                     suffix = "" if len(module_variable_sets) == 1 else f" ({iteration} of {len(module_variable_sets)})"
+                    suffix = "" if len(module_variable_sets) == 1 else f" ({iteration} of {len(module_variable_sets)})"
 
                     print(f"  [bold red]Failed Building:([/][red]: {module.name}{suffix}")
                     print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
