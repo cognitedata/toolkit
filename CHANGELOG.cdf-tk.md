@@ -15,6 +15,19 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.11] - 2024-11-19
+
+### Fixed
+
+- [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
+- In `cdf build` when loading `config.[env].yaml` the Toolkit now correctly prefers variables deeper, more
+  specific, in the hierarchy over more general variables.
+- [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
+
+### Improved
+
+- The `cdf auth verify` no longer gives UserWarning is the user has unknown capabilities.
+
 ## [0.3.10] - 2024-11-14
 
 ### Fixed

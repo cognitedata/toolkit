@@ -246,7 +246,7 @@ class CleanCommand(ToolkitCommand):
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(f"'{build_dir}'. Did you forget to run `cdf-tk build` first?")
 
-        selected_loaders = self.get_selected_loaders(build_dir, include)
+        selected_loaders = self.get_selected_loaders(build_dir, clean_state.read_resource_folders, include)
 
         results = DeployResults([], "clean", dry_run=dry_run)
 
@@ -285,10 +285,17 @@ class CleanCommand(ToolkitCommand):
         if results.has_uploads:
             print(results.uploads_table())
 
-    def get_selected_loaders(self, build_dir: Path, include: list[str]) -> dict[type[Loader], frozenset[type[Loader]]]:
+    def get_selected_loaders(
+        self, build_dir: Path, read_resource_folders: set[str], include: list[str]
+    ) -> dict[type[Loader], frozenset[type[Loader]]]:
         selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
-            if folder_name not in include or not (build_dir / folder_name).is_dir():
+            if folder_name not in include:
+                continue
+            if folder_name in read_resource_folders:
+                selected_loaders.update({loader_cls: loader_cls.dependencies for loader_cls in loader_classes})
+                continue
+            if not (build_dir / folder_name).is_dir():
                 continue
             folder_has_supported_files = False
             for loader_cls in loader_classes:

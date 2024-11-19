@@ -47,12 +47,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataLoader,
     DataModelLoader,
     ExtractionPipelineConfigLoader,
+    FileLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -311,9 +313,13 @@ class BuildCommand(ToolkitCommand):
             built_resources = BuiltResourceList[Hashable]()
             for destination in builder.build(source_files, module):
                 if not isinstance(destination, BuildDestinationFile):
-                    # is warnings
-                    self.warning_list.extend(destination)
+                    for warning in destination:
+                        self.warn(warning)
                     continue
+                if Flags.REQUIRE_KIND.is_enabled() and destination.loader is FileLoader:
+                    # This is a content file that we should not copy to the build directory.
+                    continue
+
                 safe_write(destination.path, destination.content)
                 if issubclass(destination.loader, DataLoader):
                     continue
