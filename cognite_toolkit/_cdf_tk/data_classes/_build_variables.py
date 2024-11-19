@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -106,11 +107,16 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
         """Gets the variables for a specific module."""
+        variables_by_key = defaultdict(list)
+        for variable in self:
+            if variable.location == module.relative_path or variable.location in module.parent_relative_paths:
+                variables_by_key[variable.key].append(variable)
+
         return BuildVariables(
             [
-                variable
-                for variable in self
-                if variable.location == module.relative_path or variable.location in module.parent_relative_paths
+                # We select the variable with the longest path to ensure that the most specific variable is selected
+                max(variables, key=lambda v: len(v.location.parts))
+                for variables in variables_by_key.values()
             ]
         )
 
