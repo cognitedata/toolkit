@@ -259,35 +259,39 @@ class BuildCommand(ToolkitCommand):
         for module in modules_iter:
             if verbose:
                 self.console(f"Processing module {module.name}")
-            module_variables = variables.get_module_variables(module)
-            try:
-                built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
-            except ToolkitError as err:
-                if on_error == "raise":
-                    raise
-                print(f"  [bold red]Failed Building:([/][red]: {module.name}")
-                print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
-                built_status = type(err).__name__
-                built_module_resources = {}
-            else:
-                built_status = "Success"
+            module_variable_sets = variables.get_module_variables(module)
+            for iteration_no, module_variables in enumerate(module_variable_sets, 1):
+                iteration = iteration_no if len(module_variable_sets) > 1 else None
+                try:
+                    built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
+                except ToolkitError as err:
+                    if on_error == "raise":
+                        raise
+                    suffix = "" if iteration is None else f" (iteration {iteration})"
+                    print(f"  [bold red]Failed Building:([/][red]: {module.name}{suffix}")
+                    print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+                    built_status = type(err).__name__
+                    built_module_resources = {}
+                else:
+                    built_status = "Success"
 
-            module_warnings = len(self.warning_list) - warning_count
-            warning_count = len(self.warning_list)
+                module_warnings = len(self.warning_list) - warning_count
+                warning_count = len(self.warning_list)
 
-            built_module = BuiltModule(
-                name=module.name,
-                location=SourceLocationLazy(
-                    path=module.relative_path,
-                    absolute_path=module.dir,
-                ),
-                build_variables=module_variables,
-                resources=built_module_resources,
-                warning_count=module_warnings,
-                status=built_status,
-            )
-            build.append(built_module)
-            self.tracker.track_module_build(built_module)
+                built_module = BuiltModule(
+                    name=module.name,
+                    location=SourceLocationLazy(
+                        path=module.relative_path,
+                        absolute_path=module.dir,
+                    ),
+                    build_variables=module_variables,
+                    resources=built_module_resources,
+                    warning_count=module_warnings,
+                    status=built_status,
+                    iteration=iteration,
+                )
+                build.append(built_module)
+                self.tracker.track_module_build(built_module)
         return build
 
     def _build_module_resources(
