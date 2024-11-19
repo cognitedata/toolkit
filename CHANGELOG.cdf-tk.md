@@ -20,6 +20,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
+- In `cdf build` when loading `config.[env].yaml` the Toolkit now correctly prefers variables deeper, more
+  specific, in the hierarchy over more general variables.
 - [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
 
 ## [0.3.10] - 2024-11-14
