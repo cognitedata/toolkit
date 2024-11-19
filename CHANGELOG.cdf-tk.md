@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
 
+### Improved
+
+- The `cdf auth verify` no longer gives UserWarning is the user has unknown capabilities.
+
 ## [0.3.10] - 2024-11-14
 
 ### Fixed
