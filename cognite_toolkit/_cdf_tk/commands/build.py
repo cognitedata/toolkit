@@ -313,8 +313,8 @@ class BuildCommand(ToolkitCommand):
             built_resources = BuiltResourceList[Hashable]()
             for destination in builder.build(source_files, module):
                 if not isinstance(destination, BuildDestinationFile):
-                    # is warnings
-                    self.warning_list.extend(destination)
+                    for warning in destination:
+                        self.warn(warning)
                     continue
                 if Flags.REQUIRE_KIND.is_enabled() and destination.loader is FileLoader:
                     # This is a content file that we should not copy to the build directory.
