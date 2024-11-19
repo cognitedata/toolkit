@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Bug in extension models in the `models` package. The `through` field was not correctly set. In addition,
+  simplified the `CogniteCore` and `CogniteProcessIndustries` minimum extension models further.
+
 ## [0.3.11] - 2024-11-19
 
 No changes to templates.
