@@ -26,32 +26,6 @@ Container:
         type: text
   space: sp_enterprise_min_schema_idm
 - constraints: {}
-  externalId: YourOrgAssetClass
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
-  externalId: YourOrgAssetType
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
   externalId: YourOrgEquipment
   indexes: {}
   properties:
@@ -65,33 +39,7 @@ Container:
         type: text
   space: sp_enterprise_min_schema_idm
 - constraints: {}
-  externalId: YourOrgEquipmentType
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
   externalId: YourOrgFile
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
-  externalId: YourOrgFileCategory
   indexes: {}
   properties:
     UUID:
@@ -143,46 +91,7 @@ Container:
         type: text
   space: sp_enterprise_min_schema_idm
 - constraints: {}
-  externalId: YourOrgSourceSystem
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
-  externalId: YourOrgSourceable
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
   externalId: YourOrgTimeSeries
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema_idm
-- constraints: {}
-  externalId: YourOrgUnit
   indexes: {}
   properties:
     UUID:
@@ -213,40 +122,40 @@ DataModel:
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgSourceSystem
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteSourceSystem
+    space: cdf_cdm
     type: view
     version: v1
-  - externalId: YourOrgSourceable
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteSourceable
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: YourOrgAsset
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgAssetClass
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteAssetClass
+    space: cdf_cdm
     type: view
     version: v1
-  - externalId: YourOrgAssetType
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteAssetType
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: YourOrgEquipment
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgEquipmentType
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteEquipmentType
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: YourOrgFile
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgFileCategory
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteFileCategory
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: YourOrgActivity
@@ -257,8 +166,8 @@ DataModel:
     space: sp_enterprise_min_schema_idm
     type: view
     version: v1
-  - externalId: YourOrgUnit
-    space: sp_enterprise_min_schema_idm
+  - externalId: CogniteUnit
+    space: cdf_cdm
     type: view
     version: v1
 Space:
@@ -314,8 +223,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -361,8 +270,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: YourOrgActivity
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     assetClass:
@@ -374,8 +283,8 @@ View:
       description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
       name: Asset class
       source:
-        externalId: YourOrgAssetClass
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteAssetClass
+        space: cdf_cdm
         type: view
         version: v1
     children:
@@ -391,8 +300,8 @@ View:
       through:
         identifier: parent
         source:
-          externalId: CogniteAsset
-          space: cdf_cdm
+          externalId: YourOrgAsset
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     equipment:
@@ -407,8 +316,8 @@ View:
       through:
         identifier: asset
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: YourOrgEquipment
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     files:
@@ -423,8 +332,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteFile
-          space: cdf_cdm
+          externalId: YourOrgFile
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     object3D:
@@ -433,8 +342,7 @@ View:
         space: cdf_cdm
         type: container
       containerPropertyIdentifier: object3D
-      description: This is not used, overwritten to point to nothing to avoid including
-        3D.
+      description: Direct relation to an Object3D instance representing the 3D resource
     parent:
       container:
         externalId: CogniteAsset
@@ -485,8 +393,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -501,8 +409,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: YourOrgTimeSeries
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     type:
@@ -514,56 +422,8 @@ View:
       description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
       name: Asset type
       source:
-        externalId: YourOrgAssetType
-        space: sp_enterprise_min_schema_idm
-        type: view
-        version: v1
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: Represents the class of an asset.
-  externalId: YourOrgAssetClass
-  implements:
-  - externalId: CogniteAssetClass
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Asset class
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgAssetClass
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: Represents the type of an asset.
-  externalId: YourOrgAssetType
-  implements:
-  - externalId: CogniteAssetType
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Asset type
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgAssetType
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
-    assetClass:
-      container:
         externalId: CogniteAssetType
         space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: assetClass
-      description: Specifies the class the type belongs to. It's a direct relation
-        to CogniteAssetClass.
-      name: Asset class
-      source:
-        externalId: YourOrgAssetClass
-        space: sp_enterprise_min_schema_idm
         type: view
         version: v1
   space: sp_enterprise_min_schema_idm
@@ -595,8 +455,8 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: YourOrgActivity
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     asset:
@@ -622,8 +482,8 @@ View:
         CogniteEquipmentType.
       name: Equipment type
       source:
-        externalId: YourOrgEquipmentType
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteEquipmentType
+        space: cdf_cdm
         type: view
         version: v1
     files:
@@ -647,8 +507,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -663,27 +523,10 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: YourOrgTimeSeries
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: Represents the type of equipment.
-  externalId: YourOrgEquipmentType
-  implements:
-  - externalId: CogniteEquipmentType
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Equipment type
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgEquipmentType
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - description: Represents files.
@@ -724,8 +567,8 @@ View:
         relation to an instance of CogniteFileCategory.
       name: Category
       source:
-        externalId: YourOrgFileCategory
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteFileCategory
+        space: cdf_cdm
         type: view
         version: v1
     equipment:
@@ -741,8 +584,8 @@ View:
       through:
         identifier: files
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: YourOrgEquipment
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     source:
@@ -753,28 +596,10 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: Represents the categories of files as determined by contextualization
-    or categorization.
-  externalId: YourOrgFileCategory
-  implements:
-  - externalId: CogniteFileCategory
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: File category
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgFileCategory
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
 - description: A formal request or directive to perform maintenance tasks such as
@@ -847,8 +672,8 @@ View:
       through:
         identifier: maintenanceOrder
         source:
-          externalId: CogniteOperation
-          space: cdf_idm
+          externalId: YourOrgOperation
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     source:
@@ -859,8 +684,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -928,8 +753,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
   space: sp_enterprise_min_schema_idm
@@ -1011,8 +836,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -1025,50 +850,6 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
-        type: view
-        version: v1
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: The CogniteSourceSystem core concept is used to standardize the way
-    source system is stored.
-  externalId: YourOrgSourceSystem
-  implements:
-  - externalId: CogniteSourceSystem
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- externalId: YourOrgSourceable
-  implements:
-  - externalId: CogniteSourceable
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgSourceable
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
-    source:
-      container:
-        externalId: CogniteSourceable
-        space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Direct relation to a source system
-      source:
-        externalId: YourOrgSourceSystem
         space: sp_enterprise_min_schema_idm
         type: view
         version: v1
@@ -1102,8 +883,8 @@ View:
       through:
         identifier: timeSeries
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: YourOrgActivity
+          space: sp_enterprise_min_schema_idm
           type: view
           version: v1
     assets:
@@ -1140,8 +921,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: YourOrgSourceSystem
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     unit:
@@ -1153,25 +934,9 @@ View:
       description: The unit of the time series.
       name: Unit
       source:
-        externalId: YourOrgUnit
-        space: sp_enterprise_min_schema_idm
+        externalId: CogniteUnit
+        space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
-  version: v1
-- description: Represents a single unit of measurement
-  externalId: YourOrgUnit
-  implements:
-  - externalId: CogniteUnit
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: YourOrgUnit
-        space: sp_enterprise_min_schema_idm
-        type: container
-      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema_idm
   version: v1
