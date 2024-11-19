@@ -35,6 +35,10 @@ class Flags(Enum):
         "visible": False,
         "description": "Adding the --force-update flag to the deploy command",
     }
+    MODULE_REPEAT: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for repeating modules in the config file",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
