@@ -24,6 +24,10 @@ Changes are grouped as follows:
   specific, in the hierarchy over more general variables.
 - [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
 
+### Improved
+
+- The `cdf auth verify` no longer gives UserWarning is the user has unknown capabilities.
+
 ## [0.3.10] - 2024-11-14
 
 ### Fixed
