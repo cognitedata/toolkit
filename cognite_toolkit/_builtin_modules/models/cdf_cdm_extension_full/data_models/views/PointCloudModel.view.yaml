@@ -28,8 +28,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: Cognite3DRevision
+        space: {{ schema_space }}
+        externalId: {{ organization }}3DRevision
         version: v1
         type: view
       identifier: model3D
