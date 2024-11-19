@@ -1,14 +1,13 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import yaml
 
-from cognite_toolkit._cdf_tk.data_classes import BuildVariables
+from cognite_toolkit._cdf_tk.data_classes import BuildVariables, ModuleLocation
 
 
 class TestBuildVariables:
-    def test_load(self) -> None:
-        assert True
-
     def test_replace_preserve_data_type(self) -> None:
         source_yaml = """text: {{ my_text }}
 bool: {{ my_bool }}
@@ -38,8 +37,8 @@ suffix_text: {{ my_suffix_text }}
                 "my_prefix_text": "prefix:",
                 "my_suffix_text": ":suffix",
             },
-            available_modules={tuple()},
-            selected_modules={tuple()},
+            available_modules=set(),
+            selected_modules=set(),
         )
 
         result = variables.replace(source_yaml)
@@ -66,10 +65,45 @@ suffix_text: {{ my_suffix_text }}
             {
                 "dataset_external_id": "ds_external_id",
             },
-            available_modules={tuple()},
-            selected_modules={tuple()},
+            available_modules=set(),
+            selected_modules=set(),
         )
 
         result = variables.replace(source_yaml, file_suffix=".sql")
 
         assert result == "dataset_id('ds_external_id')"
+
+    def test_get_module_variables_variable_preference_order(self) -> None:
+        source_yaml = """
+modules:
+  industry_apps:
+      module_version: '1'
+      pause_transformations: true
+      apm_datamodel_space: APM_SourceData
+      apm_sourcedata_model_version: '1.2.1'
+
+      industry_apps_crna_common:
+        apm_sourcedata_model_version: '1'
+"""
+        selected = {
+            Path("."),
+            Path("modules"),
+            Path("modules/industry_apps"),
+            Path("modules/industry_apps/industry_apps_crna_common"),
+        }
+
+        variables = BuildVariables.load_raw(
+            yaml.safe_load(source_yaml), available_modules=selected, selected_modules=selected
+        )
+
+        assert len(variables) == 5
+        location = ModuleLocation(
+            Path("modules/industry_apps/industry_apps_crna_common"), Path("."), source_paths=[], is_selected=True
+        )
+        local_variables = variables.get_module_variables(location)
+
+        assert len(local_variables) == 4
+        apm_sourcedata_model_version = next(
+            (variable for variable in local_variables if variable.key == "apm_sourcedata_model_version"), None
+        )
+        assert apm_sourcedata_model_version.value == "1"
