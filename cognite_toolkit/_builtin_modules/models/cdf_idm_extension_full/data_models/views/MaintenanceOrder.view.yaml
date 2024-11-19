@@ -32,8 +32,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_idm
-        externalId: CogniteOperation
+        space: {{ schema_space }}
+        externalId: {{ organization }}Operation
         version: v1
         type: view
       identifier: maintenanceOrder
