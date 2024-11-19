@@ -10,6 +10,7 @@ require-kind = true
 run-workflow = true
 streamlit = true
 force-update = true
+module-repeat = true
 
 [plugins]
 run = true
