@@ -504,8 +504,7 @@ class TransformationNotificationLoader(
         return []
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
-        res = self.client.transformations.notifications.create(items)  # type: ignore[return-value]
-        return res
+        return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
 
     def retrieve(self, ids: SequenceNotStr[str]) -> TransformationNotificationList:
         retrieved = TransformationNotificationList([])
