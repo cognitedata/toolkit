@@ -256,6 +256,10 @@ class BuildEnvironment(Environment):
     built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
     read_modules: list[ReadModule] = field(default_factory=list)
 
+    @property
+    def read_resource_folders(self) -> set[str]:
+        return {resource_folder for module in self.read_modules for resource_folder in module.resource_directories}
+
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version

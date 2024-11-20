@@ -1,0 +1,16 @@
+environment:
+  name: dev
+  project: <customer-dev>
+  type: dev
+  selected:
+    - modules/
+
+variables:
+  modules:
+    example_variable: foo
+    workflow_external_id: baz
+    example_secret: '${ENVIRONMENT_SECRET}'
+
+    to_repeat:
+      - location: Oslo
+      - location: Drammen

@@ -5,8 +5,6 @@ and fails if they have changed.
 If the changes are desired, you can update the snapshot by running `pytest tests/ --force-regen`.
 """
 
-from __future__ import annotations
-
 from collections import defaultdict
 from collections.abc import Iterator
 from pathlib import Path
@@ -19,9 +17,10 @@ from cognite_toolkit._cdf_tk.apps import CoreApp
 from cognite_toolkit._cdf_tk.commands import BuildCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection, iterate_modules
-from tests.data import COMPLETE_ORG
+from tests.data import COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
 
@@ -184,7 +183,14 @@ def test_init_build_clean(
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR_CLEAN / f"{module_path.name}.yaml")
 
 
+TEST_CASES = [COMPLETE_ORG]
+if Flags.REQUIRE_KIND.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.STREAMLIT.is_enabled():
+    TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
+
+
+@pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_complete_org(
+    organization_dir: Path,
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
@@ -195,7 +201,7 @@ def test_build_deploy_complete_org(
     app = CoreApp()
     app.build(
         typer_context,
-        organization_dir=COMPLETE_ORG,
+        organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
@@ -217,7 +223,7 @@ def test_build_deploy_complete_org(
     )
 
     dump = toolkit_client_approval.dump()
-    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{COMPLETE_ORG.name}.yaml")
+    data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{organization_dir.name}.yaml")
 
     for group_calls in toolkit_client_approval.auth_create_group_calls():
         lost_capabilities = group_calls.capabilities_all_calls - group_calls.last_created_capabilities
@@ -235,6 +241,13 @@ def test_complete_org_is_complete() -> None:
             for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
+    if Flags.STREAMLIT.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.REQUIRE_KIND.is_enabled():
+        alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
+        for module in alpha_modules:
+            for resource_folder, files in module.source_paths_by_resource_folder.items():
+                for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+                    if any(loader.is_supported_file(file) for file in files):
+                        used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader

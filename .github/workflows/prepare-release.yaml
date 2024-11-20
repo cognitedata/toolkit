@@ -58,32 +58,32 @@ jobs:
       - name: Bump Alpha Version
         if: ${{ github.event.inputs.bump == 'alpha' }}
         run:
-          python dev.py --alpha
+          python dev.py bump --alpha
 
       - name: Bump Beta Version
         if: ${{ github.event.inputs.bump == 'beta' }}
         run:
-          python dev.py --beta
+          python dev.py bump --beta
 
       - name: Bump Stable Version
         if: ${{ github.event.inputs.bump == 'stable' }}
         run:
-          python dev.py --stable
+          python dev.py bump --stable
 
       - name: Bump Minor Alpha Version
         if: ${{ github.event.inputs.bump == 'minor-alpha' }}
         run:
-          python dev.py --minor --alpha
+          python dev.py bump --minor --alpha
 
       - name: Bump Patch Version
         if: ${{ github.event.inputs.bump == 'patch' }}
         run:
-          python dev.py --patch
+          python dev.py bump --patch
 
       - name: Bump Minor Version
         if: ${{ github.event.inputs.bump == 'minor' }}
         run:
-          python dev.py --minor --verbose
+          python dev.py bump --minor --verbose
 
       - id: version
         name: Pick up the new version

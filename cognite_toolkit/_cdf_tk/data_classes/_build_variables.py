@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import re
+from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
 from typing import Any, SupportsIndex, overload
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from ._module_directories import ModuleLocation
 
@@ -26,6 +30,7 @@ class BuildVariable:
     value: str | int | float | bool | tuple[str | int | float | bool]
     is_selected: bool
     location: Path
+    iteration: int | None = None
 
     @property
     def value_variable(self) -> str | int | float | bool | list[str | int | float | bool]:
@@ -82,20 +87,30 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     ) -> BuildVariables:
         """Loads the variables from the user input."""
         variables = []
-        to_check: list[tuple[Path, dict[str, Any]]] = [(Path(""), raw_variable)]
+        to_check: list[tuple[Path, int | None, dict[str, Any]]] = [(Path(""), None, raw_variable)]
         while to_check:
-            path, subdict = to_check.pop()
+            path, iteration, subdict = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
                 if subpath in available_modules and isinstance(value, dict):
-                    to_check.append((subpath, value))
+                    to_check.append((subpath, None, value))
+                elif subpath in available_modules and isinstance(value, list):
+                    if Flags.MODULE_REPEAT.is_enabled():
+                        for no, module_variables in enumerate(value, 1):
+                            if not isinstance(module_variables, dict):
+                                raise ToolkitValueError(f"Variables under a module must be a dictionary: {subpath}.")
+                            to_check.append((subpath, no, module_variables))
+                    else:
+                        raise ToolkitValueError(
+                            f"Variables under a module cannot be a list: {subpath}. Please use a dictionary/mapping."
+                        )
                 elif isinstance(value, dict):
                     # Remove this check to support variables with dictionary values.
                     continue
                 else:
                     hashable_values = tuple(value) if isinstance(value, list) else value
                     is_selected = selected_modules is None or path in selected_modules
-                    variables.append(BuildVariable(key, hashable_values, is_selected, path))
+                    variables.append(BuildVariable(key, hashable_values, is_selected, path, iteration))
 
         return cls(variables)
 
@@ -104,15 +119,37 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         """Loads the variables from a dictionary."""
         return cls([BuildVariable.load(variable) for variable in data])
 
-    def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
+    def get_module_variables(self, module: ModuleLocation) -> list[BuildVariables]:
         """Gets the variables for a specific module."""
-        return BuildVariables(
-            [
-                variable
-                for variable in self
-                if variable.location == module.relative_path or variable.location in module.parent_relative_paths
-            ]
+        variables_by_key_by_iteration: dict[int | None, dict[str, list[BuildVariable]]] = defaultdict(
+            lambda: defaultdict(list)
         )
+        for variable in self:
+            if variable.location == module.relative_path or variable.location in module.parent_relative_paths:
+                variables_by_key_by_iteration[variable.iteration][variable.key].append(variable)
+
+        base_variables: dict[str, list[BuildVariable]] = variables_by_key_by_iteration.pop(None, {})
+        variable_sets: list[dict[str, list[BuildVariable]]]
+        if variables_by_key_by_iteration:
+            # Combine each with the base variables
+            variable_sets = []
+            for _, variables_by_key in sorted(variables_by_key_by_iteration.items(), key=lambda x: x[0] or 0):
+                for key, build_variable in base_variables.items():
+                    variables_by_key[key].extend(build_variable)
+                variable_sets.append(variables_by_key)
+        else:
+            variable_sets = [base_variables]
+
+        return [
+            BuildVariables(
+                [
+                    # We select the variable with the longest path to ensure that the most specific variable is selected
+                    max(variables, key=lambda v: len(v.location.parts))
+                    for variables in variable_set.values()
+                ]
+            )
+            for variable_set in variable_sets
+        ]
 
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
