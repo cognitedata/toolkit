@@ -491,7 +491,7 @@ class TransformationNotificationLoader(
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
         cdf_dumped.pop("transformationId")
-        cdf_dumped["transformationExternalId"] = cdf_resource.transformation_external_id
+        cdf_dumped["transformationExternalId"] = local.transformation_external_id
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
