@@ -83,7 +83,7 @@ ExtractionPipelineConfig:
   externalId: ctx_files_direct_relation_write
 Function:
 - description: Writes all approved Annotations as direct relations connections.
-  externalId: contextualization_connection_writer
+  externalId: contextualization_connection_writer_duplicate
   fileId: -1
   functionPath: handler.py
   metadata:
