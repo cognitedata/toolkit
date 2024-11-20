@@ -61,6 +61,8 @@ capabilities:
             - {{ schemaSpace }}
             - {{ schemaSpace2 }}
             - cdf_cdm_units
+            # Needed to write CogniteAsset.parent
+            - cdf_cdm
   - annotationsAcl:
       actions:
         - READ
