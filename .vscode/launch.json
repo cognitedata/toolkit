@@ -103,6 +103,7 @@
       "args": [
         "deploy",
         "--dry-run",
+        "--verbose"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
