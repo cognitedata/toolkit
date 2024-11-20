@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Added new modules `cdf_entity_matching` in the `contextualization` package. This contains a pipeline for
+  doing entity matching based on the Cognite Core model.
+
 ## [0.3.11] - 2024-11-19
 
 No changes to templates.
