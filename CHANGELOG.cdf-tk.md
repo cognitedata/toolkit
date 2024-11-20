@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - [Alpha feature] Support for specifying list of variables under modules in `config.[env].yaml` file.
   This allows you to reuse the same module with different variables.
+- [Alpha feature] GraphQL now supports the `preserveDml` parameter.
 
 ## [0.3.11] - 2024-11-19
 
