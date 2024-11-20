@@ -92,6 +92,7 @@ class Environment:
 
     @classmethod
     def load_selected(cls, raw: list[str | Path] | None, organization_dir: Path | None = None) -> list[str | Path]:
+        # The type of raw path is set just to make mypy happy.
         raw_paths: list[str | Path] = [selected for selected in raw or [] if isinstance(selected, Path)]
         raw_str = [selected for selected in raw or [] if isinstance(selected, str)]
         cleaned = (selected.replace("\\", "/") for selected in raw_str or [])
