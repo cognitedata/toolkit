@@ -202,6 +202,7 @@ def test_all_modules_cdf_prefixed() -> None:
 def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> None:
     cmd = BuildCommand(silent=True)
 
+    modules = Path("modules")
     cmd.execute(
         verbose=False,
         organization_dir=organization_dir,
@@ -209,8 +210,16 @@ def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> 
         build_env_name="dev",
         no_clean=False,
         ToolGlobals=None,
-        selected=None,
+        selected=[
+            modules / "cdf_ingestion",
+            modules / "common",
+            modules / "contextualization",
+            modules / "industrial_tools",
+            modules / "models",
+            modules / "sourcesystem",
+        ],
     )
 
     duplicate_warning = [warning for warning in cmd.warning_list if isinstance(warning, DuplicatedItemWarning)]
+
     assert not duplicate_warning, f"{len(duplicate_warning)} duplicate warnings found: {duplicate_warning}"

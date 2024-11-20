@@ -192,7 +192,7 @@ class CoreApp(typer.Typer):
                 verbose,
                 organization_dir,
                 build_dir,
-                selected,
+                selected,  # type: ignore[arg-type]
                 build_env_name,
                 no_clean,
                 ToolGlobals,
