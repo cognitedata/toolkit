@@ -197,3 +197,20 @@ def test_all_modules_cdf_prefixed() -> None:
     }
 
     assert not missing_cdf_prefix, f"Modules missing cdf_ prefix: {missing_cdf_prefix}"
+
+
+def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> None:
+    cmd = BuildCommand(silent=True)
+
+    cmd.execute(
+        verbose=False,
+        organization_dir=organization_dir,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        no_clean=False,
+        ToolGlobals=None,
+        selected=None,
+    )
+
+    duplicate_warning = [warning for warning in cmd.warning_list if isinstance(warning, DuplicatedItemWarning)]
+    assert not duplicate_warning, f"{len(duplicate_warning)} duplicate warnings found: {duplicate_warning}"
