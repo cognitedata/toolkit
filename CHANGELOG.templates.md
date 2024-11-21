@@ -17,11 +17,17 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Added new modules `cdf_entity_matching` in the `contextualization` package. This contains a pipeline for
+  doing entity matching based on the Cognite Core model.
+
 ### Fixed
 
 - Bug in extension models in the `models` package. The `through` field was not correctly set. In addition,
   simplified the `CogniteCore` and `CogniteProcessIndustries` minimum extension models further. Finally, all
   containers were duplicated. This has been fixed.
+- Bug in `cdf_sap_assets` causing the asset transformation to fail to a READ access error.
 
 ## [0.3.11] - 2024-11-19
 

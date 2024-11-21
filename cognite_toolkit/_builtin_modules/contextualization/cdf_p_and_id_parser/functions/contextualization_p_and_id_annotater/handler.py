@@ -44,7 +44,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
         error_msg = f'"{e!s}"'
         message = prefix + error_msg + suffix
         if len(message) >= EXTRACTION_RUN_MESSAGE_LIMIT:
-            error_msg = error_msg[: EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix) - 3]
+            error_msg = error_msg[: EXTRACTION_RUN_MESSAGE_LIMIT - len(prefix) - len(suffix) - 3 - 1]
             message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
