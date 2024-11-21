@@ -44,8 +44,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteEquipment
+        space: {{ schema_space }}
+        externalId: {{ organization }}Equipment
         version: v1
         type: view
       identifier: files

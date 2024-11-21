@@ -17,8 +17,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteAsset
+        space: {{ schema_space }}
+        externalId: {{ organization }}Asset
         version: v1
         type: view
       identifier: object3D
@@ -32,8 +32,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteCADNode
+        space: {{ schema_space }}
+        externalId: {{ organization }}CADNode
         version: v1
         type: view
       identifier: object3D
@@ -65,8 +65,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CognitePointCloudVolume
+        space: {{ schema_space }}
+        externalId: {{ organization }}PointCloudVolume
         version: v1
         type: view
       identifier: object3D

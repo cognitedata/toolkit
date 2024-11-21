@@ -18,8 +18,8 @@ properties:
     name: Unit
     description: The unit of the time series.
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}Unit
+      space: cdf_cdm
+      externalId: CogniteUnit
       version: v1
       type: view
   assets:
@@ -56,8 +56,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteActivity
+        space: {{ schema_space }}
+        externalId: {{ organization }}Activity
         version: v1
         type: view
       identifier: timeSeries
@@ -73,8 +73,8 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}SourceSystem
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
       version: v1
       type: view
   UUID:

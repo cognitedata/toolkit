@@ -26,46 +26,7 @@ Container:
         type: text
   space: sp_enterprise_min_schema
 - constraints: {}
-  externalId: ToolkitMinimumAssetClass
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
-  externalId: ToolkitMinimumAssetType
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
   externalId: ToolkitMinimumEquipment
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
-  externalId: ToolkitMinimumEquipmentType
   indexes: {}
   properties:
     UUID:
@@ -91,59 +52,7 @@ Container:
         type: text
   space: sp_enterprise_min_schema
 - constraints: {}
-  externalId: ToolkitMinimumFileCategory
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
-  externalId: ToolkitMinimumSourceSystem
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
-  externalId: ToolkitMinimumSourceable
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
   externalId: ToolkitMinimumTimeSeries
-  indexes: {}
-  properties:
-    UUID:
-      autoIncrement: false
-      immutable: false
-      nullable: true
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_enterprise_min_schema
-- constraints: {}
-  externalId: ToolkitMinimumUnit
   indexes: {}
   properties:
     UUID:
@@ -162,40 +71,40 @@ DataModel:
   space: sp_enterprise_min_schema
   version: v1
   views:
-  - externalId: ToolkitMinimumSourceSystem
-    space: sp_enterprise_min_schema
+  - externalId: CogniteSourceSystem
+    space: cdf_cdm
     type: view
     version: v1
-  - externalId: ToolkitMinimumSourceable
-    space: sp_enterprise_min_schema
+  - externalId: CogniteSourceable
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: ToolkitMinimumAsset
     space: sp_enterprise_min_schema
     type: view
     version: v1
-  - externalId: ToolkitMinimumAssetClass
-    space: sp_enterprise_min_schema
+  - externalId: CogniteAssetClass
+    space: cdf_cdm
     type: view
     version: v1
-  - externalId: ToolkitMinimumAssetType
-    space: sp_enterprise_min_schema
+  - externalId: CogniteAssetType
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: ToolkitMinimumEquipment
     space: sp_enterprise_min_schema
     type: view
     version: v1
-  - externalId: ToolkitMinimumEquipmentType
-    space: sp_enterprise_min_schema
+  - externalId: CogniteEquipmentType
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: ToolkitMinimumFile
     space: sp_enterprise_min_schema
     type: view
     version: v1
-  - externalId: ToolkitMinimumFileCategory
-    space: sp_enterprise_min_schema
+  - externalId: CogniteFileCategory
+    space: cdf_cdm
     type: view
     version: v1
   - externalId: ToolkitMinimumActivity
@@ -206,8 +115,8 @@ DataModel:
     space: sp_enterprise_min_schema
     type: view
     version: v1
-  - externalId: ToolkitMinimumUnit
-    space: sp_enterprise_min_schema
+  - externalId: CogniteUnit
+    space: cdf_cdm
     type: view
     version: v1
 Space:
@@ -263,8 +172,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -310,8 +219,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitMinimumActivity
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     assetClass:
@@ -323,8 +232,8 @@ View:
       description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
       name: Asset class
       source:
-        externalId: ToolkitMinimumAssetClass
-        space: sp_enterprise_min_schema
+        externalId: CogniteAssetClass
+        space: cdf_cdm
         type: view
         version: v1
     children:
@@ -340,8 +249,8 @@ View:
       through:
         identifier: parent
         source:
-          externalId: CogniteAsset
-          space: cdf_cdm
+          externalId: ToolkitMinimumAsset
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     equipment:
@@ -356,8 +265,8 @@ View:
       through:
         identifier: asset
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: ToolkitMinimumEquipment
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     files:
@@ -372,8 +281,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteFile
-          space: cdf_cdm
+          externalId: ToolkitMinimumFile
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     object3D:
@@ -382,8 +291,7 @@ View:
         space: cdf_cdm
         type: container
       containerPropertyIdentifier: object3D
-      description: This is not used, overwritten to point to nothing to avoid including
-        3D.
+      description: Direct relation to an Object3D instance representing the 3D resource
     parent:
       container:
         externalId: CogniteAsset
@@ -434,8 +342,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -450,8 +358,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: ToolkitMinimumTimeSeries
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     type:
@@ -463,56 +371,8 @@ View:
       description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
       name: Asset type
       source:
-        externalId: ToolkitMinimumAssetType
-        space: sp_enterprise_min_schema
-        type: view
-        version: v1
-  space: sp_enterprise_min_schema
-  version: v1
-- description: Represents the class of an asset.
-  externalId: ToolkitMinimumAssetClass
-  implements:
-  - externalId: CogniteAssetClass
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Asset class
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumAssetClass
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
-  space: sp_enterprise_min_schema
-  version: v1
-- description: Represents the type of an asset.
-  externalId: ToolkitMinimumAssetType
-  implements:
-  - externalId: CogniteAssetType
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Asset type
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumAssetType
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
-    assetClass:
-      container:
         externalId: CogniteAssetType
         space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: assetClass
-      description: Specifies the class the type belongs to. It's a direct relation
-        to CogniteAssetClass.
-      name: Asset class
-      source:
-        externalId: ToolkitMinimumAssetClass
-        space: sp_enterprise_min_schema
         type: view
         version: v1
   space: sp_enterprise_min_schema
@@ -544,8 +404,8 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitMinimumActivity
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     asset:
@@ -571,8 +431,8 @@ View:
         CogniteEquipmentType.
       name: Equipment type
       source:
-        externalId: ToolkitMinimumEquipmentType
-        space: sp_enterprise_min_schema
+        externalId: CogniteEquipmentType
+        space: cdf_cdm
         type: view
         version: v1
     files:
@@ -596,8 +456,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     timeSeries:
@@ -612,27 +472,10 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: ToolkitMinimumTimeSeries
+          space: sp_enterprise_min_schema
           type: view
           version: v1
-  space: sp_enterprise_min_schema
-  version: v1
-- description: Represents the type of equipment.
-  externalId: ToolkitMinimumEquipmentType
-  implements:
-  - externalId: CogniteEquipmentType
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: Equipment type
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumEquipmentType
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1
 - description: Represents files.
@@ -673,8 +516,8 @@ View:
         relation to an instance of CogniteFileCategory.
       name: Category
       source:
-        externalId: ToolkitMinimumFileCategory
-        space: sp_enterprise_min_schema
+        externalId: CogniteFileCategory
+        space: cdf_cdm
         type: view
         version: v1
     equipment:
@@ -690,8 +533,8 @@ View:
       through:
         identifier: files
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: ToolkitMinimumEquipment
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     source:
@@ -702,70 +545,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
-        type: view
-        version: v1
-  space: sp_enterprise_min_schema
-  version: v1
-- description: Represents the categories of files as determined by contextualization
-    or categorization.
-  externalId: ToolkitMinimumFileCategory
-  implements:
-  - externalId: CogniteFileCategory
-    space: cdf_cdm
-    type: view
-    version: v1
-  name: File category
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumFileCategory
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
-  space: sp_enterprise_min_schema
-  version: v1
-- description: The CogniteSourceSystem core concept is used to standardize the way
-    source system is stored.
-  externalId: ToolkitMinimumSourceSystem
-  implements:
-  - externalId: CogniteSourceSystem
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
-  space: sp_enterprise_min_schema
-  version: v1
-- externalId: ToolkitMinimumSourceable
-  implements:
-  - externalId: CogniteSourceable
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumSourceable
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
-    source:
-      container:
-        externalId: CogniteSourceable
+        externalId: CogniteSourceSystem
         space: cdf_cdm
-        type: container
-      containerPropertyIdentifier: source
-      description: Direct relation to a source system
-      source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
         type: view
         version: v1
   space: sp_enterprise_min_schema
@@ -798,8 +579,8 @@ View:
       through:
         identifier: timeSeries
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitMinimumActivity
+          space: sp_enterprise_min_schema
           type: view
           version: v1
     assets:
@@ -836,8 +617,8 @@ View:
       containerPropertyIdentifier: source
       description: Direct relation to a source system
       source:
-        externalId: ToolkitMinimumSourceSystem
-        space: sp_enterprise_min_schema
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
         type: view
         version: v1
     unit:
@@ -849,25 +630,9 @@ View:
       description: The unit of the time series.
       name: Unit
       source:
-        externalId: ToolkitMinimumUnit
-        space: sp_enterprise_min_schema
+        externalId: CogniteUnit
+        space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema
-  version: v1
-- description: Represents a single unit of measurement
-  externalId: ToolkitMinimumUnit
-  implements:
-  - externalId: CogniteUnit
-    space: cdf_cdm
-    type: view
-    version: v1
-  properties:
-    UUID:
-      container:
-        externalId: ToolkitMinimumUnit
-        space: sp_enterprise_min_schema
-        type: container
-      containerPropertyIdentifier: UUID
   space: sp_enterprise_min_schema
   version: v1

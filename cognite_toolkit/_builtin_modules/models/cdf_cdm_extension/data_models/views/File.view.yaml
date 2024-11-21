@@ -32,8 +32,8 @@ properties:
     description: Specifies the detected category the file belongs to. It's a direct
       relation to an instance of CogniteFileCategory.
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}FileCategory
+      space: cdf_cdm
+      externalId: CogniteFileCategory
       version: v1
       type: view
   equipment:
@@ -44,8 +44,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteEquipment
+        space: {{ schema_space }}
+        externalId: {{ organization }}Equipment
         version: v1
         type: view
       identifier: files
@@ -60,8 +60,8 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}SourceSystem
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
       version: v1
       type: view
   UUID:
