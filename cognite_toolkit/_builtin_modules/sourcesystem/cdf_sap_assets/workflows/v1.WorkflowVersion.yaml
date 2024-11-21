@@ -16,15 +16,6 @@ workflowDefinition:
           externalId: {{ equipmentTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ assetToAssetTransformationExternalId}}
-      type: transformation
-      parameters:
-        transformation:
-          externalId: {{ assetToAssetTransformationExternalId}}
-          concurrencyPolicy: fail
-      onFailure: abortWorkflow
-      dependsOn:
-        - externalId: {{ assetTransformationExternalId}}
     - externalId: {{ equipmentToAssetTransformationExternalId}}
       type: transformation
       parameters:

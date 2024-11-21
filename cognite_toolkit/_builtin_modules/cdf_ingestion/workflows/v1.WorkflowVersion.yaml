@@ -24,15 +24,6 @@ workflowDefinition:
           externalId: {{ equipmentTransformationExternalId }}
           concurrencyPolicy: fail
       onFailure: abortWorkflow
-    - externalId: {{ assetToAssetTransformationExternalId}}
-      type: transformation
-      parameters:
-        transformation:
-          externalId: {{ assetToAssetTransformationExternalId}}
-          concurrencyPolicy: fail
-      onFailure: abortWorkflow
-      dependsOn:
-        - externalId: {{ assetTransformationExternalId}}
     - externalId: {{ equipmentToAssetTransformationExternalId}}
       type: transformation
       parameters:
@@ -86,7 +77,6 @@ workflowDefinition:
         - externalId: {{ assetTransformationExternalId }}
         - externalId: {{ maintenanceOrderTransformationExternalId }}
         - externalId: {{ operationTransformationExternalId }}
-        - externalId: {{ assetToAssetTransformationExternalId }}
         - externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
     - externalId: {{ activityToEquipmentTransformationExternalId }}
       type: transformation
@@ -123,7 +113,6 @@ workflowDefinition:
       dependsOn:
         - externalId: {{ timeseriesTransformationExternalId }}
         - externalId: {{ assetTransformationExternalId }}
-        - externalId: {{ assetToAssetTransformationExternalId }}
     - externalId: {{ timeSeriesToEquipmentTransformationExternalId }}
       type: transformation
       parameters:
