@@ -56,8 +56,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteActivity
+        space: {{ schema_space }}
+        externalId: {{ organization }}Activity
         version: v1
         type: view
       identifier: timeSeries

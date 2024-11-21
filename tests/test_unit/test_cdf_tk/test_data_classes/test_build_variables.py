@@ -100,7 +100,7 @@ modules:
         location = ModuleLocation(
             Path("modules/industry_apps/industry_apps_crna_common"), Path("."), source_paths=[], is_selected=True
         )
-        local_variables = variables.get_module_variables(location)
+        local_variables = variables.get_module_variables(location)[0]
 
         assert len(local_variables) == 4
         apm_sourcedata_model_version = next(

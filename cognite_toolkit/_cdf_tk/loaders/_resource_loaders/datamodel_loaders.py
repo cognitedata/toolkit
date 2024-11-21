@@ -1138,12 +1138,13 @@ class GraphQLLoader(
                 description = description[: 1024 - len(suffix) + 1 - 3] + "..."
             description += f" {suffix}"
 
-            created = self.client.data_modeling.graphql.apply_dml(
+            created = self.client.dml.apply_dml(
                 item.as_id(),
                 dml=graphql_file_content,
                 name=item.name,
                 description=description,
                 previous_version=item.previous_version,
+                preserve_dml=item.preserve_dml,
             )
             created_list.append(created)
         return created_list

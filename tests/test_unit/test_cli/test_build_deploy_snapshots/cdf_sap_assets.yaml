@@ -23,57 +23,26 @@ Transformation:
       externalId: CogniteAsset
       space: cdf_cdm
       version: v1
-  externalId: sap_asset_to_asset_springfield_s4hana
-  ignoreNullFields: true
-  isPublic: true
-  name: Asset to Asset Transformations for SAP Springfield S/4HANA Assets
-  query: "select\n  concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,\n\
-    \  node_reference('springfield_instances',  concat('WMT:', cast(d2.`WMT_TAG_NAME`\
-    \ as STRING))) as parent\nfrom\n    ingestion.`dump` d1\njoin\n  ingestion.`dump`\
-    \ d2\non\n  d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`\nwhere\n  isnotnull(d1.`WMT_TAG_NAME`)\
-    \ AND\n  cast(d1.`WMT_CATEGORY_ID` as INT) = 1157 AND\n  isnotnull(d2.`WMT_TAG_NAME`)\
-    \ AND\n/* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while\
-    \ equipment is everything else */\n  cast(d2.`WMT_CATEGORY_ID` as INT) = 1157\n"
-- conflictMode: upsert
-  dataSetId: 42
-  destination:
-    instanceSpace: springfield_instances
-    type: nodes
-    view:
-      externalId: CogniteAsset
-      space: cdf_cdm
-      version: v1
   externalId: sap_assets_springfield_s4hana
   ignoreNullFields: true
   isPublic: true
   name: Asset Transformations for SAP Springfield S/4HANA Assets
-  query: "/* MAPPING_MODE_ENABLED: false */\n/* {\"version\":1,\"sourceType\":\"raw\"\
-    ,\"mappings\":[{\"from\":\"externalId\",\"to\":\"externalId\",\"asType\":\"STRING\"\
-    },{\"from\":\"\",\"to\":\"aliases\",\"asType\":\"ARRAY<STRING>\"},{\"from\":\"\
-    name\",\"to\":\"name\",\"asType\":\"STRING\"},{\"from\":\"\",\"to\":\"source\"\
-    ,\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"},{\"from\":\"\",\"\
-    to\":\"path\",\"asType\":\"ARRAY<STRUCT<`space`:STRING, `externalId`:STRING>>\"\
-    },{\"from\":\"\",\"to\":\"root\",\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"\
-    },{\"from\":\"\",\"to\":\"assetClass\",\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"\
-    },{\"from\":\"\",\"to\":\"sourceUpdatedUser\",\"asType\":\"STRING\"},{\"from\"\
-    :\"\",\"to\":\"pathLastUpdatedTime\",\"asType\":\"TIMESTAMP\"},{\"from\":\"\"\
-    ,\"to\":\"sourceUpdatedTime\",\"asType\":\"TIMESTAMP\"},{\"from\":\"\",\"to\"\
-    :\"type\",\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"},{\"from\"\
-    :\"\",\"to\":\"sourceCreatedUser\",\"asType\":\"STRING\"},{\"from\":\"\",\"to\"\
-    :\"parent\",\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"},{\"from\"\
-    :\"description\",\"to\":\"description\",\"asType\":\"STRING\"},{\"from\":\"\"\
-    ,\"to\":\"tags\",\"asType\":\"ARRAY<STRING>\"},{\"from\":\"\",\"to\":\"sourceCreatedTime\"\
-    ,\"asType\":\"TIMESTAMP\"},{\"from\":\"\",\"to\":\"sourceContext\",\"asType\"\
-    :\"STRING\"},{\"from\":\"\",\"to\":\"sourceId\",\"asType\":\"STRING\"},{\"from\"\
-    :\"\",\"to\":\"object3D\",\"asType\":\"STRUCT<`space`:STRING, `externalId`:STRING>\"\
-    }],\"sourceLevel1\":\"sap_staging\",\"sourceLevel2\":\"dump\"} */\nselect\n  concat('WMT:',\
-    \ cast(`WMT_TAG_NAME` as STRING)) as externalId,\n  cast(`WMT_TAG_NAME` as STRING)\
-    \ as name,\n  cast(`WMT_TAG_DESC` as STRING) as description,\n  cast(`WMT_TAG_ID`\
-    \ as STRING) as sourceId, \n  cast(`WMT_TAG_CREATED_DATE` as TIMESTAMP) as sourceCreatedTime,\n\
-    \  cast(`WMT_TAG_UPDATED_DATE` as TIMESTAMP) as sourceUpdatedTime,\n  cast(`WMT_TAG_UPDATED_BY`\
-    \ as STRING) as sourceUpdatedUser\nfrom\n  `ingestion`.`dump`\nwhere\n  isnotnull(`WMT_TAG_NAME`)\
-    \ AND\n/* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while\
-    \ equipment is everything else */\n  cast(`WMT_CATEGORY_ID` as INT) = 1157\n"
+  query: "with parentLookup as (\n  select\n  \tconcat('WMT:', cast(d1.`WMT_TAG_NAME`\
+    \ as STRING)) as externalId,\n    node_reference('springfield_instances',  concat('WMT:',\
+    \ cast(d2.`WMT_TAG_NAME` as STRING))) as parent\n  from\n      `ingestion`.`dump`\
+    \ as  d1\n  join\n    `ingestion`.`dump` as d2\n  on\n    d1.`WMT_TAG_ID_ANCESTOR`\
+    \ = d2.`WMT_TAG_ID`\n  where\n    isnotnull(d1.`WMT_TAG_NAME`) AND\n    cast(d1.`WMT_CATEGORY_ID`\
+    \ as INT) = 1157 AND\n    isnotnull(d2.`WMT_TAG_NAME`) AND\n    cast(d2.`WMT_CATEGORY_ID`\
+    \ as INT) = 1157\n)\nselect\n\tconcat('WMT:', cast(d3.`WMT_TAG_NAME` as STRING))\
+    \ as externalId,\n  \tparentLookup.parent,\n    cast(`WMT_TAG_NAME` as STRING)\
+    \ as name,\n    cast(`WMT_TAG_DESC` as STRING) as description,\n    cast(`WMT_TAG_ID`\
+    \ as STRING) as sourceId,\n    cast(`WMT_TAG_CREATED_DATE` as TIMESTAMP) as sourceCreatedTime,\n\
+    \    cast(`WMT_TAG_UPDATED_DATE` as TIMESTAMP) as sourceUpdatedTime,\n    cast(`WMT_TAG_UPDATED_BY`\
+    \ as STRING) as sourceUpdatedUser\nfrom\n  `ingestion`.`dump` as d3\nleft join\n\
+    \tparentLookup\non\n concat('WMT:', cast(d3.`WMT_TAG_NAME` as STRING)) = parentLookup.externalId\n\
+    where\n  isnotnull(d3.`WMT_TAG_NAME`) AND\n/* Inspection of the WMT_TAG_DESC looks\
+    \ like asset are category 1157 while equipment is everything else */\n  cast(d3.`WMT_CATEGORY_ID`\
+    \ as INT) = 1157\n"
 - conflictMode: upsert
   dataSetId: 42
   destination:

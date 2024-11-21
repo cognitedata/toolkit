@@ -188,7 +188,7 @@ if Flags.REQUIRE_KIND.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.STREAM
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
 
-@pytest.mark.parametrize("organization_dir", TEST_CASES)
+@pytest.mark.parametrize("organization_dir", TEST_CASES, ids=[path.name for path in TEST_CASES])
 def test_build_deploy_complete_org(
     organization_dir: Path,
     build_tmp_path: Path,

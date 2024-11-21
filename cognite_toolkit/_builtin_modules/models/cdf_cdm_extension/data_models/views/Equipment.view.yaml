@@ -31,8 +31,8 @@ properties:
     name: Equipment type
     description: Specifies the type of the equipment. It's a direct relation to CogniteEquipmentType.
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}EquipmentType
+      space: cdf_cdm
+      externalId: CogniteEquipmentType
       version: v1
       type: view
   files:
@@ -56,8 +56,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteActivity
+        space: {{ schema_space }}
+        externalId: {{ organization }}Activity
         version: v1
         type: view
       identifier: equipment
@@ -72,8 +72,8 @@ properties:
       type: view
     through:
       source:
-        space: cdf_cdm
-        externalId: CogniteTimeSeries
+        space: {{ schema_space }}
+        externalId: {{ organization }}TimeSeries
         version: v1
         type: view
       identifier: equipment
@@ -88,8 +88,8 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
-      externalId: {{ organization }}SourceSystem
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
       version: v1
       type: view
   UUID:

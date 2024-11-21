@@ -1,3 +1,25 @@
+Asset:
+- dataSetId: 42
+  description: This is the root asset on Drammen
+  externalId: Drammen_root
+  name: RootAsset
+  source: doctrino
+- dataSetId: 42
+  description: This is the root asset on Oslo
+  externalId: Oslo_root
+  name: RootAsset
+  source: doctrino
+DataSet:
+- description: This is the dataset for all assets on Drammen
+  externalId: ds_Drammen_assets
+  metadata: {}
+  name: Dataset for assets on Drammen
+  writeProtected: false
+- description: This is the dataset for all assets on Oslo
+  externalId: ds_Oslo_assets
+  metadata: {}
+  name: Dataset for assets on Oslo
+  writeProtected: false
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6
@@ -41,5 +63,6 @@ GraphQLDataModel:
     \  path: [String]\n  level: Int\n}\n"
   externalId: AssetHierarchy
   name: Asset Hierarchy
+  preserveDml: true
   space: sp_schema
   version: '3_0_2'
