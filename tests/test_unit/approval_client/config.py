@@ -638,7 +638,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="data_modeling.graphql",
+        api_name="dml",
         resource_cls=GraphQLDataModel,
         list_cls=GraphQLDataModelList,
         _write_cls=GraphQLDataModelWrite,

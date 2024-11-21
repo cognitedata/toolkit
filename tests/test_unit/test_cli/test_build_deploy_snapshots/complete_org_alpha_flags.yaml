@@ -63,5 +63,6 @@ GraphQLDataModel:
     \  path: [String]\n  level: Int\n}\n"
   externalId: AssetHierarchy
   name: Asset Hierarchy
+  preserveDml: true
   space: sp_schema
   version: '3_0_2'
