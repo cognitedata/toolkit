@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Added new modules `cdf_entity_matching` in the `contextualization` package. This contains a pipeline for
+  doing entity matching based on the Cognite Core model.
+
 ### Fixed
 
 - Bug in extension models in the `models` package. The `through` field was not correctly set. In addition,

@@ -30,6 +30,7 @@ Changes are grouped as follows:
 - In `cdf build` when loading `config.[env].yaml` the Toolkit now correctly prefers variables deeper, more
   specific, in the hierarchy over more general variables.
 - [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
+- A bug caused the comparison with existing Tranformation Notifications to fail. This is now fixed.
 
 ### Improved
 
