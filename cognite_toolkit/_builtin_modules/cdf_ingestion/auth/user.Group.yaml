@@ -1,6 +1,6 @@
 name: gp_user_{{ workflow }}
 members:
-  - {{ runWorkflowUserIds }}
+  {{ runWorkflowUserIds }}
 metadata:
   origin: cognite-toolkit
 capabilities:
