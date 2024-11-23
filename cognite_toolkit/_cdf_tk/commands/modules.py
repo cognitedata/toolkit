@@ -170,15 +170,17 @@ class ModulesCommand(ToolkitCommand):
             for extra in extra_resources:
                 module_dir = module_directory_from_path(extra)
                 extra_full_path = self._builtin_modules_path / extra
+                target_path = modules_root_dir / extra
                 if extra_full_path.is_file():
-                    shutil.copy(extra_full_path, modules_root_dir / extra.name)
-                    created_by_module[module_dir] += 1
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(extra_full_path, target_path)
                 elif extra_full_path.is_dir():
-                    shutil.copytree(extra_full_path, modules_root_dir / extra.name)
-                    created_by_module[module_dir] += 1
+                    target_path.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(extra_full_path, target_path)
                 else:
                     print(f"{INDENT}[red]Extra resource {extra_full_path} not found[/].")
                     continue
+                created_by_module[module_dir] += 1
                 selected_paths.add(module_dir)
                 selected_paths.update(module_dir.parents)
 
