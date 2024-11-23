@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- When using the commands `cdf deploy/clean` Toolkit no longer warns about unrelated resources
+  that are not part of the deployment.
+
 ## [0.3.12] - 2024-11-21
 
 ### Added
