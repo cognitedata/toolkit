@@ -395,19 +395,19 @@ variables:
     models:
       cdf_cdm_extension:
         organization: ToolkitMinimum
-        schema_space: sp_enterprise_min_schema
+        schemaSpace: sp_enterprise_min_schema
 
       cdf_cdm_extension_full:
         organization: Toolkit
-        schema_space: sp_enterprise_schema
+        schemaSpace: sp_enterprise_schema
 
       cdf_idm_extension:
         organization: YourOrg
-        schema_space: sp_enterprise_min_schema_idm
+        schemaSpace: sp_enterprise_min_schema_idm
 
       cdf_idm_extension_full:
         organization: ToolkitIDM
-        schema_space: sp_enterprise_idm_schema
+        schemaSpace: sp_enterprise_idm_schema
 
     sourcesystem:
       cdf_pi:
