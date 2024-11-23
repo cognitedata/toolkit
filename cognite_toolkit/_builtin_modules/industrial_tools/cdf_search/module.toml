@@ -8,4 +8,4 @@ tags = [
 ]
 
 [[extra_resources]]
-location = "cdf_common/data_models/demo.space.yaml"
+location = "cdf_common/data_models/demo.Space.yaml"
