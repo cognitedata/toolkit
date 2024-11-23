@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from collections import Counter
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -165,15 +166,25 @@ class ModulesCommand(ToolkitCommand):
                         downloader.copy(example_data.source, target_dir / example_data.destination)
 
         if extra_resources:
-            print(f"{INDENT}Found {len(extra_resources)} shared resources[/]")
+            created_by_module: dict[Path, int] = Counter()
             for extra in extra_resources:
-                if extra.is_file():
-                    shutil.copy(extra, modules_root_dir / extra.name)
-                elif extra.is_dir():
-                    shutil.copytree(extra, modules_root_dir / extra.name)
                 module_dir = module_directory_from_path(extra)
+                extra_full_path = BUILTIN_MODULES / extra
+                if extra_full_path.is_file():
+                    shutil.copy(extra_full_path, modules_root_dir / extra.name)
+                    created_by_module[module_dir] += 1
+                elif extra_full_path.is_dir():
+                    shutil.copytree(extra_full_path, modules_root_dir / extra.name)
+                    created_by_module[module_dir] += 1
+                else:
+                    print(f"{INDENT}[red]Extra resource {extra_full_path} not found[/].")
+                    continue
                 selected_paths.add(module_dir)
                 selected_paths.update(module_dir.parents)
+
+            for module_dir, count in created_by_module.items():
+                if count > 0:
+                    print(f"{INDENT}Created {count} shared resources in {module_dir.as_posix()!r}.")
 
         for environment in environments:
             if mode == "update":

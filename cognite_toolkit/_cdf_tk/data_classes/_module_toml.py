@@ -42,9 +42,7 @@ class ModuleToml:
 
     def __post_init__(self) -> None:
         for extra in self.extra_resources:
-            if not extra.is_file():
-                raise ToolkitFileExistsError(f"Extra resource {extra} does not exist")
-            elif extra.is_absolute():
+            if extra.is_absolute():
                 raise ToolkitFileExistsError(f"Extra resource {extra} must be a relative path")
 
     @classmethod
