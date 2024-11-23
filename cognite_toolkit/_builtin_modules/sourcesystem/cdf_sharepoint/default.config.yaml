@@ -6,6 +6,8 @@ rawSourceDatabase: ingestion
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 groupSourceId: <not set>
+organization: YourOrg
+
 workflow: files_metadata_population # can also contain location files_metadata_springfield_population
 workflowClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
 workflowClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}

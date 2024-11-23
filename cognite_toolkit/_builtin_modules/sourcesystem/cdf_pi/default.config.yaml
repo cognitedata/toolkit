@@ -5,6 +5,7 @@ dataset: ingestion
 rawSourceDatabase: ingestion
 schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
+organization: YourOrg
 
 groupSourceId: <not set>
 workflow: aveva_pi_population # can also contain location aveva_pi_springfield_population
