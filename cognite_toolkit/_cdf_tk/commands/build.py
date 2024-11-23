@@ -565,6 +565,11 @@ class BuildCommand(ToolkitCommand):
             if identifier:
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self._ids_by_resource_type[item_loader].get(identifier):
+                    if isinstance(identifier, RawDatabase):
+                        # RawDatabases are picked up from both RawTables and RawDatabases files. Note it is not possible
+                        # to define a raw table without also defining the raw database. Thus, it is impossible to
+                        # avoid duplicated RawDatabase warnings if you have multiple RawTables files.
+                        continue
                     if first_seen.hash != source.hash:
                         warning_list.append(DuplicatedItemWarning(source.path, identifier, first_seen.path))
                 else:

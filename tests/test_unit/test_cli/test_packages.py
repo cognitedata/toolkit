@@ -223,3 +223,17 @@ def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> 
     duplicate_warning = [warning for warning in cmd.warning_list if isinstance(warning, DuplicatedItemWarning)]
 
     assert not duplicate_warning, f"{len(duplicate_warning)} duplicate warnings found: {duplicate_warning}"
+
+
+def test_all_extra_resources_exists() -> None:
+    packages = Packages.load(BUILTIN_MODULES_PATH)
+    missing_resources = {
+        extra
+        for package in packages.values()
+        for module in package.modules
+        if module.definition
+        for extra in module.definition.extra_resources
+        if (BUILTIN_MODULES_PATH / extra).exists()
+    }
+
+    assert not missing_resources, f"Modules missing resources: {missing_resources}"
