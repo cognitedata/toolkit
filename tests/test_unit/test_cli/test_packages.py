@@ -228,12 +228,13 @@ def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> 
 def test_all_extra_resources_exists() -> None:
     packages = Packages.load(BUILTIN_MODULES_PATH)
     missing_resources = {
-        extra
+        extra: module.name
         for package in packages.values()
         for module in package.modules
         if module.definition
         for extra in module.definition.extra_resources
-        if (BUILTIN_MODULES_PATH / extra).exists()
+        if not (BUILTIN_MODULES_PATH / extra).exists()
     }
+    missing_by_module = {v: k.as_posix() for k, v in missing_resources.items()}
 
-    assert not missing_resources, f"Modules missing resources: {missing_resources}"
+    assert not missing_resources, f"Modules missing resources: {missing_by_module}"
