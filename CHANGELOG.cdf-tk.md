@@ -19,8 +19,9 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- When using the commands `cdf deploy/clean` Toolkit no longer warns about unrelated resources
+- When using the commands `cdf deploy/clean`, the Toolkit no longer warns about unrelated resources
   that are not part of the deployment.
+- When using `cdf deploy/clean/build, the Toolkit no longer warns about duplicated RAW databases.
 
 ## [0.3.12] - 2024-11-21
 
