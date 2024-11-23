@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}AssetType
 properties:
   UUID:

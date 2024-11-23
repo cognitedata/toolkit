@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Schedulable
 description: CogniteSchedulable represents the metadata about when an activity (or
   similar) starts and ends.
@@ -11,7 +11,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Schedulable
       type: container
     containerPropertyIdentifier: UUID

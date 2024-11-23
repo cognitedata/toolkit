@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Sourceable
 implements:
 - space: cdf_cdm
@@ -15,13 +15,13 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Sourceable
       type: container
     containerPropertyIdentifier: UUID

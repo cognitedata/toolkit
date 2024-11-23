@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}File
 name: File
 description: Represents files.
@@ -18,7 +18,7 @@ properties:
     name: Assets
     description: A list of assets this file is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Asset
       version: v1
       type: view
@@ -32,19 +32,19 @@ properties:
     description: Specifies the detected category the file belongs to. It's a direct
       relation to an instance of CogniteFileCategory.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}FileCategory
       version: v1
       type: view
   equipment:
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Equipment
       version: v1
       type: view
     through:
       source:
-        space: {{ schema_space }}
+        space: {{ schemaSpace }}
         externalId: {{ organization }}Equipment
         version: v1
         type: view
@@ -60,13 +60,13 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}File
       type: container
     containerPropertyIdentifier: UUID

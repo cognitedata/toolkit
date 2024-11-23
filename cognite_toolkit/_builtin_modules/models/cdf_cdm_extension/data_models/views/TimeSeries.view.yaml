@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}TimeSeries
 name: Time series
 description: Represents a series of data points in time order."
@@ -31,7 +31,7 @@ properties:
     name: Assets
     description: A list of assets the time series is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Asset
       version: v1
       type: view
@@ -44,19 +44,19 @@ properties:
     name: Equipment
     description: A list of equipment the time series is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Equipment
       version: v1
       type: view
   activities:
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Activity
       version: v1
       type: view
     through:
       source:
-        space: {{ schema_space }}
+        space: {{ schemaSpace }}
         externalId: {{ organization }}Activity
         version: v1
         type: view
@@ -79,7 +79,7 @@ properties:
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}TimeSeries
       type: container
     containerPropertyIdentifier: UUID

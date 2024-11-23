@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Visualizable
 description: CogniteVisualizable defines the standard way to reference a related 3D
   resource
@@ -17,13 +17,13 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to an Object3D instance representing the 3D resource
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}3DObject
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Visualizable
       type: container
     containerPropertyIdentifier: UUID

@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}AssetType
 name: Asset type
 description: Represents the type of an asset.
@@ -19,13 +19,13 @@ properties:
     description: Specifies the class the type belongs to. It's a direct relation to
       CogniteAssetClass.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}AssetClass
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}AssetType
       type: container
     containerPropertyIdentifier: UUID

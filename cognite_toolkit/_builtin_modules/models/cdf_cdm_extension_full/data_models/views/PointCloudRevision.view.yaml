@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}PointCloudRevision
 description: Navigational aid for traversing CognitePointCloudRevision instances
 filter:
@@ -27,13 +27,13 @@ properties:
       type: container
     containerPropertyIdentifier: model3D
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}3DModel
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}PointCloudRevision
       type: container
     containerPropertyIdentifier: UUID

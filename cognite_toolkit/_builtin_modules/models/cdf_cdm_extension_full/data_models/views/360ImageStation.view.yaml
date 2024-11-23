@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}360ImageStation
 description: A way to group images across collections. Used for creating visual scan
   history
@@ -23,7 +23,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}360ImageStation
       type: container
     containerPropertyIdentifier: UUID

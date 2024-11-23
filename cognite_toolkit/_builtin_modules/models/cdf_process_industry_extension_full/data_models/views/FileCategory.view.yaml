@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}FileCategory
 name: File category
 description: Represents the categories of files as determined by contextualization
@@ -12,7 +12,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}FileCategory
       type: container
     containerPropertyIdentifier: UUID

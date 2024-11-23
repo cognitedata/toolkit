@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}CADNode
 description: Represents nodes from the 3D model that have been contextualized
 implements:
@@ -16,7 +16,7 @@ properties:
     containerPropertyIdentifier: object3D
     description: Direct relation to object3D grouping for this node
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}3DObject
       version: v1
       type: view
@@ -28,7 +28,7 @@ properties:
     containerPropertyIdentifier: model3D
     description: Direct relation to Cognite3DModel
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}CADModel
       version: v1
       type: view
@@ -41,13 +41,13 @@ properties:
     description: List of direct relations to instances of Cognite3DRevision which
       this CogniteCADNode exists in.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}CADRevision
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}CADNode
       type: container
     containerPropertyIdentifier: UUID

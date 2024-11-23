@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Unit
 description: Represents a single unit of measurement
 implements:
@@ -10,7 +10,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Unit
       type: container
     containerPropertyIdentifier: UUID

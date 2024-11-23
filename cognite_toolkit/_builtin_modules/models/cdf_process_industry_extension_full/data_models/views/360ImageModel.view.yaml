@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}360ImageModel
 description: Navigational aid for traversing Cognite360ImageModel instances
 filter:
@@ -22,13 +22,13 @@ version: v1
 properties:
   collections:
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}360ImageCollection
       version: v1
       type: view
     through:
       source:
-        space: {{ schema_space }}
+        space: {{ schemaSpace }}
         externalId: {{ organization }}3DRevision
         version: v1
         type: view
@@ -43,13 +43,13 @@ properties:
     containerPropertyIdentifier: thumbnail
     description: Thumbnail of the 3D model
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}File
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}360ImageModel
       type: container
     containerPropertyIdentifier: UUID

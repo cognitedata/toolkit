@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Notification
 name: Notification```
 description: A formal record to report maintenance issues, defects, or requests, starting
@@ -19,7 +19,7 @@ properties:
     name: Maintenance order
     description: The maintenance order that was created from the notification.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}MaintenanceOrder
       version: v1
       type: view
@@ -32,7 +32,7 @@ properties:
     name: Asset
     description: The asset (functional location) the notification is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Asset
       version: v1
       type: view
@@ -44,13 +44,13 @@ properties:
     containerPropertyIdentifier: source
     description: Direct relation to a source system
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}SourceSystem
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Notification
       type: container
     containerPropertyIdentifier: UUID

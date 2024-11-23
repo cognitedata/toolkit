@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}3DModel
 description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
   Image360)
@@ -17,13 +17,13 @@ properties:
     containerPropertyIdentifier: thumbnail
     description: Thumbnail of the 3D model
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}File
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}3DModel
       type: container
     containerPropertyIdentifier: UUID

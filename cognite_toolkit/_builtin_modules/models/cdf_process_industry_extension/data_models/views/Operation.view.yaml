@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}Operation
 name: Operation
 description: Operations represent a specific part of the work included in a maintenance
@@ -19,7 +19,7 @@ properties:
     name: Maintenance order
     description: The maintenance order the operation is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}MaintenanceOrder
       version: v1
       type: view
@@ -33,7 +33,7 @@ properties:
     description: The primary asset (functional location) the operation is related
       to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Asset
       version: v1
       type: view
@@ -46,7 +46,7 @@ properties:
     name: Assets
     description: A list of assets the activity is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Asset
       version: v1
       type: view
@@ -59,7 +59,7 @@ properties:
     name: Equipment
     description: A list of equipment the activity is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Equipment
       version: v1
       type: view
@@ -72,7 +72,7 @@ properties:
     name: Time series
     description: A list of time series the activity is related to.
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}TimeSeries
       version: v1
       type: view
@@ -90,7 +90,7 @@ properties:
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}Operation
       type: container
     containerPropertyIdentifier: UUID

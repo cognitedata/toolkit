@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}EquipmentType
 name: Equipment type
 description: Represents the type of equipment.
@@ -11,7 +11,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}EquipmentType
       type: container
     containerPropertyIdentifier: UUID

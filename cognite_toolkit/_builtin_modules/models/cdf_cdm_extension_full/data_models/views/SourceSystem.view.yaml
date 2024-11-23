@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}SourceSystem
 description: The CogniteSourceSystem core concept is used to standardize the way source
   system is stored.
@@ -11,7 +11,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}SourceSystem
       type: container
     containerPropertyIdentifier: UUID

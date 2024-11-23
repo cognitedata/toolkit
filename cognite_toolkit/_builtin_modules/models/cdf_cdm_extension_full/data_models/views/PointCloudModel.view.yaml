@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}PointCloudModel
 description: Navigational aid for traversing CognitePointCloudModel instances
 filter:
@@ -22,13 +22,13 @@ version: v1
 properties:
   revisions:
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}PointCloudRevision
       version: v1
       type: view
     through:
       source:
-        space: {{ schema_space }}
+        space: {{ schemaSpace }}
         externalId: {{ organization }}3DRevision
         version: v1
         type: view
@@ -43,13 +43,13 @@ properties:
     containerPropertyIdentifier: thumbnail
     description: Thumbnail of the 3D model
     source:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}File
       version: v1
       type: view
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}PointCloudModel
       type: container
     containerPropertyIdentifier: UUID

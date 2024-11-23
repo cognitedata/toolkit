@@ -1,4 +1,4 @@
-space: {{ schema_space }}
+space: {{ schemaSpace }}
 externalId: {{ organization }}3DTransformation
 description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
   enabling precise adjustments to an object''s position, orientation, and size in
@@ -17,7 +17,7 @@ version: v1
 properties:
   UUID:
     container:
-      space: {{ schema_space }}
+      space: {{ schemaSpace }}
       externalId: {{ organization }}3DTransformation
       type: container
     containerPropertyIdentifier: UUID
