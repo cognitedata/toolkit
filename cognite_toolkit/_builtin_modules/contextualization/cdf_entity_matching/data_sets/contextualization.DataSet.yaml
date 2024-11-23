@@ -1,0 +1,3 @@
+name: {{ contextualizationName }}
+externalId: {{ dataset }}
+description: {{ contextualizationName }}

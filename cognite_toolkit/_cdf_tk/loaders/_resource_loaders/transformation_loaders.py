@@ -482,6 +482,19 @@ class TransformationNotificationLoader(
             "destination": destination,
         }
 
+    def _are_equal(
+        self,
+        local: TransformationNotificationWrite,
+        cdf_resource: TransformationNotification,
+        return_dumped: bool = False,
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        cdf_dumped.pop("transformationId")
+        cdf_dumped["transformationExternalId"] = local.transformation_external_id
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
     @classmethod
     def get_required_capability(
         cls, items: TransformationNotificationWriteList | None, read_only: bool
@@ -508,11 +521,17 @@ class TransformationNotificationLoader(
                 result = self.client.transformations.notifications.list(
                     transformation_external_id=transformation_external_id, destination=destination, limit=-1
                 )
+                # list() does not return the transformation_external_id on items
+                for notification in result:
+                    notification.transformation_external_id = transformation_external_id
+
             except CogniteAPIError:
                 # The notification endpoint gives a 500 if the notification does not exist.
                 # The issue has been reported to the service team.
                 continue
+
             retrieved.extend(result)
+
         return retrieved
 
     def update(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:

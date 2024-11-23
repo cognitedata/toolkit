@@ -30,10 +30,12 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
         description: str | None = None,
         previous_version: str | None = None,
         dml: str | None = None,
+        preserve_dml: bool | None = None,
     ) -> None:
         super().__init__(space=space, external_id=external_id, version=version, name=name, description=description)
         self.previous_version = previous_version
         self.dml = dml
+        self.preserve_dml = preserve_dml
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> GraphQLDataModelWrite:
@@ -45,6 +47,7 @@ class GraphQLDataModelWrite(_GraphQLDataModelCore):
             description=resource.get("description"),
             previous_version=resource.get("previousVersion"),
             dml=resource.get("dml"),
+            preserve_dml=resource.get("preserveDml"),
         )
 
     def as_write(self) -> GraphQLDataModelWrite:

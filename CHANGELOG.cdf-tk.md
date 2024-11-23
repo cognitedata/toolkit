@@ -15,12 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.12] - 2024-11-21
 
 ### Added
 
 - [Alpha feature] Support for specifying list of variables under modules in `config.[env].yaml` file.
   This allows you to reuse the same module with different variables.
+- [Alpha feature] GraphQL now supports the `preserveDml` parameter.
 
 ## [0.3.11] - 2024-11-19
 
@@ -30,6 +31,7 @@ Changes are grouped as follows:
 - In `cdf build` when loading `config.[env].yaml` the Toolkit now correctly prefers variables deeper, more
   specific, in the hierarchy over more general variables.
 - [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
+- A bug caused the comparison with existing Tranformation Notifications to fail. This is now fixed.
 
 ### Improved
 

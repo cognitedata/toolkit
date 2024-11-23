@@ -7,6 +7,7 @@ from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitClient
 
+from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.robotics import RoboticsAPI
 from .api.robotics.capabilities import CapabilitiesAPI
@@ -33,6 +34,8 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Add spacing above and below
         #   - Use `spec=MyAPI` only for "top level"
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
+
+        self.dml = MagicMock(spec_set=DMLAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
