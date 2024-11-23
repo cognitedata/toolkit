@@ -5,9 +5,9 @@ equipmentTransformationExternalId: sap_equipment_springfield_s4hana
 equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
 dataset: ingestion
 rawSourceDatabase: ingestion
-schemaSpace: cdf_cdm
 instanceSpace: springfield_instances
 organization: YourOrg
+schemaSpace: sp_enterprise_process_industry
 
 groupSourceId: <not set>
 workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population

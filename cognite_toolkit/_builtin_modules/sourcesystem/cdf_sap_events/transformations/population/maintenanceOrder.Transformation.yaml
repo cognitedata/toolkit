@@ -4,8 +4,8 @@ name: Maintenance Order Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: {{ schemaSpace2 }}
-    externalId: CogniteMaintenanceOrder
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}MaintenanceOrder
     version: v1
   instanceSpace: {{ instanceSpace }}
 ignoreNullFields: true

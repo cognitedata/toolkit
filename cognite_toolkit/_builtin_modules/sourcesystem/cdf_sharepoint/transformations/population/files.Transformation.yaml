@@ -4,8 +4,8 @@ name: File Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: cdf_cdm
-    externalId: CogniteFile
+    space: {{ schemaSpace }}
+    externalId: {{ organization }}File
     version: v1
   instanceSpace: {{ instanceSpace }}
 ignoreNullFields: true

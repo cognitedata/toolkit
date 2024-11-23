@@ -60,6 +60,7 @@ capabilities:
           spaceIds:
             - {{ schemaSpace }}
             - {{ schemaSpace2 }}
+            - {{ schemaSpace3 }}
             - cdf_cdm_units
             # Needed to write CogniteAsset.parent
             - cdf_cdm
