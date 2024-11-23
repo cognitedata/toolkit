@@ -11,7 +11,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM360ImageAnnotation
   indexes: {}
@@ -24,7 +24,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM360ImageCollection
   indexes: {}
@@ -37,7 +37,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM360ImageModel
   indexes: {}
@@ -50,7 +50,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM360ImageStation
   indexes: {}
@@ -63,7 +63,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM3DModel
   indexes: {}
@@ -76,7 +76,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM3DObject
   indexes: {}
@@ -89,7 +89,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM3DRevision
   indexes: {}
@@ -102,7 +102,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDM3DTransformation
   indexes: {}
@@ -115,7 +115,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMActivity
   indexes: {}
@@ -128,7 +128,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMAnnotation
   indexes: {}
@@ -141,7 +141,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMAsset
   indexes: {}
@@ -154,7 +154,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMAssetClass
   indexes: {}
@@ -167,7 +167,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMAssetType
   indexes: {}
@@ -180,7 +180,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMCADModel
   indexes: {}
@@ -193,7 +193,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMCADNode
   indexes: {}
@@ -206,7 +206,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMCADRevision
   indexes: {}
@@ -219,7 +219,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMCubeMap
   indexes: {}
@@ -232,7 +232,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMDescribable
   indexes: {}
@@ -245,7 +245,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMDiagramAnnotation
   indexes: {}
@@ -258,7 +258,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMEquipment
   indexes: {}
@@ -271,7 +271,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMEquipmentType
   indexes: {}
@@ -284,7 +284,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMFile
   indexes: {}
@@ -297,7 +297,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMFileCategory
   indexes: {}
@@ -310,7 +310,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMMaintenanceOrder
   indexes: {}
@@ -323,7 +323,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMNotification
   indexes: {}
@@ -336,7 +336,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMOperation
   indexes: {}
@@ -349,7 +349,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMPointCloudModel
   indexes: {}
@@ -362,7 +362,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMPointCloudRevision
   indexes: {}
@@ -375,7 +375,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMPointCloudVolume
   indexes: {}
@@ -388,7 +388,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMSchedulable
   indexes: {}
@@ -401,7 +401,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMSourceSystem
   indexes: {}
@@ -414,7 +414,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMSourceable
   indexes: {}
@@ -427,7 +427,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMTimeSeries
   indexes: {}
@@ -440,7 +440,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMUnit
   indexes: {}
@@ -453,7 +453,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 - constraints: {}
   externalId: ToolkitIDMVisualizable
   indexes: {}
@@ -466,160 +466,160 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
 DataModel:
 - description: ToolkitIDM enterprise model
   externalId: ToolkitIDMProcessIndustries
   name: ToolkitIDM enterprise model
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
   views:
   - externalId: ToolkitIDMMaintenanceOrder
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMOperation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMNotification
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMDescribable
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMSourceable
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMSourceSystem
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMSchedulable
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMVisualizable
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM3DTransformation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMCubeMap
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM3DObject
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM3DModel
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMCADModel
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM3DRevision
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMPointCloudModel
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM360ImageModel
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMCADRevision
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMPointCloudRevision
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM360ImageCollection
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMCADNode
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMPointCloudVolume
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM360Image
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM360ImageStation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDM360ImageAnnotation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMAsset
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMAssetClass
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMAssetType
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMEquipment
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMEquipmentType
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMFile
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMFileCategory
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMActivity
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMTimeSeries
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMAnnotation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMDiagramAnnotation
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
   - externalId: ToolkitIDMUnit
-    space: sp_enterprise_idm_schema
+    space: sp_enterprise_process_industry_full
     type: view
     version: v1
 Space:
-- space: sp_enterprise_idm_schema
+- space: sp_enterprise_process_industry_full
 View:
 - description: ''
   externalId: ToolkitIDM360Image
@@ -632,7 +632,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM360Image
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     back:
@@ -645,7 +645,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     bottom:
@@ -658,7 +658,7 @@ View:
         cube map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     collection360:
@@ -670,7 +670,7 @@ View:
       description: Direct relation to Cognite360ImageCollection
       source:
         externalId: ToolkitIDM360ImageCollection
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     front:
@@ -683,7 +683,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     left:
@@ -696,7 +696,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     right:
@@ -709,7 +709,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     station360:
@@ -722,7 +722,7 @@ View:
         Cognite360Image instances to the same station
       source:
         externalId: ToolkitIDM360ImageStation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     top:
@@ -735,10 +735,10 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: ''
   externalId: ToolkitIDM360ImageAnnotation
@@ -751,7 +751,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM360ImageAnnotation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     source:
@@ -763,10 +763,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents a logical collection of Cognite360Image instances
   externalId: ToolkitIDM360ImageCollection
@@ -791,7 +791,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM360ImageCollection
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -802,10 +802,10 @@ View:
       containerPropertyIdentifier: model3D
       source:
         externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Navigational aid for traversing Cognite360ImageModel instances
   externalId: ToolkitIDM360ImageModel
@@ -830,7 +830,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM360ImageModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     collections:
@@ -838,14 +838,14 @@ View:
       description: List Cognite360Image collections for this instance
       source:
         externalId: ToolkitIDM360ImageCollection
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: model3D
         source:
           externalId: ToolkitIDM3DRevision
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     thumbnail:
@@ -857,10 +857,10 @@ View:
       description: Thumbnail of the 3D model
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: A way to group images across collections. Used for creating visual
     scan history
@@ -886,10 +886,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM360ImageStation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
     Image360)
@@ -903,7 +903,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     thumbnail:
@@ -915,10 +915,10 @@ View:
       description: Thumbnail of the 3D model
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: This is the virtual position representation of an object in the physical
     world, connecting an asset to one or more 3D resources
@@ -932,7 +932,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     asset:
@@ -940,14 +940,14 @@ View:
       description: Asset that is tied to this 3D object
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: object3D
         source:
           externalId: ToolkitIDMAsset
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     cadNodes:
@@ -955,14 +955,14 @@ View:
       description: List of up to 1000 CADNodes that represents the connected CogniteAsset
       source:
         externalId: ToolkitIDMCADNode
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: object3D
         source:
           externalId: ToolkitIDMCADNode
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     images360:
@@ -977,7 +977,7 @@ View:
         version: v1
       source:
         externalId: ToolkitIDM360Image
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       type:
@@ -989,17 +989,17 @@ View:
         CogniteAsset
       source:
         externalId: ToolkitIDMPointCloudVolume
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: object3D
         source:
           externalId: ToolkitIDMPointCloudVolume
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: 'Shared revision information for various 3D data types. Normally not
     used directly, but through CognitePointCloudRevision, Image360Collection or CogniteCADRevision
@@ -1015,7 +1015,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM3DRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -1026,10 +1026,10 @@ View:
       containerPropertyIdentifier: model3D
       source:
         externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
     enabling precise adjustments to an object''s position, orientation, and size in
@@ -1050,10 +1050,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDM3DTransformation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents activities. Activities typically happen over a period and
     have a start and end time.
@@ -1068,7 +1068,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -1081,7 +1081,7 @@ View:
       name: Assets
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipment:
@@ -1094,7 +1094,7 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -1106,7 +1106,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     timeSeries:
@@ -1119,10 +1119,10 @@ View:
       name: Time series
       source:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Annotation represents contextualization results or links
   externalId: ToolkitIDMAnnotation
@@ -1135,7 +1135,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMAnnotation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     source:
@@ -1147,10 +1147,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Assets represent systems that support industrial functions or processes.
     Assets are often called 'functional location'.
@@ -1165,7 +1165,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -1174,14 +1174,14 @@ View:
       name: Activities
       source:
         externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: ToolkitIDMActivity
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     assetClass:
@@ -1194,7 +1194,7 @@ View:
       name: Asset class
       source:
         externalId: ToolkitIDMAssetClass
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     children:
@@ -1204,14 +1204,14 @@ View:
       name: Children
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: parent
         source:
           externalId: ToolkitIDMAsset
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     equipment:
@@ -1220,14 +1220,14 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: asset
         source:
           externalId: ToolkitIDMEquipment
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     files:
@@ -1236,14 +1236,14 @@ View:
       name: Files
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: ToolkitIDMFile
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     object3D:
@@ -1255,7 +1255,7 @@ View:
       description: Direct relation to an Object3D instance representing the 3D resource
       source:
         externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     parent:
@@ -1268,7 +1268,7 @@ View:
       name: Parent
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     path:
@@ -1283,7 +1283,7 @@ View:
       name: Path
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     root:
@@ -1297,7 +1297,7 @@ View:
       name: Root
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -1309,7 +1309,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     timeSeries:
@@ -1318,14 +1318,14 @@ View:
       name: Time series
       source:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: ToolkitIDMTimeSeries
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     type:
@@ -1338,10 +1338,10 @@ View:
       name: Asset type
       source:
         externalId: ToolkitIDMAssetType
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents the class of an asset.
   externalId: ToolkitIDMAssetClass
@@ -1355,10 +1355,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMAssetClass
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents the type of an asset.
   externalId: ToolkitIDMAssetType
@@ -1372,7 +1372,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMAssetType
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     assetClass:
@@ -1386,10 +1386,10 @@ View:
       name: Asset class
       source:
         externalId: ToolkitIDMAssetClass
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Navigational aid for traversing CogniteCADModel instances
   externalId: ToolkitIDMCADModel
@@ -1414,7 +1414,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMCADModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     revisions:
@@ -1422,14 +1422,14 @@ View:
       description: List of revisions for this CAD model
       source:
         externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: model3D
         source:
           externalId: ToolkitIDM3DRevision
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     thumbnail:
@@ -1441,10 +1441,10 @@ View:
       description: Thumbnail of the 3D model
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents nodes from the 3D model that have been contextualized
   externalId: ToolkitIDMCADNode
@@ -1457,7 +1457,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMCADNode
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -1469,7 +1469,7 @@ View:
       description: Direct relation to Cognite3DModel
       source:
         externalId: ToolkitIDMCADModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     object3D:
@@ -1481,7 +1481,7 @@ View:
       description: Direct relation to object3D grouping for this node
       source:
         externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     revisions:
@@ -1494,10 +1494,10 @@ View:
         this CogniteCADNode exists in.
       source:
         externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: ''
   externalId: ToolkitIDMCADRevision
@@ -1522,7 +1522,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -1533,10 +1533,10 @@ View:
       containerPropertyIdentifier: model3D
       source:
         externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: 'The cube map holds references to 6 images in used to visually represent
     the surrounding environment
@@ -1552,7 +1552,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMCubeMap
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     back:
@@ -1565,7 +1565,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     bottom:
@@ -1578,7 +1578,7 @@ View:
         cube map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     front:
@@ -1591,7 +1591,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     left:
@@ -1604,7 +1604,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     right:
@@ -1617,7 +1617,7 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     top:
@@ -1630,10 +1630,10 @@ View:
         map
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: 'The describable core concept is used as a standard way of holding
     the bare minimum of information about the instance
@@ -1649,10 +1649,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMDescribable
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Annotation for diagrams
   externalId: ToolkitIDMDiagramAnnotation
@@ -1665,7 +1665,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMDiagramAnnotation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     source:
@@ -1677,10 +1677,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Equipment represents physical supplies or devices.
   externalId: ToolkitIDMEquipment
@@ -1694,7 +1694,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -1703,14 +1703,14 @@ View:
       name: Activities
       source:
         externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: equipment
         source:
           externalId: ToolkitIDMActivity
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     asset:
@@ -1723,7 +1723,7 @@ View:
       name: Asset
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipmentType:
@@ -1737,7 +1737,7 @@ View:
       name: Equipment type
       source:
         externalId: ToolkitIDMEquipmentType
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     files:
@@ -1750,7 +1750,7 @@ View:
       name: Files
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -1762,7 +1762,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     timeSeries:
@@ -1771,17 +1771,17 @@ View:
       name: Time series
       source:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: equipment
         source:
           externalId: ToolkitIDMTimeSeries
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents the type of equipment.
   externalId: ToolkitIDMEquipmentType
@@ -1795,10 +1795,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMEquipmentType
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents files.
   externalId: ToolkitIDMFile
@@ -1812,7 +1812,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -1825,7 +1825,7 @@ View:
       name: Assets
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     category:
@@ -1839,7 +1839,7 @@ View:
       name: Category
       source:
         externalId: ToolkitIDMFileCategory
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipment:
@@ -1849,14 +1849,14 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: files
         source:
           externalId: ToolkitIDMEquipment
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     source:
@@ -1868,10 +1868,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents the categories of files as determined by contextualization
     or categorization.
@@ -1886,10 +1886,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMFileCategory
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: A formal request or directive to perform maintenance tasks such as
     repair, inspection, or servicing of equipment or assets. It's often called a 'work
@@ -1905,7 +1905,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMMaintenanceOrder
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -1918,7 +1918,7 @@ View:
       name: Assets
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipment:
@@ -1931,7 +1931,7 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     mainAsset:
@@ -1945,7 +1945,7 @@ View:
       name: Main asset
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     operations:
@@ -1955,14 +1955,14 @@ View:
       name: Operations
       source:
         externalId: ToolkitIDMOperation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: maintenanceOrder
         source:
           externalId: ToolkitIDMOperation
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     source:
@@ -1974,7 +1974,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     timeSeries:
@@ -1987,10 +1987,10 @@ View:
       name: Time series
       source:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: A formal record to report maintenance issues, defects, or requests,
     starting the process for planning and running maintenance activities.
@@ -2005,7 +2005,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMNotification
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     asset:
@@ -2018,7 +2018,7 @@ View:
       name: Asset
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     maintenanceOrder:
@@ -2031,7 +2031,7 @@ View:
       name: Maintenance order
       source:
         externalId: ToolkitIDMMaintenanceOrder
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -2043,10 +2043,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Operations represent a specific part of the work included in a maintenance
     order. Often called a 'work order item'.
@@ -2061,7 +2061,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMOperation
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -2074,7 +2074,7 @@ View:
       name: Assets
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipment:
@@ -2087,7 +2087,7 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     mainAsset:
@@ -2101,7 +2101,7 @@ View:
       name: Main asset
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     maintenanceOrder:
@@ -2114,7 +2114,7 @@ View:
       name: Maintenance order
       source:
         externalId: ToolkitIDMMaintenanceOrder
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -2126,7 +2126,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     timeSeries:
@@ -2139,10 +2139,10 @@ View:
       name: Time series
       source:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Navigational aid for traversing CognitePointCloudModel instances
   externalId: ToolkitIDMPointCloudModel
@@ -2167,7 +2167,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMPointCloudModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     revisions:
@@ -2175,14 +2175,14 @@ View:
       description: List of revisions for this PointCloud model
       source:
         externalId: ToolkitIDMPointCloudRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: model3D
         source:
           externalId: ToolkitIDM3DRevision
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     thumbnail:
@@ -2194,10 +2194,10 @@ View:
       description: Thumbnail of the 3D model
       source:
         externalId: ToolkitIDMFile
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Navigational aid for traversing CognitePointCloudRevision instances
   externalId: ToolkitIDMPointCloudRevision
@@ -2222,7 +2222,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMPointCloudRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -2233,10 +2233,10 @@ View:
       containerPropertyIdentifier: model3D
       source:
         externalId: ToolkitIDM3DModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: PointCloud volume definition
   externalId: ToolkitIDMPointCloudVolume
@@ -2249,7 +2249,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMPointCloudVolume
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     model3D:
@@ -2261,7 +2261,7 @@ View:
       description: Direct relation to Cognite3DModel instance
       source:
         externalId: ToolkitIDMCADModel
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     object3D:
@@ -2273,7 +2273,7 @@ View:
       description: Direct relation to object3D grouping for this node
       source:
         externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     revisions:
@@ -2285,10 +2285,10 @@ View:
       description: List of direct relations to revision information
       source:
         externalId: ToolkitIDMCADRevision
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: CogniteSchedulable represents the metadata about when an activity (or
     similar) starts and ends.
@@ -2302,10 +2302,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMSchedulable
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: The CogniteSourceSystem core concept is used to standardize the way
     source system is stored.
@@ -2319,10 +2319,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - externalId: ToolkitIDMSourceable
   implements:
@@ -2334,7 +2334,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMSourceable
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     source:
@@ -2346,10 +2346,10 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents a series of data points in time order."
   externalId: ToolkitIDMTimeSeries
@@ -2363,7 +2363,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMTimeSeries
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -2373,14 +2373,14 @@ View:
       name: Activities
       source:
         externalId: ToolkitIDMActivity
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
       through:
         identifier: timeSeries
         source:
           externalId: ToolkitIDMActivity
-          space: sp_enterprise_idm_schema
+          space: sp_enterprise_process_industry_full
           type: view
           version: v1
     assets:
@@ -2393,7 +2393,7 @@ View:
       name: Assets
       source:
         externalId: ToolkitIDMAsset
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     equipment:
@@ -2406,7 +2406,7 @@ View:
       name: Equipment
       source:
         externalId: ToolkitIDMEquipment
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     source:
@@ -2418,7 +2418,7 @@ View:
       description: Direct relation to a source system
       source:
         externalId: ToolkitIDMSourceSystem
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
     unit:
@@ -2431,10 +2431,10 @@ View:
       name: Unit
       source:
         externalId: ToolkitIDMUnit
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: Represents a single unit of measurement
   externalId: ToolkitIDMUnit
@@ -2447,10 +2447,10 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMUnit
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1
 - description: CogniteVisualizable defines the standard way to reference a related
     3D resource
@@ -2464,7 +2464,7 @@ View:
     UUID:
       container:
         externalId: ToolkitIDMVisualizable
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: container
       containerPropertyIdentifier: UUID
     object3D:
@@ -2476,8 +2476,8 @@ View:
       description: Direct relation to an Object3D instance representing the 3D resource
       source:
         externalId: ToolkitIDM3DObject
-        space: sp_enterprise_idm_schema
+        space: sp_enterprise_process_industry_full
         type: view
         version: v1
-  space: sp_enterprise_idm_schema
+  space: sp_enterprise_process_industry_full
   version: v1

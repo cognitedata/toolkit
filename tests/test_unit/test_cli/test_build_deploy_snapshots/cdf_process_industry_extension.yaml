@@ -11,7 +11,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgAsset
   indexes: {}
@@ -24,7 +24,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgEquipment
   indexes: {}
@@ -37,7 +37,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgFile
   indexes: {}
@@ -50,7 +50,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgMaintenanceOrder
   indexes: {}
@@ -63,7 +63,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgNotification
   indexes: {}
@@ -76,7 +76,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgOperation
   indexes: {}
@@ -89,7 +89,7 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 - constraints: {}
   externalId: YourOrgTimeSeries
   indexes: {}
@@ -102,24 +102,24 @@ Container:
         collation: ucs_basic
         list: false
         type: text
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
 DataModel:
 - description: YourOrg enterprise model
   externalId: YourOrgProcessIndustries
   name: YourOrg enterprise model
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
   views:
   - externalId: YourOrgMaintenanceOrder
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: YourOrgOperation
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: YourOrgNotification
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: CogniteSourceSystem
@@ -131,7 +131,7 @@ DataModel:
     type: view
     version: v1
   - externalId: YourOrgAsset
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: CogniteAssetClass
@@ -143,7 +143,7 @@ DataModel:
     type: view
     version: v1
   - externalId: YourOrgEquipment
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: CogniteEquipmentType
@@ -151,7 +151,7 @@ DataModel:
     type: view
     version: v1
   - externalId: YourOrgFile
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: CogniteFileCategory
@@ -159,11 +159,11 @@ DataModel:
     type: view
     version: v1
   - externalId: YourOrgActivity
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: YourOrgTimeSeries
-    space: sp_enterprise_min_schema_idm
+    space: sp_enterprise_process_industry
     type: view
     version: v1
   - externalId: CogniteUnit
@@ -171,7 +171,7 @@ DataModel:
     type: view
     version: v1
 Space:
-- space: sp_enterprise_min_schema_idm
+- space: sp_enterprise_process_industry
 View:
 - description: Represents activities. Activities typically happen over a period and
     have a start and end time.
@@ -186,7 +186,7 @@ View:
     UUID:
       container:
         externalId: YourOrgActivity
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -199,7 +199,7 @@ View:
       name: Assets
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     equipment:
@@ -212,7 +212,7 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -237,10 +237,10 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: Assets represent systems that support industrial functions or processes.
     Assets are often called 'functional location'.
@@ -255,7 +255,7 @@ View:
     UUID:
       container:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -264,14 +264,14 @@ View:
       name: Activities
       source:
         externalId: YourOrgActivity
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: YourOrgActivity
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     assetClass:
@@ -294,14 +294,14 @@ View:
       name: Children
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: parent
         source:
           externalId: YourOrgAsset
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     equipment:
@@ -310,14 +310,14 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: asset
         source:
           externalId: YourOrgEquipment
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     files:
@@ -326,14 +326,14 @@ View:
       name: Files
       source:
         externalId: YourOrgFile
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: YourOrgFile
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     object3D:
@@ -353,7 +353,7 @@ View:
       name: Parent
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     path:
@@ -368,7 +368,7 @@ View:
       name: Path
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     root:
@@ -382,7 +382,7 @@ View:
       name: Root
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -403,14 +403,14 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: assets
         source:
           externalId: YourOrgTimeSeries
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     type:
@@ -426,7 +426,7 @@ View:
         space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: Equipment represents physical supplies or devices.
   externalId: YourOrgEquipment
@@ -440,7 +440,7 @@ View:
     UUID:
       container:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -449,14 +449,14 @@ View:
       name: Activities
       source:
         externalId: YourOrgActivity
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: equipment
         source:
           externalId: YourOrgActivity
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     asset:
@@ -469,7 +469,7 @@ View:
       name: Asset
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     equipmentType:
@@ -496,7 +496,7 @@ View:
       name: Files
       source:
         externalId: YourOrgFile
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -517,17 +517,17 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: equipment
         source:
           externalId: YourOrgTimeSeries
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: Represents files.
   externalId: YourOrgFile
@@ -541,7 +541,7 @@ View:
     UUID:
       container:
         externalId: YourOrgFile
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -554,7 +554,7 @@ View:
       name: Assets
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     category:
@@ -578,14 +578,14 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: files
         source:
           externalId: YourOrgEquipment
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     source:
@@ -600,7 +600,7 @@ View:
         space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: A formal request or directive to perform maintenance tasks such as
     repair, inspection, or servicing of equipment or assets. It's often called a 'work
@@ -616,7 +616,7 @@ View:
     UUID:
       container:
         externalId: YourOrgMaintenanceOrder
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -629,7 +629,7 @@ View:
       name: Assets
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     equipment:
@@ -642,7 +642,7 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     mainAsset:
@@ -656,7 +656,7 @@ View:
       name: Main asset
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     operations:
@@ -666,14 +666,14 @@ View:
       name: Operations
       source:
         externalId: YourOrgOperation
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: maintenanceOrder
         source:
           externalId: YourOrgOperation
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     source:
@@ -698,10 +698,10 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: A formal record to report maintenance issues, defects, or requests,
     starting the process for planning and running maintenance activities.
@@ -716,7 +716,7 @@ View:
     UUID:
       container:
         externalId: YourOrgNotification
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     asset:
@@ -729,7 +729,7 @@ View:
       name: Asset
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     maintenanceOrder:
@@ -742,7 +742,7 @@ View:
       name: Maintenance order
       source:
         externalId: YourOrgMaintenanceOrder
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -757,7 +757,7 @@ View:
         space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: Operations represent a specific part of the work included in a maintenance
     order. Often called a 'work order item'.
@@ -772,7 +772,7 @@ View:
     UUID:
       container:
         externalId: YourOrgOperation
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     assets:
@@ -785,7 +785,7 @@ View:
       name: Assets
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     equipment:
@@ -798,7 +798,7 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     mainAsset:
@@ -812,7 +812,7 @@ View:
       name: Main asset
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     maintenanceOrder:
@@ -825,7 +825,7 @@ View:
       name: Maintenance order
       source:
         externalId: YourOrgMaintenanceOrder
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -850,10 +850,10 @@ View:
       name: Time series
       source:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1
 - description: Represents a series of data points in time order."
   externalId: YourOrgTimeSeries
@@ -867,7 +867,7 @@ View:
     UUID:
       container:
         externalId: YourOrgTimeSeries
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: container
       containerPropertyIdentifier: UUID
     activities:
@@ -877,14 +877,14 @@ View:
       name: Activities
       source:
         externalId: YourOrgActivity
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
       through:
         identifier: timeSeries
         source:
           externalId: YourOrgActivity
-          space: sp_enterprise_min_schema_idm
+          space: sp_enterprise_process_industry
           type: view
           version: v1
     assets:
@@ -897,7 +897,7 @@ View:
       name: Assets
       source:
         externalId: YourOrgAsset
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     equipment:
@@ -910,7 +910,7 @@ View:
       name: Equipment
       source:
         externalId: YourOrgEquipment
-        space: sp_enterprise_min_schema_idm
+        space: sp_enterprise_process_industry
         type: view
         version: v1
     source:
@@ -938,5 +938,5 @@ View:
         space: cdf_cdm
         type: view
         version: v1
-  space: sp_enterprise_min_schema_idm
+  space: sp_enterprise_process_industry
   version: v1

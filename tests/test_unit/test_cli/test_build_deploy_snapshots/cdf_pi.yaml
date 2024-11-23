@@ -27,8 +27,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteTimeSeries
-      space: cdf_cdm
+      externalId: YourOrgTimeSeries
+      space: sp_enterprise_process_industry
       version: v1
   externalId: pi_timeseries_springfield_aveva_pi
   ignoreNullFields: true
