@@ -36,6 +36,7 @@ class ModuleToml:
     dependencies: frozenset[str] = field(default_factory=frozenset)
     is_selected_by_default: bool = False
     data: list[ExampleData] = field(default_factory=list)
+    extra_resources: list[Path] = field(default_factory=list)
 
     @classmethod
     def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
@@ -51,10 +52,15 @@ class ModuleToml:
         if "data" in data and isinstance(data["data"], list):
             example_data = [ExampleData.load(d) for d in data["data"]]
 
+        extra_resources: list[Path] = []
+        if "extra_resources" in data and isinstance(data["extra_resources"], list):
+            extra_resources = [Path(item["location"]) for item in data["extra_resources"] if "location" in item]
+
         return cls(
             title=data["module"].get("title"),
             tags=frozenset(data["packages"].get("tags", set())),
             dependencies=dependencies,
             is_selected_by_default=data["module"].get("is_selected_by_default", False),
             data=example_data,
+            extra_resources=extra_resources,
         )
