@@ -22,6 +22,7 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
     WorkflowExecutionDetailed,
+    WorkflowVersion,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
@@ -758,7 +759,8 @@ class RunWorkflowCommand(ToolkitCommand):
         if not wait:
             return True
 
-        workflow = ToolGlobals.toolkit_client.workflows.versions.retrieve(id_.workflow_external_id, id_.version)
+        # Bug in SDK, missing overload method for retrieve.
+        workflow = cast(WorkflowVersion | None, ToolGlobals.toolkit_client.workflows.versions.retrieve(id_))
         if workflow is None:
             raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
 
