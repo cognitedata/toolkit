@@ -31,6 +31,31 @@ variables:
     # Daily at 1:35 AM
     scheduleDaily: 35 1 * * *
 
+
+    dataset: ingestion
+    instanceSpace: springfield_instances
+    rawSourceDatabase: ingestion
+    rawStateDatabase: contextualizationState
+    schemaSpace: cdf_cdm
+    annotationSpace: springfield_instances
+    assetTransformationExternalId: sap_assets_springfield_s4hana
+    equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+    equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+    timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+    maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+    operationTransformationExternalId: sap_operations_springfield_s4hana
+    operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+    fileTransformationExternalId: files_metadata_springfield
+    activityToAssetTransformationExternalId: activity_to_asset
+    activityToEquipmentTransformationExternalId: activity_to_equipment
+    activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+    timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+    timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+    schemaSpace2: cdf_idm
+    cdf_common:
+      directRelationJob: ctx_files_direct_relation_write
+      rawStateTable: diagramParsing
+
     cdf_ingestion:
       workflow: ingestion
       groupSourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
