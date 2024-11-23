@@ -1,7 +1,6 @@
 contextualizationId: p_and_id_parser
 contextualizationName: P&ID Parser
 annotatorJob: ctx_files_pandid_annotater
-directRelationJob: ctx_files_direct_relation_write
 dataset: ingestion
 rawStateDatabase: contextualizationState
 rawStateTable: diagramParsing
