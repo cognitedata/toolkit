@@ -57,6 +57,7 @@ variables:
     contextualization_connection_writer: contextualization_connection_writer
     schemaSpace2: cdf_cdm
     schemaSpace3: cdf_idm
+    organization: YourOrg
     cdf_common:
       directRelationJob: ctx_files_direct_relation_write
       rawStateTable: diagramParsing
@@ -406,11 +407,11 @@ variables:
         organization: Toolkit
         schemaSpace: sp_enterprise_schema
 
-      cdf_idm_extension:
+      cdf_process_industry:
         organization: YourOrg
         schemaSpace: sp_enterprise_min_schema_idm
 
-      cdf_idm_extension_full:
+      cdf_process_industry_full:
         organization: ToolkitIDM
         schemaSpace: sp_enterprise_idm_schema
 
