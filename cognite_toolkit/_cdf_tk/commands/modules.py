@@ -169,7 +169,7 @@ class ModulesCommand(ToolkitCommand):
             created_by_module: dict[Path, int] = Counter()
             for extra in extra_resources:
                 module_dir = module_directory_from_path(extra)
-                extra_full_path = BUILTIN_MODULES / extra
+                extra_full_path = self._builtin_modules_path / extra
                 if extra_full_path.is_file():
                     shutil.copy(extra_full_path, modules_root_dir / extra.name)
                     created_by_module[module_dir] += 1
