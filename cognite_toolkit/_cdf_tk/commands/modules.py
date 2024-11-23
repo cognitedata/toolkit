@@ -171,11 +171,14 @@ class ModulesCommand(ToolkitCommand):
                 module_dir = module_directory_from_path(extra)
                 extra_full_path = self._builtin_modules_path / extra
                 target_path = modules_root_dir / extra
+                if target_path.exists():
+                    # Assume that the user has already created this shared resource
+                    continue
                 if extra_full_path.is_file():
                     target_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy(extra_full_path, target_path)
                 elif extra_full_path.is_dir():
-                    target_path.mkdir(parents=True, exist_ok=True)
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copytree(extra_full_path, target_path)
                 else:
                     print(f"{INDENT}[red]Extra resource {extra_full_path} not found[/].")

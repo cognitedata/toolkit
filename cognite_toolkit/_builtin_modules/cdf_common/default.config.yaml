@@ -2,4 +2,6 @@ dataset: ingestion
 instanceSpace: springfield_instances
 directRelationJob: ctx_files_direct_relation_write
 rawSourceDatabase: ingestion
-contextualizationStateDatabase: contextualizationState
+rawStateDatabase: contextualizationState
+rawStateTable: diagramParsing
+schemaSpace: cdf_cdm
