@@ -2,6 +2,7 @@ contextualizationId: entity_matcher
 contextualizationName: Entity Matcher
 annotatorJob: ctx_entity_matching
 directRelationJob: ctx_files_direct_relation_write
+dataset: ingestion
 rawStateDatabase: contextualizationState
 rawStateTable: entityMatching
 schemaSpace: cdf_cdm
