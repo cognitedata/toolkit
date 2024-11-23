@@ -6,3 +6,6 @@ tags = [
     "industrial_tools",
     "quickstart",
 ]
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.space.yaml"
