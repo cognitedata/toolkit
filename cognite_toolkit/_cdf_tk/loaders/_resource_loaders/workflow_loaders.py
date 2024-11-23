@@ -393,12 +393,12 @@ class WorkflowTriggerLoader(
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowTriggerList:
-        all_triggers = self.client.workflows.triggers.get_triggers(limit=-1)
+        all_triggers = self.client.workflows.triggers.list(limit=-1)
         lookup = set(ids)
         return WorkflowTriggerList([trigger for trigger in all_triggers if trigger.external_id in lookup])
 
     def update(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
-        exising = self.client.workflows.triggers.get_triggers(limit=-1)
+        exising = self.client.workflows.triggers.list(limit=-1)
         existing_lookup = {trigger.external_id: trigger for trigger in exising}
         updated = WorkflowTriggerList([])
         for item in items:
@@ -422,7 +422,7 @@ class WorkflowTriggerLoader(
         return successes
 
     def iterate(self) -> Iterable[WorkflowTrigger]:
-        return self.client.workflows.triggers.get_triggers(limit=-1)
+        return self.client.workflows.triggers.list(limit=-1)
 
     @classmethod
     @lru_cache(maxsize=1)
