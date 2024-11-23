@@ -51,7 +51,12 @@ variables:
     activityToTimeSeriesTransformationExternalId: activity_to_timeseries
     timeSeriesToAssetTransformationExternalId: timeseries_to_asset
     timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
-    schemaSpace2: cdf_idm
+    ingestionClientId: ${INGESTION_CLIENT_ID}
+    ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+    pandidContextualizationFunction: contextualization_p_and_id_annotater
+    contextualization_connection_writer: contextualization_connection_writer
+    schemaSpace2: cdf_cdm
+    schemaSpace3: cdf_idm
     cdf_common:
       directRelationJob: ctx_files_direct_relation_write
       rawStateTable: diagramParsing
