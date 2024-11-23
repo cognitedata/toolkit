@@ -218,7 +218,7 @@ class DeployCommand(ToolkitCommand):
                 filepaths.extend(loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
 
         if not filepaths:
-            self.warn(LowSeverityWarning(f"No {loader.display_name} files found. Skipping..."))
+            # Skipping silently as this is not an error.
             return None
 
         def sort_key(p: Path) -> int:
