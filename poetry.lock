@@ -257,13 +257,13 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.67.3"
+version = "7.68.0"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "cognite_sdk-7.67.3-py3-none-any.whl", hash = "sha256:c429c27e628487b78e9c4d11ab1e3e6920f6faf0f47a8749eaddecfa2a2f55a9"},
-    {file = "cognite_sdk-7.67.3.tar.gz", hash = "sha256:1227b4224d1779bad33c13de68cbe6d0aef10bc4018d579ab69d2b377ccad322"},
+    {file = "cognite_sdk-7.68.0-py3-none-any.whl", hash = "sha256:99ccedd6bff067087b0095017792dcb81851c3a3ca8b02c473beb7517fbc9e79"},
+    {file = "cognite_sdk-7.68.0.tar.gz", hash = "sha256:834d1f5de2fad5978ad10f3ef90c9b37dd6b767389b0ccb2d383becc9aef09ad"},
 ]
 
 [package.dependencies]
@@ -2051,13 +2051,13 @@ urllib3 = ">=1.26.0"
 
 [[package]]
 name = "typer"
-version = "0.13.0"
+version = "0.13.1"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "typer-0.13.0-py3-none-any.whl", hash = "sha256:d85fe0b777b2517cc99c8055ed735452f2659cd45e451507c76f48ce5c1d00e2"},
-    {file = "typer-0.13.0.tar.gz", hash = "sha256:f1c7198347939361eec90139ffa0fd8b3df3a2259d5852a0f7400e476d95985c"},
+    {file = "typer-0.13.1-py3-none-any.whl", hash = "sha256:5b59580fd925e89463a29d363e0a43245ec02765bde9fb77d39e5d0f29dd7157"},
+    {file = "typer-0.13.1.tar.gz", hash = "sha256:9d444cb96cc268ce6f8b94e13b4335084cef4c079998a9f4851a90229a3bd25c"},
 ]
 
 [package.dependencies]
