@@ -49,6 +49,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import GitHubFileDownloader
 from cognite_toolkit._version import __version__
 
@@ -116,6 +117,7 @@ class ModulesCommand(ToolkitCommand):
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
         downloader_by_repo: dict[str, GitHubFileDownloader] = {}
+        extra_resources: set[Path] = set()
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -128,6 +130,8 @@ class ModulesCommand(ToolkitCommand):
                 # files
                 selected_paths.update(module.parent_relative_paths)
                 selected_paths.add(module.relative_path)
+                if module.definition:
+                    extra_resources.update(module.definition.extra_resources)
 
                 print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
                 target_dir = modules_root_dir / module.relative_path
@@ -159,6 +163,17 @@ class ModulesCommand(ToolkitCommand):
 
                         downloader = downloader_by_repo[example_data.repo]
                         downloader.copy(example_data.source, target_dir / example_data.destination)
+
+        if extra_resources:
+            print(f"{INDENT}Found {len(extra_resources)} shared resources[/]")
+            for extra in extra_resources:
+                if extra.is_file():
+                    shutil.copy(extra, modules_root_dir / extra.name)
+                elif extra.is_dir():
+                    shutil.copytree(extra, modules_root_dir / extra.name)
+                module_dir = module_directory_from_path(extra)
+                selected_paths.add(module_dir)
+                selected_paths.update(module_dir.parents)
 
         for environment in environments:
             if mode == "update":
