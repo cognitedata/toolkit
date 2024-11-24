@@ -355,8 +355,8 @@ default_organization_dir = "{organization_dir.name}"''',
                     "Please check out https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/modules/custom for guidance on writing custom modules",
                 )
             )
-
-        raise typer.Exit()
+        if is_interactive:
+            raise typer.Exit()
 
     @staticmethod
     def _get_download_data(selected: Packages) -> bool:

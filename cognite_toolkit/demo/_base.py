@@ -49,7 +49,8 @@ class CogniteToolkitDemo:
         # Ensure the user can execute the workflow
         config_raw = config_raw.replace("<your user id>", user.user_identifier)
         # To avoid warnings about not set values
-        config_raw = config_raw.replace("required_field: null", "required_field: 'value'")
+        config_raw = config_raw.replace("<not set>", "123456-to-be-replaced")
+        config_raw = config_raw.replace("<my-project-dev>", self._cdf_tool_config.project)
         config_yaml.write_text(config_raw)
 
         build = BuildCommand()
