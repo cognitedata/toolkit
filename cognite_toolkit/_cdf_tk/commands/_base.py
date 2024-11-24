@@ -23,6 +23,8 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )
 
+_HAS_PRINTED_COLLECT_MESSAGE = False
+
 
 class ToolkitCommand:
     def __init__(
@@ -41,8 +43,14 @@ class ToolkitCommand:
         self.tracker.track_cli_command(self.warning_list, result, type(self).__name__.removesuffix("Command"))
 
     def run(self, execute: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        global _HAS_PRINTED_COLLECT_MESSAGE
         is_collect_command = len(sys.argv) >= 2 and "collect" == sys.argv[1]
-        if not self.tracker.opted_in and not self.tracker.opted_out and not is_collect_command:
+        if (
+            not self.tracker.opted_in
+            and not self.tracker.opted_out
+            and not is_collect_command
+            and not _HAS_PRINTED_COLLECT_MESSAGE
+        ):
             print(
                 "You acknowledge and agree that the CLI tool may collect usage information, user environment, "
                 "and crash reports for the purposes of providing services of functions that are relevant "
@@ -50,6 +58,7 @@ class ToolkitCommand:
                 "To remove this message run 'cdf collect opt-in', "
                 "or to stop collecting usage information run 'cdf collect opt-out'."
             )
+            _HAS_PRINTED_COLLECT_MESSAGE = True
 
         try:
             result = execute(*args, **kwargs)
