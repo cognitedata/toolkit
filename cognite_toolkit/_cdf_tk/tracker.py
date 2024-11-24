@@ -24,11 +24,12 @@ _COGNITE_TOOLKIT_MIXPANEL_TOKEN: str = "9afc120ac61d408c81009ea7dd280a38"
 
 
 class Tracker:
-    def __init__(self, skip_tracking: bool = False) -> None:
+    def __init__(self, skip_tracking: bool = False, track_thread: bool = True) -> None:
         self.user_command = "".join(sys.argv[1:])
         self.mp = Mixpanel(_COGNITE_TOOLKIT_MIXPANEL_TOKEN, consumer=Consumer(api_host="api-eu.mixpanel.com"))
         self._opt_status_file = Path(tempfile.gettempdir()) / "tk-opt-status.bin"
         self.skip_tracking = self.opted_out or skip_tracking
+        self._track_thread = track_thread
         self._cdf_toml = CDFToml.load()
 
     @cached_property
@@ -97,11 +98,14 @@ class Tracker:
                     event_information,
                 )
 
-        thread = threading.Thread(
-            target=track,
-            daemon=False,
-        )
-        thread.start()
+        if self._track_thread:
+            thread = threading.Thread(
+                target=track,
+                daemon=False,
+            )
+            thread.start()
+        else:
+            track()
         return True
 
     def get_distinct_id(self) -> str:

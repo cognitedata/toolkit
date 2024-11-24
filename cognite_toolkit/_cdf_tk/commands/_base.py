@@ -25,11 +25,13 @@ from cognite_toolkit._cdf_tk.utils import (
 
 
 class ToolkitCommand:
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
+    def __init__(
+        self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False, track_thread: bool = True
+    ):
         self._print_warning = print_warning
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(skip_tracking)
+        self.tracker = Tracker(skip_tracking, track_thread)
 
     @property
     def print_warning(self) -> bool:
