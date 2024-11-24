@@ -278,8 +278,8 @@ default_organization_dir = "{organization_dir.name}"''',
                 organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
             )
             return
-        is_interactive = user_select is None
-        if is_interactive:
+        is_interactive = user_select is not None
+        if not is_interactive:
             print("\n")
             print(
                 Panel(
@@ -316,7 +316,10 @@ default_organization_dir = "{organization_dir.name}"''',
                 self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
-        if is_interactive and not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+        if (
+            not is_interactive
+            and not questionary.confirm("Would you like to continue with creation?", default=True).ask()
+        ):
             print("Exiting...")
             raise typer.Exit()
 
@@ -355,7 +358,7 @@ default_organization_dir = "{organization_dir.name}"''',
                     "Please check out https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/modules/custom for guidance on writing custom modules",
                 )
             )
-        if is_interactive:
+        if not is_interactive:
             raise typer.Exit()
 
     @staticmethod
