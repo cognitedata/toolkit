@@ -1,4 +1,5 @@
 import tempfile
+import textwrap
 from pathlib import Path
 
 from rich import print
@@ -12,6 +13,18 @@ from cognite_toolkit._cdf_tk.utils.auth import CDFToolConfig
 class CogniteToolkitDemo:
     def __init__(self) -> None:
         self._cdf_tool_config = CDFToolConfig()
+        print(
+            Panel(
+                textwrap.dedent("""
+        This is a demo version of the Cognite Toolkit.
+
+        It is intended to demonstrate the content and capabilities of the Toolkit.
+        It is not intended to be used in production or development environments.
+
+        To learn more about the Cognite Toolkit, visit https://docs.cognite.com/cdf/deploy/cdf_toolkit/.
+        """)
+            )
+        )
 
     @property
     def _tmp_path(self) -> Path:
