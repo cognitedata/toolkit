@@ -1,17 +1,12 @@
 import tempfile
 from pathlib import Path
-from typing import Literal
 
-import yaml
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
-from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH, MODULES
-from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML, Packages
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils.auth import CDFToolConfig
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 
 
 class CogniteToolkitDemo:
@@ -19,68 +14,55 @@ class CogniteToolkitDemo:
         self._cdf_tool_config = CDFToolConfig()
 
     @property
+    def _tmp_path(self) -> Path:
+        return Path(tempfile.gettempdir()).resolve()
+
+    @property
     def _build_dir(self) -> Path:
-        build_path = Path(tempfile.gettempdir()).resolve() / "cognite-toolkit-build"
+        build_path = self._tmp_path / "cognite-toolkit-build"
         build_path.mkdir(exist_ok=True)
         return build_path
+
+    @property
+    def _organization_dir(self) -> Path:
+        organization_path = self._tmp_path / "cognite-toolkit-organization"
+        organization_path.mkdir(exist_ok=True)
+        return organization_path
 
     def quickstart(self) -> None:
         print(Panel("Running Toolkit QuickStart..."))
         # Lookup user ID to add user ID to the group to run the workflow
         user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
 
-        # Build directly from _builtin_modules
-        build = BuildCommand()
-        environment: Literal["dev"] = "dev"
-        packages = Packages().load(BUILTIN_MODULES_PATH)
-        quickstart = packages["quickstart"]
-        selected_paths: set[Path] = set()
-        for module in quickstart.modules:
-            selected_paths.add(module.relative_path)
-            selected_paths.update(module.parent_relative_paths)
-            if module.definition:
-                for extra in module.definition.extra_resources:
-                    module_dir = module_directory_from_path(extra)
-                    selected_paths.add(module_dir)
-                    selected_paths.update(module_dir.parents)
-
-        ignore_variable_patterns: list[tuple[str, ...]] = []
-        for to_ignore in ["sourcesystem", "contextualization"]:
-            ignore_variable_patterns.extend(
-                [
-                    ("modules", to_ignore, "*", "workflow"),
-                    ("modules", to_ignore, "*", "workflowClientId"),
-                    ("modules", to_ignore, "*", "workflowClientSecret"),
-                    ("modules", to_ignore, "*", "groupSourceId"),
-                ]
+        modules_cmd = ModulesCommand()
+        modules_cmd.run(
+            lambda: modules_cmd.init(
+                organization_dir=self._organization_dir,
+                user_select="quickstart",
+                clean=True,
+                user_download_data=True,
+                user_environments=["dev"],
             )
-        config_init = InitConfigYAML(
-            Environment(
-                name=environment,
-                project=self._cdf_tool_config.project,
-                build_type=environment,
-                selected=[f"{MODULES}/"],
-            )
-        ).load_defaults(BUILTIN_MODULES_PATH, selected_paths, ignore_variable_patterns)
-        config_init.lift()
-        config_raw = config_init.dump_yaml_with_comments()
+        )
+        config_yaml = self._organization_dir / "config.dev.yaml"
+        config_raw = config_yaml.read_text()
         # Ensure the user can execute the workflow
         config_raw = config_raw.replace("<your user id>", user.user_identifier)
-        # To avoid warnings about not set
-        config_raw = config_raw.replace("<not set>", "123456")
+        # To avoid warnings about not set values
+        config_raw = config_raw.replace("required_field: null", "required_field: 'value'")
+        config_yaml.write_text(config_raw)
 
-        config = BuildConfigYAML.load(yaml.safe_load(config_raw), environment, Path("memory"))
-
+        build = BuildCommand()
         build.run(
-            lambda: build.build_config(
+            lambda: build.execute(
                 build_dir=self._build_dir,
-                organization_dir=BUILTIN_MODULES_PATH,
-                config=config,
-                packages={},
-                clean=True,
+                organization_dir=self._organization_dir,
+                selected=None,
+                build_env_name="dev",
                 verbose=False,
                 ToolGlobals=self._cdf_tool_config,
                 on_error="raise",
+                no_clean=False,
             )
         )
 

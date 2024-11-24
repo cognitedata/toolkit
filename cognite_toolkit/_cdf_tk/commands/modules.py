@@ -254,6 +254,9 @@ default_organization_dir = "{organization_dir.name}"''',
         organization_dir: Optional[Path] = None,
         select_all: bool = False,
         clean: bool = False,
+        user_select: str | None = None,
+        user_environments: list[str] | None = None,
+        user_download_data: bool | None = None,
     ) -> None:
         if not organization_dir:
             new_line = "\n    "
