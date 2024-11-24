@@ -47,7 +47,7 @@ class CogniteToolkitDemo:
         # Lookup user ID to add user ID to the group to run the workflow
         user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
 
-        modules_cmd = ModulesCommand(track_thread=False)
+        modules_cmd = ModulesCommand()
         modules_cmd.run(
             lambda: modules_cmd.init(
                 organization_dir=self._organization_dir,
@@ -66,7 +66,7 @@ class CogniteToolkitDemo:
         config_raw = config_raw.replace("<my-project-dev>", self._cdf_tool_config.project)
         config_yaml.write_text(config_raw)
 
-        build = BuildCommand(track_thread=False)
+        build = BuildCommand()
         build.run(
             lambda: build.execute(
                 build_dir=self._build_dir,
@@ -80,7 +80,7 @@ class CogniteToolkitDemo:
             )
         )
 
-        deploy = DeployCommand(track_thread=False)
+        deploy = DeployCommand()
 
         deploy.run(
             lambda: deploy.execute(

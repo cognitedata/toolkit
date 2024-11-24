@@ -27,13 +27,11 @@ _HAS_PRINTED_COLLECT_MESSAGE = False
 
 
 class ToolkitCommand:
-    def __init__(
-        self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False, track_thread: bool = True
-    ):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         self._print_warning = print_warning
         self.silent = silent
         self.warning_list = WarningList[ToolkitWarning]()
-        self.tracker = Tracker(skip_tracking, track_thread)
+        self.tracker = Tracker(skip_tracking)
 
     @property
     def print_warning(self) -> bool:
