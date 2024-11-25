@@ -1,1 +1,1 @@
-__all__ = ["quickstart", "empty", "examples", "reference"]
+__all__ = ["empty", "examples", "quickstart", "reference"]

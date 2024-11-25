@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     WarningList,
 )
 
-__all__ = ["validate_modules_variables", "validate_data_set_is_set", "validate_resource_yaml"]
+__all__ = ["validate_data_set_is_set", "validate_modules_variables", "validate_resource_yaml"]
 
 
 def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
