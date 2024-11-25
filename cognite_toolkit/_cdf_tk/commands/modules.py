@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from collections import Counter
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -49,6 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import GitHubFileDownloader
 from cognite_toolkit._version import __version__
 
@@ -116,6 +118,7 @@ class ModulesCommand(ToolkitCommand):
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
         downloader_by_repo: dict[str, GitHubFileDownloader] = {}
+        extra_resources: set[Path] = set()
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -128,6 +131,8 @@ class ModulesCommand(ToolkitCommand):
                 # files
                 selected_paths.update(module.parent_relative_paths)
                 selected_paths.add(module.relative_path)
+                if module.definition:
+                    extra_resources.update(module.definition.extra_resources)
 
                 print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
                 target_dir = modules_root_dir / module.relative_path
@@ -159,6 +164,32 @@ class ModulesCommand(ToolkitCommand):
 
                         downloader = downloader_by_repo[example_data.repo]
                         downloader.copy(example_data.source, target_dir / example_data.destination)
+
+        if extra_resources:
+            created_by_module: dict[Path, int] = Counter()
+            for extra in extra_resources:
+                module_dir = module_directory_from_path(extra)
+                extra_full_path = self._builtin_modules_path / extra
+                target_path = modules_root_dir / extra
+                if target_path.exists():
+                    # Assume that the user has already created this shared resource
+                    continue
+                if extra_full_path.is_file():
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(extra_full_path, target_path)
+                elif extra_full_path.is_dir():
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(extra_full_path, target_path)
+                else:
+                    print(f"{INDENT}[red]Extra resource {extra_full_path} not found[/].")
+                    continue
+                created_by_module[module_dir] += 1
+                selected_paths.add(module_dir)
+                selected_paths.update(module_dir.parents)
+
+            for module_dir, count in created_by_module.items():
+                if count > 0:
+                    print(f"{INDENT}Created {count} shared resources in {module_dir.as_posix()!r}.")
 
         for environment in environments:
             if mode == "update":

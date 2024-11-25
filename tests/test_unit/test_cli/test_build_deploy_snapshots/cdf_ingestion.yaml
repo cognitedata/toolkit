@@ -1,9 +1,3 @@
-DataSet:
-- description: Ingestion pipeline
-  externalId: ingestion
-  metadata: {}
-  name: Ingestion
-  writeProtected: false
 Group:
 - capabilities:
   - projectsAcl:

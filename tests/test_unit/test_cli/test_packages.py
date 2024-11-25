@@ -197,3 +197,44 @@ def test_all_modules_cdf_prefixed() -> None:
     }
 
     assert not missing_cdf_prefix, f"Modules missing cdf_ prefix: {missing_cdf_prefix}"
+
+
+def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> None:
+    cmd = BuildCommand(silent=True)
+
+    modules = Path("modules")
+    cmd.execute(
+        verbose=False,
+        organization_dir=organization_dir,
+        build_dir=build_tmp_path,
+        build_env_name="dev",
+        no_clean=False,
+        ToolGlobals=None,
+        selected=[
+            modules / "cdf_ingestion",
+            modules / "common",
+            modules / "contextualization",
+            modules / "industrial_tools",
+            modules / "models",
+            modules / "sourcesystem",
+        ],
+    )
+
+    duplicate_warning = [warning for warning in cmd.warning_list if isinstance(warning, DuplicatedItemWarning)]
+
+    assert not duplicate_warning, f"{len(duplicate_warning)} duplicate warnings found: {duplicate_warning}"
+
+
+def test_all_extra_resources_exists() -> None:
+    packages = Packages.load(BUILTIN_MODULES_PATH)
+    missing_resources = {
+        extra: module.name
+        for package in packages.values()
+        for module in package.modules
+        if module.definition
+        for extra in module.definition.extra_resources
+        if not (BUILTIN_MODULES_PATH / extra).exists()
+    }
+    missing_by_module = {v: k.as_posix() for k, v in missing_resources.items()}
+
+    assert not missing_resources, f"Modules missing resources: {missing_by_module}"

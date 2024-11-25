@@ -9,9 +9,3 @@ LocationFilter:
   instanceSpaces:
   - springfield_instances
   name: Springfield
-Space:
-- description: 'This space contains data for location Springfield.
-
-    '
-  name: Springfield instance space
-  space: springfield_instances

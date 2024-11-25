@@ -1,3 +1,0 @@
-space: {{ annotationSpace }}
-description: 'Space for storing annotations'
-name: '{{ annotationSpace }}'
