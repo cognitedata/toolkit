@@ -91,7 +91,8 @@ variables:
       instanceSpaces:
         - springfield_instances
         - cdf_cdm_units
-
+      runWorkflowUserIds:
+        - <your user id>
 
     bootcamp:
       CDF_PROJECT: <YOUR CDF PROJECT> # ex. cdf-bootcamp-01-test

@@ -105,6 +105,113 @@ Group:
     origin: cognite-toolkit
   name: gp_ingestion
   sourceId: <not set>
+- capabilities:
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            contextualizationState:
+              tables: []
+            ingestion:
+              tables: []
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+          - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - sp_enterprise_process_industry
+          - cdf_cdm
+          - cdf_idm
+          - cdf_cdm_units
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+  - annotationsAcl:
+      actions:
+      - READ
+      - WRITE
+      - SUGGEST
+      - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  members:
+  - <your user id>
+  metadata:
+    origin: cognite-toolkit
+  name: gp_user_ingestion
 Workflow:
 - dataSetId: 42
   description: This runs the full ingestion with population and contextualization
