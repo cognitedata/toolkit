@@ -25,3 +25,6 @@ location = "cdf_common/data_models/demo.Space.yaml"
 
 [[extra_resources]]
 location = "cdf_common/raw/source.DataBase.yaml"
+
+[[extra_resources]]
+location = "models/cdf_process_industry_extension/data_models"

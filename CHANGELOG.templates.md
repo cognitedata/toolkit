@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+## Changed
+
+- The modules `cdf_idm_extension` and `cdf_idm_extension_full` are renamed to `cdf_process_industry_extension` and
+  `cdf_process_industry_extension_full` respectively.
+- The Source System data pipelines now requires `cdf_process_industry_extension` and writes to the extension model
+  instead of the Core model.
+- The modules in Source System, Contextualization, and Industrial Tool packages now use shared resources
+  in `cdf_common`.
+
 ## [0.3.12] - 2024-11-21
 
 ### Added

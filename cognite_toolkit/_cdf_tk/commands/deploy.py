@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
     Loader,
+    RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
 )
@@ -217,7 +218,7 @@ class DeployCommand(ToolkitCommand):
                 filepaths.extend(loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
 
         if not filepaths:
-            self.warn(LowSeverityWarning(f"No {loader.display_name} files found. Skipping..."))
+            # Skipping silently as this is not an error.
             return None
 
         def sort_key(p: Path) -> int:
@@ -252,8 +253,9 @@ class DeployCommand(ToolkitCommand):
         prefix = "Would deploy" if dry_run else "Deploying"
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
-        for duplicate in duplicates:
-            self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
+        if not isinstance(loader, RawDatabaseLoader):
+            for duplicate in duplicates:
+                self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)

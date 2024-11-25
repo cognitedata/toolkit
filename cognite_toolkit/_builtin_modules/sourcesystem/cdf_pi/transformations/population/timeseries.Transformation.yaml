@@ -4,8 +4,8 @@ name: TimeSeries Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: cdf_cdm
-    externalId: CogniteTimeSeries
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}TimeSeries
     version: v1
   instanceSpace: {{ instanceSpace }}
 conflictMode: upsert

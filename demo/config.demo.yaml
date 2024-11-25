@@ -51,7 +51,13 @@ variables:
     activityToTimeSeriesTransformationExternalId: activity_to_timeseries
     timeSeriesToAssetTransformationExternalId: timeseries_to_asset
     timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
-    schemaSpace2: cdf_idm
+    ingestionClientId: ${INGESTION_CLIENT_ID}
+    ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+    pandidContextualizationFunction: contextualization_p_and_id_annotater
+    contextualization_connection_writer: contextualization_connection_writer
+    schemaSpace2: cdf_cdm
+    schemaSpace3: cdf_idm
+    organization: YourOrg
     cdf_common:
       directRelationJob: ctx_files_direct_relation_write
       rawStateTable: diagramParsing
@@ -395,19 +401,19 @@ variables:
     models:
       cdf_cdm_extension:
         organization: ToolkitMinimum
-        schema_space: sp_enterprise_min_schema
+        schemaSpace: sp_enterprise_min_schema
 
       cdf_cdm_extension_full:
         organization: Toolkit
-        schema_space: sp_enterprise_schema
+        schemaSpace: sp_enterprise_schema
 
-      cdf_idm_extension:
+      cdf_process_industry:
         organization: YourOrg
-        schema_space: sp_enterprise_min_schema_idm
+        schemaSpace: sp_enterprise_min_schema_idm
 
-      cdf_idm_extension_full:
+      cdf_process_industry_full:
         organization: ToolkitIDM
-        schema_space: sp_enterprise_idm_schema
+        schemaSpace: sp_enterprise_idm_schema
 
     sourcesystem:
       cdf_pi:

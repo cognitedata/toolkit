@@ -10,8 +10,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteAsset
-      space: cdf_cdm
+      externalId: YourOrgAsset
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_assets_springfield_s4hana
   ignoreNullFields: true
@@ -39,8 +39,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteEquipment
-      space: cdf_cdm
+      externalId: YourOrgEquipment
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_equipment_springfield_s4hana
   ignoreNullFields: true
@@ -79,8 +79,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteEquipment
-      space: cdf_cdm
+      externalId: YourOrgEquipment
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_equipment_to_asset_springfield_s4hana
   ignoreNullFields: true

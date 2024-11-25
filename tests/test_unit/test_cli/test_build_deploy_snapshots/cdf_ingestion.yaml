@@ -56,9 +56,16 @@ Group:
       scope:
         spaceIdScope:
           spaceIds:
+          - sp_enterprise_process_industry
           - cdf_cdm
           - cdf_idm
           - cdf_cdm_units
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
           - cdf_cdm
   - annotationsAcl:
       actions:
