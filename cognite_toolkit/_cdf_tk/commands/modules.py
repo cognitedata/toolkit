@@ -46,7 +46,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
@@ -254,6 +254,9 @@ default_organization_dir = "{organization_dir.name}"''',
         organization_dir: Optional[Path] = None,
         select_all: bool = False,
         clean: bool = False,
+        user_select: str | None = None,
+        user_environments: list[str] | None = None,
+        user_download_data: bool | None = None,
     ) -> None:
         if not organization_dir:
             new_line = "\n    "
@@ -275,27 +278,34 @@ default_organization_dir = "{organization_dir.name}"''',
                 organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
             )
             return
-
-        print("\n")
-        print(
-            Panel(
-                "\n".join(
-                    [
-                        "Wizard for selecting initial modules"
-                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
-                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
-                    ]
-                ),
-                title="Select initial modules",
-                style="green",
-                padding=(1, 2),
+        is_interactive = user_select is not None
+        if not is_interactive:
+            print("\n")
+            print(
+                Panel(
+                    "\n".join(
+                        [
+                            "Wizard for selecting initial modules"
+                            "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
+                            "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                        ]
+                    ),
+                    title="Select initial modules",
+                    style="green",
+                    padding=(1, 2),
+                )
             )
-        )
         mode = self._verify_clean(modules_root_dir, clean)
 
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
-        selected = self._select_packages(packages)
+        if user_select is None:
+            selected = self._select_packages(packages)
+        else:
+            selected = Packages([v for k, v in packages.items() if k == user_select])
+            if not selected:
+                raise ToolkitValueError(f"Package {user_select} not found.")
+
         if "bootcamp" in selected:
             bootcamp_org = Path.cwd() / "ice-cream-dataops"
             if bootcamp_org != organization_dir:
@@ -306,24 +316,33 @@ default_organization_dir = "{organization_dir.name}"''',
                 self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
-        if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+        if (
+            not is_interactive
+            and not questionary.confirm("Would you like to continue with creation?", default=True).ask()
+        ):
             print("Exiting...")
             raise typer.Exit()
 
-        environments = questionary.checkbox(
-            "Which environments would you like to include?",
-            instruction="Use arrow up/down, press space to select item(s) and enter to save",
-            choices=[
-                questionary.Choice(title="dev", checked=True),
-                questionary.Choice(title="prod", checked=True),
-                questionary.Choice(title="staging", checked=False),
-            ],
-            qmark=INDENT,
-            pointer=POINTER,
-            style=custom_style_fancy,
-        ).ask()
+        if user_environments is None:
+            environments = questionary.checkbox(
+                "Which environments would you like to include?",
+                instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                choices=[
+                    questionary.Choice(title="dev", checked=True),
+                    questionary.Choice(title="prod", checked=True),
+                    questionary.Choice(title="staging", checked=False),
+                ],
+                qmark=INDENT,
+                pointer=POINTER,
+                style=custom_style_fancy,
+            ).ask()
+        else:
+            environments = user_environments
 
-        download_data = self._get_download_data(selected)
+        if user_download_data is None:
+            download_data = self._get_download_data(selected)
+        else:
+            download_data = user_download_data
         self._create(organization_dir, selected, environments, mode, download_data)
 
         print(
@@ -339,8 +358,8 @@ default_organization_dir = "{organization_dir.name}"''',
                     "Please check out https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/modules/custom for guidance on writing custom modules",
                 )
             )
-
-        raise typer.Exit()
+        if not is_interactive:
+            raise typer.Exit()
 
     @staticmethod
     def _get_download_data(selected: Packages) -> bool:

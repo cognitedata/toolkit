@@ -9,6 +9,7 @@ from requests import Response
 from rich import print
 from rich.progress import track
 
+from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.tk_warnings import HTTPWarning
 
 
@@ -22,7 +23,11 @@ class GitHubFileDownloader:
     def copy(self, source: str, destination: Path) -> None:
         source_path = Path(source)
         to_download = list(self._find_files(source_path))
-        for path, url in track(to_download, description=f"Downloading from {source_path.as_posix()!r}"):
+        if IN_BROWSER:
+            iterable = to_download
+        else:
+            iterable = track(to_download, description=f"Downloading from {source_path.as_posix()!r}")  # type: ignore [assignment]
+        for path, url in iterable:
             self._download_file(url, path, destination)
 
     def _find_files(self, source: Path) -> Iterable[tuple[Path, str]]:
