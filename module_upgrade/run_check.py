@@ -91,7 +91,11 @@ def run() -> None:
         )
     )
     for version in versions:
-        with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
+        with (
+            local_tmp_project_path() as project_path,
+            local_build_path() as build_path,
+            tool_globals() as cdf_tool_config,
+        ):
             run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
 
 
