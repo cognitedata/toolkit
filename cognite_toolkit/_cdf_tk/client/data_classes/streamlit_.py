@@ -118,7 +118,10 @@ class Streamlit(_StreamlitCore):
             if key in resource:
                 args[key] = resource[key]
         if "published" in resource:
-            args["published"] = resource[key].strip().lower() == "true"
+            if isinstance(resource["published"], str):
+                args["published"] = resource["published"].strip().lower() == "true"
+            else:
+                args["published"] = resource["published"]
         return cls(**args)
 
     @classmethod
