@@ -60,7 +60,7 @@ from ._base import ToolkitCommand
 @dataclass
 class VerifyAuthResult:
     toolkit_group_id: int | None = None
-    is_function_active: bool | None = None
+    function_status: str | None = None
 
 
 class AuthCommand(ToolkitCommand):
@@ -217,7 +217,7 @@ class AuthCommand(ToolkitCommand):
                     expand=False,
                 )
             )
-            return VerifyAuthResult(is_function_active=False, toolkit_group_id=cdf_toolkit_group.id)
+            return VerifyAuthResult(function_status=None, toolkit_group_id=cdf_toolkit_group.id)
 
         if not is_demo:
             self.check_count_group_memberships(user_groups)
@@ -235,8 +235,10 @@ class AuthCommand(ToolkitCommand):
                         raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
                     print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
 
-        is_active = self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
-        return VerifyAuthResult(cdf_toolkit_group.id, is_active)
+        function_status = self.check_function_service_status(
+            ToolGlobals.toolkit_client, dry_run, has_added_capabilities
+        )
+        return VerifyAuthResult(cdf_toolkit_group.id, function_status)
 
     def _create_toolkit_group_in_cdf_interactive(
         self,
@@ -590,17 +592,19 @@ class AuthCommand(ToolkitCommand):
             for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
         ]
 
-    def check_function_service_status(self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool) -> bool:
+    def check_function_service_status(
+        self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool
+    ) -> str | None:
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, [FunctionsAcl.Action.Read], has_added_capabilities)
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
-            return False
+            return None
         try:
             function_status = client.functions.status()
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
-            return False
+            return None
 
         if function_status.status == "requested":
             print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
@@ -615,21 +619,20 @@ class AuthCommand(ToolkitCommand):
             )
             if not has_function_write_access:
                 self.warn(HighSeverityWarning("Cannot activate function service, missing function write access."))
-                return False
+                return function_status.status
             try:
                 client.functions.activate()
             except CogniteAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
-                return False
+                return function_status.status
             print(
                 "  [bold green]OK[/] - Function service has been activated. "
                 "This may take up to 2 hours to take effect."
             )
-
         else:
             print("  [bold green]OK[/] - Function service has been activated.")
 
-        return function_status.status == "activated"
+        return function_status.status
 
     def has_function_rights(
         self, client: ToolkitClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool

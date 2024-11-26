@@ -55,15 +55,18 @@ class CogniteToolkitDemo:
                 self._cdf_tool_config, dry_run=False, no_prompt=True, demo_user=user.user_identifier
             )
             group_id = auth_result.toolkit_group_id
-            if auth_result.is_function_active:
-                self._init_build_deploy(user)
-            else:
+            if auth_result.function_status is None:
+                print(Panel("Unknown function status. If the demo fails, please check that functions are activated"))
+            elif auth_result.function_status == "requested":
                 print(
                     Panel(
-                        "Functions are not enabled for CDF Project. This is required to run the demo."
-                        "Please wait for teh Cognite Functions to be enabled for this project."
+                        "Function status is requested. Please wait for the function status to be activated before running the demo."
                     )
                 )
+            elif auth_result.function_status == "inactive":
+                print(Panel("Function status is inactive. Cannot run demo without functions."))
+            else:
+                self._init_build_deploy(user)
         finally:
             if group_id is not None:
                 self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
