@@ -22,6 +22,7 @@ Changes are grouped as follows:
 - When using the commands `cdf deploy/clean`, the Toolkit no longer warns about unrelated resources
   that are not part of the deployment.
 - When using `cdf deploy/clean/build, the Toolkit no longer warns about duplicated RAW databases.
+- Changes to Streamlit app code were not deployed. This is now fixed.
 
 ## [0.3.12] - 2024-11-21
 
