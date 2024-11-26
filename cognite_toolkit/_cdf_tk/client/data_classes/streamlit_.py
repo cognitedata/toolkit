@@ -114,9 +114,11 @@ class Streamlit(_StreamlitCore):
             data_set_id=resource.get("dataSetId"),
         )
         # Trick to avoid specifying defaults twice
-        for key in ["published", "theme"]:
+        for key in ["theme", "app_hash"]:
             if key in resource:
                 args[key] = resource[key]
+        if "published" in resource:
+            args["published"] = resource[key].strip().lower() == "true"
         return cls(**args)
 
     @classmethod
