@@ -4,8 +4,8 @@ name: Operation Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: {{ schemaSpace2 }}
-    externalId: CogniteOperation
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}Operation
     version: v1
   instanceSpace: {{ instanceSpace }}
 ignoreNullFields: true

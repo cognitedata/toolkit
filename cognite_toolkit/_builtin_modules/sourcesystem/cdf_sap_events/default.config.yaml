@@ -5,8 +5,9 @@ operationTransformationExternalId: sap_operations_springfield_s4hana
 operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
 dataset: ingestion
 rawSourceDatabase: ingestion
-schemaSpace2: cdf_idm
 instanceSpace: springfield_instances
+organization: YourOrg
+schemaSpace: sp_enterprise_process_industry
 
 workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
 groupSourceId: <not set>

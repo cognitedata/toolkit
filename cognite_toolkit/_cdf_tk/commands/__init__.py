@@ -14,20 +14,20 @@ from .repo import RepoCommand
 from .run import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 
 __all__ = [
-    "InitCommand",
     "AuthCommand",
     "BuildCommand",
-    "CollectCommand",
     "CleanCommand",
+    "CollectCommand",
     "DeployCommand",
+    "DumpAssetsCommand",
     "DumpCommand",
+    "DumpTimeSeriesCommand",
     "FeatureFlagCommand",
+    "InitCommand",
+    "ModulesCommand",
     "PullCommand",
+    "RepoCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",
     "RunWorkflowCommand",
-    "ModulesCommand",
-    "RepoCommand",
-    "DumpAssetsCommand",
-    "DumpTimeSeriesCommand",
 ]

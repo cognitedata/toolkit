@@ -7,4 +7,4 @@ from ._pull_app import PullApp
 from ._repo_app import RepoApp
 from ._run import RunApp
 
-__all__ = ["CoreApp", "AuthApp", "LandingApp", "DumpApp", "ModulesApp", "RunApp", "RepoApp", "PullApp"]
+__all__ = ["AuthApp", "CoreApp", "DumpApp", "LandingApp", "ModulesApp", "PullApp", "RepoApp", "RunApp"]

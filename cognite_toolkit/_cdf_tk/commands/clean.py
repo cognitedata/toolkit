@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     DataLoader,
     DataSetsLoader,
+    RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
 )
@@ -104,8 +105,9 @@ class CleanCommand(ToolkitCommand):
             prefix = "Would drop data from" if dry_run else "Dropping data from"
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
-        for duplicate in duplicates:
-            self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
+        if not isinstance(loader, RawDatabaseLoader):
+            for duplicate in duplicates:
+                self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
         if isinstance(loader, ResourceContainerLoader) and drop_data:

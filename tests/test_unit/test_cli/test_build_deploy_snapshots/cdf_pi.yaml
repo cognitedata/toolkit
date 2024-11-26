@@ -1,9 +1,3 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
 ExtractionPipeline:
@@ -23,10 +17,6 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "data:\n  debug: True\n"
   externalId: springfield_aveva_pi_extractors
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: timeseries_metadata
@@ -37,8 +27,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteTimeSeries
-      space: cdf_cdm
+      externalId: YourOrgTimeSeries
+      space: sp_enterprise_process_industry
       version: v1
   externalId: pi_timeseries_springfield_aveva_pi
   ignoreNullFields: true

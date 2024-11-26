@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from collections import Counter
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal, Optional
@@ -45,10 +46,11 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import GitHubFileDownloader
 from cognite_toolkit._version import __version__
 
@@ -116,6 +118,7 @@ class ModulesCommand(ToolkitCommand):
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
         downloader_by_repo: dict[str, GitHubFileDownloader] = {}
+        extra_resources: set[Path] = set()
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -128,6 +131,8 @@ class ModulesCommand(ToolkitCommand):
                 # files
                 selected_paths.update(module.parent_relative_paths)
                 selected_paths.add(module.relative_path)
+                if module.definition:
+                    extra_resources.update(module.definition.extra_resources)
 
                 print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
                 target_dir = modules_root_dir / module.relative_path
@@ -159,6 +164,32 @@ class ModulesCommand(ToolkitCommand):
 
                         downloader = downloader_by_repo[example_data.repo]
                         downloader.copy(example_data.source, target_dir / example_data.destination)
+
+        if extra_resources:
+            created_by_module: dict[Path, int] = Counter()
+            for extra in extra_resources:
+                module_dir = module_directory_from_path(extra)
+                extra_full_path = self._builtin_modules_path / extra
+                target_path = modules_root_dir / extra
+                if target_path.exists():
+                    # Assume that the user has already created this shared resource
+                    continue
+                if extra_full_path.is_file():
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy(extra_full_path, target_path)
+                elif extra_full_path.is_dir():
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copytree(extra_full_path, target_path)
+                else:
+                    print(f"{INDENT}[red]Extra resource {extra_full_path} not found[/].")
+                    continue
+                created_by_module[module_dir] += 1
+                selected_paths.add(module_dir)
+                selected_paths.update(module_dir.parents)
+
+            for module_dir, count in created_by_module.items():
+                if count > 0:
+                    print(f"{INDENT}Created {count} shared resources in {module_dir.as_posix()!r}.")
 
         for environment in environments:
             if mode == "update":
@@ -223,6 +254,9 @@ default_organization_dir = "{organization_dir.name}"''',
         organization_dir: Optional[Path] = None,
         select_all: bool = False,
         clean: bool = False,
+        user_select: str | None = None,
+        user_environments: list[str] | None = None,
+        user_download_data: bool | None = None,
     ) -> None:
         if not organization_dir:
             new_line = "\n    "
@@ -244,27 +278,34 @@ default_organization_dir = "{organization_dir.name}"''',
                 organization_dir=organization_dir, selected_packages=packages, environments=["dev", "prod"], mode=mode
             )
             return
-
-        print("\n")
-        print(
-            Panel(
-                "\n".join(
-                    [
-                        "Wizard for selecting initial modules"
-                        "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
-                        "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
-                    ]
-                ),
-                title="Select initial modules",
-                style="green",
-                padding=(1, 2),
+        is_interactive = user_select is not None
+        if not is_interactive:
+            print("\n")
+            print(
+                Panel(
+                    "\n".join(
+                        [
+                            "Wizard for selecting initial modules"
+                            "The modules are thematically bundled in packages you can choose between. You can add more by repeating the process.",
+                            "You can use the arrow keys ⬆ ⬇  on your keyboard to select modules, and press enter ⮐  to continue with your selection.",
+                        ]
+                    ),
+                    title="Select initial modules",
+                    style="green",
+                    padding=(1, 2),
+                )
             )
-        )
         mode = self._verify_clean(modules_root_dir, clean)
 
         print(f"  [{'yellow' if mode == 'clean' else 'green'}]Using directory [bold]{organization_dir}[/]")
 
-        selected = self._select_packages(packages)
+        if user_select is None:
+            selected = self._select_packages(packages)
+        else:
+            selected = Packages([v for k, v in packages.items() if k == user_select])
+            if not selected:
+                raise ToolkitValueError(f"Package {user_select} not found.")
+
         if "bootcamp" in selected:
             bootcamp_org = Path.cwd() / "ice-cream-dataops"
             if bootcamp_org != organization_dir:
@@ -275,24 +316,33 @@ default_organization_dir = "{organization_dir.name}"''',
                 self._create(bootcamp_org, selected, ["test"], mode)
             raise typer.Exit()
 
-        if not questionary.confirm("Would you like to continue with creation?", default=True).ask():
+        if (
+            not is_interactive
+            and not questionary.confirm("Would you like to continue with creation?", default=True).ask()
+        ):
             print("Exiting...")
             raise typer.Exit()
 
-        environments = questionary.checkbox(
-            "Which environments would you like to include?",
-            instruction="Use arrow up/down, press space to select item(s) and enter to save",
-            choices=[
-                questionary.Choice(title="dev", checked=True),
-                questionary.Choice(title="prod", checked=True),
-                questionary.Choice(title="staging", checked=False),
-            ],
-            qmark=INDENT,
-            pointer=POINTER,
-            style=custom_style_fancy,
-        ).ask()
+        if user_environments is None:
+            environments = questionary.checkbox(
+                "Which environments would you like to include?",
+                instruction="Use arrow up/down, press space to select item(s) and enter to save",
+                choices=[
+                    questionary.Choice(title="dev", checked=True),
+                    questionary.Choice(title="prod", checked=True),
+                    questionary.Choice(title="staging", checked=False),
+                ],
+                qmark=INDENT,
+                pointer=POINTER,
+                style=custom_style_fancy,
+            ).ask()
+        else:
+            environments = user_environments
 
-        download_data = self._get_download_data(selected)
+        if user_download_data is None:
+            download_data = self._get_download_data(selected)
+        else:
+            download_data = user_download_data
         self._create(organization_dir, selected, environments, mode, download_data)
 
         print(
@@ -308,8 +358,8 @@ default_organization_dir = "{organization_dir.name}"''',
                     "Please check out https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/modules/custom for guidance on writing custom modules",
                 )
             )
-
-        raise typer.Exit()
+        if not is_interactive:
+            raise typer.Exit()
 
     @staticmethod
     def _get_download_data(selected: Packages) -> bool:

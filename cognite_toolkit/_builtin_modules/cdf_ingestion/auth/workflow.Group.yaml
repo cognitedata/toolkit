@@ -60,8 +60,15 @@ capabilities:
           spaceIds:
             - {{ schemaSpace }}
             - {{ schemaSpace2 }}
+            - {{ schemaSpace3 }}
             - cdf_cdm_units
-            # Needed to write CogniteAsset.parent
+  # Needed to write CogniteAsset.parent
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
             - cdf_cdm
   - annotationsAcl:
       actions:

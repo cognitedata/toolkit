@@ -1,9 +1,3 @@
-DataSet:
-- description: Transformations for contextualisations
-  externalId: ingestion
-  metadata: {}
-  name: Contextualisation Transformations
-  writeProtected: false
 Transformation:
 - conflictMode: upsert
   dataSetId: 42

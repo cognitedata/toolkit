@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.3.12"
+version = "0.3.13"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -14,18 +14,19 @@ include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.63.5", extras = ["pandas"]}
+cognite-sdk = {version = "^7.68.0", extras = ["pandas"]}
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
-typer = {version = ">=0.12.0, <1.0", extras = ["all"]}
-sentry-sdk = "^2.1.0"
+typer = ">=0.12.0, <1.0"
+rich = "^13.9.4"
 questionary = "^2.0.1"
-mixpanel = "^4.10.1"
 tomli = { version = "^2.0.1", python = "<3.11" }
 # 22.0 was when explicit support for 3.11 was added.
 packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
 toml = "^0.10.2"
+sentry-sdk = "^2.1.0"
+mixpanel = "^4.10.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"

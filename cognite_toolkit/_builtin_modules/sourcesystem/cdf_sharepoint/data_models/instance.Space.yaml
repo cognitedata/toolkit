@@ -1,3 +1,0 @@
-space: '{{ instanceSpace }}'
-name: 'Instance space'
-description: This space contains data

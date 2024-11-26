@@ -15,6 +15,7 @@ from typing import Any
 from mixpanel import Consumer, Mixpanel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes._built_modules import BuiltModule
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
@@ -97,11 +98,16 @@ class Tracker:
                     event_information,
                 )
 
-        thread = threading.Thread(
-            target=track,
-            daemon=False,
-        )
-        thread.start()
+        if IN_BROWSER:
+            # Pyodide does not support threading
+            track()
+        else:
+            thread = threading.Thread(
+                target=track,
+                daemon=False,
+            )
+            thread.start()
+
         return True
 
     def get_distinct_id(self) -> str:

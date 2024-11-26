@@ -341,8 +341,7 @@ class ExtractionPipelineConfigLoader(
                 if (
                     e.code == 404
                     and e.message.startswith("There is no config stored for the extraction pipeline with external id")
-                    or e.message.startswith("Extraction pipeline not found")
-                ):
+                ) or e.message.startswith("Extraction pipeline not found"):
                     continue
                 raise e
             if config_retrieved:

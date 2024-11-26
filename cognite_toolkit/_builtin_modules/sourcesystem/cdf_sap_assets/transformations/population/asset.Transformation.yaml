@@ -4,8 +4,8 @@ name: Asset Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: cdf_cdm
-    externalId: CogniteAsset
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}Asset
     version: v1
   instanceSpace: {{ instanceSpace }}
 ignoreNullFields: true

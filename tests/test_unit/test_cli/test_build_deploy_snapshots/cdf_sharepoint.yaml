@@ -1,15 +1,5 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: files_metadata
@@ -20,8 +10,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteFile
-      space: cdf_cdm
+      externalId: YourOrgFile
+      space: sp_enterprise_process_industry
       version: v1
   externalId: files_metadata_springfield
   ignoreNullFields: true

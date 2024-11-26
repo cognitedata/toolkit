@@ -1,15 +1,5 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: workitem
@@ -26,8 +16,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteMaintenanceOrder
-      space: cdf_idm
+      externalId: YourOrgMaintenanceOrder
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_maintenance_orders_springfield_s4hana
   ignoreNullFields: true
@@ -68,8 +58,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteOperation
-      space: cdf_idm
+      externalId: YourOrgOperation
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_operation_to_maintenance_order_springfield_s4hana
   ignoreNullFields: true
@@ -93,8 +83,8 @@ Transformation:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteOperation
-      space: cdf_idm
+      externalId: YourOrgOperation
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_operations_springfield_s4hana
   ignoreNullFields: true

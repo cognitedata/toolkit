@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.13] - 2024-11-26
+
+### Fixed
+
+- When using the commands `cdf deploy/clean`, the Toolkit no longer warns about unrelated resources
+  that are not part of the deployment.
+- When using `cdf deploy/clean/build, the Toolkit no longer warns about duplicated RAW databases.
+- Changes to Streamlit app code were not deployed. This is now fixed.
+
 ## [0.3.12] - 2024-11-21
 
 ### Added
