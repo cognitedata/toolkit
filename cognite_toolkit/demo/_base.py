@@ -6,7 +6,7 @@ from cognite.client.data_classes import UserProfile
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils.auth import CDFToolConfig
 
@@ -45,9 +45,28 @@ class CogniteToolkitDemo:
 
     def quickstart(self) -> None:
         print(Panel("Running Toolkit QuickStart..."))
-        # Lookup user ID to add user ID to the group to run the workflow
-        user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
-        self._init_build_deploy(user)
+
+        group_id: int | None = None
+        try:
+            # Lookup user ID to add user ID to the group to run the workflow
+            user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
+            auth = AuthCommand()
+            auth_result = auth.verify(
+                self._cdf_tool_config, dry_run=False, no_prompt=True, demo_user=user.user_identifier
+            )
+            group_id = auth_result.toolkit_group_id
+            if auth_result.is_function_active:
+                self._init_build_deploy(user)
+            else:
+                print(
+                    Panel(
+                        "Functions are not enabled for CDF Project. This is required to run the demo."
+                        "Please wait for teh Cognite Functions to be enabled for this project."
+                    )
+                )
+        finally:
+            if group_id is not None:
+                self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
 
     def _init_build_deploy(self, user: UserProfile) -> None:
         modules_cmd = ModulesCommand()

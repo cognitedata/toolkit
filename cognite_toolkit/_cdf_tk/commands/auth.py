@@ -16,6 +16,7 @@ from __future__ import annotations
 import time
 import warnings
 from collections import defaultdict
+from dataclasses import dataclass
 from time import sleep
 
 import questionary
@@ -50,6 +51,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig, humanize_collection
 
 from ._base import ToolkitCommand
+
+
+@dataclass
+class VerifyAuthResult:
+    toolkit_group_id: int | None = None
+    is_function_active: bool | None = None
 
 
 class AuthCommand(ToolkitCommand):
@@ -92,7 +99,21 @@ class AuthCommand(ToolkitCommand):
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
         no_prompt: bool = False,
-    ) -> None:
+        demo_user: str | None = None,
+    ) -> VerifyAuthResult:
+        """Authorization verification for the Toolkit.
+
+        Args:
+            ToolGlobals: The Toolkit configuration.
+            dry_run: If the verification should be run in dry-run mode.
+            no_prompt: If the verification should be run without any prompts.
+            demo_user: This is used for demo purposes. If passed a temporary Toolkit group is created
+                and the user is added to the group.
+
+        Returns:
+            VerifyAuthResult: The result of the verification.
+        """
+
         is_interactive = not no_prompt
         if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
@@ -176,7 +197,7 @@ class AuthCommand(ToolkitCommand):
                 ToolGlobals, toolkit_group, all_groups, is_interactive, dry_run
             )
         if cdf_toolkit_group is None:
-            return None
+            return VerifyAuthResult()
 
         if not is_user_in_toolkit_group:
             print(
@@ -187,7 +208,7 @@ class AuthCommand(ToolkitCommand):
                     expand=False,
                 )
             )
-            return None
+            return VerifyAuthResult(is_function_active=False, toolkit_group_id=cdf_toolkit_group.id)
 
         self.check_count_group_memberships(user_groups)
 
@@ -201,7 +222,8 @@ class AuthCommand(ToolkitCommand):
                     raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
                 print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
 
-        self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
+        is_active = self.check_function_service_status(ToolGlobals.toolkit_client, dry_run, has_added_capabilities)
+        return VerifyAuthResult(cdf_toolkit_group.id, is_active)
 
     def _create_toolkit_group_in_cdf(
         self,
@@ -545,17 +567,17 @@ class AuthCommand(ToolkitCommand):
             for (cap_cls, scope), actions in actions_by_scope_and_cls.items()
         ]
 
-    def check_function_service_status(self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool) -> None:
+    def check_function_service_status(self, client: ToolkitClient, dry_run: bool, has_added_capabilities: bool) -> bool:
         print("Checking function service status...")
         has_function_read_access = self.has_function_rights(client, [FunctionsAcl.Action.Read], has_added_capabilities)
         if not has_function_read_access:
             self.warn(HighSeverityWarning("Cannot check function service status, missing function read access."))
-            return None
+            return False
         try:
             function_status = client.functions.status()
         except CogniteAPIError as e:
             self.warn(HighSeverityWarning(f"Unable to check function service status.\n{e}"))
-            return None
+            return False
 
         if function_status.status == "requested":
             print("  [bold yellow]INFO:[/] Function service activation is in progress (may take up to 2 hours)...")
@@ -570,12 +592,12 @@ class AuthCommand(ToolkitCommand):
             )
             if not has_function_write_access:
                 self.warn(HighSeverityWarning("Cannot activate function service, missing function write access."))
-                return None
+                return False
             try:
                 client.functions.activate()
             except CogniteAPIError as e:
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
-                return None
+                return False
             print(
                 "  [bold green]OK[/] - Function service has been activated. "
                 "This may take up to 2 hours to take effect."
@@ -584,7 +606,7 @@ class AuthCommand(ToolkitCommand):
         else:
             print("  [bold green]OK[/] - Function service has been activated.")
 
-        return None
+        return function_status.status == "activated"
 
     def has_function_rights(
         self, client: ToolkitClient, actions: list[FunctionsAcl.Action], has_added_capabilities: bool
