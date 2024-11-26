@@ -70,6 +70,7 @@ class CogniteToolkitDemo:
                 return
             print("Waiting for the authentication group to be created...")
             time.sleep(10)
+            self._cdf_tool_config._initialize_in_browser()
             self._init_build_deploy(user)
         finally:
             if group_id is not None:
