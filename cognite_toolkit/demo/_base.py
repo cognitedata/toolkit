@@ -2,6 +2,7 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from cognite.client.data_classes import UserProfile
 from rich import print
 from rich.panel import Panel
 
@@ -46,7 +47,9 @@ class CogniteToolkitDemo:
         print(Panel("Running Toolkit QuickStart..."))
         # Lookup user ID to add user ID to the group to run the workflow
         user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
+        self._init_build_deploy(user)
 
+    def _init_build_deploy(self, user: UserProfile) -> None:
         modules_cmd = ModulesCommand()
         modules_cmd.run(
             lambda: modules_cmd.init(
