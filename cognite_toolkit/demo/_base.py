@@ -2,12 +2,13 @@ import tempfile
 import textwrap
 from pathlib import Path
 
+from cognite.client.data_classes import UserProfile
 from rich import print
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils.auth import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import AuthVariables, CDFToolConfig
 
 
 class CogniteToolkitDemo:
@@ -42,11 +43,58 @@ class CogniteToolkitDemo:
         organization_path.mkdir(exist_ok=True)
         return organization_path
 
-    def quickstart(self) -> None:
+    def quickstart(self, client_id: str | None = None, client_secret: str | None = None) -> None:
         print(Panel("Running Toolkit QuickStart..."))
-        # Lookup user ID to add user ID to the group to run the workflow
         user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
+        if sum([client_id is None, client_secret is None]) == 1:
+            raise ValueError("Both client_id and client_secret must be provided or neither.")
+        if client_id is None and client_secret is None:
+            print("Client ID and secret not provided. Assuming user has all the necessary permissions.")
+            self._init_build_deploy(user)
+            return
 
+        group_id: int | None = None
+        try:
+            # Lookup user ID to add user ID to the group to run the workflow
+            auth = AuthCommand()
+            auth_result = auth.verify(
+                self._cdf_tool_config,
+                dry_run=False,
+                no_prompt=True,
+                demo_user=client_id,
+            )
+            group_id = auth_result.toolkit_group_id
+            if auth_result.function_status is None:
+                print(Panel("Unknown function status. If the demo fails, please check that functions are activated"))
+            elif auth_result.function_status == "requested":
+                print(
+                    Panel(
+                        "Function status is requested. Please wait for the function status to be activated before running the demo."
+                    )
+                )
+                return
+            elif auth_result.function_status == "inactive":
+                print(Panel("Function status is inactive. Cannot run demo without functions."))
+                return
+
+            print("Switching to the demo service principal...")
+            self._cdf_tool_config = CDFToolConfig(
+                auth_vars=AuthVariables(
+                    cluster=self._cdf_tool_config.cdf_cluster,
+                    project=self._cdf_tool_config.project,
+                    login_flow="client_credentials",
+                    provider="other",
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    token_url=f"{self._cdf_tool_config.toolkit_client.config.base_url}/oauth2/token",
+                )
+            )
+            self._init_build_deploy(user)
+        finally:
+            if group_id is not None:
+                self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
+
+    def _init_build_deploy(self, user: UserProfile) -> None:
         modules_cmd = ModulesCommand()
         modules_cmd.run(
             lambda: modules_cmd.init(

@@ -13,6 +13,7 @@ except ModuleNotFoundError:
 # The environment file:
 
 TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME = "cognite_toolkit_service_principal"
+TOOLKIT_DEMO_GROUP_NAME = "cognite_toolkit_demo"
 
 # This is the default Cognite app registration for Entra with device code enabled
 # to be used with the Toolkit.
