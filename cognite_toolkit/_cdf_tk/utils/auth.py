@@ -479,6 +479,7 @@ class CDFToolConfig:
         cluster: str | None = None,
         project: str | None = None,
         cdf_url: str | None = None,
+        auth_vars: AuthVariables | None = None,
         skip_initialization: bool = False,
     ) -> None:
         self._cache = self._Cache()
@@ -514,7 +515,7 @@ class CDFToolConfig:
             self._initialize_in_browser()
             return
 
-        self._auth_vars = AuthVariables.from_env(self._environ)
+        self._auth_vars = auth_vars or AuthVariables.from_env(self._environ)
         if not skip_initialization:
             self.initialize_from_auth_variables(self._auth_vars)
         self._login_flow = self._auth_vars.login_flow
@@ -689,6 +690,12 @@ class CDFToolConfig:
         if self._project is None:
             raise ValueError("Project is not initialized.")
         return self._project
+
+    @property
+    def cdf_cluster(self) -> str:
+        if self._cluster is None:
+            raise ValueError("Cluster is not initialized.")
+        return self._cluster
 
     @overload
     def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
