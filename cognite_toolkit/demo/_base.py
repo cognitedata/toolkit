@@ -63,10 +63,12 @@ class CogniteToolkitDemo:
                         "Function status is requested. Please wait for the function status to be activated before running the demo."
                     )
                 )
+                return
             elif auth_result.function_status == "inactive":
                 print(Panel("Function status is inactive. Cannot run demo without functions."))
-            else:
-                self._init_build_deploy(user)
+                return
+
+            self._init_build_deploy(user)
         finally:
             if group_id is not None:
                 self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
