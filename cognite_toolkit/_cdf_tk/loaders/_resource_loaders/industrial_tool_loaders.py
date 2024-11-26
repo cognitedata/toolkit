@@ -113,6 +113,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         # and we assume they are the same.
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @lru_cache
@@ -157,7 +158,14 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         return StreamlitList([Streamlit.from_file(file) for file in files])
 
     def update(self, items: StreamlitWriteList) -> StreamlitList:
-        files = items.as_file_list()
+        files = []
+        for item in items:
+            content = self._as_json_string(item.external_id, item.entrypoint)
+            to_update = item.as_file()
+            to_update.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content, shorten=True)  # type: ignore[index]
+            self.client.files.upload_content_bytes(content, item.external_id)
+            files.append(to_update)
+
         updated = self.client.files.update(files, mode="replace")
         return StreamlitList([Streamlit.from_file(file) for file in updated])
 
