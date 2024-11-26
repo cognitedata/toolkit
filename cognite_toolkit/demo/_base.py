@@ -1,5 +1,6 @@
 import tempfile
 import textwrap
+import time
 from pathlib import Path
 
 from cognite.client.data_classes import UserProfile
@@ -67,7 +68,8 @@ class CogniteToolkitDemo:
             elif auth_result.function_status == "inactive":
                 print(Panel("Function status is inactive. Cannot run demo without functions."))
                 return
-
+            print("Waiting for the authentication group to be created...")
+            time.sleep(10)
             self._init_build_deploy(user)
         finally:
             if group_id is not None:
