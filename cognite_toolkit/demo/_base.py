@@ -7,6 +7,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils.auth import AuthVariables, CDFToolConfig
 
@@ -115,6 +116,11 @@ class CogniteToolkitDemo:
         if organization_name is not None:
             config_raw = config_raw.replace("YourOrg", organization_name)
         config_yaml.write_text(config_raw)
+
+        # The Workflow trigger expects credentials to be set in the environment, so we delete it as
+        # the user is expected to trigger the workflow manually.
+        for workflow_trigger_file in (self._organization_dir / MODULES).rglob("*WorkflowTrigger.yaml"):
+            workflow_trigger_file.unlink()
 
         build = BuildCommand()
         build.run(
