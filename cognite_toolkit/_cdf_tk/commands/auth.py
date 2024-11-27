@@ -25,6 +25,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     GroupsAcl,
     ProjectsAcl,
+    SessionsAcl,
 )
 from cognite.client.data_classes.iam import Group, GroupList, GroupWrite, TokenInspection
 from cognite.client.exceptions import CogniteAPIError
@@ -103,7 +104,7 @@ class AuthCommand(ToolkitCommand):
         ToolGlobals: CDFToolConfig,
         dry_run: bool,
         no_prompt: bool = False,
-        demo_user: str | None = None,
+        demo_principal: str | None = None,
     ) -> VerifyAuthResult:
         """Authorization verification for the Toolkit.
 
@@ -111,15 +112,15 @@ class AuthCommand(ToolkitCommand):
             ToolGlobals: The Toolkit configuration.
             dry_run: If the verification should be run in dry-run mode.
             no_prompt: If the verification should be run without any prompts.
-            demo_user: This is used for demo purposes. If passed a temporary Toolkit group is created
-                and the user is added to the group.
+            demo_principal: This is used for demo purposes. If passed, a different group name will be used
+                to create the Toolkit group. This is group is intended to be deleted after the demo.
 
         Returns:
             VerifyAuthResult: The result of the verification.
         """
 
         is_interactive = not no_prompt
-        is_demo = demo_user is not None
+        is_demo = demo_principal is not None
         if ToolGlobals.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
         cdf_project = ToolGlobals.project
@@ -142,7 +143,7 @@ class AuthCommand(ToolkitCommand):
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
         loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
-        toolkit_group = self._create_toolkit_group(loader_capabilities, demo_user)
+        toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
 
         if not is_demo:
             print(
@@ -392,10 +393,15 @@ class AuthCommand(ToolkitCommand):
             name=TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME if demo_user is None else TOOLKIT_DEMO_GROUP_NAME,
             capabilities=[
                 *loader_capabilities,
-                # Add project ACL to be able to list and read projects, as the
+                # Add project ACL to be able to list and read projects, as the Toolkit needs to know the project id.
                 ProjectsAcl(
                     [ProjectsAcl.Action.Read, ProjectsAcl.Action.List, ProjectsAcl.Action.Update],
                     ProjectsAcl.Scope.All(),
+                ),
+                # Added Session ACL as this is required by CogIDP service principal
+                SessionsAcl(
+                    [SessionsAcl.Action.Create, SessionsAcl.Action.List, SessionsAcl.Action.Delete],
+                    SessionsAcl.Scope.All(),
                 ),
             ],
         )

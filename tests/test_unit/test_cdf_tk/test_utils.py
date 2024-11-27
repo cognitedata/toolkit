@@ -382,6 +382,19 @@ class TestAuthVariables:
         with mock.patch.dict(os.environ, {"CDF_CLUSTER": "my_cluster"}, clear=True):
             assert AuthVariables.from_env().is_complete is False
 
+    def test_auth_variables_cog_idp(self) -> None:
+        auth_vars = AuthVariables(
+            cluster="my_cluster",
+            project="my_project",
+            client_id="ZWccGfXySomethingSomethingSomething",
+            client_secret="cdf_sa_sct_secretsecrtedsecrt",
+        )
+
+        assert auth_vars.provider == "cog_idp"
+        assert auth_vars.token_url == "https://auth.cognite.com/oauth2/token"
+        assert auth_vars.scopes is None
+        assert auth_vars.cdf_url == "https://my_cluster.cognitedata.com"
+
 
 class TestModuleFromPath:
     @pytest.mark.parametrize(
