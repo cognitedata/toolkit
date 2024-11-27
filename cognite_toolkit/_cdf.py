@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 # ruff: noqa: E402
+import re
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from typing import NoReturn
 import typer
 from cognite.client.config import global_config
 from rich.panel import Panel
+
+from cognite_toolkit._cdf_tk.hints import Hint
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
@@ -22,7 +25,7 @@ from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
 )
-from cognite_toolkit._cdf_tk.constants import USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
@@ -141,6 +144,16 @@ def app() -> NoReturn:
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
+    except SystemExit:
+        if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
+            cmd = result.group(1)
+            if cmd in Plugins.list():
+                print(
+                    f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/] is not enabled."
+                    f"\nEnable it in the [bold]cdf.toml[/] file by setting '{cmd} = true' in the \[plugins] section."
+                    f"\nDocs to lean more: {Hint._link(URL.plugins, URL.plugins)}"
+                )
+        raise
 
     raise SystemExit(0)
 
