@@ -61,7 +61,7 @@ class CogniteToolkitDemo:
                 self._cdf_tool_config,
                 dry_run=False,
                 no_prompt=True,
-                demo_user=client_id,
+                demo_principal=client_id,
             )
             group_id = auth_result.toolkit_group_id
             if auth_result.function_status is None:
@@ -83,10 +83,8 @@ class CogniteToolkitDemo:
                     cluster=self._cdf_tool_config.cdf_cluster,
                     project=self._cdf_tool_config.project,
                     login_flow="client_credentials",
-                    provider="other",
                     client_id=client_id,
                     client_secret=client_secret,
-                    token_url=f"{self._cdf_tool_config.toolkit_client.config.base_url}/oauth2/token",
                 )
             )
             self._init_build_deploy(user)
