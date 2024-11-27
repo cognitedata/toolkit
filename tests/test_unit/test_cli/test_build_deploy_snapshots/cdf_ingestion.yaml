@@ -202,6 +202,14 @@ Group:
         datasetScope:
           ids:
           - 42
+  - workflowOrchestrationAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
   - assetsAcl:
       actions:
       - READ
