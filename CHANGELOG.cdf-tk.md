@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Error message in Auth process shows correct variable names IDP_CLIENT_ID and IDP_CLIENT_SECRET.
+
 ## [0.3.14] - 2024-11-27
 
 ### Added
