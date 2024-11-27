@@ -43,14 +43,16 @@ class CogniteToolkitDemo:
         organization_path.mkdir(exist_ok=True)
         return organization_path
 
-    def quickstart(self, client_id: str | None = None, client_secret: str | None = None) -> None:
+    def quickstart(
+        self, organization_name: str | None, client_id: str | None = None, client_secret: str | None = None
+    ) -> None:
         print(Panel("Running Toolkit QuickStart..."))
         user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
         if sum([client_id is None, client_secret is None]) == 1:
             raise ValueError("Both client_id and client_secret must be provided or neither.")
         if client_id is None and client_secret is None:
             print("Client ID and secret not provided. Assuming user has all the necessary permissions.")
-            self._init_build_deploy(user)
+            self._init_build_deploy(user, organization_name)
             return
 
         group_id: int | None = None
@@ -87,12 +89,12 @@ class CogniteToolkitDemo:
                     client_secret=client_secret,
                 )
             )
-            self._init_build_deploy(user)
+            self._init_build_deploy(user, organization_name)
         finally:
             if group_id is not None:
                 self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
 
-    def _init_build_deploy(self, user: UserProfile) -> None:
+    def _init_build_deploy(self, user: UserProfile, organization_name: str | None = None) -> None:
         modules_cmd = ModulesCommand()
         modules_cmd.run(
             lambda: modules_cmd.init(
@@ -110,6 +112,8 @@ class CogniteToolkitDemo:
         # To avoid warnings about not set values
         config_raw = config_raw.replace("<not set>", "123456-to-be-replaced")
         config_raw = config_raw.replace("<my-project-dev>", self._cdf_tool_config.project)
+        if organization_name is not None:
+            config_raw = config_raw.replace("YourOrg", organization_name)
         config_yaml.write_text(config_raw)
 
         build = BuildCommand()
