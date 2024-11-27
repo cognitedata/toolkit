@@ -96,14 +96,6 @@ Group:
         datasetScope:
           ids:
           - 42
-  - workflowOrchestrationAcl:
-      actions:
-      - READ
-      - WRITE
-      scope:
-        datasetScope:
-          ids:
-          - 42
   - assetsAcl:
       actions:
       - READ
@@ -203,6 +195,14 @@ Group:
           ids:
           - 42
   - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - workflowOrchestrationAcl:
       actions:
       - READ
       - WRITE
