@@ -99,14 +99,6 @@ capabilities:
         datasetScope:
           ids:
             - {{ dataset }}
-  - workflowOrchestrationAcl:
-      actions:
-          - READ
-          - WRITE
-      scope:
-        datasetScope:
-          ids:
-            - {{ dataset }}
 # Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:
