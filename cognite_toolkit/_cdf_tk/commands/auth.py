@@ -437,12 +437,12 @@ class AuthCommand(ToolkitCommand):
             if token_inspection is None or len(token_inspection.capabilities) == 0:
                 raise AuthorizationError(
                     "Valid authentication token, but it does not give any access rights."
-                    " Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                    " Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 )
             print("  [bold green]OK[/]")
         except CogniteAPIError as e:
             raise AuthorizationError(
-                "Not a valid authentication token. Check credentials (CDF_CLIENT_ID/CDF_CLIENT_SECRET or CDF_TOKEN)."
+                "Not a valid authentication token. Check credentials (IDP_CLIENT_ID/IDP_CLIENT_SECRET or CDF_TOKEN)."
                 "This could also be due to the service principal/application not having access to any Groups."
                 f"\n{e}"
             )
