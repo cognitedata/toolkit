@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for authentication with `CogIDP`
+
 ## [0.3.13] - 2024-11-26
 
 ### Fixed

@@ -20,7 +20,7 @@ import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, overload
+from typing import Any, Literal, TypeAlias, overload
 
 import questionary
 import typer
@@ -61,15 +61,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitResourceMissingError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSeverityWarning
 from cognite_toolkit._version import __version__
 
-if TYPE_CHECKING:
-    pass
-
-
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-Provider: TypeAlias = Literal["entra_id", "other"]
+Provider: TypeAlias = Literal["entra_id", "cog_idp", "other"]
 
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
@@ -80,6 +76,7 @@ LOGIN_FLOW_DESCRIPTION = {
 
 PROVDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
+    "cog_idp": "Use Cognite IDP to authenticate",
     "other": "Use other IDP to authenticate",
 }
 
@@ -174,6 +171,8 @@ class AuthVariables:
 
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
+        if self.client_secret:
+            self.set_client_secret_defaults()
         if self.cluster:
             self.set_cluster_defaults()
         if self.tenant_id:
@@ -185,6 +184,16 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
+    def set_client_secret_defaults(self) -> None:
+        if self.client_secret and self.client_secret.startswith("cdf_sa_sct"):
+            self.provider = "cog_idp"
+            self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
+            if self.scopes is not None:
+                IgnoredValueWarning(
+                    "IDP_SCOPES", self.scopes, "Provider si Cog-IDP does not need scopes"
+                ).print_warning()
+            self.scopes = None
+
     def set_token_id_defaults(self) -> None:
         if self.tenant_id:
             self.token_url = self.token_url or f"https://login.microsoftonline.com/{self.tenant_id}/oauth2/v2.0/token"
@@ -194,7 +203,8 @@ class AuthVariables:
         if self.cluster:
             self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
             self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
-            self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
+            if self.provider != "cog_idp":
+                self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
     @property
     def is_complete(self) -> bool:
@@ -511,7 +521,7 @@ class CDFToolConfig:
 
         global_config.disable_pypi_version_check = True
         global_config.silence_feature_preview_warnings = True
-        if _RUNNING_IN_BROWSER:
+        if _RUNNING_IN_BROWSER and auth_vars is None:
             self._initialize_in_browser()
             return
 
@@ -590,6 +600,19 @@ class CDFToolConfig:
                 scopes=self._scopes,
             )
             self._credentials_provider = OAuthInteractive(**self._credentials_args)
+        elif auth.login_flow == "client_credentials" and auth.provider == "cog_idp":
+            if not (auth.client_id and auth.client_secret):
+                raise AuthenticationError(
+                    "Login flow=client_credentials is set but missing required authentication "
+                    "variables: IDP_CLIENT_ID and IDP_CLIENT_SECRET. Cannot authenticate the client."
+                )
+            self._credentials_args = dict(
+                token_url=auth.token_url,
+                client_id=auth.client_id,
+                client_secret=auth.client_secret,
+                scopes=None,
+            )
+            self._credentials_provider = OAuthClientCredentials(**self._credentials_args)
         elif auth.login_flow == "client_credentials" or auth.login_flow is None:
             if auth.login_flow is None:
                 print(
