@@ -83,3 +83,4 @@ class URL:
     auth_toolkit = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/configure_deploy_modules#configure-the-cdf-toolkit-authentication"
     docs = "https://docs.cognite.com/"
     configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/configs"
+    plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
