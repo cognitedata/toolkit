@@ -162,7 +162,6 @@ class ModulesCommand(ToolkitCommand):
                         if example_data.repo not in downloader_by_repo:
                             try:
                                 downloader_cls = _FILE_DOWNLOADERS_BY_TYPE[example_data.repo_type]
-                                downloader_by_repo[example_data.repo] = downloader_cls(example_data.repo)
                             except KeyError:
                                 self.warn(
                                     MediumSeverityWarning(
@@ -170,6 +169,7 @@ class ModulesCommand(ToolkitCommand):
                                     )
                                 )
                                 continue
+                            downloader_by_repo[example_data.repo] = downloader_cls(example_data.repo)
 
                         downloader = downloader_by_repo[example_data.repo]
                         downloader.copy(example_data.source, target_dir / example_data.destination)
