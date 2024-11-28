@@ -11,10 +11,11 @@ tags = [
 modules = []
 
 [[data]]
-repoType = "GitHub"
-repo = "cognitedata/toolkit-data"
-source = "data/publicdata/assets.Table.csv"
+repoType = "http"
+repo = "https://apps-cdn.cogniteapp.com/toolkit"
+source = "publicdata/assets.Table.csv"
 destination = "raw/dump.Table.csv"
+
 
 [[extra_resources]]
 location = "cdf_common/data_sets/demo.DataSet.yaml"

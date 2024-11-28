@@ -1,8 +1,10 @@
 import fnmatch
+from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
+from urllib.parse import urljoin
 
 import requests
 from requests import Response
@@ -13,7 +15,21 @@ from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.tk_warnings import HTTPWarning
 
 
-class GitHubFileDownloader:
+class FileDownloader(ABC):
+    _type: ClassVar[str] = "generic"
+
+    @abstractmethod
+    def __init__(self, repo: str, errors: Literal["continue", "raise"] = "continue") -> None:
+        pass
+
+    @abstractmethod
+    def copy(self, source: str, destination: Path) -> None:
+        pass
+
+
+class GitHubFileDownloader(FileDownloader):
+    _type: ClassVar[str] = "github"
+
     api_url = "https://api.github.com"
 
     def __init__(self, repo: str, errors: Literal["continue", "raise"] = "continue") -> None:
@@ -70,3 +86,29 @@ class GitHubFileDownloader:
             destination_path = destination / source.name
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         destination_path.write_bytes(response.content)
+
+
+class HttpFileDownloader(FileDownloader):
+    _type: ClassVar[str] = "http"
+
+    def __init__(self, repo: str, errors: Literal["continue", "raise"] = "raise") -> None:
+        self.repo = repo
+        self.errors = errors
+
+    def copy(self, source: str, destination: Path) -> None:
+        if not self.repo.endswith("/"):
+            self.repo += "/"
+
+        sources = source.split(";") if ";" in source else [source]
+        for source in sources:
+            file_url = urljoin(self.repo, source)
+
+            response = requests.get(file_url)
+            if response.status_code >= 400:
+                if self.errors == "raise":
+                    response.raise_for_status()
+                print(HTTPWarning("GET", response.text, response.status_code).get_message())
+                continue
+
+            location = destination if not destination.is_dir() else destination / Path(source).name
+            location.write_bytes(response.content)
