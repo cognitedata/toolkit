@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.16] - 2024-11-28
+
+### Fixed
+
+- Bug in the `QuickStart` packages causing the P&ID contextualization to fail.
+
 ## [0.3.15] - 2024-11-28
 
 No changes to templates.
