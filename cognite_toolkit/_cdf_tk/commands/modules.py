@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
-from cognite_toolkit._cdf_tk.utils.repository import GitHubFileDownloader
+from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
 
 custom_style_fancy = questionary.Style(
@@ -71,6 +71,12 @@ custom_style_fancy = questionary.Style(
 
 INDENT = "  "
 POINTER = INDENT + "▶"
+
+
+_FILE_DOWNLOADERS_BY_TYPE: dict[str, type[FileDownloader]] = {
+    downloader_cls._type: downloader_cls  # type: ignore
+    for downloader_cls in FileDownloader.__subclasses__()
+}
 
 
 class ModulesCommand(ToolkitCommand):
@@ -117,7 +123,8 @@ class ModulesCommand(ToolkitCommand):
 
         seen_modules: set[Path] = set()
         selected_paths: set[Path] = set()
-        downloader_by_repo: dict[str, GitHubFileDownloader] = {}
+        downloader_by_repo: dict[str, FileDownloader] = {}
+
         extra_resources: set[Path] = set()
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
@@ -152,15 +159,17 @@ class ModulesCommand(ToolkitCommand):
 
                 if module.definition is not None and download_data:
                     for example_data in module.definition.data:
-                        if example_data.repo_type.casefold() != "github":
-                            self.warn(
-                                MediumSeverityWarning(
-                                    f"Unsupported repo type for example data: {example_data.repo_type}"
-                                )
-                            )
-                            continue
                         if example_data.repo not in downloader_by_repo:
-                            downloader_by_repo[example_data.repo] = GitHubFileDownloader(example_data.repo)
+                            try:
+                                downloader_cls = _FILE_DOWNLOADERS_BY_TYPE[example_data.repo_type]
+                                downloader_by_repo[example_data.repo] = downloader_cls(example_data.repo)
+                            except KeyError:
+                                self.warn(
+                                    MediumSeverityWarning(
+                                        f"Unsupported repo type for example data: {example_data.repo_type}"
+                                    )
+                                )
+                                continue
 
                         downloader = downloader_by_repo[example_data.repo]
                         downloader.copy(example_data.source, target_dir / example_data.destination)
