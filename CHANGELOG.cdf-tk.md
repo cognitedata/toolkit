@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Improved
+
+- Better hint on activating plugins.
+
 ### Fixed
 
 - Error message in Auth process shows correct variable names IDP_CLIENT_ID and IDP_CLIENT_SECRET.
