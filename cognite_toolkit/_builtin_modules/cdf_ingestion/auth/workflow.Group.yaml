@@ -38,6 +38,7 @@ capabilities:
   - rawAcl:
       actions:
         - READ
+        - LIST
       scope:
         tableScope:
           dbsToTables:
