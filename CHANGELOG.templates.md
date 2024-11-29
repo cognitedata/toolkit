@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The user group in the `QuickStart` package now has capabilities to inspect the RAW tables and
+  extraction pipelines.
+- Missing table `diagramParsing` in the `QuickStart` is now created.
+
 ## [0.3.16] - 2024-11-28
 
 ### Fixed
