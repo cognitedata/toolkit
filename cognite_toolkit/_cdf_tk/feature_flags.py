@@ -48,4 +48,4 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().feature_flags.get(clean_name(flag.name), False)
+        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)

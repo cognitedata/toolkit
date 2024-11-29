@@ -67,7 +67,7 @@ class Tracker:
             "error": str(result) if isinstance(result, Exception) else "",
             **positional_args,
             **optional_args,
-            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.feature_flags.items()},
+            **{f"alphaFlag-{name}": value for name, value in self._cdf_toml.alpha_flags.items()},
             **{f"plugin-{name}": value for name, value in self._cdf_toml.plugins.items()},
         }
 
