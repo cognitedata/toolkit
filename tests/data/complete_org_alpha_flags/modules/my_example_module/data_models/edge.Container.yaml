@@ -1,5 +1,6 @@
 space: sp_schema
 externalId: 'myContainer'
+usedFor: 'edge'
 properties:
   myContainerProperty:
     type:

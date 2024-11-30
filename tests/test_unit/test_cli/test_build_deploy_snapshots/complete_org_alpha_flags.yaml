@@ -9,6 +9,21 @@ Asset:
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
+Container:
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      autoIncrement: false
+      immutable: false
+      nullable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
 DataSet:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -87,3 +102,18 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
+Space:
+- space: sp_instance
+- space: sp_schema
+View:
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1
