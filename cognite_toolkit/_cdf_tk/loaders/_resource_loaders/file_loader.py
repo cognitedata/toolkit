@@ -346,8 +346,8 @@ class CogniteFileLoader(
         if parent_ids is not None:
             # Does not have a direct parent resource.
             return []
-        raise NotImplementedError("")
-        # return iter(self.client.data_modeling.instances)
+        # We do not have a way to know the source of the file, so we cannot filter on that.
+        return []
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return sum(

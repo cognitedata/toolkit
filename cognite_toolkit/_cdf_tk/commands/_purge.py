@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployRe
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
+    CogniteFileLoader,
     DataSetsLoader,
     FunctionLoader,
     GraphQLLoader,
@@ -20,9 +21,11 @@ from cognite_toolkit._cdf_tk.loaders import (
     GroupLoader,
     GroupResourceScopedLoader,
     HostedExtractorDestinationLoader,
+    LocationFilterLoader,
     ResourceLoader,
     SpaceLoader,
     StreamlitLoader,
+    TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
@@ -47,7 +50,16 @@ class PurgeCommand(ToolkitCommand):
             ).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
 
-        loaders = self._get_dependencies(SpaceLoader, exclude={GraphQLLoader})
+        loaders = self._get_dependencies(
+            SpaceLoader,
+            exclude={
+                GraphQLLoader,
+                GroupResourceScopedLoader,
+                LocationFilterLoader,
+                TransformationLoader,
+                CogniteFileLoader,
+            },
+        )
         self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space:
             space_loader = SpaceLoader.create_loader(ToolGlobals, None)
@@ -202,7 +214,7 @@ class PurgeCommand(ToolkitCommand):
                 deleted=count,
                 total=count,
             )
-        print(results.counts_table())
+        print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
 
     @staticmethod
     def _delete_batch(batch_ids: list[Hashable], dry_run: bool, loader: ResourceLoader, verbose: bool) -> int:
