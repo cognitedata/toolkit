@@ -383,13 +383,15 @@ class ExtractionPipelineConfigLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineConfig]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return (
-            self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
-            for pipeline in self.client.extraction_pipelines
-        )
+        parent_iterable = parent_ids or iter(self.client.extraction_pipelines)
+        for parent_id in parent_iterable or []:
+            if isinstance(parent_id, ExtractionPipeline):
+                pipeline_id = cast(str, parent_id.external_id)
+            elif isinstance(parent_id, str):
+                pipeline_id = parent_id
+            else:
+                continue
+            yield self.client.extraction_pipelines.config.retrieve(external_id=pipeline_id)
 
     @classmethod
     @lru_cache(maxsize=1)
