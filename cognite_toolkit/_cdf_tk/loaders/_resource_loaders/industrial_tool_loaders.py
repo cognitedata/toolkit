@@ -179,6 +179,9 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Streamlit]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return
         for file in self.client.files:
             yield Streamlit.from_file(file)
 

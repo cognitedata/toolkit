@@ -159,6 +159,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Workflow]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return
         if data_set_external_id is None:
             yield from self.client.workflows.list(limit=-1)
             return
@@ -314,6 +317,9 @@ class WorkflowVersionLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[WorkflowVersion]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return self.client.workflows.versions.list(limit=-1)
 
     @classmethod
@@ -445,6 +451,9 @@ class WorkflowTriggerLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[WorkflowTrigger]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return self.client.workflows.triggers.list(limit=-1)
 
     @classmethod

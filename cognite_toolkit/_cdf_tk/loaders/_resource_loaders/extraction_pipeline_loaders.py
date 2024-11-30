@@ -208,6 +208,9 @@ class ExtractionPipelineLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ExtractionPipeline]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return
         if data_set_external_id is None:
             yield from iter(self.client.extraction_pipelines)
             return
@@ -380,6 +383,9 @@ class ExtractionPipelineConfigLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ExtractionPipelineConfig]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return (
             self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
             for pipeline in self.client.extraction_pipelines

@@ -203,6 +203,9 @@ class FileMetadataLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[FileMetadata]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.files(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     def count(self, ids: SequenceNotStr[str]) -> int:
@@ -340,6 +343,9 @@ class CogniteFileLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ExtendableCogniteFile]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         raise NotImplementedError("")
         # return iter(self.client.data_modeling.instances)
 

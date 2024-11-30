@@ -249,6 +249,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Function]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.functions)
 
     @classmethod
@@ -417,6 +420,9 @@ class FunctionScheduleLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[FunctionSchedule]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.functions.schedules)
 
     @classmethod

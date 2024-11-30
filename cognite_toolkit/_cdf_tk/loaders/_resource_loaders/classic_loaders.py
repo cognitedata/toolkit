@@ -111,6 +111,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Asset]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
@@ -290,6 +293,9 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Sequence]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -409,6 +415,9 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Event]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod

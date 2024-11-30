@@ -120,6 +120,9 @@ class RawDatabaseLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RawDatabase]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
     def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
@@ -265,6 +268,9 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RawTable]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return (
             RawTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
             for db in self.client.raw.databases

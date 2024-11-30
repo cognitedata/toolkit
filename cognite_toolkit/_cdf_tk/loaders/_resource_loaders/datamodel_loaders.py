@@ -164,6 +164,9 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Space]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         if space:
             return self.client.data_modeling.spaces.retrieve([space])
         else:
@@ -329,6 +332,9 @@ class ContainerLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Container]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.data_modeling.containers(space=space))
 
     def count(self, ids: SequenceNotStr[ContainerId]) -> int:
@@ -591,6 +597,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[View]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.data_modeling.views(space=space))
 
     @classmethod
@@ -822,6 +831,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DataModel]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.data_modeling.data_models(space=space, include_global=False))
 
     @classmethod
@@ -1009,6 +1021,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.data_modeling.instances(space=space))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
@@ -1208,6 +1223,9 @@ class GraphQLLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[GraphQLDataModel]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
 
     def count(self, ids: SequenceNotStr[DataModelId]) -> int:
@@ -1403,6 +1421,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Edge]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:

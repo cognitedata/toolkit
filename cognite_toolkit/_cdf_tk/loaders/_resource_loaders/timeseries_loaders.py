@@ -167,6 +167,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TimeSeries]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(
             self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -345,6 +348,9 @@ class DatapointSubscriptionLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         return iter(self.client.time_series.subscriptions)
 
     def _are_equal(

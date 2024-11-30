@@ -40,11 +40,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a space and all its content"""
         selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
-        loaders = {
-            loader_cls: loader_cls.dependencies
-            for loader_cls in RESOURCE_LOADER_LIST
-            if SpaceLoader in loader_cls.dependencies and loader_cls not in {GraphQLLoader}
-        }
+        loaders = self._get_dependencies(SpaceLoader, exclude={GraphQLLoader})
         self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space:
             space_loader = SpaceLoader.create_loader(ToolGlobals, None)
@@ -56,6 +52,16 @@ class PurgeCommand(ToolkitCommand):
 
         if not dry_run:
             print(f"Purge space {selected_space!r} completed.")
+
+    @staticmethod
+    def _get_dependencies(
+        loader_cls: type[ResourceLoader], exclude: set[type[ResourceLoader]] | None = None
+    ) -> dict[type[ResourceLoader], frozenset[type[ResourceLoader]]]:
+        return {
+            dep_cls: dep_cls.dependencies
+            for dep_cls in RESOURCE_LOADER_LIST
+            if loader_cls in dep_cls.dependencies and (exclude is None or dep_cls not in exclude)
+        }
 
     @staticmethod
     def _get_selected_space(space: str | None, client: ToolkitClient) -> str:
@@ -86,20 +92,17 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a dataset and all its content"""
         selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
-        loaders = {
-            loader_cls: loader_cls.dependencies
-            for loader_cls in RESOURCE_LOADER_LIST
-            if DataSetsLoader in loader_cls.dependencies
-            and loader_cls
-            not in {
+        loaders = self._get_dependencies(
+            DataSetsLoader,
+            exclude={
                 GroupLoader,
                 GroupResourceScopedLoader,
                 GroupAllScopedLoader,
                 StreamlitLoader,
                 HostedExtractorDestinationLoader,
                 FunctionLoader,
-            }
-        }
+            },
+        )
         self._purge(ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
         if include_dataset:
             if dry_run:
@@ -152,15 +155,33 @@ class PurgeCommand(ToolkitCommand):
                 # Dependency that is included
                 continue
             loader = loader_cls.create_loader(ToolGlobals, None)
-            batch_ids: list[Hashable] = []
+            # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
+            # These must delete all resources that are connected to the resource that the loader is deleting
+            # Exclude loaders that we are already iterating over
+            child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
+            child_loaders = [
+                child_loader.create_loader(ToolGlobals, None)
+                for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
+                if child_loader in child_loader_classes
+            ]
             count = 0
+            batch_ids: list[Hashable] = []
             for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
                 batch_ids.append(loader.get_id(resource))
                 if len(batch_ids) >= batch_size:
+                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
                     count += self._delete_batch(batch_ids, dry_run, loader, verbose)
                     batch_ids = []
+                    # The DeployResults is overloaded such that the below accumulates the counts
+                    for name, child_count in child_deletion.items():
+                        results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
             if batch_ids:
+                child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
                 count += self._delete_batch(batch_ids, dry_run, loader, verbose)
+                for name, child_count in child_deletion.items():
+                    results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
             results[loader.display_name] = ResourceDeployResult(
                 name=loader.display_name,
                 deleted=count,
@@ -179,3 +200,25 @@ class PurgeCommand(ToolkitCommand):
             prefix = "Would delete" if dry_run else "Deleted"
             print(f"{prefix} {deleted:,} resources")
         return deleted
+
+    @staticmethod
+    def _delete_children(
+        parent_ids: list[Hashable], child_loaders: list[ResourceLoader], dry_run: bool, verbose: bool
+    ) -> dict[str, int]:
+        child_deletion: dict[str, int] = {}
+        for child_loader in child_loaders:
+            child_ids = set()
+            for child in child_loader.iterate(parent_ids=parent_ids):
+                child_ids.add(child_loader.get_id(child))
+            count = 0
+            if child_ids:
+                if dry_run:
+                    count = len(child_ids)
+                else:
+                    count = child_loader.delete(list(child_ids))
+
+                if verbose:
+                    prefix = "Would delete" if dry_run else "Deleted"
+                    print(f"{prefix} {count:,} {child_loader.display_name}")
+            child_deletion[child_loader.display_name] = count
+        return child_deletion

@@ -128,6 +128,9 @@ class ThreeDModelLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[ThreeDModel]:
+        if parent_ids is not None:
+            # Does not have a direct parent resource.
+            return []
         if data_set_external_id is None:
             return iter(self.client.three_d.models)
         data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
