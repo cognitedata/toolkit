@@ -162,6 +162,7 @@ class PurgeCommand(ToolkitCommand):
             child_loaders = [
                 child_loader.create_loader(ToolGlobals, None)
                 for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
+                # Necessary as the toplogical sort includes dependencies that are not in the loaders
                 if child_loader in child_loader_classes
             ]
             count = 0
@@ -198,7 +199,7 @@ class PurgeCommand(ToolkitCommand):
 
         if verbose:
             prefix = "Would delete" if dry_run else "Deleted"
-            print(f"{prefix} {deleted:,} resources")
+            print(f"{prefix} {deleted:,} {loader.display_name}")
         return deleted
 
     @staticmethod

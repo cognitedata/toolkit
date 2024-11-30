@@ -317,10 +317,8 @@ class WorkflowVersionLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[WorkflowVersion]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return self.client.workflows.versions.list(limit=-1)
+        workflow_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, str)] if parent_ids else None
+        return self.client.workflows.versions.list(limit=-1, workflow_version_ids=workflow_ids)  # type: ignore[arg-type]
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -451,10 +449,12 @@ class WorkflowTriggerLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[WorkflowTrigger]:
+        triggers = self.client.workflows.triggers.list(limit=-1)
         if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return self.client.workflows.triggers.list(limit=-1)
+            # Parent = Workflow
+            workflow_ids = {parent_id for parent_id in parent_ids if isinstance(parent_id, str)}
+            return (trigger for trigger in triggers if trigger.workflow_external_id in workflow_ids)
+        return triggers
 
     @classmethod
     @lru_cache(maxsize=1)

@@ -450,10 +450,15 @@ class TransformationScheduleLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TransformationSchedule]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return iter(self.client.transformations.schedules)
+        if parent_ids is None:
+            yield from iter(self.client.transformations.schedules)
+        else:
+            for transformation_id in parent_ids:
+                if not isinstance(transformation_id, str):
+                    continue
+                res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
+                if res:
+                    yield res
 
 
 @final
@@ -595,10 +600,13 @@ class TransformationNotificationLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TransformationNotification]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return iter(self.client.transformations.notifications)
+        if parent_ids is None:
+            yield from iter(self.client.transformations.notifications)
+        else:
+            for transformation_id in parent_ids:
+                if not isinstance(transformation_id, str):
+                    continue
+                yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
