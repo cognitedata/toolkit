@@ -70,7 +70,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a dataset and all its content"""
-        ...
+        raise NotImplementedError("Purging datasets is not yet supported")
 
     def _purge(
         self,
@@ -88,7 +88,7 @@ class PurgeCommand(ToolkitCommand):
             loader = loader_cls.create_loader(ToolGlobals, None)
             batch_ids: list[Hashable] = []
             count = 0
-            for resource in loader.iterate(data_set_external_id=None, space=selected_space):
+            for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
                 batch_ids.append(loader.get_id(resource))
                 if len(batch_ids) >= batch_size:
                     count += self._delete_batch(batch_ids, dry_run, loader, verbose)
