@@ -102,6 +102,16 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
+Node:
+- externalId: AnEdgeType
+  instanceType: node
+  space: sp_schema
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
 Space:
 - space: sp_instance
 - space: sp_schema
