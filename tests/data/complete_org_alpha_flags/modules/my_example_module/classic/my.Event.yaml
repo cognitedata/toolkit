@@ -1,0 +1,13 @@
+externalId: MyEvent
+dataSetExternalId: MyDataSet
+startTime: 1732959346052
+endTime: 1732959346052
+type: 'success'
+subtype: 'info'
+description: 'My event description'
+metadata:
+  key: value
+assetExternalIds:
+  - MyAsset
+  - MyAsset2
+source: 'my_source'
