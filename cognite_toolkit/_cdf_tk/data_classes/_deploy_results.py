@@ -110,7 +110,9 @@ class DatapointDeployResult(UploadDeployResult):
 
 
 class DeployResults(UserDict):
-    def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
+    def __init__(
+        self, collection: Iterable[DeployResult], action: Literal["deploy", "clean", "purge"], dry_run: bool = False
+    ):
         super().__init__({entry.name: entry for entry in collection})
         self.action = action
         self.dry_run = dry_run

@@ -199,7 +199,9 @@ class ResourceLoader(
         raise NotImplementedError
 
     @abstractmethod
-    def iterate(self) -> Iterable[T_WritableCogniteResource]:
+    def iterate(
+        self, data_set_external_id: str | None = None, space: str | None = None
+    ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 
     # The methods below have default implementations that can be overwritten in subclasses
