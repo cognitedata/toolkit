@@ -140,7 +140,12 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[DataSet]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
     @classmethod
@@ -234,7 +239,12 @@ class LabelLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[LabelDefinition]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[LabelDefinition]:
         return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod

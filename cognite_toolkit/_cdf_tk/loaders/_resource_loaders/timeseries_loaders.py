@@ -161,7 +161,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[TimeSeries]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TimeSeries]:
         return iter(
             self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -335,7 +340,10 @@ class DatapointSubscriptionLoader(
             return len(ids)
 
     def iterate(
-        self, data_set_external_id: str | None = None, space: str | None = None
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 

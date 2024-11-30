@@ -158,7 +158,12 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         deleted = self.client.data_modeling.spaces.delete(to_delete)
         return len(deleted)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Space]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Space]:
         if space:
             return self.client.data_modeling.spaces.retrieve([space])
         else:
@@ -318,7 +323,12 @@ class ContainerLoader(
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Container]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Container]:
         return iter(self.client.data_modeling.containers(space=space))
 
     def count(self, ids: SequenceNotStr[ContainerId]) -> int:
@@ -575,7 +585,12 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[View]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[View]:
         return iter(self.client.data_modeling.views(space=space))
 
     @classmethod
@@ -801,7 +816,12 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[DataModel]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataModel]:
         return iter(self.client.data_modeling.data_models(space=space, include_global=False))
 
     @classmethod
@@ -983,7 +1003,12 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             raise e
         return len(deleted.nodes)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Node]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Node]:
         return iter(self.client.data_modeling.instances(space=space))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
@@ -1177,7 +1202,12 @@ class GraphQLLoader(
         deleted += len(self.client.data_modeling.views.delete(list(views)))
         return deleted
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[GraphQLDataModel]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[GraphQLDataModel]:
         return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
 
     def count(self, ids: SequenceNotStr[DataModelId]) -> int:
@@ -1367,7 +1397,12 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             raise e
         return len(deleted.edges)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Edge]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Edge]:
         return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:

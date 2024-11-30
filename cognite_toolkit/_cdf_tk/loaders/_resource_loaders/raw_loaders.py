@@ -114,7 +114,12 @@ class RawDatabaseLoader(
                 raise e
         return len(db_names)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[RawDatabase]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RawDatabase]:
         return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
     def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
@@ -254,7 +259,12 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
                 count += len(tables)
         return count
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[RawTable]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RawTable]:
         return (
             RawTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
             for db in self.client.raw.databases

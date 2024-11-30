@@ -105,7 +105,12 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             return len(ids)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Asset]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Asset]:
         return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
@@ -279,7 +284,12 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         else:
             return len(ids)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Sequence]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Sequence]:
         return iter(
             self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -393,7 +403,12 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         else:
             return len(ids)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Event]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Event]:
         return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod

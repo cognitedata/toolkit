@@ -305,7 +305,12 @@ class TransformationLoader(
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Transformation]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Transformation]:
         return iter(
             self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -437,7 +442,10 @@ class TransformationScheduleLoader(
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
     def iterate(
-        self, data_set_external_id: str | None = None, space: str | None = None
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TransformationSchedule]:
         return iter(self.client.transformations.schedules)
 
@@ -576,7 +584,10 @@ class TransformationNotificationLoader(
         return len(existing)
 
     def iterate(
-        self, data_set_external_id: str | None = None, space: str | None = None
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
     ) -> Iterable[TransformationNotification]:
         return iter(self.client.transformations.notifications)
 

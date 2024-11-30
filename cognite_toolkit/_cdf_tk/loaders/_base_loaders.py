@@ -200,7 +200,10 @@ class ResourceLoader(
 
     @abstractmethod
     def iterate(
-        self, data_set_external_id: str | None = None, space: str | None = None
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
     ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 

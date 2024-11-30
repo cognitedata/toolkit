@@ -122,7 +122,12 @@ class ThreeDModelLoader(
         self.client.three_d.models.delete(models.as_ids())
         return len(models)
 
-    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[ThreeDModel]:
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ThreeDModel]:
         if data_set_external_id is None:
             return iter(self.client.three_d.models)
         data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
