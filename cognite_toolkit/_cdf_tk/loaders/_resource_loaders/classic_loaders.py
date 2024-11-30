@@ -330,7 +330,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
     list_write_cls = EventWriteList
     kind = "Event"
     dependencies = frozenset({DataSetsLoader, AssetLoader})
-    _doc_url = "Assets/operation/createEvents"
+    _doc_url = "Events/operation/createEvents"
 
     @property
     def display_name(self) -> str:
