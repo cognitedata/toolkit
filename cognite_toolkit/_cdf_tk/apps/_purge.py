@@ -27,7 +27,7 @@ class PurgeApp(typer.Typer):
             typer.Argument(
                 help="External id of the dataset to purge.. If not provided, interactive mode will be used.",
             ),
-        ],
+        ] = None,
         include_dataset: Annotated[
             bool,
             typer.Option(
@@ -73,7 +73,7 @@ class PurgeApp(typer.Typer):
             typer.Argument(
                 help="Space to purge. If not provided, interactive mode will be used.",
             ),
-        ],
+        ] = None,
         include_space: Annotated[
             bool,
             typer.Option(
