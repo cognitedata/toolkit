@@ -70,8 +70,11 @@ class PurgeCommand(ToolkitCommand):
             if dry_run:
                 print(f"Would delete space {selected_space}")
             else:
-                space_loader.delete([selected_space])
-                print(f"Space {selected_space} deleted")
+                try:
+                    space_loader.delete([selected_space])
+                    print(f"Space {selected_space} deleted")
+                except CogniteAPIError as e:
+                    self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
 
         if not dry_run:
             print(f"Purge space {selected_space!r} completed.")
