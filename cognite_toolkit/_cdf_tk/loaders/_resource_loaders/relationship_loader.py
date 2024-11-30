@@ -14,7 +14,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
@@ -110,6 +110,11 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
         spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+
+        # Failure from generation of spec
+        spec.add(
+            ParameterSpec(("labels", ANY_INT, "externalId"), frozenset({"str"}), is_required=False, _is_nullable=False)
+        )
         return spec
 
     @classmethod
