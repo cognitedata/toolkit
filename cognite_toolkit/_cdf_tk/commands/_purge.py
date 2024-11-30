@@ -136,7 +136,7 @@ class PurgeCommand(ToolkitCommand):
             else:
                 archived = (
                     DataSetUpdate(external_id=selected_dataset)
-                    .external_id.set(uuid.uuid4())
+                    .external_id.set(str(uuid.uuid4()))
                     .metadata.add({"archived": "true"})
                     .write_protected.set(True)
                 )
