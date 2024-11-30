@@ -6,6 +6,7 @@ from collections.abc import Iterable, Sequence
 from typing import ClassVar, Literal, TypeVar, cast
 
 from cognite.client.config import global_config
+from cognite.client.exceptions import CogniteAPIError
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 # ruff: noqa: E402
@@ -197,7 +198,16 @@ def iterate_new_approved_annotations(
     state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int = 1000
 ) -> Iterable[list[CogniteDiagramAnnotation]]:
     query = create_query(state.last_cursor, annotation_space)
-    result = client.data_modeling.instances.sync(query)
+    try:
+        result = client.data_modeling.instances.sync(query)
+    except CogniteAPIError as e:
+        if e.code == 400 and "Cursor has expired" in e.message:
+            logger.warning("Cursor has expired, starting from the beginning")
+            state.last_cursor = None
+            query = create_query(state.last_cursor, annotation_space)
+            result = client.data_modeling.instances.sync(query)
+        else:
+            raise
     edges = result["annotations"]
     logger.debug(f"Retrieved {len(edges)} new approved annotations")
     state.last_cursor = edges.cursor
