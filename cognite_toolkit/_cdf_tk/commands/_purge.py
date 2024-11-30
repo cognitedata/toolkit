@@ -1,15 +1,26 @@
 from __future__ import annotations
 
+import uuid
 from collections.abc import Hashable
 from graphlib import TopologicalSorter
 
 import questionary
+from cognite.client.data_classes import DataSetUpdate
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST, ResourceLoader, SpaceLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    RESOURCE_LOADER_LIST,
+    DataLoader,
+    GraphQLLoader,
+    GroupAllScopedLoader,
+    GroupLoader,
+    GroupResourceScopedLoader,
+    ResourceLoader,
+    SpaceLoader,
+)
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from ._base import ToolkitCommand
@@ -29,7 +40,7 @@ class PurgeCommand(ToolkitCommand):
         loaders = {
             loader_cls: loader_cls.dependencies
             for loader_cls in RESOURCE_LOADER_LIST
-            if SpaceLoader in loader_cls.dependencies
+            if SpaceLoader in loader_cls.dependencies and loader_cls not in {GraphQLLoader}
         }
         self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space:
@@ -70,7 +81,47 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a dataset and all its content"""
-        raise NotImplementedError("Purging datasets is not yet supported")
+        selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
+        loaders = {
+            loader_cls: loader_cls.dependencies
+            for loader_cls in RESOURCE_LOADER_LIST
+            if DataLoader in loader_cls.dependencies
+            and loader_cls not in {GroupLoader, GroupResourceScopedLoader, GroupAllScopedLoader}
+        }
+        self._purge(ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
+        if include_dataset:
+            if dry_run:
+                print(f"Would have archived {selected_dataset}")
+            else:
+                archived = (
+                    DataSetUpdate(external_id=selected_dataset)
+                    .external_id.set(uuid.uuid4())
+                    .metadata.add({"archived": "true"})
+                    .write_protected.set(True)
+                )
+                ToolGlobals.toolkit_client.data_sets.update(archived)
+                print(f"DataSet {selected_dataset} archived")
+
+        prefix = "Would purge" if dry_run else "Purged"
+        print(f"{prefix} dataset: {selected_dataset!r}.")
+
+    @staticmethod
+    def _get_selected_dataset(external_id: str | None, client: ToolkitClient) -> str:
+        if external_id is None:
+            datasets = client.data_sets.list(limit=-1)
+            selected_dataset: str = questionary.select(
+                "Which space are you going to purge" " (delete all resources in dataset)?",
+                [dataset.external_id for dataset in datasets if dataset.external_id],
+            ).ask()
+        else:
+            retrieved = client.data_sets.retrieve(external_id=external_id)
+            if retrieved is None:
+                raise ToolkitMissingResourceError(f"DataSet {external_id!r} does not exist")
+            selected_dataset = external_id
+
+        if selected_dataset is None:
+            raise ToolkitValueError("No space selected")
+        return selected_dataset
 
     def _purge(
         self,
