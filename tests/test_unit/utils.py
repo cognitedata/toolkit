@@ -53,6 +53,7 @@ from cognite.client.data_classes.workflows import (
     WorkflowTriggerDataModelingQuery,
 )
 from cognite.client.testing import CogniteClientMock
+from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
@@ -350,6 +351,7 @@ class FakeCogniteResourceGenerator:
             typing.Sequence,
             collections.abc.Sequence,
             collections.abc.Collection,
+            SequenceNotStr,
         ]:
             return [self.create_value(first_not_none) for _ in range(3)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:
