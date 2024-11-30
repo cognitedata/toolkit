@@ -420,10 +420,13 @@ class FunctionScheduleLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[FunctionSchedule]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
-        return iter(self.client.functions.schedules)
+        if parent_ids is None:
+            yield from self.client.functions.schedules
+        else:
+            for parent_id in parent_ids:
+                if not isinstance(parent_id, str):
+                    continue
+                yield from self.client.functions.schedules(function_external_id=parent_id)
 
     @classmethod
     @lru_cache(maxsize=1)
