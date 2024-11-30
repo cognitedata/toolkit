@@ -7,6 +7,7 @@ from graphlib import TopologicalSorter
 import questionary
 from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -280,7 +281,7 @@ class PurgeCommand(ToolkitCommand):
             if node.type:
                 node_types.add(NodeId(node.type.space, node.type.external_id))
         count = 0
-        batch_ids: list[Hashable] = []
+        batch_ids: list[NodeId] = []
         for node in loader.iterate(space=selected_space):
             node_id = node.as_id()
             if node_id in node_types:
@@ -288,12 +289,36 @@ class PurgeCommand(ToolkitCommand):
                 continue
             batch_ids.append(node_id)
             if len(batch_ids) >= batch_size:
-                count += self._delete_batch(batch_ids, False, loader, verbose)
+                count += self._delete_node_batch(batch_ids, loader, verbose)
                 batch_ids = []
 
         if batch_ids:
-            count += self._delete_batch(batch_ids, False, loader, verbose)
+            count += self._delete_node_batch(batch_ids, loader, verbose)
 
         # Finally delete all node types
-        count += loader.delete(list(node_types))
+        count += self._delete_node_batch(list(node_types), loader, verbose)
         return count
+
+    def _delete_node_batch(self, batch_ids: list[NodeId], loader: NodeLoader, verbose: bool) -> int:
+        try:
+            deleted = loader.delete(batch_ids)
+        except CogniteAPIError as e:
+            if e.code == 400 and "Attempted to delete a node which is used as a type" in e.message:
+                # Fallback to delete one by one
+                deleted = 0
+                for node_id in batch_ids:
+                    try:
+                        loader.delete([node_id])
+                        deleted += 1
+                    except CogniteAPIError as e:
+                        self.warn(
+                            HighSeverityWarning(
+                                f"Failed to delete {node_id!r}. This is because it is used as a node type in a different space: {e!s}"
+                            )
+                        )
+            else:
+                raise
+
+        if verbose:
+            print(f"Deleted {deleted:,} {loader.display_name}")
+        return deleted
