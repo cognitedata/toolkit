@@ -195,7 +195,7 @@ class ResourceLoader(
         raise NotImplementedError
 
     @abstractmethod
-    def delete(self, ids: SequenceNotStr[T_ID]) -> int:
+    def delete(self, ids: SequenceNotStr[T_ID], include_dependencies: bool = False) -> int:
         raise NotImplementedError
 
     @abstractmethod

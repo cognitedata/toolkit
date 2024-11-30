@@ -101,7 +101,9 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
             return len(ids)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Relationship]:
-        return iter(self.client.relationships)
+        return iter(
+            self.client.relationships(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)

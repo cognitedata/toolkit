@@ -306,7 +306,9 @@ class TransformationLoader(
         return len(existing)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Transformation]:
-        return iter(self.client.transformations)
+        return iter(
+            self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)

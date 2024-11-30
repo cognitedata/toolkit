@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployRe
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
-    DataLoader,
+    DataSetsLoader,
     GraphQLLoader,
     GroupAllScopedLoader,
     GroupLoader,
@@ -85,7 +85,7 @@ class PurgeCommand(ToolkitCommand):
         loaders = {
             loader_cls: loader_cls.dependencies
             for loader_cls in RESOURCE_LOADER_LIST
-            if DataLoader in loader_cls.dependencies
+            if DataSetsLoader in loader_cls.dependencies
             and loader_cls not in {GroupLoader, GroupResourceScopedLoader, GroupAllScopedLoader}
         }
         self._purge(ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
@@ -158,7 +158,7 @@ class PurgeCommand(ToolkitCommand):
         if dry_run:
             deleted = len(batch_ids)
         else:
-            deleted = loader.delete(batch_ids)
+            deleted = loader.delete(batch_ids, include_dependencies=True)
 
         if verbose:
             prefix = "Would delete" if dry_run else "Deleted"

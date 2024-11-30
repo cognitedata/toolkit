@@ -205,7 +205,12 @@ class ExtractionPipelineLoader(
     def iterate(
         self, data_set_external_id: str | None = None, space: str | None = None
     ) -> Iterable[ExtractionPipeline]:
-        return iter(self.client.extraction_pipelines)
+        if data_set_external_id is None:
+            return iter(self.client.extraction_pipelines)
+        data_set_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
+        for pipeline in self.client.extraction_pipelines:
+            if pipeline.data_set_id == data_set_id:
+                yield pipeline
 
     @classmethod
     @lru_cache(maxsize=1)

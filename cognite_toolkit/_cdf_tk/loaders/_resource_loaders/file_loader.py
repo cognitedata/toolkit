@@ -198,7 +198,7 @@ class FileMetadataLoader(
         return len(cast(SequenceNotStr[str], ids))
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[FileMetadata]:
-        return iter(self.client.files)
+        return iter(self.client.files(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         return sum(

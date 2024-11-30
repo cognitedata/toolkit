@@ -106,7 +106,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             return len(ids)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Asset]:
-        return iter(self.client.assets)
+        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -280,7 +280,9 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             return len(ids)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Sequence]:
-        return iter(self.client.sequences)
+        return iter(
+            self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -392,7 +394,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             return len(ids)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Event]:
-        return iter(self.client.events)
+        return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
     @lru_cache(maxsize=1)

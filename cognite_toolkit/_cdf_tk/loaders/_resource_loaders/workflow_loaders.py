@@ -154,7 +154,12 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return successes
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Workflow]:
-        return self.client.workflows.list(limit=-1)
+        if data_set_external_id is None:
+            return self.client.workflows.list(limit=-1)
+        data_set_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
+        for workflow in self.client.workflows.list(limit=-1):
+            if workflow.data_set_id == data_set_id:
+                yield workflow
 
     @classmethod
     @lru_cache(maxsize=1)

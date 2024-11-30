@@ -162,7 +162,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return len(existing)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[TimeSeries]:
-        return iter(self.client.time_series)
+        return iter(
+            self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = cast(

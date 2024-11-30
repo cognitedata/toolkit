@@ -122,7 +122,10 @@ class ThreeDModelLoader(
         return len(models)
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[ThreeDModel]:
-        return iter(self.client.three_d.models)
+        if data_set_external_id:
+            return iter(self.client.three_d.models)
+        dataset_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
+        return (model for model in self.client.three_d.models if model.data_set_id == dataset_id)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         models = self.retrieve(ids)
