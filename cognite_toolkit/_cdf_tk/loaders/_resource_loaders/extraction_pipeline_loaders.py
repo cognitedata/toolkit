@@ -206,10 +206,13 @@ class ExtractionPipelineLoader(
         self, data_set_external_id: str | None = None, space: str | None = None
     ) -> Iterable[ExtractionPipeline]:
         if data_set_external_id is None:
-            return iter(self.client.extraction_pipelines)
-        data_set_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
+            yield from iter(self.client.extraction_pipelines)
+            return
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         for pipeline in self.client.extraction_pipelines:
-            if pipeline.data_set_id == data_set_id:
+            if pipeline.data_set_id == data_set.id:
                 yield pipeline
 
     @classmethod

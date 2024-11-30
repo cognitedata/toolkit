@@ -17,6 +17,7 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
@@ -124,8 +125,10 @@ class ThreeDModelLoader(
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[ThreeDModel]:
         if data_set_external_id:
             return iter(self.client.three_d.models)
-        dataset_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
-        return (model for model in self.client.three_d.models if model.data_set_id == dataset_id)
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitMissingResourceError(f"DataSet {data_set_external_id!r} does not exist")
+        return (model for model in self.client.three_d.models if model.data_set_id == data_set.id)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         models = self.retrieve(ids)

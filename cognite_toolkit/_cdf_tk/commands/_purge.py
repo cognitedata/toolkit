@@ -14,12 +14,15 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, Tool
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DataSetsLoader,
+    FunctionLoader,
     GraphQLLoader,
     GroupAllScopedLoader,
     GroupLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
     ResourceLoader,
     SpaceLoader,
+    StreamlitLoader,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
@@ -50,8 +53,9 @@ class PurgeCommand(ToolkitCommand):
             else:
                 space_loader.delete([selected_space])
                 print(f"Space {selected_space} deleted")
-        prefix = "Would purge" if dry_run else "Purged"
-        print(f"{prefix} space: {selected_space!r}.")
+
+        if not dry_run:
+            print(f"Purge space {selected_space!r} completed.")
 
     @staticmethod
     def _get_selected_space(space: str | None, client: ToolkitClient) -> str:
@@ -86,7 +90,15 @@ class PurgeCommand(ToolkitCommand):
             loader_cls: loader_cls.dependencies
             for loader_cls in RESOURCE_LOADER_LIST
             if DataSetsLoader in loader_cls.dependencies
-            and loader_cls not in {GroupLoader, GroupResourceScopedLoader, GroupAllScopedLoader}
+            and loader_cls
+            not in {
+                GroupLoader,
+                GroupResourceScopedLoader,
+                GroupAllScopedLoader,
+                StreamlitLoader,
+                HostedExtractorDestinationLoader,
+                FunctionLoader,
+            }
         }
         self._purge(ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
         if include_dataset:
@@ -102,8 +114,8 @@ class PurgeCommand(ToolkitCommand):
                 ToolGlobals.toolkit_client.data_sets.update(archived)
                 print(f"DataSet {selected_dataset} archived")
 
-        prefix = "Would purge" if dry_run else "Purged"
-        print(f"{prefix} dataset: {selected_dataset!r}.")
+        if not dry_run:
+            print(f"Purged dataset {selected_dataset!r} completed")
 
     @staticmethod
     def _get_selected_dataset(external_id: str | None, client: ToolkitClient) -> str:
@@ -136,6 +148,9 @@ class PurgeCommand(ToolkitCommand):
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
         for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
+            if loader_cls not in loaders:
+                # Dependency that is included
+                continue
             loader = loader_cls.create_loader(ToolGlobals, None)
             batch_ids: list[Hashable] = []
             count = 0
@@ -158,7 +173,7 @@ class PurgeCommand(ToolkitCommand):
         if dry_run:
             deleted = len(batch_ids)
         else:
-            deleted = loader.delete(batch_ids, include_dependencies=True)
+            deleted = loader.delete(batch_ids)
 
         if verbose:
             prefix = "Would delete" if dry_run else "Deleted"

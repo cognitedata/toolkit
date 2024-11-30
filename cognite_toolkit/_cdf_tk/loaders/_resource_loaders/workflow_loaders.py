@@ -155,10 +155,13 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Workflow]:
         if data_set_external_id is None:
-            return self.client.workflows.list(limit=-1)
-        data_set_id = self.client.data_sets.retrieve(external_id=data_set_external_id).id
+            yield from self.client.workflows.list(limit=-1)
+            return
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
         for workflow in self.client.workflows.list(limit=-1):
-            if workflow.data_set_id == data_set_id:
+            if workflow.data_set_id == data_set.id:
                 yield workflow
 
     @classmethod
