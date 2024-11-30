@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [alpha flag] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
+  connected to it. This is useful if you want to clean up your CDF project.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.
