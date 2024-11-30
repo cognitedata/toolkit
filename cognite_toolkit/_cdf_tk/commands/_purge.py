@@ -6,6 +6,7 @@ from graphlib import TopologicalSorter
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate
+from cognite.client.data_classes.data_modeling import NodeId
 from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -22,6 +23,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     GroupResourceScopedLoader,
     HostedExtractorDestinationLoader,
     LocationFilterLoader,
+    NodeLoader,
     ResourceLoader,
     SpaceLoader,
     StreamlitLoader,
@@ -182,6 +184,18 @@ class PurgeCommand(ToolkitCommand):
                 # Dependency that is included
                 continue
             loader = loader_cls.create_loader(ToolGlobals, None)
+
+            if isinstance(loader, NodeLoader) and not dry_run:
+                # Special handling of nodes as node type must be deleted after regular nodes
+                # In dry-run mode, we are not deleting the nodes, so we can skip this.
+                deleted_nodes = self._purge_nodes(loader, selected_space, verbose)
+                results[loader.display_name] = ResourceDeployResult(
+                    name=loader.display_name,
+                    deleted=deleted_nodes,
+                    total=deleted_nodes,
+                )
+                continue
+
             # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
             # These must delete all resources that are connected to the resource that the loader is deleting
             # Exclude loaders that we are already iterating over
@@ -255,3 +269,31 @@ class PurgeCommand(ToolkitCommand):
                     print(f"{prefix} {count:,} {child_loader.display_name}")
             child_deletion[child_loader.display_name] = count
         return child_deletion
+
+    def _purge_nodes(
+        self, loader: NodeLoader, selected_space: str | None = None, verbose: bool = False, batch_size: int = 1000
+    ) -> int:
+        """Special handling of nodes as we must ensure all node types are deleted last."""
+        # First find all Node Types
+        node_types: set[NodeId] = set()
+        for node in loader.iterate(space=selected_space):
+            if node.type:
+                node_types.add(NodeId(node.type.space, node.type.external_id))
+        count = 0
+        batch_ids: list[Hashable] = []
+        for node in loader.iterate(space=selected_space):
+            node_id = node.as_id()
+            if node_id in node_types:
+                # Skip if it is a node type
+                continue
+            batch_ids.append(node_id)
+            if len(batch_ids) >= batch_size:
+                count += self._delete_batch(batch_ids, False, loader, verbose)
+                batch_ids = []
+
+        if batch_ids:
+            count += self._delete_batch(batch_ids, False, loader, verbose)
+
+        # Finally delete all node types
+        count += loader.delete(list(node_types))
+        return count
