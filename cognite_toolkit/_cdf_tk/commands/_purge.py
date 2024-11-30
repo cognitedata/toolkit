@@ -40,6 +40,13 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a space and all its content"""
         selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
+        if space is None:
+            # Interactive mode
+            include_space = questionary.confirm(
+                "Do you want to delete the space itself after the purge?", default=False
+            ).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+
         loaders = self._get_dependencies(SpaceLoader, exclude={GraphQLLoader})
         self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space:
@@ -92,6 +99,13 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a dataset and all its content"""
         selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
+        if external_id is None:
+            # Interactive mode
+            include_dataset = questionary.confirm(
+                "Do you want to archive the dataset itself after the purge?", default=False
+            ).ask()
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+
         loaders = self._get_dependencies(
             DataSetsLoader,
             exclude={
