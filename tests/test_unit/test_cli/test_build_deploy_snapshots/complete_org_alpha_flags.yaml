@@ -20,6 +20,27 @@ DataSet:
   metadata: {}
   name: Dataset for assets on Oslo
   writeProtected: false
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6

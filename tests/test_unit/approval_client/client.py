@@ -32,6 +32,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
+    Edge,
     EdgeApply,
     EdgeApplyResult,
     EdgeApplyResultList,
@@ -40,6 +41,7 @@ from cognite.client.data_classes.data_modeling import (
     InstancesApplyResult,
     InstancesDeleteResult,
     InstancesResult,
+    Node,
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
@@ -496,8 +498,20 @@ class ApprovalToolkitClient:
                 raise ValueError(
                     "Cannot create both nodes and edges at the same time. Toolikt should" " call one at a time"
                 )
-            created_resources[resource_cls.__name__].extend(created_nodes)
-            created_resources[resource_cls.__name__].extend(created_edges)
+            created_resources[Node.__name__].extend(created_nodes)
+            created_resources[Edge.__name__].extend(created_edges)
+
+            node_list = []
+            if isinstance(nodes, Sequence):
+                node_list.extend(nodes)
+            elif isinstance(nodes, NodeApply):
+                node_list.append(nodes)
+
+            edge_list = []
+            if isinstance(edges, Sequence):
+                edge_list.extend(edges)
+            elif isinstance(edges, EdgeApply):
+                edge_list.append(edges)
 
             return InstancesApplyResult(
                 nodes=NodeApplyResultList(
@@ -510,7 +524,7 @@ class ApprovalToolkitClient:
                             last_updated_time=1,
                             created_time=1,
                         )
-                        for node in (nodes if isinstance(nodes, Sequence) else [nodes])
+                        for node in node_list
                     ]
                 ),
                 edges=EdgeApplyResultList(
@@ -523,7 +537,7 @@ class ApprovalToolkitClient:
                             last_updated_time=1,
                             created_time=1,
                         )
-                        for edge in (edges if isinstance(edges, Sequence) else [edges])
+                        for edge in edge_list
                     ]
                 ),
             )
