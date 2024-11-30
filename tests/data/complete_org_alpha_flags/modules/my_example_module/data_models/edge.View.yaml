@@ -3,5 +3,7 @@ externalId: 'MyView'
 version: v1
 properties:
   myProperty:
-    container: 'myContainer'
+    container:
+      space: sp_schema
+      externalId: 'myContainer'
     containerPropertyIdentifier: 'myContainerProperty'
