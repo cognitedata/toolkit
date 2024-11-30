@@ -26,6 +26,7 @@ from ._resource_loaders import (
     DataModelLoader,
     DatapointSubscriptionLoader,
     DataSetsLoader,
+    EdgeLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
     FileMetadataLoader,
@@ -73,6 +74,8 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
 if not Flags.STREAMLIT.is_enabled():
     _EXCLUDED_LOADERS.add(StreamlitLoader)
+if not Flags.EDGES.is_enabled():
+    _EXCLUDED_LOADERS.add(EdgeLoader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
