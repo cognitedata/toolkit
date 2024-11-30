@@ -1,0 +1,7 @@
+space: sp_schema
+externalId: 'MyView'
+version: v1
+properties:
+  myProperty:
+    container: 'myContainer'
+    containerPropertyIdentifier: 'myContainerProperty'

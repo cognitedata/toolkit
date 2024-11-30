@@ -1,0 +1,5 @@
+space: sp_schema
+externalId: 'myContainer'
+properties:
+  myContainerProperty:
+    type: text
