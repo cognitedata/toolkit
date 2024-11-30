@@ -33,6 +33,7 @@ from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
     EdgeApply,
+    EdgeApplyResult,
     EdgeApplyResultList,
     EdgeId,
     EdgeList,
@@ -479,14 +480,25 @@ class ApprovalToolkitClient:
             edges: EdgeApply | Sequence[EdgeApply] | None = None,
             **kwargs,
         ) -> InstancesApplyResult:
-            created = []
+            created_nodes = []
             if isinstance(nodes, NodeApply):
-                created.append(nodes)
+                created_nodes.append(nodes)
             elif isinstance(nodes, Sequence) and all(isinstance(v, NodeApply) for v in nodes):
-                created.extend(nodes)
-            if edges is not None:
-                raise NotImplementedError("Edges not supported yet")
-            created_resources[resource_cls.__name__].extend(created)
+                created_nodes.extend(nodes)
+
+            created_edges = []
+            if isinstance(edges, EdgeApply):
+                created_edges.append(edges)
+            elif isinstance(edges, Sequence) and all(isinstance(v, EdgeApply) for v in edges):
+                created_edges.extend(edges)
+
+            if created_nodes and created_edges:
+                raise ValueError(
+                    "Cannot create both nodes and edges at the same time. Toolikt should" " call one at a time"
+                )
+            created_resources[resource_cls.__name__].extend(created_nodes)
+            created_resources[resource_cls.__name__].extend(created_edges)
+
             return InstancesApplyResult(
                 nodes=NodeApplyResultList(
                     [
@@ -501,7 +513,19 @@ class ApprovalToolkitClient:
                         for node in (nodes if isinstance(nodes, Sequence) else [nodes])
                     ]
                 ),
-                edges=EdgeApplyResultList([]),
+                edges=EdgeApplyResultList(
+                    [
+                        EdgeApplyResult(
+                            space=edge.space,
+                            external_id=edge.external_id,
+                            version=edge.existing_version or 1,
+                            was_modified=True,
+                            last_updated_time=1,
+                            created_time=1,
+                        )
+                        for edge in (edges if isinstance(edges, Sequence) else [edges])
+                    ]
+                ),
             )
 
         def create_extraction_pipeline_config(config: ExtractionPipelineConfigWrite) -> ExtractionPipelineConfig:
