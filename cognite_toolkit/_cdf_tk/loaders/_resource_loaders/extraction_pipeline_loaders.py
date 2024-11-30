@@ -202,7 +202,9 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
-    def iterate(self) -> Iterable[ExtractionPipeline]:
+    def iterate(
+        self, data_set_external_id: str | None = None, space: str | None = None
+    ) -> Iterable[ExtractionPipeline]:
         return iter(self.client.extraction_pipelines)
 
     @classmethod
@@ -361,7 +363,9 @@ class ExtractionPipelineConfigLoader(
                     count += 1
         return count
 
-    def iterate(self) -> Iterable[ExtractionPipelineConfig]:
+    def iterate(
+        self, data_set_external_id: str | None = None, space: str | None = None
+    ) -> Iterable[ExtractionPipelineConfig]:
         return (
             self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
             for pipeline in self.client.extraction_pipelines

@@ -80,11 +80,11 @@ class PurgeCommand(ToolkitCommand):
         selected_data_set: str | None = None,
         dry_run: bool = False,
         verbose: bool = False,
-        batch_size=1000,
-    ):
+        batch_size: int = 1000,
+    ) -> None:
         results = DeployResults([], "purge", dry_run=dry_run)
-        loader_cls: ResourceLoader
-        for loader_cls in reversed(TopologicalSorter(loaders).static_order()):
+        loader_cls: type[ResourceLoader]
+        for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
             loader = loader_cls.create_loader(ToolGlobals, None)
             batch_ids: list[Hashable] = []
             count = 0

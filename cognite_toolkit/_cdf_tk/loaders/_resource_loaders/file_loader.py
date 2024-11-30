@@ -197,7 +197,7 @@ class FileMetadataLoader(
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(cast(SequenceNotStr[str], ids))
 
-    def iterate(self) -> Iterable[FileMetadata]:
+    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[FileMetadata]:
         return iter(self.client.files)
 
     def count(self, ids: SequenceNotStr[str]) -> int:
@@ -329,7 +329,9 @@ class CogniteFileLoader(
             raise e
         return len(deleted.nodes)
 
-    def iterate(self) -> Iterable[ExtendableCogniteFile]:
+    def iterate(
+        self, data_set_external_id: str | None = None, space: str | None = None
+    ) -> Iterable[ExtendableCogniteFile]:
         raise NotImplementedError("")
         # return iter(self.client.data_modeling.instances)
 

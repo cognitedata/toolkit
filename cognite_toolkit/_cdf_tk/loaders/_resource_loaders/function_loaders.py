@@ -243,7 +243,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Function]:
+    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[Function]:
         return iter(self.client.functions)
 
     @classmethod
@@ -406,7 +406,7 @@ class FunctionScheduleLoader(
                 count += 1
         return count
 
-    def iterate(self) -> Iterable[FunctionSchedule]:
+    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[FunctionSchedule]:
         return iter(self.client.functions.schedules)
 
     @classmethod

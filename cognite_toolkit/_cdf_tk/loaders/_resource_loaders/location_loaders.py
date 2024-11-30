@@ -160,7 +160,7 @@ class LocationFilterLoader(
             count += 1
         return count
 
-    def iterate(self) -> Iterable[LocationFilter]:
+    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[LocationFilter]:
         return iter(self.client.location_filters)
 
     @classmethod

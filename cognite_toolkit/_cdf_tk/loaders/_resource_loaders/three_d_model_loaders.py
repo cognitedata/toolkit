@@ -121,7 +121,7 @@ class ThreeDModelLoader(
         self.client.three_d.models.delete(models.as_ids())
         return len(models)
 
-    def iterate(self) -> Iterable[ThreeDModel]:
+    def iterate(self, data_set_external_id: str | None = None, space: str | None = None) -> Iterable[ThreeDModel]:
         return iter(self.client.three_d.models)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
