@@ -211,7 +211,7 @@ Group:
         datasetScope:
           ids:
           - 42
-  - extractionpipelinesAcl:
+  - extractionPipelinesAcl:
       actions:
       - READ
       scope:
