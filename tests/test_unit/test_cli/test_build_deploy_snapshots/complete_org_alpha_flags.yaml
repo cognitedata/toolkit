@@ -56,6 +56,20 @@ Edge:
   type:
     externalId: AnEdgeType
     space: sp_schema
+Event:
+- assetIds:
+  - 666
+  - 666
+  dataSetId: 42
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6
