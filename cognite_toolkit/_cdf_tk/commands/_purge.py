@@ -10,7 +10,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     CogniteFileLoader,
@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     StreamlitLoader,
     TransformationLoader,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from ._base import ToolkitCommand
@@ -194,7 +195,12 @@ class PurgeCommand(ToolkitCommand):
             count = 0
             batch_ids: list[Hashable] = []
             for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
-                batch_ids.append(loader.get_id(resource))
+                try:
+                    batch_ids.append(loader.get_id(resource))
+                except ToolkitRequiredValueError as e:
+                    self.warn(HighSeverityWarning(f"Cannot delete {resource.dump()!r}. Failed to obtain ID: {e}"))
+                    continue
+
                 if len(batch_ids) >= batch_size:
                     child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
                     count += self._delete_batch(batch_ids, dry_run, loader, verbose)

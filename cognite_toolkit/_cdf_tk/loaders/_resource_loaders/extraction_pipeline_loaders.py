@@ -391,7 +391,11 @@ class ExtractionPipelineConfigLoader(
                 pipeline_id = parent_id
             else:
                 continue
-            yield self.client.extraction_pipelines.config.retrieve(external_id=pipeline_id)
+            try:
+                yield self.client.extraction_pipelines.config.retrieve(external_id=pipeline_id)
+            except CogniteAPIError as e:
+                if e.code == 404 and "There is no config stored" in e.message:
+                    continue
 
     @classmethod
     @lru_cache(maxsize=1)
