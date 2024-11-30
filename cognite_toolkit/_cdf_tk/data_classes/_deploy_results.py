@@ -130,7 +130,7 @@ class DeployResults(UserDict):
     def counts_table(self) -> Table:
         table = Table(title=f"Summary of Resources {self.action.title()} operation:")
         prefix = "Would have " if self.dry_run else ""
-        table.add_column("Resource", justify="right")
+        table.add_column("Resource", justify="right", width=30)
         table.add_column(f"{prefix}Created", justify="right", style="green")
         table.add_column(f"{prefix}Deleted", justify="right", style="red")
         table.add_column(f"{prefix}Changed", justify="right", style="magenta")
@@ -140,6 +140,14 @@ class DeployResults(UserDict):
         for item in sorted(
             entry for entry in self.data.values() if entry is not None and isinstance(entry, ResourceDeployResult)
         ):
+            if (
+                item.created == 0
+                and item.deleted == 0
+                and item.changed == 0
+                and item.unchanged == 0
+                and item.total == 0
+            ):
+                continue
             table.add_row(
                 item.name,
                 str(item.created) if is_deploy else "-",
