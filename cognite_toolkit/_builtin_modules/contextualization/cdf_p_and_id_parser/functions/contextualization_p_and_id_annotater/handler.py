@@ -30,7 +30,7 @@ EXTRACTION_RUN_MESSAGE_LIMIT = 1000
 
 def handle(data: dict, client: CogniteClient) -> dict:
     try:
-        execute(data, client)
+        annotation_count = execute(data, client)
     except Exception as e:
         tb = traceback.extract_tb(e.__traceback__)
         last_entry_this_file = next((entry for entry in reversed(tb) if entry.filename == __file__), None)
@@ -48,7 +48,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
             message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
-        message = FUNCTION_ID
+        message = f"{FUNCTION_ID} created {annotation_count} annotations"
 
     client.extraction_pipelines.runs.create(
         ExtractionPipelineRunWrite(extpipe_external_id=EXTRACTION_PIPELINE_EXTERNAL_ID, status=status, message=message)
@@ -186,7 +186,7 @@ class Entity(BaseModel, alias_generator=to_camel, extra="allow", populate_by_nam
 ################# Functions #################
 
 
-def execute(data: dict, client: CogniteClient) -> None:
+def execute(data: dict, client: CogniteClient) -> int:
     logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
     logger.debug("Starting diagram parsing annotation")
     config = load_config(client, logger)
@@ -208,6 +208,7 @@ def execute(data: dict, client: CogniteClient) -> None:
         annotation_count += len(annotations)
 
     logger.info(f"Annotations created: {annotation_count}")
+    return annotation_count
 
 
 def trigger_diagram_detection_jobs(
