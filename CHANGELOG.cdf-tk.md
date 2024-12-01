@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- Toolkit will no longer give the warning `UserWarning: Unknown capability` in irrelevant cases.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.
