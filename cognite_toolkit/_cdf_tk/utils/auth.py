@@ -65,7 +65,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSever
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-Provider: TypeAlias = Literal["entra_id", "cog_idp", "other"]
+Provider: TypeAlias = Literal["entra_id", "cdf", "other"]
 
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
@@ -76,7 +76,7 @@ LOGIN_FLOW_DESCRIPTION = {
 
 PROVDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
-    "cog_idp": "Use Cognite IDP to authenticate",
+    "cdf": "Use Cognite IDP to authenticate",
     "other": "Use other IDP to authenticate",
 }
 
@@ -171,10 +171,10 @@ class AuthVariables:
 
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
-        if self.client_secret:
-            self.set_client_secret_defaults()
         if self.cluster:
             self.set_cluster_defaults()
+        if self.provider == "cdf":
+            self.set_cdf_provider_defaults()
         if self.tenant_id:
             self.set_token_id_defaults()
         if self.token and self.login_flow != "token":
@@ -184,15 +184,11 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
-    def set_client_secret_defaults(self) -> None:
-        if self.client_secret and self.client_secret.startswith("cdf_sa_sct"):
-            self.provider = "cog_idp"
-            self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
-            if self.scopes is not None:
-                IgnoredValueWarning(
-                    "IDP_SCOPES", self.scopes, "Provider si Cog-IDP does not need scopes"
-                ).print_warning()
-            self.scopes = None
+    def set_cdf_provider_defaults(self) -> None:
+        self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
+        if self.scopes is not None:
+            IgnoredValueWarning("IDP_SCOPES", self.scopes, "Provider si Cog-IDP does not need scopes").print_warning()
+        self.scopes = None
 
     def set_token_id_defaults(self) -> None:
         if self.tenant_id:
