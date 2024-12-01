@@ -44,7 +44,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 427ce529572b8e1d6d383b6c9629a40b3b372e88513afcf4b3052441d6f4a82e
+    cdf-toolkit-function-hash: ce7a97c29d42f6b461d9923d08743088b571a85086d277ec873e267db417a95a
   name: P&ID Annotator
   owner: Anonymous
 Node:
