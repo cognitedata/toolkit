@@ -9,6 +9,7 @@ from cognite.client.data_classes import DataSetUpdate
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
@@ -47,6 +48,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a space and all its content"""
         selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
+        self._print_panel("space", selected_space)
         if space is None:
             # Interactive mode
             include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
@@ -120,6 +122,7 @@ class PurgeCommand(ToolkitCommand):
     ) -> None:
         """Purge a dataset and all its content"""
         selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
+        self._print_panel("dataset", selected_dataset)
         if external_id is None:
             # Interactive mode
             include_dataset = questionary.confirm(
@@ -162,6 +165,18 @@ class PurgeCommand(ToolkitCommand):
             print(f"Purged dataset {selected_dataset!r} completed")
         elif not dry_run:
             print(f"Purged dataset {selected_dataset!r} partly completed. See warnings for details.")
+
+    def _print_panel(self, resource_type: str, resource: str) -> None:
+        print(
+            Panel(
+                f"[red]WARNING:[/red] This operation [bold]cannot be undone[/bold]! "
+                f"Resources in {resource!r} are permanently deleted",
+                style="bold",
+                title=f"Purge {resource_type}",
+                title_align="left",
+                border_style="red",
+            )
+        )
 
     @staticmethod
     def _get_selected_dataset(external_id: str | None, client: ToolkitClient) -> str:

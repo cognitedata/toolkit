@@ -208,7 +208,7 @@ class ResourceLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[T_WritableCogniteResource]:
-        if sum(1 for x in [data_set_external_id, space, parent_ids] if x is not None) <= 1:
+        if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
         if parent_ids is not None and not self.has_parent_resource:
             return []
