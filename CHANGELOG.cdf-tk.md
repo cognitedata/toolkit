@@ -23,6 +23,11 @@ Changes are grouped as follows:
 - [alpha feature] Support `Event` resources in the `classic` directory.
 - [alpha feature] Support `Relpationship` resources in the `classic` directory.
 
+### Fixed
+
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.

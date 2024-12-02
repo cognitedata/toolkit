@@ -109,7 +109,7 @@ capabilities:
         datasetScope:
           ids:
             - {{ dataset }}
-  - extractionpipelinesAcl:
+  - extractionPipelinesAcl:
         actions:
           - READ
         scope:
