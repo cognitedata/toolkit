@@ -578,6 +578,22 @@ type UnitOfMeasurement
         {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
         id="Ignore comments",
     ),
+    pytest.param(
+        """type APM_Config @view {
+  name: String
+  appDataSpaceId: String
+  appDataSpaceVersion: String
+  customerDataSpaceId: String
+  customerDataSpaceVersion: String
+  featureConfiguration: JSONObject
+  fieldConfiguration: JSONObject
+  rootLocationsConfiguration: JSONObject
+}""",
+        DATA_MODEL,
+        {ViewId(SPACE, "APM_Config", None)},
+        set(),
+        id="No version",
+    ),
 ]
 
 

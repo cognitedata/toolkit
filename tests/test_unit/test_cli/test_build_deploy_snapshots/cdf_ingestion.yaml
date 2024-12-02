@@ -96,6 +96,13 @@ Group:
         datasetScope:
           ids:
           - 42
+  - extractionPipelinesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
   - assetsAcl:
       actions:
       - READ
@@ -211,7 +218,7 @@ Group:
         datasetScope:
           ids:
           - 42
-  - extractionpipelinesAcl:
+  - extractionPipelinesAcl:
       actions:
       - READ
       scope:

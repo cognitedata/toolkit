@@ -9,6 +9,21 @@ Asset:
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
+Container:
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      autoIncrement: false
+      immutable: false
+      nullable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
 DataSet:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -20,6 +35,27 @@ DataSet:
   metadata: {}
   name: Dataset for assets on Oslo
   writeProtected: false
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6
@@ -66,3 +102,28 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
+Node:
+- externalId: AnEdgeType
+  instanceType: node
+  space: sp_schema
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
+Space:
+- space: sp_instance
+- space: sp_schema
+View:
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1

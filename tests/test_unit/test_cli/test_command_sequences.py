@@ -184,7 +184,12 @@ def test_init_build_clean(
 
 
 TEST_CASES = [COMPLETE_ORG]
-if Flags.REQUIRE_KIND.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.STREAMLIT.is_enabled():
+if (
+    Flags.REQUIRE_KIND.is_enabled()
+    or Flags.GRAPHQL.is_enabled()
+    or Flags.STREAMLIT.is_enabled()
+    or Flags.EDGES.is_enabled()
+):
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
 
