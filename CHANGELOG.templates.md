@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## Fixed
+
+- renamed non-toolkit Function config files for `bootcamp` module
+
 ## [0.3.14] - 2024-11-27
 
 No changes to templates.
