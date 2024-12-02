@@ -105,7 +105,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -287,7 +287,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         else:
             return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -409,7 +409,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         else:
             return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

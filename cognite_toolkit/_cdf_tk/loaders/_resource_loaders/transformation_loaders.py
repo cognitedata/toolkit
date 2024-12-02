@@ -305,7 +305,7 @@ class TransformationLoader(
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -444,7 +444,7 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -594,7 +594,7 @@ class TransformationNotificationLoader(
             self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
         return len(existing)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

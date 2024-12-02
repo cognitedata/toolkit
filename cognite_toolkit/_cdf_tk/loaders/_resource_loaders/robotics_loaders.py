@@ -93,7 +93,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
             return len(e.successful)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -167,7 +167,7 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
             return len(e.successful)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -259,7 +259,7 @@ class RoboticsDataPostProcessingLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -352,7 +352,7 @@ class RobotCapabilityLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -428,7 +428,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
             return len(e.successful)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

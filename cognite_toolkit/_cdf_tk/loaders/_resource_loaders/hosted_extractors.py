@@ -91,7 +91,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         self.client.hosted_extractors.sources.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -189,7 +189,7 @@ class HostedExtractorDestinationLoader(
         self.client.hosted_extractors.destinations.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -312,7 +312,7 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         self.client.hosted_extractors.jobs.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -414,7 +414,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         self.client.hosted_extractors.mappings.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

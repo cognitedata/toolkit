@@ -173,7 +173,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

@@ -199,7 +199,7 @@ class ResourceLoader(
         raise NotImplementedError
 
     @abstractmethod
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

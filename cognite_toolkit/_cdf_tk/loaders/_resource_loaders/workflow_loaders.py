@@ -153,7 +153,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 successes += 1
         return successes
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -311,7 +311,7 @@ class WorkflowVersionLoader(
                 successes += 1
         return successes
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -443,7 +443,7 @@ class WorkflowTriggerLoader(
                 successes += 1
         return successes
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

@@ -197,7 +197,7 @@ class FileMetadataLoader(
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(cast(SequenceNotStr[str], ids))
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -337,7 +337,7 @@ class CogniteFileLoader(
             raise e
         return len(deleted.nodes)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

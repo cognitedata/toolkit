@@ -438,7 +438,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -561,7 +561,7 @@ class SecurityCategoryLoader(
             self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
         return len(retrieved)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

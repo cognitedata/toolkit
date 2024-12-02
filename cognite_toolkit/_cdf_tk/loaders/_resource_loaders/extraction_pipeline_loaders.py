@@ -202,7 +202,7 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -377,7 +377,7 @@ class ExtractionPipelineConfigLoader(
                     count += 1
         return count
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

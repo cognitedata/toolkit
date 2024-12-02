@@ -114,7 +114,7 @@ class RawDatabaseLoader(
                 raise e
         return len(db_names)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -262,7 +262,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
                 count += len(tables)
         return count
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

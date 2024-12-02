@@ -161,7 +161,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -342,7 +342,7 @@ class DatapointSubscriptionLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

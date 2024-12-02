@@ -100,7 +100,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         else:
             return len(ids)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,

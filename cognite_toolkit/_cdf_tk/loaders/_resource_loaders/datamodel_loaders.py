@@ -158,7 +158,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         deleted = self.client.data_modeling.spaces.delete(to_delete)
         return len(deleted)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -326,7 +326,7 @@ class ContainerLoader(
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -591,7 +591,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -825,7 +825,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -1015,7 +1015,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             raise e
         return len(deleted.nodes)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -1217,7 +1217,7 @@ class GraphQLLoader(
         deleted += len(self.client.data_modeling.views.delete(list(views)))
         return deleted
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
@@ -1415,7 +1415,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             raise e
         return len(deleted.edges)
 
-    def iterate(
+    def _iterate(
         self,
         data_set_external_id: str | None = None,
         space: str | None = None,
