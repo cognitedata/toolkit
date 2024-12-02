@@ -39,6 +39,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
+    EDGES: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for creating edges between nodes",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

@@ -1,0 +1,19 @@
+space: sp_instance
+externalId: 'MyEdge'
+startNode:
+  space: sp_instance
+  externalId: 'startNode'
+endNode:
+  space: sp_instance
+  externalId: 'endNode'
+type:
+  space: sp_schema
+  externalId: 'AnEdgeType'
+sources:
+  - source:
+      space: sp_schema
+      externalId: 'MyView'
+      version: v1
+      type: 'view'
+    properties:
+      myProperty: 'myValue'

@@ -11,6 +11,7 @@ run-workflow = true
 streamlit = true
 force-update = true
 module-repeat = true
+edges = true
 
 [plugins]
 run = true
