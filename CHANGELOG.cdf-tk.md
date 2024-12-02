@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.
