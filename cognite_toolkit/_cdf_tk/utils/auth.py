@@ -187,7 +187,7 @@ class AuthVariables:
     def set_cdf_provider_defaults(self) -> None:
         self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
         if self.scopes is not None:
-            IgnoredValueWarning("IDP_SCOPES", self.scopes, "Provider si Cog-IDP does not need scopes").print_warning()
+            IgnoredValueWarning("IDP_SCOPES", self.scopes, "Provider Cog-IDP does not need scopes").print_warning()
         self.scopes = None
 
     def set_token_id_defaults(self) -> None:
