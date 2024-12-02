@@ -22,6 +22,7 @@ Changes are grouped as follows:
 - The user group in the `QuickStart` package now has capabilities to inspect the RAW tables and
   extraction pipelines.
 - Missing table `diagramParsing` in the `QuickStart` is now created.
+- Bug in the SQL transformation of the `cdf_sharepoint` modules.
 
 ## [0.3.16] - 2024-11-28
 
