@@ -153,8 +153,21 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
                 successes += 1
         return successes
 
-    def iterate(self) -> Iterable[Workflow]:
-        return self.client.workflows.list(limit=-1)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Workflow]:
+        if data_set_external_id is None:
+            yield from self.client.workflows.list(limit=-1)
+            return
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+        for workflow in self.client.workflows.list(limit=-1):
+            if workflow.data_set_id == data_set.id:
+                yield workflow
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -214,6 +227,7 @@ class WorkflowVersionLoader(
     list_write_cls = WorkflowVersionUpsertList
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
+    has_parent_resource = True
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
@@ -295,8 +309,14 @@ class WorkflowVersionLoader(
                 successes += 1
         return successes
 
-    def iterate(self) -> Iterable[WorkflowVersion]:
-        return self.client.workflows.versions.list(limit=-1)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[WorkflowVersion]:
+        workflow_ids = [parent_id for parent_id in parent_ids if isinstance(parent_id, str)] if parent_ids else None
+        return self.client.workflows.versions.list(limit=-1, workflow_version_ids=workflow_ids)  # type: ignore[arg-type]
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -345,6 +365,7 @@ class WorkflowTriggerLoader(
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
+    has_parent_resource = True
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
     do_environment_variable_injection = True
@@ -421,8 +442,18 @@ class WorkflowTriggerLoader(
                 successes += 1
         return successes
 
-    def iterate(self) -> Iterable[WorkflowTrigger]:
-        return self.client.workflows.triggers.list(limit=-1)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[WorkflowTrigger]:
+        triggers = self.client.workflows.triggers.list(limit=-1)
+        if parent_ids is not None:
+            # Parent = Workflow
+            workflow_ids = {parent_id for parent_id in parent_ids if isinstance(parent_id, str)}
+            return (trigger for trigger in triggers if trigger.workflow_external_id in workflow_ids)
+        return triggers
 
     @classmethod
     @lru_cache(maxsize=1)

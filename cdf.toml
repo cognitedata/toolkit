@@ -13,6 +13,7 @@ force-update = true
 module-repeat = true
 edges = true
 classic = true
+purge = true
 
 [plugins]
 run = true

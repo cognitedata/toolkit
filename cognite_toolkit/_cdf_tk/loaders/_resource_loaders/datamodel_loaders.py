@@ -158,8 +158,16 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         deleted = self.client.data_modeling.spaces.delete(to_delete)
         return len(deleted)
 
-    def iterate(self) -> Iterable[Space]:
-        return iter(self.client.data_modeling.spaces)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Space]:
+        if space:
+            return self.client.data_modeling.spaces.retrieve([space])
+        else:
+            return iter(self.client.data_modeling.spaces)
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
@@ -315,8 +323,13 @@ class ContainerLoader(
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
         return len(deleted)
 
-    def iterate(self) -> Iterable[Container]:
-        return iter(self.client.data_modeling.containers)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Container]:
+        return iter(self.client.data_modeling.containers(space=space))
 
     def count(self, ids: SequenceNotStr[ContainerId]) -> int:
         # Bug in spec of aggregate requiring view_id to be passed in, so we cannot use it.
@@ -572,8 +585,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
         return nr_of_deleted
 
-    def iterate(self) -> Iterable[View]:
-        return iter(self.client.data_modeling.views)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[View]:
+        return iter(self.client.data_modeling.views(space=space))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -798,8 +816,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
 
-    def iterate(self) -> Iterable[DataModel]:
-        return iter(self.client.data_modeling.data_models)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataModel]:
+        return iter(self.client.data_modeling.data_models(space=space, include_global=False))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -980,8 +1003,13 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             raise e
         return len(deleted.nodes)
 
-    def iterate(self) -> Iterable[Node]:
-        return iter(self.client.data_modeling.instances)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Node]:
+        return iter(self.client.data_modeling.instances(space=space))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
@@ -1174,7 +1202,12 @@ class GraphQLLoader(
         deleted += len(self.client.data_modeling.views.delete(list(views)))
         return deleted
 
-    def iterate(self) -> Iterable[GraphQLDataModel]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[GraphQLDataModel]:
         return iter(GraphQLDataModel._load(d.dump()) for d in self.client.data_modeling.data_models)
 
     def count(self, ids: SequenceNotStr[DataModelId]) -> int:
@@ -1364,8 +1397,13 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             raise e
         return len(deleted.edges)
 
-    def iterate(self) -> Iterable[Edge]:
-        return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge"))
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Edge]:
+        return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:
         return len(ids)

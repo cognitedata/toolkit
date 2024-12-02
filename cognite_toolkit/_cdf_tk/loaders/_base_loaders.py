@@ -163,6 +163,10 @@ class ResourceLoader(
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     do_environment_variable_injection = False
+    # For example, TransformationNotification and Schedule has Transformation as the parent resource
+    # This is used in the iterate method to ensure that nothing is returned if
+    # the resource type does not have a parent resource.
+    has_parent_resource = False
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -198,8 +202,35 @@ class ResourceLoader(
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
+        if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
+            raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
+        if parent_ids is not None and not self.has_parent_resource:
+            return []
+        if space is not None:
+            from ._resource_loaders.datamodel_loaders import SpaceLoader
+
+            if SpaceLoader not in self.dependencies:
+                return []
+        if data_set_external_id is not None:
+            from ._resource_loaders.data_organization_loaders import DataSetsLoader
+
+            if DataSetsLoader not in self.dependencies:
+                return []
+        return self._iterate(data_set_external_id, space, parent_ids)
+
     @abstractmethod
-    def iterate(self) -> Iterable[T_WritableCogniteResource]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 
     # The methods below have default implementations that can be overwritten in subclasses

@@ -1,3 +1,4 @@
+from ._purge import PurgeCommand
 from .auth import AuthCommand
 from .build import BuildCommand
 from .clean import CleanCommand
@@ -26,6 +27,7 @@ __all__ = [
     "InitCommand",
     "ModulesCommand",
     "PullCommand",
+    "PurgeCommand",
     "RepoCommand",
     "RunFunctionCommand",
     "RunTransformationCommand",

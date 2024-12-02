@@ -20,7 +20,17 @@ global_config.silence_feature_preview_warnings = True
 
 from rich import print
 
-from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, ModulesApp, PullApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.apps import (
+    AuthApp,
+    CoreApp,
+    DumpApp,
+    LandingApp,
+    ModulesApp,
+    PullApp,
+    PurgeApp,
+    RepoApp,
+    RunApp,
+)
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
@@ -85,6 +95,10 @@ if Plugins.pull.value.is_enabled():
 
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
+
+if Flags.PURGE.is_enabled():
+    _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
+
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
