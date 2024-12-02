@@ -74,6 +74,13 @@ capabilities:
         tableScope:
           dbsToTables:
             {{ rawStateDatabase }}: {}
+  - extractionPipelinesAcl:
+        actions:
+          - READ
+        scope:
+          datasetScope:
+            ids:
+              - {{ dataset }}
 # Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:

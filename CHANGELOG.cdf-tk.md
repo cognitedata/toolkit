@@ -19,8 +19,16 @@ Changes are grouped as follows:
 
 ### Added
 
-- [alpha flag] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+- [alpha feature] Support `Relpationship` resources in the `classic` directory.
+- [alpha feature] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
   connected to it. This is useful if you want to clean up your CDF project.
+
+### Fixed
+
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
 
 ## [0.3.16] - 2024-11-28
 
