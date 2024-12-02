@@ -322,7 +322,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
 @final
 class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventList]):
     folder_name = "classic"
-    filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Asset'.
+    filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Event'.
     filetypes = frozenset({"yaml", "yml"})
     resource_cls = Event
     resource_write_cls = EventWrite
