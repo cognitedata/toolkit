@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.
