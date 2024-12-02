@@ -62,8 +62,8 @@ class PurgeCommand(ToolkitCommand):
                 CogniteFileLoader,
             },
         )
-        self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
-        if include_space:
+        is_purged = self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
+        if include_space and is_purged:
             space_loader = SpaceLoader.create_loader(ToolGlobals, None)
             if dry_run:
                 print(f"Would delete space {selected_space}")
@@ -73,9 +73,13 @@ class PurgeCommand(ToolkitCommand):
                     print(f"Space {selected_space} deleted")
                 except CogniteAPIError as e:
                     self.warn(HighSeverityWarning(f"Failed to delete space {selected_space!r}: {e}"))
+        elif include_space:
+            self.warn(HighSeverityWarning(f"Space {selected_space!r} was not deleted due to errors during the purge"))
 
-        if not dry_run:
+        if not dry_run and is_purged:
             print(f"Purge space {selected_space!r} completed.")
+        elif not dry_run:
+            print(f"Purge space {selected_space!r} partly completed. See warnings for details.")
 
     @staticmethod
     def _get_dependencies(
@@ -134,8 +138,10 @@ class PurgeCommand(ToolkitCommand):
                 FunctionLoader,
             },
         )
-        self._purge(ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
-        if include_dataset:
+        is_purged = self._purge(
+            ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose
+        )
+        if include_dataset and is_purged:
             if dry_run:
                 print(f"Would have archived {selected_dataset}")
             else:
@@ -147,9 +153,15 @@ class PurgeCommand(ToolkitCommand):
                 )
                 ToolGlobals.toolkit_client.data_sets.update(archived)
                 print(f"DataSet {selected_dataset} archived")
+        elif include_dataset:
+            self.warn(
+                HighSeverityWarning(f"DataSet {selected_dataset} was not archived due to errors during the purge")
+            )
 
-        if not dry_run:
+        if not dry_run and is_purged:
             print(f"Purged dataset {selected_dataset!r} completed")
+        elif not dry_run:
+            print(f"Purged dataset {selected_dataset!r} partly completed. See warnings for details.")
 
     @staticmethod
     def _get_selected_dataset(external_id: str | None, client: ToolkitClient) -> str:
@@ -178,7 +190,8 @@ class PurgeCommand(ToolkitCommand):
         dry_run: bool = False,
         verbose: bool = False,
         batch_size: int = 1000,
-    ) -> None:
+    ) -> bool:
+        is_purged = True
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
         for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
@@ -190,12 +203,15 @@ class PurgeCommand(ToolkitCommand):
             if isinstance(loader, NodeLoader) and not dry_run:
                 # Special handling of nodes as node type must be deleted after regular nodes
                 # In dry-run mode, we are not deleting the nodes, so we can skip this.
+                warnings_before = len(self.warning_list)
                 deleted_nodes = self._purge_nodes(loader, selected_space, verbose)
                 results[loader.display_name] = ResourceDeployResult(
                     name=loader.display_name,
                     deleted=deleted_nodes,
                     total=deleted_nodes,
                 )
+                if len(self.warning_list) > warnings_before:
+                    is_purged = False
                 continue
 
             # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
@@ -205,7 +221,7 @@ class PurgeCommand(ToolkitCommand):
             child_loaders = [
                 child_loader.create_loader(ToolGlobals, None)
                 for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
-                # Necessary as the toplogical sort includes dependencies that are not in the loaders
+                # Necessary as the topological sort includes dependencies that are not in the loaders
                 if child_loader in child_loader_classes
             ]
             count = 0
@@ -215,6 +231,7 @@ class PurgeCommand(ToolkitCommand):
                     batch_ids.append(loader.get_id(resource))
                 except ToolkitRequiredValueError as e:
                     self.warn(HighSeverityWarning(f"Cannot delete {resource.dump()!r}. Failed to obtain ID: {e}"))
+                    is_purged = False
                     continue
 
                 if len(batch_ids) >= batch_size:
@@ -237,6 +254,7 @@ class PurgeCommand(ToolkitCommand):
                 total=count,
             )
         print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+        return is_purged
 
     @staticmethod
     def _delete_batch(batch_ids: list[Hashable], dry_run: bool, loader: ResourceLoader, verbose: bool) -> int:
