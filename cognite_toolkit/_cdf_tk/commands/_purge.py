@@ -49,9 +49,7 @@ class PurgeCommand(ToolkitCommand):
         selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
         if space is None:
             # Interactive mode
-            include_space = questionary.confirm(
-                "Do you also want to delete the space itself?", default=False
-            ).ask()
+            include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
 
         loaders = self._get_dependencies(
