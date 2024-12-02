@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+
 ### Fixed
 
 - [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises

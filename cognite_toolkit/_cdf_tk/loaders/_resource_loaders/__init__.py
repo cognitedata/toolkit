@@ -1,5 +1,5 @@
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader, SequenceLoader
+from .classic_loaders import AssetLoader, EventLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import (
     ContainerLoader,
@@ -43,6 +43,7 @@ __all__ = [
     "DataSetsLoader",
     "DatapointSubscriptionLoader",
     "EdgeLoader",
+    "EventLoader",
     "ExtractionPipelineConfigLoader",
     "ExtractionPipelineLoader",
     "FileMetadataLoader",
