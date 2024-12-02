@@ -21,6 +21,7 @@ Changes are grouped as follows:
 
 - [alpha feature] Support `Edges` resources in the `data_models` directory.
 - [alpha feature] Support `Event` resources in the `classic` directory.
+- [alpha feature] Support `Relpationship` resources in the `classic` directory.
 
 ## [0.3.16] - 2024-11-28
 
