@@ -166,9 +166,6 @@ class LocationFilterLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[LocationFilter]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.location_filters)
 
     @classmethod

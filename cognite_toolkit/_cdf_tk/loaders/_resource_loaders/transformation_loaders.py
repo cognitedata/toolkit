@@ -311,9 +311,6 @@ class TransformationLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Transformation]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(
             self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )
@@ -375,6 +372,7 @@ class TransformationScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:
@@ -482,6 +480,7 @@ class TransformationNotificationLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:

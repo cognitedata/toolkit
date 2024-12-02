@@ -97,9 +97,6 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Source]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.hosted_extractors.sources)
 
     @classmethod
@@ -195,9 +192,6 @@ class HostedExtractorDestinationLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Destination]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
@@ -318,9 +312,6 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Job]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.hosted_extractors.jobs)
 
     @classmethod
@@ -420,9 +411,6 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Mapping]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.hosted_extractors.mappings)
 
     @classmethod

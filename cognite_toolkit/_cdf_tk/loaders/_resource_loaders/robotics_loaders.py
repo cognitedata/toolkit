@@ -99,9 +99,6 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Frame]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.robotics.frames)
 
 
@@ -173,9 +170,6 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Location]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.robotics.locations)
 
 
@@ -265,9 +259,6 @@ class RoboticsDataPostProcessingLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DataPostProcessing]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.robotics.data_postprocessing)
 
 
@@ -358,9 +349,6 @@ class RobotCapabilityLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RobotCapability]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.robotics.capabilities)
 
 
@@ -434,9 +422,6 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Map]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.robotics.maps)
 
 

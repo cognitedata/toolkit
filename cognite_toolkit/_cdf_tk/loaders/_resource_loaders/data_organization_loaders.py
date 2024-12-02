@@ -146,9 +146,6 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DataSet]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.data_sets)
 
     @classmethod
@@ -248,9 +245,6 @@ class LabelLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[LabelDefinition]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod

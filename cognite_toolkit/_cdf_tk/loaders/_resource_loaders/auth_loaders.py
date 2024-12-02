@@ -444,9 +444,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Group]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return self.client.iam.groups.list(all=True)
 
     @classmethod
@@ -567,7 +564,4 @@ class SecurityCategoryLoader(
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[SecurityCategory]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return self.client.iam.security_categories.list(limit=-1)

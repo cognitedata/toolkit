@@ -106,9 +106,6 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Relationship]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(
             self.client.relationships(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
         )

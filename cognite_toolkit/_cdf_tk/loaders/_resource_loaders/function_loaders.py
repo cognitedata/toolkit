@@ -249,9 +249,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Function]:
-        if parent_ids is not None:
-            # Does not have a direct parent resource.
-            return []
         return iter(self.client.functions)
 
     @classmethod
@@ -281,6 +278,7 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     do_environment_variable_injection = True
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:
