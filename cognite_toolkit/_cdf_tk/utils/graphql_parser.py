@@ -1,5 +1,4 @@
 import re
-import typing
 from abc import abstractmethod
 from collections.abc import MutableSequence
 from dataclasses import dataclass, field
@@ -154,7 +153,7 @@ class _Directive:
     def load(cls, content: list[str]) -> "_Directive | None":
         key, *content = content
         raw_string = "".join(content).removeprefix("(").removesuffix(")").replace("\n", ",")
-        data = typing.cast(dict[str, Any], cls._create_args(raw_string))
+        data = cls._create_args(raw_string)
         if key == "import":
             return _Import._load(data)
         if key == "view":
@@ -196,7 +195,9 @@ class _ViewDirective(_Directive):
     version: str | None = None
 
     @classmethod
-    def _load(cls, data: dict[str, Any]) -> "_ViewDirective":
+    def _load(cls, data: dict[str, Any] | str) -> "_ViewDirective":
+        if isinstance(data, str):
+            return _ViewDirective()
         return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
 
 
@@ -205,7 +206,9 @@ class _Import(_Directive):
     data_model: DataModelId | None = None
 
     @classmethod
-    def _load(cls, data: dict[str, Any]) -> "_Import":
+    def _load(cls, data: dict[str, Any] | str) -> "_Import":
+        if isinstance(data, str):
+            return _Import()
         if "dataModel" in data:
             return _Import(data_model=DataModelId.load(data["dataModel"]))
         return _Import()
