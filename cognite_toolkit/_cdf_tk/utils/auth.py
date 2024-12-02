@@ -17,6 +17,7 @@ import itertools
 import json
 import os
 import shutil
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -761,14 +762,18 @@ class CDFToolConfig:
     @property
     def _token_inspection(self) -> TokenInspection:
         if self._cache.token_inspect is None:
-            try:
-                self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
-            except CogniteAPIError as e:
-                raise AuthorizationError(
-                    f"Don't seem to have any access rights. {e}\n"
-                    f"Please visit [link={URL.configure_access}]the documentation[/link] "
-                    f"and ensure you have configured your access correctly."
-                ) from e
+            with warnings.catch_warnings():
+                # If the user has unknown capabilities, we don't want the user to see the warning:
+                # "UserWarning: Unknown capability '<unknown warning>'.
+                warnings.simplefilter("ignore")
+                try:
+                    self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
+                except CogniteAPIError as e:
+                    raise AuthorizationError(
+                        f"Don't seem to have any access rights. {e}\n"
+                        f"Please visit [link={URL.configure_access}]the documentation[/link] "
+                        f"and ensure you have configured your access correctly."
+                    ) from e
         return self._cache.token_inspect
 
     def verify_authorization(
@@ -784,7 +789,14 @@ class CDFToolConfig:
             ToolkitClient: Verified client with access rights
         """
         token_inspect = self._token_inspection
-        missing_capabilities = self.toolkit_client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        with warnings.catch_warnings():
+            # If the user has unknown capabilities, we don't want the user to see the warning:
+            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
+            # This is irrelevant for the user as we are only checking the capabilities that are known.
+            warnings.simplefilter("ignore")
+            missing_capabilities = self.toolkit_client.iam.compare_capabilities(
+                token_inspect.capabilities, capabilities
+            )
         if missing_capabilities:
             missing = "  - \n".join(repr(c) for c in missing_capabilities)
             first_sentence = "Don't have correct access rights"

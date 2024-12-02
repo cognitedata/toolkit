@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Improved
+
+- Toolkit will no longer give the warning `UserWarning: Unknown capability` in irrelevant cases.
+
 ### Added
 
 - [alpha feature] Support `Edges` resources in the `data_models` directory.
