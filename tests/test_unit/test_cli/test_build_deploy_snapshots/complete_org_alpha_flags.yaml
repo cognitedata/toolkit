@@ -139,6 +139,14 @@ Node:
 - externalId: startNode
   instanceType: node
   space: sp_instance
+Relationship:
+- confidence: 0.42
+  dataSetId: 42
+  externalId: MyRelationship
+  sourceExternalId: MyAsset
+  sourceType: asset
+  targetExternalId: MyEvent
+  targetType: event
 Space:
 - space: sp_instance
 - space: sp_schema

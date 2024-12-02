@@ -47,6 +47,10 @@ from cognite.client.data_classes import (
     LabelDefinition,
     LabelDefinitionList,
     LabelDefinitionWrite,
+    Relationship,
+    RelationshipList,
+    RelationshipWrite,
+    RelationshipWriteList,
     Row,
     RowList,
     RowWrite,
@@ -735,6 +739,19 @@ API_RESOURCES = [
         list_cls=EventList,
         _write_cls=EventWrite,
         _write_list_cls=EventWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="relationships",
+        resource_cls=Relationship,
+        list_cls=RelationshipList,
+        _write_cls=RelationshipWrite,
+        _write_list_cls=RelationshipWriteList,
         methods={
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [

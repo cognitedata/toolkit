@@ -46,6 +46,7 @@ from ._resource_loaders import (
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
+    RelationshipLoader,
     RobotCapabilityLoader,
     RoboticFrameLoader,
     RoboticLocationLoader,
@@ -79,6 +80,7 @@ if not Flags.EDGES.is_enabled():
     _EXCLUDED_LOADERS.add(EdgeLoader)
 if not Flags.CLASSIC.is_enabled():
     _EXCLUDED_LOADERS.add(EventLoader)
+    _EXCLUDED_LOADERS.add(RelationshipLoader)
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
@@ -189,6 +191,7 @@ __all__ = [
     "RawDatabaseLoader",
     "RawFileLoader",
     "RawTableLoader",
+    "RelationshipLoader",
     "ResourceContainerLoader",
     "ResourceLoader",
     "ResourceTypes",
