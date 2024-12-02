@@ -210,7 +210,7 @@ class PurgeCommand(ToolkitCommand):
             ]
             count = 0
             batch_ids: list[Hashable] = []
-            for resource in loader._iterate(data_set_external_id=selected_data_set, space=selected_space):
+            for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
                 try:
                     batch_ids.append(loader.get_id(resource))
                 except ToolkitRequiredValueError as e:
@@ -257,7 +257,7 @@ class PurgeCommand(ToolkitCommand):
         child_deletion: dict[str, int] = {}
         for child_loader in child_loaders:
             child_ids = set()
-            for child in child_loader._iterate(parent_ids=parent_ids):
+            for child in child_loader.iterate(parent_ids=parent_ids):
                 child_ids.add(child_loader.get_id(child))
             count = 0
             if child_ids:
@@ -278,12 +278,12 @@ class PurgeCommand(ToolkitCommand):
         """Special handling of nodes as we must ensure all node types are deleted last."""
         # First find all Node Types
         node_types: set[NodeId] = set()
-        for node in loader._iterate(space=selected_space):
+        for node in loader.iterate(space=selected_space):
             if node.type:
                 node_types.add(NodeId(node.type.space, node.type.external_id))
         count = 0
         batch_ids: list[NodeId] = []
-        for node in loader._iterate(space=selected_space):
+        for node in loader.iterate(space=selected_space):
             node_id = node.as_id()
             if node_id in node_types:
                 # Skip if it is a node type
