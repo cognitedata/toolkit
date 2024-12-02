@@ -17,6 +17,10 @@ from cognite.client.data_classes import (
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    Event,
+    EventList,
+    EventWrite,
+    EventWriteList,
     ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
@@ -722,6 +726,19 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="events",
+        resource_cls=Event,
+        list_cls=EventList,
+        _write_cls=EventWrite,
+        _write_list_cls=EventWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),

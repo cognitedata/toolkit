@@ -12,6 +12,7 @@ streamlit = true
 force-update = true
 module-repeat = true
 edges = true
+classic = true
 
 [plugins]
 run = true

@@ -5,6 +5,14 @@ Asset:
   name: RootAsset
   source: doctrino
 - dataSetId: 42
+  externalId: MyAsset
+  name: MyAsset
+  source: doctrino
+- dataSetId: 42
+  externalId: MyAsset2
+  name: MyAsset2
+  source: doctrino
+- dataSetId: 42
   description: This is the root asset on Oslo
   externalId: Oslo_root
   name: RootAsset
@@ -35,6 +43,11 @@ DataSet:
   metadata: {}
   name: Dataset for assets on Oslo
   writeProtected: false
+- description: This dataset is used for all the resources in the complete_org.
+  externalId: ds_complete_org
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
 Edge:
 - endNode:
     externalId: endNode
@@ -56,6 +69,20 @@ Edge:
   type:
     externalId: AnEdgeType
     space: sp_schema
+Event:
+- assetIds:
+  - 666
+  - 666
+  dataSetId: 42
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6
