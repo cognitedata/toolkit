@@ -31,6 +31,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Using cdf for the identity provider no longer makes assumption about `IDP_CLIENT_SECRET` format.
 - [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
   an `Failed to parse GraphQL schema` error.
 
