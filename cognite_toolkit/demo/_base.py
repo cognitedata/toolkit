@@ -1,3 +1,4 @@
+import re
 import tempfile
 import textwrap
 from pathlib import Path
@@ -45,15 +46,17 @@ class CogniteToolkitDemo:
         return organization_path
 
     def quickstart(
-        self, organization_name: str | None, client_id: str | None = None, client_secret: str | None = None
+        self, company_prefix: str | None, client_id: str | None = None, client_secret: str | None = None
     ) -> None:
-        print(Panel("Running Toolkit QuickStart..."))
-        user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
         if sum([client_id is None, client_secret is None]) == 1:
             raise ValueError("Both client_id and client_secret must be provided or neither.")
+        if company_prefix:
+            self._verify_company_prefix(company_prefix)
+        print(Panel("Running Toolkit QuickStart..."))
+        user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
         if client_id is None and client_secret is None:
             print("Client ID and secret not provided. Assuming user has all the necessary permissions.")
-            self._init_build_deploy(user, organization_name)
+            self._init_build_deploy(user, company_prefix)
             return
 
         group_id: int | None = None
@@ -90,12 +93,12 @@ class CogniteToolkitDemo:
                     client_secret=client_secret,
                 )
             )
-            self._init_build_deploy(user, organization_name)
+            self._init_build_deploy(user, company_prefix)
         finally:
             if group_id is not None:
                 self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
 
-    def _init_build_deploy(self, user: UserProfile, organization_name: str | None = None) -> None:
+    def _init_build_deploy(self, user: UserProfile, company_prefix: str | None = None) -> None:
         modules_cmd = ModulesCommand()
         modules_cmd.run(
             lambda: modules_cmd.init(
@@ -113,8 +116,8 @@ class CogniteToolkitDemo:
         # To avoid warnings about not set values
         config_raw = config_raw.replace("<not set>", "123456-to-be-replaced")
         config_raw = config_raw.replace("<my-project-dev>", self._cdf_tool_config.project)
-        if organization_name is not None:
-            config_raw = config_raw.replace("YourOrg", organization_name)
+        if company_prefix is not None:
+            config_raw = config_raw.replace("YourOrg", company_prefix)
         config_yaml.write_text(config_raw)
 
         # The Workflow trigger expects credentials to be set in the environment, so we delete it as
@@ -151,3 +154,22 @@ class CogniteToolkitDemo:
                 verbose=False,
             )
         )
+
+    def _verify_company_prefix(self, company_prefix: str) -> None:
+        """Needs to comply with the regex for container and views ExternalID
+
+        * View:      ^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$
+        * Container: ^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$
+        """
+        if not re.match(r"^[a-zA-Z]", company_prefix):
+            raise ValueError("The company prefix must start with a letter.")
+        if not re.match(r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$", company_prefix):
+            invalid_chars = re.findall(r"[^a-zA-Z0-9_]", company_prefix)
+            if invalid_chars:
+                raise ValueError(
+                    f"The company prefix contains invalid characters: {', '.join(invalid_chars)}. Only letters, numbers, and underscores are allowed."
+                )
+            if len(company_prefix) > 255:
+                raise ValueError("The company prefix must be 255 characters or less.")
+            raise ValueError("The company prefix is invalid.")
+        return

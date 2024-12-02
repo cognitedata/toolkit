@@ -17,9 +17,16 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+
 ### Fixed
 
 - Using cdf for the identity provider no longer makes assumption about `IDP_CLIENT_SECRET` format.
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
 
 ## [0.3.16] - 2024-11-28
 
