@@ -50,7 +50,7 @@ class PurgeCommand(ToolkitCommand):
         if space is None:
             # Interactive mode
             include_space = questionary.confirm(
-                "Do you want to delete the space itself after the purge?", default=False
+                "Do you also want to delete the space itself?", default=False
             ).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
 

@@ -25,7 +25,7 @@ class PurgeApp(typer.Typer):
         external_id: Annotated[
             Optional[str],
             typer.Argument(
-                help="External id of the dataset to purge.. If not provided, interactive mode will be used.",
+                help="External id of the dataset to purge. If not provided, interactive mode will be used.",
             ),
         ] = None,
         include_dataset: Annotated[
