@@ -206,16 +206,17 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if item.secrets:
                 item.metadata[self._MetadataKey.secret_hash] = calculate_secure_hash(item.secrets)
 
+            external_id = item.external_id or item.name
             file_id = self.client.functions._zip_and_upload_folder(
                 name=item.name,
                 folder=str(function_rootdir),
-                external_id=item.external_id or item.name,
+                external_id=external_id,
                 data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
             )
             # Wait until the files is available
             sleep_time = 1.0  # seconds
             for i in range(5):
-                file = self.client.files.retrieve(id=file_id)
+                file = self.client.files.retrieve(external_id=external_id)
                 if file and file.uploaded:
                     break
                 time.sleep(sleep_time)
@@ -243,7 +244,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Function]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Function]:
         return iter(self.client.functions)
 
     @classmethod
@@ -273,6 +279,7 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     do_environment_variable_injection = True
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:
@@ -406,8 +413,19 @@ class FunctionScheduleLoader(
                 count += 1
         return count
 
-    def iterate(self) -> Iterable[FunctionSchedule]:
-        return iter(self.client.functions.schedules)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[FunctionSchedule]:
+        if parent_ids is None:
+            yield from self.client.functions.schedules
+        else:
+            for parent_id in parent_ids:
+                if not isinstance(parent_id, str):
+                    continue
+                yield from self.client.functions.schedules(function_external_id=parent_id)
 
     @classmethod
     @lru_cache(maxsize=1)

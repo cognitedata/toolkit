@@ -161,8 +161,15 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self) -> Iterable[TimeSeries]:
-        return iter(self.client.time_series)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TimeSeries]:
+        return iter(
+            self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = cast(
@@ -332,7 +339,12 @@ class DatapointSubscriptionLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(self) -> Iterable[DatapointSubscription]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 
     def _are_equal(

@@ -12,6 +12,10 @@ from cognite.client.data_classes import (
     AssetList,
     AssetWrite,
     AssetWriteList,
+    Event,
+    EventList,
+    EventWrite,
+    EventWriteList,
     Sequence,
     SequenceList,
     SequenceWrite,
@@ -101,8 +105,13 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             return len(ids)
 
-    def iterate(self) -> Iterable[Asset]:
-        return iter(self.client.assets)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Asset]:
+        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -275,8 +284,15 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         else:
             return len(ids)
 
-    def iterate(self) -> Iterable[Sequence]:
-        return iter(self.client.sequences)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Sequence]:
+        return iter(
+            self.client.sequences(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -304,6 +320,167 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         # Dry run
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+
+        # Remove metadata if it is empty to avoid false negatives
+        # as a result of cdf_resource.metadata = {} != local.metadata = None
+        if not local_dumped.get("metadata"):
+            local_dumped.pop("metadata", None)
+        if not cdf_dumped.get("metadata"):
+            cdf_dumped.pop("metadata", None)
+
+        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+
+
+@final
+class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventList]):
+    folder_name = "classic"
+    filename_pattern = r"^.*\.Event$"  # Matches all yaml files whose stem ends with '.Event'.
+    filetypes = frozenset({"yaml", "yml"})
+    resource_cls = Event
+    resource_write_cls = EventWrite
+    list_cls = EventList
+    list_write_cls = EventWriteList
+    kind = "Event"
+    dependencies = frozenset({DataSetsLoader, AssetLoader})
+    _doc_url = "Events/operation/createEvents"
+
+    @property
+    def display_name(self) -> str:
+        return self.kind
+
+    @classmethod
+    def get_id(cls, item: Event | EventWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("Event must have external_id")
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(cls, items: EventWriteList | None, read_only: bool) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+        scope: capabilities.EventsAcl.Scope.All | capabilities.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
+            capabilities.EventsAcl.Scope.All()
+        )
+
+        actions = (
+            [capabilities.EventsAcl.Action.Read]
+            if read_only
+            else [capabilities.EventsAcl.Action.Read, capabilities.EventsAcl.Action.Write]
+        )
+
+        if items:
+            if data_set_ids := {item.data_set_id for item in items if item.data_set_id}:
+                scope = capabilities.EventsAcl.Scope.DataSet(list(data_set_ids))
+
+        return capabilities.EventsAcl(
+            actions,
+            scope,  # type: ignore[arg-type]
+        )
+
+    def create(self, items: EventWriteList) -> EventList:
+        return self.client.events.create(items)
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> EventList:
+        return self.client.events.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+
+    def update(self, items: EventWriteList) -> EventList:
+        return self.client.events.update(items, mode="replace")
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            self.client.events.delete(external_id=ids)
+        except (CogniteAPIError, CogniteNotFoundError) as e:
+            non_existing = set(e.failed or [])
+            if existing := [id_ for id_ in ids if id_ not in non_existing]:
+                self.client.events.delete(external_id=existing)
+            return len(existing)
+        else:
+            return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Event]:
+        return iter(self.client.events(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Added by toolkit
+        spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
+
+        spec.add(ParameterSpec(("assetExternalIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
+        spec.add(
+            ParameterSpec(
+                ("assetExternalIds", ANY_INT, "externalId"), frozenset({"str"}), is_required=False, _is_nullable=False
+            )
+        )
+        spec.discard(ParameterSpec(("assetIds",), frozenset({"int"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False))
+        return spec
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        if "dataSetExternalId" in item:
+            yield DataSetsLoader, item["dataSetExternalId"]
+        for asset_id in item.get("assetExternalIds", []):
+            if isinstance(asset_id, str):
+                yield AssetLoader, asset_id
+
+    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> EventWriteList:
+        use_environment_variables = (
+            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        )
+        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+
+        resources: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+
+        for resource in resources:
+            if resource.get("dataSetExternalId") is not None:
+                ds_external_id = resource.pop("dataSetExternalId")
+                resource["dataSetId"] = ToolGlobals.verify_dataset(
+                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
+                )
+            if "assetExternalIds" in resource:
+                asset_external_ids = resource.pop("assetExternalIds")
+                resource["assetIds"] = [
+                    ToolGlobals.verify_asset(
+                        asset_external_id, skip_validation, action="replace assetExternalIds with assetIds in events"
+                    )
+                    for asset_external_id in asset_external_ids
+                ]
+        return EventWriteList._load(resources)
+
+    def _are_equal(
+        self, local: EventWrite, cdf_resource: Event, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = cdf_resource.as_write().dump()
+        # Dry run
+        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
+            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
+        if asset_ids := local_dumped.get("assetIds"):
+            if (
+                all(s == -1 for s in asset_ids)
+                and "assetIds" in cdf_dumped
+                and len(cdf_dumped["assetIds"]) == len(asset_ids)
+            ):
+                local_dumped["assetIds"] = cdf_dumped["assetIds"]
 
         # Remove metadata if it is empty to avoid false negatives
         # as a result of cdf_resource.metadata = {} != local.metadata = None

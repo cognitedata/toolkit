@@ -305,8 +305,15 @@ class TransformationLoader(
             self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self) -> Iterable[Transformation]:
-        return iter(self.client.transformations)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Transformation]:
+        return iter(
+            self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -365,6 +372,7 @@ class TransformationScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:
@@ -434,8 +442,21 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
-    def iterate(self) -> Iterable[TransformationSchedule]:
-        return iter(self.client.transformations.schedules)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TransformationSchedule]:
+        if parent_ids is None:
+            yield from iter(self.client.transformations.schedules)
+        else:
+            for transformation_id in parent_ids:
+                if not isinstance(transformation_id, str):
+                    continue
+                res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
+                if res:
+                    yield res
 
 
 @final
@@ -459,6 +480,7 @@ class TransformationNotificationLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
+    has_parent_resource = True
 
     @property
     def display_name(self) -> str:
@@ -571,8 +593,19 @@ class TransformationNotificationLoader(
             self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
         return len(existing)
 
-    def iterate(self) -> Iterable[TransformationNotification]:
-        return iter(self.client.transformations.notifications)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TransformationNotification]:
+        if parent_ids is None:
+            yield from iter(self.client.transformations.notifications)
+        else:
+            for transformation_id in parent_ids:
+                if not isinstance(transformation_id, str):
+                    continue
+                yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

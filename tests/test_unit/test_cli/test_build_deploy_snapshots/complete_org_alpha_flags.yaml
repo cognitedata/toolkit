@@ -5,10 +5,33 @@ Asset:
   name: RootAsset
   source: doctrino
 - dataSetId: 42
+  externalId: MyAsset
+  name: MyAsset
+  source: doctrino
+- dataSetId: 42
+  externalId: MyAsset2
+  name: MyAsset2
+  source: doctrino
+- dataSetId: 42
   description: This is the root asset on Oslo
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
+Container:
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      autoIncrement: false
+      immutable: false
+      nullable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
 DataSet:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -20,6 +43,46 @@ DataSet:
   metadata: {}
   name: Dataset for assets on Oslo
   writeProtected: false
+- description: This dataset is used for all the resources in the complete_org.
+  externalId: ds_complete_org
+  metadata: {}
+  name: Example dataset.
+  writeProtected: false
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
+Event:
+- assetIds:
+  - 666
+  - 666
+  dataSetId: 42
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
 FileLoader:
 - external_id: myapp
   filehash: c59dc2b6
@@ -66,3 +129,36 @@ GraphQLDataModel:
   preserveDml: true
   space: sp_schema
   version: '3_0_2'
+Node:
+- externalId: AnEdgeType
+  instanceType: node
+  space: sp_schema
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
+Relationship:
+- confidence: 0.42
+  dataSetId: 42
+  externalId: MyRelationship
+  sourceExternalId: MyAsset
+  sourceType: asset
+  targetExternalId: MyEvent
+  targetType: event
+Space:
+- space: sp_instance
+- space: sp_schema
+View:
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1

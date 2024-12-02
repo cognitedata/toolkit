@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.17] - 2024-12-02
+
+### Fixed
+
+- The user group in the `QuickStart` package now has capabilities to inspect the RAW tables and
+  extraction pipelines.
+- Missing table `diagramParsing` in the `QuickStart` is now created.
+- Bug in the SQL transformation of the `cdf_sharepoint` modules.
+
 ## [0.3.16] - 2024-11-28
 
 ### Fixed

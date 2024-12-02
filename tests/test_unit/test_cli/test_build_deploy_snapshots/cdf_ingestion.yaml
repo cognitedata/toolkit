@@ -96,6 +96,13 @@ Group:
         datasetScope:
           ids:
           - 42
+  - extractionPipelinesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 42
   - assetsAcl:
       actions:
       - READ
@@ -139,6 +146,7 @@ Group:
   - rawAcl:
       actions:
       - READ
+      - LIST
       scope:
         tableScope:
           dbsToTables:
@@ -206,6 +214,13 @@ Group:
       actions:
       - READ
       - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 42
+  - extractionPipelinesAcl:
+      actions:
+      - READ
       scope:
         datasetScope:
           ids:

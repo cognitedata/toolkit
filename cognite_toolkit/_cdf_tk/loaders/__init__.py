@@ -26,6 +26,8 @@ from ._resource_loaders import (
     DataModelLoader,
     DatapointSubscriptionLoader,
     DataSetsLoader,
+    EdgeLoader,
+    EventLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
     FileMetadataLoader,
@@ -44,6 +46,7 @@ from ._resource_loaders import (
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
+    RelationshipLoader,
     RobotCapabilityLoader,
     RoboticFrameLoader,
     RoboticLocationLoader,
@@ -73,6 +76,12 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
 if not Flags.STREAMLIT.is_enabled():
     _EXCLUDED_LOADERS.add(StreamlitLoader)
+if not Flags.EDGES.is_enabled():
+    _EXCLUDED_LOADERS.add(EdgeLoader)
+if not Flags.CLASSIC.is_enabled():
+    _EXCLUDED_LOADERS.add(EventLoader)
+    _EXCLUDED_LOADERS.add(RelationshipLoader)
+
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -162,6 +171,7 @@ __all__ = [
     "DataSetsLoader",
     "DatapointSubscriptionLoader",
     "DatapointsLoader",
+    "EventLoader",
     "ExtractionPipelineConfigLoader",
     "ExtractionPipelineLoader",
     "FileLoader",
@@ -181,6 +191,7 @@ __all__ = [
     "RawDatabaseLoader",
     "RawFileLoader",
     "RawTableLoader",
+    "RelationshipLoader",
     "ResourceContainerLoader",
     "ResourceLoader",
     "ResourceTypes",

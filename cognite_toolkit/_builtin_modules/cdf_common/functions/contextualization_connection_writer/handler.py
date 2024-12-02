@@ -6,6 +6,7 @@ from collections.abc import Iterable, Sequence
 from typing import ClassVar, Literal, TypeVar, cast
 
 from cognite.client.config import global_config
+from cognite.client.exceptions import CogniteAPIError
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 # ruff: noqa: E402
@@ -33,7 +34,7 @@ EXTRACTION_RUN_MESSAGE_LIMIT = 1000
 
 def handle(data: dict, client: CogniteClient) -> dict:
     try:
-        execute(data, client)
+        connection_count = execute(data, client)
     except Exception as e:
         tb = traceback.extract_tb(e.__traceback__)
         last_entry_this_file = next((entry for entry in reversed(tb) if entry.filename == __file__), None)
@@ -51,7 +52,7 @@ def handle(data: dict, client: CogniteClient) -> dict:
             message = prefix + error_msg + '..."' + suffix
     else:
         status = "success"
-        message = FUNCTION_ID
+        message = f"{FUNCTION_ID} executed successfully. Created {connection_count} connections"
 
     client.extraction_pipelines.runs.create(
         ExtractionPipelineRunWrite(extpipe_external_id=EXTRACTION_PIPELINE_EXTERNAL_ID, status=status, message=message)
@@ -166,7 +167,7 @@ class State(BaseModel):
 ################# Functions #################
 
 
-def execute(data: dict, client: CogniteClient) -> None:
+def execute(data: dict, client: CogniteClient) -> int:
     logger = CogniteFunctionLogger(data.get("logLevel", "INFO"))  # type: ignore[arg-type]
     logger.debug("Starting connection write")
     config = load_config(client, logger)
@@ -183,6 +184,7 @@ def execute(data: dict, client: CogniteClient) -> None:
 
     state.to_cdf(client, config.state)
     logger.info(f"Created {connection_count} connections")
+    return connection_count
 
 
 T = TypeVar("T")
@@ -197,7 +199,16 @@ def iterate_new_approved_annotations(
     state: State, client: CogniteClient, annotation_space: str, logger: CogniteFunctionLogger, chunk_size: int = 1000
 ) -> Iterable[list[CogniteDiagramAnnotation]]:
     query = create_query(state.last_cursor, annotation_space)
-    result = client.data_modeling.instances.sync(query)
+    try:
+        result = client.data_modeling.instances.sync(query)
+    except CogniteAPIError as e:
+        if e.code == 400 and "Cursor has expired" in e.message:
+            logger.warning("Cursor has expired, starting from the beginning")
+            state.last_cursor = None
+            query = create_query(state.last_cursor, annotation_space)
+            result = client.data_modeling.instances.sync(query)
+        else:
+            raise
     edges = result["annotations"]
     logger.debug(f"Retrieved {len(edges)} new approved annotations")
     state.last_cursor = edges.cursor

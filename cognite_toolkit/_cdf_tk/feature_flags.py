@@ -39,6 +39,18 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
+    EDGES: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for creating edges between nodes",
+    }
+    CLASSIC: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for events and relationships",
+    }
+    PURGE: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for purging datasets and spaces",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
@@ -48,4 +60,4 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().feature_flags.get(clean_name(flag.name), False)
+        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)

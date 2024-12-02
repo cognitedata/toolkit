@@ -388,9 +388,10 @@ class TestAuthVariables:
             project="my_project",
             client_id="ZWccGfXySomethingSomethingSomething",
             client_secret="cdf_sa_sct_secretsecrtedsecrt",
+            provider="cdf",
         )
 
-        assert auth_vars.provider == "cog_idp"
+        assert auth_vars.provider == "cdf"
         assert auth_vars.token_url == "https://auth.cognite.com/oauth2/token"
         assert auth_vars.scopes is None
         assert auth_vars.cdf_url == "https://my_cluster.cognitedata.com"
@@ -577,6 +578,22 @@ type UnitOfMeasurement
         set(),
         {DataModelId(space="EDG-COR-ALL-DMD", external_id="CoreDOM", version="1_0_18")},
         id="Ignore comments",
+    ),
+    pytest.param(
+        """type APM_Config @view {
+  name: String
+  appDataSpaceId: String
+  appDataSpaceVersion: String
+  customerDataSpaceId: String
+  customerDataSpaceVersion: String
+  featureConfiguration: JSONObject
+  fieldConfiguration: JSONObject
+  rootLocationsConfiguration: JSONObject
+}""",
+        DATA_MODEL,
+        {ViewId(SPACE, "APM_Config", None)},
+        set(),
+        id="No version",
     ),
 ]
 

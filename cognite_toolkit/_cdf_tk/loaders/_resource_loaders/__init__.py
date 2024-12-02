@@ -1,7 +1,15 @@
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader, SequenceLoader
+from .classic_loaders import AssetLoader, EventLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
-from .datamodel_loaders import ContainerLoader, DataModelLoader, GraphQLLoader, NodeLoader, SpaceLoader, ViewLoader
+from .datamodel_loaders import (
+    ContainerLoader,
+    DataModelLoader,
+    EdgeLoader,
+    GraphQLLoader,
+    NodeLoader,
+    SpaceLoader,
+    ViewLoader,
+)
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
 from .file_loader import CogniteFileLoader, FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
@@ -15,6 +23,7 @@ from .hosted_extractors import (
 from .industrial_tool_loaders import StreamlitLoader
 from .location_loaders import LocationFilterLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
+from .relationship_loader import RelationshipLoader
 from .robotics_loaders import (
     RobotCapabilityLoader,
     RoboticFrameLoader,
@@ -34,6 +43,8 @@ __all__ = [
     "DataModelLoader",
     "DataSetsLoader",
     "DatapointSubscriptionLoader",
+    "EdgeLoader",
+    "EventLoader",
     "ExtractionPipelineConfigLoader",
     "ExtractionPipelineLoader",
     "FileMetadataLoader",
@@ -52,6 +63,7 @@ __all__ = [
     "NodeLoader",
     "RawDatabaseLoader",
     "RawTableLoader",
+    "RelationshipLoader",
     "RobotCapabilityLoader",
     "RoboticFrameLoader",
     "RoboticLocationLoader",

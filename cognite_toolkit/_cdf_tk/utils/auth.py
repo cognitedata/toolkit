@@ -17,6 +17,7 @@ import itertools
 import json
 import os
 import shutil
+import warnings
 from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -65,7 +66,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSever
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-Provider: TypeAlias = Literal["entra_id", "cog_idp", "other"]
+Provider: TypeAlias = Literal["entra_id", "cdf", "other"]
 
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
@@ -76,7 +77,7 @@ LOGIN_FLOW_DESCRIPTION = {
 
 PROVDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
-    "cog_idp": "Use Cognite IDP to authenticate",
+    "cdf": "Use Cognite IDP to authenticate",
     "other": "Use other IDP to authenticate",
 }
 
@@ -171,10 +172,10 @@ class AuthVariables:
 
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
-        if self.client_secret:
-            self.set_client_secret_defaults()
         if self.cluster:
             self.set_cluster_defaults()
+        if self.provider == "cdf":
+            self.set_cdf_provider_defaults()
         if self.tenant_id:
             self.set_token_id_defaults()
         if self.token and self.login_flow != "token":
@@ -184,15 +185,11 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
-    def set_client_secret_defaults(self) -> None:
-        if self.client_secret and self.client_secret.startswith("cdf_sa_sct"):
-            self.provider = "cog_idp"
-            self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
-            if self.scopes is not None:
-                IgnoredValueWarning(
-                    "IDP_SCOPES", self.scopes, "Provider si Cog-IDP does not need scopes"
-                ).print_warning()
-            self.scopes = None
+    def set_cdf_provider_defaults(self) -> None:
+        self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
+        if self.scopes is not None:
+            IgnoredValueWarning("IDP_SCOPES", self.scopes, "Provider Cog-IDP does not need scopes").print_warning()
+        self.scopes = None
 
     def set_token_id_defaults(self) -> None:
         if self.tenant_id:
@@ -761,14 +758,18 @@ class CDFToolConfig:
     @property
     def _token_inspection(self) -> TokenInspection:
         if self._cache.token_inspect is None:
-            try:
-                self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
-            except CogniteAPIError as e:
-                raise AuthorizationError(
-                    f"Don't seem to have any access rights. {e}\n"
-                    f"Please visit [link={URL.configure_access}]the documentation[/link] "
-                    f"and ensure you have configured your access correctly."
-                ) from e
+            with warnings.catch_warnings():
+                # If the user has unknown capabilities, we don't want the user to see the warning:
+                # "UserWarning: Unknown capability '<unknown warning>'.
+                warnings.simplefilter("ignore")
+                try:
+                    self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
+                except CogniteAPIError as e:
+                    raise AuthorizationError(
+                        f"Don't seem to have any access rights. {e}\n"
+                        f"Please visit [link={URL.configure_access}]the documentation[/link] "
+                        f"and ensure you have configured your access correctly."
+                    ) from e
         return self._cache.token_inspect
 
     def verify_authorization(
@@ -784,7 +785,14 @@ class CDFToolConfig:
             ToolkitClient: Verified client with access rights
         """
         token_inspect = self._token_inspection
-        missing_capabilities = self.toolkit_client.iam.compare_capabilities(token_inspect.capabilities, capabilities)
+        with warnings.catch_warnings():
+            # If the user has unknown capabilities, we don't want the user to see the warning:
+            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
+            # This is irrelevant for the user as we are only checking the capabilities that are known.
+            warnings.simplefilter("ignore")
+            missing_capabilities = self.toolkit_client.iam.compare_capabilities(
+                token_inspect.capabilities, capabilities
+            )
         if missing_capabilities:
             missing = "  - \n".join(repr(c) for c in missing_capabilities)
             first_sentence = "Don't have correct access rights"

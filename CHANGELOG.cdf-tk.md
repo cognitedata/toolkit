@@ -15,6 +15,26 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.17] - 2024-12-02
+
+### Improved
+
+- Toolkit will no longer give the warning `UserWarning: Unknown capability` in irrelevant cases.
+
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+- [alpha feature] Support `Relpationship` resources in the `classic` directory.
+- [alpha feature] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
+  connected to it. This is useful if you want to clean up your CDF project.
+
+### Fixed
+
+- Using cdf for the identity provider no longer makes assumption about `IDP_CLIENT_SECRET` format.
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.

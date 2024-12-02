@@ -202,8 +202,21 @@ class ExtractionPipelineLoader(
                 return 0
         return len(id_list)
 
-    def iterate(self) -> Iterable[ExtractionPipeline]:
-        return iter(self.client.extraction_pipelines)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ExtractionPipeline]:
+        if data_set_external_id is None:
+            yield from iter(self.client.extraction_pipelines)
+            return
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitRequiredValueError(f"DataSet {data_set_external_id!r} does not exist")
+        for pipeline in self.client.extraction_pipelines:
+            if pipeline.data_set_id == data_set.id:
+                yield pipeline
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -361,11 +374,25 @@ class ExtractionPipelineConfigLoader(
                     count += 1
         return count
 
-    def iterate(self) -> Iterable[ExtractionPipelineConfig]:
-        return (
-            self.client.extraction_pipelines.config.retrieve(external_id=cast(str, pipeline.external_id))
-            for pipeline in self.client.extraction_pipelines
-        )
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ExtractionPipelineConfig]:
+        parent_iterable = parent_ids or iter(self.client.extraction_pipelines)
+        for parent_id in parent_iterable or []:
+            if isinstance(parent_id, ExtractionPipeline):
+                pipeline_id = cast(str, parent_id.external_id)
+            elif isinstance(parent_id, str):
+                pipeline_id = parent_id
+            else:
+                continue
+            try:
+                yield self.client.extraction_pipelines.config.retrieve(external_id=pipeline_id)
+            except CogniteAPIError as e:
+                if e.code == 404 and "There is no config stored" in e.message:
+                    continue
 
     @classmethod
     @lru_cache(maxsize=1)

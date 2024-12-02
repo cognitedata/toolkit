@@ -98,6 +98,7 @@ def cdf_tool_mock(
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
         cdf_tool.verify_dataset.return_value = 42
+        cdf_tool.verify_asset.return_value = 666
         cdf_tool.data_set_id = 999
         yield cdf_tool
 

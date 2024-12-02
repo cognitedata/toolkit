@@ -39,7 +39,7 @@ class LocationFilterLoader(
     dependencies = frozenset(
         {
             AssetLoader,
-            DataModelLoader,
+            DataSetsLoader,
             DataModelLoader,
             SpaceLoader,
             ViewLoader,
@@ -160,7 +160,12 @@ class LocationFilterLoader(
             count += 1
         return count
 
-    def iterate(self) -> Iterable[LocationFilter]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[LocationFilter]:
         return iter(self.client.location_filters)
 
     @classmethod

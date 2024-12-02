@@ -91,7 +91,12 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         self.client.hosted_extractors.sources.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Source]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Source]:
         return iter(self.client.hosted_extractors.sources)
 
     @classmethod
@@ -181,7 +186,12 @@ class HostedExtractorDestinationLoader(
         self.client.hosted_extractors.destinations.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Destination]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
@@ -296,7 +306,12 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         self.client.hosted_extractors.jobs.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Job]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Job]:
         return iter(self.client.hosted_extractors.jobs)
 
     @classmethod
@@ -390,7 +405,12 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         self.client.hosted_extractors.mappings.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Mapping]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Mapping]:
         return iter(self.client.hosted_extractors.mappings)
 
     @classmethod

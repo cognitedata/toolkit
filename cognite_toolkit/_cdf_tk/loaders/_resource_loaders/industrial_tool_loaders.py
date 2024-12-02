@@ -173,9 +173,15 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def iterate(self) -> Iterable[Streamlit]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Streamlit]:
         for file in self.client.files:
-            yield Streamlit.from_file(file)
+            if file.directory == "/streamlit-apps/":
+                yield Streamlit.from_file(file)
 
     @classmethod
     @lru_cache(maxsize=1)
