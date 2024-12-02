@@ -12,9 +12,9 @@ tags = [
 modules = []
 
 [[data]]
-repoType = "GitHub"
-repo = "cognitedata/toolkit-data"
-source = "data/publicdata/pi_timeseries.Table.csv"
+repoType = "http"
+repo = "https://apps-cdn.cogniteapp.com/toolkit"
+source = "publicdata/pi_timeseries.Table.csv"
 destination = "raw/timeseries.Table.csv"
 
 [[extra_resources]]

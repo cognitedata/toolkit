@@ -642,15 +642,19 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     def lift(self) -> None:
         """Lift variables that are used in multiple modules to the highest shared level"""
-        variable_by_key_value: dict[
+        variables_by_key_value: dict[
             tuple[str, float | int | str | bool | tuple[Hashable] | None], list[ConfigEntry]
         ] = defaultdict(list)
+        count_by_variable_keys: dict[str, set[float | int | str | bool | tuple[Hashable] | None]] = defaultdict(set)
         for key, entry in self.items():
             value = tuple(entry.value) if isinstance(entry.value, list) else entry.value  # type: ignore[arg-type]
-            variable_by_key_value[(key[-1], value)].append(entry)
+            variables_by_key_value[(key[-1], value)].append(entry)
+            count_by_variable_keys[key[-1]].add(value)
 
-        for entries in variable_by_key_value.values():
+        for (variable_name, _), entries in variables_by_key_value.items():
             if len(entries) == 1:
+                continue
+            if len(count_by_variable_keys[variable_name]) > 1:
                 continue
             shared_parent = self._find_common_parent([entry.key_path for entry in entries])
             new_key = (*shared_parent, entries[0].key_path[-1])

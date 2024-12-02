@@ -15,7 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.16] - 2024-11-28
+
+No changes to cdf CLI.
+
+## [0.3.15] - 2024-11-28
+
+### Improved
+
+- Better hint on activating plugins.
 
 ### Fixed
 

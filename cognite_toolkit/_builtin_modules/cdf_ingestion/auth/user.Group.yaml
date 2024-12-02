@@ -39,6 +39,7 @@ capabilities:
   - rawAcl:
       actions:
         - READ
+        - LIST
       scope:
         tableScope:
           dbsToTables:
@@ -108,6 +109,13 @@ capabilities:
         datasetScope:
           ids:
             - {{ dataset }}
+  - extractionpipelinesAcl:
+        actions:
+          - READ
+        scope:
+          datasetScope:
+            ids:
+              - {{ dataset }}
 # Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:
