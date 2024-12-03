@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `toolkit.demo` no longer fails du to wrong authentication variables.
+
 ## [0.3.17] - 2024-12-02
 
 ### Improved
