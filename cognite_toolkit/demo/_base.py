@@ -86,6 +86,7 @@ class CogniteToolkitDemo:
             print("Switching to the demo service principal...")
             self._cdf_tool_config = CDFToolConfig(
                 auth_vars=AuthVariables(
+                    provider="cdf",
                     cluster=self._cdf_tool_config.cdf_cluster,
                     project=self._cdf_tool_config.project,
                     login_flow="client_credentials",

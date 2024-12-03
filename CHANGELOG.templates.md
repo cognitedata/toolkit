@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.18] - 2024-12-03
+
+No changes to templates.
+
 ## [0.3.17] - 2024-12-02
 
 ### Fixed
