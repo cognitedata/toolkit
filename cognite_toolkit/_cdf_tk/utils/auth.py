@@ -597,7 +597,7 @@ class CDFToolConfig:
                 scopes=self._scopes,
             )
             self._credentials_provider = OAuthInteractive(**self._credentials_args)
-        elif auth.login_flow == "client_credentials" and auth.provider == "cog_idp":
+        elif auth.login_flow == "client_credentials" and auth.provider == "cdf":
             if not (auth.client_id and auth.client_secret):
                 raise AuthenticationError(
                     "Login flow=client_credentials is set but missing required authentication "
