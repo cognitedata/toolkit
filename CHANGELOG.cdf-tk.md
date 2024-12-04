@@ -27,6 +27,10 @@ Changes are grouped as follows:
 
 - [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
 
+### Improved
+
+- Consistent disply names of resources in output table of `cdf deploy` and `cdf clean`.
+
 ## [0.3.18] - 2024-12-03
 
 ### Fixed
