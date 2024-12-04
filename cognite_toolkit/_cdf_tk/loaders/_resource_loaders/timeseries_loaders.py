@@ -51,6 +51,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
 
+    @property
+    def display_name(self) -> str:
+        return "time series"
+
     @classmethod
     def get_required_capability(
         cls, items: TimeSeriesWriteList | None, read_only: bool
@@ -240,7 +244,7 @@ class DatapointSubscriptionLoader(
 
     @property
     def display_name(self) -> str:
-        return "timeseries.subscription"
+        return "timeseries subscriptions"
 
     @classmethod
     def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:

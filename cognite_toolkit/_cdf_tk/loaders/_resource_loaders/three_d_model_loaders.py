@@ -39,6 +39,10 @@ class ThreeDModelLoader(
     _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"
 
+    @property
+    def display_name(self) -> str:
+        return "3D models"
+
     @classmethod
     def get_id(cls, item: ThreeDModel | ThreeDModelWrite | dict) -> str:
         if isinstance(item, dict):

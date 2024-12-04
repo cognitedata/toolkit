@@ -63,6 +63,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
+    @property
+    def display_name(self) -> str:
+        return "functions"
+
     @classmethod
     def get_required_capability(
         cls, items: FunctionWriteList | None, read_only: bool
@@ -283,7 +287,7 @@ class FunctionScheduleLoader(
 
     @property
     def display_name(self) -> str:
-        return "function.schedules"
+        return "function schedules"
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList | None, read_only: bool) -> list[Capability]:

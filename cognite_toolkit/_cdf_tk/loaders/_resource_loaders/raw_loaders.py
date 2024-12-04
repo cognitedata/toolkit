@@ -55,7 +55,7 @@ class RawDatabaseLoader(
 
     @property
     def display_name(self) -> str:
-        return "raw.databases"
+        return "raw databases"
 
     @classmethod
     def get_required_capability(cls, items: RawDatabaseList | None, read_only: bool) -> Capability | list[Capability]:
@@ -169,7 +169,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
 
     @property
     def display_name(self) -> str:
-        return "raw.tables"
+        return "raw tables"
 
     @classmethod
     def get_required_capability(cls, items: RawTableList | None, read_only: bool) -> Capability | list[Capability]:

@@ -63,6 +63,10 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
+    @property
+    def display_name(self) -> str:
+        return "data sets"
+
     @classmethod
     def get_required_capability(cls, items: DataSetWriteList | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
@@ -177,7 +181,7 @@ class LabelLoader(
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "labels"
 
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:

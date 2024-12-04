@@ -48,7 +48,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "assets"
 
     @classmethod
     def get_id(cls, item: Asset | AssetWrite | dict) -> str:
@@ -230,7 +230,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "sequences"
 
     @classmethod
     def get_id(cls, item: Sequence | SequenceWrite | dict) -> str:
@@ -346,7 +346,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "events"
 
     @classmethod
     def get_id(cls, item: Event | EventWrite | dict) -> str:

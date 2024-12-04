@@ -111,6 +111,10 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
     do_environment_variable_injection = True
 
+    @property
+    def display_name(self) -> str:
+        return "transformations"
+
     @classmethod
     def get_required_capability(
         cls, items: TransformationWriteList | None, read_only: bool
@@ -376,7 +380,7 @@ class TransformationScheduleLoader(
 
     @property
     def display_name(self) -> str:
-        return "transformation.schedules"
+        return "transformation schedules"
 
     @classmethod
     def get_required_capability(
@@ -484,7 +488,7 @@ class TransformationNotificationLoader(
 
     @property
     def display_name(self) -> str:
-        return "transformation.notifications"
+        return "transformation notifications"
 
     @classmethod
     def get_id(cls, item: TransformationNotification | TransformationNotificationWrite | dict) -> str:

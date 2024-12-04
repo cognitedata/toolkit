@@ -54,6 +54,10 @@ class LocationFilterLoader(
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
+    @property
+    def display_name(self) -> str:
+        return "location filters"
+
     @classmethod
     def get_required_capability(
         cls, items: LocationFilterWriteList | None, read_only: bool

@@ -78,6 +78,10 @@ class ExtractionPipelineLoader(
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
+    @property
+    def display_name(self) -> str:
+        return "extraction pipelines"
+
     @classmethod
     def get_required_capability(
         cls, items: ExtractionPipelineWriteList | None, read_only: bool
@@ -251,7 +255,7 @@ class ExtractionPipelineConfigLoader(
 
     @property
     def display_name(self) -> str:
-        return "extraction_pipeline.config"
+        return "extraction pipeline configs"
 
     @classmethod
     def get_required_capability(

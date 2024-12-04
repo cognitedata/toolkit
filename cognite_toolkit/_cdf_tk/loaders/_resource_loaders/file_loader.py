@@ -78,7 +78,7 @@ class FileMetadataLoader(
 
     @property
     def display_name(self) -> str:
-        return "file_metadata"
+        return "file metadata"
 
     @classmethod
     def get_required_capability(
@@ -266,7 +266,7 @@ class CogniteFileLoader(
 
     @property
     def display_name(self) -> str:
-        return "cognite_file"
+        return "cognite files"
 
     @classmethod
     def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
