@@ -83,6 +83,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return item.external_id
 
     @classmethod
+    def get_internal_id(cls, item: TimeSeries | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
+
+    @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
@@ -151,18 +157,19 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
         return self.client.time_series.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> TimeSeriesList:
+        internal_ids, external_ids = self._split_ids(ids)
         return self.client.time_series.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
         )
 
     def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
         return self.client.time_series.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        existing = self.retrieve(ids).as_external_ids()
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        existing = self.retrieve(ids)
         if existing:
-            self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
+            self.client.time_series.delete(id=existing.as_ids(), ignore_unknown_ids=True)
         return len(existing)
 
     def _iterate(

@@ -253,6 +253,19 @@ class ResourceLoader(
     def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
         raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
 
+    @classmethod
+    def _split_ids(cls, ids: T_ID | int | SequenceNotStr[T_ID | int] | None) -> tuple[list[int], list[str]]:
+        # Used by subclasses to split the ids into external and internal ids
+        if ids is None:
+            return [], []
+        if isinstance(ids, int):
+            return [ids], []
+        if isinstance(ids, str):
+            return [], [ids]
+        if isinstance(ids, Sequence):
+            return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
+        raise ValueError(f"Invalid ids: {ids}")
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:

@@ -200,7 +200,8 @@ class FileMetadataLoader(
         return self.client.files.update(items, mode="replace")
 
     def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
-        self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
+        internal_ids, external_ids = self._split_ids(ids)
+        self.client.files.delete(id=internal_ids, external_id=external_ids)
         return len(cast(SequenceNotStr[str], ids))
 
     def _iterate(
