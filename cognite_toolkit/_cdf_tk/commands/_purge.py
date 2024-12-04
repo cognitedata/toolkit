@@ -155,6 +155,7 @@ class PurgeCommand(ToolkitCommand):
                 StreamlitLoader,
                 HostedExtractorDestinationLoader,
                 FunctionLoader,
+                LocationFilterLoader,
             },
         )
         is_purged = self._purge(
