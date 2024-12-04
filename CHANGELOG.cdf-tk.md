@@ -21,6 +21,11 @@ Changes are grouped as follows:
 
 - Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
   not have a `package` key.
+- [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`
+
+### Changed
+
+- [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
 
 ## [0.3.18] - 2024-12-03
 
