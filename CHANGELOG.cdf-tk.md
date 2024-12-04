@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [alpha feature] `cdf purge dataset` now supports purging resources with internal IDs.
+
 ### Fixed
 
 - Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
@@ -29,7 +33,7 @@ Changes are grouped as follows:
 
 ### Improved
 
-- Consistent disply names of resources in output table of `cdf deploy` and `cdf clean`.
+- Consistent display names of resources in output table of `cdf deploy` and `cdf clean`.
 
 ## [0.3.18] - 2024-12-03
 
