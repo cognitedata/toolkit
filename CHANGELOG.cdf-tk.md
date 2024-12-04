@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
+  not have a `package` key.
+
 ## [0.3.18] - 2024-12-03
 
 ### Fixed
