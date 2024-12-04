@@ -105,6 +105,12 @@ class FileMetadataLoader(
         return item.external_id
 
     @classmethod
+    def get_internal_id(cls, item: FileMetadata | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
+
+    @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
@@ -193,7 +199,7 @@ class FileMetadataLoader(
     def update(self, items: FileMetadataWriteList) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
-    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
+    def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
         self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
         return len(cast(SequenceNotStr[str], ids))
 

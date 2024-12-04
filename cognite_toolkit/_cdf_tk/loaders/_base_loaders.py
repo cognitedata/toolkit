@@ -249,6 +249,10 @@ class ResourceLoader(
         return
         yield
 
+    @classmethod
+    def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
+        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
+
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:

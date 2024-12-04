@@ -262,9 +262,14 @@ class PurgeCommand(ToolkitCommand):
                 try:
                     batch_ids.append(loader.get_id(resource))
                 except ToolkitRequiredValueError as e:
-                    self.warn(HighSeverityWarning(f"Cannot delete {resource.dump()!r}. Failed to obtain ID: {e}"))
-                    is_purged = False
-                    continue
+                    try:
+                        batch_ids.append(loader.get_internal_id(resource))
+                    except (AttributeError, NotImplementedError):
+                        self.warn(
+                            HighSeverityWarning(f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}")
+                        )
+                        is_purged = False
+                        continue
 
                 if len(batch_ids) >= batch_size:
                     child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
