@@ -39,6 +39,10 @@ class ThreeDModelLoader(
     _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"
 
+    @property
+    def display_name(self) -> str:
+        return "3D models"
+
     @classmethod
     def get_id(cls, item: ThreeDModel | ThreeDModelWrite | dict) -> str:
         if isinstance(item, dict):
@@ -46,6 +50,14 @@ class ThreeDModelLoader(
         if not item.name:
             raise KeyError("3DModel must have name")
         return item.name
+
+    @classmethod
+    def get_internal_id(cls, item: ThreeDModel | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("3DModel must have id")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -87,14 +99,18 @@ class ThreeDModelLoader(
             created.append(new_item)
         return created
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> ThreeDModelList:
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> ThreeDModelList:
         output = ThreeDModelList([])
-        to_find = set(ids)
+        selected_names = {id_ for id_ in ids if isinstance(id_, str)}
+        selected_ids = {id_ for id_ in ids if isinstance(id_, int)}
         for model in self.client.three_d.models:
-            if model.name in to_find:
+            if model.name in selected_names or model.id in selected_ids:
                 output.append(model)
-                to_find.remove(model.name)
-                if not to_find:
+                if model.name:
+                    selected_names.discard(model.name)
+                if model.id:
+                    selected_ids.discard(model.id)
+                if (not selected_names) and (not selected_ids):
                     break
         return output
 
@@ -117,7 +133,7 @@ class ThreeDModelLoader(
                 updates.append(update)
         return self.client.three_d.models.update(updates, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
         models = self.retrieve(ids)
         self.client.three_d.models.delete(models.as_ids())
         return len(models)

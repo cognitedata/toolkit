@@ -1060,7 +1060,7 @@ class GraphQLLoader(
 
     @property
     def display_name(self) -> str:
-        return "GraphQL schemas"
+        return "graph QL schemas"
 
     @classmethod
     def get_id(cls, item: GraphQLDataModelWrite | GraphQLDataModel | dict) -> DataModelId:

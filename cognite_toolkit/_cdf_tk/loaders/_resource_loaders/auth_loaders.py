@@ -100,7 +100,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @property
     def display_name(self) -> str:
-        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
+        return f"groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
@@ -478,6 +478,10 @@ class GroupAllScopedLoader(GroupLoader):
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir, "all_scoped_only")
 
+    @property
+    def display_name(self) -> str:
+        return "all-scoped groups"
+
 
 @final
 class SecurityCategoryLoader(
@@ -495,7 +499,7 @@ class SecurityCategoryLoader(
 
     @property
     def display_name(self) -> str:
-        return "security.categories"
+        return "security categories"
 
     @classmethod
     def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:

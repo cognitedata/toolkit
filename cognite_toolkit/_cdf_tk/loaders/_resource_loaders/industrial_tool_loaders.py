@@ -44,6 +44,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
 
+    @property
+    def display_name(self) -> str:
+        return "Streamlit apps"
+
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
         self._source_file_by_external_id: dict[str, Path] = {}

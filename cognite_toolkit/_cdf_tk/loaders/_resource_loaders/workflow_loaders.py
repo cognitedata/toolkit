@@ -81,6 +81,10 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflows/operation/CreateOrUpdateWorkflow"
 
+    @property
+    def display_name(self) -> str:
+        return "workflows"
+
     @classmethod
     def get_required_capability(
         cls, items: WorkflowUpsertList | None, read_only: bool
@@ -234,7 +238,7 @@ class WorkflowVersionLoader(
 
     @property
     def display_name(self) -> str:
-        return "workflow.versions"
+        return "workflow versions"
 
     @classmethod
     def get_required_capability(
@@ -376,7 +380,7 @@ class WorkflowTriggerLoader(
 
     @property
     def display_name(self) -> str:
-        return "workflow.triggers"
+        return "workflow triggers"
 
     @classmethod
     def get_id(cls, item: WorkflowTriggerUpsert | WorkflowTrigger | dict) -> str:

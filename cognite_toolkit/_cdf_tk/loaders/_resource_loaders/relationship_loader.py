@@ -41,7 +41,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "relationships"
 
     @classmethod
     def get_id(cls, item: Relationship | RelationshipWrite | dict) -> str:

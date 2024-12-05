@@ -17,7 +17,7 @@ import re
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, final
 
 import yaml
 from cognite.client.data_classes import (
@@ -78,6 +78,10 @@ class ExtractionPipelineLoader(
     dependencies = frozenset({DataSetsLoader, RawDatabaseLoader, RawTableLoader, GroupAllScopedLoader})
     _doc_url = "Extraction-Pipelines/operation/createExtPipes"
 
+    @property
+    def display_name(self) -> str:
+        return "extraction pipelines"
+
     @classmethod
     def get_required_capability(
         cls, items: ExtractionPipelineWriteList | None, read_only: bool
@@ -110,6 +114,14 @@ class ExtractionPipelineLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("ExtractionPipeline must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: ExtractionPipeline | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if item.id is None:
+            raise ToolkitRequiredValueError("ExtractionPipeline must have id set.")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -189,18 +201,19 @@ class ExtractionPipelineLoader(
         # Bug in SDK overload so need the ignore.
         return self.client.extraction_pipelines.update(items, mode="replace")  # type: ignore[call-overload]
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        id_list = list(ids)
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
         try:
-            self.client.extraction_pipelines.delete(external_id=id_list)
+            self.client.extraction_pipelines.delete(id=internal_ids, external_id=external_ids)
         except CogniteNotFoundError as e:
             not_existing = {external_id for dup in e.not_found if (external_id := dup.get("externalId", None))}
-            if id_list := [id_ for id_ in id_list if id_ not in not_existing]:
-                self.client.extraction_pipelines.delete(external_id=id_list)
+            if id_list := [id_ for id_ in ids if id_ not in not_existing]:
+                internal_ids, external_ids = self._split_ids(id_list)
+                self.client.extraction_pipelines.delete(id=internal_ids, external_id=external_ids)
         except CogniteAPIError as e:
             if e.code == 403 and "not found" in e.message and "extraction pipeline" in e.message.lower():
                 return 0
-        return len(id_list)
+        return len(ids)
 
     def _iterate(
         self,
@@ -251,7 +264,7 @@ class ExtractionPipelineConfigLoader(
 
     @property
     def display_name(self) -> str:
-        return "extraction_pipeline.config"
+        return "extraction pipeline configs"
 
     @classmethod
     def get_required_capability(
@@ -382,12 +395,16 @@ class ExtractionPipelineConfigLoader(
     ) -> Iterable[ExtractionPipelineConfig]:
         parent_iterable = parent_ids or iter(self.client.extraction_pipelines)
         for parent_id in parent_iterable or []:
+            pipeline_id: str | None = None
             if isinstance(parent_id, ExtractionPipeline):
-                pipeline_id = cast(str, parent_id.external_id)
+                if parent_id.external_id:
+                    pipeline_id = parent_id.external_id
             elif isinstance(parent_id, str):
                 pipeline_id = parent_id
-            else:
+
+            if pipeline_id is None:
                 continue
+
             try:
                 yield self.client.extraction_pipelines.config.retrieve(external_id=pipeline_id)
             except CogniteAPIError as e:

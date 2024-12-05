@@ -48,7 +48,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "assets"
 
     @classmethod
     def get_id(cls, item: Asset | AssetWrite | dict) -> str:
@@ -57,6 +57,14 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if not item.external_id:
             raise KeyError("Asset must have external_id")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: Asset | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("Asset must have id")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -94,13 +102,15 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     def update(self, items: AssetWriteList) -> AssetList:
         return self.client.assets.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
         try:
-            self.client.assets.delete(external_id=ids)
+            self.client.assets.delete(id=internal_ids, external_id=external_ids)
         except (CogniteAPIError, CogniteNotFoundError) as e:
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.assets.delete(external_id=existing)
+                internal_ids, external_ids = self._split_ids(existing)
+                self.client.assets.delete(id=internal_ids, external_id=external_ids)
             return len(existing)
         else:
             return len(ids)
@@ -230,7 +240,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "sequences"
 
     @classmethod
     def get_id(cls, item: Sequence | SequenceWrite | dict) -> str:
@@ -239,6 +249,14 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         if not item.external_id:
             raise KeyError("Sequence must have external_id")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: Sequence | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("Sequence must have id")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -273,13 +291,15 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
     def update(self, items: SequenceWriteList) -> SequenceList:
         return self.client.sequences.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
         try:
-            self.client.sequences.delete(external_id=ids)
+            self.client.sequences.delete(id=internal_ids, external_id=external_ids)
         except (CogniteAPIError, CogniteNotFoundError) as e:
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.sequences.delete(external_id=existing)
+                internal_ids, external_ids = self._split_ids(existing)
+                self.client.sequences.delete(id=internal_ids, external_id=external_ids)
             return len(existing)
         else:
             return len(ids)
@@ -346,7 +366,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "events"
 
     @classmethod
     def get_id(cls, item: Event | EventWrite | dict) -> str:
@@ -355,6 +375,14 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         if not item.external_id:
             raise KeyError("Event must have external_id")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: Event | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("Event must have id")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -392,13 +420,15 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
     def update(self, items: EventWriteList) -> EventList:
         return self.client.events.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
         try:
-            self.client.events.delete(external_id=ids)
+            self.client.events.delete(id=internal_ids, external_id=external_ids)
         except (CogniteAPIError, CogniteNotFoundError) as e:
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
-                self.client.events.delete(external_id=existing)
+                internal_ids, external_ids = self._split_ids(existing)
+                self.client.events.delete(id=internal_ids, external_id=external_ids)
             return len(existing)
         else:
             return len(ids)
