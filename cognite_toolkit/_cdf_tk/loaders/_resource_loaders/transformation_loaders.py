@@ -111,6 +111,10 @@ class TransformationLoader(
     _doc_url = "Transformations/operation/createTransformations"
     do_environment_variable_injection = True
 
+    @property
+    def display_name(self) -> str:
+        return "transformations"
+
     @classmethod
     def get_required_capability(
         cls, items: TransformationWriteList | None, read_only: bool
@@ -140,6 +144,14 @@ class TransformationLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("Transformation must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: Transformation | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if item.id is None:
+            raise ToolkitRequiredValueError("Transformation must have id set.")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -293,16 +305,19 @@ class TransformationLoader(
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
         return self.client.transformations.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationList:
-        return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
+        internal_ids, external_ids = self._split_ids(ids)
+        return self.client.transformations.retrieve_multiple(
+            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
+        )
 
     def update(self, items: TransformationWriteList) -> TransformationList:
         return self.client.transformations.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        existing = self.retrieve(ids).as_external_ids()
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        existing = self.retrieve(ids).as_ids()
         if existing:
-            self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
+            self.client.transformations.delete(id=existing, ignore_unknown_ids=True)
         return len(existing)
 
     def _iterate(
@@ -376,7 +391,7 @@ class TransformationScheduleLoader(
 
     @property
     def display_name(self) -> str:
-        return "transformation.schedules"
+        return "transformation schedules"
 
     @classmethod
     def get_required_capability(
@@ -452,11 +467,14 @@ class TransformationScheduleLoader(
             yield from iter(self.client.transformations.schedules)
         else:
             for transformation_id in parent_ids:
-                if not isinstance(transformation_id, str):
-                    continue
-                res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
-                if res:
-                    yield res
+                if isinstance(transformation_id, str):
+                    res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
+                    if res:
+                        yield res
+                elif isinstance(transformation_id, int):
+                    res = self.client.transformations.schedules.retrieve(id=transformation_id)
+                    if res:
+                        yield res
 
 
 @final
@@ -484,7 +502,7 @@ class TransformationNotificationLoader(
 
     @property
     def display_name(self) -> str:
-        return "transformation.notifications"
+        return "transformation notifications"
 
     @classmethod
     def get_id(cls, item: TransformationNotification | TransformationNotificationWrite | dict) -> str:
@@ -603,9 +621,10 @@ class TransformationNotificationLoader(
             yield from iter(self.client.transformations.notifications)
         else:
             for transformation_id in parent_ids:
-                if not isinstance(transformation_id, str):
-                    continue
-                yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
+                if isinstance(transformation_id, str):
+                    yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
+                elif isinstance(transformation_id, int):
+                    yield from self.client.transformations.notifications(transformation_id=transformation_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

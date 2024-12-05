@@ -44,15 +44,23 @@ class PurgeCommand(ToolkitCommand):
         space: str | None = None,
         include_space: bool = False,
         dry_run: bool = False,
+        auto_yes: bool = False,
         verbose: bool = False,
     ) -> None:
         """Purge a space and all its content"""
         selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
-        self._print_panel("space", selected_space)
         if space is None:
             # Interactive mode
             include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
+        if not dry_run:
+            self._print_panel("space", selected_space)
+            if not auto_yes:
+                confirm = questionary.confirm(
+                    f"Are you really sure you want to purge the {selected_space!r} space?", default=False
+                ).ask()
+                if not confirm:
+                    return
 
         loaders = self._get_dependencies(
             SpaceLoader,
@@ -118,17 +126,25 @@ class PurgeCommand(ToolkitCommand):
         external_id: str | None = None,
         include_dataset: bool = False,
         dry_run: bool = False,
+        auto_yes: bool = False,
         verbose: bool = False,
     ) -> None:
         """Purge a dataset and all its content"""
         selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
-        self._print_panel("dataset", selected_dataset)
         if external_id is None:
             # Interactive mode
             include_dataset = questionary.confirm(
                 "Do you want to archive the dataset itself after the purge?", default=False
             ).ask()
             dry_run = questionary.confirm("Dry run?", default=True).ask()
+        if not dry_run:
+            self._print_panel("dataset", selected_dataset)
+            if not auto_yes:
+                confirm = questionary.confirm(
+                    f"Are you really sure you want to purge the {selected_dataset!r} dataset?", default=False
+                ).ask()
+                if not confirm:
+                    return
 
         loaders = self._get_dependencies(
             DataSetsLoader,
@@ -139,6 +155,7 @@ class PurgeCommand(ToolkitCommand):
                 StreamlitLoader,
                 HostedExtractorDestinationLoader,
                 FunctionLoader,
+                LocationFilterLoader,
             },
         )
         is_purged = self._purge(
@@ -245,9 +262,14 @@ class PurgeCommand(ToolkitCommand):
                 try:
                     batch_ids.append(loader.get_id(resource))
                 except ToolkitRequiredValueError as e:
-                    self.warn(HighSeverityWarning(f"Cannot delete {resource.dump()!r}. Failed to obtain ID: {e}"))
-                    is_purged = False
-                    continue
+                    try:
+                        batch_ids.append(loader.get_internal_id(resource))
+                    except (AttributeError, NotImplementedError):
+                        self.warn(
+                            HighSeverityWarning(f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}")
+                        )
+                        is_purged = False
+                        continue
 
                 if len(batch_ids) >= batch_size:
                     child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)

@@ -78,7 +78,7 @@ class FileMetadataLoader(
 
     @property
     def display_name(self) -> str:
-        return "file_metadata"
+        return "file metadata"
 
     @classmethod
     def get_required_capability(
@@ -103,6 +103,12 @@ class FileMetadataLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("FileMetadata must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: FileMetadata | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -193,8 +199,9 @@ class FileMetadataLoader(
     def update(self, items: FileMetadataWriteList) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
-    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
-        self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
+    def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
+        self.client.files.delete(id=internal_ids, external_id=external_ids)
         return len(cast(SequenceNotStr[str], ids))
 
     def _iterate(
@@ -266,7 +273,7 @@ class CogniteFileLoader(
 
     @property
     def display_name(self) -> str:
-        return "cognite_file"
+        return "cognite files"
 
     @classmethod
     def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
