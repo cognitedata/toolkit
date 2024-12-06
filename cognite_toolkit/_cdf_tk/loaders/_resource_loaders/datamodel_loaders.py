@@ -526,18 +526,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
-    def _are_equal(
-        self, local: ViewApply, cdf_resource: View, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
+    def dump_as_write(self, cdf_resource: View) -> dict[str, Any]:
+        """Views are special in that they include all parent properties. This
+        methods looks up all parent views and removes the properties that are
+        not overridden to get the true write view."""
         cdf_dumped = cdf_resource.as_write().dump()
-
-        # The version is always a string from the API, but can be an int when reading from YAML.
-        local_dumped["version"] = str(local_dumped["version"])
-
         if not cdf_resource.implements:
-            return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
+            return cdf_dumped
         if cdf_resource.properties:
             # All read version of views have all the properties of their parent views.
             # We need to remove these properties to compare with the local view.
@@ -550,6 +545,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     if is_overidden:
                         continue
                     cdf_properties.pop(prop_name, None)
+        return cdf_dumped
+
+    def _are_equal(
+        self, local: ViewApply, cdf_resource: View, return_dumped: bool = False
+    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+        local_dumped = local.dump()
+        cdf_dumped = self.dump_as_write(cdf_resource)
+
+        # The version is always a string from the API, but can be an int when reading from YAML.
+        local_dumped["version"] = str(local_dumped["version"])
 
         if not cdf_dumped.get("properties"):
             # All properties were removed, so we remove the properties key.
