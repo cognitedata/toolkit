@@ -125,8 +125,10 @@ class GraphQLParser:
                         directive_tokens = _DirectiveTokens([token])
                     is_directive_start = False
 
-            elif token in ("type", "interface"):
+            elif token in ("type", "interface") and not parentheses:
                 # Next token starts a new entity definition
+                # Notet hat we cannot be inside a paranthesis as that could be a
+                # property of the entity
                 last_class = token
             elif last_class is not None and token != "\n":
                 # Start of a new entity definition

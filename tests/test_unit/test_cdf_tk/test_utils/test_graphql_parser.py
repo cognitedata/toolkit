@@ -4,6 +4,7 @@ from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
 )
+from cognite_toolkit._cdf_tk.utils.graphql_parser import _Directive, _DirectiveTokens, _ViewDirective
 
 SPACE = "sp_my_space"
 DATA_MODEL = DataModelId(SPACE, "MyDataModel", "v1")
@@ -206,6 +207,35 @@ type CogniteCADModel implements CogniteDescribable & Cognite3DModel
     ),
 ]
 
+DirectiveTestCases = [
+    pytest.param(
+        """view(
+    space: "cdf_cdm"
+    version: "v1"
+    rawFilter: {
+      and: [
+        {
+          hasData: [
+            {
+              type: "container"
+              space: "cdf_cdm_3d"
+              externalId: "Cognite3DModel"
+            }
+          ]
+        }
+        {
+          equals: {
+            property: ["cdf_cdm_3d", "Cognite3DModel", "type"]
+            value: "CAD"
+          }
+        }
+      ]
+    }
+  )""",
+        _ViewDirective(space="cdf_cdm", version="v1"),
+    )
+]
+
 
 class TestGraphQLParser:
     @pytest.mark.parametrize("raw, data_model_id, expected_views, dependencies", GraphQLTestCases)
@@ -218,3 +248,9 @@ class TestGraphQLParser:
         assert expected_views == actual_views
         actual_dependencies = parser.get_dependencies(include_version=True)
         assert dependencies == actual_dependencies
+
+    @pytest.mark.parametrize("string, expected", DirectiveTestCases)
+    def test_create_directive(self, string: str, expected: _Directive) -> None:
+        tokens = GraphQLParser._token_pattern.findall(string)
+        actual = _DirectiveTokens(tokens).create()
+        assert expected == actual
