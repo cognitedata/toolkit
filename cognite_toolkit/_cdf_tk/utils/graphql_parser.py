@@ -150,7 +150,7 @@ class _Directive:
     @classmethod
     def load(cls, content: list[str]) -> "_Directive | None":
         key, *content = content
-        raw_string = "".join(content).removeprefix("(").removesuffix(")").replace("\n", ",")
+        raw_string = cls._standardize(content)
         data = cls._create_args(raw_string)
         if key == "import":
             return _Import._load(data)
@@ -159,16 +159,40 @@ class _Directive:
         return None
 
     @classmethod
+    def _standardize(cls, content: list[str]) -> str:
+        """We standardize to use commas as separators, instead of newlines.
+        However, if we are inside a parenthesis we need to replace newlines with empty.
+        """
+        if not content:
+            return ""
+        # Ensure that the content is wrapped in parenthesis
+        # so that we can safely drop the first and last character
+        if content[0] != "(":
+            content.insert(0, "(")
+        if content[-1] != ")":
+            content.append(")")
+
+        standardized: list[str] = []
+        for last, current, next_ in zip(content, content[1:], content[2:]):
+            if current == "\n" and last in "({[":
+                continue
+            elif current == "\n" and next_ in ")}]":
+                continue
+            elif current == "\n":
+                standardized.append(",")
+            else:
+                standardized.append(current)
+        return "".join(standardized)
+
+    @classmethod
     def _create_args(cls, string: str) -> dict[str, Any] | str:
         if "," not in string and ":" not in string:
             return string
         output: dict[str, Any] = {}
-        if string[0] == "{" and string[-1] == "}":
-            string = string[1:-1]
-        if string[0] == ",":
-            string = string[1:]
-        if string[-1] == ",":
-            string = string[:-1]
+        for pair in ["{}", "[]", "()", "<>"]:
+            if string[0] == pair[0] and string[-1] == pair[-1]:
+                string = string[1:-1]
+                break
         for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
             stripped = pair.strip()
             if not stripped or ":" not in stripped:
