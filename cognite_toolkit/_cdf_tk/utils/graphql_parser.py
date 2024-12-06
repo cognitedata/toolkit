@@ -115,18 +115,14 @@ class GraphQLParser:
                     if token == "@":
                         is_directive_start = True
                 elif directive_tokens:
-                    if token == "\n" and "{" not in parentheses:
-                        # Throw away.
-                        continue
                     # Gather the content of the directive
                     directive_tokens.append(token)
                 elif token == "@":
                     is_directive_start = True
-                elif is_directive_start and token in ("import", "view"):
-                    directive_tokens = _DirectiveTokens([token])
-                    is_directive_start = False
                 elif is_directive_start:
-                    # Not a directive we care about
+                    if token in ("import", "view"):
+                        # We only care about import and view directives
+                        directive_tokens = _DirectiveTokens([token])
                     is_directive_start = False
 
             elif token in ("type", "interface"):
