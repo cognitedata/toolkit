@@ -152,6 +152,8 @@ class _Directive:
         key, *content = content
         raw_string = cls._standardize(content)
         data = cls._create_args(raw_string)
+        if isinstance(data, list):
+            return None
         if key == "import":
             return _Import._load(data)
         if key == "view":
@@ -174,7 +176,9 @@ class _Directive:
 
         standardized: list[str] = []
         for last, current, next_ in zip(content, content[1:], content[2:]):
-            if current == "\n" and last in "({[":
+            if current == "\n" and last in ")}]" and next_ in "({[":
+                standardized.append(",")
+            elif current == "\n" and last in "({[":
                 continue
             elif current == "\n" and next_ in ")}]":
                 continue
@@ -185,21 +189,39 @@ class _Directive:
         return "".join(standardized)
 
     @classmethod
-    def _create_args(cls, string: str) -> dict[str, Any] | str:
+    def _create_args(cls, string: str) -> dict[str, Any] | str | list[Any]:
         if "," not in string and ":" not in string:
             return string
-        output: dict[str, Any] = {}
-        for pair in ["{}", "[]", "()", "<>"]:
-            if string[0] == pair[0] and string[-1] == pair[-1]:
-                string = string[1:-1]
-                break
+        if string[0] == "{" and string[-1] == "}":
+            string = string[1:-1]
+        is_list = False
+        if string[0] == "[" and string[-1] == "]":
+            string = string[1:-1]
+            is_list = True
+        items: list[Any] = []
+        obj: dict[str, Any] = {}
+        last_pair = ""
         for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
             stripped = pair.strip()
-            if not stripped or ":" not in stripped:
+            if (not stripped or (not is_list and ":" not in stripped)) and not last_pair:
                 continue
-            key, value = cls._clean(*stripped.split(":", maxsplit=1))
-            output[key] = cls._create_args(value)
-        return output
+            if last_pair:
+                stripped = f"{last_pair},{stripped}"
+                last_pair = ""
+            # Regex does not deal with nested parenthesis
+            left_count = sum(stripped.count(char) for char in "{[(")
+            right_count = sum(stripped.count(char) for char in "}])")
+            if left_count != right_count:
+                last_pair = stripped
+                continue
+            if is_list:
+                items.append(cls._create_args(stripped))
+            else:
+                key, value = cls._clean(*stripped.split(":", maxsplit=1))
+                if set("{[(}]}") & set(key):
+                    raise ValueError(f"Invalid value {value}")
+                obj[key] = cls._create_args(value)
+        return items if is_list else obj
 
     @classmethod
     def _clean(cls, *args: Any) -> Any:
