@@ -595,6 +595,54 @@ type UnitOfMeasurement
         set(),
         id="No version",
     ),
+    pytest.param(
+        """"Navigational aid for traversing CogniteCADModel instances"
+type CogniteCADModel implements CogniteDescribable & Cognite3DModel
+  @view(
+    space: "cdf_cdm"
+    version: "v1"
+    rawFilter: {
+      and: [
+        {
+          hasData: [
+            {
+              type: "container"
+              space: "cdf_cdm_3d"
+              externalId: "Cognite3DModel"
+            }
+          ]
+        }
+        {
+          equals: {
+            property: ["cdf_cdm_3d", "Cognite3DModel", "type"]
+            value: "CAD"
+          }
+        }
+      ]
+    }
+  )
+  @import {
+  "Name of the instance"
+  name: String
+  "Description of the instance"
+  description: String
+  "Text based labels for generic use, limited to 1000"
+  tags: [String]
+  "Alternative names for the node"
+  aliases: [String]
+  "CAD, PointCloud or Image360"
+  type: Cognite3DModel_type
+  "Thumbnail of the 3D model"
+  thumbnail: CogniteFile
+  "List of revisions for this CAD model"
+  revisions: [CogniteCADRevision]
+    @reverseDirectRelation(throughProperty: "model3D")
+}""",
+        DATA_MODEL,
+        set(),
+        {ViewId("cdf_cdm", "CogniteCADModel", "v1")},
+        id="Setting custom filter on view",
+    ),
 ]
 
 

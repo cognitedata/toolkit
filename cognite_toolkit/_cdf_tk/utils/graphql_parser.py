@@ -198,7 +198,13 @@ class _ViewDirective(_Directive):
     def _load(cls, data: dict[str, Any] | str) -> "_ViewDirective":
         if isinstance(data, str):
             return _ViewDirective()
-        return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
+        space = data.get("space")
+        external_id = data.get("externalId")
+        version = data.get("version")
+        for variable in (space, external_id, version):
+            if variable and not isinstance(variable, str):
+                raise ValueError(f"Invalid variable {variable}")
+        return _ViewDirective(space=space, external_id=external_id, version=version)
 
 
 @dataclass
