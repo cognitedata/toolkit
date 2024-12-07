@@ -26,6 +26,9 @@ Changes are grouped as follows:
 - Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
   not have a `package` key.
 - [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`
+- [alpha feature] `GraphQL` resources with views that specify a `rawFilter` no longer raise an error when
+  running `cdf deploy`.
+- In the `cdf dump datamodel` command, properties that are overridden in a view are now correctly dumped.
 
 ### Changed
 

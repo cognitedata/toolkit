@@ -14,8 +14,9 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
+from cognite_toolkit._cdf_tk.loaders import ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, retrieve_view_ancestors
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from ._base import ToolkitCommand
 
@@ -53,8 +54,6 @@ class DumpCommand(ToolkitCommand):
         space_ids = {item.space for item in itertools.chain(containers, views, [data_model])}
         spaces = client.data_modeling.spaces.retrieve(list(space_ids))
 
-        views_by_id = {view.as_id(): view for view in views}
-
         is_populated = output_dir.exists() and any(output_dir.iterdir())
         if is_populated and clean:
             shutil.rmtree(output_dir)
@@ -89,6 +88,7 @@ class DumpCommand(ToolkitCommand):
         suffix_version = len(views) != len({f"{view.space}{view.external_id}" for view in views})
         view_folder = resource_folder / "views"
         view_folder.mkdir(exist_ok=True)
+        view_loader = ViewLoader.create_loader(ToolGlobals, None)
         for view in views:
             file_name = f"{view.external_id}.view.yaml"
             if prefix_space:
@@ -96,15 +96,7 @@ class DumpCommand(ToolkitCommand):
             if suffix_version:
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
             view_file = view_folder / file_name
-            view_write = view.as_write().dump()
-            parents = retrieve_view_ancestors(client, view.implements or [], views_by_id)
-            for parent in parents:
-                for prop_name in parent.properties.keys():
-                    view_write["properties"].pop(prop_name, None)
-            if not view_write["properties"]:
-                # All properties were removed, so we remove the properties key.
-                view_write.pop("properties", None)
-
+            view_write = view_loader.dump_as_write(view)
             view_file.write_text(yaml.safe_dump(view_write, sort_keys=False))
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped view {view.as_id()} to {view_file!s}.")
