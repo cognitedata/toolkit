@@ -28,7 +28,7 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
     sourceSystem:\n  space: springfield_instances\n  externalId: p_and_id_parser\n\
-    data:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n    ['springfield_instances']\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  instanceSpaces:\n    ['springfield_instances']\n\
     \  annotationJobs:\n    - fileView:\n        space: cdf_cdm\n        externalId:\
     \ CogniteFile\n        version: v1\n      entityViews:\n        - space: cdf_cdm\n\
     \          externalId: CogniteEquipment\n          version: v1\n          searchProperty:\

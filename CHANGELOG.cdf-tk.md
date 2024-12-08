@@ -23,6 +23,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Replacing variables in an inline SQL query no longer removes the quotes around the variable.
 - Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
   not have a `package` key.
 - [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`

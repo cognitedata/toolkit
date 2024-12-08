@@ -117,7 +117,7 @@ ExtractionPipelineConfig:
     \  matchThreshold: 0.75\n"
   externalId: ep_ctx_timeseries_oid_opcua_asset
 - config: "# Version of the config schema\nversion: 1\n\nsource:\n    # The URL of\
-    \ the OPC-UA server to connect to\n    endpoint-url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer\n\
+    \ the OPC-UA server to connect to\n    endpoint-url: 'opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer'\n\
     \    force-restart: true\n    browse-nodes-chunk: 100\n    subscription-chunk:\
     \ 1000\n    keep-alive-interval: 50000\n    sampling-interval: 0\n    queue-length:\
     \ 10\n    browse-throttling:\n        max-node-parallelism: 1000\n    retries:\n\
@@ -133,9 +133,9 @@ ExtractionPipelineConfig:
     \ \"opc-ua:\"\n\n    # Source node in the OPC-UA server. Leave empty to use the\
     \ top level Objects node.\n    # If root-nodes is set, this is added to the list\
     \ of root nodes.\n    root-node:\n        # Full name of the namespace of the\
-    \ root node.\n        namespace-uri: http://www.prosysopc.com/OPCUA/SimulationNodes/\n\
+    \ root node.\n        namespace-uri: 'http://www.prosysopc.com/OPCUA/SimulationNodes/'\n\
     \        # Id of the root node, on the form \"i=123\" or \"s=stringid\" etc.\n\
-    \        node-id: s=85/0:Simulation\n\n    # Time in minutes between each call\
+    \        node-id: 's=85/0:Simulation'\n\n    # Time in minutes between each call\
     \ to browse the OPC-UA directory, then push new nodes to destinations.\n    #\
     \ Note that this is a heavy operation, so this number should not be set too low.\n\
     \    # Alternatively, use N[timeunit] where timeunit is w, d, h, m, s or ms.\n\
