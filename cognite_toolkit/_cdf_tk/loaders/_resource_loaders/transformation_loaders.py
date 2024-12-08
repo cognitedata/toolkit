@@ -194,23 +194,6 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    @staticmethod
-    def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
-        query_file = filepath.parent / f"{filepath.stem}.sql"
-        if not query_file.exists() and transformation_external_id:
-            found_query_file = next(
-                (
-                    f
-                    for f in filepath.parent.iterdir()
-                    if f.is_file() and f.name.endswith(f"{transformation_external_id}.sql")
-                ),
-                None,
-            )
-            if found_query_file is None:
-                return None
-            query_file = found_query_file
-        return query_file
-
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
@@ -283,11 +266,6 @@ class TransformationLoader(
                         filepath,
                     )
                 transformation.query = safe_read(query_file)
-            elif transformation.query is not None and query_file is not None:
-                raise ToolkitYAMLFormatError(
-                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
-                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
-                )
 
             transformations.append(transformation)
 
