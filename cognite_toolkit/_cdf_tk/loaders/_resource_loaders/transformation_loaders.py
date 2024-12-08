@@ -270,7 +270,11 @@ class TransformationLoader(
             except KeyError as e:
                 raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
 
-            query_file = self._get_query_file(filepath, transformation.external_id)
+            query_file: Path | None = filepath.parent / Path(transformation.query or "")
+            if query_file and query_file.exists():
+                transformation.query = None
+            else:
+                query_file = None
 
             if transformation.query is None:
                 if query_file is None:
