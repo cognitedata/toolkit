@@ -51,7 +51,7 @@ class RawBuilder(Builder):
             for loader, entries in entry_by_loader.items():
                 if not entries:
                     continue
-                destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+                destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
                 if loader is RawDatabaseLoader and has_split_table_and_database:
                     # We have inferred the database from a Table file, so we need to recalculate the hash

@@ -33,6 +33,8 @@ Changes are grouped as follows:
 ### Changed
 
 - [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
+- Building a `Transformation` will store the `.sql` file in the build directory instead of inlined in the
+  resource YAML file.
 
 ### Improved
 

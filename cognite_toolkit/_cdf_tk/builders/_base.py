@@ -63,7 +63,7 @@ class Builder(ABC):
         return WarningList[ToolkitWarning]()
 
     # Helper methods
-    def _create_destination_path(self, source_path: Path, module_dir: Path, kind: str) -> Path:
+    def _create_destination_path(self, source_path: Path, kind: str) -> Path:
         """Creates the filepath in the build directory for the given source path.
 
         Note that this is a complex operation as the modules in the source are nested while the build directory is flat.
@@ -153,7 +153,7 @@ class DefaultBuilder(Builder):
                 if warning is not None:
                     yield [warning]
                 continue
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             destination = BuildDestinationFile(
                 path=destination_path,
