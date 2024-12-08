@@ -41,7 +41,7 @@ class TransformationBuilder(Builder):
             if loader is TransformationLoader:
                 extra_sources = self._add_query(loaded, source_file, query_files)
 
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             destination = BuildDestinationFile(
                 path=destination_path,
