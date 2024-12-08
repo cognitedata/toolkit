@@ -73,6 +73,34 @@ suffix_text: {{ my_suffix_text }}
 
         assert result == "dataset_id('ds_external_id')"
 
+    def test_replace_sql_preserve_double_quotes(self) -> None:
+        source_yaml = """externalId: some_id
+name: Some Transformation
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: my_instance_space
+query: >-
+  select "fpso_{{location_id}}" as externalId, "{{location_ID}}" as uid, "{{location_ID}}" as description
+"""
+        variables = BuildVariables.load_raw(
+            {
+                "location_id": "uny",
+                "location_ID": "UNY",
+            },
+            available_modules=set(),
+            selected_modules=set(),
+        )
+
+        result = variables.replace(source_yaml, file_suffix=".yaml")
+
+        loaded = yaml.safe_load(result)
+
+        assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description\n'
+
     def test_get_module_variables_variable_preference_order(self) -> None:
         source_yaml = """
 modules:
