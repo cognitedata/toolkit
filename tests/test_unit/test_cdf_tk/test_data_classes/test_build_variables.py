@@ -73,7 +73,7 @@ suffix_text: {{ my_suffix_text }}
 
         assert result == "dataset_id('ds_external_id')"
 
-    def test_replace_sql_preserve_double_quotes(self) -> None:
+    def test_replace_inline_sql_preserve_double_quotes(self) -> None:
         source_yaml = """externalId: some_id
 name: Some Transformation
 destination:
@@ -99,7 +99,7 @@ query: >-
 
         loaded = yaml.safe_load(result)
 
-        assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description\n'
+        assert loaded["query"] == 'select "fpso_uny" as externalId, "UNY" as uid, "UNY" as description'
 
     def test_get_module_variables_variable_preference_order(self) -> None:
         source_yaml = """
