@@ -105,6 +105,7 @@ class BuildCommand(ToolkitCommand):
             defaultdict(list)
         )
         self._has_built = False
+        self._printed_variable_tree_structure_hint = False
 
     def execute(
         self,
@@ -485,14 +486,16 @@ class BuildCommand(ToolkitCommand):
                     if len(module_names) == 1
                     else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
                 )
-                self.console(
-                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
-                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} "
-                    f"the location of {module.as_posix()}.",
-                    prefix="    [bold green]Hint:[/] ",
-                )
+                if not self._printed_variable_tree_structure_hint:
+                    self._printed_variable_tree_structure_hint = True
+                    self.console(
+                        f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                        f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
+                        f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
+                        f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} "
+                        f"the location of {module.as_posix()}.",
+                        prefix="    [bold green]Hint:[/] ",
+                    )
         self.warning_list.extend(warning_list)
         if self.print_warning and warning_list:
             print(str(warning_list))
