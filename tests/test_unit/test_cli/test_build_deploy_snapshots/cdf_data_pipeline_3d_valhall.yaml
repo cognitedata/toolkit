@@ -80,7 +80,7 @@ ExtractionPipelineConfig:
 - config: "data:\n  debug: False\n  runAll: False\n  rawdb: '3d_oid_fileshare'\n \
     \ rawTableGood: 'contextualization_good'\n  rawTableBad: 'contextualization_bad'\n\
     \  rawTableManual: 'contextualization_manual_input'\n  assetRootExtId: WMT:VAL\n\
-    \  3dDataSetExtId: 'ds_3d_oid'\n  3dModelName: Valhall\n  matchThreshold: 0.75\n\
+    \  3dDataSetExtId: 'ds_3d_oid'\n  3dModelName: 'Valhall'\n  matchThreshold: 0.75\n\
     \  keepOldMapping: False\n"
   externalId: ep_ctx_3d_oid_fileshare_annotation
 - config: "logger:\n  # Logging to console/terminal. Remove or comment out to disable\

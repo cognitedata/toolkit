@@ -36,8 +36,8 @@ ExtractionPipeline:
   name: Direct Relation Writer
 ExtractionPipelineConfig:
 - config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
-    data:\n  annotationSpace: springfield_instances\n  directRelationMappings:\n \
-    \   - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  directRelationMappings:\n\
+    \    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
     \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
     \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
     \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\

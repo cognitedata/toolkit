@@ -34,8 +34,8 @@ ExtractionPipeline:
     \ documents, if False only run on document not updated since last  annotation\n\
     \ runAll: False\n # Number of document from each asset to annotate -1 = All, else\
     \ number is used\n docLimit: -1\n # Data set to read documents / P&ID from + update\
-    \ with annotated timestamp when done\n docDataSetExtId: ds_files_oid\n # In document\
-    \ metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
+    \ with annotated timestamp when done\n docDataSetExtId: \"ds_files_oid\"\n # In\
+    \ document metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
     \ \"doc_type\"\n # Document type for P&ID type documents\n pAndIdDocType: \"PNID\"\
     \n # List of externalId for root assets to be used for annotation of documents.\
     \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [WMT:VAL]\n\
@@ -65,8 +65,8 @@ ExtractionPipeline:
   source: fileshare
 ExtractionPipelineConfig:
 - config: "data:\n  debug: False\n  runAll: False\n  docLimit: -1\n  docDataSetExtId:\
-    \ ds_files_oid\n  docTypeMetaCol: \"doc_type\"\n  pAndIdDocType: \"PNID\"\n  assetRootExtIds:\
-    \ [WMT:VAL]\n  matchThreshold: 0.85\n \n"
+    \ \"ds_files_oid\"\n  docTypeMetaCol: \"doc_type\"\n  pAndIdDocType: \"PNID\"\n\
+    \  assetRootExtIds: [WMT:VAL]\n  matchThreshold: 0.85\n \n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
 - config: "logger:\n  # Logging to console/terminal. Remove or comment out to disable\
     \ terminal\n  # logging\n  console:\n    level: INFO\n\n  # Logging to file. Include\
