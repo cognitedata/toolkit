@@ -283,7 +283,7 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     do_environment_variable_injection = True
-    has_parent_resource = True
+    parent_resource = frozenset({FunctionLoader})
 
     @property
     def display_name(self) -> str:

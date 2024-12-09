@@ -380,7 +380,7 @@ class TransformationScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
-    has_parent_resource = True
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:
@@ -410,19 +410,6 @@ class TransformationScheduleLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
-
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(raw_yaml, dict):
-            return TransformationScheduleWrite.load(raw_yaml)
-        else:
-            return TransformationScheduleWriteList.load(raw_yaml)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -491,7 +478,7 @@ class TransformationNotificationLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
-    has_parent_resource = True
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:

@@ -166,7 +166,7 @@ class ResourceLoader(
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
-    has_parent_resource = False
+    parent_resource: frozenset[type[ResourceLoader]] = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -210,7 +210,7 @@ class ResourceLoader(
     ) -> Iterable[T_WritableCogniteResource]:
         if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
-        if parent_ids is not None and not self.has_parent_resource:
+        if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
             from ._resource_loaders.datamodel_loaders import SpaceLoader

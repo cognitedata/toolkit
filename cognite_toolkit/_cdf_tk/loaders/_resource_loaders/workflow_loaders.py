@@ -233,7 +233,7 @@ class WorkflowVersionLoader(
     list_write_cls = WorkflowVersionUpsertList
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
-    has_parent_resource = True
+    parent_resource = frozenset({WorkflowLoader})
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
@@ -371,7 +371,7 @@ class WorkflowTriggerLoader(
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
-    has_parent_resource = True
+    parent_resource = frozenset({WorkflowLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
     do_environment_variable_injection = True
