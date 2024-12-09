@@ -115,22 +115,20 @@ class GraphQLParser:
                     if token == "@":
                         is_directive_start = True
                 elif directive_tokens:
-                    if token == "\n" and "{" not in parentheses:
-                        # Throw away.
-                        continue
                     # Gather the content of the directive
                     directive_tokens.append(token)
                 elif token == "@":
                     is_directive_start = True
-                elif is_directive_start and token in ("import", "view"):
-                    directive_tokens = _DirectiveTokens([token])
-                    is_directive_start = False
                 elif is_directive_start:
-                    # Not a directive we care about
+                    if token in ("import", "view"):
+                        # We only care about import and view directives
+                        directive_tokens = _DirectiveTokens([token])
                     is_directive_start = False
 
-            elif token in ("type", "interface"):
+            elif token in ("type", "interface") and not parentheses:
                 # Next token starts a new entity definition
+                # Notet hat we cannot be inside a paranthesis as that could be a
+                # property of the entity
                 last_class = token
             elif last_class is not None and token != "\n":
                 # Start of a new entity definition
@@ -152,8 +150,10 @@ class _Directive:
     @classmethod
     def load(cls, content: list[str]) -> "_Directive | None":
         key, *content = content
-        raw_string = "".join(content).removeprefix("(").removesuffix(")").replace("\n", ",")
+        raw_string = cls._standardize(content)
         data = cls._create_args(raw_string)
+        if isinstance(data, list):
+            return None
         if key == "import":
             return _Import._load(data)
         if key == "view":
@@ -161,23 +161,67 @@ class _Directive:
         return None
 
     @classmethod
-    def _create_args(cls, string: str) -> dict[str, Any] | str:
+    def _standardize(cls, content: list[str]) -> str:
+        """We standardize to use commas as separators, instead of newlines.
+        However, if we are inside a parenthesis we need to replace newlines with empty.
+        """
+        if not content:
+            return ""
+        # Ensure that the content is wrapped in parenthesis
+        # so that we can safely drop the first and last character
+        if content[0] != "(":
+            content.insert(0, "(")
+        if content[-1] != ")":
+            content.append(")")
+
+        standardized: list[str] = []
+        for last, current, next_ in zip(content, content[1:], content[2:]):
+            if current == "\n" and last in ")}]" and next_ in "({[":
+                standardized.append(",")
+            elif current == "\n" and last in "({[":
+                continue
+            elif current == "\n" and next_ in ")}]":
+                continue
+            elif current == "\n":
+                standardized.append(",")
+            else:
+                standardized.append(current)
+        return "".join(standardized)
+
+    @classmethod
+    def _create_args(cls, string: str) -> dict[str, Any] | str | list[Any]:
         if "," not in string and ":" not in string:
             return string
-        output: dict[str, Any] = {}
         if string[0] == "{" and string[-1] == "}":
             string = string[1:-1]
-        if string[0] == ",":
-            string = string[1:]
-        if string[-1] == ",":
-            string = string[:-1]
+        is_list = False
+        if string[0] == "[" and string[-1] == "]":
+            string = string[1:-1]
+            is_list = True
+        items: list[Any] = []
+        obj: dict[str, Any] = {}
+        last_pair = ""
         for pair in cls.SPLIT_ON_COMMA_PATTERN.split(string):
             stripped = pair.strip()
-            if not stripped or ":" not in stripped:
+            if (not stripped or (not is_list and ":" not in stripped)) and not last_pair:
                 continue
-            key, value = cls._clean(*stripped.split(":", maxsplit=1))
-            output[key] = cls._create_args(value)
-        return output
+            if last_pair:
+                stripped = f"{last_pair},{stripped}"
+                last_pair = ""
+            # Regex does not deal with nested parenthesis
+            left_count = sum(stripped.count(char) for char in "{[(")
+            right_count = sum(stripped.count(char) for char in "}])")
+            if left_count != right_count:
+                last_pair = stripped
+                continue
+            if is_list:
+                items.append(cls._create_args(stripped))
+            else:
+                key, value = cls._clean(*stripped.split(":", maxsplit=1))
+                if set("{[(}]}") & set(key):
+                    raise ValueError(f"Invalid value {value}")
+                obj[key] = cls._create_args(value)
+        return items if is_list else obj
 
     @classmethod
     def _clean(cls, *args: Any) -> Any:
@@ -198,7 +242,13 @@ class _ViewDirective(_Directive):
     def _load(cls, data: dict[str, Any] | str) -> "_ViewDirective":
         if isinstance(data, str):
             return _ViewDirective()
-        return _ViewDirective(space=data.get("space"), external_id=data.get("externalId"), version=data.get("version"))
+        space = data.get("space")
+        external_id = data.get("externalId")
+        version = data.get("version")
+        for variable in (space, external_id, version):
+            if variable and not isinstance(variable, str):
+                raise ValueError(f"Invalid variable {variable}")
+        return _ViewDirective(space=space, external_id=external_id, version=version)
 
 
 @dataclass

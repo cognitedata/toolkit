@@ -50,7 +50,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Source"
+        return "hosted extractor sources"
 
     @classmethod
     def get_id(cls, item: SourceWrite | Source | dict) -> str:
@@ -143,7 +143,7 @@ class HostedExtractorDestinationLoader(
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Destination"
+        return "hosted extractor destinations"
 
     @classmethod
     def get_id(cls, item: DestinationWrite | Destination | dict) -> str:
@@ -265,7 +265,7 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Job"
+        return "hosted extractor jobs"
 
     @classmethod
     def get_id(cls, item: JobWrite | Job | dict) -> str:
@@ -364,7 +364,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Mapping"
+        return "hosted extractor mappings"
 
     @classmethod
     def get_id(cls, item: MappingWrite | Mapping | dict) -> str:

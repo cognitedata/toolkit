@@ -48,7 +48,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
 
     @property
     def display_name(self) -> str:
-        return "robotics.frame"
+        return "robotics frames"
 
     @classmethod
     def get_id(cls, item: Frame | FrameWrite | dict) -> str:
@@ -114,7 +114,7 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
 
     @property
     def display_name(self) -> str:
-        return "robotics.location"
+        return "robotics locations"
 
     @classmethod
     def get_id(cls, item: Location | LocationWrite | dict) -> str:
@@ -189,7 +189,7 @@ class RoboticsDataPostProcessingLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.data_postprocessing"
+        return "robotics data postprocessing"
 
     @classmethod
     def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
@@ -276,7 +276,7 @@ class RobotCapabilityLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.robot_capability"
+        return "robotics robot capabilities"
 
     @classmethod
     def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
@@ -365,7 +365,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
 
     @property
     def display_name(self) -> str:
-        return "robotics.map"
+        return "robotics maps"
 
     @classmethod
     def get_id(cls, item: Map | MapWrite | dict) -> str:

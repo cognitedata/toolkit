@@ -17,7 +17,7 @@ class PurgeApp(typer.Typer):
     def main(self, ctx: typer.Context) -> None:
         """Commands purge functionality"""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf pull --help[/] for more information.")
+            print("Use [bold yellow]cdf purge --help[/] for more information.")
 
     def purge_dataset(
         self,
@@ -44,6 +44,14 @@ class PurgeApp(typer.Typer):
                 help="Whether to do a dry-run, do dry-run if present.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the dataset.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -61,6 +69,7 @@ class PurgeApp(typer.Typer):
                 external_id,
                 include_dataset,
                 dry_run,
+                auto_yes,
                 verbose,
             )
         )
@@ -90,6 +99,14 @@ class PurgeApp(typer.Typer):
                 help="Whether to do a dry-run, do dry-run if present.",
             ),
         ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the space.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -109,6 +126,7 @@ class PurgeApp(typer.Typer):
                 space,
                 include_space,
                 dry_run,
+                auto_yes,
                 verbose,
             )
         )

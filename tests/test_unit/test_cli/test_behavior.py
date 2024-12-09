@@ -118,6 +118,9 @@ def test_pull_transformation(
         content = content.replace("{{cdfProjectName}}", "123")
         content = content.replace("{{cicd_scopes}}", "scope")
         content = content.replace("{{cicd_audience}}", "123")
+        # The loader expects the query to have a reference to the transformation file.
+        # This is a workaround for this test.
+        content += f"\nquery: {transformation_yaml.with_suffix('.sql').name}"
         transformation_yaml.write_text(content)
 
         transformation = loader.load_resource(transformation_yaml, cdf_tool_mock, skip_validation=True)
@@ -237,7 +240,7 @@ def test_dump_datamodel(
     )
     toolkit_client_approval.append(dm.Space, space)
     toolkit_client_approval.append(dm.Container, container)
-    toolkit_client_approval.append(dm.View, view)
+    toolkit_client_approval.append(dm.View, parent_view)
     toolkit_client_approval.append(dm.DataModel, data_model)
     app = DumpApp()
     app.dump_datamodel_cmd(

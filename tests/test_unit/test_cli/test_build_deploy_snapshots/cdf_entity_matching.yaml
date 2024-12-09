@@ -33,7 +33,7 @@ ExtractionPipelineConfig:
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
     \  featureType: \"bigram\"\nsourceSystem:\n  space: springfield_instances\n  externalId:\
     \ entity_matcher\nstate:\n  rawDatabase: contextualizationState\n  rawTable: entityMatching\n\
-    data:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n    ['springfield_instances']\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  instanceSpaces:\n    ['springfield_instances']\n\
     \  matchingJobs:\n    job1:\n      sourceView:\n        space: cdf_cdm\n     \
     \   externalId: CogniteTimeSeries\n        version: v1\n        properties:\n\
     \          - name\n      targetViews:\n        - space: cdf_cdm\n          externalId:\

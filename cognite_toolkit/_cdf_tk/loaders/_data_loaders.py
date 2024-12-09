@@ -32,7 +32,7 @@ class DatapointsLoader(DataLoader):
 
     @property
     def display_name(self) -> str:
-        return "timeseries.datapoints"
+        return "timeseries datapoints"
 
     def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
@@ -92,7 +92,7 @@ class FileLoader(DataLoader):
 
     @property
     def display_name(self) -> str:
-        return "file contents"
+        return "file content"
 
     def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
@@ -157,7 +157,7 @@ class RawFileLoader(DataLoader):
 
     @property
     def display_name(self) -> str:
-        return "raw.rows"
+        return "raw rows"
 
     def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:

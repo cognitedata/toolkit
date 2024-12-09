@@ -41,7 +41,7 @@ More details about the tool can be found at
 [docs.cognite.com](https://docs.cognite.com/cdf/deploy/cdf_toolkit/).
 
 You can find an overview of the modules and packages in the
-[module and package documentation](https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/module_reference).
+[module and package documentation](https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library).
 
 See [./CONTRIBUTING.md](./CONTRIBUTING.md) for information about how to contribute to the `cdf-tk` tool or
 templates.
