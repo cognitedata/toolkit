@@ -29,7 +29,6 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
@@ -102,13 +101,13 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(
+    def load_resource_file(  # type: ignore[override]
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> FunctionWrite | FunctionWriteList:
+    ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
             # This is to allow arbitrary YAML files inside the function code folder.
-            raise ToolkitValueError("Function configuration files must be in the root functions folder.")
+            return None
 
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
