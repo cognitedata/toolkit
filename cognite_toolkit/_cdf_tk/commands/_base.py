@@ -88,7 +88,7 @@ class ToolkitCommand:
         loaded_resources = loader.list_write_cls([])
         for filepath in filepaths:
             try:
-                resource = loader.load_resource(filepath, ToolGlobals, skip_validation)
+                resource = loader.load_resource_file(filepath, ToolGlobals, skip_validation)
             except KeyError as e:
                 # KeyError means that we are missing a required field in the yaml file.
                 raise ToolkitRequiredValueError(

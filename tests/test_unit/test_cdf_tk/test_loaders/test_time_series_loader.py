@@ -30,7 +30,7 @@ description: PH 1stStgSuctCool Gas Out
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
+        loaded = loader.load_resource_file(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == -1
@@ -46,7 +46,7 @@ description: PH 1stStgSuctCool Gas Out
 
         mock_read_yaml_file({"timeseries.yaml": yaml.safe_load(self.timeseries_yaml)}, monkeypatch)
 
-        loaded = loader.load_resource(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
+        loaded = loader.load_resource_file(Path("timeseries.yaml"), cdf_tool_real, skip_validation=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == 12345

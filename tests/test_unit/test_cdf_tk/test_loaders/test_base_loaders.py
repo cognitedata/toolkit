@@ -164,7 +164,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
+        loaded = loader.load_resource_file(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -200,7 +200,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
+        loaded = loader.load_resource_file(filepath=file, ToolGlobals=cdf_tool_mock, skip_validation=True)
         assert isinstance(
             loaded, (loader.resource_write_cls, loader.list_write_cls)
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
@@ -361,7 +361,7 @@ class TestResourceLoaders:
         monkeypatch.setenv("ANOTHER_VARIABLE", "another_test_value")
 
         loader = loader_cls.create_loader(cdf_tool_mock, None)
-        resource = loader.load_resource(tmp_file, ToolGlobals=cdf_tool_mock, skip_validation=True)
+        resource = loader.load_resource_file(tmp_file, ToolGlobals=cdf_tool_mock, skip_validation=True)
         if isinstance(resource, Iterable):
             resource = next(iter(resource))
 

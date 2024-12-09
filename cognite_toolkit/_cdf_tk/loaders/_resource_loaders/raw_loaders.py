@@ -161,7 +161,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
     kind = "Table"
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
-    has_parent_resource = True
+    parent_resource = frozenset({RawDatabaseLoader})
 
     def __init__(self, client: ToolkitClient, build_dir: Path):
         super().__init__(client, build_dir)

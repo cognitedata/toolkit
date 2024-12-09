@@ -123,7 +123,7 @@ def test_pull_transformation(
         content += f"\nquery: {transformation_yaml.with_suffix('.sql').name}"
         transformation_yaml.write_text(content)
 
-        transformation = loader.load_resource(transformation_yaml, cdf_tool_mock, skip_validation=True)
+        transformation = loader.load_resource_file(transformation_yaml, cdf_tool_mock, skip_validation=True)
         # Write back original content
         transformation_yaml.write_text(original)
         return cast(TransformationWrite, transformation)

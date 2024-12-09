@@ -19,7 +19,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -189,13 +189,14 @@ class ThreeDModelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ThreeDModelWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        resources = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> ThreeDModelWriteList:
+        resources = resource if isinstance(resource, list) else [resource]
 
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:

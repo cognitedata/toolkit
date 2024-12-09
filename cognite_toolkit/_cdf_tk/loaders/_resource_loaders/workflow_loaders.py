@@ -52,7 +52,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -115,9 +114,13 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> WorkflowUpsertList:
-        resource = load_yaml_inject_variables(filepath, {})
-
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> WorkflowUpsertList:
         workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for workflow in workflows:
             if "dataSetExternalId" in workflow:
@@ -231,7 +234,7 @@ class WorkflowVersionLoader(
     list_write_cls = WorkflowVersionUpsertList
     kind = "WorkflowVersion"
     dependencies = frozenset({WorkflowLoader})
-    has_parent_resource = True
+    parent_resource = frozenset({WorkflowLoader})
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
@@ -275,14 +278,6 @@ class WorkflowVersionLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "workflowExternalId" in item:
             yield WorkflowLoader, item["workflowExternalId"]
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> WorkflowVersionUpsertList:
-        resource = load_yaml_inject_variables(filepath, {})
-
-        workflowversions = [resource] if isinstance(resource, dict) else resource
-        return WorkflowVersionUpsertList.load(workflowversions)
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
         return self.client.workflows.versions.list(list(ids))
@@ -369,7 +364,7 @@ class WorkflowTriggerLoader(
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
     dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
-    has_parent_resource = True
+    parent_resource = frozenset({WorkflowLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
     do_environment_variable_injection = True
@@ -508,14 +503,13 @@ class WorkflowTriggerLoader(
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> WorkflowTriggerUpsertList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        raw_list = resource if isinstance(resource, list) else [resource]
         loaded = WorkflowTriggerUpsertList([])
         for item in raw_list:
             if "data" in item and isinstance(item["data"], dict):

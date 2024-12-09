@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
@@ -102,14 +101,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        resources = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if not isinstance(resources, list):
-            resources = [resources]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> TimeSeriesWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")

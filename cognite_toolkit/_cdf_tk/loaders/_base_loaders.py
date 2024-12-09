@@ -166,7 +166,7 @@ class ResourceLoader(
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
-    has_parent_resource = False
+    parent_resource: frozenset[type[ResourceLoader]] = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -210,7 +210,7 @@ class ResourceLoader(
     ) -> Iterable[T_WritableCogniteResource]:
         if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
             raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
-        if parent_ids is not None and not self.has_parent_resource:
+        if parent_ids is not None and not self.parent_resource:
             return []
         if space is not None:
             from ._resource_loaders.datamodel_loaders import SpaceLoader
@@ -266,18 +266,27 @@ class ResourceLoader(
             return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
         raise ValueError(f"Invalid ids: {ids}")
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> T_WriteClass | T_CogniteResourceList | None:
+    ) -> T_WriteClass | T_CogniteResourceList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
-        if isinstance(raw_yaml, list):
-            return self.list_write_cls.load(raw_yaml)
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> T_WriteClass | T_CogniteResourceList:
+        """Loads the resource from a dictionary. Can be overwritten in subclasses."""
+        if isinstance(resource, list):
+            return self.list_write_cls.load(resource)
         else:
-            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+            return self.list_write_cls([self.resource_write_cls.load(resource)])
 
     def dump_resource(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
