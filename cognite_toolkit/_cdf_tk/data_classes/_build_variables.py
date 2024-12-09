@@ -154,18 +154,18 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
     def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
             replace = variable.value_variable
-            _core_patter = rf"{{{{\s*{variable.key}\s*}}}}"
+            _core_pattern = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
-                pattern = _core_patter
+                pattern = _core_pattern
                 if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
                     replace = f'"{replace}"'
-                    pattern = rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"'
+                    pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
                 elif replace is None:
                     replace = "null"
                 content = re.sub(pattern, str(replace), content)
             else:
-                content = re.sub(_core_patter, str(replace), content)
+                content = re.sub(_core_pattern, str(replace), content)
 
         return content
 
