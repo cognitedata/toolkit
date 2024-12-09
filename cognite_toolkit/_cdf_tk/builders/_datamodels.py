@@ -39,7 +39,7 @@ class DataModelBuilder(Builder):
                     yield [warning]
                 continue
 
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             extra_sources: list[SourceLocation] | None = None
             if loader is GraphQLLoader:
