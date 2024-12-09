@@ -31,7 +31,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -194,15 +194,14 @@ class HostedExtractorDestinationLoader(
     ) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> DestinationWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        raw_list = resource if isinstance(resource, list) else [resource]
         loaded = DestinationWriteList([])
         for item in raw_list:
             if "credentials" in item:

@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoade
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
@@ -130,15 +129,14 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> FileMetadataWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        loaded = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        loaded_list = [loaded] if isinstance(loaded, dict) else loaded
+        loaded_list = [resource] if isinstance(resource, dict) else resource
 
         for resource in loaded_list:
             if resource.get("dataSetExternalId") is not None:

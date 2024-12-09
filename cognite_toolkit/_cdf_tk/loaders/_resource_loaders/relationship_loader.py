@@ -16,7 +16,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .classic_loaders import AssetLoader, EventLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
@@ -157,15 +157,14 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                     elif type_value == "event":
                         yield EventLoader, id_value
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> RelationshipWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        resources: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:

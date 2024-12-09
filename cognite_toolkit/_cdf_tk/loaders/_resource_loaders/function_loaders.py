@@ -113,9 +113,16 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         functions = load_yaml_inject_variables(filepath, use_environment_variables)
+        return self.load_resource(functions, ToolGlobals, skip_validation, filepath)
 
-        if isinstance(functions, dict):
-            functions = [functions]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> FunctionWrite | FunctionWriteList:
+        functions = [resource] if isinstance(resource, dict) else resource
 
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
@@ -329,16 +336,14 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> FunctionScheduleWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        schedules = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(schedules, dict):
-            schedules = [schedules]
+        schedules = [resource] if isinstance(resource, dict) else resource
 
         for schedule in schedules:
             identifier = self.get_id(schedule)

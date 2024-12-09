@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, Toolki
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
 
@@ -85,16 +84,16 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> StreamlitWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        resources = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if not isinstance(resources, list):
-            resources = [resources]
+        if not filepath:
+            raise ToolkitRequiredValueError("Filepath must be set when loading Streamlit apps.")
+        resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
