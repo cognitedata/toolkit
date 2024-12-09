@@ -33,7 +33,7 @@ class TestGroupLoader:
         loaded = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False
         )
-        assert loaded is None
+        assert loaded == []
 
     def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
@@ -41,7 +41,7 @@ class TestGroupLoader:
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, skip_validation=False
         )
 
-        assert loaded is None
+        assert loaded == []
 
         loaded = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False

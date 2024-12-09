@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 
@@ -276,15 +275,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             (key[0]._capability_name, key[1]._scope_name) if isinstance(key, tuple) else key._scope_name: method  # type: ignore[attr-defined]
             for key, method in source.items()
         }
-
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> GroupWrite | GroupWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
     def load_resource(
         self,

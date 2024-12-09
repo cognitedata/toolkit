@@ -268,7 +268,7 @@ class ResourceLoader(
 
     def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> T_WriteClass | T_CogniteResourceList | None:
+    ) -> T_WriteClass | T_CogniteResourceList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
