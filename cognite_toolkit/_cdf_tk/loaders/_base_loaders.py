@@ -273,11 +273,20 @@ class ResourceLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
-        if isinstance(raw_yaml, list):
-            return self.list_write_cls.load(raw_yaml)
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> T_WriteClass | T_CogniteResourceList:
+        """Loads the resource from a dictionary. Can be overwritten in subclasses."""
+        if isinstance(resource, list):
+            return self.list_write_cls.load(resource)
         else:
-            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+            return self.list_write_cls([self.resource_write_cls.load(resource)])
 
     def dump_resource(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass

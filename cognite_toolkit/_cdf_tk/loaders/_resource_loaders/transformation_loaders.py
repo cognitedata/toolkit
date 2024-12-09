@@ -204,11 +204,16 @@ class TransformationLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         resources = load_yaml_inject_variables(raw_str, use_environment_variables)
+        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
 
-        # The `authentication` key is custom for this template:
-
-        if isinstance(resources, dict):
-            resources = [resources]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> TransformationWrite | TransformationWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
 
         transformations = TransformationWriteList([])
 
@@ -235,6 +240,7 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
+            # The `authentication` key is custom for this template:
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )
@@ -251,9 +257,12 @@ class TransformationLoader(
                     destination_oidc_credentials
                 )
             except KeyError as e:
-                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
+                raise ToolkitYAMLFormatError("authentication property is missing required fields", e)
 
-            query_file: Path | None = filepath.parent / Path(transformation.query or "")
+            query_file: Path | None = None
+            if filepath:
+                query_file = filepath.parent / Path(transformation.query or "")
+
             if query_file and query_file.exists():
                 transformation.query = None
             else:
@@ -261,9 +270,11 @@ class TransformationLoader(
 
             if transformation.query is None:
                 if query_file is None:
+                    extra = ""
+                    if filepath:
+                        extra = f" or {filepath.stem}.sql"
                     raise ToolkitYAMLFormatError(
-                        f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
-                        filepath,
+                        f"query property or is missing. It can be inline or a separate file named {transformation.external_id}.sql{extra}",
                     )
                 transformation.query = safe_read(query_file)
 
