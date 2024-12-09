@@ -1179,21 +1179,70 @@ class GraphQLLoader(
     def drop_data(self, ids: SequenceNotStr[DataModelId]) -> int:
         return self.delete(ids)
 
+    def _version_key(self, version: str) -> tuple:
+        """Convert a version string into a tuple of integers for proper comparison.
+        Replace 'TEMP' with '0' before processing.
+        """
+        version = version.replace("_TEMP", "_1")
+        version = version.replace("_draft", "_1")
+        return tuple(map(int, version.split("_")))
+
     def _topological_sort(self, items: GraphQLDataModelWriteList) -> list[GraphQLDataModelWrite]:
+        # Group items by (space, external_id)
+        grouped_items = defaultdict(list)
+        for item in items:
+            key = (item.space, item.external_id)
+            grouped_items[key].append(item)
+
+        # Sort each group by version
+        for key, versions in grouped_items.items():
+            grouped_items[key] = sorted(versions, key=lambda item: self._version_key(item.version))
+
+        # Create a dictionary for sorting
         to_sort = {item.as_id(): item for item in items}
         dependencies: dict[DataModelId, set[DataModelId]] = {}
-        for item in items:
-            item_id = item.as_id()
-            dependencies[item_id] = set()
-            for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
-                if isinstance(dependency, DataModelId) and dependency in to_sort:
-                    dependencies[item_id].add(dependency)
-                elif isinstance(dependency, ViewId):
-                    for model_id in self._datamodels_by_view_id.get(dependency, set()):
-                        if model_id in to_sort:
-                            dependencies[item_id].add(model_id)
+
+        # Build dependencies
+        for key, sorted_versions in grouped_items.items():
+            previous_versions = []
+            for item in sorted_versions:
+                item_id = item.as_id()
+                dependencies[item_id] = set()
+
+                # Add dependencies from previous versions of the same model
+                for prev_item in previous_versions:
+                    dependencies[item_id].add(prev_item.as_id())
+
+                # Track previous versions
+                previous_versions.append(item)
+
+                # Add existing dependencies from the original logic
+                for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
+                    if isinstance(dependency, DataModelId) and dependency in to_sort:
+                        dependencies[item_id].add(dependency)
+                    elif isinstance(dependency, ViewId):
+                        for model_id in self._datamodels_by_view_id.get(dependency, set()):
+                            if model_id in to_sort:
+                                dependencies[item_id].add(model_id)
+
+                # Handle version-specific dependencies
+                for dependency in self._dependencies_by_datamodel_id.get(item_id, []):
+                    if isinstance(dependency, DataModelId):
+                        dependency_item = to_sort.get(dependency)
+                        if dependency_item:
+                            dependency_versions = grouped_items.get(
+                                (dependency_item.space, dependency_item.external_id), []
+                            )
+                            for dep_version in dependency_versions:
+                                if self._version_key(dep_version.version) <= self._version_key(item.version):
+                                    dependencies[item_id].add(dep_version.as_id())
+
+        # Perform the topological sort
         try:
-            return [to_sort[item_id] for item_id in TopologicalSorter(dependencies).static_order()]
+            sorted_items = [to_sort[item_id] for item_id in TopologicalSorter(dependencies).static_order()]
+            for item in sorted_items:
+                print(item.as_id())
+            return sorted_items
         except CycleError as e:
             raise ToolkitCycleError(
                 f"Cannot create GraphQL schemas. Cycle detected between models {e.args} using the @import directive.",

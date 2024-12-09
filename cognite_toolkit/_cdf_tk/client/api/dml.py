@@ -84,6 +84,8 @@ class DMLAPI(APIClient):
             },
         }
 
+        print(f"Attempting to apply data model {data_model_id.external_id} {data_model_id.version}")
+
         query_name = "upsertGraphQlDmlVersion"
         res = self._post_graphql(url_path="/dml/graphql", query_name=query_name, json=payload)
         return DMLApplyResult.load(res[query_name]["result"])
