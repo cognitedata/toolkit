@@ -11,7 +11,7 @@ class TestFunctionLoader:
     def test_load_functions(self, cdf_tool_mock: CDFToolConfig) -> None:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
-        loaded = loader.load_resource(
+        loaded = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool_mock, skip_validation=False
         )
 
@@ -20,7 +20,7 @@ class TestFunctionLoader:
     def test_load_function(self, cdf_tool_mock: CDFToolConfig) -> None:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
-        loaded = loader.load_resource(
+        loaded = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool_mock, skip_validation=False
         )
 

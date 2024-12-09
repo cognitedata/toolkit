@@ -266,7 +266,7 @@ class ResourceLoader(
             return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
         raise ValueError(f"Invalid ids: {ids}")
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> T_WriteClass | T_CogniteResourceList | None:
         use_environment_variables = (

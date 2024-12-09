@@ -194,7 +194,9 @@ class HostedExtractorDestinationLoader(
     ) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> DestinationWriteList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )

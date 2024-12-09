@@ -286,7 +286,7 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ContainerApply | ContainerApplyList | None:
         use_environment_variables = (
@@ -684,7 +684,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ViewApplyList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ViewApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -838,7 +838,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataModelApplyList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> DataModelApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -952,7 +954,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
@@ -1121,7 +1123,7 @@ class GraphQLLoader(
         local_dumped.pop("dml", None)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GraphQLDataModelWriteList:
         # The version is a string, but the user often writes it as an int.
@@ -1346,7 +1348,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> EdgeApplyList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> EdgeApplyList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )

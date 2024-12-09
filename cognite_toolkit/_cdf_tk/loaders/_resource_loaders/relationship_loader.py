@@ -157,7 +157,9 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                     elif type_value == "event":
                         yield EventLoader, id_value
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> RelationshipWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> RelationshipWriteList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )

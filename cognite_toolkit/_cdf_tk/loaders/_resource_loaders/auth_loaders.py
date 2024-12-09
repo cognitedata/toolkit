@@ -277,7 +277,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for key, method in source.items()
         }
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GroupWrite | GroupWriteList | None:
         use_environment_variables = (

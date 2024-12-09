@@ -102,7 +102,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> TimeSeriesWriteList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )

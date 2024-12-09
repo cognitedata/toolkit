@@ -101,7 +101,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
@@ -329,7 +329,7 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionScheduleWriteList:
         use_environment_variables = (

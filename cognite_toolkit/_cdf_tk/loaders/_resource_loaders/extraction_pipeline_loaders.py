@@ -141,7 +141,7 @@ class ExtractionPipelineLoader(
                     if "tableName" in entry:
                         yield RawTableLoader, RawTable._load(entry)
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
         use_environment_variables = (
@@ -303,7 +303,7 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         # The config is expected to be a string that is parsed as a YAML on the server side.

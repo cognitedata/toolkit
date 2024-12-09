@@ -435,7 +435,7 @@ class PullCommand(ToolkitCommand):
 
                 loader._get_query_file = _get_query_file  # type: ignore[attr-defined]
 
-        local_resource = loader.load_resource(filepath_mock, ToolGlobals, skip_validation=False)
+        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals, skip_validation=False)
 
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:

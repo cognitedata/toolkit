@@ -194,7 +194,7 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -400,7 +400,7 @@ class TransformationScheduleLoader(
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
         use_environment_variables = (

@@ -130,7 +130,9 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> FileMetadataWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> FileMetadataWriteList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )

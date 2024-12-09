@@ -90,7 +90,7 @@ class LocationFilterLoader(
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> LocationFilterWriteList:
         use_environment_variables = (
