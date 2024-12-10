@@ -524,3 +524,51 @@ class PullCommand(ToolkitCommand):
                     print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
 
         print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
+
+    def pull_resources(
+        self,
+        organization_dir: Path,
+        id_: T_ID | None,
+        all_: bool,
+        env: str | None,
+        dry_run: bool,
+        verbose: bool,
+        ToolGlobals: CDFToolConfig,
+        Loader: type[
+            ResourceLoader[
+                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+            ]
+        ],
+    ) -> None:
+        verify_module_directory(organization_dir, env)
+
+        local_resources: BuiltFullResourceList = ModuleResources(organization_dir, env).list_resources(
+            None,  # type: ignore[arg-type]
+            Loader.folder_name,  # type: ignore[arg-type]
+            Loader.kind,
+        )
+
+        loader = Loader.create_loader(ToolGlobals, None)
+
+        selected_resources = self._select_resource_ids(all_, id_, loader, local_resources, organization_dir)
+
+        cdf_resources = loader.retrieve(selected_resources.identifiers)
+        _ = {loader.get_id(r): r for r in cdf_resources}
+        raise NotImplementedError()
+
+    @staticmethod
+    def _select_resource_ids(
+        all_: bool, id_: T_ID, loader: ResourceLoader, local_resources: BuiltFullResourceList, organization_dir: Path
+    ) -> BuiltFullResourceList:
+        if all_:
+            return local_resources
+        if id_ is None:
+            return questionary.select(
+                f"Select a {loader.display_name} to pull",
+                choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
+            ).ask()
+        if id_ not in local_resources.identifiers:
+            raise ToolkitMissingResourceError(
+                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
+            )
+        return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
