@@ -120,7 +120,7 @@ def test_pull_transformation(
         content = content.replace("{{cicd_audience}}", "123")
         # The loader expects the query to have a reference to the transformation file.
         # This is a workaround for this test.
-        content += f"\nquery: {transformation_yaml.with_suffix('.sql').name}"
+        content += f"\nqueryFile: {transformation_yaml.with_suffix('.sql').name}"
         transformation_yaml.write_text(content)
 
         transformation = loader.load_resource(transformation_yaml, cdf_tool_mock, skip_validation=True)

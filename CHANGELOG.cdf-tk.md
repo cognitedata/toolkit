@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- `cdf deploy` no longer raises a `OSError` when deploying a `Transformation` with the SQL query in the `YAML` file.
+
 ## [0.3.19] - 2024-12-09
 
 ### Added

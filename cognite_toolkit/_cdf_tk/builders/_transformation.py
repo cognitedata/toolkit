@@ -84,7 +84,7 @@ class TransformationBuilder(Builder):
                 destination_path = self._create_destination_path(query_file.source.path, "Query")
                 destination_path.write_text(query_file.content)
                 relative = destination_path.relative_to(transformation_destination_path.parent)
-                entry["query"] = relative.as_posix()
+                entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)
 
         return extra_sources

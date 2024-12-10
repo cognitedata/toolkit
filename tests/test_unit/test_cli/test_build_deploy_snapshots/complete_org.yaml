@@ -499,6 +499,15 @@ Transformation:
 - conflictMode: upsert
   destination:
     type: assets
+  externalId: inlined_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: Example of an inlined transformation
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table  where
+    UNY is not null
+- conflictMode: upsert
+  destination:
+    type: assets
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
