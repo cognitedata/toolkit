@@ -429,11 +429,8 @@ class PullCommand(ToolkitCommand):
                 query_content = built_local.build_variables.replace(safe_read(query_file))
                 query_mock_file = MagicMock(spec=Path)
                 query_mock_file.read_text.return_value = query_content
-
-                def _get_query_file(*args: Any, **kwargs: Any) -> Path:
-                    return query_mock_file
-
-                loader._get_query_file = _get_query_file  # type: ignore[attr-defined]
+                local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
+                filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
 
         local_resource = loader.load_resource(filepath_mock, ToolGlobals, skip_validation=False)
 

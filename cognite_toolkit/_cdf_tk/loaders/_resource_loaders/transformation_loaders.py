@@ -350,6 +350,7 @@ class TransformationLoader(
                     ParameterSpec(
                         ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
                     ),
+                    ParameterSpec(("queryFile",), frozenset({"str"}), is_required=False, _is_nullable=False),
                 }
             )
         )
