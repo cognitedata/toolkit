@@ -81,12 +81,23 @@ class GraphQLParser:
         parentheses: list[str] = []
         directive_tokens: _DirectiveTokens | None = None
         is_directive_start = False
-        is_comment = False
+        is_multiline_comment = False
+        is_end_of_line_comment = False
+        is_in_double_quote = False
+        is_in_single_quote = False
         tokens = self._token_pattern.findall(self.raw)
         for no, token in enumerate(tokens):
             if no >= 2 and (tokens[no - 2 : no + 1] == ['"'] * 3 or tokens[no - 2 : no + 1] == ["'"] * 3):
-                is_comment = not is_comment
-            if is_comment:
+                is_multiline_comment = not is_multiline_comment
+            elif token == '"':
+                is_in_double_quote = not is_in_double_quote
+            elif token == "'":
+                is_in_single_quote = not is_in_single_quote
+            elif token == "#" and not (is_in_double_quote or is_in_single_quote):
+                is_end_of_line_comment = True
+            if "\n" in token and is_end_of_line_comment:
+                is_end_of_line_comment = False
+            if is_multiline_comment or is_end_of_line_comment:
                 continue
 
             token = self._multi_newline.sub("\n", token)

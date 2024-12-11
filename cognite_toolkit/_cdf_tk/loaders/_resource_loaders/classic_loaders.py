@@ -157,7 +157,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> AssetWriteList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> AssetWriteList:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
             use_environment_variables = (
@@ -178,6 +178,17 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             resources = data.to_dict(orient="records")
         else:
             raise ValueError(f"Unsupported file type: {filepath.suffix}")
+
+        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> AssetWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             # Unpack metadata keys from table formats (e.g. csv, parquet)
@@ -472,13 +483,14 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             if isinstance(asset_id, str):
                 yield AssetLoader, asset_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> EventWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        resources: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> EventWriteList:
+        resources: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:

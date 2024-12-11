@@ -101,17 +101,10 @@ def mock_read_yaml_file(
     )
     for module in [
         "classic_loaders",
-        "auth_loaders",
-        "data_organization_loaders",
         "datamodel_loaders",
         "extraction_pipeline_loaders",
-        "file_loader",
         "function_loaders",
-        "timeseries_loaders",
         "transformation_loaders",
-        "three_d_model_loaders",
-        "location_loaders",
-        "workflow_loaders",
     ]:
         monkeypatch.setattr(
             f"cognite_toolkit._cdf_tk.loaders._resource_loaders.{module}.load_yaml_inject_variables",
