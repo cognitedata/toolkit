@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
+
 ## [0.3.21] - 2024-12-11
 
 ### Fixed
