@@ -180,6 +180,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             local_dumped["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(local_dumped["secrets"])
             local_dumped["secrets"] = {k: "***" for k in local_dumped["secrets"]}
 
+        # Only in write (request) format of the function
+        local_dumped.pop("indexUrl", None)
+        local_dumped.pop("extraIndexUrls", None)
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _is_activated(self, action: str) -> bool:
