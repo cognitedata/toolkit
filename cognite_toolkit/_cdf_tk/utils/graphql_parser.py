@@ -189,7 +189,7 @@ class _Directive:
         for last, current, next_ in zip(content, content[1:], content[2:]):
             if current == "\n" and last in ")}]" and next_ in "({[":
                 standardized.append(",")
-            elif current == "\n" and last in "({[":
+            elif current == "\n" and last in ":({[":
                 continue
             elif current == "\n" and next_ in ")}]":
                 continue
