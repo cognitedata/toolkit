@@ -211,7 +211,7 @@ type CogniteCADModel implements CogniteDescribable & Cognite3DModel
 @code CTG
 @Description Beta version only. Should not be used unless aligned with Celanese Data Governance Owner. Tag is an object designed for performing functional requirements and serving as a specification for equipment.
 """
-type TagBeta {
+type TagBeta @view (version: "7#") {
   name: String
   description: String
   aliases: [String]
@@ -226,7 +226,7 @@ type TagBeta {
   reportingUnits: [ReportingUnit]
 }''',
         DATA_MODEL,
-        {ViewId(SPACE, "TagBeta", None)},
+        {ViewId(SPACE, "TagBeta", "7#")},
         set(),
         id="Type with comments",
     ),
