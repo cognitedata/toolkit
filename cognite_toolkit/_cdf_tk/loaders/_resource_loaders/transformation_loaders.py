@@ -243,16 +243,21 @@ class TransformationLoader(
 
             query_file: Path | None = None
             if "queryFile" in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if queryFile is set")
                 query_file = filepath.parent / Path(resource.pop("queryFile"))
 
             external_id = resource.get("externalId", "UNKNOWN")
             if query_file is None and "query" not in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if query is not set")
                 raise ToolkitYAMLFormatError(
                     f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                     filepath,
                 )
             elif query_file and not query_file.exists():
-                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)
+                # We checked above that filepath is not None
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
             elif query_file and "query" in resource:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
