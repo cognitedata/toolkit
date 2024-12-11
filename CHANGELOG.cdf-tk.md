@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- [alpha feature] Deploying `GraphQL` now correctly ignores end-of-line comments in the `.graphql` file.
+
 ## [0.3.20] - 2024-12-10
 
 ### Fixed
