@@ -95,7 +95,7 @@ class GraphQLParser:
                 is_in_single_quote = not is_in_single_quote
             elif token == "#" and not (is_in_double_quote or is_in_single_quote):
                 is_end_of_line_comment = True
-            if token == "\n" and is_end_of_line_comment:
+            if "\n" in token and is_end_of_line_comment:
                 is_end_of_line_comment = False
             if is_multiline_comment or is_end_of_line_comment:
                 continue
