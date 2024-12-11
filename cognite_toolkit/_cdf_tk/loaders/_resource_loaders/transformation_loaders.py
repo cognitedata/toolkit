@@ -63,6 +63,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
@@ -194,23 +195,6 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    @staticmethod
-    def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
-        query_file = filepath.parent / f"{filepath.stem}.sql"
-        if not query_file.exists() and transformation_external_id:
-            found_query_file = next(
-                (
-                    f
-                    for f in filepath.parent.iterdir()
-                    if f.is_file() and f.name.endswith(f"{transformation_external_id}.sql")
-                ),
-                None,
-            )
-            if found_query_file is None:
-                return None
-            query_file = found_query_file
-        return query_file
-
     def load_resource(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
@@ -252,6 +236,27 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
+            query_file: Path | None = None
+            if "queryFile" in resource:
+                query_file = filepath.parent / Path(resource.pop("queryFile"))
+
+            external_id = resource.get("externalId", "UNKNOWN")
+            if query_file is None and "query" not in resource:
+                raise ToolkitYAMLFormatError(
+                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    filepath,
+                )
+            elif query_file and not query_file.exists():
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)
+            elif query_file and "query" in resource:
+                raise ToolkitYAMLFormatError(
+                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
+                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
+                    filepath,
+                )
+            elif query_file:
+                resource["query"] = safe_read(query_file)
+
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )
@@ -269,22 +274,6 @@ class TransformationLoader(
                 )
             except KeyError as e:
                 raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
-
-            query_file = self._get_query_file(filepath, transformation.external_id)
-
-            if transformation.query is None:
-                if query_file is None:
-                    raise ToolkitYAMLFormatError(
-                        f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
-                        filepath,
-                    )
-                transformation.query = safe_read(query_file)
-            elif transformation.query is not None and query_file is not None:
-                raise ToolkitYAMLFormatError(
-                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
-                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
-                )
-
             transformations.append(transformation)
 
         if len(transformations) == 1:
@@ -361,6 +350,7 @@ class TransformationLoader(
                     ParameterSpec(
                         ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
                     ),
+                    ParameterSpec(("queryFile",), frozenset({"str"}), is_required=False, _is_nullable=False),
                 }
             )
         )

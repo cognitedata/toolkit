@@ -43,7 +43,7 @@ class FunctionBuilder(Builder):
             if loader is FunctionLoader:
                 warnings = self.copy_function_directory_to_build(source_file)
 
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             yield BuildDestinationFile(
                 path=destination_path,

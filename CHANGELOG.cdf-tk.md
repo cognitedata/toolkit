@@ -15,7 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.3.20] - 2024-12-10
+
+### Fixed
+
+- `cdf deploy` no longer raises a `OSError` when deploying a `Transformation` with the SQL query in the `YAML` file.
+
+## [0.3.19] - 2024-12-09
 
 ### Added
 
@@ -23,6 +29,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Replacing variables in an inline SQL query no longer removes the quotes around the variable.
 - Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
   not have a `package` key.
 - [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`
@@ -33,6 +40,8 @@ Changes are grouped as follows:
 ### Changed
 
 - [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
+- Building a `Transformation` will store the `.sql` file in the build directory instead of inlined in the
+  resource YAML file.
 
 ### Improved
 

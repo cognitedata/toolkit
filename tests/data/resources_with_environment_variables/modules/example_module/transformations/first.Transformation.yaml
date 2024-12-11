@@ -12,3 +12,4 @@ authentication:
   cdfProjectName: foo
   scopes: bar
   audience: baz
+query: first.Transformation.sql

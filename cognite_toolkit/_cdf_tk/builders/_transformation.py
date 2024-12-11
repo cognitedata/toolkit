@@ -37,11 +37,11 @@ class TransformationBuilder(Builder):
                     yield [warning]
                 continue
 
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
+
             extra_sources: list[SourceLocation] | None = None
             if loader is TransformationLoader:
-                extra_sources = self._add_query(loaded, source_file, query_files)
-
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+                extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
 
             destination = BuildDestinationFile(
                 path=destination_path,
@@ -57,6 +57,7 @@ class TransformationBuilder(Builder):
         loaded: dict[str, Any] | list[dict[str, Any]],
         source_file: BuildSourceFile,
         query_files: dict[Path, BuildSourceFile],
+        transformation_destination_path: Path,
     ) -> list[SourceLocation]:
         loaded_list = loaded if isinstance(loaded, list) else [loaded]
         extra_sources: list[SourceLocation] = []
@@ -80,7 +81,10 @@ class TransformationBuilder(Builder):
                     filepath,
                 )
             elif query_file is not None:
-                entry["query"] = query_file.content
+                destination_path = self._create_destination_path(query_file.source.path, "Query")
+                destination_path.write_text(query_file.content)
+                relative = destination_path.relative_to(transformation_destination_path.parent)
+                entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)
 
         return extra_sources
