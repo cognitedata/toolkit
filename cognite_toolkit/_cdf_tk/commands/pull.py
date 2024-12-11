@@ -432,7 +432,7 @@ class PullCommand(ToolkitCommand):
                 local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
                 filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
 
-        local_resource = loader.load_resource(filepath_mock, ToolGlobals, skip_validation=False)
+        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals, skip_validation=False)
 
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:

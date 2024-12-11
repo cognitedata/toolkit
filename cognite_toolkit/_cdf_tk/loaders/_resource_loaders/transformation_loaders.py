@@ -195,7 +195,7 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> TransformationWrite | TransformationWriteList:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
@@ -205,11 +205,16 @@ class TransformationLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         resources = load_yaml_inject_variables(raw_str, use_environment_variables)
+        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
 
-        # The `authentication` key is custom for this template:
-
-        if isinstance(resources, dict):
-            resources = [resources]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> TransformationWrite | TransformationWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
 
         transformations = TransformationWriteList([])
 
@@ -238,16 +243,21 @@ class TransformationLoader(
 
             query_file: Path | None = None
             if "queryFile" in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if queryFile is set")
                 query_file = filepath.parent / Path(resource.pop("queryFile"))
 
             external_id = resource.get("externalId", "UNKNOWN")
             if query_file is None and "query" not in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if query is not set")
                 raise ToolkitYAMLFormatError(
                     f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                     filepath,
                 )
             elif query_file and not query_file.exists():
-                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)
+                # We checked above that filepath is not None
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
             elif query_file and "query" in resource:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
@@ -377,7 +387,7 @@ class TransformationScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
-    has_parent_resource = True
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:
@@ -407,19 +417,6 @@ class TransformationScheduleLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(raw_yaml, dict):
-            return TransformationScheduleWrite.load(raw_yaml)
-        else:
-            return TransformationScheduleWriteList.load(raw_yaml)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -488,7 +485,7 @@ class TransformationNotificationLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
-    has_parent_resource = True
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:

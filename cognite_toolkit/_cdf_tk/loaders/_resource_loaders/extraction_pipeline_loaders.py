@@ -142,15 +142,13 @@ class ExtractionPipelineLoader(
                         yield RawTableLoader, RawTable._load(entry)
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        resources = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(resources, dict):
-            resources = [resources]
+        resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             if "dataSetExternalId" in resource:
@@ -303,15 +301,23 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
         resources = load_yaml_inject_variables(raw_str, {})
-        if isinstance(resources, dict):
-            resources = [resources]
+        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             config_raw = resource.get("config")

@@ -287,13 +287,13 @@ class ContainerLoader(
                         )
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ContainerApply | ContainerApplyList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        dict_items = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> ContainerApply | ContainerApplyList:
+        dict_items = resource if isinstance(resource, list) else [resource]
         for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
                 type_ = prop.get("type", {})
@@ -684,7 +684,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ViewApplyList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> ViewApply | ViewApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -695,10 +697,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        if isinstance(raw_yaml, list):
-            return ViewApplyList.load(raw_yaml)
-        else:
-            return ViewApplyList([self.resource_write_cls.load(raw_yaml)])
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
 
 @final
@@ -838,7 +837,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataModelApplyList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    ) -> DataModelApply | DataModelApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -849,10 +850,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        if isinstance(raw_yaml, list):
-            return DataModelApplyList.load(raw_yaml)
-        else:
-            return DataModelApplyList([self.resource_write_cls.load(raw_yaml)])
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
 
 @final
@@ -951,14 +949,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> NodeApplyList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
-        return NodeApplyList._load(raw_list, cognite_client=self.client)
 
     def dump_resource(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
@@ -1121,7 +1111,7 @@ class GraphQLLoader(
         local_dumped.pop("dml", None)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource(
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> GraphQLDataModelWriteList:
         # The version is a string, but the user often writes it as an int.
@@ -1134,8 +1124,18 @@ class GraphQLLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> GraphQLDataModelWriteList:
+        if filepath is None:
+            raise ValueError("filepath must be set when loading a GraphQL schema.")
+        raw_list = resource if isinstance(resource, list) else [resource]
         models = GraphQLDataModelWriteList._load(raw_list)
 
         # Find the GraphQL files adjacent to the DML files
@@ -1345,14 +1345,6 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> EdgeApplyList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
-        return EdgeApplyList._load(raw_list, cognite_client=self.client)
 
     def dump_resource(
         self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply

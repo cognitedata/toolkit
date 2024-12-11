@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -95,9 +94,13 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
-        resource = load_yaml_inject_variables(filepath, {})
-
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> DataSetWriteList:
         data_sets = [resource] if isinstance(resource, dict) else resource
 
         for data_set in data_sets:
@@ -270,13 +273,13 @@ class LabelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> LabelDefinitionWrite | LabelDefinitionWriteList:
+        items: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for item in items:
             if "dataSetExternalId" in item:
                 ds_external_id = item.pop("dataSetExternalId")
@@ -286,7 +289,7 @@ class LabelLoader(
                     action="replace dataSetExternalId with dataSetId in label",
                 )
         loaded = LabelDefinitionWriteList.load(items)
-        return loaded[0] if isinstance(raw_yaml, dict) else loaded
+        return loaded[0] if isinstance(resource, dict) else loaded
 
     def _are_equal(
         self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False
