@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
@@ -1175,6 +1176,8 @@ class GraphQLLoader(
                 print(LowSeverityWarning(f"Description is above limit for {item_id}. Truncating..."))
                 description = description[: 1024 - len(suffix) + 1 - 3] + "..."
             description += f" {suffix}"
+            if "--verbose" in sys.argv:
+                print(f"Deploying GraphQL schema {item_id}")
 
             created = self.client.dml.apply_dml(
                 item.as_id(),
