@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cognite_toolkit"
-version = "0.3.16"
+version = "0.3.22"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
@@ -38,7 +38,7 @@ pytest-xdist = "^3.6.1"
 pytest-rerunfailures = "^14.0"
 types-PyYAML = "^6"
 types-toml = "^0.10.8.20240310"
-twine = "^5.0.0"
+twine = "^6.0.0"
 toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^6.0.0"

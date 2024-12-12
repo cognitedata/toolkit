@@ -32,13 +32,16 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
+    Edge,
     EdgeApply,
+    EdgeApplyResult,
     EdgeApplyResultList,
     EdgeId,
     EdgeList,
     InstancesApplyResult,
     InstancesDeleteResult,
     InstancesResult,
+    Node,
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
@@ -479,14 +482,37 @@ class ApprovalToolkitClient:
             edges: EdgeApply | Sequence[EdgeApply] | None = None,
             **kwargs,
         ) -> InstancesApplyResult:
-            created = []
+            created_nodes = []
             if isinstance(nodes, NodeApply):
-                created.append(nodes)
+                created_nodes.append(nodes)
             elif isinstance(nodes, Sequence) and all(isinstance(v, NodeApply) for v in nodes):
-                created.extend(nodes)
-            if edges is not None:
-                raise NotImplementedError("Edges not supported yet")
-            created_resources[resource_cls.__name__].extend(created)
+                created_nodes.extend(nodes)
+
+            created_edges = []
+            if isinstance(edges, EdgeApply):
+                created_edges.append(edges)
+            elif isinstance(edges, Sequence) and all(isinstance(v, EdgeApply) for v in edges):
+                created_edges.extend(edges)
+
+            if created_nodes and created_edges:
+                raise ValueError(
+                    "Cannot create both nodes and edges at the same time. Toolikt should" " call one at a time"
+                )
+            created_resources[Node.__name__].extend(created_nodes)
+            created_resources[Edge.__name__].extend(created_edges)
+
+            node_list = []
+            if isinstance(nodes, Sequence):
+                node_list.extend(nodes)
+            elif isinstance(nodes, NodeApply):
+                node_list.append(nodes)
+
+            edge_list = []
+            if isinstance(edges, Sequence):
+                edge_list.extend(edges)
+            elif isinstance(edges, EdgeApply):
+                edge_list.append(edges)
+
             return InstancesApplyResult(
                 nodes=NodeApplyResultList(
                     [
@@ -498,10 +524,22 @@ class ApprovalToolkitClient:
                             last_updated_time=1,
                             created_time=1,
                         )
-                        for node in (nodes if isinstance(nodes, Sequence) else [nodes])
+                        for node in node_list
                     ]
                 ),
-                edges=EdgeApplyResultList([]),
+                edges=EdgeApplyResultList(
+                    [
+                        EdgeApplyResult(
+                            space=edge.space,
+                            external_id=edge.external_id,
+                            version=edge.existing_version or 1,
+                            was_modified=True,
+                            last_updated_time=1,
+                            created_time=1,
+                        )
+                        for edge in edge_list
+                    ]
+                ),
             )
 
         def create_extraction_pipeline_config(config: ExtractionPipelineConfigWrite) -> ExtractionPipelineConfig:
@@ -702,6 +740,8 @@ class ApprovalToolkitClient:
         def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
             if id is not None:
                 return FileMetadata(id=id, uploaded=True)
+            elif external_id is not None:
+                return FileMetadata(external_id=external_id, uploaded=True)
             else:
                 return return_value(external_id=external_id)
 

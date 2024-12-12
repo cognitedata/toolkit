@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, in_dict
 
 from ._base import ToolkitCommand
 
@@ -250,6 +250,7 @@ if __name__ == "__main__":
             data, credentials = cls._geta_call_args_from_data_source(data_source, function_external_id, resources)
         else:
             raise ToolkitValueError("Data source is required when not in interactive mode.")
+
         if credentials is None:
             return FunctionCallArgs(data)
 
@@ -323,7 +324,6 @@ if __name__ == "__main__":
             print(f"No {items} found for this {function_external_id} function.")
             return {}, None
         selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
-
         selected = options[selected_name]
         if isinstance(selected, BuiltResourceFull):
             # Schedule
@@ -337,9 +337,9 @@ if __name__ == "__main__":
             and isinstance(selected[0], dict)
             and isinstance(selected[1], dict)
         ):
-            return selected[0], ClientCredentials.load(selected[1]["authentication"]) if "authentication" in selected[
-                1
-            ] else None
+            return selected[0], ClientCredentials.load(selected[1]) if in_dict(
+                ["clientId", "clientSecret"], selected[1]
+            ) else None
         else:
             raise ToolkitValueError(f"Selected value {selected} is not a valid schedule or workflow.")
 
@@ -498,11 +498,21 @@ if __name__ == "__main__":
 
         is_interactive = external_id is None
         call_args = self._get_call_args(
-            data_source, function_build.identifier, resources, ToolGlobals.environment_variables(), is_interactive
+            data_source,
+            function_build.identifier,
+            resources,
+            ToolGlobals.environment_variables(),
+            is_interactive,
         )
 
         run_check_py, env = self._create_run_check_file_with_env(
-            ToolGlobals, args, function_dict, function_external_id, handler_file, call_args, function_venv
+            ToolGlobals,
+            args,
+            function_dict,
+            function_external_id,
+            handler_file,
+            call_args,
+            function_venv,
         )
         if platform.system() == "Windows":
             if system_root := os.environ.get("SYSTEMROOT"):

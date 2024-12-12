@@ -69,7 +69,7 @@ class TestExtractionPipelineDependencies:
 
         cmd = DeployCommand(print_warning=False)
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource(local_file, cdf_tool, skip_validation=False)
+        resources = loader.load_resource_file(local_file, cdf_tool, skip_validation=False)
         to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
         assert len(to_create) == 0
         assert len(changed) == 1

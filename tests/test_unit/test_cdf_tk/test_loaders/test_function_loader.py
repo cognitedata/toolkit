@@ -11,7 +11,7 @@ class TestFunctionLoader:
     def test_load_functions(self, cdf_tool_mock: CDFToolConfig) -> None:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
-        loaded = loader.load_resource(
+        loaded = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool_mock, skip_validation=False
         )
 
@@ -20,7 +20,7 @@ class TestFunctionLoader:
     def test_load_function(self, cdf_tool_mock: CDFToolConfig) -> None:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
-        loaded = loader.load_resource(
+        loaded = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool_mock, skip_validation=False
         )
 
@@ -70,3 +70,24 @@ class TestFunctionLoader:
             "secret1": "value1",
             "secret2": "value2",
         }, "Original object should not be modified"
+
+    def test_are_equals_index_url_set(self, cdf_tool_mock: CDFToolConfig, tmp_path: Path) -> None:
+        local_function = FunctionWrite(
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+            index_url="http://my-index-url",
+        )
+        cdf_function = Function(
+            name="my_function",
+            file_id=123,
+            external_id="my_function",
+            metadata={
+                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function"),
+            },
+        )
+        loader = FunctionLoader.create_loader(cdf_tool_mock, tmp_path)
+
+        are_equal = loader.are_equal(local_function, cdf_function, return_dumped=False)
+
+        assert are_equal is True

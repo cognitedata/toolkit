@@ -53,6 +53,7 @@ from cognite.client.data_classes.workflows import (
     WorkflowTriggerDataModelingQuery,
 )
 from cognite.client.testing import CogniteClientMock
+from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
@@ -100,17 +101,10 @@ def mock_read_yaml_file(
     )
     for module in [
         "classic_loaders",
-        "auth_loaders",
-        "data_organization_loaders",
         "datamodel_loaders",
         "extraction_pipeline_loaders",
-        "file_loader",
         "function_loaders",
-        "timeseries_loaders",
         "transformation_loaders",
-        "three_d_model_loaders",
-        "location_loaders",
-        "workflow_loaders",
     ]:
         monkeypatch.setattr(
             f"cognite_toolkit._cdf_tk.loaders._resource_loaders.{module}.load_yaml_inject_variables",
@@ -350,6 +344,7 @@ class FakeCogniteResourceGenerator:
             typing.Sequence,
             collections.abc.Sequence,
             collections.abc.Collection,
+            SequenceNotStr,
         ]:
             return [self.create_value(first_not_none) for _ in range(3)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:

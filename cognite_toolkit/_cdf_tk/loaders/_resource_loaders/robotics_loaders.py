@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from contextlib import suppress
 from typing import Any
 
@@ -48,7 +48,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
 
     @property
     def display_name(self) -> str:
-        return "robotics.frame"
+        return "robotics frames"
 
     @classmethod
     def get_id(cls, item: Frame | FrameWrite | dict) -> str:
@@ -93,7 +93,12 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Frame]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Frame]:
         return iter(self.client.robotics.frames)
 
 
@@ -109,7 +114,7 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
 
     @property
     def display_name(self) -> str:
-        return "robotics.location"
+        return "robotics locations"
 
     @classmethod
     def get_id(cls, item: Location | LocationWrite | dict) -> str:
@@ -159,7 +164,12 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Location]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Location]:
         return iter(self.client.robotics.locations)
 
 
@@ -179,7 +189,7 @@ class RoboticsDataPostProcessingLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.data_postprocessing"
+        return "robotics data postprocessing"
 
     @classmethod
     def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
@@ -243,7 +253,12 @@ class RoboticsDataPostProcessingLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[DataPostProcessing]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataPostProcessing]:
         return iter(self.client.robotics.data_postprocessing)
 
 
@@ -261,7 +276,7 @@ class RobotCapabilityLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.robot_capability"
+        return "robotics robot capabilities"
 
     @classmethod
     def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
@@ -328,7 +343,12 @@ class RobotCapabilityLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[RobotCapability]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
 
 
@@ -345,7 +365,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
 
     @property
     def display_name(self) -> str:
-        return "robotics.map"
+        return "robotics maps"
 
     @classmethod
     def get_id(cls, item: Map | MapWrite | dict) -> str:
@@ -396,7 +416,12 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Map]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Map]:
         return iter(self.client.robotics.maps)
 
 

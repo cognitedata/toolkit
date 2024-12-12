@@ -63,11 +63,21 @@ class ModuleToml:
         if "extra_resources" in data and isinstance(data["extra_resources"], list):
             extra_resources = [Path(item["location"]) for item in data["extra_resources"] if "location" in item]
 
+        tags: frozenset[str] = frozenset()
+        if "packages" in data:
+            if "tags" in data["packages"]:
+                tags = frozenset(data["packages"]["tags"])
+        title: str | None = None
+        is_selected_by_default: bool = False
+        if "module" in data:
+            title = data["module"].get("title")
+            is_selected_by_default = data["module"].get("is_selected_by_default", False)
+
         return cls(
-            title=data["module"].get("title"),
-            tags=frozenset(data["packages"].get("tags", set())),
+            title=title,
+            tags=tags,
             dependencies=dependencies,
-            is_selected_by_default=data["module"].get("is_selected_by_default", False),
+            is_selected_by_default=is_selected_by_default,
             data=example_data,
             extra_resources=extra_resources,
         )

@@ -63,6 +63,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
+    @property
+    def display_name(self) -> str:
+        return "functions"
+
     @classmethod
     def get_required_capability(
         cls, items: FunctionWriteList | None, read_only: bool
@@ -97,7 +101,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
+    def load_resource_file(  # type: ignore[override]
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
@@ -109,9 +113,16 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         functions = load_yaml_inject_variables(filepath, use_environment_variables)
+        return self.load_resource(functions, ToolGlobals, skip_validation, filepath)
 
-        if isinstance(functions, dict):
-            functions = [functions]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> FunctionWrite | FunctionWriteList:
+        functions = [resource] if isinstance(resource, dict) else resource
 
         for func in functions:
             if self.extra_configs.get(func["externalId"]) is None:
@@ -169,6 +180,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             local_dumped["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(local_dumped["secrets"])
             local_dumped["secrets"] = {k: "***" for k in local_dumped["secrets"]}
 
+        # Only in write (request) format of the function
+        local_dumped.pop("indexUrl", None)
+        local_dumped.pop("extraIndexUrls", None)
+
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def _is_activated(self, action: str) -> bool:
@@ -206,16 +221,17 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if item.secrets:
                 item.metadata[self._MetadataKey.secret_hash] = calculate_secure_hash(item.secrets)
 
+            external_id = item.external_id or item.name
             file_id = self.client.functions._zip_and_upload_folder(
                 name=item.name,
                 folder=str(function_rootdir),
-                external_id=item.external_id or item.name,
+                external_id=external_id,
                 data_set_id=self.extra_configs[item.external_id or item.name].get("dataSetId", None),
             )
             # Wait until the files is available
             sleep_time = 1.0  # seconds
             for i in range(5):
-                file = self.client.files.retrieve(id=file_id)
+                file = self.client.files.retrieve(external_id=external_id)
                 if file and file.uploaded:
                     break
                 time.sleep(sleep_time)
@@ -243,7 +259,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         self.client.files.delete(id=list(file_ids), ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Function]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Function]:
         return iter(self.client.functions)
 
     @classmethod
@@ -273,10 +294,11 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     do_environment_variable_injection = True
+    parent_resource = frozenset({FunctionLoader})
 
     @property
     def display_name(self) -> str:
-        return "function.schedules"
+        return "function schedules"
 
     @classmethod
     def get_required_capability(cls, items: FunctionScheduleWriteList | None, read_only: bool) -> list[Capability]:
@@ -319,15 +341,13 @@ class FunctionScheduleLoader(
             yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> FunctionScheduleWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        schedules = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(schedules, dict):
-            schedules = [schedules]
+        schedules = [resource] if isinstance(resource, dict) else resource
 
         for schedule in schedules:
             identifier = self.get_id(schedule)
@@ -406,8 +426,19 @@ class FunctionScheduleLoader(
                 count += 1
         return count
 
-    def iterate(self) -> Iterable[FunctionSchedule]:
-        return iter(self.client.functions.schedules)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[FunctionSchedule]:
+        if parent_ids is None:
+            yield from self.client.functions.schedules
+        else:
+            for parent_id in parent_ids:
+                if not isinstance(parent_id, str):
+                    continue
+                yield from self.client.functions.schedules(function_external_id=parent_id)
 
     @classmethod
     @lru_cache(maxsize=1)

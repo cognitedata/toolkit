@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, Toolki
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
 
@@ -43,6 +42,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Files/operation/initFileUpload"
     _metadata_hash_key = "cdf-toolkit-app-hash"
+
+    @property
+    def display_name(self) -> str:
+        return "Streamlit apps"
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
@@ -81,14 +84,16 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> StreamlitWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        resources = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if not isinstance(resources, list):
-            resources = [resources]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> StreamlitWriteList:
+        if not filepath:
+            raise ToolkitRequiredValueError("Filepath must be set when loading Streamlit apps.")
+        resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
@@ -173,9 +178,15 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         self.client.files.delete(external_id=ids)
         return len(ids)
 
-    def iterate(self) -> Iterable[Streamlit]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Streamlit]:
         for file in self.client.files:
-            yield Streamlit.from_file(file)
+            if file.directory == "/streamlit-apps/":
+                yield Streamlit.from_file(file)
 
     @classmethod
     @lru_cache(maxsize=1)

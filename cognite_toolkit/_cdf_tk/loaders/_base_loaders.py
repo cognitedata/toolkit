@@ -163,6 +163,10 @@ class ResourceLoader(
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     do_environment_variable_injection = False
+    # For example, TransformationNotification and Schedule has Transformation as the parent resource
+    # This is used in the iterate method to ensure that nothing is returned if
+    # the resource type does not have a parent resource.
+    parent_resource: frozenset[type[ResourceLoader]] = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -198,8 +202,35 @@ class ResourceLoader(
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
+        if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
+            raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
+        if parent_ids is not None and not self.parent_resource:
+            return []
+        if space is not None:
+            from ._resource_loaders.datamodel_loaders import SpaceLoader
+
+            if SpaceLoader not in self.dependencies:
+                return []
+        if data_set_external_id is not None:
+            from ._resource_loaders.data_organization_loaders import DataSetsLoader
+
+            if DataSetsLoader not in self.dependencies:
+                return []
+        return self._iterate(data_set_external_id, space, parent_ids)
+
     @abstractmethod
-    def iterate(self) -> Iterable[T_WritableCogniteResource]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 
     # The methods below have default implementations that can be overwritten in subclasses
@@ -218,18 +249,44 @@ class ResourceLoader(
         return
         yield
 
-    def load_resource(
+    @classmethod
+    def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
+        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
+
+    @classmethod
+    def _split_ids(cls, ids: T_ID | int | SequenceNotStr[T_ID | int] | None) -> tuple[list[int], list[str]]:
+        # Used by subclasses to split the ids into external and internal ids
+        if ids is None:
+            return [], []
+        if isinstance(ids, int):
+            return [ids], []
+        if isinstance(ids, str):
+            return [], [ids]
+        if isinstance(ids, Sequence):
+            return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
+        raise ValueError(f"Invalid ids: {ids}")
+
+    def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> T_WriteClass | T_CogniteResourceList | None:
+    ) -> T_WriteClass | T_CogniteResourceList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+        return self.load_resource(raw_yaml, ToolGlobals, skip_validation, filepath)
 
-        if isinstance(raw_yaml, list):
-            return self.list_write_cls.load(raw_yaml)
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> T_WriteClass | T_CogniteResourceList:
+        """Loads the resource from a dictionary. Can be overwritten in subclasses."""
+        if isinstance(resource, list):
+            return self.list_write_cls.load(resource)
         else:
-            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+            return self.list_write_cls([self.resource_write_cls.load(resource)])
 
     def dump_resource(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass

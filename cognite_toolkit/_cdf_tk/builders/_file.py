@@ -32,7 +32,7 @@ class FileBuilder(Builder):
                 continue
             if loader in {FileMetadataLoader, CogniteFileLoader}:
                 loaded = self._expand_file_metadata(loaded, module, console)
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             yield BuildDestinationFile(
                 path=destination_path,

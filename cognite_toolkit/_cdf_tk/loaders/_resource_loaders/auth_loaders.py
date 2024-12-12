@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 
@@ -100,7 +99,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
     @property
     def display_name(self) -> str:
-        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
+        return f"groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
     def create_loader(
@@ -278,19 +277,17 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         }
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> GroupWrite | GroupWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> GroupWrite | GroupWriteList:
         group_write_list = GroupWriteList([])
 
-        if isinstance(raw_yaml, dict):
-            raw_yaml = [raw_yaml]
+        resources = [resource] if isinstance(resource, dict) else resource
 
-        for raw_group in raw_yaml:
+        for raw_group in resources:
             is_resource_scoped = any(
                 any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
                 for capability in raw_group.get("capabilities", [])
@@ -322,8 +319,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
             group_write_list.append(loaded)
 
-        if len(group_write_list) == 0:
-            return None
         if len(group_write_list) == 1:
             return group_write_list[0]
         return group_write_list
@@ -438,7 +433,12 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         self.client.iam.groups.delete(found)
         return len(found)
 
-    def iterate(self) -> Iterable[Group]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Group]:
         return self.client.iam.groups.list(all=True)
 
     @classmethod
@@ -473,6 +473,10 @@ class GroupAllScopedLoader(GroupLoader):
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir, "all_scoped_only")
 
+    @property
+    def display_name(self) -> str:
+        return "all-scoped groups"
+
 
 @final
 class SecurityCategoryLoader(
@@ -490,7 +494,7 @@ class SecurityCategoryLoader(
 
     @property
     def display_name(self) -> str:
-        return "security.categories"
+        return "security categories"
 
     @classmethod
     def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
@@ -553,5 +557,10 @@ class SecurityCategoryLoader(
             self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
         return len(retrieved)
 
-    def iterate(self) -> Iterable[SecurityCategory]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[SecurityCategory]:
         return self.client.iam.security_categories.list(limit=-1)

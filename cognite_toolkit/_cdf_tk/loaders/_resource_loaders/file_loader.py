@@ -48,7 +48,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoade
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     in_dict,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
@@ -78,7 +77,7 @@ class FileMetadataLoader(
 
     @property
     def display_name(self) -> str:
-        return "file_metadata"
+        return "file metadata"
 
     @classmethod
     def get_required_capability(
@@ -105,6 +104,12 @@ class FileMetadataLoader(
         return item.external_id
 
     @classmethod
+    def get_internal_id(cls, item: FileMetadata | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
+
+    @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
@@ -124,13 +129,14 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> FileMetadataWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        loaded = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        loaded_list = [loaded] if isinstance(loaded, dict) else loaded
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> FileMetadataWriteList:
+        loaded_list = [resource] if isinstance(resource, dict) else resource
 
         for resource in loaded_list:
             if resource.get("dataSetExternalId") is not None:
@@ -193,12 +199,18 @@ class FileMetadataLoader(
     def update(self, items: FileMetadataWriteList) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
-    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
-        self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
+    def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
+        self.client.files.delete(id=internal_ids, external_id=external_ids)
         return len(cast(SequenceNotStr[str], ids))
 
-    def iterate(self) -> Iterable[FileMetadata]:
-        return iter(self.client.files)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[FileMetadata]:
+        return iter(self.client.files(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         return sum(
@@ -261,7 +273,7 @@ class CogniteFileLoader(
 
     @property
     def display_name(self) -> str:
-        return "cognite_file"
+        return "cognite files"
 
     @classmethod
     def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
@@ -329,9 +341,14 @@ class CogniteFileLoader(
             raise e
         return len(deleted.nodes)
 
-    def iterate(self) -> Iterable[ExtendableCogniteFile]:
-        raise NotImplementedError("")
-        # return iter(self.client.data_modeling.instances)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ExtendableCogniteFile]:
+        # We do not have a way to know the source of the file, so we cannot filter on that.
+        return []
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return sum(

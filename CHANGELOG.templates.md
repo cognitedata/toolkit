@@ -15,8 +15,27 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.22] - 2024-12-12
 
-## TBD
+No changes to templates.
+
+## [0.3.21] - 2024-12-11
+
+No changes to templates.
+
+## [0.3.20] - 2024-12-10
+
+No changes to templates.
+
+## [0.3.19] - 2024-12-09
+
+No changes to templates.
+
+## [0.3.18] - 2024-12-03
+
+No changes to templates.
+
+## [0.3.17] - 2024-12-02
 
 ### Fixed
 
@@ -24,6 +43,7 @@ Changes are grouped as follows:
   extraction pipelines.
 - Missing table `diagramParsing` in the `QuickStart` is now created.
 - renamed non-toolkit Function config files for `bootcamp` module
+- Bug in the SQL transformation of the `cdf_sharepoint` modules.
 
 ## [0.3.16] - 2024-11-28
 

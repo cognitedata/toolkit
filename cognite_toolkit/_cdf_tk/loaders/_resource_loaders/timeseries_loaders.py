@@ -30,7 +30,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
@@ -50,6 +49,10 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
+
+    @property
+    def display_name(self) -> str:
+        return "time series"
 
     @classmethod
     def get_required_capability(
@@ -79,6 +82,12 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         return item.external_id
 
     @classmethod
+    def get_internal_id(cls, item: TimeSeries | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
+
+    @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
@@ -92,14 +101,14 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> TimeSeriesWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        resources = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if not isinstance(resources, list):
-            resources = [resources]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> TimeSeriesWriteList:
+        resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
@@ -147,22 +156,30 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     def create(self, items: TimeSeriesWriteList) -> TimeSeriesList:
         return self.client.time_series.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TimeSeriesList:
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> TimeSeriesList:
+        internal_ids, external_ids = self._split_ids(ids)
         return self.client.time_series.retrieve_multiple(
-            external_ids=cast(SequenceNotStr[str], ids), ignore_unknown_ids=True
+            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
         )
 
     def update(self, items: TimeSeriesWriteList) -> TimeSeriesList:
         return self.client.time_series.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        existing = self.retrieve(ids).as_external_ids()
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        existing = self.retrieve(ids)
         if existing:
-            self.client.time_series.delete(external_id=existing, ignore_unknown_ids=True)
+            self.client.time_series.delete(id=existing.as_ids(), ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self) -> Iterable[TimeSeries]:
-        return iter(self.client.time_series)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TimeSeries]:
+        return iter(
+            self.client.time_series(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     def count(self, ids: str | dict[str, Any] | SequenceNotStr[str | dict[str, Any]] | None) -> int:
         datapoints = cast(
@@ -233,7 +250,7 @@ class DatapointSubscriptionLoader(
 
     @property
     def display_name(self) -> str:
-        return "timeseries.subscription"
+        return "timeseries subscriptions"
 
     @classmethod
     def get_id(cls, item: DataPointSubscriptionWrite | DatapointSubscription | dict) -> str:
@@ -332,7 +349,12 @@ class DatapointSubscriptionLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(self) -> Iterable[DatapointSubscription]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 
     def _are_equal(

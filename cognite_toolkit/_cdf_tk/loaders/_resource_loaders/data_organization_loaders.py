@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
-    load_yaml_inject_variables,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -62,6 +61,10 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
+
+    @property
+    def display_name(self) -> str:
+        return "data sets"
 
     @classmethod
     def get_required_capability(cls, items: DataSetWriteList | None, read_only: bool) -> Capability | list[Capability]:
@@ -91,9 +94,13 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
-        resource = load_yaml_inject_variables(filepath, {})
-
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> DataSetWriteList:
         data_sets = [resource] if isinstance(resource, dict) else resource
 
         for data_set in data_sets:
@@ -140,7 +147,12 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
-    def iterate(self) -> Iterable[DataSet]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
     @classmethod
@@ -172,7 +184,7 @@ class LabelLoader(
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "labels"
 
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
@@ -234,8 +246,13 @@ class LabelLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(self) -> Iterable[LabelDefinition]:
-        return iter(self.client.labels)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[LabelDefinition]:
+        return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -256,13 +273,13 @@ class LabelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> LabelDefinitionWrite | LabelDefinitionWriteList:
+        items: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for item in items:
             if "dataSetExternalId" in item:
                 ds_external_id = item.pop("dataSetExternalId")
@@ -272,7 +289,7 @@ class LabelLoader(
                     action="replace dataSetExternalId with dataSetId in label",
                 )
         loaded = LabelDefinitionWriteList.load(items)
-        return loaded[0] if isinstance(raw_yaml, dict) else loaded
+        return loaded[0] if isinstance(resource, dict) else loaded
 
     def _are_equal(
         self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False

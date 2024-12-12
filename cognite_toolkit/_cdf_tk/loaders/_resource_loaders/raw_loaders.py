@@ -55,7 +55,7 @@ class RawDatabaseLoader(
 
     @property
     def display_name(self) -> str:
-        return "raw.databases"
+        return "raw databases"
 
     @classmethod
     def get_required_capability(cls, items: RawDatabaseList | None, read_only: bool) -> Capability | list[Capability]:
@@ -114,7 +114,12 @@ class RawDatabaseLoader(
                 raise e
         return len(db_names)
 
-    def iterate(self) -> Iterable[RawDatabase]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RawDatabase]:
         return (RawDatabase(db_name=cast(str, db.name)) for db in self.client.raw.databases)
 
     def count(self, ids: SequenceNotStr[RawDatabase]) -> int:
@@ -156,6 +161,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
     kind = "Table"
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
+    parent_resource = frozenset({RawDatabaseLoader})
 
     def __init__(self, client: ToolkitClient, build_dir: Path):
         super().__init__(client, build_dir)
@@ -163,7 +169,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
 
     @property
     def display_name(self) -> str:
-        return "raw.tables"
+        return "raw tables"
 
     @classmethod
     def get_required_capability(cls, items: RawTableList | None, read_only: bool) -> Capability | list[Capability]:
@@ -254,12 +260,17 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
                 count += len(tables)
         return count
 
-    def iterate(self) -> Iterable[RawTable]:
-        return (
-            RawTable(db_name=cast(str, db.name), table_name=cast(str, table.name))
-            for db in self.client.raw.databases
-            for table in self.client.raw.tables(cast(str, db.name))
-        )
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RawTable]:
+        for parent_id in parent_ids or (RawDatabase(cast(str, db.name)) for db in self.client.raw.databases):
+            if not isinstance(parent_id, RawDatabase):
+                continue
+            for table in self.client.raw.tables(cast(str, parent_id.db_name)):
+                yield RawTable(db_name=cast(str, parent_id.db_name), table_name=cast(str, table.name))
 
     def count(self, ids: SequenceNotStr[RawTable]) -> int:
         if not self._printed_warning:

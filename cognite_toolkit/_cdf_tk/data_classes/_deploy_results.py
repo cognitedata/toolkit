@@ -110,7 +110,9 @@ class DatapointDeployResult(UploadDeployResult):
 
 
 class DeployResults(UserDict):
-    def __init__(self, collection: Iterable[DeployResult], action: Literal["deploy", "clean"], dry_run: bool = False):
+    def __init__(
+        self, collection: Iterable[DeployResult], action: Literal["deploy", "clean", "purge"], dry_run: bool = False
+    ):
         super().__init__({entry.name: entry for entry in collection})
         self.action = action
         self.dry_run = dry_run
@@ -125,27 +127,47 @@ class DeployResults(UserDict):
             isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult)) for entry in self.data.values()
         )
 
-    def counts_table(self) -> Table:
+    def counts_table(
+        self, exclude_columns: set[Literal["Created", "Deleted", "Changed", "Untouched", "Total"]] | None = None
+    ) -> Table:
         table = Table(title=f"Summary of Resources {self.action.title()} operation:")
         prefix = "Would have " if self.dry_run else ""
-        table.add_column("Resource", justify="right")
-        table.add_column(f"{prefix}Created", justify="right", style="green")
-        table.add_column(f"{prefix}Deleted", justify="right", style="red")
-        table.add_column(f"{prefix}Changed", justify="right", style="magenta")
-        table.add_column("Untouched" if self.dry_run else "Unchanged", justify="right", style="cyan")
-        table.add_column("Total", justify="right")
+        table.add_column("Resource", justify="right", width=30)
+        if exclude_columns is None or "Created" not in exclude_columns:
+            table.add_column(f"{prefix}Created", justify="right", style="green")
+        if exclude_columns is None or "Deleted" not in exclude_columns:
+            table.add_column(f"{prefix}Deleted", justify="right", style="red")
+        if exclude_columns is None or "Changed" not in exclude_columns:
+            table.add_column(f"{prefix}Changed", justify="right", style="magenta")
+        if exclude_columns is None or "Untouched" not in exclude_columns:
+            table.add_column("Untouched" if self.dry_run else "Unchanged", justify="right", style="cyan")
+        if exclude_columns is None or "Total" not in exclude_columns:
+            table.add_column("Total", justify="right")
         is_deploy = self.action == "deploy"
         for item in sorted(
             entry for entry in self.data.values() if entry is not None and isinstance(entry, ResourceDeployResult)
         ):
-            table.add_row(
-                item.name,
-                str(item.created) if is_deploy else "-",
-                str(item.deleted),
-                str(item.changed) if is_deploy else "-",
-                str(item.unchanged) if is_deploy else "-",
-                str(item.total),
-            )
+            if (
+                item.created == 0
+                and item.deleted == 0
+                and item.changed == 0
+                and item.unchanged == 0
+                and item.total == 0
+            ):
+                continue
+
+            row = [item.name]
+            if exclude_columns is None or "Created" not in exclude_columns:
+                row.append(str(item.created))
+            if exclude_columns is None or "Deleted" not in exclude_columns:
+                row.append(str(item.deleted))
+            if exclude_columns is None or "Changed" not in exclude_columns:
+                row.append(str(item.changed))
+            if exclude_columns is None or "Untouched" not in exclude_columns:
+                row.append(str(item.unchanged) if is_deploy else "-")
+            if exclude_columns is None or "Total" not in exclude_columns:
+                row.append(str(item.total))
+            table.add_row(*row)
 
         return table
 

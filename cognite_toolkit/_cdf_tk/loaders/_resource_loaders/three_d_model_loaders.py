@@ -17,8 +17,9 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -38,6 +39,10 @@ class ThreeDModelLoader(
     _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"
 
+    @property
+    def display_name(self) -> str:
+        return "3D models"
+
     @classmethod
     def get_id(cls, item: ThreeDModel | ThreeDModelWrite | dict) -> str:
         if isinstance(item, dict):
@@ -45,6 +50,14 @@ class ThreeDModelLoader(
         if not item.name:
             raise KeyError("3DModel must have name")
         return item.name
+
+    @classmethod
+    def get_internal_id(cls, item: ThreeDModel | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("3DModel must have id")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -86,14 +99,18 @@ class ThreeDModelLoader(
             created.append(new_item)
         return created
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> ThreeDModelList:
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> ThreeDModelList:
         output = ThreeDModelList([])
-        to_find = set(ids)
+        selected_names = {id_ for id_ in ids if isinstance(id_, str)}
+        selected_ids = {id_ for id_ in ids if isinstance(id_, int)}
         for model in self.client.three_d.models:
-            if model.name in to_find:
+            if model.name in selected_names or model.id in selected_ids:
                 output.append(model)
-                to_find.remove(model.name)
-                if not to_find:
+                if model.name:
+                    selected_names.discard(model.name)
+                if model.id:
+                    selected_ids.discard(model.id)
+                if (not selected_names) and (not selected_ids):
                     break
         return output
 
@@ -116,13 +133,23 @@ class ThreeDModelLoader(
                 updates.append(update)
         return self.client.three_d.models.update(updates, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
         models = self.retrieve(ids)
         self.client.three_d.models.delete(models.as_ids())
         return len(models)
 
-    def iterate(self) -> Iterable[ThreeDModel]:
-        return iter(self.client.three_d.models)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ThreeDModel]:
+        if data_set_external_id is None:
+            return iter(self.client.three_d.models)
+        data_set = self.client.data_sets.retrieve(external_id=data_set_external_id)
+        if data_set is None:
+            raise ToolkitMissingResourceError(f"DataSet {data_set_external_id!r} does not exist")
+        return (model for model in self.client.three_d.models if model.data_set_id == data_set.id)
 
     def drop_data(self, ids: SequenceNotStr[str]) -> int:
         models = self.retrieve(ids)
@@ -162,13 +189,14 @@ class ThreeDModelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> ThreeDModelWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        resources = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+    def load_resource(
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
+    ) -> ThreeDModelWriteList:
+        resources = resource if isinstance(resource, list) else [resource]
 
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:

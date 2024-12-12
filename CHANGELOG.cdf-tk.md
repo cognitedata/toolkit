@@ -15,6 +15,77 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.22] - 2024-12-12
+
+### Fixed
+
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
+- Functions are no longer always redeployed if `indexUrl` or `extraIndexUrls` are set in the `Function` resource.
+
+## [0.3.21] - 2024-12-11
+
+### Fixed
+
+- [alpha feature] Deploying `GraphQL` now correctly ignores end-of-line comments in the `.graphql` file.
+
+## [0.3.20] - 2024-12-10
+
+### Fixed
+
+- `cdf deploy` no longer raises a `OSError` when deploying a `Transformation` with the SQL query in the `YAML` file.
+
+## [0.3.19] - 2024-12-09
+
+### Added
+
+- [alpha feature] `cdf purge dataset` now supports purging resources with internal IDs.
+
+### Fixed
+
+- Replacing variables in an inline SQL query no longer removes the quotes around the variable.
+- Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
+  not have a `package` key.
+- [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`
+- [alpha feature] `GraphQL` resources with views that specify a `rawFilter` no longer raise an error when
+  running `cdf deploy`.
+- In the `cdf dump datamodel` command, properties that are overridden in a view are now correctly dumped.
+
+### Changed
+
+- [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
+- Building a `Transformation` will store the `.sql` file in the build directory instead of inlined in the
+  resource YAML file.
+
+### Improved
+
+- Consistent display names of resources in output table of `cdf deploy` and `cdf clean`.
+
+## [0.3.18] - 2024-12-03
+
+### Fixed
+
+- The `toolkit.demo` no longer fails du to wrong authentication variables.
+
+## [0.3.17] - 2024-12-02
+
+### Improved
+
+- Toolkit will no longer give the warning `UserWarning: Unknown capability` in irrelevant cases.
+
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+- [alpha feature] Support `Relpationship` resources in the `classic` directory.
+- [alpha feature] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
+  connected to it. This is useful if you want to clean up your CDF project.
+
+### Fixed
+
+- Using cdf for the identity provider no longer makes assumption about `IDP_CLIENT_SECRET` format.
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
+
 ## [0.3.16] - 2024-11-28
 
 No changes to cdf CLI.

@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
 
 from .classic_loaders import AssetLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader
@@ -39,7 +39,7 @@ class LocationFilterLoader(
     dependencies = frozenset(
         {
             AssetLoader,
-            DataModelLoader,
+            DataSetsLoader,
             DataModelLoader,
             SpaceLoader,
             ViewLoader,
@@ -53,6 +53,10 @@ class LocationFilterLoader(
     _doc_url = "Location-Filters/operation/createLocationFilter"
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
+
+    @property
+    def display_name(self) -> str:
+        return "location filters"
 
     @classmethod
     def get_required_capability(
@@ -87,14 +91,13 @@ class LocationFilterLoader(
         return {"externalId": id}
 
     def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self,
+        resource: dict[str, Any] | list[dict[str, Any]],
+        ToolGlobals: CDFToolConfig,
+        skip_validation: bool,
+        filepath: Path | None = None,
     ) -> LocationFilterWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
             if "parentExternalId" in raw:
                 parent_external_id = raw.pop("parentExternalId")
@@ -160,7 +163,12 @@ class LocationFilterLoader(
             count += 1
         return count
 
-    def iterate(self) -> Iterable[LocationFilter]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[LocationFilter]:
         return iter(self.client.location_filters)
 
     @classmethod

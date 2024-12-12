@@ -28,7 +28,7 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "parameters:\n  autoApprovalThreshold: 0.85\n  autoRejectThreshold: 0.25\n\
     sourceSystem:\n  space: springfield_instances\n  externalId: p_and_id_parser\n\
-    data:\n  annotationSpace: springfield_instances\n  instanceSpaces:\n    ['springfield_instances']\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  instanceSpaces:\n    ['springfield_instances']\n\
     \  annotationJobs:\n    - fileView:\n        space: cdf_cdm\n        externalId:\
     \ CogniteFile\n        version: v1\n      entityViews:\n        - space: cdf_cdm\n\
     \          externalId: CogniteEquipment\n          version: v1\n          searchProperty:\
@@ -44,7 +44,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 427ce529572b8e1d6d383b6c9629a40b3b372e88513afcf4b3052441d6f4a82e
+    cdf-toolkit-function-hash: 24448fa12cfb45173762339b911a0d8e03695fc708bbe511d4ed1538a20e1f87
   name: P&ID Annotator
   owner: Anonymous
 Node:

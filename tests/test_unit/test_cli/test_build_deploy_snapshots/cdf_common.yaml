@@ -36,8 +36,8 @@ ExtractionPipeline:
   name: Direct Relation Writer
 ExtractionPipelineConfig:
 - config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
-    data:\n  annotationSpace: springfield_instances\n  directRelationMappings:\n \
-    \   - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  directRelationMappings:\n\
+    \    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
     \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
     \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
     \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
@@ -51,7 +51,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: f1ef5d5ef1ff3880b1dcb69b3d598b1d59b7dd309474809d792bb4fba65fed63
+    cdf-toolkit-function-hash: 5b1a09e8a63f1e0177365f8718a70e102dcd46bd0747f68b193d65c4bec6f9f8
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 Space:

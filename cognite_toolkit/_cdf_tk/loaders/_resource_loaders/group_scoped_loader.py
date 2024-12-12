@@ -46,3 +46,7 @@ class GroupResourceScopedLoader(GroupLoader):
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir, "resource_scoped_only")
+
+    @property
+    def display_name(self) -> str:
+        return "resource-scoped groups"
