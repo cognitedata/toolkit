@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.22] - 2024-12-12
+
+### Fixed
+
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
+- Functions are no longer always redeployed if `indexUrl` or `extraIndexUrls` are set in the `Function` resource.
+
 ## [0.3.21] - 2024-12-11
 
 ### Fixed
