@@ -230,6 +230,31 @@ type TagBeta @view (version: "7#") {
         set(),
         id="Type with comments",
     ),
+    pytest.param(
+        """type Alarm @view (rawFilter:
+{equals : {property: ["PSI-COR-ALL-DMD", "AlarmEventMessage", "journal"], value: "Alarm"}}
+)
+{
+  journal:String @mapping(container: "AlarmEventMessage")
+  dataOwner:AlarmEventMessageDataOwner @mapping(container: "AlarmEventMessage")
+  aemTimeStamp: Timestamp @mapping(container: "AlarmEventMessage")
+  pointTag:String @mapping(container: "AlarmEventMessage")
+  pointTagDesc:String @mapping(container: "AlarmEventMessage")
+  psiUnit:String @mapping(container: "AlarmEventMessage")
+  code:String @mapping(container: "AlarmEventMessage")
+  alarmType:String @mapping(container: "AlarmEventMessage")
+  alarmState:String @mapping(container: "AlarmEventMessage")
+  priority:String @mapping(container: "AlarmEventMessage")
+  limit:Int @mapping(container: "AlarmEventMessage")
+  value:String @mapping(container: "AlarmEventMessage")
+  sourceAlarm:String @mapping(container: "AlarmEventMessage")
+  alarmEnableStatus:String @mapping(container: "AlarmEventMessage")
+}""",
+        DATA_MODEL,
+        {ViewId(SPACE, "Alarm", None)},
+        set(),
+        id="Type with raw filter",
+    ),
 ]
 
 DirectiveTestCases = [
@@ -258,7 +283,13 @@ DirectiveTestCases = [
     }
   )""",
         _ViewDirective(space="cdf_cdm", version="v1"),
-    )
+    ),
+    pytest.param(
+        """view (rawFilter:
+{equals : {property: ["PSI-COR-ALL-DMD", "AlarmEventMessage", "journal"], value: "Alarm"}}
+)""",
+        _ViewDirective(),
+    ),
 ]
 
 

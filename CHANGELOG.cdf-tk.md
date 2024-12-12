@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
 - Functions are no longer always redeployed if `indexUrl` or `extraIndexUrls` are set in the `Function` resource.
 
 ## [0.3.21] - 2024-12-11
