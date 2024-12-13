@@ -275,8 +275,12 @@ class AuthVariables:
             self._write_var("login_flow"),
             self._write_var("cluster"),
             self._write_var("project"),
-            self._write_var("provider"),
         ]
+        if self.login_flow != "token":
+            lines += [
+                self._write_var("provider"),
+            ]
+
         if self.login_flow == "token":
             lines += [
                 "# When using a token, the IDP variables are not needed, so they are not included.",
@@ -287,10 +291,8 @@ class AuthVariables:
                 self._write_var("client_id"),
                 self._write_var("client_secret"),
             ]
-        elif self.login_flow == "device_code":
-            lines += [
-                self._write_var("provider"),
-            ]
+        elif self.login_flow == "device_code" and self.provider != "entra_id":
+            ...
         elif self.login_flow == "interactive":
             lines += [
                 self._write_var("client_id"),
