@@ -170,7 +170,10 @@ LOGIN_FLOW=token
 # When using a token, the IDP variables are not needed, so they are not included.
 CDF_TOKEN=12345
 # The below variables are the defaults, they are automatically constructed unless they are set.
-CDF_URL=https://my_cluster.cognitedata.com"""
+CDF_URL=https://my_cluster.cognitedata.com
+# The below variables control the client configuration.
+CDF_CLIENT_TIMEOUT=30
+CDF_CLIENT_MAX_WORKERS=5"""
         with monkeypatch_toolkit_client() as _:
             config = CDFToolConfig(
                 token="12345", cluster="my_cluster", project="my_project", cdf_url="https://my_cluster.cognitedata.com"
@@ -188,6 +191,7 @@ CDF_URL=https://my_cluster.cognitedata.com"""
 CDF_CLUSTER=my_cluster
 CDF_PROJECT=my_project
 LOGIN_FLOW=interactive
+PROVIDER=entra_id
 IDP_CLIENT_ID=7890
 # Note: Either the TENANT_ID or the TENANT_URL must be written.
 IDP_TENANT_ID={tenant}
@@ -195,7 +199,10 @@ IDP_TOKEN_URL=https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
-IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
+IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}
+# The below variables control the client configuration.
+CDF_CLIENT_TIMEOUT=30
+CDF_CLIENT_MAX_WORKERS=5"""
 
         envs = {
             "LOGIN_FLOW": "interactive",
@@ -223,6 +230,7 @@ IDP_AUTHORITY_URL=https://login.microsoftonline.com/{tenant}"""
 CDF_CLUSTER=my_cluster
 CDF_PROJECT=my_project
 LOGIN_FLOW=client_credentials
+PROVIDER=entra_id
 IDP_CLIENT_ID=7890
 IDP_CLIENT_SECRET=12345
 # Note: Either the TENANT_ID or the TENANT_URL must be written.
@@ -231,7 +239,10 @@ IDP_TOKEN_URL=https://login.microsoftonline.com/12345/oauth2/v2.0/token
 # The below variables are the defaults, they are automatically constructed unless they are set.
 CDF_URL=https://my_cluster.cognitedata.com
 IDP_SCOPES=https://my_cluster.cognitedata.com/.default
-IDP_AUDIENCE=https://my_cluster.cognitedata.com"""
+IDP_AUDIENCE=https://my_cluster.cognitedata.com
+# The below variables control the client configuration.
+CDF_CLIENT_TIMEOUT=30
+CDF_CLIENT_MAX_WORKERS=5"""
 
         envs = {
             "LOGIN_FLOW": "client_credentials",
