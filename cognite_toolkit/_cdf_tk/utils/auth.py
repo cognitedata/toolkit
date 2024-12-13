@@ -193,7 +193,7 @@ class AuthVariables:
             self.set_cluster_defaults()
         if self.provider == "cdf":
             self.set_cdf_provider_defaults()
-        if self.tenant_id:
+        if self.tenant_id and self.provider != "cdf":
             self.set_token_id_defaults()
         if self.token and self.login_flow != "token":
             print(
@@ -232,7 +232,7 @@ class AuthVariables:
         if self.cluster:
             self.cdf_url = self.cdf_url or f"https://{self.cluster}.cognitedata.com"
             self.audience = self.audience or f"https://{self.cluster}.cognitedata.com"
-            if self.provider != "cog_idp":
+            if self.provider != "cdf":
                 self.scopes = self.scopes or f"https://{self.cluster}.cognitedata.com/.default"
 
     @property
