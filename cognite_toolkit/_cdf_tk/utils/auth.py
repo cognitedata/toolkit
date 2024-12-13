@@ -371,19 +371,19 @@ class AuthReader:
                 print("  Keeping existing client secret.")
         elif login_flow == "interactive":
             auth_vars.client_id = self.prompt_user("client_id")
-        elif login_flow == "device_code":
-            provider = questionary.select(
-                "Choose the provider",
-                choices=[
-                    Choice(title=f"{provider}: {description}", value=provider)
-                    for provider, description in PROVDER_DESCRIPTION.items()
-                ],
-            ).ask()
-            auth_vars.provider = provider
+        provider = questionary.select(
+            "Choose the provider",
+            choices=[
+                Choice(title=f"{provider}: {description}", value=provider)
+                for provider, description in PROVDER_DESCRIPTION.items()
+            ],
+        ).ask()
+        auth_vars.provider = provider
 
-        if login_flow in ("client_credentials", "interactive") or (
-            login_flow == "device_code" and auth_vars.provider == "entra_id"
-        ):
+        if login_flow == "client_credentials" and auth_vars.provider == "cdf":
+            auth_vars.set_cdf_provider_defaults()
+
+        elif login_flow in ("interactive", "device_code", "client_credentials") and auth_vars.provider == "entra_id":
             auth_vars.tenant_id = self.prompt_user("tenant_id")
             auth_vars.set_token_id_defaults()
         elif login_flow == "device_code" and auth_vars.provider == "other":
@@ -391,8 +391,10 @@ class AuthReader:
             auth_vars.oidc_discovery_url = self.prompt_user("oidc_discovery_url")
 
         default_variables = ["cdf_url"]
-        if login_flow == "client_credentials":
+        if login_flow == "client_credentials" and provider != "cdf":
             default_variables.extend(["scopes", "audience"])
+        elif login_flow == "client_credentials" and provider == "cdf":
+            default_variables.extend(["token_url"])
         elif login_flow == "interactive":
             default_variables.extend(["scopes", "authority_url"])
         print("The below variables are the defaults,")
