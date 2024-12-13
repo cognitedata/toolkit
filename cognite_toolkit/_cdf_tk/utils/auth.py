@@ -201,8 +201,12 @@ class AuthVariables:
             )
             self.login_flow = "token"
 
-    def set_cdf_provider_defaults(self) -> None:
-        self.token_url = self.token_url or "https://auth.cognite.com/oauth2/token"
+    def set_cdf_provider_defaults(self, force: bool = False) -> None:
+        default_url = "https://auth.cognite.com/oauth2/token"
+        if force:
+            self.token_url = default_url
+        else:
+            self.token_url = self.token_url or default_url
         if self.scopes is not None:
             IgnoredValueWarning("IDP_SCOPES", self.scopes, "Provider Cog-IDP does not need scopes").print_warning()
         self.scopes = None
@@ -381,8 +385,8 @@ class AuthReader:
         auth_vars.provider = provider
 
         if login_flow == "client_credentials" and auth_vars.provider == "cdf":
+            auth_vars.scopes = None
             auth_vars.set_cdf_provider_defaults()
-
         elif login_flow in ("interactive", "device_code", "client_credentials") and auth_vars.provider == "entra_id":
             auth_vars.tenant_id = self.prompt_user("tenant_id")
             auth_vars.set_token_id_defaults()
