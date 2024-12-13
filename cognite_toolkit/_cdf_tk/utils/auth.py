@@ -169,6 +169,22 @@ class AuthVariables:
             example="https://<auth0-tenant>.auth0.com/oauth",
         ),
     )
+    cdf_client_timeout: int = field(
+        default=30,
+        metadata=dict(
+            env_name="CDF_CLIENT_TIMEOUT",
+            display_name="CDF client timeout",
+            example="30",
+        ),
+    )
+    cdf_client_max_workers: int = field(
+        default=5,
+        metadata=dict(
+            env_name="CDF_CLIENT_MAX_WORKERS",
+            display_name="CDF client max workers",
+            example="10",
+        ),
+    )
 
     def __post_init__(self) -> None:
         # Set defaults based on cluster and tenant_id
@@ -644,8 +660,10 @@ class CDFToolConfig:
                 base_url=self._cdf_url,
                 project=self._project,
                 credentials=self._credentials_provider,
+                timeout=auth.cdf_client_timeout,
             )
         )
+        global_config.max_workers = auth.cdf_client_max_workers
         self._update_environment_variables()
         self._auth_vars = auth
 
