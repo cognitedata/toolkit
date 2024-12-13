@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- Running `cdf auth init` no works for `CDF` as the `IDP` provider.
+- Running `cdf auth init` now works for `CDF` as the `IDP` provider.
 
 ### Improved
 
