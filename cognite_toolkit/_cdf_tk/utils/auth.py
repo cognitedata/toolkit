@@ -19,7 +19,7 @@ import os
 import shutil
 import warnings
 from collections.abc import Sequence
-from dataclasses import dataclass, field, fields
+from dataclasses import _MISSING_TYPE, dataclass, field, fields
 from pathlib import Path
 from typing import Any, Literal, TypeAlias, overload
 
@@ -61,6 +61,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceRetrievalError,
     ToolkitResourceMissingError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSeverityWarning
 from cognite_toolkit._version import __version__
@@ -182,7 +183,7 @@ class AuthVariables:
         metadata=dict(
             env_name="CDF_CLIENT_MAX_WORKERS",
             display_name="CDF client max workers",
-            example="10",
+            example="5",
         ),
     )
 
@@ -200,6 +201,17 @@ class AuthVariables:
                 f"thus LOGIN_FLOW={self.login_flow} will be ignored"
             )
             self.login_flow = "token"
+
+        if isinstance(self.cdf_client_timeout, str):
+            try:
+                self.cdf_client_timeout = int(self.cdf_client_timeout)
+            except ValueError:
+                raise ToolkitValueError(f"CDF_CLIENT_TIMEOUT must be an integer, got {self.cdf_client_timeout}")
+        if isinstance(self.cdf_client_max_workers, str):
+            try:
+                self.cdf_client_max_workers = int(self.cdf_client_max_workers)
+            except ValueError:
+                raise ToolkitValueError(f"CDF_CLIENT_MAX_WORKERS must be an integer, got {self.cdf_client_max_workers}")
 
     def set_cdf_provider_defaults(self, force: bool = False) -> None:
         default_url = "https://auth.cognite.com/oauth2/token"
@@ -253,7 +265,8 @@ class AuthVariables:
         args: dict[str, Any] = {}
         for field_ in fields(cls):
             if env_name := field_.metadata.get("env_name"):
-                args[field_.name] = override.get(env_name, os.environ.get(env_name))
+                default = None if isinstance(field_.default, _MISSING_TYPE) else field_.default
+                args[field_.name] = override.get(env_name, os.environ.get(env_name, default))
         return cls(**args)
 
     def create_dotenv_file(self) -> str:
@@ -262,6 +275,7 @@ class AuthVariables:
             self._write_var("login_flow"),
             self._write_var("cluster"),
             self._write_var("project"),
+            self._write_var("provider"),
         ]
         if self.login_flow == "token":
             lines += [
@@ -283,10 +297,14 @@ class AuthVariables:
             ]
         else:
             raise ValueError(f"Login flow {self.login_flow} is not supported.")
-        if self.login_flow in ("client_credentials", "interactive"):
+        if self.login_flow in ("client_credentials", "interactive") and self.provider != "cdf":
             lines += [
                 "# Note: Either the TENANT_ID or the TENANT_URL must be written.",
                 self._write_var("tenant_id"),
+                self._write_var("token_url"),
+            ]
+        elif self.login_flow == "client_credentials" and self.provider == "cdf":
+            lines += [
                 self._write_var("token_url"),
             ]
         elif self.login_flow == "device_code" and self.provider == "entra_id":
@@ -302,7 +320,7 @@ class AuthVariables:
             "# The below variables are the defaults, they are automatically constructed unless they are set.",
             self._write_var("cdf_url"),
         ]
-        if self.login_flow in ("client_credentials", "interactive"):
+        if self.login_flow in ("client_credentials", "interactive") and self.provider != "cdf":
             lines += [
                 self._write_var("scopes"),
             ]
@@ -310,7 +328,9 @@ class AuthVariables:
             lines += [
                 self._write_var("authority_url"),
             ]
-        if self.login_flow in ("client_credentials") or (self.login_flow == "device_code" and self.provider == "other"):
+        if (self.login_flow == "client_credentials" and self.provider != "cdf") or (
+            self.login_flow == "device_code" and self.provider == "other"
+        ):
             lines += [
                 self._write_var("audience"),
             ]
@@ -386,7 +406,7 @@ class AuthReader:
 
         if login_flow == "client_credentials" and auth_vars.provider == "cdf":
             auth_vars.scopes = None
-            auth_vars.set_cdf_provider_defaults()
+            auth_vars.set_cdf_provider_defaults(force=True)
         elif login_flow in ("interactive", "device_code", "client_credentials") and auth_vars.provider == "entra_id":
             auth_vars.tenant_id = self.prompt_user("tenant_id")
             auth_vars.set_token_id_defaults()
