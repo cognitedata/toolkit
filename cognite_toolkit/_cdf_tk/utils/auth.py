@@ -227,6 +227,8 @@ class AuthVariables:
             return self.token is not None
         elif self.login_flow == "interactive":
             return self.client_id is not None and self.tenant_id is not None and self.scopes is not None
+        elif self.login_flow == "client_credentials" and self.provider == "cdf":
+            return self.client_id is not None and self.client_secret is not None
         elif self.login_flow == "client_credentials":
             return (
                 self.client_id is not None
@@ -308,6 +310,11 @@ class AuthVariables:
             lines += [
                 self._write_var("audience"),
             ]
+        lines += [
+            "# The below variables control the client configuration.",
+            self._write_var("cdf_client_timeout"),
+            self._write_var("cdf_client_max_workers"),
+        ]
 
         return "\n".join(lines)
 
