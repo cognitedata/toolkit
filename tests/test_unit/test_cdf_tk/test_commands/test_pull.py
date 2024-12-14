@@ -433,7 +433,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
         [
             BuiltResourceFull(
                 identifier="ingestion",
-                source=SourceLocationLazy(Path("whatever")),
+                source=SourceLocationLazy(Path("whatever"), Path("whatever")),
                 kind="DataSet",
                 extra_sources=None,
                 build_variables=BuildVariables(
