@@ -561,32 +561,35 @@ class PullCommand(ToolkitCommand):
         results = DeployResults([], action="pull", dry_run=dry_run)
         env_vars = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
-            local = [resource.load_resource_dict(env_vars) for resource in resources]
+            file_results = ResourceDeployResult(loader.display_name)
+            local: list[dict[str, Any]] = []
             cdf: list[dict[str, Any]] = []
-            for item in local:
-                loaded_ = loader.load_resource(item, ToolGlobals, skip_validation=False)
-                if isinstance(loaded_, Sequence):
-                    loaded = loaded_[0]
+            for resource in resources:
+                local_resource_dict = resource.load_resource_dict(env_vars, validate=True)
+                loaded_any = loader.load_resource(local_resource_dict, ToolGlobals, skip_validation=False)
+                if isinstance(loaded_any, Sequence):
+                    loaded = loaded_any[0]
                 else:
-                    loaded = loaded_
+                    loaded = loaded_any
                 item_id = loader.get_id(loaded)
                 cdf_resource = cdf_resource_by_id.get(item_id)
                 if cdf_resource is None:
                     raise ToolkitMissingResourceError(
                         f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
                     )
-                # Todo What to do with the extra files?
-                cdf_dumped, _ = loader.dump_resource(cdf_resource, source_file, loaded)
+                are_equal, local_dumped, cdf_dumped = loader.are_equal(loaded, cdf_resource, return_dumped=True)
+                local.append(local_dumped)
                 cdf.append(cdf_dumped)
+                if are_equal:
+                    file_results.unchanged += 1
+                else:
+                    file_results.changed += 1
 
             updated = self._update(local, cdf)
 
-            file_results = ResourceDeployResult(loader.display_name)
             if updated.has_changed and not dry_run:
                 self._write_to_file(source_file, updated, resources[0].build_variables)
 
-            file_results.changed += len(updated.changed)
-            file_results.unchanged += len(updated.unchanged)
             results[loader.display_name] = file_results
 
         table = results.counts_table(exclude_columns={"Total"})
