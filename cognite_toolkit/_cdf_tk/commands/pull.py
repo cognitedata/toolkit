@@ -19,7 +19,6 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.data_classes import (
-    BuildVariables,
     BuiltFullResourceList,
     DeployResults,
     ModuleResources,
@@ -562,8 +561,8 @@ class PullCommand(ToolkitCommand):
         env_vars = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
             file_results = ResourceDeployResult(loader.display_name)
-            local: list[dict[str, Any]] = []
-            cdf: list[dict[str, Any]] = []
+            has_changes = False
+            to_write: list[dict[str, Any]] = []
             for resource in resources:
                 local_resource_dict = resource.load_resource_dict(env_vars, validate=True)
                 loaded_any = loader.load_resource(local_resource_dict, ToolGlobals, skip_validation=False)
@@ -578,27 +577,27 @@ class PullCommand(ToolkitCommand):
                         f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
                     )
                 are_equal, local_dumped, cdf_dumped = loader.are_equal(loaded, cdf_resource, return_dumped=True)
-                local.append(local_dumped)
-                cdf.append(cdf_dumped)
                 if are_equal:
                     file_results.unchanged += 1
+                    to_write.append(local_dumped)
                 else:
                     file_results.changed += 1
+                    to_write.append(cdf_dumped)
+                    has_changes = True
 
-            updated = self._update(local, cdf)
-
-            if updated.has_changed and not dry_run:
-                self._write_to_file(source_file, updated, resources[0].build_variables)
+            if has_changes and not dry_run:
+                new_content = self._to_write_content(source_file.read_text(), to_write, resources)
+                with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                    f.write(new_content)
 
             results[loader.display_name] = file_results
 
         table = results.counts_table(exclude_columns={"Total"})
         print(table)
 
-    def _update(self, local: list[dict[str, Any]], cdf: list[dict[str, Any]]) -> Any:
-        raise NotImplementedError
-
-    def _write_to_file(self, source_file: Path, updated: list[dict[str, Any]], variables: BuildVariables) -> None:
+    def _to_write_content(
+        self, source: str, to_write: list[dict[str, Any]], resources: BuiltFullResourceList[T_ID]
+    ) -> str:
         raise NotImplementedError()
 
     @staticmethod
