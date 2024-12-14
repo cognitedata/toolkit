@@ -53,6 +53,12 @@ Group:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
   - digitalTwinAcl:
       actions:
       - WRITE
@@ -355,6 +361,11 @@ Group:
       scope:
         all: {}
   - datasetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - diagramParsingAcl:
       actions:
       - READ
       scope:

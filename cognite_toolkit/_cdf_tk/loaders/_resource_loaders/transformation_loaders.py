@@ -63,6 +63,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
@@ -240,7 +241,32 @@ class TransformationLoader(
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"
 
-            # The `authentication` key is custom for this template:
+            query_file: Path | None = None
+            if "queryFile" in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if queryFile is set")
+                query_file = filepath.parent / Path(resource.pop("queryFile"))
+
+            external_id = resource.get("externalId", "UNKNOWN")
+            if query_file is None and "query" not in resource:
+                if filepath is None:
+                    raise ValueError("filepath must be set if query is not set")
+                raise ToolkitYAMLFormatError(
+                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    filepath,
+                )
+            elif query_file and not query_file.exists():
+                # We checked above that filepath is not None
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
+            elif query_file and "query" in resource:
+                raise ToolkitYAMLFormatError(
+                    f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
+                    f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
+                    filepath,
+                )
+            elif query_file:
+                resource["query"] = safe_read(query_file)
+
             source_oidc_credentials = (
                 resource.get("authentication", {}).get("read") or resource.get("authentication") or None
             )
@@ -257,27 +283,7 @@ class TransformationLoader(
                     destination_oidc_credentials
                 )
             except KeyError as e:
-                raise ToolkitYAMLFormatError("authentication property is missing required fields", e)
-
-            query_file: Path | None = None
-            if filepath:
-                query_file = filepath.parent / Path(transformation.query or "")
-
-            if query_file and query_file.exists():
-                transformation.query = None
-            else:
-                query_file = None
-
-            if transformation.query is None:
-                if query_file is None:
-                    extra = ""
-                    if filepath:
-                        extra = f" or {filepath.stem}.sql"
-                    raise ToolkitYAMLFormatError(
-                        f"query property or is missing. It can be inline or a separate file named {transformation.external_id}.sql{extra}",
-                    )
-                transformation.query = safe_read(query_file)
-
+                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
             transformations.append(transformation)
 
         if len(transformations) == 1:
@@ -354,6 +360,7 @@ class TransformationLoader(
                     ParameterSpec(
                         ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
                     ),
+                    ParameterSpec(("queryFile",), frozenset({"str"}), is_required=False, _is_nullable=False),
                 }
             )
         )

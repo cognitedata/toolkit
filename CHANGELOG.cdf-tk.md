@@ -15,6 +15,36 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.23] - 2024-12-13
+
+### Fixed
+
+- Running `cdf auth init` now works for `CDF` as the `IDP` provider.
+
+### Improved
+
+- You can now set the `CDF_CLIENT_TIMEOUT` and `CDF_CLIENT_MAX_WORKERS` to control the timeout and the number of
+  workers used by Toolkit when communicating with CDF.
+
+## [0.3.22] - 2024-12-12
+
+### Fixed
+
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
+- Functions are no longer always redeployed if `indexUrl` or `extraIndexUrls` are set in the `Function` resource.
+
+## [0.3.21] - 2024-12-11
+
+### Fixed
+
+- [alpha feature] Deploying `GraphQL` now correctly ignores end-of-line comments in the `.graphql` file.
+
+## [0.3.20] - 2024-12-10
+
+### Fixed
+
+- `cdf deploy` no longer raises a `OSError` when deploying a `Transformation` with the SQL query in the `YAML` file.
+
 ## [0.3.19] - 2024-12-09
 
 ### Added

@@ -155,6 +155,9 @@ FileLoader:
   space: sp_nodes
 - external_id: classicFileMetadata
   filehash: c646656c
+- externalId: filecontent.txt
+  filehash: e0b202a1
+  space: sp_complete_org_files
 FileMetadata:
 - dataSetId: 42
   directory: /files
@@ -175,6 +178,7 @@ Function:
   externalId: fn_first_function
   fileId: -1
   functionPath: ./src/handler.py
+  indexUrl: https://pypi.org/simple
   metadata:
     cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
     cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
@@ -355,6 +359,33 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+- externalId: filecontent.txt
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
 RobotCapability:
 - dataHandlingSchema:
     $schema: http://json-schema.org/draft-07/schema#
@@ -463,6 +494,7 @@ Source:
   type: eventhub
 Space:
 - space: DataModelSpace
+- space: sp_complete_org_files
 - space: sp_nodes
 - space: sp_schema
 Table:
@@ -496,6 +528,15 @@ TimeSeries:
   name: CDF Toolkit Example Timeseries 2
   securityCategories: []
 Transformation:
+- conflictMode: upsert
+  destination:
+    type: assets
+  externalId: inlined_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: Example of an inlined transformation
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table  where
+    UNY is not null
 - conflictMode: upsert
   destination:
     type: assets
