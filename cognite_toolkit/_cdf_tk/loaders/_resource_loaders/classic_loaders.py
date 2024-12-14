@@ -300,7 +300,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return self.client.sequences.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
     def update(self, items: SequenceWriteList) -> SequenceList:
-        return self.client.sequences.update(items, mode="replace")
+        return self.client.sequences.upsert(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
         internal_ids, external_ids = self._split_ids(ids)

@@ -45,6 +45,11 @@ capabilities:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - digitalTwinAcl:
       actions:
       - READ
