@@ -19,6 +19,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildVariable,
     BuiltFullResourceList,
     DeployResults,
     ModuleResources,
@@ -562,7 +563,7 @@ class PullCommand(ToolkitCommand):
         for source_file, resources in resources_by_file.items():
             file_results = ResourceDeployResult(loader.display_name)
             has_changes = False
-            to_write: list[dict[str, Any]] = []
+            to_write: dict[T_ID, dict[str, Any]] = {}
             for resource in resources:
                 local_resource_dict = resource.load_resource_dict(env_vars, validate=True)
                 loaded_any = loader.load_resource(local_resource_dict, ToolGlobals, skip_validation=False)
@@ -579,14 +580,14 @@ class PullCommand(ToolkitCommand):
                 are_equal, local_dumped, cdf_dumped = loader.are_equal(loaded, cdf_resource, return_dumped=True)
                 if are_equal:
                     file_results.unchanged += 1
-                    to_write.append(local_dumped)
+                    to_write[item_id] = local_dumped
                 else:
                     file_results.changed += 1
-                    to_write.append(cdf_dumped)
+                    to_write[item_id] = cdf_dumped
                     has_changes = True
 
             if has_changes and not dry_run:
-                new_content = self._to_write_content(source_file.read_text(), to_write, resources)
+                new_content = self._to_write_content(source_file.read_text(), to_write, resources, loader)  # type: ignore[arg-type]
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
 
@@ -596,9 +597,47 @@ class PullCommand(ToolkitCommand):
         print(table)
 
     def _to_write_content(
-        self, source: str, to_write: list[dict[str, Any]], resources: BuiltFullResourceList[T_ID]
+        self,
+        source: str,
+        to_write: dict[T_ID, dict[str, Any]],
+        resources: BuiltFullResourceList[T_ID],
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
     ) -> str:
-        raise NotImplementedError()
+        # Need to keep comments
+        # Keep variables
+        # Keep order
+        # 1. Replace all variables
+        # 2. Load source and keep the comments
+        # 3. Replace all values with the to_write values.
+        # 4. Dump the yaml
+        # 5. Replace the variables back
+        variables = resources[0].build_variables
+        content, value_by_placeholder = variables.replace(source, use_placeholder=True)
+        replace_content = variables.replace(source)
+        _ = YAMLWithComments._extract_comments(content)
+        loaded = yaml.safe_load(content)
+        loaded_with_ids = yaml.safe_load(replace_content)
+        updated: dict[str, Any] | list[dict[str, Any]]
+        if isinstance(loaded_with_ids, dict) and isinstance(loaded, dict):
+            item_id = loader.get_id(loaded_with_ids)
+            if item_id not in to_write:
+                raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
+            item_write = to_write[item_id]
+            updated = self._replace(loaded, item_write, value_by_placeholder)
+        elif isinstance(loaded_with_ids, list) and isinstance(loaded, list):
+            updated = []
+            for i, item in enumerate(loaded_with_ids):
+                item_id = loader.get_id(item)
+                if item_id not in to_write:
+                    raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
+                item_write = to_write[item_id]
+                updated.append(self._replace(loaded[i], item_write, value_by_placeholder))
+
+        dumped = yaml.safe_dump(updated, sort_keys=False)
+        # return YAMLWithComments._dump_yaml_with_comments(dumped, comments, 2, False)
+        return dumped
 
     @staticmethod
     def _select_resource_ids(
@@ -616,3 +655,30 @@ class PullCommand(ToolkitCommand):
                 f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
             )
         return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
+
+    @classmethod
+    def _replace(
+        cls, loaded: dict[str, Any], to_write: dict[str, Any], value_by_placeholder: dict[str, BuildVariable]
+    ) -> dict[str, Any]:
+        updated: dict[str, Any] = {}
+        for key, current_value in loaded.items():
+            if key in to_write:
+                new_value = to_write[key]
+                if new_value == current_value:
+                    updated[key] = current_value
+                    continue
+                for placeholder, variable in value_by_placeholder.items():
+                    if placeholder in current_value:
+                        new_value = new_value.replace(variable.value, f"{{{{ {variable.key} }}}}")
+
+                updated[key] = new_value
+            elif isinstance(current_value, dict):
+                updated[key] = cls._replace(current_value, to_write, value_by_placeholder)
+            elif isinstance(current_value, list):
+                updated[key] = [cls._replace(item, to_write, value_by_placeholder) for item in current_value]
+
+        for new_key in to_write:
+            if new_key not in loaded:
+                updated[new_key] = to_write[new_key]
+
+        return updated

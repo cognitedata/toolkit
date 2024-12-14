@@ -12,6 +12,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceFull,
     SourceLocationLazy,
 )
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 
 def load_update_diffs_use_cases():
@@ -424,11 +426,11 @@ class TestTextFileDifference:
 
 
 def to_write_content_use_cases() -> Iterable:
-    source = """"name: 'Ingestion'
+    source = """name: Ingestion
 externalId: {{ dataset }}
 description: This dataset contains Transformations, Functions, and Workflows for ingesting data into Cognite Data Fusion.
 """
-    to_write = [{"name": "Ingestion", "externalId": "ingestion", "description": "New description"}]
+    to_write = {"ingestion": {"name": "Ingestion", "externalId": "ingestion", "description": "New description"}}
     resources = BuiltFullResourceList(
         [
             BuiltResourceFull(
@@ -454,8 +456,8 @@ description: This dataset contains Transformations, Functions, and Workflows for
         ]
     )
 
-    expected = """"name: 'Ingestion'
-externalId: {{ dataset }}
+    expected = """name: Ingestion
+externalId: '{{ dataset }}'
 description: New description
 """
 
@@ -470,12 +472,18 @@ class TestPullCommand:
     def test_to_write_content(
         self,
         source: str,
-        to_write: list[dict[str, Any]],
+        to_write: dict[str, [dict[str, Any]]],
         resources: BuiltFullResourceList,
         expected: str,
+        cdf_tool_mock: CDFToolConfig,
     ) -> None:
         cmd = PullCommand(silent=True, skip_tracking=True)
 
-        actual = cmd._to_write_content(source=source, to_write=to_write, resources=resources)
+        actual = cmd._to_write_content(
+            source=source,
+            to_write=to_write,
+            resources=resources,
+            loader=DataSetsLoader.create_loader(cdf_tool_mock, None),
+        )
 
         assert actual == expected
