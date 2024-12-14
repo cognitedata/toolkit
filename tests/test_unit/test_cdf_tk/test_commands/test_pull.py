@@ -1,8 +1,17 @@
+from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.pull import ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildVariable,
+    BuildVariables,
+    BuiltFullResourceList,
+    BuiltResourceFull,
+    SourceLocationLazy,
+)
 
 
 def load_update_diffs_use_cases():
@@ -412,3 +421,61 @@ class TestTextFileDifference:
         assert cannot_change == expected["cannot_change"]
 
         assert text_file.dump() == dumped
+
+
+def to_write_content_use_cases() -> Iterable:
+    source = """"name: 'Ingestion'
+externalId: {{ dataset }}
+description: This dataset contains Transformations, Functions, and Workflows for ingesting data into Cognite Data Fusion.
+"""
+    to_write = [{"name": "Ingestion", "externalId": "ingestion", "description": "New description"}]
+    resources = BuiltFullResourceList(
+        [
+            BuiltResourceFull(
+                identifier="ingestion",
+                source=SourceLocationLazy(Path("whatever")),
+                kind="DataSet",
+                extra_sources=None,
+                build_variables=BuildVariables(
+                    [
+                        BuildVariable(
+                            key="dataset",
+                            value="ingestion",
+                            is_selected=True,
+                            location=Path("whatever"),
+                        )
+                    ]
+                ),
+                module_name="cdf_common",
+                module_location=Path("whatever"),
+                resource_dir="data_sets",
+                destination=Path("whatever"),
+            )
+        ]
+    )
+
+    expected = """"name: 'Ingestion'
+externalId: {{ dataset }}
+description: New description
+"""
+
+    yield pytest.param(source, to_write, resources, expected, id="One resource changed")
+
+
+class TestPullCommand:
+    @pytest.mark.parametrize(
+        "source, to_write, resources, expected",
+        list(to_write_content_use_cases()),
+    )
+    def test_to_write_content(
+        self,
+        source: str,
+        to_write: list[dict[str, Any]],
+        resources: BuiltFullResourceList,
+        expected: str,
+    ) -> None:
+        cmd = PullCommand(silent=True, skip_tracking=True)
+
+        actual = cmd._to_write_content(source=source, to_write=to_write, resources=resources)
+
+        assert actual == expected
