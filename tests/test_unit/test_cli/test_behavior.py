@@ -6,15 +6,15 @@ import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import GroupWrite, Transformation, TransformationWrite
+from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite
 from pytest import MonkeyPatch
 from typer import Context
 
 from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -147,6 +147,34 @@ def test_pull_transformation(
     after_loaded = load_transformation()
 
     assert after_loaded.name == "New transformation name"
+
+
+def test_pull_dataset(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected dataset to be pulled
+    dataset_yaml = organization_dir_mutable / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    dataset.description = "New description"
+    toolkit_client_approval.append(DataSet, dataset)
+
+    cmd = PullCommand(silent=True)
+    cmd.pull_resources(
+        organization_dir=organization_dir_mutable,
+        id_=dataset.external_id,
+        all_=False,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+        Loader=DataSetsLoader,
+    )
+
+    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    assert reloaded.description == "New description"
 
 
 def test_dump_datamodel(
