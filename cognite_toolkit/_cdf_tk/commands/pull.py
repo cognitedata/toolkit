@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, safe_read
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, read_yaml_content, safe_read
 
 from ._base import ToolkitCommand
 
@@ -617,8 +617,8 @@ class PullCommand(ToolkitCommand):
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         replace_content = variables.replace(source)
         _ = YAMLWithComments._extract_comments(content)
-        loaded = yaml.safe_load(content)
-        loaded_with_ids = yaml.safe_load(replace_content)
+        loaded = read_yaml_content(content)
+        loaded_with_ids = read_yaml_content(replace_content)
         updated: dict[str, Any] | list[dict[str, Any]]
         if isinstance(loaded_with_ids, dict) and isinstance(loaded, dict):
             item_id = loader.get_id(loaded_with_ids)
