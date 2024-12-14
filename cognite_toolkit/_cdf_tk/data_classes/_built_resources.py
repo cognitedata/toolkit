@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections import defaultdict
 from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -226,3 +227,9 @@ class BuiltFullResourceList(BuiltResourceList[T_ID]):
         if isinstance(index, slice):
             return BuiltFullResourceList[T_ID](super().__getitem__(index))
         return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
+
+    def by_file(self) -> dict[Path, BuiltFullResourceList[T_ID]]:
+        resources_by_file: dict[Path, BuiltFullResourceList[T_ID]] = defaultdict(lambda: BuiltFullResourceList())
+        for resource in self:
+            resources_by_file[resource.source.path].append(resource)
+        return resources_by_file

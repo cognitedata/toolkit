@@ -6,7 +6,7 @@ import uuid
 from collections import UserList
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, TypeVar, Union
 from unittest.mock import MagicMock
 
 import questionary
@@ -18,8 +18,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildVariables,
     BuiltFullResourceList,
+    DeployResults,
     ModuleResources,
+    ResourceDeployResult,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
@@ -39,6 +42,8 @@ _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # version control, the diff will be easier to read.
 ENCODING = "utf-8"
 NEWLINE = "\n"
+
+T_DICT_OR_LIST = TypeVar("T_DICT_OR_LIST")
 
 
 @dataclass
@@ -549,14 +554,48 @@ class PullCommand(ToolkitCommand):
 
         selected_resources = self._select_resource_ids(all_, id_, loader, local_resources, organization_dir)
 
-        cdf_resources = loader.retrieve(selected_resources.identifiers)
-        _ = {loader.get_id(r): r for r in cdf_resources}
+        cdf_resources = loader.retrieve(selected_resources.identifiers)  # type: ignore[arg-type]
+        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
+
+        resources_by_file = selected_resources.by_file()
+
+        results = DeployResults([], action="pull", dry_run=dry_run)
+        for source_file, resources in resources_by_file.items():
+            local, cdf = self._dump_resources(resources, cdf_resource_by_id, loader)  # type: ignore[var-annotated, arg-type]
+            updated = self._update(local, cdf)
+
+            file_results = ResourceDeployResult(loader.display_name)
+            if updated.changed:
+                self._write_to_file(source_file, updated, resources[0].build_variables)
+                file_results.changed += len(resources)
+            else:
+                file_results.unchanged += len(resources)
+
+            results[loader.display_name] = file_results
+
+        table = results.counts_table(exclude_columns={"Total"})
+        print(table)
+
+    def _dump_resources(
+        self,
+        resources: BuiltFullResourceList[T_ID],
+        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource],
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+    ) -> tuple[T_DICT_OR_LIST, T_DICT_OR_LIST]:
+        raise NotImplementedError()
+
+    def _update(self, local: T_DICT_OR_LIST, cdf: T_DICT_OR_LIST) -> Any:
+        raise NotImplementedError
+
+    def _write_to_file(self, source_file: Path, updated: T_DICT_OR_LIST, variables: BuildVariables) -> None:
         raise NotImplementedError()
 
     @staticmethod
     def _select_resource_ids(
         all_: bool, id_: T_ID, loader: ResourceLoader, local_resources: BuiltFullResourceList, organization_dir: Path
-    ) -> BuiltFullResourceList:
+    ) -> BuiltFullResourceList[T_ID]:
         if all_:
             return local_resources
         if id_ is None:
