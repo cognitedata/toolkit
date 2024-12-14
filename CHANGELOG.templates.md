@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Renamed non-toolkit Function config files for `bootcamp` module.
+
 ## [0.3.23] - 2024-12-13
 
 No changes to templates.
