@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Renamed non-toolkit Function config files for `bootcamp` module.
+
 ## [0.3.22] - 2024-12-12
 
 No changes to templates.
@@ -42,7 +48,6 @@ No changes to templates.
 - The user group in the `QuickStart` package now has capabilities to inspect the RAW tables and
   extraction pipelines.
 - Missing table `diagramParsing` in the `QuickStart` is now created.
-- renamed non-toolkit Function config files for `bootcamp` module
 - Bug in the SQL transformation of the `cdf_sharepoint` modules.
 
 ## [0.3.16] - 2024-11-28
