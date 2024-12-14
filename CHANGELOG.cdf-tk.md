@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.23] - 2024-12-13
+
+### Fixed
+
+- Running `cdf auth init` now works for `CDF` as the `IDP` provider.
+
+### Improved
+
+- You can now set the `CDF_CLIENT_TIMEOUT` and `CDF_CLIENT_MAX_WORKERS` to control the timeout and the number of
+  workers used by Toolkit when communicating with CDF.
+
 ## [0.3.22] - 2024-12-12
 
 ### Fixed

@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - Renamed non-toolkit Function config files for `bootcamp` module.
 
+## [0.3.23] - 2024-12-13
+
+No changes to templates.
+
 ## [0.3.22] - 2024-12-12
 
 No changes to templates.
