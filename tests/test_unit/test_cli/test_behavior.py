@@ -12,6 +12,7 @@ from typer import Context
 
 from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
 from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TransformationLoader
@@ -156,7 +157,7 @@ def test_pull_dataset(
     organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected dataset to be pulled
-    dataset_yaml = organization_dir_mutable / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
     dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
     dataset.description = "New description"
     toolkit_client_approval.append(DataSet, dataset)
