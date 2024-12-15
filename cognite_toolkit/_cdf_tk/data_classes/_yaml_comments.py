@@ -28,6 +28,10 @@ class _YAMLLine:
     is_array: bool
     raw: str
 
+    @property
+    def is_comment_line(self) -> bool:
+        return self.comment is not None and self.key is None
+
 
 class _YAMLCommentParser:
     token_pattern = re.compile(r"[\w\n]+|[^\w\s]", flags=re.DOTALL)
@@ -40,12 +44,26 @@ class _YAMLCommentParser:
         key: list[str | int] = []
         last_indent = 0
         indent_size: int | None = None
+        index_key_level_by_indent: dict[int, tuple[int, int]] = {}
         for line_str in lines:
             line = self._parse_line(line_str)
             if indent_size is None and line.indent > 0:
+                # Infer indentation size
                 indent_size = line.indent
 
-            if line.key and line.indent > last_indent:
+            if line.is_array and line.indent not in index_key_level_by_indent:
+                index_key_level_by_indent[line.indent] = 0, len(key)
+
+            if line.is_comment_line:
+                ...
+            elif line.indent in index_key_level_by_indent:
+                index, key_level = index_key_level_by_indent[line.indent]
+                key = key[:key_level]
+                key.append(index)
+                index_key_level_by_indent[line.indent] = index + 1, key_level
+                if line.key:
+                    key.append(line.key)
+            elif line.key and line.indent > last_indent:
                 key.append(line.key)
             elif line.key and line.indent < last_indent:
                 if indent_size is None:
@@ -71,7 +89,7 @@ class _YAMLCommentParser:
             elif line.comment:
                 last_comment.append(line.comment)
             elif line.key and last_comment:
-                comments[tuple(full_key)] = YAMLComment(after=last_comment)
+                comments[tuple(full_key)] = YAMLComment(above=last_comment)
                 last_comment = []
 
         return comments
@@ -80,11 +98,13 @@ class _YAMLCommentParser:
         new_lines: list[str] = []
         for full_key, line in self._iterate_lines():
             if comment := comments.get(tuple(full_key)):
-                if comment.above:
-                    new_lines.extend(comment.above)
+                for above_comment in comment.above:
+                    new_lines.append(f"{' ' *line.indent}# {above_comment}")
                 if comment.after:
                     after_comments = " ".join(comment.after)
                     new_lines.append(f"{line.raw} # {after_comments}")
+                else:
+                    new_lines.append(line.raw)
             else:
                 new_lines.append(line.raw)
         return "\n".join(new_lines)
@@ -113,5 +133,6 @@ class _YAMLCommentParser:
                 key = tokens[no - 1]
             elif token == "-":
                 is_array = True
+                indent = len(line_str) - len(line_str.lstrip().lstrip("-").lstrip())
 
         return _YAMLLine(indent, key, comment, is_array, line_str)

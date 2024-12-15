@@ -11,8 +11,8 @@ def load_dump_test_cases() -> Iterable:
     yield pytest.param("""key: value # comment""", id="simple")
     yield pytest.param(
         """- item: 23 # comment
-  # comment
-  item: 24""",
+  # other comment
+- item: 24""",
         id="list",
     )
     yield pytest.param(
@@ -20,8 +20,10 @@ def load_dump_test_cases() -> Iterable:
             first: value
             second:
                 key: value
-                # comment
-                third: value
+                # above comment
+                third:
+                 - item: 23
+                 - item: 24 # with comment
         """),
         id="nested with indent 4",
     )
