@@ -437,12 +437,12 @@ description: This dataset contains Transformations, Functions, and Workflows for
         is_selected=True,
         location=Path("whatever"),
     )
-    resource = MagicMock(spec=BuiltResourceFull)
-    resource.build_variables = BuildVariables([variable])
-    resource.identifier = "ingestion"
-    resource.extra_sources = []
+    ingestion = MagicMock(spec=BuiltResourceFull)
+    ingestion.build_variables = BuildVariables([variable])
+    ingestion.identifier = "ingestion"
+    ingestion.extra_sources = []
 
-    resources = BuiltFullResourceList([resource])
+    resources = BuiltFullResourceList([ingestion])
 
     expected = """name: Ingestion
 externalId: '{{ dataset }}'
@@ -486,6 +486,12 @@ description: New description
         **to_write,
         "unique_dataset": {"name": "Another", "externalId": "unique_dataset", "description": "also new description"},
     }
+    unique_dataset = MagicMock(spec=BuiltResourceFull)
+    unique_dataset.build_variables = BuildVariables([])
+    unique_dataset.identifier = "unique_dataset"
+    unique_dataset.extra_sources = []
+    resources = BuiltFullResourceList([ingestion, unique_dataset])
+
     yield pytest.param(source, to_write_multi, resources, expected, id="Multiple resources changed")
 
 
