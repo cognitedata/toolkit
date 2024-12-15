@@ -463,8 +463,30 @@ description: New description
 
     yield pytest.param(source, to_write, resources, expected, id="One resource changed with comments")
 
+    source = """- name: Ingestion
+  externalId: {{ dataset }} # This is a comment
+  # This is another comment
+  description: Original description
+- name: Another
+  externalId: unique_dataset
+  description: with its own description
+"""
+
+    expected = """- name: Ingestion
+  externalId: '{{ dataset }}' # This is a comment
+  # This is another comment
+  description: New description
+- name: Another
+  externalId: unique_dataset
+  description: also new description
+"""
+    to_write_multi = {
+        **to_write,
+        "unique_dataset": {"name": "Another", "externalId": "unique_dataset", "description": "also new description"},
+    }
+    yield pytest.param(source, to_write_multi, resources, expected, id="Multiple resources changed")
+
     # Missing test:
-    # - Multiple resources in the same file.
     # - Resource split across multiple files.
 
 
