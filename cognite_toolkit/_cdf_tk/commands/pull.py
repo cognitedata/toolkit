@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     DeployResults,
     ModuleResources,
     ResourceDeployResult,
+    YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
@@ -596,6 +597,23 @@ class PullCommand(ToolkitCommand):
         table = results.counts_table(exclude_columns={"Total"})
         print(table)
 
+    @staticmethod
+    def _select_resource_ids(
+        all_: bool, id_: T_ID, loader: ResourceLoader, local_resources: BuiltFullResourceList, organization_dir: Path
+    ) -> BuiltFullResourceList[T_ID]:
+        if all_:
+            return local_resources
+        if id_ is None:
+            return questionary.select(
+                f"Select a {loader.display_name} to pull",
+                choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
+            ).ask()
+        if id_ not in local_resources.identifiers:
+            raise ToolkitMissingResourceError(
+                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
+            )
+        return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
+
     def _to_write_content(
         self,
         source: str,
@@ -616,7 +634,7 @@ class PullCommand(ToolkitCommand):
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         replace_content = variables.replace(source)
-        _ = YAMLWithComments._extract_comments(content)
+        comments = YAMLComments.load(content)
         loaded = read_yaml_content(content)
         loaded_with_ids = read_yaml_content(replace_content)
         updated: dict[str, Any] | list[dict[str, Any]]
@@ -634,27 +652,11 @@ class PullCommand(ToolkitCommand):
                     raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
                 item_write = to_write[item_id]
                 updated.append(self._replace(loaded[i], item_write, value_by_placeholder))
+        else:
+            raise ValueError("Loaded and loaded_with_ids should be of the same type")
 
         dumped = yaml.safe_dump(updated, sort_keys=False)
-        # return YAMLWithComments._dump_yaml_with_comments(dumped, comments, 2, False)
-        return dumped
-
-    @staticmethod
-    def _select_resource_ids(
-        all_: bool, id_: T_ID, loader: ResourceLoader, local_resources: BuiltFullResourceList, organization_dir: Path
-    ) -> BuiltFullResourceList[T_ID]:
-        if all_:
-            return local_resources
-        if id_ is None:
-            return questionary.select(
-                f"Select a {loader.display_name} to pull",
-                choices=[Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r) for r in local_resources],
-            ).ask()
-        if id_ not in local_resources.identifiers:
-            raise ToolkitMissingResourceError(
-                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
-            )
-        return BuiltFullResourceList([r for r in local_resources if r.identifier == id_])
+        return comments.dump(dumped)
 
     @classmethod
     def _replace(

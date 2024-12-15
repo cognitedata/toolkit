@@ -463,6 +463,24 @@ description: New description
 
     yield pytest.param(source, to_write, resources, expected, id="One resource changed")
 
+    source == """name: Ingestion
+externalId: {{ dataset }} # This is a comment
+# This is another comment
+description: Original description
+"""
+
+    expected = """name: Ingestion
+externalId: '{{ dataset }}' # This is a comment
+# This is another comment
+description: New description
+"""
+
+    yield pytest.param(source, to_write, resources, expected, id="One resource changed with comments")
+
+    # Missing test:
+    # - Multiple resources in the same file.
+    # - Resource split across multiple files.
+
 
 class TestPullCommand:
     @pytest.mark.parametrize(
@@ -486,4 +504,4 @@ class TestPullCommand:
             loader=DataSetsLoader.create_loader(cdf_tool_mock, None),
         )
 
-        assert actual == expected
+        assert actual.splitlines() == expected.splitlines()
