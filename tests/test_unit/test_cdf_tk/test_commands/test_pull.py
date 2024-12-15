@@ -463,7 +463,7 @@ description: New description
 
     yield pytest.param(source, to_write, resources, expected, id="One resource changed")
 
-    source == """name: Ingestion
+    source = """name: Ingestion
 externalId: {{ dataset }} # This is a comment
 # This is another comment
 description: Original description
