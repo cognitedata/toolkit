@@ -623,9 +623,6 @@ class PullCommand(ToolkitCommand):
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
     ) -> str:
-        # Need to keep comments
-        # Keep variables
-        # Keep order
         # 1. Replace all variables
         # 2. Load source and keep the comments
         # 3. Replace all values with the to_write values.

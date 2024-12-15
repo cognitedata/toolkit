@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -10,7 +11,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariables,
     BuiltFullResourceList,
     BuiltResourceFull,
-    SourceLocationLazy,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -431,30 +431,16 @@ externalId: {{ dataset }}
 description: This dataset contains Transformations, Functions, and Workflows for ingesting data into Cognite Data Fusion.
 """
     to_write = {"ingestion": {"name": "Ingestion", "externalId": "ingestion", "description": "New description"}}
-    resources = BuiltFullResourceList(
-        [
-            BuiltResourceFull(
-                identifier="ingestion",
-                source=SourceLocationLazy(Path("whatever"), Path("whatever")),
-                kind="DataSet",
-                extra_sources=None,
-                build_variables=BuildVariables(
-                    [
-                        BuildVariable(
-                            key="dataset",
-                            value="ingestion",
-                            is_selected=True,
-                            location=Path("whatever"),
-                        )
-                    ]
-                ),
-                module_name="cdf_common",
-                module_location=Path("whatever"),
-                resource_dir="data_sets",
-                destination=Path("whatever"),
-            )
-        ]
+    variable = BuildVariable(
+        key="dataset",
+        value="ingestion",
+        is_selected=True,
+        location=Path("whatever"),
     )
+    resource = MagicMock(spec=BuiltResourceFull)
+    resource.build_variables = BuildVariables([variable])
+
+    resources = BuiltFullResourceList([resource])
 
     expected = """name: Ingestion
 externalId: '{{ dataset }}'
