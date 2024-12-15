@@ -18,6 +18,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuiltFullResourceList,
@@ -567,6 +568,13 @@ class PullCommand(ToolkitCommand):
             to_write: dict[T_ID, dict[str, Any]] = {}
             for resource in resources:
                 local_resource_dict = resource.load_resource_dict(env_vars, validate=True)
+                if resource.extra_sources:
+                    builder = create_builder(resource.resource_dir, None)
+                    for extra in resource.extra_sources:
+                        extra_content = resource.build_variables.replace(safe_read(extra.path), extra.path.suffix)
+                        key, value = builder.load_extra_field(extra_content)
+                        local_resource_dict[key] = value
+
                 loaded_any = loader.load_resource(local_resource_dict, ToolGlobals, skip_validation=False)
                 if isinstance(loaded_any, Sequence):
                     loaded = loaded_any[0]
@@ -588,9 +596,12 @@ class PullCommand(ToolkitCommand):
                     has_changes = True
 
             if has_changes and not dry_run:
-                new_content = self._to_write_content(source_file.read_text(), to_write, resources, loader)  # type: ignore[arg-type]
+                new_content, extra_files = self._to_write_content(source_file.read_text(), to_write, resources, loader)  # type: ignore[arg-type]
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
+                for filepath, content in extra_files.items():
+                    with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
+                        f.write(content)
 
             results[loader.display_name] = file_results
 
@@ -622,24 +633,45 @@ class PullCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-    ) -> str:
+    ) -> tuple[str, dict[Path, str]]:
         # 1. Replace all variables
         # 2. Load source and keep the comments
         # 3. Replace all values with the to_write values.
         # 4. Dump the yaml
         # 5. Add the variables back
+        # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
-        replace_content = variables.replace(source)
         comments = YAMLComments.load(content)
         loaded = read_yaml_content(content)
-        loaded_with_ids = read_yaml_content(replace_content)
+
+        built_by_identifier = {r.identifier: r for r in resources}
+        # If there is a variable in the identifier, we need to replace it with the value
+        # such that we can look it up in the to_write dict.
+        loaded_with_ids = read_yaml_content(variables.replace(source))
         updated: dict[str, Any] | list[dict[str, Any]]
+        extra_files: dict[Path, str] = {}
         if isinstance(loaded_with_ids, dict) and isinstance(loaded, dict):
             item_id = loader.get_id(loaded_with_ids)
             if item_id not in to_write:
                 raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
             item_write = to_write[item_id]
+            if item_id not in built_by_identifier:
+                raise ToolkitMissingResourceError(f"Resource {item_id} not found in resources.")
+            built = built_by_identifier[item_id]
+            if built.extra_sources:
+                builder = create_builder(built.resource_dir, None)
+                for extra in built.extra_sources:
+                    extra_content, extra_placeholders = variables.replace(
+                        safe_read(extra.path), extra.path.suffix, use_placeholder=True
+                    )
+                    key, _ = builder.load_extra_field(extra_content)
+                    if key in item_write:
+                        new_extra = item_write.pop(key)
+                        for placeholder, variable in extra_placeholders.items():
+                            if placeholder in extra_content:
+                                new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
+                        extra_files[extra.path] = new_extra
             updated = self._replace(loaded, item_write, value_by_placeholder)
         elif isinstance(loaded_with_ids, list) and isinstance(loaded, list):
             updated = []
@@ -653,7 +685,7 @@ class PullCommand(ToolkitCommand):
             raise ValueError("Loaded and loaded_with_ids should be of the same type")
 
         dumped = yaml.safe_dump(updated, sort_keys=False)
-        return comments.dump(dumped)
+        return comments.dump(dumped), extra_files
 
     @classmethod
     def _replace(

@@ -52,6 +52,9 @@ class TransformationBuilder(Builder):
             )
             yield destination
 
+    def load_extra_field(self, extra: str) -> tuple[str, Any]:
+        return "query", extra
+
     def _add_query(
         self,
         loaded: dict[str, Any] | list[dict[str, Any]],

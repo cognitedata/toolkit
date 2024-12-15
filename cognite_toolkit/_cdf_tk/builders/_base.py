@@ -2,7 +2,7 @@ import difflib
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import ClassVar, cast
+from typing import Any, ClassVar, cast
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -38,10 +38,10 @@ class Builder(ABC):
 
     def __init__(
         self,
-        build_dir: Path,
+        build_dir: Path | None,
         resource_folder: str | None = None,
     ):
-        self.build_dir = build_dir
+        self._build_dir = build_dir
         self.resource_counter = 0
         if self._resource_folder is not None:
             self.resource_folder = self._resource_folder
@@ -50,10 +50,20 @@ class Builder(ABC):
         else:
             raise ValueError("Either _resource_folder or resource_folder must be set.")
 
+    @property
+    def build_dir(self) -> Path:
+        if self._build_dir is None:
+            raise ValueError("build_dir must be set for this operation.")
+        return self._build_dir
+
     @abstractmethod
     def build(
         self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
+        raise NotImplementedError()
+
+    def load_extra_field(self, extra: str) -> tuple[str, Any]:
+        """Overload in subclass to load extra fields from a file."""
         raise NotImplementedError()
 
     def validate_directory(
