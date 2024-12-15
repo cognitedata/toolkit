@@ -178,6 +178,62 @@ def test_pull_dataset(
     assert reloaded.description == "New description"
 
 
+def test_pull_transformation_sql(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected transformation to be pulled
+    transformation_yaml = (
+        organization_dir_mutable
+        / "modules"
+        / "sourcesystem"
+        / "cdf_pi"
+        / "transformations"
+        / "population"
+        / "timeseries.Transformation.yaml"
+    )
+    transformation = _load_cdf_pi_transformation(transformation_yaml)
+    new_query = """select
+  someValue as externalId,
+  name as name,
+  'string' as type,
+
+from `ingestion`.`timeseries_metadata`"""
+    transformation.query = new_query
+
+    toolkit_client_approval.append(Transformation, transformation)
+    cmd = PullCommand(silent=True)
+    cmd.pull_resources(
+        organization_dir=organization_dir_mutable,
+        id_=transformation.external_id,
+        all_=False,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+        Loader=TransformationLoader,
+    )
+    sql_file = transformation_yaml.with_suffix(".sql")
+    assert sql_file.exists()
+    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}")
+
+
+def _load_cdf_pi_transformation(transformation_yaml: Path) -> Transformation:
+    variables = [
+        ("dataset", "ingestion"),
+        ("schemaSpace", "sp_enterprise_process_industry"),
+        ("instanceSpace", "springfield_instances"),
+        ("organization", "YourOrg"),
+        ("timeseriesTransformationExternalId", "pi_timeseries_springfield_aveva_pi"),
+    ]
+    raw_transformation = transformation_yaml.read_text()
+    for key, value in variables:
+        raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
+    return Transformation.load(raw_transformation)
+
+
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,

@@ -627,7 +627,7 @@ class PullCommand(ToolkitCommand):
         # 2. Load source and keep the comments
         # 3. Replace all values with the to_write values.
         # 4. Dump the yaml
-        # 5. Replace the variables back
+        # 5. Add the variables back
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         replace_content = variables.replace(source)
