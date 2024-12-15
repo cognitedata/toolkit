@@ -22,6 +22,7 @@ from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuiltFullResourceList,
+    BuiltResourceFull,
     DeployResults,
     ModuleResources,
     ResourceDeployResult,
@@ -636,9 +637,10 @@ class PullCommand(ToolkitCommand):
     ) -> tuple[str, dict[Path, str]]:
         # 1. Replace all variables
         # 2. Load source and keep the comments
-        # 3. Replace all values with the to_write values.
+        # 3. Update all items with the to_write values..
         # 4. Dump the yaml
         # 5. Add the variables back
+
         # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
@@ -653,39 +655,50 @@ class PullCommand(ToolkitCommand):
         extra_files: dict[Path, str] = {}
         if isinstance(loaded_with_ids, dict) and isinstance(loaded, dict):
             item_id = loader.get_id(loaded_with_ids)
-            if item_id not in to_write:
-                raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
-            item_write = to_write[item_id]
-            if item_id not in built_by_identifier:
-                raise ToolkitMissingResourceError(f"Resource {item_id} not found in resources.")
-            built = built_by_identifier[item_id]
-            if built.extra_sources:
-                builder = create_builder(built.resource_dir, None)
-                for extra in built.extra_sources:
-                    extra_content, extra_placeholders = variables.replace(
-                        safe_read(extra.path), extra.path.suffix, use_placeholder=True
-                    )
-                    key, _ = builder.load_extra_field(extra_content)
-                    if key in item_write:
-                        new_extra = item_write.pop(key)
-                        for placeholder, variable in extra_placeholders.items():
-                            if placeholder in extra_content:
-                                new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
-                        extra_files[extra.path] = new_extra
-            updated = self._replace(loaded, item_write, value_by_placeholder)
+            updated = self._update(item_id, loaded, to_write, built_by_identifier, value_by_placeholder, extra_files)
         elif isinstance(loaded_with_ids, list) and isinstance(loaded, list):
             updated = []
             for i, item in enumerate(loaded_with_ids):
                 item_id = loader.get_id(item)
-                if item_id not in to_write:
-                    raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
-                item_write = to_write[item_id]
-                updated.append(self._replace(loaded[i], item_write, value_by_placeholder))
+                updated.append(
+                    self._update(item_id, loaded[i], to_write, built_by_identifier, value_by_placeholder, extra_files)
+                )
         else:
             raise ValueError("Loaded and loaded_with_ids should be of the same type")
 
         dumped = yaml.safe_dump(updated, sort_keys=False)
         return comments.dump(dumped), extra_files
+
+    @classmethod
+    def _update(
+        cls,
+        item_id: T_ID,
+        loaded: dict[str, Any],
+        to_write: dict[T_ID, dict[str, Any]],
+        built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
+        value_by_placeholder: dict[str, BuildVariable],
+        extra_files: dict[Path, str],
+    ) -> dict[str, Any]:
+        if item_id not in to_write:
+            raise ToolkitMissingResourceError(f"Resource {item_id} not found in to_write.")
+        item_write = to_write[item_id]
+        if item_id not in built_by_identifier:
+            raise ToolkitMissingResourceError(f"Resource {item_id} not found in resources.")
+        built = built_by_identifier[item_id]
+        if built.extra_sources:
+            builder = create_builder(built.resource_dir, None)
+            for extra in built.extra_sources:
+                extra_content, extra_placeholders = built.build_variables.replace(
+                    safe_read(extra.path), extra.path.suffix, use_placeholder=True
+                )
+                key, _ = builder.load_extra_field(extra_content)
+                if key in item_write:
+                    new_extra = item_write.pop(key)
+                    for placeholder, variable in extra_placeholders.items():
+                        if placeholder in extra_content:
+                            new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
+                    extra_files[extra.path] = new_extra
+        return cls._replace(loaded, item_write, value_by_placeholder)
 
     @classmethod
     def _replace(
