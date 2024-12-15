@@ -12,17 +12,16 @@ def load_dump_test_cases() -> Iterable:
     yield pytest.param(
         """- item: 23 # comment
   # comment
-  - item: 24
-""",
+  item: 24""",
         id="list",
     )
     yield pytest.param(
         textwrap.dedent("""
             first: value
-                second:
-                    key: value
-                    # comment
-                    third: value
+            second:
+                key: value
+                # comment
+                third: value
         """),
         id="nested with indent 4",
     )
