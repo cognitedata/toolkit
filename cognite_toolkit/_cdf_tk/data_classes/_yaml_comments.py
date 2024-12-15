@@ -1,3 +1,6 @@
+import re
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import TypeAlias
 
 from cognite_toolkit._cdf_tk.utils.file import YAMLComment
@@ -11,7 +14,104 @@ class YAMLComments:
 
     @classmethod
     def load(cls, yaml_str: str) -> "YAMLComments":
-        raise NotImplementedError()
+        return cls(_YAMLCommentParser(yaml_str).parse())
 
     def dump(self, yaml_str: str) -> str:
-        raise NotImplementedError()
+        return _YAMLCommentParser(yaml_str).dump(self.comments)
+
+
+@dataclass
+class _YAMLLine:
+    indent: int
+    key: str | None
+    comment: str | None
+    is_array: bool
+    raw: str
+
+
+class _YAMLCommentParser:
+    token_pattern = re.compile(r"[\w\n]+|[^\w\s]", flags=re.DOTALL)
+
+    def __init__(self, yaml_str: str) -> None:
+        self.yaml_str = yaml_str
+
+    def _iterate_lines(self) -> Iterator[tuple[list[str | int], _YAMLLine]]:
+        lines = self.yaml_str.splitlines()
+        key: list[str | int] = []
+        last_indent = 0
+        indent_size: int | None = None
+        for line_str in lines:
+            line = self._parse_line(line_str)
+            if indent_size is None and line.indent > 0:
+                indent_size = line.indent
+
+            if line.key and line.indent > last_indent:
+                key.append(line.key)
+            elif line.key and line.indent < last_indent:
+                if indent_size is None:
+                    raise ValueError("Indentation size could not be determined")
+                key = key[: line.indent // indent_size]
+                key.append(line.key)
+            elif line.key:
+                if key:
+                    key.pop()
+                key.append(line.key)
+
+            yield key, line
+            last_indent = line.indent
+
+    def parse(self) -> dict[yaml_key, YAMLComment]:
+        comments: dict[yaml_key, YAMLComment] = {}
+        last_comment: list[str] = []
+        for full_key, line in self._iterate_lines():
+            if line.comment and line.key:
+                # End-of-line comment
+                comments[tuple(full_key)] = YAMLComment(after=[line.comment], above=last_comment)
+                last_comment = []
+            elif line.comment:
+                last_comment.append(line.comment)
+            elif line.key and last_comment:
+                comments[tuple(full_key)] = YAMLComment(after=last_comment)
+                last_comment = []
+
+        return comments
+
+    def dump(self, comments: dict[yaml_key, YAMLComment]) -> str:
+        new_lines: list[str] = []
+        for full_key, line in self._iterate_lines():
+            if comment := comments.get(tuple(full_key)):
+                if comment.above:
+                    new_lines.extend(comment.above)
+                if comment.after:
+                    after_comments = " ".join(comment.after)
+                    new_lines.append(f"{line.raw} # {after_comments}")
+            else:
+                new_lines.append(line.raw)
+        return "\n".join(new_lines)
+
+    def _parse_line(self, line_str: str) -> _YAMLLine:
+        indent = len(line_str) - len(line_str.lstrip())
+        is_array = False
+        key: str | None = None
+        comment: str | None = None
+        in_single_quote = False
+        in_double_quote = False
+        tokens = self.token_pattern.findall(line_str)
+        for no, token in enumerate(tokens):
+            if token == '"':
+                in_double_quote = not in_double_quote
+            elif token == "'":
+                in_single_quote = not in_single_quote
+
+            if in_single_quote or in_double_quote:
+                continue
+
+            if token.startswith("#"):
+                comment = " ".join(tokens[no + 1 :])
+                break
+            elif token == ":" and no > 0:
+                key = tokens[no - 1]
+            elif token == "-":
+                is_array = True
+
+        return _YAMLLine(indent, key, comment, is_array, line_str)
