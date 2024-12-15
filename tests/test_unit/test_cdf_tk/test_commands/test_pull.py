@@ -439,6 +439,8 @@ description: This dataset contains Transformations, Functions, and Workflows for
     )
     resource = MagicMock(spec=BuiltResourceFull)
     resource.build_variables = BuildVariables([variable])
+    resource.identifier = "ingestion"
+    resource.extra_sources = []
 
     resources = BuiltFullResourceList([resource])
 
@@ -486,9 +488,6 @@ description: New description
     }
     yield pytest.param(source, to_write_multi, resources, expected, id="Multiple resources changed")
 
-    # Missing test:
-    # - Resource split across multiple files.
-
 
 class TestPullCommand:
     @pytest.mark.parametrize(
@@ -505,11 +504,11 @@ class TestPullCommand:
     ) -> None:
         cmd = PullCommand(silent=True, skip_tracking=True)
 
-        actual = cmd._to_write_content(
+        actual, extra_files = cmd._to_write_content(
             source=source,
             to_write=to_write,
             resources=resources,
             loader=DataSetsLoader.create_loader(cdf_tool_mock, None),
         )
-
+        assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()
