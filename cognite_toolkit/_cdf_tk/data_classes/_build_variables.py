@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+import uuid
 from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import Any, Literal, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
@@ -151,9 +152,25 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
             for variable_set in variable_sets
         ]
 
-    def replace(self, content: str, file_suffix: str = ".yaml") -> str:
+    @overload
+    def replace(self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[False] = False) -> str: ...
+
+    @overload
+    def replace(
+        self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[True] = True
+    ) -> tuple[str, dict[str, BuildVariable]]: ...
+
+    def replace(
+        self, content: str, file_suffix: str = ".yaml", use_placeholder: bool = False
+    ) -> str | tuple[str, dict[str, BuildVariable]]:
+        variable_by_placeholder: dict[str, BuildVariable] = {}
         for variable in self:
-            replace = variable.value_variable
+            if not use_placeholder:
+                replace = variable.value_variable
+            else:
+                replace = f"VARIABLE_{uuid.uuid4().hex[:8]}"
+                variable_by_placeholder[replace] = variable
+
             _core_pattern = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
@@ -166,8 +183,10 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                 content = re.sub(pattern, str(replace), content)
             else:
                 content = re.sub(_core_pattern, str(replace), content)
-
-        return content
+        if use_placeholder:
+            return content, variable_by_placeholder
+        else:
+            return content
 
     # Implemented to get correct type hints
     def __iter__(self) -> Iterator[BuildVariable]:
