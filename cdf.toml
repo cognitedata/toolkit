@@ -14,6 +14,7 @@ module-repeat = true
 edges = true
 classic = true
 purge = true
+module-pull = true
 
 [plugins]
 run = true
