@@ -531,9 +531,8 @@ class PullCommand(ToolkitCommand):
 
     def pull_resources(
         self,
+        path: Path,
         organization_dir: Path,
-        id_: T_ID | None,
-        all_: bool,
         env: str | None,
         dry_run: bool,
         verbose: bool,
