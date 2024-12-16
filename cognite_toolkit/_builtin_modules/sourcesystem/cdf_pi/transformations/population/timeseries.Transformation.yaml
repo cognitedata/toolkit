@@ -4,7 +4,7 @@ name: TimeSeries Transformations for {{ sourceName }}
 destination:
   type: nodes
   view:
-    space: {{ schemaSpace}}
+    space: {{ schemaSpace }}
     externalId: {{ organization }}TimeSeries
     version: v1
   instanceSpace: {{ instanceSpace }}

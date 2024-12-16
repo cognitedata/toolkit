@@ -6,15 +6,16 @@ import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import GroupWrite, Transformation, TransformationWrite
+from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite
 from pytest import MonkeyPatch
 from typer import Context
 
 from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -147,6 +148,90 @@ def test_pull_transformation(
     after_loaded = load_transformation()
 
     assert after_loaded.name == "New transformation name"
+
+
+def test_pull_dataset(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected dataset to be pulled
+    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    dataset.description = "New description"
+    toolkit_client_approval.append(DataSet, dataset)
+
+    cmd = PullCommand(silent=True)
+    cmd.pull_resources(
+        organization_dir=organization_dir_mutable,
+        id_=dataset.external_id,
+        all_=False,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+        Loader=DataSetsLoader,
+    )
+
+    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    assert reloaded.description == "New description"
+
+
+def test_pull_transformation_sql(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected transformation to be pulled
+    transformation_yaml = (
+        organization_dir_mutable
+        / "modules"
+        / "sourcesystem"
+        / "cdf_pi"
+        / "transformations"
+        / "population"
+        / "timeseries.Transformation.yaml"
+    )
+    transformation = _load_cdf_pi_transformation(transformation_yaml)
+    new_query = """select
+  someValue as externalId,
+  name as name,
+  'string' as type,
+
+from `ingestion`.`timeseries_metadata`"""
+    transformation.query = new_query
+
+    toolkit_client_approval.append(Transformation, transformation)
+    cmd = PullCommand(silent=True)
+    cmd.pull_resources(
+        organization_dir=organization_dir_mutable,
+        id_=transformation.external_id,
+        all_=False,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+        Loader=TransformationLoader,
+    )
+    sql_file = transformation_yaml.with_suffix(".sql")
+    assert sql_file.exists()
+    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}")
+
+
+def _load_cdf_pi_transformation(transformation_yaml: Path) -> Transformation:
+    variables = [
+        ("dataset", "ingestion"),
+        ("schemaSpace", "sp_enterprise_process_industry"),
+        ("instanceSpace", "springfield_instances"),
+        ("organization", "YourOrg"),
+        ("timeseriesTransformationExternalId", "pi_timeseries_springfield_aveva_pi"),
+    ]
+    raw_transformation = transformation_yaml.read_text()
+    for key, value in variables:
+        raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
+    return Transformation.load(raw_transformation)
 
 
 def test_dump_datamodel(
