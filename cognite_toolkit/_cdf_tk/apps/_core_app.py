@@ -127,78 +127,162 @@ class CoreApp(typer.Typer):
             mockToolGlobals=None,
         )
 
-    def build(
-        self,
-        ctx: typer.Context,
-        organization_dir: Annotated[
-            Path,
-            typer.Option(
-                "--organization-dir",
-                "-o",
-                help="Where to find the module templates to build from",
-            ),
-        ] = CDF_TOML.cdf.default_organization_dir,
-        build_dir: Annotated[
-            Path,
-            typer.Option(
-                "--build-dir",
-                "-b",
-                help="Where to save the built module files",
-            ),
-        ] = Path("./build"),
-        selected: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--modules",
-                "-m",
-                help="Specify paths or names to the modules to build",
-            ),
-        ] = None,
-        build_env_name: Annotated[
-            Optional[str],
-            typer.Option(
-                "--env",
-                "-e",
-                help="The name of the environment to build",
-            ),
-        ] = CDF_TOML.cdf.default_env,
-        no_clean: Annotated[
-            bool,
-            typer.Option(
-                "--no-clean",
-                "-c",
-                help="Whether not to delete the build directory before building the configurations",
-            ),
-        ] = False,
-        verbose: Annotated[
-            bool,
-            typer.Option(
-                "--verbose",
-                "-v",
-                help="Turn on to get more verbose output when running the command",
-            ),
-        ] = False,
-    ) -> None:
-        """Build configuration files from the modules to the build directory."""
-        ToolGlobals: Union[CDFToolConfig, None] = None
-        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
-            # Remove the Error message from failing to load the config
-            # This is verified in check_auth
-            ToolGlobals = CDFToolConfig()
+    if Flags.BUILD_OFFLINE.is_enabled():
 
-        cmd = BuildCommand()
-        cmd.run(
-            lambda: cmd.execute(
-                verbose,
-                organization_dir,
-                build_dir,
-                selected,  # type: ignore[arg-type]
-                build_env_name,
-                no_clean,
-                ToolGlobals,
-                on_error="raise",
+        def build(
+            self,
+            ctx: typer.Context,
+            organization_dir: Annotated[
+                Path,
+                typer.Option(
+                    "--organization-dir",
+                    "-o",
+                    help="Where to find the module templates to build from",
+                ),
+            ] = CDF_TOML.cdf.default_organization_dir,
+            build_dir: Annotated[
+                Path,
+                typer.Option(
+                    "--build-dir",
+                    "-b",
+                    help="Where to save the built module files",
+                ),
+            ] = Path("./build"),
+            selected: Annotated[
+                Optional[list[str]],
+                typer.Option(
+                    "--modules",
+                    "-m",
+                    help="Specify paths or names to the modules to build",
+                ),
+            ] = None,
+            build_env_name: Annotated[
+                Optional[str],
+                typer.Option(
+                    "--env",
+                    "-e",
+                    help="The name of the environment to build",
+                ),
+            ] = CDF_TOML.cdf.default_env,
+            no_clean: Annotated[
+                bool,
+                typer.Option(
+                    "--no-clean",
+                    "-c",
+                    help="Whether not to delete the build directory before building the configurations",
+                ),
+            ] = False,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Turn on to get more verbose output when running the command",
+                ),
+            ] = False,
+            offline: Annotated[
+                bool,
+                typer.Option(
+                    "--offline",
+                    help="Do not check CDF for missing dependencies.",
+                ),
+            ] = False,
+        ) -> None:
+            """Build configuration files from the modules to the build directory."""
+            ToolGlobals: Union[CDFToolConfig, None] = None
+            if not offline:
+                with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+                    # Remove the Error message from failing to load the config
+                    # This is verified in check_auth
+                    ToolGlobals = CDFToolConfig()
+
+            cmd = BuildCommand()
+            cmd.run(
+                lambda: cmd.execute(
+                    verbose,
+                    organization_dir,
+                    build_dir,
+                    selected,  # type: ignore[arg-type]
+                    build_env_name,
+                    no_clean,
+                    ToolGlobals,
+                    on_error="raise",
+                )
             )
-        )
+    else:
+
+        def build(
+            self,
+            ctx: typer.Context,
+            organization_dir: Annotated[
+                Path,
+                typer.Option(
+                    "--organization-dir",
+                    "-o",
+                    help="Where to find the module templates to build from",
+                ),
+            ] = CDF_TOML.cdf.default_organization_dir,
+            build_dir: Annotated[
+                Path,
+                typer.Option(
+                    "--build-dir",
+                    "-b",
+                    help="Where to save the built module files",
+                ),
+            ] = Path("./build"),
+            selected: Annotated[
+                Optional[list[str]],
+                typer.Option(
+                    "--modules",
+                    "-m",
+                    help="Specify paths or names to the modules to build",
+                ),
+            ] = None,
+            build_env_name: Annotated[
+                Optional[str],
+                typer.Option(
+                    "--env",
+                    "-e",
+                    help="The name of the environment to build",
+                ),
+            ] = CDF_TOML.cdf.default_env,
+            no_clean: Annotated[
+                bool,
+                typer.Option(
+                    "--no-clean",
+                    "-c",
+                    help="Whether not to delete the build directory before building the configurations",
+                ),
+            ] = False,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Turn on to get more verbose output when running the command",
+                ),
+            ] = False,
+        ) -> None:
+            """Build configuration files from the modules to the build directory."""
+            ToolGlobals: Union[CDFToolConfig, None] = None
+            with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+                # Remove the Error message from failing to load the config
+                # This is verified in check_auth
+                ToolGlobals = CDFToolConfig()
+
+            cmd = BuildCommand()
+            cmd.run(
+                lambda: cmd.execute(
+                    verbose,
+                    organization_dir,
+                    build_dir,
+                    selected,  # type: ignore[arg-type]
+                    build_env_name,
+                    no_clean,
+                    ToolGlobals,
+                    on_error="raise",
+                )
+            )
 
     if Flags.FORCE_UPDATE.is_enabled():
 
