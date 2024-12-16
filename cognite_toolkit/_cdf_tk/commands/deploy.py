@@ -74,13 +74,13 @@ class DeployCommand(ToolkitCommand):
     ) -> None:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
-                "The build directory does not exists. Did you forget to run `cdf-tk build` first?"
+                "The build directory does not exists. Did you forget to run `cdf build` first?"
             )
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         if not build_environment_file_path.is_file():
             raise ToolkitFileNotFoundError(
                 f"Could not find build environment file '{BUILD_ENVIRONMENT_FILE}' in '{build_dir}'. "
-                "Did you forget to run `cdf-tk build` first?"
+                "Did you forget to run `cdf build` first?"
             )
 
         deploy_state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")

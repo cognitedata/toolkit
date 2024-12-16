@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import re
+import shutil
 import uuid
 from collections import UserList
 from collections.abc import Sequence
@@ -17,7 +18,7 @@ from questionary import Choice
 from rich import print
 from rich.markdown import Markdown
 from rich.panel import Panel
-
+import tempfile
 from cognite_toolkit._cdf_tk.builders import create_builder
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
@@ -26,18 +27,21 @@ from cognite_toolkit._cdf_tk.data_classes import (
     DeployResults,
     ModuleResources,
     ResourceDeployResult,
-    YAMLComments,
+    YAMLComments, BuildEnvironment,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
-    ToolkitValueError,
+    ToolkitValueError, ToolkitError,
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, read_yaml_content, safe_read
-
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, YAMLComment, YAMLWithComments, read_yaml_content, safe_read, \
+    read_yaml_file
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from ._base import ToolkitCommand
+from ..constants import BUILD_ENVIRONMENT_FILE
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -379,6 +383,10 @@ class TextFileDifference(UserList):
 
 
 class PullCommand(ToolkitCommand):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self._clean_command = CleanCommand(print_warning, skip_tracking=True)
+
     def execute(
         self,
         organization_dir: Path,
@@ -531,25 +539,46 @@ class PullCommand(ToolkitCommand):
 
     def pull_module(
         self,
-        module: str,
+        module: str | Path,
         organization_dir: Path,
         env: str | None,
         dry_run: bool,
         verbose: bool,
         ToolGlobals: CDFToolConfig,
     ) -> None:
-        verify_module_directory(organization_dir, env)
+        build_cmd = BuildCommand(silent=True, skip_tracking=True)
+        build_dir = Path(tempfile.mkdtemp())
+        try:
+            build_cmd.execute(
+                verbose=verbose,
+                organization_dir=organization_dir,
+                build_dir=build_dir,
+                selected=[module],
+                build_env_name=env,
+                no_clean=False,
+                ToolGlobals=ToolGlobals,
+                on_error="raise"
+            )
+        except ToolkitError as e:
+            raise ToolkitError(f"Failed to build module {module}.") from e
+        else:
+            self._pull_build_dir(build_dir, dry_run, verbose, env, ToolGlobals)
+        finally:
+            try:
+                shutil.rmtree(build_dir)
+            except Exception as e:
+                raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
 
-        local_resources: BuiltFullResourceList = ModuleResources(organization_dir, env).list_resources(
-            None,  # type: ignore[arg-type]
-            Loader.folder_name,  # type: ignore[arg-type]
-            Loader.kind,
+    def _pull_build_dir(self, build_dir: Path, dry_run: bool, verbose: bool, build_env_name:str, ToolGlobals: CDFToolConfig) -> None:
+        build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
+        state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
+        selected_loaders = self._clean_command.get_selected_loaders(
+            build_dir, read_resource_folders=state.read_resource_folders, include=None
         )
+        for loader in selected_loaders:
+            result = self._pull_resources(loader, dry_run)
 
-        loader = Loader.create_loader(ToolGlobals, None)
-
-        selected_resources = self._select_resource_ids(all_, id_, loader, local_resources, organization_dir)
-
+    def _pull_resources(self, loader: ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList], dry_run: bool) -> None:
         cdf_resources = loader.retrieve(selected_resources.identifiers)  # type: ignore[arg-type]
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
 

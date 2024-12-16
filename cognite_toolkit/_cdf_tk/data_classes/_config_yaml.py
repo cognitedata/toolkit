@@ -282,7 +282,7 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean", "pull"] = "build"
     ) -> BuildEnvironment:
         if "name" in data and build_name is not None and data["name"] != build_name:
             raise ToolkitEnvError(
