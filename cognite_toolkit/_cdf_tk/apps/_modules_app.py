@@ -5,7 +5,9 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
-from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
+from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._version import __version__
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -99,6 +101,64 @@ class ModulesApp(typer.Typer):
     ) -> None:
         cmd = ModulesCommand()
         cmd.run(lambda: cmd.add(organization_dir=organization_dir))
+
+    if Flags.MODULE_PULL.is_enabled():
+
+        def pull(
+            self,
+            ctx: typer.Context,
+            module: Annotated[
+                str,
+                typer.Argument(
+                    help="The module or path to module to pull from CDF.",
+                    allow_dash=True,
+                ),
+            ],
+            organization_dir: Annotated[
+                Path,
+                typer.Option(
+                    "--organization-dir",
+                    "-o",
+                    help="Where to find the module templates to build from",
+                ),
+            ] = CDF_TOML.cdf.default_organization_dir,
+            build_env: Annotated[
+                Optional[str],
+                typer.Option(
+                    "--env",
+                    "-e",
+                    help="Build environment to use.",
+                ),
+            ] = CDF_TOML.cdf.default_env,
+            dry_run: Annotated[
+                bool,
+                typer.Option(
+                    "--dry-run",
+                    "-d",
+                    help="Do now change the local files on the disk.",
+                ),
+            ] = False,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Print details of each change applied in the pull process.",
+                ),
+            ] = False,
+        ) -> None:
+            cmd = PullCommand()
+            ToolGlobals = CDFToolConfig.from_context(ctx)
+            cmd.run(
+                lambda: cmd.pull_module(
+                    module=module,
+                    organization_dir=organization_dir,
+                    env=build_env,
+                    dry_run=dry_run,
+                    verbose=verbose,
+                    ToolGlobals=ToolGlobals,
+                )
+            )
 
     def list(
         self,

@@ -163,7 +163,7 @@ def test_pull_dataset(
     toolkit_client_approval.append(DataSet, dataset)
 
     cmd = PullCommand(silent=True)
-    cmd.pull_resources(
+    cmd.pull_module(
         organization_dir=organization_dir_mutable,
         id_=dataset.external_id,
         all_=False,
@@ -205,7 +205,7 @@ from `ingestion`.`timeseries_metadata`"""
 
     toolkit_client_approval.append(Transformation, transformation)
     cmd = PullCommand(silent=True)
-    cmd.pull_resources(
+    cmd.pull_module(
         organization_dir=organization_dir_mutable,
         id_=transformation.external_id,
         all_=False,

@@ -529,19 +529,14 @@ class PullCommand(ToolkitCommand):
 
         print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
 
-    def pull_resources(
+    def pull_module(
         self,
-        path: Path,
+        module: str,
         organization_dir: Path,
         env: str | None,
         dry_run: bool,
         verbose: bool,
         ToolGlobals: CDFToolConfig,
-        Loader: type[
-            ResourceLoader[
-                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-            ]
-        ],
     ) -> None:
         verify_module_directory(organization_dir, env)
 
