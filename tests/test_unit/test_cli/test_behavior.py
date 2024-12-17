@@ -192,6 +192,7 @@ def test_pull_transformation_sql(
         / "population"
         / "timeseries.Transformation.yaml"
     )
+    source_yaml = transformation_yaml.read_text()
     transformation = _load_cdf_pi_transformation(transformation_yaml)
     new_query = """select
   someValue as externalId,
@@ -204,18 +205,19 @@ from `ingestion`.`timeseries_metadata`"""
     toolkit_client_approval.append(Transformation, transformation)
     cmd = PullCommand(silent=True)
     cmd.pull_module(
+        module=transformation_yaml,
         organization_dir=organization_dir_mutable,
-        id_=transformation.external_id,
-        all_=False,
         env="dev",
         dry_run=False,
         verbose=False,
         ToolGlobals=cdf_tool_mock,
-        Loader=TransformationLoader,
     )
     sql_file = transformation_yaml.with_suffix(".sql")
     assert sql_file.exists()
-    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}")
+    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}"), "SQL file was not updated"
+
+    target_yaml = transformation_yaml.read_text()
+    assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 
 def _load_cdf_pi_transformation(transformation_yaml: Path) -> Transformation:
