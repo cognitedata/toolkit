@@ -30,7 +30,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     DeployResults,
     ModuleResources,
     ResourceDeployResult,
-    YAMLComments,
+    YAMLComments, BuiltModuleList,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.utils import (
 from ._base import ToolkitCommand
 from .build import BuildCommand
 from .clean import CleanCommand
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules, module_directory_from_path
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -556,14 +557,29 @@ class PullCommand(ToolkitCommand):
         verbose: bool,
         ToolGlobals: CDFToolConfig,
     ) -> None:
+        selected = parse_user_selected_modules([module])[0]
+        build_module: str | Path
+        if isinstance(selected, str):
+            build_module = selected
+        elif isinstance(selected, Path):
+            try:
+                # If the selected path is a sub-path of a module, we
+                # need to build the entire module.
+                build_module = module_directory_from_path(selected)
+            except ValueError:
+                # If this is a superpath of a module, we can build just this module.
+                build_module = selected
+        else:
+            raise ValueError("Expected a string or Path")
+
         build_cmd = BuildCommand(silent=True, skip_tracking=True)
         build_dir = Path(tempfile.mkdtemp())
         try:
-            build_cmd.execute(
+            built_modules = build_cmd.execute(
                 verbose=verbose,
                 organization_dir=organization_dir,
                 build_dir=build_dir,
-                selected=[module],
+                selected=[build_module],
                 build_env_name=env,
                 no_clean=False,
                 ToolGlobals=ToolGlobals,
@@ -572,7 +588,7 @@ class PullCommand(ToolkitCommand):
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {module}.") from e
         else:
-            self._pull_build_dir(build_dir, dry_run, verbose, env, ToolGlobals)
+            self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, ToolGlobals)
         finally:
             try:
                 shutil.rmtree(build_dir)
@@ -580,55 +596,64 @@ class PullCommand(ToolkitCommand):
                 raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
 
     def _pull_build_dir(
-        self, build_dir: Path, dry_run: bool, verbose: bool, build_env_name: str, ToolGlobals: CDFToolConfig
+        self, build_dir: Path, selected: Path | str, built_modules: BuiltModuleList, dry_run: bool, build_env_name: str, ToolGlobals: CDFToolConfig
     ) -> None:
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
-        state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
+        built = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
         selected_loaders = self._clean_command.get_selected_loaders(
-            build_dir, read_resource_folders=state.read_resource_folders, include=None
+            build_dir, read_resource_folders=built.read_resource_folders, include=None
         )
-        for loader in selected_loaders:
-            result = self._pull_resources(loader, dry_run)
+
+        results = DeployResults([], action="pull", dry_run=dry_run)
+        for loader_cls in selected_loaders:
+            if not issubclass(loader_cls, ResourceLoader):
+                continue
+            loader = loader_cls.create_loader(ToolGlobals, build_dir)
+            resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(None, loader.folder_name, loader.kind, selected)
+            if not resources:
+                continue
+            result = self._pull_resources(loader, resources, dry_run, ToolGlobals)
+            results[loader.display_name] = result
+
+        table = results.counts_table(exclude_columns={"Total"})
+        print(table)
 
     def _pull_resources(
         self,
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
+        resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
-    ) -> None:
-        cdf_resources = loader.retrieve(selected_resources.identifiers)  # type: ignore[arg-type]
+        ToolGlobals: CDFToolConfig,
+    ) -> ResourceDeployResult:
+        cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
 
-        resources_by_file = selected_resources.by_file()
-
-        results = DeployResults([], action="pull", dry_run=dry_run)
-        env_vars = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
+        resources_by_file = resources.by_file()
+        file_results = ResourceDeployResult(loader.display_name)
+        has_changes = False
         for source_file, resources in resources_by_file.items():
-            file_results = ResourceDeployResult(loader.display_name)
-            has_changes = False
-            to_write: dict[T_ID, dict[str, Any]] = {}
-            for resource in resources:
-                local_resource_dict = resource.load_resource_dict(env_vars, validate=True)
-                if resource.extra_sources:
-                    builder = create_builder(resource.resource_dir, None)
-                    for extra in resource.extra_sources:
-                        extra_content = resource.build_variables.replace(safe_read(extra.path), extra.path.suffix)
-                        key, value = builder.load_extra_field(extra_content)
-                        local_resource_dict[key] = value
+            unique_destinations = {r.destination for r in resources if r.destination}
+            local_resource_by_id: dict[T_ID, T_WriteClass] = {}
+            local_resource_ids = set(resources.identifiers)
+            for destination in unique_destinations:
+                loaded = loader.load_resource_file(destination, ToolGlobals, skip_validation=dry_run)
+                loaded_list = loaded if isinstance(loaded, Sequence) else [loaded]
+                for local_resource in loaded_list:
+                    local_id = loader.get_id(local_resource)
+                    if local_id in local_resource_ids and not local_resource_by_id:
+                        local_resource_by_id[local_id] = local_resource
 
-                loaded_any = loader.load_resource(local_resource_dict, ToolGlobals, skip_validation=False)
-                if isinstance(loaded_any, Sequence):
-                    loaded = loaded_any[0]
-                else:
-                    loaded = loaded_any
-                item_id = loader.get_id(loaded)
+            to_write: dict[T_ID, dict[str, Any]] = {}
+            for item_id, local_resource in local_resource_by_id.items():
                 cdf_resource = cdf_resource_by_id.get(item_id)
                 if cdf_resource is None:
+                    # Todo: Warning instead of error?
                     raise ToolkitMissingResourceError(
                         f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
                     )
-                are_equal, local_dumped, cdf_dumped = loader.are_equal(loaded, cdf_resource, return_dumped=True)
+                are_equal, local_dumped, cdf_dumped = loader.are_equal(local_resource, cdf_resource, return_dumped=True)
                 if are_equal:
                     file_results.unchanged += 1
                     to_write[item_id] = local_dumped
@@ -645,10 +670,8 @@ class PullCommand(ToolkitCommand):
                     with filepath.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                         f.write(content)
 
-            results[loader.display_name] = file_results
+        return file_results
 
-        table = results.counts_table(exclude_columns={"Total"})
-        print(table)
 
     @staticmethod
     def _select_resource_ids(

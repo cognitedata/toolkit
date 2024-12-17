@@ -118,7 +118,7 @@ class BuildCommand(ToolkitCommand):
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
         on_error: Literal["continue", "raise"] = "continue",
-    ) -> None:
+    ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -151,7 +151,7 @@ class BuildCommand(ToolkitCommand):
 
         config.set_environment_variables()
 
-        self.build_config(
+        return self.build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
             config=config,

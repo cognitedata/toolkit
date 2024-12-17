@@ -1,3 +1,4 @@
+import itertools
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Literal, overload
@@ -139,12 +140,12 @@ def parse_user_selected_modules(
 
     """
     # The type of raw path is set just to make mypy happy.
-    raw_paths: list[str | Path] = [selected for selected in user_selected or [] if isinstance(selected, Path)]
-    raw_str = [selected for selected in user_selected or [] if isinstance(selected, str)]
+    raw_paths = (selected for selected in user_selected or [] if isinstance(selected, Path))
+    raw_str = (selected for selected in user_selected or [] if isinstance(selected, str))
     cleaned = (selected.replace("\\", "/") for selected in raw_str or [])
-    all_selected: Iterable[str | Path] = (
+    all_selected: Iterable[str | Path] = itertools.chain((
         Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
-    )
+    ), raw_paths)
 
     if organization_dir:
         all_selected = (
@@ -153,4 +154,5 @@ def parse_user_selected_modules(
             else selected
             for selected in all_selected
         )
-    return list(all_selected) + raw_paths
+
+    return list(all_selected)

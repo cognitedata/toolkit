@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
@@ -75,15 +76,19 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             return BuiltModuleList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID], resource_dir: ResourceTypes, kind: str) -> BuiltFullResourceList[T_ID]:
-        return BuiltFullResourceList[T_ID](
-            [
-                resource.create_full(module, resource_dir)
-                for module in self
-                for resource in module.resources.get(resource_dir, [])
-                if resource.kind == kind
-            ]
+    def get_resources(self, id_type: type[T_ID] | None, resource_dir: ResourceTypes, kind: str | None = None, selected: Path | str | None = None) -> BuiltFullResourceList[T_ID]:
+        resources = (
+            resource.create_full(module, resource_dir)
+            for module in self
+            for resource in module.resources.get(resource_dir, [])
+            if kind is None or resource.kind == kind
         )
+        if isinstance(selected, str):
+            resources = (resource for resource in resources if resource.module_name == selected)
+        elif isinstance(selected, Path):
+            resources = (resource for resource in resources if (resource.source.path == selected or resource.source.path.is_relative_to(selected)))
+
+        return BuiltFullResourceList[T_ID](list(resources))
 
     def as_resources_by_folder(self) -> dict[str, BuiltResourceList[T_ID]]:
         resources_by_folder: dict[str, BuiltResourceList[T_ID]] = {}
