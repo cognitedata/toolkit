@@ -53,7 +53,7 @@ class Flags(Enum):
     }
     BUILD_OFFLINE: ClassVar[dict[str, Any]] = {
         "visible": True,
-        "description": "Enables the support for enforcing building offline.",
+        "description": "Enables builds without comparing against CDF project for missing dependencies.",
     }
 
     def is_enabled(self) -> bool:

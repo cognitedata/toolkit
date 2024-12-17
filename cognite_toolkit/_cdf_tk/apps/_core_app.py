@@ -211,7 +211,7 @@ class CoreApp(typer.Typer):
             )
     else:
 
-        def build(
+        def build(  # type: ignore[misc]
             self,
             ctx: typer.Context,
             organization_dir: Annotated[

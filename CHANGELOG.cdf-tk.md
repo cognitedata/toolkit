@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [alpha feature] Support for running `cdf build` without comparing against CDF project for missing dependencies
+  with the flag `--offline`.
+
 ### Fixed
 
 - No more warning about missing `.env` file when running in `Google Cloud Build`.
