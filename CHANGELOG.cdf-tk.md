@@ -25,6 +25,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - No more warning about missing `.env` file when running in `Google Cloud Build`.
+- Replacing a list variable in `cdf build` is no longer treated as a string. This bug was introduced in `0.3.19`
+  with the fix for inline SQL query.
 
 ## [0.3.23] - 2024-12-13
 
