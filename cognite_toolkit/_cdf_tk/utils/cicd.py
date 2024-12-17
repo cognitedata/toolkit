@@ -14,5 +14,7 @@ def get_cicd_environment() -> str:
         return "travis"
     if "TF_BUILD" in os.environ:
         return "azure"
+    if "BUILD_ID" in os.environ:
+        return "google-cloud-build"
 
     return "local"
