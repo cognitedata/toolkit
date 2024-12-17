@@ -217,6 +217,11 @@ from `ingestion`.`timeseries_metadata`"""
     assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}"), "SQL file was not updated"
 
     target_yaml = transformation_yaml.read_text()
+    # Cleanup file endings.
+    while target_yaml.endswith("\n"):
+        target_yaml = target_yaml[:-1]
+    while source_yaml.endswith("\n"):
+        source_yaml = source_yaml[:-1]
     assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 

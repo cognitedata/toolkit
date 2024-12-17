@@ -723,35 +723,55 @@ class PullCommand(ToolkitCommand):
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
-        loaded = read_yaml_content(content)
+        loaded_with_placeholder = read_yaml_content(content)
 
         built_by_identifier = {r.identifier: r for r in resources}
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        loaded_with_ids = read_yaml_content(variables.replace(source))
+        loaded = read_yaml_content(variables.replace(source))
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
-        if isinstance(loaded_with_ids, dict) and isinstance(loaded, dict):
-            item_id = loader.get_id(loaded_with_ids)
-            updated = self._update(item_id, loaded, to_write, built_by_identifier, value_by_placeholder, extra_files)
-        elif isinstance(loaded_with_ids, list) and isinstance(loaded, list):
+        if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
+            item_id = loader.get_id(loaded)
+            updated = self._update(
+                item_id,
+                loaded,
+                loaded_with_placeholder,
+                to_write,
+                built_by_identifier,
+                value_by_placeholder,
+                extra_files,
+            )
+        elif isinstance(loaded, list) and isinstance(loaded_with_placeholder, list):
             updated = []
-            for i, item in enumerate(loaded_with_ids):
+            for i, item in enumerate(loaded):
                 item_id = loader.get_id(item)
                 updated.append(
-                    self._update(item_id, loaded[i], to_write, built_by_identifier, value_by_placeholder, extra_files)
+                    self._update(
+                        item_id,
+                        item,
+                        loaded_with_placeholder[i],
+                        to_write,
+                        built_by_identifier,
+                        value_by_placeholder,
+                        extra_files,
+                    )
                 )
         else:
             raise ValueError("Loaded and loaded_with_ids should be of the same type")
 
         dumped = yaml.safe_dump(updated, sort_keys=False)
-        return comments.dump(dumped), extra_files
+        for placeholder, variable in value_by_placeholder.items():
+            dumped = dumped.replace(placeholder, f"{{{{ {variable.key} }}}}")
+        file_content = comments.dump(dumped)
+        return file_content, extra_files
 
     @classmethod
     def _update(
         cls,
         item_id: T_ID,
         loaded: dict[str, Any],
+        loaded_with_placeholder: dict[str, Any],
         to_write: dict[T_ID, dict[str, Any]],
         built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
         value_by_placeholder: dict[str, BuildVariable],
@@ -776,31 +796,46 @@ class PullCommand(ToolkitCommand):
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
                     extra_files[extra.path] = new_extra
-        return cls._replace(loaded, item_write, value_by_placeholder)
+        return cls._replace(loaded, loaded_with_placeholder, item_write, value_by_placeholder)
 
     @classmethod
     def _replace(
-        cls, loaded: dict[str, Any], to_write: dict[str, Any], value_by_placeholder: dict[str, BuildVariable]
+        cls,
+        loaded: dict[str, Any],
+        loaded_with_placeholder: dict[str, Any],
+        to_write: dict[str, Any],
+        value_by_placeholder: dict[str, BuildVariable],
     ) -> dict[str, Any]:
         updated: dict[str, Any] = {}
-        for key, current_value in loaded.items():
-            if key in to_write:
-                new_value = to_write[key]
-                if new_value == current_value:
-                    updated[key] = current_value
+        for key, local_value in loaded.items():
+            if key not in to_write:
+                # Field is removed
+                continue
+            placeholder_value = loaded_with_placeholder[key]
+            cdf_value = to_write[key]
+
+            if isinstance(local_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
+                updated[key] = cls._replace(local_value, placeholder_value, cdf_value, value_by_placeholder)
+            elif isinstance(local_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list):
+                updated[key] = [
+                    cls._replace(item, placeholder_value[i], cdf_value[i], value_by_placeholder)
+                    for i, item in enumerate(local_value)
+                ]
+            elif type(local_value) is type(placeholder_value) is type(cdf_value):
+                if cdf_value == local_value:
+                    updated[key] = placeholder_value
                     continue
                 for placeholder, variable in value_by_placeholder.items():
-                    if placeholder in current_value:
-                        new_value = new_value.replace(variable.value, f"{{{{ {variable.key} }}}}")
-
-                updated[key] = new_value
-            elif isinstance(current_value, dict):
-                updated[key] = cls._replace(current_value, to_write, value_by_placeholder)
-            elif isinstance(current_value, list):
-                updated[key] = [cls._replace(item, to_write, value_by_placeholder) for item in current_value]
+                    if placeholder in placeholder_value:
+                        # We use the placeholder and not the {{ variable }} in the value to ensure
+                        # that the result is valid yaml.
+                        updated[key] = cdf_value.replace(variable.value, placeholder)
+            else:
+                raise ValueError(
+                    f"CDF value and local value should be of the same type, got {type(local_value)} and {type(cdf_value)}"
+                )
 
         for new_key in to_write:
             if new_key not in loaded:
                 updated[new_key] = to_write[new_key]
-
         return updated
