@@ -135,3 +135,17 @@ modules:
             (variable for variable in local_variables if variable.key == "apm_sourcedata_model_version"), None
         )
         assert apm_sourcedata_model_version.value == "1"
+
+    def test_replace_list_variable(self) -> None:
+        source_yaml = """authentication:
+  scopes: '{{ cicd_scopes }}'"""
+
+        variables = BuildVariables.load_raw(
+            {"modules": {"cicd_scopes": ["${IDP_SCOPE}"]}},
+            available_modules={Path("modules")},
+            selected_modules={Path("modules")},
+        )
+
+        result = variables.replace(source_yaml, file_suffix=".yaml")
+
+        assert result == "authentication:\n  scopes: ['${IDP_SCOPE}']"
