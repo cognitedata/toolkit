@@ -209,7 +209,11 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def _are_equal(
-        self, local: WorkflowUpsert, cdf_resource: Workflow, return_dumped: bool = False
+        self,
+        local: WorkflowUpsert,
+        cdf_resource: Workflow,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

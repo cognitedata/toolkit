@@ -665,7 +665,9 @@ class PullCommand(ToolkitCommand):
                     raise ToolkitMissingResourceError(
                         f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
                     )
-                are_equal, local_dumped, cdf_dumped = loader.are_equal(local_resource, cdf_resource, return_dumped=True)
+                are_equal, local_dumped, cdf_dumped = loader.are_equal(
+                    local_resource, cdf_resource, return_dumped=True, ToolGlobals=ToolGlobals
+                )
                 if are_equal:
                     file_results.unchanged += 1
                     to_write[item_id] = local_dumped

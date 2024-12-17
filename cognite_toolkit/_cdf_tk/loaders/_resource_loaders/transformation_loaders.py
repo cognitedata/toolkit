@@ -183,7 +183,11 @@ class TransformationLoader(
                         yield DataModelLoader, DataModelId.load(data_model)
 
     def _are_equal(
-        self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
+        self,
+        local: TransformationWrite,
+        cdf_resource: Transformation,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         local_dumped.pop("destinationOidcCredentials", None)
@@ -514,6 +518,7 @@ class TransformationNotificationLoader(
         local: TransformationNotificationWrite,
         cdf_resource: TransformationNotification,
         return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

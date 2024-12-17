@@ -292,7 +292,11 @@ class LabelLoader(
         return loaded[0] if isinstance(resource, dict) else loaded
 
     def _are_equal(
-        self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False
+        self,
+        local: LabelDefinitionWrite,
+        cdf_resource: LabelDefinition,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

@@ -324,7 +324,11 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return group_write_list
 
     def _are_equal(
-        self, local: GroupWrite, cdf_resource: Group, return_dumped: bool = False
+        self,
+        local: GroupWrite,
+        cdf_resource: Group,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

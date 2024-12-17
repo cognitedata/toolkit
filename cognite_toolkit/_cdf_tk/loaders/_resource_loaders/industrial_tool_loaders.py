@@ -106,7 +106,11 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         return loaded
 
     def _are_equal(
-        self, local: StreamlitWrite, cdf_resource: Streamlit, return_dumped: bool = False
+        self,
+        local: StreamlitWrite,
+        cdf_resource: Streamlit,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_hash = calculate_str_or_file_hash(self._as_json_string(local.external_id, local.entrypoint), shorten=True)
         local_dumped = local.dump()

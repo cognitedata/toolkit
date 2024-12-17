@@ -175,7 +175,11 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         return RelationshipWriteList._load(resources)
 
     def _are_equal(
-        self, local: RelationshipWrite, cdf_resource: Relationship, return_dumped: bool = False
+        self,
+        local: RelationshipWrite,
+        cdf_resource: Relationship,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

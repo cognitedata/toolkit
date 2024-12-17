@@ -379,7 +379,11 @@ class ContainerLoader(
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
 
     def _are_equal(
-        self, local: ContainerApply, remote: Container, return_dumped: bool = False
+        self,
+        local: ContainerApply,
+        remote: Container,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump(camel_case=True)
         # 'usedFor' and 'cursorable' have default values set on the server side,
@@ -549,7 +553,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return cdf_dumped
 
     def _are_equal(
-        self, local: ViewApply, cdf_resource: View, return_dumped: bool = False
+        self,
+        local: ViewApply,
+        cdf_resource: View,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = self.dump_as_write(cdf_resource)
@@ -759,7 +767,11 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                 )
 
     def _are_equal(
-        self, local: DataModelApply, cdf_resource: DataModel, return_dumped: bool = False
+        self,
+        local: DataModelApply,
+        cdf_resource: DataModel,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
@@ -921,7 +933,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
     def _are_equal(
-        self, local: NodeApply, cdf_resource: Node, return_dumped: bool = False
+        self,
+        local: NodeApply,
+        cdf_resource: Node,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """Comparison for nodes to include properties in the comparison
 
@@ -1091,7 +1107,11 @@ class GraphQLLoader(
             yield SpaceLoader, item["space"]
 
     def _are_equal(
-        self, local: GraphQLDataModelWrite, cdf_resource: GraphQLDataModel, return_dumped: bool = False
+        self,
+        local: GraphQLDataModelWrite,
+        cdf_resource: GraphQLDataModel,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_graphql_file = self._get_graphql_content(local.as_id())
 
@@ -1319,7 +1339,11 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
     def _are_equal(
-        self, local: EdgeApply, cdf_resource: Edge, return_dumped: bool = False
+        self,
+        local: EdgeApply,
+        cdf_resource: Edge,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """Comparison for edges to include properties in the comparison
 
