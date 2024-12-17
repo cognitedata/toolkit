@@ -288,10 +288,13 @@ class ResourceLoader(
         else:
             return self.list_write_cls([self.resource_write_cls.load(resource)])
 
-    def dump_resource(
+    def dump_resource_legacy(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         """Dumps the resource to a dictionary that matches the write format.
+
+        THIS IS DEPRECATED AND SHOULD NOT BE USED. USE dump_resource INSTEAD.
+        It should be removed once the cdf pull plugin is replaced with the cdf modules pull command.
 
         In addition, it can return a dictionary with extra files and their content. This is, for example, used by
         Transformations to dump the 'query' key to an .sql file.

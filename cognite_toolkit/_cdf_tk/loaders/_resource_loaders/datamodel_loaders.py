@@ -951,7 +951,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def dump_resource(
+    def dump_resource_legacy(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         resource_node = resource
@@ -1349,7 +1349,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def dump_resource(
+    def dump_resource_legacy(
         self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         resource_edge = resource

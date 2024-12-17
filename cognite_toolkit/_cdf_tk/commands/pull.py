@@ -472,7 +472,7 @@ class PullCommand(ToolkitCommand):
         source_file = built_local.source.path
 
         # Todo: How to load the resource correctly with for example the .sql included in the resource.
-        cdf_dumped, extra_files = loader.dump_resource(cdf_resource, source_file, local_resource)  # type: ignore[arg-type]
+        cdf_dumped, extra_files = loader.dump_resource_legacy(cdf_resource, source_file, local_resource)  # type: ignore[arg-type]
 
         # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
         built_content = built_local.build_variables.replace(safe_read(source_file))

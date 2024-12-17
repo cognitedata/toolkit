@@ -291,7 +291,7 @@ class TransformationLoader(
         else:
             return transformations
 
-    def dump_resource(
+    def dump_resource_legacy(
         self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         dumped = resource.dump()
