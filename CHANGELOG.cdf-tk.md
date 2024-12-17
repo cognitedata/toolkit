@@ -15,6 +15,17 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [alpha feature] Support for running `cdf build` without comparing against CDF project for missing dependencies
+  with the flag `--offline`.
+
+### Fixed
+
+- No more warning about missing `.env` file when running in `Google Cloud Build`.
+
 ## [0.3.23] - 2024-12-13
 
 ### Fixed

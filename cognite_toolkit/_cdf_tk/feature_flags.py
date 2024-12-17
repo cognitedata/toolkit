@@ -55,6 +55,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for purging datasets and spaces",
     }
+    BUILD_OFFLINE: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables builds without comparing against CDF project for missing dependencies.",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
