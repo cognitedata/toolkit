@@ -11,7 +11,7 @@ Table:
   name: worktask
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -53,7 +53,7 @@ Transformation:
     \ as STRING) as priorityDescription\nfrom\n  `ingestion`.`workorder`\nwhere\n\
     \  isnotnull(`sourceId`)\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -78,7 +78,7 @@ Transformation:
     \  isnotnull(worder.`WORKORDER_NUMBER`) AND\n  isnotnull(worder.`sourceId`) AND\n\
     \  worder.rn = 1 AND\n  task.rn = 1\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes

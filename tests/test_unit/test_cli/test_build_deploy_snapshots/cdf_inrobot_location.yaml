@@ -52,7 +52,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - filesAcl:
       actions:
       - WRITE
@@ -60,7 +60,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - groupsAcl:
       actions:
       - CREATE
@@ -93,7 +93,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - timeSeriesAcl:
       actions:
       - READ
@@ -112,7 +112,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - videoStreamingAcl:
       actions:
       - WRITE
@@ -163,7 +163,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - filesAcl:
       actions:
       - WRITE
@@ -171,7 +171,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - groupsAcl:
       actions:
       - READ
@@ -197,7 +197,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - timeSeriesAcl:
       actions:
       - READ
@@ -210,7 +210,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   metadata:
     origin: cdf-project-templates
   name: gp_InRobot_Users_<change_me>
@@ -264,7 +264,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - labelsAcl:
       actions:
       - READ
@@ -280,14 +280,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - videoStreamingAcl:
       actions:
       - PUBLISH
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   metadata:
     origin: cdf-project-templates
   name: gp_Robot_<change_me>

@@ -1,6 +1,6 @@
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -23,7 +23,7 @@ Transformation:
     \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  asset_lookup.space\
     \ == 'springfield_instances' and\n  isnotnull(asset_lookup.`externalId`)\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -46,7 +46,7 @@ Transformation:
     \ == 'springfield_instances' and\n  isnotnull(activity.tags) and\n  equipment_lookup.space\
     \ == 'springfield_instances' and\n  isnotnull(equipment_lookup.`externalId`)\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -71,7 +71,7 @@ Transformation:
     \ == 'springfield_instances' and\n  isnotnull(timeseries_lookup.`name`)\ngroup\
     \ by\n  activity.`externalId`"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
@@ -96,7 +96,7 @@ Transformation:
     \  isnotnull(timeseries.`externalId`) and\n  asset_lookup.space == 'springfield_instances'\
     \ and\n  isnotnull(asset_lookup.`externalId`)\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes

@@ -1,6 +1,6 @@
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 0
   description: Assets source extraction pipeline for the Ice Cream API
   externalId: <Add filename here>
   name: Ice Cream API Assets

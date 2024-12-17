@@ -23,7 +23,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - functionsAcl:
       actions:
       - READ
@@ -87,7 +87,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionRunsAcl:
       actions:
       - READ
@@ -95,14 +95,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionPipelinesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - assetsAcl:
       actions:
       - READ
@@ -136,7 +136,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - functionsAcl:
       actions:
       - READ
@@ -201,7 +201,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionRunsAcl:
       actions:
       - READ
@@ -209,7 +209,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - workflowOrchestrationAcl:
       actions:
       - READ
@@ -217,14 +217,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionPipelinesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - assetsAcl:
       actions:
       - READ
@@ -236,7 +236,7 @@ Group:
     origin: cognite-toolkit
   name: gp_user_ingestion
 Workflow:
-- dataSetId: 42
+- dataSetId: 0
   description: This runs the full ingestion with population and contextualization
   externalId: ingestion
 WorkflowTrigger:

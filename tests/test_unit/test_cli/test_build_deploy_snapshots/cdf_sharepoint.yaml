@@ -5,7 +5,7 @@ Table:
   name: files_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: springfield_instances
     type: nodes
