@@ -310,24 +310,58 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
+    def dump_resource(
+        self,
+        resource: T_WritableCogniteResource,
+        local: T_WriteClass,
+        ToolGlobals: CDFToolConfig,
+    ) -> dict[str, Any]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        This is intended to be overwritten in subclasses that require special dumping logic, for example,
+        replacing dataSetId with dataSetExternalId.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            local (T_WriteClass): The local resource.
+            ToolGlobals (CDFToolConfig): The tool globals. Used to lookup, for example, dataSetExternalId.
+        """
+        return resource.as_write().dump()
+
     @overload
     def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[False] = False
+        self,
+        local: T_WriteClass,
+        cdf_resource: T_WritableCogniteResource,
+        return_dumped: Literal[False] = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool: ...
 
     @overload
     def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[True]
+        self,
+        local: T_WriteClass,
+        cdf_resource: T_WritableCogniteResource,
+        return_dumped: Literal[True],
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> tuple[bool, dict[str, Any], dict[str, Any]]: ...
 
     def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
+        self,
+        local: T_WriteClass,
+        cdf_resource: T_WritableCogniteResource,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        return self._are_equal(local, cdf_resource, return_dumped)
+        return self._are_equal(local, cdf_resource, return_dumped, ToolGlobals)
 
     # Private to avoid having to overload in all subclasses
     def _are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
+        self,
+        local: T_WriteClass,
+        cdf_resource: T_WritableCogniteResource,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """This can be overwritten in subclasses that require special comparison logic.
 
@@ -335,7 +369,10 @@ class ResourceLoader(
         by the retrieve method, and thus needs special handling.
         """
         local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
+        if ToolGlobals is None:
+            cdf_dumped = cdf_resource.as_write().dump()
+        else:
+            cdf_dumped = self.dump_resource(cdf_resource, local, ToolGlobals)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @staticmethod
