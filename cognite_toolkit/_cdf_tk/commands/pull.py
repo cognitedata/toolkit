@@ -829,7 +829,8 @@ class PullCommand(ToolkitCommand):
                     if placeholder in placeholder_value:
                         # We use the placeholder and not the {{ variable }} in the value to ensure
                         # that the result is valid yaml.
-                        updated[key] = cdf_value.replace(variable.value, placeholder)
+                        cdf_value = cdf_value.replace(variable.value, placeholder)
+                updated[key] = cdf_value
             else:
                 raise ValueError(
                     f"CDF value and local value should be of the same type, got {type(local_value)} and {type(cdf_value)}"
