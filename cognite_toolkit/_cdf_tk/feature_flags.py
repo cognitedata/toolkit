@@ -47,6 +47,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for events and relationships",
     }
+    MODULE_PULL: ClassVar[dict[str, Any]] = {
+        "visible": True,
+        "description": "Enables the support for pulling modules from the CDF",
+    }
     PURGE: ClassVar[dict[str, Any]] = {
         "visible": True,
         "description": "Enables the support for purging datasets and spaces",

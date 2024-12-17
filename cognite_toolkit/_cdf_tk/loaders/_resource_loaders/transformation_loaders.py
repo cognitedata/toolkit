@@ -182,13 +182,35 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
+    def dump_resource(
+        self,
+        resource: Transformation,
+        local: TransformationWrite,
+        ToolGlobals: CDFToolConfig | None = None,
+    ) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "dataSetId" in dumped and local.data_set_id != -1 and ToolGlobals is not None:
+            # -1 is a special value that means dry run
+            data_set_id = dumped.pop("dataSetId")
+            dumped["dataSetExternalId"] = ToolGlobals.reverse_verify_dataset(
+                data_set_id, action="replace dataSetId with dataSetExternalId in transformation"
+            )
+
+        if local.source_oidc_credentials:
+            dumped["sourceOidcCredentials"] = local.source_oidc_credentials.dump()
+        if local.destination_oidc_credentials:
+            dumped["destinationOidcCredentials"] = local.destination_oidc_credentials.dump()
+        return dumped
+
     def _are_equal(
-        self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
+        self,
+        local: TransformationWrite,
+        cdf_resource: Transformation,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
-        local_dumped.pop("destinationOidcCredentials", None)
-        local_dumped.pop("sourceOidcCredentials", None)
-        cdf_dumped = cdf_resource.as_write().dump()
+        cdf_dumped = self.dump_resource(cdf_resource, local, ToolGlobals)
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             # Dry run
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
@@ -291,7 +313,7 @@ class TransformationLoader(
         else:
             return transformations
 
-    def dump_resource(
+    def dump_resource_legacy(
         self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         dumped = resource.dump()
@@ -514,6 +536,7 @@ class TransformationNotificationLoader(
         local: TransformationNotificationWrite,
         cdf_resource: TransformationNotification,
         return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

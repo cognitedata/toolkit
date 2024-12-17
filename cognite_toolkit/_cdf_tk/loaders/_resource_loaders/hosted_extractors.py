@@ -109,7 +109,11 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         return spec
 
     def _are_equal(
-        self, local: SourceWrite, cdf_resource: Source, return_dumped: bool = False
+        self,
+        local: SourceWrite,
+        cdf_resource: Source,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         HighSeverityWarning(
             "Destinations will always be considered different, and thus will always be redeployed."
@@ -232,7 +236,11 @@ class HostedExtractorDestinationLoader(
         return spec
 
     def _are_equal(
-        self, local: DestinationWrite, cdf_resource: Destination, return_dumped: bool = False
+        self,
+        local: DestinationWrite,
+        cdf_resource: Destination,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         """This can be overwritten in subclasses that require special comparison logic.
 

@@ -524,6 +524,7 @@ class CDFToolConfig:
     class _Cache:
         existing_spaces: set[str] = field(default_factory=set)
         data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
+        data_set_external_id_by_id: dict[int, str] = field(default_factory=dict)
         extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
         security_categories_by_name: dict[str, int] = field(default_factory=dict)
         asset_id_by_external_id: dict[str, int] = field(default_factory=dict)
@@ -894,13 +895,50 @@ class CDFToolConfig:
         except CogniteAPIError as e:
             raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
 
-        if data_set is not None and data_set.id is not None:
+        if data_set is not None and data_set.id is not None and data_set.external_id is not None:
             self._cache.data_set_id_by_external_id[data_set_external_id] = data_set.id
+            self._cache.data_set_external_id_by_id[data_set.id] = data_set.external_id
             return data_set.id
         raise ToolkitResourceMissingError(
             f"Data set {data_set_external_id} does not exist, you need to create it first. "
             f"Do this by adding a config file to the data_sets folder.",
             data_set_external_id,
+        )
+
+    def reverse_verify_dataset(self, data_set_id: int, action: str | None = None) -> str:
+        """Verify that the configured data set exists and is accessible
+
+        Args:
+            data_set_id (int): Id of the data set to verify
+           action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
+
+        Returns:
+            data_set_external_id (str)
+        """
+        if data_set_id in self._cache.data_set_external_id_by_id:
+            return self._cache.data_set_external_id_by_id[data_set_id]
+
+        self.verify_authorization(
+            DataSetsAcl(
+                [DataSetsAcl.Action.Read],
+                ExtractionPipelinesAcl.Scope.All(),
+            ),
+            action=action,
+        )
+
+        try:
+            data_set = self.toolkit_client.data_sets.retrieve(id=data_set_id)
+        except CogniteAPIError as e:
+            raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_id}: {e}")
+
+        if data_set is not None and data_set.id is not None and data_set.external_id is not None:
+            self._cache.data_set_external_id_by_id[data_set.id] = data_set.external_id
+            self._cache.data_set_id_by_external_id[data_set.external_id] = data_set.id
+            return data_set.external_id
+        raise ToolkitResourceMissingError(
+            f"Data set {data_set_id} does not exist, you need to create it first. "
+            "Do this by adding a config file to the data_sets folder.",
+            str(data_set_id),
         )
 
     def verify_extraction_pipeline(

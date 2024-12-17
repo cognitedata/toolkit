@@ -213,7 +213,11 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return AssetWriteList.load(resources)
 
     def _are_equal(
-        self, local: AssetWrite, cdf_resource: Asset, return_dumped: bool = False
+        self,
+        local: AssetWrite,
+        cdf_resource: Asset,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
@@ -344,7 +348,11 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             yield AssetLoader, item["assetExternalId"]
 
     def _are_equal(
-        self, local: SequenceWrite, cdf_resource: Sequence, return_dumped: bool = False
+        self,
+        local: SequenceWrite,
+        cdf_resource: Sequence,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()
@@ -509,7 +517,11 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         return EventWriteList._load(resources)
 
     def _are_equal(
-        self, local: EventWrite, cdf_resource: Event, return_dumped: bool = False
+        self,
+        local: EventWrite,
+        cdf_resource: Event,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

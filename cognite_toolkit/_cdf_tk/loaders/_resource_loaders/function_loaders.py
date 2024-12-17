@@ -144,7 +144,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             return FunctionWriteList.load(functions)
 
     def _are_equal(
-        self, local: FunctionWrite, cdf_resource: Function, return_dumped: bool = False
+        self,
+        local: FunctionWrite,
+        cdf_resource: Function,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         if self.resource_build_path is None:
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
@@ -363,7 +367,11 @@ class FunctionScheduleLoader(
         return FunctionScheduleWriteList.load(schedules)
 
     def _are_equal(
-        self, local: FunctionScheduleWrite, cdf_resource: FunctionSchedule, return_dumped: bool = False
+        self,
+        local: FunctionScheduleWrite,
+        cdf_resource: FunctionSchedule,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         cdf_dumped = cdf_resource.as_write().dump()
         del cdf_dumped["functionId"]

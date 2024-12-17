@@ -288,11 +288,11 @@ class CleanCommand(ToolkitCommand):
             print(results.uploads_table())
 
     def get_selected_loaders(
-        self, build_dir: Path, read_resource_folders: set[str], include: list[str]
+        self, build_dir: Path, read_resource_folders: set[str], include: list[str] | None
     ) -> dict[type[Loader], frozenset[type[Loader]]]:
         selected_loaders: dict[type[Loader], frozenset[type[Loader]]] = {}
         for folder_name, loader_classes in LOADER_BY_FOLDER_NAME.items():
-            if folder_name not in include:
+            if include is not None and folder_name not in include:
                 continue
             if folder_name in read_resource_folders:
                 selected_loaders.update({loader_cls: loader_cls.dependencies for loader_cls in loader_classes})

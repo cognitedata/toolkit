@@ -15,6 +15,7 @@ edges = true
 classic = true
 purge = true
 build-offline = true
+module-pull = true
 
 [plugins]
 run = true

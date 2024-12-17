@@ -445,7 +445,7 @@ description: This dataset contains Transformations, Functions, and Workflows for
     resources = BuiltFullResourceList([ingestion])
 
     expected = """name: Ingestion
-externalId: '{{ dataset }}'
+externalId: {{ dataset }}
 description: New description
 """
 
@@ -458,7 +458,7 @@ description: Original description
 """
 
     expected = """name: Ingestion
-externalId: '{{ dataset }}' # This is a comment
+externalId: {{ dataset }} # This is a comment
 # This is another comment
 description: New description
 """
@@ -475,7 +475,7 @@ description: New description
 """
 
     expected = """- name: Ingestion
-  externalId: '{{ dataset }}' # This is a comment
+  externalId: {{ dataset }} # This is a comment
   # This is another comment
   description: New description
 - name: Another

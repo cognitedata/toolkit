@@ -48,51 +48,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 2
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 3
+          - 4
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 6
+          - 4
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - dataModelsAcl:
       actions:
       - READ
@@ -142,51 +142,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 2
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 3
+          - 4
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 6
+          - 4
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - dataModelsAcl:
       actions:
       - READ
@@ -236,51 +236,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 2
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 3
+          - 4
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 6
+          - 4
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 4
   - dataModelsAcl:
       actions:
       - READ
@@ -330,37 +330,37 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 2
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 3
+          - 4
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 6
+          - 4
   - dataModelsAcl:
       actions:
       - READ
@@ -405,7 +405,7 @@ Space:
   space: sp_infield_oid_app_data
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
@@ -447,7 +447,7 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     dataModel:
       destinationType: APM_Activity

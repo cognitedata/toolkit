@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -163,15 +163,13 @@ def test_pull_dataset(
     toolkit_client_approval.append(DataSet, dataset)
 
     cmd = PullCommand(silent=True)
-    cmd.pull_resources(
+    cmd.pull_module(
+        module=dataset_yaml,
         organization_dir=organization_dir_mutable,
-        id_=dataset.external_id,
-        all_=False,
         env="dev",
         dry_run=False,
         verbose=False,
         ToolGlobals=cdf_tool_mock,
-        Loader=DataSetsLoader,
     )
 
     reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
@@ -194,7 +192,8 @@ def test_pull_transformation_sql(
         / "population"
         / "timeseries.Transformation.yaml"
     )
-    transformation = _load_cdf_pi_transformation(transformation_yaml)
+    source_yaml = transformation_yaml.read_text()
+    transformation = _load_cdf_pi_transformation(transformation_yaml, cdf_tool_mock)
     new_query = """select
   someValue as externalId,
   name as name,
@@ -205,33 +204,44 @@ from `ingestion`.`timeseries_metadata`"""
 
     toolkit_client_approval.append(Transformation, transformation)
     cmd = PullCommand(silent=True)
-    cmd.pull_resources(
+    cmd.pull_module(
+        module=transformation_yaml,
         organization_dir=organization_dir_mutable,
-        id_=transformation.external_id,
-        all_=False,
         env="dev",
         dry_run=False,
         verbose=False,
         ToolGlobals=cdf_tool_mock,
-        Loader=TransformationLoader,
     )
     sql_file = transformation_yaml.with_suffix(".sql")
     assert sql_file.exists()
-    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}")
+    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}"), "SQL file was not updated"
+
+    target_yaml = transformation_yaml.read_text()
+    # Cleanup file endings.
+    while target_yaml.endswith("\n"):
+        target_yaml = target_yaml[:-1]
+    while source_yaml.endswith("\n"):
+        source_yaml = source_yaml[:-1]
+    assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 
-def _load_cdf_pi_transformation(transformation_yaml: Path) -> Transformation:
+def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToolConfig) -> Transformation:
     variables = [
         ("dataset", "ingestion"),
         ("schemaSpace", "sp_enterprise_process_industry"),
         ("instanceSpace", "springfield_instances"),
         ("organization", "YourOrg"),
         ("timeseriesTransformationExternalId", "pi_timeseries_springfield_aveva_pi"),
+        ("sourceName", "Springfield AVEVA PI"),
     ]
     raw_transformation = transformation_yaml.read_text()
     for key, value in variables:
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
-    return Transformation.load(raw_transformation)
+    data = yaml.safe_load(raw_transformation)
+    data["dataSetId"] = cdf_tool_mock.verify_dataset(data.pop("dataSetExternalId"))
+    transformation = Transformation._load(data)
+
+    return transformation
 
 
 def test_dump_datamodel(

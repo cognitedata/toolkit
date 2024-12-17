@@ -1,12 +1,12 @@
 Asset:
-- dataSetId: 42
+- dataSetId: 0
   description: The root asset in the SAP hierarchy
   externalId: my_root_asset
   metadata:
     origin: cdf-toolkit
   name: SAP hierarchy
   source: SAP
-- dataSetId: 42
+- dataSetId: 0
   description: This is the root asset
   externalId: root
   metadata:
@@ -126,10 +126,10 @@ Destination:
 - credentials:
     nonce: '123'
   externalId: EventHubTarget
-  targetDataSetId: 42
+  targetDataSetId: 0
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 0
   description: Asset source extraction pipeline with configuration for a DB extractor
     reading data from Hamburg SAP
   documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
@@ -159,7 +159,7 @@ FileLoader:
   filehash: e0b202a1
   space: sp_complete_org_files
 FileMetadata:
-- dataSetId: 42
+- dataSetId: 0
   directory: /files
   externalId: classicFileMetadata
   metadata:
@@ -217,7 +217,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - securityCategoriesAcl:
       actions:
       - LIST
@@ -253,11 +253,11 @@ Job:
     type: value
   sourceId: my_eventhub
 LabelDefinition:
-- dataSetId: 42
+- dataSetId: 0
   description: Labels used for relationships that represent flows
   externalId: label_flow
   name: Flows
-- dataSetId: 42
+- dataSetId: 0
   description: Pump label
   externalId: label_pump
   name: Pump
@@ -502,12 +502,12 @@ Table:
   name: asset
 ThreeDModel:
 - createdTime: 1
-  dataSetId: 42
+  dataSetId: 0
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
 TimeSeries:
-- dataSetId: 42
+- dataSetId: 1
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries
@@ -517,7 +517,7 @@ TimeSeries:
     foo: bar
   name: CDF Toolkit Example Timeseries
   securityCategories: []
-- dataSetId: 42
+- dataSetId: 1
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries:2

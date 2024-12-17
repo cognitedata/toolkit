@@ -207,7 +207,11 @@ class ThreeDModelLoader(
         return ThreeDModelWriteList.load(resources)
 
     def _are_equal(
-        self, local: ThreeDModelWrite, cdf_resource: ThreeDModel, return_dumped: bool = False
+        self,
+        local: ThreeDModelWrite,
+        cdf_resource: ThreeDModel,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

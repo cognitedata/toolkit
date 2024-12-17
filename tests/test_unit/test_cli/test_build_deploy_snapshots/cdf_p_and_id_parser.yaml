@@ -1,6 +1,6 @@
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 0
   description: Annotation of P&ID documents
   documentation: "# P&ID Annotator\nThis extraction pipeline is responsible for annotating\
     \ P&ID diagrams. This means it looks for, for example, assets, equipments, timeseries,\

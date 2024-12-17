@@ -21,7 +21,7 @@ Database:
 - name: files_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 0
   description: Annotation of P&ID documents from file source  oid:fileshare
   documentation: "# Contextualization / Annotation of P&ID Documents\n\nThe P&ID Annotation\
     \ runs as a process in CDF Functions. Process triggers on new and updated documents\
@@ -45,7 +45,7 @@ ExtractionPipeline:
   name: ctx:files:oid:fileshare:pandid_annotation
   source: fileshare
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 0
   description: File source extraction pipeline with configuration for File extractor
     reading data from oid:fileshare
   documentation: "The Cognite File Extractor is a generic file extractor that can\
@@ -137,7 +137,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionConfigsAcl:
       actions:
       - READ
@@ -152,7 +152,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_extractor
@@ -181,7 +181,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1
   - filesAcl:
       actions:
       - READ
@@ -189,7 +189,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionConfigsAcl:
       actions:
       - READ
@@ -197,7 +197,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - extractionRunsAcl:
       actions:
       - READ
@@ -205,7 +205,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   - annotationsAcl:
       actions:
       - READ
@@ -239,7 +239,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_processing
@@ -262,7 +262,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 0
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_read
@@ -272,7 +272,7 @@ Table:
   name: files_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 0
   destination:
     type: files
   destinationOidcCredentials:
@@ -309,7 +309,7 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 Workflow:
-- dataSetId: 42
+- dataSetId: 0
   description: Annotation process on files
   externalId: wf_oid_files_annotation
 WorkflowVersion:

@@ -319,7 +319,11 @@ class LocationFilterLoader(
                 yield DataModelLoader, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
 
     def _are_equal(
-        self, local: LocationFilterWrite, cdf_resource: LocationFilter, return_dumped: bool = False
+        self,
+        local: LocationFilterWrite,
+        cdf_resource: LocationFilter,
+        return_dumped: bool = False,
+        ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
         cdf_dumped = cdf_resource.as_write().dump()

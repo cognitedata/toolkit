@@ -83,6 +83,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -117,7 +118,7 @@ class BuildCommand(ToolkitCommand):
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
         on_error: Literal["continue", "raise"] = "continue",
-    ) -> None:
+    ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -131,7 +132,7 @@ class BuildCommand(ToolkitCommand):
             config = BuildConfigYAML.load_default(organization_dir)
 
         if selected:
-            config.environment.selected = config.environment.load_selected(selected, organization_dir)
+            config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
@@ -150,7 +151,7 @@ class BuildCommand(ToolkitCommand):
 
         config.set_environment_variables()
 
-        self.build_config(
+        return self.build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
             config=config,
