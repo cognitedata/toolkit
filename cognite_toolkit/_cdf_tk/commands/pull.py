@@ -710,16 +710,17 @@ class PullCommand(ToolkitCommand):
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
     ) -> tuple[str, dict[Path, str]]:
-        # 1. Replace all variables
+        # 1. Replace all variables with placeholders
         # 2. Load source and keep the comments
-        # 3. Update all items with the to_write values..
-        # 4. Dump the yaml
-        # 5. Add the variables back
+        # 3. Update the to_write dict with the placeholders
+        # 4. Dump the yaml with the placeholders
+        # 5. Replace the placeholders with the variables
+        # 6. Add the comments back
 
         # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
-        comments = YAMLComments.load(content)
+        comments = YAMLComments.load(source)
         loaded = read_yaml_content(content)
 
         built_by_identifier = {r.identifier: r for r in resources}
