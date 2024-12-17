@@ -26,11 +26,12 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
     BuiltFullResourceList,
+    BuiltModuleList,
     BuiltResourceFull,
     DeployResults,
     ModuleResources,
     ResourceDeployResult,
-    YAMLComments, BuiltModuleList,
+    YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -48,11 +49,11 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path, parse_user_selected_modules
 
 from ._base import ToolkitCommand
 from .build import BuildCommand
 from .clean import CleanCommand
-from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules, module_directory_from_path
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -552,7 +553,7 @@ class PullCommand(ToolkitCommand):
         self,
         module: str | Path,
         organization_dir: Path,
-        env: str | None,
+        env: str,
         dry_run: bool,
         verbose: bool,
         ToolGlobals: CDFToolConfig,
@@ -596,7 +597,13 @@ class PullCommand(ToolkitCommand):
                 raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
 
     def _pull_build_dir(
-        self, build_dir: Path, selected: Path | str, built_modules: BuiltModuleList, dry_run: bool, build_env_name: str, ToolGlobals: CDFToolConfig
+        self,
+        build_dir: Path,
+        selected: Path | str,
+        built_modules: BuiltModuleList,
+        dry_run: bool,
+        build_env_name: str,
+        ToolGlobals: CDFToolConfig,
     ) -> None:
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         built = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
@@ -609,7 +616,12 @@ class PullCommand(ToolkitCommand):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
             loader = loader_cls.create_loader(ToolGlobals, build_dir)
-            resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(None, loader.folder_name, loader.kind, selected)
+            resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
+                None,
+                loader.folder_name,  # type: ignore[arg-type]
+                loader.kind,
+                selected,
+            )
             if not resources:
                 continue
             result = self._pull_resources(loader, resources, dry_run, ToolGlobals)
@@ -671,7 +683,6 @@ class PullCommand(ToolkitCommand):
                         f.write(content)
 
         return file_results
-
 
     @staticmethod
     def _select_resource_ids(

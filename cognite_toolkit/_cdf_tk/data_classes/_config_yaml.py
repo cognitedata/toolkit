@@ -42,9 +42,9 @@ from cognite_toolkit._cdf_tk.utils import (
     flatten_dict,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._version import __version__
 
-from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from . import BuiltModuleList
 from ._base import ConfigCore, _load_version_variable
 from ._built_resources import BuiltResourceList

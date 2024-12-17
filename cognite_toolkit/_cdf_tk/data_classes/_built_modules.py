@@ -76,7 +76,13 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             return BuiltModuleList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def get_resources(self, id_type: type[T_ID] | None, resource_dir: ResourceTypes, kind: str | None = None, selected: Path | str | None = None) -> BuiltFullResourceList[T_ID]:
+    def get_resources(
+        self,
+        id_type: type[T_ID] | None,
+        resource_dir: ResourceTypes,
+        kind: str | None = None,
+        selected: Path | str | None = None,
+    ) -> BuiltFullResourceList[T_ID]:
         resources = (
             resource.create_full(module, resource_dir)
             for module in self
@@ -86,7 +92,11 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
         if isinstance(selected, str):
             resources = (resource for resource in resources if resource.module_name == selected)
         elif isinstance(selected, Path):
-            resources = (resource for resource in resources if (resource.source.path == selected or resource.source.path.is_relative_to(selected)))
+            resources = (
+                resource
+                for resource in resources
+                if (resource.source.path == selected or resource.source.path.is_relative_to(selected))
+            )
 
         return BuiltFullResourceList[T_ID](list(resources))
 
