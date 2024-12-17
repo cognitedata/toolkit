@@ -193,7 +193,7 @@ def test_pull_transformation_sql(
         / "timeseries.Transformation.yaml"
     )
     source_yaml = transformation_yaml.read_text()
-    transformation = _load_cdf_pi_transformation(transformation_yaml)
+    transformation = _load_cdf_pi_transformation(transformation_yaml, cdf_tool_mock)
     new_query = """select
   someValue as externalId,
   name as name,
@@ -220,18 +220,23 @@ from `ingestion`.`timeseries_metadata`"""
     assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 
-def _load_cdf_pi_transformation(transformation_yaml: Path) -> Transformation:
+def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToolConfig) -> Transformation:
     variables = [
         ("dataset", "ingestion"),
         ("schemaSpace", "sp_enterprise_process_industry"),
         ("instanceSpace", "springfield_instances"),
         ("organization", "YourOrg"),
         ("timeseriesTransformationExternalId", "pi_timeseries_springfield_aveva_pi"),
+        ("sourceName", "Springfield AVEVA PI"),
     ]
     raw_transformation = transformation_yaml.read_text()
     for key, value in variables:
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
-    return Transformation.load(raw_transformation)
+    data = yaml.safe_load(raw_transformation)
+    data["dataSetId"] = cdf_tool_mock.verify_dataset(data.pop("dataSetExternalId"))
+    transformation = Transformation._load(data)
+
+    return transformation
 
 
 def test_dump_datamodel(
