@@ -175,8 +175,11 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
                 pattern = _core_pattern
-                if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
-                    replace = f'"{replace}"'
+                if (isinstance(replace, str) and (replace.isdigit() or replace.endswith(":"))) or (
+                    not isinstance(replace, str) and isinstance(replace, Sequence)
+                ):
+                    if isinstance(replace, str):
+                        replace = f'"{replace}"'
                     pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
                 elif replace is None:
                     replace = "null"
