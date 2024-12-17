@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -164,14 +164,12 @@ def test_pull_dataset(
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
+        module=dataset_yaml,
         organization_dir=organization_dir_mutable,
-        id_=dataset.external_id,
-        all_=False,
         env="dev",
         dry_run=False,
         verbose=False,
         ToolGlobals=cdf_tool_mock,
-        Loader=DataSetsLoader,
     )
 
     reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
