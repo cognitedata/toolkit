@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
+    FunctionsLimits,
     FunctionWrite,
     FunctionWriteList,
 )
@@ -26,6 +27,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -62,6 +64,22 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     class _MetadataKey:
         function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
+        super().__init__(client, build_dir)
+        self._function_limits: FunctionsLimits | None = None
+
+    @property
+    def get_cpu_limits(self) -> tuple[float, float]:
+        if not self._function_limits:
+            self._function_limits = self.client.functions.limits()
+        return self._function_limits.cpu_cores["min"], self._function_limits.cpu_cores["max"]
+
+    @property
+    def get_memory_limits(self) -> tuple[float, float]:
+        if not self._function_limits:
+            self._function_limits = self.client.functions.limits()
+        return self._function_limits.memory_gb["min"], self._function_limits.memory_gb["max"]
 
     @property
     def display_name(self) -> str:
