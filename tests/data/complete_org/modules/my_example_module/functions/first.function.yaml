@@ -22,5 +22,5 @@
   dataSetExternalId: 'ds_timeseries_{{example_variable}}'
   indexUrl: https://pypi.org/simple
   # The below are above the function limit
-  cpu: 10.0
-  memory: 10.0
+  cpu: 0.6
+  memory: 0.6
