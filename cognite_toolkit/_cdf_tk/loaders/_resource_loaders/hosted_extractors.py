@@ -31,7 +31,6 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -108,22 +107,11 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def _are_equal(
-        self,
-        local: SourceWrite,
-        cdf_resource: Source,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+    def dump_resource(self, resource: Source, local: dict[str, Any]) -> dict[str, Any]:
         HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
+            "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
-        local_dumped = local.dump()
-        # Source does not have .as_write method as there are secrets in the write object
-        # which are not returned by the API.
-        cdf_dumped = cdf_resource.dump()
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return self.dump_id(resource.external_id)
 
 
 class HostedExtractorDestinationLoader(
@@ -198,25 +186,23 @@ class HostedExtractorDestinationLoader(
     ) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> DestinationWriteList:
-        raw_list = resource if isinstance(resource, list) else [resource]
-        loaded = DestinationWriteList([])
-        for item in raw_list:
-            if "credentials" in item:
-                raw_auth = item.pop("credentials")
-                credentials = ClientCredentials._load(raw_auth)
-                if is_dry_run:
-                    item["credentials"] = {"nonce": "dummy_nonce"}
-                else:
-                    session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
-                    item["credentials"] = {"nonce": session.nonce}
-            if item.get("targetDataSetExternalId") is not None:
-                ds_external_id = item.pop("targetDataSetExternalId")
-                item["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-            loaded.append(DestinationWrite.load(item))
-        return loaded
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DestinationWrite:
+        if raw_auth := resource.pop("credentials", None):
+            credentials = ClientCredentials._load(raw_auth)
+            if is_dry_run:
+                resource["credentials"] = {"nonce": "dummy_nonce"}
+            else:
+                session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                resource["credentials"] = {"nonce": session.nonce}
+        if ds_external_id := resource.pop("targetDataSetExternalId", None):
+            resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return DestinationWrite._load(resource)
+
+    def dump_resource(self, resource: Destination, local: dict[str, Any]) -> dict[str, Any]:
+        HighSeverityWarning(
+            "Destinations will always be considered different, and thus will always be redeployed."
+        ).print_warning()
+        return self.dump_id(resource.external_id)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -226,25 +212,6 @@ class HostedExtractorDestinationLoader(
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
-
-    def _are_equal(
-        self,
-        local: DestinationWrite,
-        cdf_resource: Destination,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """This can be overwritten in subclasses that require special comparison logic.
-
-        For example, TransformationWrite has OIDC credentials that will not be returned
-        by the retrieve method, and thus needs special handling.
-        """
-        HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
-        ).print_warning()
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.dump()
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

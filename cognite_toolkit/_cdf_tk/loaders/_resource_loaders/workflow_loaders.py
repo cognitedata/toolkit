@@ -35,7 +35,6 @@ from cognite.client.data_classes import (
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
 )
-from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
@@ -115,9 +114,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> WorkflowUpsertList:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowUpsert:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return WorkflowUpsert._load(resource)
@@ -246,7 +243,7 @@ class WorkflowVersionLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowVersionUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowVersionUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -390,7 +387,7 @@ class WorkflowTriggerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowTriggerUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowTriggerUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -503,9 +500,7 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> WorkflowTriggerUpsert:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
         if "authentication" in resource:

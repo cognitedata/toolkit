@@ -5,8 +5,9 @@ from graphlib import TopologicalSorter
 from pathlib import Path
 from typing import Any
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
+from cognite.client.utils._identifier import T_ID
 from rich import print
 from rich.panel import Panel
 
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceDeployResult,
     UploadDeployResult,
 )
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
@@ -40,6 +42,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
     ResourceWorker,
 )
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     MediumSeverityWarning,
@@ -51,7 +54,6 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 
-from ..data_classes._module_directories import ReadModule
 from ._utils import _print_ids_or_length
 
 
@@ -200,7 +202,9 @@ class DeployCommand(ToolkitCommand):
 
     def _deploy_resources(
         self,
-        loader: ResourceLoader,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
         ToolGlobals: CDFToolConfig,
         read_modules: list[ReadModule],
         dry_run: bool = False,
@@ -213,6 +217,7 @@ class DeployCommand(ToolkitCommand):
         files = worker.load_files(read_modules=read_modules)
         if not files:
             return None
+
         to_create, to_update, unchanged, duplicated = worker.load_resources(
             files, ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
         )

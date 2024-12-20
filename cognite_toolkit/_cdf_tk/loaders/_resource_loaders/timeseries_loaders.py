@@ -1,4 +1,4 @@
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from typing import Any, cast, final
 
@@ -55,7 +55,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
 
     @classmethod
     def get_required_capability(
-        cls, items: TimeSeriesWriteList | None, read_only: bool
+        cls, items: Sequence[TimeSeriesWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -257,7 +257,7 @@ class DatapointSubscriptionLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: DatapointSubscriptionWriteList | None, read_only: bool
+        cls, items: Sequence[DataPointSubscriptionWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []

@@ -1080,7 +1080,7 @@ class GraphQLLoader(
             yield SpaceLoader, item["space"]
 
     def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] = None
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.

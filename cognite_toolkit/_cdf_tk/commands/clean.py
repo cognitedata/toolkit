@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceContainerDeployResult,
     ResourceDeployResult,
 )
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -49,7 +50,6 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 
-from ..data_classes._module_directories import ReadModule
 from ._utils import _print_ids_or_length
 
 
