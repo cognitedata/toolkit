@@ -59,7 +59,7 @@ from requests import Response
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
 from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
@@ -88,7 +88,7 @@ class ApprovalToolkitClient:
 
     """
 
-    def __init__(self, mock_client: CogniteClientMock):
+    def __init__(self, mock_client: ToolkitClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
         self.mock_client._config = "config"
