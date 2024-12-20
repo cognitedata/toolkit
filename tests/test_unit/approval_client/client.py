@@ -1049,6 +1049,11 @@ class ApprovalToolkitClient:
             else:
                 raise ValueError(f"Invalid api name {r.api_name}")
             mocked_apis[api_name] |= {sub_api} if sub_api else set()
+        # Adding all lookup, these are mocked in the __init__ method
+        for name, method in self.mock_client.lookup.__dict__.items():
+            if not isinstance(method, MagicMock) or name.startswith("_") or name.startswith("assert_"):
+                continue
+            mocked_apis["lookup"].add(name)
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():

@@ -1,18 +1,18 @@
 Asset:
-- dataSetId: 2
+- dataSetId: 9434864499692429728
   description: This is the root asset on Drammen
   externalId: Drammen_root
   name: RootAsset
   source: doctrino
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   externalId: MyAsset
   name: MyAsset
   source: doctrino
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   externalId: MyAsset2
   name: MyAsset2
   source: doctrino
-- dataSetId: 1
+- dataSetId: 8534518845016003109
   description: This is the root asset on Oslo
   externalId: Oslo_root
   name: RootAsset
@@ -71,9 +71,9 @@ Edge:
     space: sp_schema
 Event:
 - assetIds:
-  - 666
-  - 666
-  dataSetId: 0
+  - 13458544937205513867
+  - 221232397997127486
+  dataSetId: 7982613576047462211
   description: My event description
   endTime: 1732959346052
   externalId: MyEvent
@@ -89,7 +89,7 @@ FileLoader:
 - external_id: shopConfigFile
   filehash: 09d16fb3
 FileMetadata:
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   directory: /streamlit-apps/
   externalId: myapp
   metadata:
@@ -102,7 +102,7 @@ FileMetadata:
     theme: Light
     thumbnail: data:image/webp;base64,....
   name: MySuperApp-source.json
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
   metadata:
@@ -141,7 +141,7 @@ Node:
   space: sp_instance
 Relationship:
 - confidence: 0.42
-  dataSetId: 0
+  dataSetId: 7982613576047462211
   externalId: MyRelationship
   sourceExternalId: MyAsset
   sourceType: asset

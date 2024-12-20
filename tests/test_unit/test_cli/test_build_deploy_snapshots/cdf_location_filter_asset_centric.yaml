@@ -1,9 +1,9 @@
 Asset:
-- dataSetId: 0
+- dataSetId: 16440315306163386115
   description: This is an example of an asset centric location filter
   externalId: my_root_asset
   name: Asset Centric Location Filter Example
-- dataSetId: 0
+- dataSetId: 16440315306163386115
   description: This is an example of an asset centric location filter 2
   externalId: my_root_asset2
   name: Asset Centric Location Filter Example 2
@@ -19,13 +19,13 @@ LocationFilter:
       assetSubtreeIds:
       - externalId: my_root_asset
       dataSetIds:
-      - 0
+      - 16440315306163386115
       externalIdPrefix: pump_
     timeseries:
       assetSubtreeIds:
       - externalId: my_root_asset2
       dataSetIds:
-      - 0
+      - 16440315306163386115
       externalIdPrefix: sensor
   description: This is an example of an asset centric individual filter location
   externalId: asset_centric_individual_filter_location_filter
@@ -35,7 +35,7 @@ LocationFilter:
     - externalId: my_root_asset
     - externalId: my_root_asset2
     dataSetIds:
-    - 0
+    - 16440315306163386115
     externalIdPrefix: pump_
   description: This is an example of an asset centric shared location
   externalId: asset_centric_shared_location_filter
