@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from typing import Any, final
 
@@ -63,7 +63,7 @@ class ThreeDModelLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ThreeDModelWriteList | None, read_only: bool
+        cls, items: Sequence[ThreeDModelWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -188,7 +188,7 @@ class ThreeDModelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+        self, resource: dict[str, Any], is_dry_run: bool = False
     ) -> ThreeDModelWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
