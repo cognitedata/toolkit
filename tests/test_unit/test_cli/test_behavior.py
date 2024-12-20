@@ -238,7 +238,7 @@ def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToo
     for key, value in variables:
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
     data = yaml.safe_load(raw_transformation)
-    data["dataSetId"] = cdf_tool_mock.verify_dataset(data.pop("dataSetExternalId"))
+    data["dataSetId"] = cdf_tool_mock.toolkit_client.lookup.data_sets.id(data.pop("dataSetExternalId"))
     transformation = Transformation._load(data)
 
     return transformation

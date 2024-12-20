@@ -7,21 +7,12 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 from unittest import mock
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
 from _pytest.mark import ParameterSet
-from cognite.client._api.iam import IAMAPI, TokenAPI, TokenInspection
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
-from cognite.client.data_classes.capabilities import (
-    DataSetsAcl,
-    ProjectCapability,
-    ProjectCapabilityList,
-    ProjectsScope,
-)
-from cognite.client.data_classes.iam import ProjectSpec
-from cognite.client.exceptions import CogniteAuthError
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
@@ -54,43 +45,6 @@ def test_init():
     with patch.object(CDFToolConfig, "__init__", mocked_init):
         instance = CDFToolConfig()
         assert isinstance(instance._toolkit_client, ToolkitClientMock)
-
-
-@pytest.mark.skip("Rewrite to use ApprovalClient")
-def test_dataset_missing_acl():
-    with patch.object(CDFToolConfig, "__init__", mocked_init):
-        with pytest.raises(CogniteAuthError):
-            instance = CDFToolConfig()
-            instance.verify_dataset("test")
-
-
-def test_dataset_create():
-    with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig()
-        instance._toolkit_client.config.project = "cdf-project-templates"
-        instance._toolkit_client.iam.compare_capabilities = IAMAPI.compare_capabilities
-        instance._toolkit_client.iam.token.inspect = Mock(
-            spec=TokenAPI.inspect,
-            return_value=TokenInspection(
-                subject="",
-                capabilities=ProjectCapabilityList(
-                    [
-                        ProjectCapability(
-                            capability=DataSetsAcl(
-                                [DataSetsAcl.Action.Read, DataSetsAcl.Action.Write], scope=DataSetsAcl.Scope.All()
-                            ),
-                            project_scope=ProjectsScope(["cdf-project-templates"]),
-                        )
-                    ],
-                    cognite_client=instance._toolkit_client,
-                ),
-                projects=[ProjectSpec(url_name="cdf-project-templates", groups=[])],
-            ),
-        )
-
-        # the dataset exists
-        instance.verify_dataset("test")
-        assert instance.toolkit_client.data_sets.retrieve.call_count == 1
 
 
 class TestLoadYamlInjectVariables:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -49,25 +49,6 @@ def local_tmp_repo_path() -> Iterator[Path]:
     RepoCommand(silent=True, skip_git_verify=True).init(repo_path, host="GitHub")
     yield repo_path
     shutil.rmtree(repo_path, ignore_errors=True)
-
-
-def create_lookup_and_reverse_lookup_functions() -> tuple[Callable, Callable]:
-    counter = 0
-    lookup: dict[str, int] = {}
-    reverse_lookup: dict[int, str] = {}
-
-    def lookup_function(value: str, *_, **__) -> int:
-        if value not in lookup:
-            nonlocal counter
-            lookup[value] = counter
-            reverse_lookup[counter] = value
-            counter += 1
-        return lookup[value]
-
-    def reverse_lookup_function(value: int, *_, **__) -> str:
-        return reverse_lookup[value]
-
-    return lookup_function, reverse_lookup_function
 
 
 @pytest.fixture(scope="function")
@@ -117,12 +98,6 @@ def cdf_tool_mock(
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
 
-        verify_dataset, reverse_verify_dataset = create_lookup_and_reverse_lookup_functions()
-        cdf_tool.verify_dataset.side_effect = verify_dataset
-        cdf_tool.reverse_verify_dataset.side_effect = reverse_verify_dataset
-
-        cdf_tool.verify_asset.return_value = 666
-        cdf_tool.data_set_id = 999
         yield cdf_tool
 
     for key, value in existing.items():
