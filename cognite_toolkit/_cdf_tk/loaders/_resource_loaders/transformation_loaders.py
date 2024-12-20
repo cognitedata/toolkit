@@ -182,14 +182,9 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
-    def dump_resource(
-        self,
-        resource: Transformation,
-        local: TransformationWrite,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: TransformationWrite) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if "dataSetId" in dumped and local.data_set_id != -1 and ToolGlobals is not None:
+        if "dataSetId" in dumped and local.data_set_id != -1:
             # -1 is a special value that means dry run
             data_set_id = dumped.pop("dataSetId")
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -208,7 +203,7 @@ class TransformationLoader(
         ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
-        cdf_dumped = self.dump_resource(cdf_resource, local, ToolGlobals)
+        cdf_dumped = self.dump_resource(cdf_resource, local)
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             # Dry run
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]

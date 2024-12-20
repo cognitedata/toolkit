@@ -306,12 +306,7 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
-    def dump_resource(
-        self,
-        resource: T_WritableCogniteResource,
-        local: T_WriteClass,
-        ToolGlobals: CDFToolConfig,
-    ) -> dict[str, Any]:
+    def dump_resource(self, resource: T_WritableCogniteResource, local: T_WriteClass) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
         This is intended to be overwritten in subclasses that require special dumping logic, for example,
@@ -320,7 +315,6 @@ class ResourceLoader(
         Args:
             resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
             local (T_WriteClass): The local resource.
-            ToolGlobals (CDFToolConfig): The tool globals. Used to lookup, for example, dataSetExternalId.
         """
         return resource.as_write().dump()
 
@@ -368,7 +362,7 @@ class ResourceLoader(
         if ToolGlobals is None:
             cdf_dumped = cdf_resource.as_write().dump()
         else:
-            cdf_dumped = self.dump_resource(cdf_resource, local, ToolGlobals)
+            cdf_dumped = self.dump_resource(cdf_resource, local)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @staticmethod
