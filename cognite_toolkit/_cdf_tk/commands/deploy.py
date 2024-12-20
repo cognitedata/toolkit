@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
@@ -16,7 +15,6 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
-    TABLE_FORMATS,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -40,6 +38,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
+    ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
@@ -52,7 +51,8 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
 )
 
-from ._utils import _print_ids_or_length, _remove_duplicates
+from ..data_classes._module_directories import ReadModule
+from ._utils import _print_ids_or_length
 
 
 class DeployCommand(ToolkitCommand):
@@ -143,6 +143,7 @@ class DeployCommand(ToolkitCommand):
                 result = self._clean_command.clean_resources(
                     loader,
                     ToolGlobals,
+                    read_modules=deploy_state.read_modules,
                     drop=drop,
                     dry_run=dry_run,
                     drop_data=drop_data,
@@ -190,7 +191,7 @@ class DeployCommand(ToolkitCommand):
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(
-                loader, ToolGlobals, state, dry_run, has_done_drop, has_dropped_data, force_update, verbose
+                loader, ToolGlobals, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
             )
         elif isinstance(loader, DataLoader):
             return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
@@ -201,64 +202,33 @@ class DeployCommand(ToolkitCommand):
         self,
         loader: ResourceLoader,
         ToolGlobals: CDFToolConfig,
-        state: BuildEnvironment,
+        read_modules: list[ReadModule],
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
         force_update: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        filepaths = loader.find_files()
-
-        for read_module in state.read_modules:
-            if resource_dir := read_module.resource_dir_path(loader.folder_name):
-                # As of 05/11/24, Asset support csv and parquet files in addition to YAML.
-                # These table formats are not built, i.e., no variable replacement is done,
-                # so we load them directly from the source module.
-                filepaths.extend(loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
-
-        if not filepaths:
-            # Skipping silently as this is not an error.
+        worker = ResourceWorker(loader)
+        files = worker.load_files(read_modules=read_modules)
+        if not files:
             return None
+        to_create, to_update, unchanged, duplicated = worker.load_resources(
+            files, ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+        )
 
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
-            else:
-                return len(filepaths)
-
-        # In the build step, the resource files are prefixed a number that controls the order in which
-        # the resources are deployed. The custom 'sort_key' here is to get a sort on integer instead of a default string
-        # sort.
-        filepaths = sorted(filepaths, key=sort_key)
-
-        to_create, to_update, unchanged, duplicates = self._load_files2(loader, filepaths, ToolGlobals, dry_run)
-
-        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=dry_run)
-
-        # Duplicates should be handled on the build step,
-        # but in case any of them slip through, we do it here as well to
-        # avoid an error.
-        loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
-
-        if not loaded_resources:
+        nr_of_items = len(to_create) + len(to_update) + len(unchanged)
+        if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
-
-        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
-        if capabilities and (missing := ToolGlobals.toolkit_client.verify.authorization(capabilities)):
-            raise ToolGlobals.toolkit_client.verify.create_error(missing, action=f"deploy {loader.display_name}")
-
-        nr_of_items = len(loaded_resources)
 
         prefix = "Would deploy" if dry_run else "Deploying"
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicates:
+            for duplicate in duplicated:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)
 
         if force_update:
             to_update.extend(unchanged)

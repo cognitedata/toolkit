@@ -65,6 +65,7 @@ from ._resource_loaders import (
     WorkflowLoader,
     WorkflowVersionLoader,
 )
+from ._worker import ResourceWorker
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -195,6 +196,7 @@ __all__ = [
     "ResourceContainerLoader",
     "ResourceLoader",
     "ResourceTypes",
+    "ResourceWorker",
     "RobotCapabilityLoader",
     "RoboticFrameLoader",
     "RoboticLocationLoader",
