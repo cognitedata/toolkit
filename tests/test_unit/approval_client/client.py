@@ -87,6 +87,9 @@ class LookUpAPIMock:
 
     @staticmethod
     def _create_id(string: str) -> int:
+        # This simulates CDF setting the internal ID.
+        # By using hashing, we will always get the same ID for the same string.
+        # Thus, the ID will be consistent between runs and can be used in snapshots.
         hash_object = hashlib.sha256(string.encode())
         hex_dig = hash_object.hexdigest()
         hash_int = int(hex_dig[:16], 16)
