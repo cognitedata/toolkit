@@ -35,7 +35,7 @@ description: PH 1stStgSuctCool Gas Out
         data_set_external_id = ts_dict["dataSetExternalId"]
         expected_id = LookUpAPIMock._create_id(data_set_external_id)
 
-        loaded = loader.load_resource_file(Path("timeseries.yaml"), cdf_tool_real, is_dry_run=True)
+        loaded = loader.load_resource_file(Path("timeseries.yaml"), cdf_tool_real)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == expected_id

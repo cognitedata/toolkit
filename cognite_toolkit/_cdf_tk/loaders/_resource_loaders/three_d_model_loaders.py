@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes import (
@@ -189,7 +188,9 @@ class ThreeDModelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> ThreeDModelWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> ThreeDModelWriteList:
         resources = resource if isinstance(resource, list) else [resource]
 
         for resource in resources:

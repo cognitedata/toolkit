@@ -101,9 +101,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(  # type: ignore[override]
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> FunctionWrite | FunctionWriteList | None:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
             # This is to allow arbitrary YAML files inside the function code folder.
@@ -115,8 +113,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         functions = load_yaml_inject_variables(filepath, use_environment_variables)
         return self.load_resource(functions, is_dry_run)
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
-                      is_dry_run: bool = False) -> FunctionWrite | FunctionWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> FunctionWrite | FunctionWriteList:
         functions = [resource] if isinstance(resource, dict) else resource
 
         for func in functions:
@@ -338,7 +337,9 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> FunctionScheduleWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> FunctionScheduleWriteList:
         schedules = [resource] if isinstance(resource, dict) else resource
 
         for schedule in schedules:

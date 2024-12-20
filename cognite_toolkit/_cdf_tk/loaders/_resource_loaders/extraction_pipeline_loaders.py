@@ -141,8 +141,9 @@ class ExtractionPipelineLoader(
                     if "tableName" in entry:
                         yield RawTableLoader, RawTable._load(entry)
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
-                      is_dry_run: bool = False) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
@@ -297,17 +298,17 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+    def load_resource_file(self, filepath: Path,
+                           ToolGlobals: CDFToolConfig) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
         resources = load_yaml_inject_variables(raw_str, {})
         return self.load_resource(resources, is_dry_run)
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
-                      is_dry_run: bool = False) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

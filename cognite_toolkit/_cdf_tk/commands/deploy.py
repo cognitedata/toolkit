@@ -232,6 +232,8 @@ class DeployCommand(ToolkitCommand):
         # sort.
         filepaths = sorted(filepaths, key=sort_key)
 
+        to_create, to_update, unchanged, duplicates = self._load_files2(loader, filepaths, ToolGlobals, dry_run)
+
         loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=dry_run)
 
         # Duplicates should be handled on the build step,
@@ -247,8 +249,6 @@ class DeployCommand(ToolkitCommand):
             raise ToolGlobals.toolkit_client.verify.create_error(missing, action=f"deploy {loader.display_name}")
 
         nr_of_items = len(loaded_resources)
-        if nr_of_items == 0:
-            return ResourceDeployResult(name=loader.display_name)
 
         prefix = "Would deploy" if dry_run else "Deploying"
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
@@ -259,6 +259,7 @@ class DeployCommand(ToolkitCommand):
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
         to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)
+
         if force_update:
             to_update.extend(unchanged)
             unchanged.clear()

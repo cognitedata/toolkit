@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
@@ -129,7 +128,9 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> FileMetadataWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> FileMetadataWriteList:
         loaded_list = [resource] if isinstance(resource, dict) else resource
 
         for resource in loaded_list:

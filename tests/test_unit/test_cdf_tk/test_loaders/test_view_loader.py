@@ -133,7 +133,7 @@ class TestViewLoader:
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
 
-        local_view: dm.ViewApplyList = loader.load_resource_file(file, cdf_tool_mock, False)
+        local_view: dm.ViewApplyList = loader.load_resource_file(file, cdf_tool_mock)
 
         cdf_view = dm.View(
             space="sp_space",
