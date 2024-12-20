@@ -63,7 +63,7 @@ class ResourceWorker:
         is_dry_run: bool,
         verbose: bool,
         return_existing: Literal[True],
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]: ...
+    ) -> tuple[T_WritableCogniteResourceList, list[T_ID]]: ...
 
     @overload
     def load_resources(
@@ -73,10 +73,7 @@ class ResourceWorker:
         is_dry_run: bool,
         verbose: bool,
         return_existing: Literal[False] = False,
-    ) -> (
-        tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]
-        | tuple[T_WritableCogniteResourceList, list[T_ID]]
-    ): ...
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]: ...
 
     def load_resources(
         self,
