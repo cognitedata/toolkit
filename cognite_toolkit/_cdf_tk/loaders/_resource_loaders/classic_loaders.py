@@ -181,11 +181,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             raise ValueError(f"Unsupported file type: {filepath.suffix}")
 
-        return self.load_resource(resources, is_dry_run, filepath)
+        return self.load_resource(resources, is_dry_run)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> AssetWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> AssetWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
@@ -487,9 +485,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             if isinstance(asset_id, str):
                 yield AssetLoader, asset_id
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> EventWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> EventWriteList:
         resources: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

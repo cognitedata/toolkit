@@ -276,14 +276,24 @@ class ResourceLoader(
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
         items = self.list_write_cls([])
         for raw_item in raw_list:
-            items.append(self.load_resource(raw_item, is_dry_run, filepath))
+            items.append(self.load_resource(raw_item, is_dry_run))
         return items
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> T_WriteClass:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
+
+    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any]) -> dict[str, Any]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        This is intended to be overwritten in subclasses that require special dumping logic, for example,
+        replacing dataSetId with dataSetExternalId.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            local (T_WriteClass): The local resource.
+        """
+        return resource.as_write().dump()
 
     def dump_resource_legacy(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
@@ -306,18 +316,6 @@ class ResourceLoader(
              content.
         """
         return resource.dump(), {}
-
-    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any]) -> dict[str, Any]:
-        """Dumps the resource to a dictionary that matches the write format.
-
-        This is intended to be overwritten in subclasses that require special dumping logic, for example,
-        replacing dataSetId with dataSetExternalId.
-
-        Args:
-            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            local (T_WriteClass): The local resource.
-        """
-        return resource.as_write().dump()
 
     @overload
     def are_equal(

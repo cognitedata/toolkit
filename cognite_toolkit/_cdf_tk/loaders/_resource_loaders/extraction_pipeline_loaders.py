@@ -141,9 +141,8 @@ class ExtractionPipelineLoader(
                     if "tableName" in entry:
                         yield RawTableLoader, RawTable._load(entry)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
+                      is_dry_run: bool = False) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
@@ -305,11 +304,10 @@ class ExtractionPipelineConfigLoader(
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
         resources = load_yaml_inject_variables(raw_str, {})
-        return self.load_resource(resources, is_dry_run, filepath)
+        return self.load_resource(resources, is_dry_run)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
+                      is_dry_run: bool = False) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

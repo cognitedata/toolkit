@@ -157,9 +157,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                     elif type_value == "event":
                         yield EventLoader, id_value
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> RelationshipWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> RelationshipWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

@@ -220,11 +220,10 @@ class TransformationLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         resources = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(resources, is_dry_run, filepath)
+        return self.load_resource(resources, is_dry_run)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> TransformationWrite | TransformationWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
+                      is_dry_run: bool = False) -> TransformationWrite | TransformationWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         transformations = TransformationWriteList([])

@@ -113,11 +113,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         functions = load_yaml_inject_variables(filepath, use_environment_variables)
-        return self.load_resource(functions, is_dry_run, filepath)
+        return self.load_resource(functions, is_dry_run)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> FunctionWrite | FunctionWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
+                      is_dry_run: bool = False) -> FunctionWrite | FunctionWriteList:
         functions = [resource] if isinstance(resource, dict) else resource
 
         for func in functions:
@@ -339,9 +338,7 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> FunctionScheduleWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> FunctionScheduleWriteList:
         schedules = [resource] if isinstance(resource, dict) else resource
 
         for schedule in schedules:

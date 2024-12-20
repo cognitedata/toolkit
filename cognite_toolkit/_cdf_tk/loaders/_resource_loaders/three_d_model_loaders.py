@@ -189,9 +189,7 @@ class ThreeDModelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> ThreeDModelWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> ThreeDModelWriteList:
         resources = resource if isinstance(resource, list) else [resource]
 
         for resource in resources:
