@@ -53,10 +53,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(self.trafo_yaml)
 
         loader._get_query_file = _return_none
-        loaded = loader.load_resource_file(
-            filepath,
-            cdf_tool_real,
-        )
+        loaded = loader.load_resource_file(filepath, cdf_tool_real)
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None
 
@@ -81,10 +78,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(yaml.dump(resource))
 
         loader._get_query_file = _return_none
-        loaded = loader.load_resource_file(
-            filepath,
-            cdf_tool_real,
-        )
+        loaded = loader.load_resource_file(filepath, cdf_tool_real)
         assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
         assert loaded.destination is not None
 
@@ -115,10 +109,7 @@ conflictMode: upsert
         loader._get_query_file = _return_none
 
         with pytest.raises(ToolkitYAMLFormatError):
-            loader.load_resource_file(
-                filepath,
-                cdf_tool_real,
-            )
+            loader.load_resource_file(filepath, cdf_tool_real)
 
     def test_sql_inline(
         self,
@@ -131,10 +122,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        loaded = loader.load_resource_file(
-            filepath,
-            cdf_tool_real,
-        )
+        loaded = loader.load_resource_file(filepath, cdf_tool_real)
         assert loaded.query == resource["query"]
 
     @pytest.mark.parametrize(

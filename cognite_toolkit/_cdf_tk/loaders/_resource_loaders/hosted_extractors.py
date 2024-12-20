@@ -199,7 +199,7 @@ class HostedExtractorDestinationLoader(
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> DestinationWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         loaded = DestinationWriteList([])

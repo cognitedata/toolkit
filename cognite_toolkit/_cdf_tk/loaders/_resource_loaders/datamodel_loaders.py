@@ -288,7 +288,7 @@ class ContainerLoader(
                         )
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> ContainerApply | ContainerApplyList:
         dict_items = resource if isinstance(resource, list) else [resource]
         for raw_instance in dict_items:
@@ -690,7 +690,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return spec
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> ViewApply | ViewApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -847,7 +847,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return spec
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> DataModelApply | DataModelApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -1129,7 +1129,7 @@ class GraphQLLoader(
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> GraphQLDataModelWriteList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -1144,7 +1144,7 @@ class GraphQLLoader(
         return self.load_resource(raw_yaml, is_dry_run, filepath)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> GraphQLDataModelWriteList:
         if filepath is None:
             raise ValueError("filepath must be set when loading a GraphQL schema.")

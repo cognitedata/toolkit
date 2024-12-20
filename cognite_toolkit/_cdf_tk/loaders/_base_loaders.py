@@ -267,7 +267,7 @@ class ResourceLoader(
         raise ValueError(f"Invalid ids: {ids}")
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> T_WriteClass | T_CogniteResourceList:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
@@ -276,7 +276,7 @@ class ResourceLoader(
         return self.load_resource(raw_yaml, is_dry_run, filepath)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> T_WriteClass | T_CogniteResourceList:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         if isinstance(resource, list):

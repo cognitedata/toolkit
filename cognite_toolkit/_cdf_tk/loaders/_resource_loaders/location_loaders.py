@@ -91,7 +91,7 @@ class LocationFilterLoader(
         return {"externalId": id}
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> LocationFilterWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
@@ -108,7 +108,9 @@ class LocationFilterLoader(
                 subfilter = asset_centric.get(subfilter_name, {})
                 if "dataSetExternalIds" in subfilter:
                     data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
-                    asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
+                    asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(
+                        data_set_external_ids, is_dry_run
+                    )
 
         return LocationFilterWriteList._load(raw_list)
 

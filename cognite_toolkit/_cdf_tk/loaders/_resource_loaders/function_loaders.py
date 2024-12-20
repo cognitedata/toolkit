@@ -102,7 +102,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource_file(  # type: ignore[override]
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
@@ -116,7 +116,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return self.load_resource(functions, is_dry_run, filepath)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> FunctionWrite | FunctionWriteList:
         functions = [resource] if isinstance(resource, dict) else resource
 
@@ -340,7 +340,7 @@ class FunctionScheduleLoader(
             yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> FunctionScheduleWriteList:
         schedules = [resource] if isinstance(resource, dict) else resource
 

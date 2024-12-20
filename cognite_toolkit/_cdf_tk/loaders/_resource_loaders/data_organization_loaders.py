@@ -95,7 +95,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         return {"externalId": id}
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> DataSetWriteList:
         data_sets = [resource] if isinstance(resource, dict) else resource
 
@@ -269,7 +269,7 @@ class LabelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> LabelDefinitionWrite | LabelDefinitionWriteList:
         items: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for item in items:

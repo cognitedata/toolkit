@@ -115,7 +115,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return {"externalId": id}
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> WorkflowUpsertList:
         workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for workflow in workflows:
@@ -501,7 +501,7 @@ class WorkflowTriggerLoader(
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> WorkflowTriggerUpsertList:
         raw_list = resource if isinstance(resource, list) else [resource]
         loaded = WorkflowTriggerUpsertList([])

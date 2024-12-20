@@ -102,7 +102,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             yield AssetLoader, item["assetExternalId"]
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> TimeSeriesWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
@@ -111,7 +111,9 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "securityCategoryNames" in resource:
                 if security_categories_names := resource.pop("securityCategoryNames", []):
-                    security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
+                    security_categories = self.client.lookup.security_categories.id(
+                        security_categories_names, is_dry_run
+                    )
                     resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
                 # Bug in SDK, the read version sets security categories to an empty list.
