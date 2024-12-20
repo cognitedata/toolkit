@@ -274,7 +274,9 @@ class ResourceLoader(
         Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
-        raw_yaml = load_yaml_inject_variables(filepath, environment_variables if self.do_environment_variable_injection else {})
+        raw_yaml = load_yaml_inject_variables(
+            filepath, environment_variables if self.do_environment_variable_injection else {}
+        )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:

@@ -101,7 +101,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> FunctionWrite | FunctionWriteList | None:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig
+    ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
             # This is to allow arbitrary YAML files inside the function code folder.

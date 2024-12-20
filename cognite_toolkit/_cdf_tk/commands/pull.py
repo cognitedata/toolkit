@@ -6,7 +6,6 @@ import shutil
 import tempfile
 import uuid
 from collections import UserList
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
@@ -51,10 +50,10 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path, parse_user_selected_modules
 
+from ..tk_warnings import MediumSeverityWarning
 from ._base import ToolkitCommand
 from .build import BuildCommand
 from .clean import CleanCommand
-from ..tk_warnings import MediumSeverityWarning
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
 # The encoding and newline characters to use when writing files
@@ -664,9 +663,11 @@ class PullCommand(ToolkitCommand):
                 if cdf_resource is None:
                     file_results.unchanged += 1
                     to_write[item_id] = local_dict
-                    self.warn(MediumSeverityWarning(
-                        f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
-                    ))
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
+                        )
+                    )
                     continue
                 cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
 

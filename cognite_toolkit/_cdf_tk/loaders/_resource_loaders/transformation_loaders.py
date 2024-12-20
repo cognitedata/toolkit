@@ -210,8 +210,9 @@ class TransformationLoader(
 
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource_file(self, filepath: Path,
-                           ToolGlobals: CDFToolConfig) -> TransformationWrite | TransformationWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig
+    ) -> TransformationWrite | TransformationWriteList:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
