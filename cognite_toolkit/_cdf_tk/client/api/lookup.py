@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class LookUpAPI(ToolkitAPI, ABC):
-    dry_run: int = -1
+    dry_run_id: int = -1
 
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
         super().__init__(config, api_version, cognite_client)
@@ -25,20 +25,29 @@ class LookUpAPI(ToolkitAPI, ABC):
         return type(self).__name__.removesuffix("LookUpAPI")
 
     @overload
-    def id(self, external_id: str) -> int: ...
+    def id(self, external_id: str, is_dry_run: bool = False) -> int: ...
 
     @overload
-    def id(self, external_id: SequenceNotStr[str]) -> list[int]: ...
+    def id(self, external_id: SequenceNotStr[str], is_dry_run: bool = False) -> list[int]: ...
 
-    def id(self, external_id: str | SequenceNotStr[str]) -> int | list[int]:
+    def id(self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False) -> int | list[int]:
         ids = [external_id] if isinstance(external_id, str) else external_id
         missing = [id for id in ids if id not in self._cache]
         if missing:
             lookup = self._id(missing)
             self._cache.update(lookup)
             self._reverse_cache.update({v: k for k, v in lookup.items()})
-            if len(missing) != len(lookup):
-                raise ResourceRetrievalError(f"Failed to retrieve {self.resource_name} with external_id {missing}")
+            if len(missing) != len(lookup) and not is_dry_run:
+                raise ResourceRetrievalError(
+                    f"Failed to retrieve {self.resource_name} with external_id {missing}." "Have you created it?"
+                )
+        if is_dry_run:
+            return (
+                self._cache.get(external_id, self.dry_run_id)
+                if isinstance(external_id, str)
+                else [self._cache.get(id, self.dry_run_id) for id in ids]
+            )
+
         return self._cache[external_id] if isinstance(external_id, str) else [self._cache[id] for id in ids]
 
     @overload
@@ -47,7 +56,10 @@ class LookUpAPI(ToolkitAPI, ABC):
     @overload
     def external_id(self, id: Sequence[int]) -> list[str]: ...
 
-    def external_id(self, id: int | Sequence[int]) -> str | list[str]:
+    def external_id(
+        self,
+        id: int | Sequence[int],
+    ) -> str | list[str]:
         ids = [id] if isinstance(id, int) else id
         missing = [id_ for id_ in ids if id not in self._reverse_cache]
         if missing:
@@ -55,7 +67,9 @@ class LookUpAPI(ToolkitAPI, ABC):
             self._reverse_cache.update(lookup)
             self._cache.update({v: k for k, v in lookup.items()})
             if len(missing) != len(lookup):
-                raise ResourceRetrievalError(f"Failed to retrieve {self.resource_name} with id {missing}")
+                raise ResourceRetrievalError(
+                    f"Failed to retrieve {self.resource_name} with id {missing}." "Have you created it?"
+                )
         return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[id] for id in ids]
 
     @abstractmethod
@@ -121,6 +135,24 @@ class TimeSeriesLookUpAPI(LookUpAPI):
         }
 
 
+class ExtractionPipelineLookUpAPI(LookUpAPI):
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        return {
+            pipeline.external_id: pipeline.id
+            for pipeline in self._cognite_client.extraction_pipelines.retrieve_multiple(
+                external_ids=external_id, ignore_unknown_ids=True
+            )
+            if pipeline.external_id and pipeline.id
+        }
+
+    def _external_id(self, id: Sequence[int]) -> dict[int, str]:
+        return {
+            pipeline.id: pipeline.external_id
+            for pipeline in self._cognite_client.extraction_pipelines.retrieve_multiple(ids=id, ignore_unknown_ids=True)
+            if pipeline.external_id and pipeline.id
+        }
+
+
 class AllLookUpAPI(LookUpAPI, ABC):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
         super().__init__(config, api_version, cognite_client)
@@ -167,3 +199,4 @@ class LookUpGroup(ToolkitAPI):
         self.time_series = TimeSeriesLookUpAPI(config, api_version, cognite_client)
         self.security_categories = SecurityCategoriesLookUpAPI(config, api_version, cognite_client)
         self.location_filters = LocationFiltersLookUpAPI(config, api_version, cognite_client)
+        self.extraction_pipelines = ExtractionPipelineLookUpAPI(config, api_version, cognite_client)

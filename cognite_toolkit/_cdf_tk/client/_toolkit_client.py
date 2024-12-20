@@ -6,6 +6,7 @@ from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.robotics import RoboticsAPI
+from .api.verify import VerifyAPI
 
 
 class ToolkitClient(CogniteClient):
@@ -14,4 +15,5 @@ class ToolkitClient(CogniteClient):
         self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
+        self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
