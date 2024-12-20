@@ -483,6 +483,7 @@ class AuthCommand(ToolkitCommand):
         )
         if not missing_capabilities:
             print("  [bold green]OK[/]")
+            return
         self.warn(
             HighSeverityWarning(
                 "The service principal/application configured for this client "
@@ -498,6 +499,7 @@ class AuthCommand(ToolkitCommand):
         )
         if not missing:
             print("  [bold green]OK[/] - can continue with checks.")
+            return
         raise AuthorizationError(
             "Unable to continue, the service principal/application configured for this client does not"
             " have the basic read group access rights."
