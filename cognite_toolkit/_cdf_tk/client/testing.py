@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 from cognite.client.testing import CogniteClientMock
 
-from cognite_toolkit._cdf_tk.client.api_client import ToolkitClient
+from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
 from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI

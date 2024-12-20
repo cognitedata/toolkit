@@ -8,6 +8,6 @@ if TYPE_CHECKING:
 
 
 class ToolkitAPI(APIClient):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
         self._toolkit_client = cognite_client

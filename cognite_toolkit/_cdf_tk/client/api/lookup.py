@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 class LookUpAPI(ToolkitAPI, ABC):
     dry_run_id: int = -1
 
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
         self._cache: dict[str, int] = {}
         self._reverse_cache: dict[int, str] = {}
@@ -214,7 +214,7 @@ class ExtractionPipelineLookUpAPI(LookUpAPI):
 
 
 class AllLookUpAPI(LookUpAPI, ABC):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
         self._has_looked_up = False
 
@@ -264,7 +264,7 @@ class LocationFiltersLookUpAPI(AllLookUpAPI):
 
 
 class LookUpGroup(ToolkitAPI):
-    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: ToolkitClient) -> None:
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)
         self.data_sets = DataSetLookUpAPI(config, api_version, cognite_client)
         self.assets = AssetLookUpAPI(config, api_version, cognite_client)
