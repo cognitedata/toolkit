@@ -42,10 +42,9 @@ class VerifyAPI(ToolkitAPI):
 
         Args:
             capabilities (Capability | Sequence[Capability]): access capabilities to verify
-            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
 
-        Raises:
-            AuthorizationError: If the client does not have the required access rights
+        Returns:
+            list[Capability]: list of missing capabilities
 
         """
         with warnings.catch_warnings():
@@ -57,6 +56,13 @@ class VerifyAPI(ToolkitAPI):
 
     @staticmethod
     def create_error(missing_capabilities: Sequence[Capability], action: str | None = None) -> AuthorizationError:
+        """Create an AuthorizationError with a message that lists the missing capabilities
+
+        Args:
+            missing_capabilities (Sequence[Capability]): capabilities that are missing
+            action (str, optional): action that requires the capabilities. Defaults to None.
+
+        """
         if not missing_capabilities:
             raise ValueError("Bug in Toolkit. Tried creating an AuthorizationError without any missing capabilities.")
         missing = "  - \n".join(repr(c) for c in missing_capabilities)
