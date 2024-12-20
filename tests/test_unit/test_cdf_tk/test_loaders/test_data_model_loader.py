@@ -108,8 +108,8 @@ type GeneratingUnit {
             "GeneratingUnitModel",
         )
 
-        items = loader.load_resource_file(first_file, cdf_tool_mock, skip_validation=True)
-        items.extend(loader.load_resource_file(second_file, cdf_tool_mock, skip_validation=True))
+        items = loader.load_resource_file(first_file, cdf_tool_mock)
+        items.extend(loader.load_resource_file(second_file, cdf_tool_mock))
 
         loader.create(items)
 
@@ -138,8 +138,8 @@ name: String}""",
             "SolarModel",
         )
 
-        items = loader.load_resource_file(first_file, cdf_tool_mock, skip_validation=True)
-        items.extend(loader.load_resource_file(second_file, cdf_tool_mock, skip_validation=True))
+        items = loader.load_resource_file(first_file, cdf_tool_mock)
+        items.extend(loader.load_resource_file(second_file, cdf_tool_mock))
 
         with pytest.raises(ToolkitCycleError) as e:
             loader.create(items)
@@ -161,7 +161,7 @@ name: String}""",
         )
         loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
 
-        items = loader.load_resource_file(file, cdf_tool_mock, skip_validation=True)
+        items = loader.load_resource_file(file, cdf_tool_mock)
 
         assert len(items) == 1
         assert items[0].version == "3_0_2"

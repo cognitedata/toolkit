@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -51,25 +51,6 @@ def local_tmp_repo_path() -> Iterator[Path]:
     shutil.rmtree(repo_path, ignore_errors=True)
 
 
-def create_lookup_and_reverse_lookup_functions() -> tuple[Callable, Callable]:
-    counter = 0
-    lookup: dict[str, int] = {}
-    reverse_lookup: dict[int, str] = {}
-
-    def lookup_function(value: str, *_, **__) -> int:
-        if value not in lookup:
-            nonlocal counter
-            lookup[value] = counter
-            reverse_lookup[counter] = value
-            counter += 1
-        return lookup[value]
-
-    def reverse_lookup_function(value: int, *_, **__) -> str:
-        return reverse_lookup[value]
-
-    return lookup_function, reverse_lookup_function
-
-
 @pytest.fixture(scope="function")
 def cdf_tool_mock(
     toolkit_client_approval: ApprovalToolkitClient,
@@ -100,8 +81,6 @@ def cdf_tool_mock(
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool._login_flow = "client_credentials"
         cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]
@@ -117,12 +96,6 @@ def cdf_tool_mock(
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
 
-        verify_dataset, reverse_verify_dataset = create_lookup_and_reverse_lookup_functions()
-        cdf_tool.verify_dataset.side_effect = verify_dataset
-        cdf_tool.reverse_verify_dataset.side_effect = reverse_verify_dataset
-
-        cdf_tool.verify_asset.return_value = 666
-        cdf_tool.data_set_id = 999
         yield cdf_tool
 
     for key, value in existing.items():

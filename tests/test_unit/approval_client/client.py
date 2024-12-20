@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json as JSON
 from collections import defaultdict
@@ -55,11 +56,12 @@ from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
+from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
 from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
@@ -79,6 +81,44 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
 del cap, scopes, names, action, scope
 
 
+class LookUpAPIMock:
+    def __init__(self):
+        self._reverse_cache: dict[int, str] = {}
+
+    @staticmethod
+    def _create_id(string: str) -> int:
+        # This simulates CDF setting the internal ID.
+        # By using hashing, we will always get the same ID for the same string.
+        # Thus, the ID will be consistent between runs and can be used in snapshots.
+        hash_object = hashlib.sha256(string.encode())
+        hex_dig = hash_object.hexdigest()
+        hash_int = int(hex_dig[:16], 16)
+        return hash_int
+
+    def id(self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False) -> int | list[int]:
+        if isinstance(external_id, str):
+            id_ = self._create_id(external_id)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = external_id
+            return id_
+        output: list[int] = []
+        for ext_id in external_id:
+            id_ = self._create_id(ext_id)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = ext_id
+            output.append(id_)
+        return output
+
+    def external_id(
+        self,
+        id: int | Sequence[int],
+    ) -> str | list[str]:
+        try:
+            return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
+        except KeyError:
+            raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
+
+
 class ApprovalToolkitClient:
     """A mock CogniteClient that is used for testing the clean, deploy commands
     of the cognite-toolkit.
@@ -88,7 +128,7 @@ class ApprovalToolkitClient:
 
     """
 
-    def __init__(self, mock_client: CogniteClientMock):
+    def __init__(self, mock_client: ToolkitClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
         self.mock_client._config = "config"
@@ -119,6 +159,14 @@ class ApprovalToolkitClient:
         # Set project
         self.mock_client.config.project = "test_project"
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
+        # Setup mock for all lookup methods
+        for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
+            if method_name.startswith("_") or method_name == "method_calls":
+                continue
+            mock_lookup = LookUpAPIMock()
+            lookup_api.id.side_effect = mock_lookup.id
+            lookup_api.external_id.side_effect = mock_lookup.external_id
+        self.mock_client.verify.authorization.return_value = []
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -1002,6 +1050,12 @@ class ApprovalToolkitClient:
             else:
                 raise ValueError(f"Invalid api name {r.api_name}")
             mocked_apis[api_name] |= {sub_api} if sub_api else set()
+        # These are mocked in the __init__ method
+        for name, method in self.mock_client.lookup.__dict__.items():
+            if not isinstance(method, MagicMock) or name.startswith("_") or name.startswith("assert_"):
+                continue
+            mocked_apis["lookup"].add(name)
+        mocked_apis["verify"] = {"authorization"}
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():

@@ -91,45 +91,27 @@ class LocationFilterLoader(
         return {"externalId": id}
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> LocationFilterWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
             if "parentExternalId" in raw:
                 parent_external_id = raw.pop("parentExternalId")
-                raw["parentId"] = ToolGlobals.verify_locationfilter(
-                    parent_external_id, skip_validation, action="replace parentExternalId with parentExternalId"
-                )
-
+                raw["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
             if "assetCentric" not in raw:
                 continue
             asset_centric = raw["assetCentric"]
             if "dataSetExternalIds" in asset_centric:
                 data_set_external_ids = asset_centric.pop("dataSetExternalIds")
-                asset_centric["dataSetIds"] = [
-                    ToolGlobals.verify_dataset(
-                        data_set_external_id,
-                        skip_validation,
-                        action="replace dataSetExternalIds with dataSetIds in location filter",
-                    )
-                    for data_set_external_id in data_set_external_ids
-                ]
+                asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
             for subfilter_name in self.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 if "dataSetExternalIds" in subfilter:
                     data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
-                    asset_centric[subfilter_name]["dataSetIds"] = [
-                        ToolGlobals.verify_dataset(
-                            data_set_external_id,
-                            skip_validation,
-                            action="replace dataSetExternalIds with dataSetIds in location filter",
-                        )
-                        for data_set_external_id in data_set_external_ids
-                    ]
+                    asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(
+                        data_set_external_ids, is_dry_run
+                    )
+
         return LocationFilterWriteList._load(raw_list)
 
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:

@@ -48,51 +48,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -142,51 +142,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -236,51 +236,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -330,37 +330,37 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 8524431518038195316
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 10875617807794485048
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -405,7 +405,7 @@ Space:
   space: sp_infield_oid_app_data
 Transformation:
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 17668258978621355368
   destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
@@ -447,7 +447,7 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 17668258978621355368
   destination:
     dataModel:
       destinationType: APM_Activity

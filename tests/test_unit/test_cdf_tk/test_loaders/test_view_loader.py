@@ -62,11 +62,9 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_update_view_with_interface(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
+    def test_update_view_with_interface(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
         prop1 = dm.MappedProperty(
             dm.ContainerId(space="sp_space", external_id="container_id"),
             "prop1",
@@ -115,7 +113,7 @@ class TestViewLoader:
         # Simulating that the interface and child_cdf are available in CDF
         toolkit_client_approval.append(dm.View, [interface, child_cdf])
 
-        loader = ViewLoader.create_loader(cdf_tool, None)
+        loader = ViewLoader.create_loader(cdf_tool_mock, None)
         cmd = DeployCommand(print_warning=False)
         to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
             dm.ViewApplyList([child_local]), loader

@@ -243,8 +243,8 @@ class DeployCommand(ToolkitCommand):
             return ResourceDeployResult(name=loader.display_name)
 
         capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
-        if capabilities:
-            ToolGlobals.verify_authorization(capabilities, action=f"deploy {loader.display_name}")
+        if capabilities and (missing := ToolGlobals.toolkit_client.verify.authorization(capabilities)):
+            raise ToolGlobals.toolkit_client.verify.create_error(missing, action=f"deploy {loader.display_name}")
 
         nr_of_items = len(loaded_resources)
         if nr_of_items == 0:
