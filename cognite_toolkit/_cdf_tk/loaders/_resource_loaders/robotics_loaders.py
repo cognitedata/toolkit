@@ -63,7 +63,9 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[FrameWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[FrameWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
@@ -129,7 +131,9 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[LocationWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[LocationWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         actions = (
@@ -380,7 +384,9 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[MapWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[MapWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 

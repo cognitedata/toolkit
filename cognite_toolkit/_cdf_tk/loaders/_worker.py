@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Literal, overload
+from typing import Any, Generic, Literal, overload
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -21,7 +21,9 @@ from cognite_toolkit._cdf_tk.utils import to_diff
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 
 
-class ResourceWorker:
+class ResourceWorker(
+    Generic[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList]
+):
     def __init__(
         self,
         loader: ResourceLoader[
@@ -88,7 +90,7 @@ class ResourceWorker:
         | tuple[T_WritableCogniteResourceList, list[T_ID]]
     ):
         duplicates: list[T_ID] = []
-        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}  # type: ignore[assignment]
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables if self.loader.do_environment_variable_injection else {}
         for filepath in filepaths:
@@ -99,11 +101,11 @@ class ResourceWorker:
             for resource_dict in resource_list:
                 identifier = self.loader.get_id(resource_dict)
                 if identifier in local_by_id:
-                    duplicates.append(identifier)
+                    duplicates.append(identifier)  # type: ignore[assignment, arg-type]
                 else:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
                     loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
-                    local_by_id[identifier] = resource_dict, loaded
+                    local_by_id[identifier] = resource_dict, loaded  # type: ignore[assignment, index]
 
         capabilities = self.loader.get_required_capability(
             [item for _, item in local_by_id.values()], read_only=is_dry_run
@@ -112,17 +114,21 @@ class ResourceWorker:
             raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
 
         # Lookup the existing resources in CDF
-        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
+        cdf_resources: T_WritableCogniteResourceList
+        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))  # type: ignore[assignment]
         if return_existing:
             return cdf_resources, duplicates
 
+        to_create: T_CogniteResourceList
+        to_update: T_CogniteResourceList
+        unchanged: T_CogniteResourceList
         to_create, to_update, unchanged = (
-            self.loader.list_write_cls([]),
-            self.loader.list_write_cls([]),
-            self.loader.list_write_cls([]),
+            self.loader.list_write_cls([]),  # type: ignore[assignment]
+            self.loader.list_write_cls([]),  # type: ignore[assignment]
+            self.loader.list_write_cls([]),  # type: ignore[assignment]
         )
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
-        for identifier, (local_dict, local_resource) in local_by_id.items():
+        for identifier, (local_dict, local_resource) in local_by_id.items():  # type: ignore[assignment]
             cdf_resource = cdf_resource_by_id.get(identifier)
             if cdf_resource is None:
                 to_create.append(local_resource)
