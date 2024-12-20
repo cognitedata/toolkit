@@ -253,8 +253,8 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
         location_filters = self._toolkit_client.location_filters.list()
-        self._cache = {location_filter.name: location_filter.id for location_filter in location_filters}
-        self._reverse_cache = {location_filter.id: location_filter.name for location_filter in location_filters}
+        self._cache = {location_filter.external_id: location_filter.id for location_filter in location_filters}
+        self._reverse_cache = {location_filter.id: location_filter.external_id for location_filter in location_filters}
 
     def _read_acl(self) -> Capability:
         return LocationFiltersAcl(
