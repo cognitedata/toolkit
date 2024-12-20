@@ -37,7 +37,7 @@ class VerifyAPI(ToolkitAPI):
                     ) from e
         return self._token_inspect
 
-    def authorization(self, capabilities: Capability | Sequence[Capability], action: str | None = None) -> None:
+    def authorization(self, capabilities: Capability | Sequence[Capability]) -> list[Capability]:
         """Verify that the client has correct credentials and required access rights
 
         Args:
@@ -53,19 +53,21 @@ class VerifyAPI(ToolkitAPI):
             # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
             # This is irrelevant for the user as we are only checking the capabilities that are known.
             warnings.simplefilter("ignore")
-            missing_capabilities = self._toolkit_client.iam.compare_capabilities(
-                self.token_inspect.capabilities, capabilities
-            )
-        if missing_capabilities:
-            missing = "  - \n".join(repr(c) for c in missing_capabilities)
-            first_sentence = "Don't have correct access rights"
-            if action:
-                first_sentence += f" to {action}."
-            else:
-                first_sentence += "."
+            return self._toolkit_client.iam.compare_capabilities(self.token_inspect.capabilities, capabilities)
 
-            raise AuthorizationError(
-                f"{first_sentence} Missing:\n{missing}\n"
-                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
-                "and ensure that you have setup authentication for the CDF toolkit correctly."
-            )
+    @staticmethod
+    def create_error(missing_capabilities: Sequence[Capability], action: str | None = None) -> AuthorizationError:
+        if not missing_capabilities:
+            raise ValueError("Bug in Toolkit. Tried creating an AuthorizationError without any missing capabilities.")
+        missing = "  - \n".join(repr(c) for c in missing_capabilities)
+        first_sentence = "Don't have correct access rights"
+        if action:
+            first_sentence += f" to {action}."
+        else:
+            first_sentence += "."
+
+        return AuthorizationError(
+            f"{first_sentence} Missing:\n{missing}\n"
+            f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
+            "and ensure that you have setup authentication for the CDF toolkit correctly."
+        )
