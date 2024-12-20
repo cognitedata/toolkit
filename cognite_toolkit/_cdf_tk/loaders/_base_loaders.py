@@ -268,18 +268,20 @@ class ResourceLoader(
 
     def load_resource_file(
         self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> T_CogniteResourceList:
+    ) -> list[dict[str, Any]]:
         use_environment_variables = (
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+
+    def load_resources(self, resources: list[dict[str, Any]], is_dry_run: bool = False) -> T_CogniteResourceList:
         items = self.list_write_cls([])
-        for raw_item in raw_list:
-            items.append(self.load_resource(raw_item, is_dry_run))
+        for resource in resources:
+            items.append(self._load_resource(resource, is_dry_run))
         return items
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
+    def _load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
@@ -291,7 +293,7 @@ class ResourceLoader(
 
         Args:
             resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            local (T_WriteClass): The local resource.
+            local (dict[str, Any]): The local resource.
         """
         return resource.as_write().dump()
 
