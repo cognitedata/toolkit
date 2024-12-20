@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
 from pathlib import Path
 from typing import Any, Literal, overload
 
@@ -100,7 +101,8 @@ class ResourceWorker:
                 if identifier in local_by_id:
                     duplicates.append(identifier)
                 else:
-                    loaded = self.loader.load_resource(resource_dict, is_dry_run)
+                    # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
+                    loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
                     local_by_id[identifier] = resource_dict, loaded
 
         capabilities = self.loader.get_required_capability(

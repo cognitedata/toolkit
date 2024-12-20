@@ -287,25 +287,21 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> ContainerApply | ContainerApplyList:
-        dict_items = resource if isinstance(resource, list) else [resource]
-        for raw_instance in dict_items:
-            for prop in raw_instance.get("properties", {}).values():
-                type_ = prop.get("type", {})
-                if "list" not in type_:
-                    # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-                    # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-                    # is used as read and write in the SDK, and the read class has it required while the write class does not)
-                    type_["list"] = False
-                # Todo Bug in SDK, not setting defaults on load
-                if "nullable" not in prop:
-                    prop["nullable"] = False
-                if "autoIncrement" not in prop:
-                    prop["autoIncrement"] = False
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ContainerApply:
+        for prop in resource.get("properties", {}).values():
+            type_ = prop.get("type", {})
+            if "list" not in type_:
+                # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+                # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+                # is used as read and write in the SDK, and the read class has it required while the write class does not)
+                type_["list"] = False
+            # Todo Bug in SDK, not setting defaults on load
+            if "nullable" not in prop:
+                prop["nullable"] = False
+            if "autoIncrement" not in prop:
+                prop["autoIncrement"] = False
 
-        return ContainerApplyList.load(dict_items)
+        return ContainerApply._load(resource)
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
@@ -924,40 +920,25 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def _are_equal(
-        self,
-        local: NodeApply,
-        cdf_resource: Node,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """Comparison for nodes to include properties in the comparison
-
-        Note this is an expensive operation as we to an extra retrieve to fetch the properties.
-        Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
-        """
-        local_dumped = local.dump()
-        # Note reading from a container is not supported.
-        sources = [
-            source_prop_pair.source
-            for source_prop_pair in local.sources or []
-            if isinstance(source_prop_pair.source, ViewId)
-        ]
+    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+        # CDF resource does not have properties set, so we need to do a lookup
+        sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                nodes=cdf_resource.as_id(), sources=sources
+                nodes=resource.as_id(), sources=sources
             ).nodes[0]
         except CogniteAPIError:
-            # View does not exist, so node does not exist.
-            return self._return_are_equal(local_dumped, {}, return_dumped)
-        cdf_dumped = cdf_resource_with_properties.as_write().dump()
+            # View does not exist
+            dumped = resource.as_write().dump()
+        else:
+            dumped = cdf_resource_with_properties.as_write().dump()
 
-        if "existingVersion" not in local_dumped:
+        if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
-            local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
+            dumped.pop("existingVersion", None)
 
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return dumped
 
     def dump_resource_legacy(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
@@ -1098,64 +1079,32 @@ class GraphQLLoader(
         if "space" in item:
             yield SpaceLoader, item["space"]
 
-    def _are_equal(
-        self,
-        local: GraphQLDataModelWrite,
-        cdf_resource: GraphQLDataModel,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_graphql_file = self._get_graphql_content(local.as_id())
-
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        local_dumped["graphql_file"] = calculate_str_or_file_hash(local_graphql_file)[:8]
-
-        description = cdf_resource.description or ""
-        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
-            cdf_dumped["graphql_file"] = match.group(3)
-            description = description[: -len(match.group(2))]
-            cdf_dumped["description"] = description
-        else:
-            cdf_dumped["graphql_file"] = ""
-
-        # Reference to the GraphQL file will cause the comparison to always be False.
-        local_dumped.pop("dml", None)
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> GraphQLDataModelWriteList:
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] = None
+    ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables if self.do_environment_variable_injection else {}
         )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run)
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> GraphQLDataModelWriteList:
-        if filepath is None:
-            raise ValueError("filepath must be set when loading a GraphQL schema.")
-        raw_list = resource if isinstance(resource, list) else [resource]
-        models = GraphQLDataModelWriteList._load(raw_list)
-
-        # Find the GraphQL files adjacent to the DML files
-        for model in models:
+        for item in raw_list:
+            model_id = self.get_id(item)
+            # Find the GraphQL files adjacent to the DML files
             graphql_file = filepath.with_suffix(".graphql")
-
             if not graphql_file.is_file():
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
                 )
-            model_id = model.as_id()
+
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file)
+
             parser = GraphQLParser(graphql_content, model_id)
             try:
                 for view in parser.get_views():
@@ -1164,7 +1113,29 @@ class GraphQLLoader(
             except Exception as e:
                 # We catch a broad exception here to give a more user-friendly error message.
                 raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
-        return models
+
+            # Add hash to description
+            description = item.get("description", "")
+            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            suffix = f"{self._hash_name}{hash_}"
+            if len(description) + len(suffix) > 1024:
+                LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
+                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
+            description += f" {suffix}"
+            item["description"] = description
+            item["graphqlFile"] = hash_
+        return raw_list
+
+    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "dml" in local:
+            # Reference to the GraphQL file will cause the comparison to always be False
+            dumped["dml"] = local["dml"]
+
+        description = resource.description or ""
+        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
+            dumped["graphqlFile"] = match.group(3)
+        return dumped
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
         creation_order = self._topological_sort(items)
@@ -1173,15 +1144,6 @@ class GraphQLLoader(
         for item in creation_order:
             item_id = item.as_id()
             graphql_file_content = self._get_graphql_content(item_id)
-
-            # Add hash to description
-            description = item.description or ""
-            hash_ = calculate_str_or_file_hash(graphql_file_content)[:8]
-            suffix = f"{self._hash_name}{hash_}"
-            if len(description) + len(suffix) > 1024:
-                print(LowSeverityWarning(f"Description is above limit for {item_id}. Truncating..."))
-                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
-            description += f" {suffix}"
             if "--verbose" in sys.argv:
                 print(f"Deploying GraphQL schema {item_id}")
 
@@ -1189,7 +1151,7 @@ class GraphQLLoader(
                 item.as_id(),
                 dml=graphql_file_content,
                 name=item.name,
-                description=description,
+                description=item.description,
                 previous_version=item.previous_version,
                 preserve_dml=item.preserve_dml,
             )
@@ -1324,40 +1286,25 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def _are_equal(
-        self,
-        local: EdgeApply,
-        cdf_resource: Edge,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """Comparison for edges to include properties in the comparison
-
-        Note this is an expensive operation as we to an extra retrieve to fetch the properties.
-        Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
-        """
-        local_dumped = local.dump()
-        # Note reading from a container is not supported.
-        sources = [
-            source_prop_pair.source
-            for source_prop_pair in local.sources or []
-            if isinstance(source_prop_pair.source, ViewId)
-        ]
+    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+        # CDF resource does not have properties set, so we need to do a lookup
+        sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                edges=cdf_resource.as_id(), sources=sources
+                nodes=resource.as_id(), sources=sources
             ).edges[0]
         except CogniteAPIError:
-            # View does not exist, so node does not exist.
-            return self._return_are_equal(local_dumped, {}, return_dumped)
-        cdf_dumped = cdf_resource_with_properties.as_write().dump()
+            # View does not exist
+            dumped = resource.as_write().dump()
+        else:
+            dumped = cdf_resource_with_properties.as_write().dump()
 
-        if "existingVersion" not in local_dumped:
+        if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
-            local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
+            dumped.pop("existingVersion", None)
 
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return dumped
 
     def dump_resource_legacy(
         self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply
