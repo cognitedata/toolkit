@@ -182,7 +182,7 @@ class ResourceLoader(
     @classmethod
     @abstractmethod
     def get_required_capability(
-        cls, items: T_CogniteResourceList | None, read_only: bool
+        cls, items: Sequence[T_WriteClass] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
@@ -269,12 +269,12 @@ class ResourceLoader(
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        """ "Loads the resource(s) from a file. CAn be overwritten in subclasses.
+        """Loads the resource(s) from a file. CAn be overwritten in subclasses.
 
         Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
-        raw_yaml = load_yaml_inject_variables(filepath, environment_variables or {})
+        raw_yaml = load_yaml_inject_variables(filepath, environment_variables if self.do_environment_variable_injection else {})
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
