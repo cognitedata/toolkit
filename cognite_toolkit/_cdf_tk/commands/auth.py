@@ -130,7 +130,7 @@ class AuthCommand(ToolkitCommand):
 
         print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
 
-        self.check_has_group_access(ToolGlobals)
+        self.check_has_group_access(ToolGlobals.toolkit_client)
 
         self.check_identity_provider(ToolGlobals, cdf_project)
 
@@ -460,56 +460,48 @@ class AuthCommand(ToolkitCommand):
                 f"The service principal/application configured for this client does not have access to the CDF_PROJECT={cdf_project!r}."
             )
 
-    def check_has_group_access(self, ToolGlobals: CDFToolConfig) -> None:
+    def check_has_group_access(self, client: ToolkitClient) -> None:
         # Todo rewrite to use the token inspection instead.
         print(
             "Checking basic project and group manipulation access rights "
             "(projectsAcl: LIST, READ and groupsAcl: LIST, READ, CREATE, UPDATE, DELETE)..."
         )
-        with warnings.catch_warnings():
-            # If the user has unknown capabilities, we don't want the user to see the warning:
-            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
-            # This is irrelevant for the user as we are only checking the capabilities below
-            # (triggered by the verify_authorization calls)
-            warnings.simplefilter("ignore")
-            try:
-                ToolGlobals.verify_authorization(
+        missing_capabilities = client.verify.authorization(
+            [
+                ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
+                GroupsAcl(
                     [
-                        ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                        GroupsAcl(
-                            [
-                                GroupsAcl.Action.Read,
-                                GroupsAcl.Action.List,
-                                GroupsAcl.Action.Create,
-                                GroupsAcl.Action.Update,
-                                GroupsAcl.Action.Delete,
-                            ],
-                            GroupsAcl.Scope.All(),
-                        ),
-                    ]
-                )
-                print("  [bold green]OK[/]")
-            except AuthorizationError:
-                self.warn(
-                    HighSeverityWarning(
-                        "The service principal/application configured for this client "
-                        "does not have the basic group write access rights."
-                    )
-                )
-                print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
-                try:
-                    ToolGlobals.verify_authorization(
-                        capabilities=[
-                            ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
-                            GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
-                        ]
-                    )
-                    print("  [bold green]OK[/] - can continue with checks.")
-                except AuthorizationError:
-                    raise AuthorizationError(
-                        "Unable to continue, the service principal/application configured for this client does not"
-                        " have the basic read group access rights."
-                    )
+                        GroupsAcl.Action.Read,
+                        GroupsAcl.Action.List,
+                        GroupsAcl.Action.Create,
+                        GroupsAcl.Action.Update,
+                        GroupsAcl.Action.Delete,
+                    ],
+                    GroupsAcl.Scope.All(),
+                ),
+            ]
+        )
+        if not missing_capabilities:
+            print("  [bold green]OK[/]")
+        self.warn(
+            HighSeverityWarning(
+                "The service principal/application configured for this client "
+                "does not have the basic group write access rights."
+            )
+        )
+        print("Checking basic group read access rights (projectsAcl: LIST, READ and groupsAcl: LIST, READ)...")
+        missing = client.verify.authorization(
+            [
+                ProjectsAcl([ProjectsAcl.Action.List, ProjectsAcl.Action.Read], ProjectsAcl.Scope.All()),
+                GroupsAcl([GroupsAcl.Action.Read, GroupsAcl.Action.List], GroupsAcl.Scope.All()),
+            ]
+        )
+        if not missing:
+            print("  [bold green]OK[/] - can continue with checks.")
+        raise AuthorizationError(
+            "Unable to continue, the service principal/application configured for this client does not"
+            " have the basic read group access rights."
+        )
 
     def check_identity_provider(self, ToolGlobals: CDFToolConfig, cdf_project: str) -> None:
         print("Checking identity provider settings...")

@@ -15,7 +15,7 @@ from _pytest.mark import ParameterSet
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock, monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
 from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -34,17 +34,6 @@ from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
 from tests.test_unit.utils import PrintCapture
-
-
-def mocked_init(self):
-    self._toolkit_client = ToolkitClientMock()
-    self._cache = CDFToolConfig._Cache()
-
-
-def test_init():
-    with patch.object(CDFToolConfig, "__init__", mocked_init):
-        instance = CDFToolConfig()
-        assert isinstance(instance._toolkit_client, ToolkitClientMock)
 
 
 class TestLoadYamlInjectVariables:

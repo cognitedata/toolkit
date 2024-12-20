@@ -166,6 +166,7 @@ class ApprovalToolkitClient:
             mock_lookup = LookUpAPIMock()
             lookup_api.id.side_effect = mock_lookup.id
             lookup_api.external_id.side_effect = mock_lookup.external_id
+        self.mock_client.verify.authorization.return_value = []
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -1049,11 +1050,12 @@ class ApprovalToolkitClient:
             else:
                 raise ValueError(f"Invalid api name {r.api_name}")
             mocked_apis[api_name] |= {sub_api} if sub_api else set()
-        # Adding all lookup, these are mocked in the __init__ method
+        # These are mocked in the __init__ method
         for name, method in self.mock_client.lookup.__dict__.items():
             if not isinstance(method, MagicMock) or name.startswith("_") or name.startswith("assert_"):
                 continue
             mocked_apis["lookup"].add(name)
+        mocked_apis["verify"] = {"authorization"}
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():

@@ -70,17 +70,12 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 def test_loader_class(
     loader_cls: type[ResourceLoader],
     toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
     data_regression: DataRegressionFixture,
 ):
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-    cdf_tool.client = toolkit_client_approval.mock_client
-    cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-    cdf_tool.data_set_id = 999
-
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool, LOAD_DATA)
-    cmd.deploy_resources(loader, cdf_tool, BuildEnvironment(), dry_run=False)
+    loader = loader_cls.create_loader(cdf_tool_mock, LOAD_DATA)
+    cmd.deploy_resources(loader, cdf_tool_mock, BuildEnvironment(), dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
@@ -100,7 +95,7 @@ def has_auth(params: ParameterSpecSet) -> bool:
 
 
 class TestDeployResources:
-    def test_deploy_resource_order(self, toolkit_client_approval: ApprovalToolkitClient):
+    def test_deploy_resource_order(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
         build_env_name = "dev"
         cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
@@ -110,13 +105,11 @@ class TestDeployResources:
             BUILD_DIR, PROJECT_FOR_TEST, config=config, packages=cdf_toml.modules.packages, clean=True, verbose=False
         )
         expected_order = ["MyView", "MyOtherView"]
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(ViewLoader.create_loader(cdf_tool, BUILD_DIR), cdf_tool, BuildEnvironment(), dry_run=False)
+        cmd.deploy_resources(
+            ViewLoader.create_loader(cdf_tool_mock, BUILD_DIR), cdf_tool_mock, BuildEnvironment(), dry_run=False
+        )
 
         views = toolkit_client_approval.dump(sort=False)["View"]
 

@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import pytest
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 
@@ -29,14 +27,12 @@ def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
 class TestLocationFilterLoader:
     def test_load_minimum_location_filter(
         self,
+        cdf_tool_mock: CDFToolConfig,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-
-        loader = LocationFilterLoader.create_loader(cdf_tool, None)
+        loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool, is_dry_run=False
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool_mock, is_dry_run=False
         )
         assert isinstance(loaded, LocationFilterWriteList)
         assert len(loaded) == 1

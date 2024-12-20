@@ -177,7 +177,7 @@ class TestAuthCommand:
         def mock_verify_client(*args, **kwargs):
             raise Exception("No capabilities")
 
-        cdf_tool_config.verify_authorization.side_effect = mock_verify_client
+        cdf_tool_config.toolkit_client.verify.authorization.side_effect = mock_verify_client
         cmd = AuthCommand(print_warning=False)
         with pytest.raises(AuthorizationError) as e:
             cmd.verify(cdf_tool_config, False, no_prompt=True)

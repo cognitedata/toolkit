@@ -17,8 +17,6 @@ import itertools
 import json
 import os
 import shutil
-import warnings
-from collections.abc import Sequence
 from dataclasses import _MISSING_TYPE, dataclass, field, fields
 from pathlib import Path
 from typing import Any, Literal, TypeAlias, overload
@@ -35,10 +33,6 @@ from cognite.client.credentials import (
     Token,
 )
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    Capability,
-)
-from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich import print
@@ -48,11 +42,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     TOOLKIT_CLIENT_ENTRA_ID,
-    URL,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
-    AuthorizationError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSeverityWarning
@@ -506,23 +498,8 @@ class CDFToolConfig:
 
     Properties:
         toolkit_client: active ToolkitClient
-    Functions:
-        verify_client: verify that the client has correct credentials and specified access capabilities
-        verify_dataset: verify that the data set exists and that the client has access to it
 
     """
-
-    @dataclass
-    class _Cache:
-        existing_spaces: set[str] = field(default_factory=set)
-        data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        data_set_external_id_by_id: dict[int, str] = field(default_factory=dict)
-        extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        security_categories_by_name: dict[str, int] = field(default_factory=dict)
-        asset_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        timeseries_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        locationfilter_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        token_inspect: TokenInspection | None = None
 
     def __init__(
         self,
@@ -533,7 +510,6 @@ class CDFToolConfig:
         auth_vars: AuthVariables | None = None,
         skip_initialization: bool = False,
     ) -> None:
-        self._cache = self._Cache()
         self._environ: dict[str, str | None] = {}
         # If cluster, project, or token are passed as arguments, we override the environment variables.
         # This means these will be used when we initialize the CogniteClient when we initialize from
@@ -800,59 +776,6 @@ class CDFToolConfig:
 
         self._environ[attr] = var
         return var
-
-    @property
-    def _token_inspection(self) -> TokenInspection:
-        if self._cache.token_inspect is None:
-            with warnings.catch_warnings():
-                # If the user has unknown capabilities, we don't want the user to see the warning:
-                # "UserWarning: Unknown capability '<unknown warning>'.
-                warnings.simplefilter("ignore")
-                try:
-                    self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
-                except CogniteAPIError as e:
-                    raise AuthorizationError(
-                        f"Don't seem to have any access rights. {e}\n"
-                        f"Please visit [link={URL.configure_access}]the documentation[/link] "
-                        f"and ensure you have configured your access correctly."
-                    ) from e
-        return self._cache.token_inspect
-
-    def verify_authorization(
-        self, capabilities: Capability | Sequence[Capability], action: str | None = None
-    ) -> ToolkitClient:
-        """Verify that the client has correct credentials and required access rights
-
-        Args:
-            capabilities (Capability | Sequence[Capability]): access capabilities to verify
-            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
-
-        Returns:
-            ToolkitClient: Verified client with access rights
-        """
-        token_inspect = self._token_inspection
-        with warnings.catch_warnings():
-            # If the user has unknown capabilities, we don't want the user to see the warning:
-            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
-            # This is irrelevant for the user as we are only checking the capabilities that are known.
-            warnings.simplefilter("ignore")
-            missing_capabilities = self.toolkit_client.iam.compare_capabilities(
-                token_inspect.capabilities, capabilities
-            )
-        if missing_capabilities:
-            missing = "  - \n".join(repr(c) for c in missing_capabilities)
-            first_sentence = "Don't have correct access rights"
-            if action:
-                first_sentence += f" to {action}."
-            else:
-                first_sentence += "."
-
-            raise AuthorizationError(
-                f"{first_sentence} Missing:\n{missing}\n"
-                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
-                "and ensure that you have setup authentication for the CDF toolkit correctly."
-            )
-        return self.toolkit_client
 
     def create_client(self, credentials: ClientCredentials) -> ToolkitClient:
         if self._auth_vars.token_url is None or self._auth_vars.scopes is None:

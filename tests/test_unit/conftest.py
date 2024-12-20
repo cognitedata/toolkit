@@ -81,8 +81,6 @@ def cdf_tool_mock(
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool._login_flow = "client_credentials"
         cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]

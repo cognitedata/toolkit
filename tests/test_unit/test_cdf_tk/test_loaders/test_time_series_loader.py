@@ -46,15 +46,12 @@ description: PH 1stStgSuctCool Gas Out
         cdf_tool_real: CDFToolConfig,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        cdf_tool_real._cache.data_set_id_by_external_id["ds_timeseries_oid"] = 12345
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
         data_set_external_id = ts_dict["dataSetExternalId"]
         expected_id = LookUpAPIMock._create_id(data_set_external_id)
 
-        mock_read_yaml_file({"timeseries.yaml": ts_dict}, monkeypatch)
-
-        loaded = loader.load_resource_file(Path("timeseries.yaml"), cdf_tool_real, is_dry_run=True)
+        loaded = loader.load_resource(ts_dict, is_dry_run=True)
 
         assert len(loaded) == 1
         assert loaded[0].data_set_id == expected_id
