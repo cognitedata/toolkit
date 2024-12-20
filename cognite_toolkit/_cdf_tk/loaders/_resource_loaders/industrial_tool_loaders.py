@@ -85,11 +85,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> StreamlitWriteList:
         if not filepath:
             raise ToolkitRequiredValueError("Filepath must be set when loading Streamlit apps.")
@@ -98,7 +94,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in streamlit"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in streamlit"
                 )
         loaded = cast(StreamlitWriteList, StreamlitWriteList._load(resources))
         for item in loaded:

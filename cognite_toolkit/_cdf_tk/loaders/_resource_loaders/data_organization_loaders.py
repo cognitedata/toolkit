@@ -95,11 +95,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         return {"externalId": id}
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> DataSetWriteList:
         data_sets = [resource] if isinstance(resource, dict) else resource
 
@@ -273,11 +269,7 @@ class LabelLoader(
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> LabelDefinitionWrite | LabelDefinitionWriteList:
         items: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for item in items:
@@ -285,7 +277,7 @@ class LabelLoader(
                 ds_external_id = item.pop("dataSetExternalId")
                 item["dataSetId"] = ToolGlobals.verify_dataset(
                     ds_external_id,
-                    skip_validation=skip_validation,
+                    skip_validation=is_dry_run,
                     action="replace dataSetExternalId with dataSetId in label",
                 )
         loaded = LabelDefinitionWriteList.load(items)

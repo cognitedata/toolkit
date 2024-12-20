@@ -91,18 +91,14 @@ class LocationFilterLoader(
         return {"externalId": id}
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> LocationFilterWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
             if "parentExternalId" in raw:
                 parent_external_id = raw.pop("parentExternalId")
                 raw["parentId"] = ToolGlobals.verify_locationfilter(
-                    parent_external_id, skip_validation, action="replace parentExternalId with parentExternalId"
+                    parent_external_id, is_dry_run, action="replace parentExternalId with parentExternalId"
                 )
 
             if "assetCentric" not in raw:
@@ -113,7 +109,7 @@ class LocationFilterLoader(
                 asset_centric["dataSetIds"] = [
                     ToolGlobals.verify_dataset(
                         data_set_external_id,
-                        skip_validation,
+                        is_dry_run,
                         action="replace dataSetExternalIds with dataSetIds in location filter",
                     )
                     for data_set_external_id in data_set_external_ids
@@ -125,7 +121,7 @@ class LocationFilterLoader(
                     asset_centric[subfilter_name]["dataSetIds"] = [
                         ToolGlobals.verify_dataset(
                             data_set_external_id,
-                            skip_validation,
+                            is_dry_run,
                             action="replace dataSetExternalIds with dataSetIds in location filter",
                         )
                         for data_set_external_id in data_set_external_ids

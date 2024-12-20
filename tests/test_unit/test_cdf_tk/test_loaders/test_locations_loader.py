@@ -20,7 +20,7 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
     loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
     loaded = loader.load_resource_file(
-        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock, skip_validation=False
+        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock, is_dry_run=False
     )
     assert len(loaded) == 1
     return loaded[0]
@@ -36,7 +36,7 @@ class TestLocationFilterLoader:
 
         loader = LocationFilterLoader.create_loader(cdf_tool, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool, skip_validation=False
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool, is_dry_run=False
         )
         assert isinstance(loaded, LocationFilterWriteList)
         assert len(loaded) == 1

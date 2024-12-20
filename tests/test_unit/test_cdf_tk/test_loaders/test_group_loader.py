@@ -26,25 +26,25 @@ class TestGroupLoader:
     def test_load_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, is_dry_run=False
         )
         assert loaded.name == "unscoped_group_name"
 
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, is_dry_run=False
         )
         assert loaded == []
 
     def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock, is_dry_run=False
         )
 
         assert loaded == []
 
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, is_dry_run=False
         )
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
@@ -59,7 +59,7 @@ class TestGroupLoader:
     def test_load_group_list_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, is_dry_run=True
         )
 
         assert isinstance(loaded, GroupWrite)
@@ -68,7 +68,7 @@ class TestGroupLoader:
     def test_load_group_list_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock, is_dry_run=True
         )
 
         assert isinstance(loaded, GroupWrite)
@@ -79,7 +79,7 @@ class TestGroupLoader:
     ) -> None:
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, is_dry_run=True
         )
 
         # Simulate that one group is is already in CDF
@@ -112,7 +112,7 @@ class TestGroupLoader:
     ):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, skip_validation=True
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock, is_dry_run=True
         )
         cmd = DeployCommand(print_warning=False)
 

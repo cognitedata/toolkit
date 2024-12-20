@@ -277,11 +277,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         }
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> GroupWrite | GroupWriteList:
         group_write_list = GroupWriteList([])
 
@@ -300,7 +296,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
                 continue
 
-            substituted = self._substitute_scope_ids(raw_group, ToolGlobals, skip_validation)
+            substituted = self._substitute_scope_ids(raw_group, ToolGlobals, is_dry_run)
             try:
                 loaded = GroupWrite.load(substituted)
             except ValueError:

@@ -17,9 +17,7 @@ class TestDataSetsLoader:
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
 
         loader = DataSetsLoader.create_loader(cdf_tool, None)
-        loaded = loader.load_resource_file(
-            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False
-        )
+        loaded = loader.load_resource_file(LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool, is_dry_run=False)
         assert len(loaded) == 2
 
         first = DataSet.load(loaded[0].dump())

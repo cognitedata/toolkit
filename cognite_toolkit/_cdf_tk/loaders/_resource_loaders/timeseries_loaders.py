@@ -102,24 +102,20 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             yield AssetLoader, item["assetExternalId"]
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> TimeSeriesWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in time series"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in time series"
                 )
             if "securityCategoryNames" in resource:
                 if security_categories_names := resource.pop("securityCategoryNames", []):
                     security_categories = ToolGlobals.verify_security_categories(
                         security_categories_names,
-                        skip_validation,
+                        is_dry_run,
                         action="replace securityCategoryNames with securityCategoryIDs in time series",
                     )
                     resource["securityCategories"] = security_categories
@@ -129,7 +125,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             if "assetExternalId" in resource:
                 asset_external_id = resource.pop("assetExternalId")
                 resource["assetId"] = ToolGlobals.verify_asset(
-                    asset_external_id, skip_validation, action="replace assetExternalId with assetId in time series"
+                    asset_external_id, is_dry_run, action="replace assetExternalId with assetId in time series"
                 )
         return TimeSeriesWriteList.load(resources)
 

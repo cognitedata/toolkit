@@ -218,7 +218,7 @@ class TransformationLoader(
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
     ) -> TransformationWrite | TransformationWriteList:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
@@ -227,14 +227,10 @@ class TransformationLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         resources = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+        return self.load_resource(resources, is_dry_run, filepath)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> TransformationWrite | TransformationWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
@@ -257,7 +253,7 @@ class TransformationLoader(
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in transformation"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in transformation"
                 )
             if resource.get("conflictMode") is None:
                 # Todo; Bug SDK missing default value

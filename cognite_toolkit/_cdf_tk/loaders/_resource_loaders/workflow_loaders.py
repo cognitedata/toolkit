@@ -115,18 +115,14 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return {"externalId": id}
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> WorkflowUpsertList:
         workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
         for workflow in workflows:
             if "dataSetExternalId" in workflow:
                 ds_external_id = workflow.pop("dataSetExternalId")
                 workflow["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in workflow"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in workflow"
                 )
 
         return WorkflowUpsertList.load(workflows)
@@ -507,11 +503,7 @@ class WorkflowTriggerLoader(
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> WorkflowTriggerUpsertList:
         raw_list = resource if isinstance(resource, list) else [resource]
         loaded = WorkflowTriggerUpsertList([])

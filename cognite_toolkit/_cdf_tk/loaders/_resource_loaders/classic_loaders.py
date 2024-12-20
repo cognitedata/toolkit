@@ -157,7 +157,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> AssetWriteList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool) -> AssetWriteList:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
             use_environment_variables = (
@@ -179,14 +179,10 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             raise ValueError(f"Unsupported file type: {filepath.suffix}")
 
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+        return self.load_resource(resources, is_dry_run, filepath)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> AssetWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
@@ -208,7 +204,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in assets"
                 )
         return AssetWriteList.load(resources)
 
@@ -492,11 +488,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
                 yield AssetLoader, asset_id
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> EventWriteList:
         resources: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
 
@@ -504,13 +496,13 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in assets"
                 )
             if "assetExternalIds" in resource:
                 asset_external_ids = resource.pop("assetExternalIds")
                 resource["assetIds"] = [
                     ToolGlobals.verify_asset(
-                        asset_external_id, skip_validation, action="replace assetExternalIds with assetIds in events"
+                        asset_external_id, is_dry_run, action="replace assetExternalIds with assetIds in events"
                     )
                     for asset_external_id in asset_external_ids
                 ]

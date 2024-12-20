@@ -158,11 +158,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                         yield EventLoader, id_value
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> RelationshipWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
@@ -170,7 +166,7 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
                 resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in assets"
+                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in assets"
                 )
         return RelationshipWriteList._load(resources)
 

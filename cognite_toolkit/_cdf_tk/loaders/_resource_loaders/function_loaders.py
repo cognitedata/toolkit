@@ -101,8 +101,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(  # type: ignore[override]
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
@@ -113,14 +113,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         functions = load_yaml_inject_variables(filepath, use_environment_variables)
-        return self.load_resource(functions, ToolGlobals, skip_validation, filepath)
+        return self.load_resource(functions, is_dry_run, filepath)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> FunctionWrite | FunctionWriteList:
         functions = [resource] if isinstance(resource, dict) else resource
 
@@ -130,7 +126,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if func.get("dataSetExternalId") is not None:
                 self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
                     func.get("dataSetExternalId", ""),
-                    skip_validation=skip_validation,
+                    skip_validation=is_dry_run,
                     action="replace datasetExternalId with dataSetId in function",
                 )
             if "fileId" not in func:
@@ -345,11 +341,7 @@ class FunctionScheduleLoader(
             yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool, filepath: Path | None = None
     ) -> FunctionScheduleWriteList:
         schedules = [resource] if isinstance(resource, dict) else resource
 

@@ -12,7 +12,8 @@ class TestFunctionLoader:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
         loaded = loader.load_resource_file(
-            LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "functions" / "1.my_functions.yaml",
+            cdf_tool_mock,
         )
 
         assert len(loaded) == 2
@@ -21,7 +22,8 @@ class TestFunctionLoader:
         loader = FunctionLoader.create_loader(cdf_tool_mock, None)
 
         loaded = loader.load_resource_file(
-            LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool_mock, skip_validation=False
+            LOAD_DATA / "functions" / "1.my_function.yaml",
+            cdf_tool_mock,
         )
 
         assert isinstance(loaded, FunctionWrite)
