@@ -123,6 +123,7 @@ class ToolkitCommand:
         filepaths: list[Path],
         ToolGlobals: CDFToolConfig,
         is_dry_run: bool,
+        split_resources: bool = False,
         verbose: bool = False,
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]:
         duplicates: list[T_ID] = []
@@ -155,6 +156,8 @@ class ToolkitCommand:
             cdf_resource_by_id = {}
         else:
             cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
+        if not split_resources:
+            return loader.list_write_cls([]), duplicates
 
         to_create, to_update, unchanged = loader.list_write_cls([]), loader.list_write_cls(
             []
