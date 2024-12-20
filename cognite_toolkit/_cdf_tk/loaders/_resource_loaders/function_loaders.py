@@ -101,7 +101,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource_file(
+    def load_resource_file(  # type: ignore[override]
         self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool
     ) -> FunctionWrite | FunctionWriteList | None:
         if filepath.parent.name != self.folder_name:
@@ -125,7 +125,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 self.extra_configs[func["externalId"]] = {}
             if func.get("dataSetExternalId") is not None:
                 ds_external_id = func.pop("dataSetExternalId")
-                self.extra_configs[func["externalId"]]["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+                self.extra_configs[func["externalId"]]["dataSetId"] = self.client.lookup.data_sets.id(
+                    ds_external_id, is_dry_run
+                )
             if "fileId" not in func:
                 # The fileID is required for the function to be created, but in the `.create` method
                 # we first create that file and then set the fileID.

@@ -58,8 +58,7 @@ class _ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
-    verify_method: Callable[[str, bool, str], int]
-    operation: str
+    lookup_method: Callable[[str, bool], int]
     id_name: str
 
 
@@ -198,7 +197,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                                 yield loader, id_
 
     def _substitute_scope_ids(self, group: dict, is_dry_run: bool) -> dict:
-        replace_method_by_acl = self._create_replace_method_by_acl_and_scope(is_dry_run)
+        replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -216,56 +215,43 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     continue
                 if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
                     values["scope"][scope_name][replace_method.id_name] = [
-                        replace_method.verify_method(ext_id, is_dry_run, replace_method.operation)
-                        if isinstance(ext_id, str)
-                        else ext_id
+                        replace_method.lookup_method(ext_id, is_dry_run) if isinstance(ext_id, str) else ext_id
                         for ext_id in ids
                     ]
         return group
 
-    @classmethod
-    def _create_replace_method_by_acl_and_scope(
-        cls, ToolGlobals: CDFToolConfig
-    ) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+    def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
         source = {
             (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace datasetExternalId with dataSetId in group",
+                self.client.lookup.data_sets.id,
                 id_name="ids",
             ),
             (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_extraction_pipeline,
-                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                self.client.lookup.extraction_pipelines.id,
                 id_name="ids",
             ),
             (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_locationfilter,
-                operation="replace locationFilterExternalId with locationFilterId in group",
+                self.client.lookup.location_filters.id,
                 id_name="ids",
             ),
             (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_security_categories,
-                operation="replace securityCategoryExternalId with securityCategoryId in group",
+                self.client.lookup.security_categories.id,
                 id_name="ids",
             ),
             (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_timeseries,
-                operation="replace timeSeriesExternalId with timeSeriesId in group",
+                self.client.lookup.time_series.id,
                 id_name="ids",
             ),
             cap.DataSetScope: _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace datasetExternalId with dataSetId in group",
+                self.client.lookup.data_sets.id,
                 id_name="ids",
             ),
             cap.ExtractionPipelineScope: _ReplaceMethod(
-                ToolGlobals.verify_extraction_pipeline,
-                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                self.client.lookup.extraction_pipelines.id,
                 id_name="ids",
             ),
             cap.AssetRootIDScope: _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace rootAssetExternalId with rootAssetId in group",
+                self.client.lookup.assets.id,
                 id_name="rootIds",
             ),
         }
