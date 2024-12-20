@@ -192,9 +192,7 @@ class TransformationLoader(
         if "dataSetId" in dumped and local.data_set_id != -1 and ToolGlobals is not None:
             # -1 is a special value that means dry run
             data_set_id = dumped.pop("dataSetId")
-            dumped["dataSetExternalId"] = ToolGlobals.reverse_verify_dataset(
-                data_set_id, action="replace dataSetId with dataSetExternalId in transformation"
-            )
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
 
         if local.source_oidc_credentials:
             dumped["sourceOidcCredentials"] = local.source_oidc_credentials.dump()

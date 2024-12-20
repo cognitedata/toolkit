@@ -82,8 +82,6 @@ class TestLoadResources:
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
         cdf_tool = CDFToolConfig(skip_initialization=True)
-        cdf_tool._cache.data_set_id_by_external_id = data_set_mapping
-
         resources = loader.load_resource_file(filepath, cdf_tool, is_dry_run=False)
 
         assert resources.dump() == expected.dump()
