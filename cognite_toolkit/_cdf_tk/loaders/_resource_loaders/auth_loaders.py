@@ -197,9 +197,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             for id_ in ids["ids"]:
                                 yield loader, id_
 
-    @classmethod
-    def _substitute_scope_ids(cls, group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
-        replace_method_by_acl = cls._create_replace_method_by_acl_and_scope(ToolGlobals)
+    def _substitute_scope_ids(self, group: dict, is_dry_run: bool) -> dict:
+        replace_method_by_acl = self._create_replace_method_by_acl_and_scope(is_dry_run)
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -217,7 +216,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     continue
                 if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
                     values["scope"][scope_name][replace_method.id_name] = [
-                        replace_method.verify_method(ext_id, skip_validation, replace_method.operation)
+                        replace_method.verify_method(ext_id, is_dry_run, replace_method.operation)
                         if isinstance(ext_id, str)
                         else ext_id
                         for ext_id in ids
@@ -296,7 +295,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
                 continue
 
-            substituted = self._substitute_scope_ids(raw_group, ToolGlobals, is_dry_run)
+            substituted = self._substitute_scope_ids(raw_group, is_dry_run)
             try:
                 loaded = GroupWrite.load(substituted)
             except ValueError:

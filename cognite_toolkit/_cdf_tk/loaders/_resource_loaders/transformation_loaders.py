@@ -252,9 +252,7 @@ class TransformationLoader(
 
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in transformation"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if resource.get("conflictMode") is None:
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"

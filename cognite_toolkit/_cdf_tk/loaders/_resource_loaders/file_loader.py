@@ -137,23 +137,12 @@ class FileMetadataLoader(
         for resource in loaded_list:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in file metadata"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if security_categories_names := resource.pop("securityCategoryNames", []):
-                security_categories = ToolGlobals.verify_security_categories(
-                    security_categories_names,
-                    is_dry_run,
-                    action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
-                )
+                security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
                 resource["securityCategories"] = security_categories
             if "assetExternalIds" in resource:
-                resource["assetIds"] = ToolGlobals.verify_asset(
-                    resource["assetExternalIds"],
-                    is_dry_run,
-                    action="replace assetExternalIds with assetIds in file metadata",
-                )
-
+                resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
         return FileMetadataWriteList._load(loaded_list)
 
     def _are_equal(

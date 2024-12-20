@@ -124,11 +124,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if self.extra_configs.get(func["externalId"]) is None:
                 self.extra_configs[func["externalId"]] = {}
             if func.get("dataSetExternalId") is not None:
-                self.extra_configs[func["externalId"]]["dataSetId"] = ToolGlobals.verify_dataset(
-                    func.get("dataSetExternalId", ""),
-                    skip_validation=is_dry_run,
-                    action="replace datasetExternalId with dataSetId in function",
-                )
+                ds_external_id = func.pop("dataSetExternalId")
+                self.extra_configs[func["externalId"]]["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "fileId" not in func:
                 # The fileID is required for the function to be created, but in the `.create` method
                 # we first create that file and then set the fileID.

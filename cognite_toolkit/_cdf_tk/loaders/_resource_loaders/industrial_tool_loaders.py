@@ -93,9 +93,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in streamlit"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         loaded = cast(StreamlitWriteList, StreamlitWriteList._load(resources))
         for item in loaded:
             self._source_file_by_external_id[item.external_id] = filepath

@@ -121,9 +121,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         for workflow in workflows:
             if "dataSetExternalId" in workflow:
                 ds_external_id = workflow.pop("dataSetExternalId")
-                workflow["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in workflow"
-                )
+                workflow["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
 
         return WorkflowUpsertList.load(workflows)
 

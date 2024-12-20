@@ -197,9 +197,7 @@ class ThreeDModelLoader(
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in 3D Model"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return ThreeDModelWriteList.load(resources)
 
     def _are_equal(

@@ -203,9 +203,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in assets"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return AssetWriteList.load(resources)
 
     def _are_equal(
@@ -495,17 +493,10 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, is_dry_run, action="replace dataSetExternalId with dataSetId in assets"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "assetExternalIds" in resource:
                 asset_external_ids = resource.pop("assetExternalIds")
-                resource["assetIds"] = [
-                    ToolGlobals.verify_asset(
-                        asset_external_id, is_dry_run, action="replace assetExternalIds with assetIds in events"
-                    )
-                    for asset_external_id in asset_external_ids
-                ]
+                resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
         return EventWriteList._load(resources)
 
     def _are_equal(

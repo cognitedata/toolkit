@@ -275,11 +275,7 @@ class LabelLoader(
         for item in items:
             if "dataSetExternalId" in item:
                 ds_external_id = item.pop("dataSetExternalId")
-                item["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation=is_dry_run,
-                    action="replace dataSetExternalId with dataSetId in label",
-                )
+                item["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         loaded = LabelDefinitionWriteList.load(items)
         return loaded[0] if isinstance(resource, dict) else loaded
 

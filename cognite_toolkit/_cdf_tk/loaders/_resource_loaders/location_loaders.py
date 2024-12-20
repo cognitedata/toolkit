@@ -97,35 +97,19 @@ class LocationFilterLoader(
         for raw in raw_list:
             if "parentExternalId" in raw:
                 parent_external_id = raw.pop("parentExternalId")
-                raw["parentId"] = ToolGlobals.verify_locationfilter(
-                    parent_external_id, is_dry_run, action="replace parentExternalId with parentExternalId"
-                )
-
+                raw["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
             if "assetCentric" not in raw:
                 continue
             asset_centric = raw["assetCentric"]
             if "dataSetExternalIds" in asset_centric:
                 data_set_external_ids = asset_centric.pop("dataSetExternalIds")
-                asset_centric["dataSetIds"] = [
-                    ToolGlobals.verify_dataset(
-                        data_set_external_id,
-                        is_dry_run,
-                        action="replace dataSetExternalIds with dataSetIds in location filter",
-                    )
-                    for data_set_external_id in data_set_external_ids
-                ]
+                asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
             for subfilter_name in self.subfilter_names:
                 subfilter = asset_centric.get(subfilter_name, {})
                 if "dataSetExternalIds" in subfilter:
                     data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
-                    asset_centric[subfilter_name]["dataSetIds"] = [
-                        ToolGlobals.verify_dataset(
-                            data_set_external_id,
-                            is_dry_run,
-                            action="replace dataSetExternalIds with dataSetIds in location filter",
-                        )
-                        for data_set_external_id in data_set_external_ids
-                    ]
+                    asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
+
         return LocationFilterWriteList._load(raw_list)
 
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:

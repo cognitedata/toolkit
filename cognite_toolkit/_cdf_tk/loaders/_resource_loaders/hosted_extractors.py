@@ -214,11 +214,7 @@ class HostedExtractorDestinationLoader(
                     item["credentials"] = {"nonce": session.nonce}
             if item.get("targetDataSetExternalId") is not None:
                 ds_external_id = item.pop("targetDataSetExternalId")
-                item["targetDataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    is_dry_run,
-                    action="replace targetDataSetExternalId with targetDataSetId in hosted extractor destination",
-                )
+                item["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             loaded.append(DestinationWrite.load(item))
         return loaded
 

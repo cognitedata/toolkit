@@ -149,11 +149,8 @@ class ExtractionPipelineLoader(
         for resource in resources:
             if "dataSetExternalId" in resource:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    is_dry_run,
-                    action="replace datasetExternalId with dataSetId in extraction pipeline",
-                )
+
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "createdBy" not in resource:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
