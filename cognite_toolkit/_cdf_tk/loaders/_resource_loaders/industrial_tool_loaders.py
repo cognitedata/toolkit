@@ -84,9 +84,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> StreamlitWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> StreamlitWriteList:
         if not filepath:
             raise ToolkitRequiredValueError("Filepath must be set when loading Streamlit apps.")
         resources = [resource] if isinstance(resource, dict) else resource

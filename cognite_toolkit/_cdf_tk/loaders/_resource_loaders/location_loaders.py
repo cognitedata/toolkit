@@ -90,9 +90,7 @@ class LocationFilterLoader(
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> LocationFilterWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> LocationFilterWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
             if "parentExternalId" in raw:

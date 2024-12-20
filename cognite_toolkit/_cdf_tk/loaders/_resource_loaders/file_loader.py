@@ -129,9 +129,7 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> FileMetadataWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> FileMetadataWriteList:
         loaded_list = [resource] if isinstance(resource, dict) else resource
 
         for resource in loaded_list:

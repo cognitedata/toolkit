@@ -101,9 +101,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> TimeSeriesWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> TimeSeriesWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:

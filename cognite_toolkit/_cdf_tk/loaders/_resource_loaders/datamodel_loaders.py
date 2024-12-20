@@ -287,9 +287,8 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> ContainerApply | ContainerApplyList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
+                      is_dry_run: bool = False) -> ContainerApply | ContainerApplyList:
         dict_items = resource if isinstance(resource, list) else [resource]
         for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
@@ -702,7 +701,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
+        return self.load_resource(raw_yaml, is_dry_run)
 
 
 @final
@@ -859,7 +858,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
+        return self.load_resource(raw_yaml, is_dry_run)
 
 
 @final
@@ -1141,11 +1140,9 @@ class GraphQLLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
+        return self.load_resource(raw_yaml, is_dry_run)
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> GraphQLDataModelWriteList:
+    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> GraphQLDataModelWriteList:
         if filepath is None:
             raise ValueError("filepath must be set when loading a GraphQL schema.")
         raw_list = resource if isinstance(resource, list) else [resource]
