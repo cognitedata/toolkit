@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json as JSON
 from collections import defaultdict
@@ -55,6 +56,7 @@ from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
+from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
@@ -77,6 +79,41 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
         except TypeError:
             pass
 del cap, scopes, names, action, scope
+
+
+class LookUpAPIMock:
+    def __init__(self):
+        self._reverse_cache: dict[int, str] = {}
+
+    @staticmethod
+    def _create_id(string: str) -> int:
+        hash_object = hashlib.sha256(string.encode())
+        hex_dig = hash_object.hexdigest()
+        hash_int = int(hex_dig[:16], 16)
+        return hash_int
+
+    def id(self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False) -> int | list[int]:
+        if isinstance(external_id, str):
+            id_ = self._create_id(external_id)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = external_id
+            return id_
+        output: list[int] = []
+        for ext_id in external_id:
+            id_ = self._create_id(ext_id)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = ext_id
+            output.append(id_)
+        return output
+
+    def external_id(
+        self,
+        id: int | Sequence[int],
+    ) -> str | list[str]:
+        try:
+            return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
+        except KeyError:
+            raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
 
 
 class ApprovalToolkitClient:
@@ -119,6 +156,13 @@ class ApprovalToolkitClient:
         # Set project
         self.mock_client.config.project = "test_project"
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
+        # Setup mock for all lookup methods
+        for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
+            if method_name.startswith("_") or method_name == "method_calls":
+                continue
+            mock_lookup = LookUpAPIMock()
+            lookup_api.id.side_effect = mock_lookup.id
+            lookup_api.external_id.side_effect = mock_lookup.external_id
 
         # Setup all mock methods
         for resource in API_RESOURCES:
