@@ -35,6 +35,7 @@ from cognite.client.data_classes import (
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
 )
+from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
@@ -504,14 +505,17 @@ class WorkflowTriggerLoader(
 
     def load_resource(
         self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> WorkflowTriggerUpsertList:
-        raw_list = resource if isinstance(resource, list) else [resource]
-        loaded = WorkflowTriggerUpsertList([])
-        for item in raw_list:
-            if "data" in item and isinstance(item["data"], dict):
-                item["data"] = json.dumps(item["data"])
-            if "authentication" in item:
-                raw_auth = item.pop("authentication")
-                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
-            loaded.append(WorkflowTriggerUpsert.load(item))
-        return loaded
+    ) -> WorkflowTriggerUpsert:
+        if isinstance(resource.get("data"), dict):
+            resource["data"] = json.dumps(resource["data"])
+        if "authentication" in resource:
+            raw_auth = resource.pop("authentication")
+            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
+        return WorkflowTriggerUpsert._load(resource)
+
+    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
+            dumped["data"] = json.loads(dumped["data"])
+        # Todo: What to do with the authentication?
+        return dumped
