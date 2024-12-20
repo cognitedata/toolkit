@@ -287,8 +287,9 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]],
-                      is_dry_run: bool = False) -> ContainerApply | ContainerApplyList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> ContainerApply | ContainerApplyList:
         dict_items = resource if isinstance(resource, list) else [resource]
         for raw_instance in dict_items:
             for prop in raw_instance.get("properties", {}).values():
@@ -688,9 +689,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> ViewApply | ViewApplyList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ViewApply | ViewApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -845,9 +844,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> DataModelApply | DataModelApplyList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> DataModelApply | DataModelApplyList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -1127,9 +1124,7 @@ class GraphQLLoader(
         local_dumped.pop("dml", None)
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> GraphQLDataModelWriteList:
+    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> GraphQLDataModelWriteList:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -1142,7 +1137,9 @@ class GraphQLLoader(
         raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
         return self.load_resource(raw_yaml, is_dry_run)
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> GraphQLDataModelWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> GraphQLDataModelWriteList:
         if filepath is None:
             raise ValueError("filepath must be set when loading a GraphQL schema.")
         raw_list = resource if isinstance(resource, list) else [resource]

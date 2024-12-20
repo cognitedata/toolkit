@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
@@ -90,7 +89,9 @@ class LocationFilterLoader(
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> LocationFilterWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> LocationFilterWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         for raw in raw_list:
             if "parentExternalId" in raw:

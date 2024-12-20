@@ -1,6 +1,5 @@
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes import (
@@ -157,7 +156,9 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
                     elif type_value == "event":
                         yield EventLoader, id_value
 
-    def load_resource(self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False) -> RelationshipWriteList:
+    def load_resource(
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
+    ) -> RelationshipWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
