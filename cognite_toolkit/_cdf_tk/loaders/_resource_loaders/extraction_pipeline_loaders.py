@@ -298,8 +298,9 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource_file(self, filepath: Path,
-                           ToolGlobals: CDFToolConfig) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+    def load_resource_file(
+        self, filepath: Path, ToolGlobals: CDFToolConfig
+    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
