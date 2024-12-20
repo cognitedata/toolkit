@@ -45,7 +45,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     in_dict,
 )
 
@@ -128,48 +127,26 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> FileMetadataWriteList:
-        loaded_list = [resource] if isinstance(resource, dict) else resource
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataWrite:
+        if resource.get("dataSetExternalId") is not None:
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if security_categories_names := resource.pop("securityCategoryNames", []):
+            security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
+            resource["securityCategories"] = security_categories
+        if "assetExternalIds" in resource:
+            resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
+        return FileMetadataWrite._load(resource)
 
-        for resource in loaded_list:
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-            if security_categories_names := resource.pop("securityCategoryNames", []):
-                security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
-                resource["securityCategories"] = security_categories
-            if "assetExternalIds" in resource:
-                resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
-        return FileMetadataWriteList._load(loaded_list)
-
-    def _are_equal(
-        self,
-        local: FileMetadataWrite,
-        cdf_resource: FileMetadata,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run mode
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        if (
-            all(s == -1 for s in local_dumped.get("securityCategories", []))
-            and "securityCategories" in cdf_dumped
-            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
-        ):
-            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
-        if (
-            all(a == -1 for a in local_dumped.get("assetIds", []))
-            and "assetIds" in cdf_dumped
-            and len(cdf_dumped["assetIds"]) == len(local_dumped.get("assetIds", []))
-        ):
-            local_dumped["assetIds"] = cdf_dumped["assetIds"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: FileMetadata, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if ds_id := dumped.pop("dataSetId"):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
+        if security_categories := dumped.pop("securityCategories", []):
+            dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)
+        if asset_ids := dumped.pop("assetIds", []):
+            dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
+        return dumped
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
         created = FileMetadataList([])

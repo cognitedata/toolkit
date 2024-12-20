@@ -16,6 +16,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
+from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class LookUpAPI(ToolkitAPI, ABC):
-    dry_run_id: int = -1
+    dry_run_id: int = DRY_RUN_ID
 
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
         super().__init__(config, api_version, cognite_client)

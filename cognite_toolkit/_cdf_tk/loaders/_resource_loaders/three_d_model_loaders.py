@@ -18,7 +18,6 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -190,27 +189,16 @@ class ThreeDModelLoader(
 
     def load_resource(
         self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> ThreeDModelWriteList:
-        resources = resource if isinstance(resource, list) else [resource]
+    ) -> ThreeDModelWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return ThreeDModelWrite._load(resource)
 
-        for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return ThreeDModelWriteList.load(resources)
-
-    def _are_equal(
-        self,
-        local: ThreeDModelWrite,
-        cdf_resource: ThreeDModel,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        if not cdf_dumped.get("metadata") and not local_dumped.get("metadata"):
-            cdf_dumped["metadata"] = local_dumped["metadata"] = {}
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: ThreeDModel, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if not dumped.get("metadata") and "metadata" in local:
+            # Remove empty metadata {}.
+            dumped.pop("metadata", None)
+        return dumped
