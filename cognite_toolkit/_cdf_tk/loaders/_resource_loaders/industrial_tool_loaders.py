@@ -1,8 +1,8 @@
 import json
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, final
 
 from cognite.client import _version as CogniteSDKVersion
 from cognite.client.data_classes.capabilities import (
@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
+    load_yaml_inject_variables,
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
 
@@ -53,7 +53,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
 
     @classmethod
     def get_required_capability(
-        cls, items: StreamlitWriteList | None, read_only: bool
+        cls, items: Sequence[StreamlitWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -84,40 +84,30 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> StreamlitWriteList:
-        if not filepath:
-            raise ToolkitRequiredValueError("Filepath must be set when loading Streamlit apps.")
-        resources = [resource] if isinstance(resource, dict) else resource
-        for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        loaded = cast(StreamlitWriteList, StreamlitWriteList._load(resources))
-        for item in loaded:
-            self._source_file_by_external_id[item.external_id] = filepath
-        return loaded
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        raw_yaml = load_yaml_inject_variables(
+            filepath, environment_variables if self.do_environment_variable_injection else {}
+        )
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        for item in raw_list:
+            item_id = self.get_id(item)
+            self._source_file_by_external_id[item_id] = filepath
+            content = self._as_json_string(item_id, item["entrypoint"])
+            item["cogniteToolkitAppHash"] = calculate_str_or_file_hash(content, shorten=True)
+        return raw_list
 
-    def _are_equal(
-        self,
-        local: StreamlitWrite,
-        cdf_resource: Streamlit,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_hash = calculate_str_or_file_hash(self._as_json_string(local.external_id, local.entrypoint), shorten=True)
-        local_dumped = local.dump()
-        local_dumped[self._metadata_hash_key] = local_hash
-        cdf_dumped = cdf_resource.as_write().dump()
-        cdf_dumped[self._metadata_hash_key] = cdf_resource.app_hash
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return StreamlitWrite._load(resource)
 
-        # If dataSetId is not set in the local, but are set in the CDF, it is a dry run
-        # and we assume they are the same.
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: Streamlit, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
 
     @lru_cache
     def _as_json_string(self, external_id: str, entrypoint: str) -> str:
@@ -149,7 +139,6 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
             to_create = item.as_file()
-            to_create.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content, shorten=True)  # type: ignore[index]
             created_file, _ = self.client.files.create(to_create)
 
             self.client.files.upload_content_bytes(content, item.external_id)
@@ -165,7 +154,6 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         for item in items:
             content = self._as_json_string(item.external_id, item.entrypoint)
             to_update = item.as_file()
-            to_update.metadata[self._metadata_hash_key] = calculate_str_or_file_hash(content, shorten=True)  # type: ignore[index]
             self.client.files.upload_content_bytes(content, item.external_id)
             files.append(to_update)
 
