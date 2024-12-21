@@ -554,7 +554,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables if self.do_environment_variable_injection else {})
+        raw_yaml = load_yaml_inject_variables(raw_str, environment_variables if self.do_environment_variable_injection else {})
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:

@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     TimeSeriesWrite,
     TimeSeriesWriteList,
 )
+from cognite.client.data_classes._base import T_WritableCogniteResource, T_WriteClass
 from cognite.client.data_classes.capabilities import (
     Capability,
     TimeSeriesAcl,
@@ -324,6 +325,22 @@ class DatapointSubscriptionLoader(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return DataPointSubscriptionWrite._load(resource)
+
+    def dump_resource(self, resource: DatapointSubscription, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if "timeSeriesIds" not in dumped:
+            return dumped
+        # Sorting the timeSeriesIds in the local order
+
+
+        return dumped
 
     def _are_equal(
         self,
