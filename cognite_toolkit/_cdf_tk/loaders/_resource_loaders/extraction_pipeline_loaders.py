@@ -25,6 +25,7 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfig,
     ExtractionPipelineList,
 )
+from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     ExtractionConfigsAcl,
@@ -84,7 +85,7 @@ class ExtractionPipelineLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ExtractionPipelineWriteList | None, read_only: bool
+        cls, items: Sequence[ExtractionPipelineWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -144,35 +145,18 @@ class ExtractionPipelineLoader(
     def load_resource(
             self, resource: dict[str, Any], is_dry_run: bool = False
     )-> ExtractionPipelineWrite:
-        resources = [resource] if isinstance(resource, dict) else resource
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if "createdBy" not in resource:
+            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+            resource["createdBy"] = "unknown"
+        return ExtractionPipelineWrite._load(resource)
 
-        for resource in resources:
-            if "dataSetExternalId" in resource:
-                ds_external_id = resource.pop("dataSetExternalId")
-
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-            if "createdBy" not in resource:
-                # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
-                resource["createdBy"] = "unknown"
-
-        if len(resources) == 1:
-            return ExtractionPipelineWrite.load(resources[0])
-        else:
-            return ExtractionPipelineWriteList.load(resources)
-
-    def _are_equal(
-        self,
-        local: ExtractionPipelineWrite,
-        cdf_resource: ExtractionPipeline,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: ExtractionPipeline, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -263,7 +247,7 @@ class ExtractionPipelineConfigLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ExtractionPipelineConfigWriteList | None, read_only: bool
+        cls, items: Sequence[ExtractionPipelineConfigWrite] | None, read_only: bool
     ) -> list[Capability]:
         if not items and items is not None:
             return []
@@ -305,33 +289,27 @@ class ExtractionPipelineConfigLoader(
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
         resources = load_yaml_inject_variables(raw_str, {})
-        return self.load_resource(resources, is_dry_run)
+        return resources if isinstance(resources, list) else [resources]
 
     def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
+        self, resource: dict[str, Any], is_dry_run: bool = False
     )-> ExtractionPipelineConfigWrite:
-        resources = [resource] if isinstance(resource, dict) else resource
-
-        for resource in resources:
-            config_raw = resource.get("config")
-            if isinstance(config_raw, str):
-                # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
-                # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
-                # replace it with `connection-string: keyvault secret` to make it valid.
-                config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
-                try:
-                    yaml.safe_load(config_raw)
-                except yaml.YAMLError as e:
-                    print(
-                        HighSeverityWarning(
-                            f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                            f"as valid YAML, which is the recommended format. Error: {e}"
-                        ).get_message()
-                    )
-        if len(resources) == 1:
-            return ExtractionPipelineConfigWrite.load(resources[0])
-        else:
-            return ExtractionPipelineConfigWriteList.load(resources)
+        config_raw = resource.get("config")
+        if isinstance(config_raw, str):
+            # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
+            # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
+            # replace it with `connection-string: keyvault secret` to make it valid.
+            config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
+            try:
+                yaml.safe_load(config_raw)
+            except yaml.YAMLError as e:
+                print(
+                    HighSeverityWarning(
+                        f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                        f"as valid YAML, which is the recommended format. Error: {e}"
+                    ).get_message()
+                )
+        return ExtractionPipelineConfigWrite._load(resource)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         updated = ExtractionPipelineConfigList([])
