@@ -211,8 +211,8 @@ class TransformationLoader(
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig
-    ) -> TransformationWrite | TransformationWriteList:
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
@@ -223,8 +223,8 @@ class TransformationLoader(
         return self.load_resource(resources, is_dry_run)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> TransformationWrite | TransformationWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> TransformationWrite:
         resources = [resource] if isinstance(resource, dict) else resource
 
         transformations = TransformationWriteList([])

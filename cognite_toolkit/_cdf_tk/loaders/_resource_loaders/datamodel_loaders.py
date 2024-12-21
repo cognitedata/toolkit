@@ -685,7 +685,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> ViewApply | ViewApplyList:
+    def load_resource_file(
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
@@ -840,7 +842,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> DataModelApply | DataModelApplyList:
+    def load_resource_file(
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.

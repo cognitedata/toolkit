@@ -3,7 +3,7 @@ from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, cast, final, Sequence
 
 from cognite.client.data_classes import (
     ClientCredentials,
@@ -69,7 +69,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
     @classmethod
     def get_required_capability(
-        cls, items: FunctionWriteList | None, read_only: bool
+        cls, items: Sequence[FunctionWrite] | None, read_only: bool
     ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
@@ -102,8 +102,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             yield DataSetsLoader, item["dataSetExternalId"]
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig
-    ) -> FunctionWrite | FunctionWriteList | None:
+        self, filepath: Path, environment_variables: dict[str, str|None] | None = None
+    ) -> list[dict[str, Any]]:
         if filepath.parent.name != self.folder_name:
             # Functions configs needs to be in the root function folder.
             # This is to allow arbitrary YAML files inside the function code folder.
@@ -116,8 +116,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         return self.load_resource(functions, is_dry_run)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> FunctionWrite | FunctionWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> FunctionWrite:
         functions = [resource] if isinstance(resource, dict) else resource
 
         for func in functions:
@@ -340,8 +340,8 @@ class FunctionScheduleLoader(
             yield FunctionLoader, item["functionExternalId"]
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> FunctionScheduleWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> FunctionScheduleWrite:
         schedules = [resource] if isinstance(resource, dict) else resource
 
         for schedule in schedules:

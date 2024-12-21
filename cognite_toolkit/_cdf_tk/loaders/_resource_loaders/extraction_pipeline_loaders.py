@@ -142,8 +142,8 @@ class ExtractionPipelineLoader(
                         yield RawTableLoader, RawTable._load(entry)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> ExtractionPipelineWrite:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
@@ -299,8 +299,8 @@ class ExtractionPipelineConfigLoader(
             yield ExtractionPipelineLoader, item["externalId"]
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
@@ -308,8 +308,8 @@ class ExtractionPipelineConfigLoader(
         return self.load_resource(resources, is_dry_run)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> ExtractionPipelineConfigWrite:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

@@ -262,8 +262,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         }
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> GroupWrite | GroupWriteList:
+        self, resource: dict[str, Any], is_dry_run: bool = False
+    ) -> GroupWrite:
         group_write_list = GroupWriteList([])
 
         resources = [resource] if isinstance(resource, dict) else resource
