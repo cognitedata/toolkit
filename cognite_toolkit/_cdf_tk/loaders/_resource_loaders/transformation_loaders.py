@@ -238,7 +238,7 @@ class TransformationLoader(
 
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        if resource.get("conflictMode") is None:
+        if "conflictMode" not in resource:
             # Todo; Bug SDK missing default value
             resource["conflictMode"] = "upsert"
 
@@ -248,7 +248,7 @@ class TransformationLoader(
         destination_oidc_credentials = (
             resource.get("authentication", {}).get("write") or resource.get("authentication") or None
         )
-        transformation = TransformationWrite.load(resource)
+        transformation = TransformationWrite._load(resource)
         try:
             transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
                 source_oidc_credentials
@@ -262,7 +262,7 @@ class TransformationLoader(
             raise ToolkitTypeError(
                 f"Ill-formed Transformation {item_id}: Authentication property is missing required fields"
             ) from e
-        return TransformationWrite._load(resource)
+        return transformation
 
     def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
