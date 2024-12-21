@@ -120,7 +120,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 
     @classmethod
     def get_required_capability(
-        cls, items: SpaceApplyList | None, read_only: bool
+        cls, items: Sequence[SpaceApply] | None, read_only: bool
     ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
@@ -240,7 +240,7 @@ class ContainerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ContainerApplyList | None, read_only: bool
+        cls, items: Sequence[ContainerApply] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -556,7 +556,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
         raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables if self.do_environment_variable_injection else {}
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -754,7 +754,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
         raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables if self.do_environment_variable_injection else {}
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -843,7 +843,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[NodeApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -1033,7 +1035,7 @@ class GraphQLLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: GraphQLDataModelWriteList | None, read_only: bool
+        cls, items: Sequence[GraphQLDataModelWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -1060,7 +1062,7 @@ class GraphQLLoader(
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
         raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables if self.do_environment_variable_injection else {}
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -1204,7 +1206,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         return "edges"
 
     @classmethod
-    def get_required_capability(cls, items: EdgeApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[EdgeApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -1257,12 +1261,12 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Edge, local: dict[str, Any]) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                nodes=resource.as_id(), sources=sources
+                edges=resource.as_id(), sources=sources
             ).edges[0]
         except CogniteAPIError:
             # View does not exist

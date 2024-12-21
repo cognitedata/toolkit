@@ -166,7 +166,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
             raw_yaml = load_yaml_inject_variables(
-                filepath, environment_variables if self.do_environment_variable_injection else {}
+                filepath, environment_variables or {} if self.do_environment_variable_injection else {}
             )
             resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
         elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":

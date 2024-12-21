@@ -274,7 +274,7 @@ class ResourceLoader(
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
         raw_yaml = load_yaml_inject_variables(
-            filepath, environment_variables if self.do_environment_variable_injection else {}
+            filepath, environment_variables or {} if self.do_environment_variable_injection else {}
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -360,7 +360,7 @@ class ResourceLoader(
         if ToolGlobals is None:
             cdf_dumped = cdf_resource.as_write().dump()
         else:
-            cdf_dumped = self.dump_resource(cdf_resource, local)
+            cdf_dumped = self.dump_resource(cdf_resource, local.dump())
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @staticmethod
