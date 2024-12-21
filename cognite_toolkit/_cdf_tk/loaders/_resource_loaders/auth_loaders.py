@@ -44,6 +44,7 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
@@ -59,6 +60,7 @@ class _ReplaceMethod:
     lookup and replace in the ACL scoped ids"""
 
     lookup_method: Callable[[str, bool], int]
+    reverse_lookup_method: Callable[[int], str]
     id_name: str
 
 
@@ -198,7 +200,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             for id_ in ids["ids"]:
                                 yield loader, id_
 
-    def _substitute_scope_ids(self, group: dict, is_dry_run: bool) -> dict:
+    def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
         replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
@@ -216,7 +218,13 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 else:
                     continue
                 if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
-                    values["scope"][scope_name][replace_method.id_name] = [
+                    if reverse:
+                        values["scope"][scope_name][replace_method.id_name] = [
+                            replace_method.reverse_lookup_method(int_id) if isinstance(int_id, int) else int_id
+                            for int_id in ids
+                        ]
+                    else:
+                        values["scope"][scope_name][replace_method.id_name] = [
                         replace_method.lookup_method(ext_id, is_dry_run) if isinstance(ext_id, str) else ext_id
                         for ext_id in ids
                     ]
@@ -226,34 +234,42 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         source = {
             (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
                 self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
             (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
             (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
                 self.client.lookup.location_filters.id,
+                self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
             (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
                 self.client.lookup.security_categories.id,
+                self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
             (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
                 self.client.lookup.time_series.id,
+                self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
             cap.DataSetScope: _ReplaceMethod(
                 self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
             cap.ExtractionPipelineScope: _ReplaceMethod(
                 self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
             cap.AssetRootIDScope: _ReplaceMethod(
                 self.client.lookup.assets.id,
+                self.client.lookup.assets.external_id,
                 id_name="rootIds",
             ),
         }
@@ -264,99 +280,43 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         }
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> GroupWrite:
-        group_write_list = GroupWriteList([])
+        is_resource_scoped = any(
+            any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
+            for capability in resource.get("capabilities", [])
+            for acl in capability
+        )
 
-        resources = [resource] if isinstance(resource, dict) else resource
+        if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+            raise ToolkitWrongResourceError()
 
-        for raw_group in resources:
-            is_resource_scoped = any(
-                any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
-                for capability in raw_group.get("capabilities", [])
-                for acl in capability
-            )
+        if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
+            raise ToolkitWrongResourceError()
 
-            if self.target_scopes == "all_scoped_only" and is_resource_scoped:
-                continue
+        substituted = self._substitute_scope_ids(resource, is_dry_run)
+        try:
+            loaded = GroupWrite.load(substituted)
+        except ValueError:
+            # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
+            loaded = GroupWrite._load(substituted, allow_unknown=True)
+            for capability in loaded.capabilities or []:
+                if isinstance(capability, cap.UnknownAcl):
+                    msg = (
+                        f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
+                        "Will proceed with group creation and let the API validate the capability."
+                    )
+                    if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
+                        msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
+                    prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
+                    print(prefix, warning_msg)
 
-            if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
-                continue
+        return loaded
 
-            substituted = self._substitute_scope_ids(raw_group, is_dry_run)
-            try:
-                loaded = GroupWrite.load(substituted)
-            except ValueError:
-                # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
-                loaded = GroupWrite._load(substituted, allow_unknown=True)
-                for capability in loaded.capabilities or []:
-                    if isinstance(capability, cap.UnknownAcl):
-                        msg = (
-                            f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
-                            "Will proceed with group creation and let the API validate the capability."
-                        )
-                        if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
-                            msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
-                        prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
-                        print(prefix, warning_msg)
-
-            group_write_list.append(loaded)
-
-        if len(group_write_list) == 1:
-            return group_write_list[0]
-        return group_write_list
-
-    def _are_equal(
-        self,
-        local: GroupWrite,
-        cdf_resource: Group,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        # Remove metadata if it is empty to avoid false negatives
-        # as a result of cdf_resource.metadata = {} != local.metadata = None
-        if not local_dumped.get("metadata"):
-            local_dumped.pop("metadata", None)
-        if not cdf_dumped.get("metadata"):
-            cdf_dumped.pop("metadata", None)
-
-        scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
-
-        ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}
-        for capability in cdf_dumped.get("capabilities", []):
-            for acl, values in capability.items():
-                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope.setdefault(acl, {})
-                actions = values.get("actions", [])
-                ids_by_scope = ids_by_actions_by_scope.setdefault(frozenset(actions), {})
-                scope = values.get("scope", {})
-                for scope_name in scope_names:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        if scope_name in ids_by_scope:
-                            # Duplicated
-                            ids_by_scope[scope_name].extend(ids)
-                        else:
-                            ids_by_scope[scope_name] = ids
-
-        for capability in local_dumped.get("capabilities", []):
-            for acl, values in capability.items():
-                if acl not in ids_by_acl_by_actions_by_scope:
-                    continue
-                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope[acl]
-                actions = frozenset(values.get("actions", []))
-                if actions not in ids_by_actions_by_scope:
-                    continue
-                ids_by_scope = ids_by_actions_by_scope[actions]
-                scope = values.get("scope", {})
-                for scope_name in scope_names:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        is_dry_run = all(id_ == -1 for id_ in ids)
-                        cdf_ids = ids_by_scope.get(scope_name, [])
-                        are_equal_length = len(ids) == len(cdf_ids)
-                        if is_dry_run and are_equal_length:
-                            values["scope"][scope_name]["ids"] = list(cdf_ids)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, Group, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = Group.as_write().dump()
+        if not dumped.get("metadata") and "metadata" not in local:
+            dumped.pop("metadata", None)
+        # When you dump a CDF Group, all the referenced resources should be available in CDF.
+        return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
     def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
