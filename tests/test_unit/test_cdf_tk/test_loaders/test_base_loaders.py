@@ -193,9 +193,9 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, ToolGlobals=cdf_tool_mock)
+        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
         assert isinstance(
-            loaded, (loader.resource_write_cls, loader.list_write_cls)
+            loaded, loader.resource_write_cls | loader.list_write_cls
         ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
 
     @staticmethod
@@ -354,15 +354,15 @@ class TestResourceLoaders:
         monkeypatch.setenv("ANOTHER_VARIABLE", "another_test_value")
 
         loader = loader_cls.create_loader(cdf_tool_mock, None)
-        resource = loader.load_resource_file(tmp_file, ToolGlobals=cdf_tool_mock)
+        resource = loader.load_resource_file(tmp_file, environment_variables=cdf_tool_mock.environment_variables())
         if isinstance(resource, Iterable):
             resource = next(iter(resource))
 
         # special case: auth object is moved to extra_configs
         if isinstance(loader, FunctionScheduleLoader):
-            extras = next(iter(loader.extra_configs.items()))[1]
-            assert extras["authentication"]["clientId"] == "test_value"
-            assert extras["authentication"]["clientSecret"] == "another_test_value"
+            id_, auth = next(iter(loader.authentication_by_id.items()))
+            assert auth.client_id == "test_value"
+            assert auth.client_secret == "another_test_value"
         elif isinstance(loader, WorkflowTriggerLoader):
             extras = next(iter(loader._authentication_by_id.items()), None)[1]
             assert extras.client_id == "test_value"
