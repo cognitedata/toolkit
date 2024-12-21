@@ -62,7 +62,6 @@ class Loader(ABC):
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.extra_configs: dict[Hashable, Any] = {}
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
