@@ -5,6 +5,7 @@ from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
+import collections.abc
 
 import pandas as pd
 from cognite.client.data_classes import (
@@ -22,6 +23,7 @@ from cognite.client.data_classes import (
     SequenceWriteList,
     capabilities,
 )
+from cognite.client.data_classes._base import T_WriteClass, T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -71,7 +73,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: AssetWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: collections.abc.Sequence[AssetWrite] | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
@@ -158,15 +160,11 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             yield cls, item["parentExternalId"]
 
     def load_resource_file(
-            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
-            use_environment_variables = (
-                ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-            )
-            raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
+            raw_yaml = load_yaml_inject_variables(filepath, environment_variables if self.do_environment_variable_injection else {})
             resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
         elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
             if filepath.suffix == ".csv":
@@ -181,60 +179,36 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         else:
             raise ValueError(f"Unsupported file type: {filepath.suffix}")
 
-        return self.load_resource(resources, is_dry_run)
+        return resources
 
     def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
+        self, resource: dict[str, Any], is_dry_run: bool = False
     ) -> AssetWrite:
-        resources = [resource] if isinstance(resource, dict) else resource
+        # Unpack metadata keys from table formats (e.g. csv, parquet)
+        metadata: dict = resource.get("metadata", {})
+        for key, value in list(resource.items()):
+            if key.startswith("metadata."):
+                if value not in {None, float("nan")} and str(value) not in {"", " ", "nan", "null", "none"}:
+                    metadata[key.removeprefix("metadata.")] = str(value)
+                del resource[key]
+        if metadata:
+            resource["metadata"] = metadata
+        if isinstance(resource.get("labels"), str):
+            resource["labels"] = [
+                label.strip() for label in resource["labels"].removeprefix("[").removesuffix("]").split(",")
+            ]
 
-        for resource in resources:
-            # Unpack metadata keys from table formats (e.g. csv, parquet)
-            metadata: dict = resource.get("metadata", {})
-            for key, value in list(resource.items()):
-                if key.startswith("metadata."):
-                    if value not in {None, float("nan")} and str(value) not in {"", " ", "nan", "null", "none"}:
-                        metadata[key.removeprefix("metadata.")] = str(value)
-                    del resource[key]
-            if metadata:
-                resource["metadata"] = metadata
-            if "labels" in resource and isinstance(resource["labels"], str):
-                resource["labels"] = [
-                    label.strip() for label in resource["labels"].removeprefix("[").removesuffix("]").split(",")
-                ]
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return AssetWrite._load(resource)
 
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        return AssetWriteList.load(resources)
-
-    def _are_equal(
-        self,
-        local: AssetWrite,
-        cdf_resource: Asset,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        if (
-            all(s == -1 for s in local_dumped.get("securityCategories", []))
-            and "securityCategories" in cdf_dumped
-            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
-        ):
-            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
-
-        # Remove metadata if it is empty to avoid false negatives
-        # as a result of cdf_resource.metadata = {} != local.metadata = None
-        if not local_dumped.get("metadata"):
-            local_dumped.pop("metadata", None)
-        if not cdf_dumped.get("metadata"):
-            cdf_dumped.pop("metadata", None)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: Asset, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if not dumped.get("metadata") and "metadata" not in local:
+            dumped.pop("metadata", None)
+        return dumped
 
 
 @final
@@ -274,7 +248,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: SequenceWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: collections.abc.Sequence[SequenceWrite] | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: Any = capabilities.SequencesAcl.Scope.All()
@@ -292,6 +266,19 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             actions,
             scope,  # type: ignore[arg-type]
         )
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return SequenceWrite._load(resource)
+
+    def dump_resource(self, resource: Sequence, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if not dumped.get("metadata") and "metadata" not in local:
+            dumped.pop("metadata", None)
+        return dumped
 
     def create(self, items: SequenceWriteList) -> SequenceList:
         return self.client.sequences.create(items)
@@ -343,27 +330,6 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
 
-    def _are_equal(
-        self,
-        local: SequenceWrite,
-        cdf_resource: Sequence,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        # Remove metadata if it is empty to avoid false negatives
-        # as a result of cdf_resource.metadata = {} != local.metadata = None
-        if not local_dumped.get("metadata"):
-            local_dumped.pop("metadata", None)
-        if not cdf_dumped.get("metadata"):
-            cdf_dumped.pop("metadata", None)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 @final
@@ -404,7 +370,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: EventWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: collections.abc.Sequence[EventWrite] | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.EventsAcl.Scope.All | capabilities.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
@@ -488,44 +454,20 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
                 yield AssetLoader, asset_id
 
     def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
+        self, resource: dict[str, Any], is_dry_run: bool = False
     )-> EventWrite:
-        resources: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
+        if ds_external_id := resource.get("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if asset_external_ids := resource.pop("assetExternalIds", []):
+            resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
+        return EventWrite._load(resource)
 
-        for resource in resources:
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-            if "assetExternalIds" in resource:
-                asset_external_ids = resource.pop("assetExternalIds")
-                resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
-        return EventWriteList._load(resources)
-
-    def _are_equal(
-        self,
-        local: EventWrite,
-        cdf_resource: Event,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        if asset_ids := local_dumped.get("assetIds"):
-            if (
-                all(s == -1 for s in asset_ids)
-                and "assetIds" in cdf_dumped
-                and len(cdf_dumped["assetIds"]) == len(asset_ids)
-            ):
-                local_dumped["assetIds"] = cdf_dumped["assetIds"]
-
-        # Remove metadata if it is empty to avoid false negatives
-        # as a result of cdf_resource.metadata = {} != local.metadata = None
-        if not local_dumped.get("metadata"):
-            local_dumped.pop("metadata", None)
-        if not cdf_dumped.get("metadata"):
-            cdf_dumped.pop("metadata", None)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: Event, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if asset_ids := dumped.pop("assetIds", None):
+            dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
+        if not dumped.get("metadata") and "metadata" not in local:
+            dumped.pop("metadata", None)
+        return dumped

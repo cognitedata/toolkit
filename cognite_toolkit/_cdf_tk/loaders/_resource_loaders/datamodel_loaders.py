@@ -27,6 +27,7 @@ import yaml
 from cognite.client.data_classes import (
     filters,
 )
+from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -466,7 +467,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(cls, items: Sequence[ViewApply] | None, read_only: bool) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -544,27 +545,24 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     cdf_properties.pop(prop_name, None)
         return cdf_dumped
 
-    def _are_equal(
-        self,
-        local: ViewApply,
-        cdf_resource: View,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = self.dump_as_write(cdf_resource)
+    def load_resource_file(
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables if self.do_environment_variable_injection else {})
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-        # The version is always a string from the API, but can be an int when reading from YAML.
-        local_dumped["version"] = str(local_dumped["version"])
-
-        if not cdf_dumped.get("properties"):
+    def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = self.dump_as_write(resource)
+        if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
-            cdf_dumped.pop("properties", None)
-        if "properties" in local_dumped and not local_dumped["properties"]:
-            # In case the local properties are set to an empty dict.
-            local_dumped.pop("properties", None)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+            dumped.pop("properties", None)
+        return dumped
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
@@ -685,20 +683,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource_file(
-            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        # The version is a string, but the user often writes it as an int.
-        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
-        # This is technically a user mistake, as you should quote the version in the YAML file.
-        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
-        # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run)
 
 
 @final
@@ -719,7 +703,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
     @classmethod
     def get_required_capability(
-        cls, items: DataModelApplyList | None, read_only: bool
+        cls, items: Sequence[DataModelApply] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -758,33 +742,28 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                     ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
                 )
 
-    def _are_equal(
-        self,
-        local: DataModelApply,
-        cdf_resource: DataModel,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(raw_str, environment_variables if self.do_environment_variable_injection else {})
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-        # Data models that have the same views, but in different order, are considered equal.
-        # We also account for whether views are given as IDs or View objects.
-        local_dumped["views"] = sorted(
-            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in local.views or []
-        )
-        cdf_dumped["views"] = sorted(
-            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
-        )
+    def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "views" not in dumped:
+            return dumped
+        # Sorting in the same order as the local file.
+        view_order_by_id = {ViewId.load(v): no for no, v in enumerate(local.get("views", []))}
+        end_of_list = len(view_order_by_id)
+        dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId.load(v), end_of_list))
+        return dumped
 
-        # The version is always a string when returned from the API, but locally YAML can read it as an int.
-        # We need to convert it to a string.
-        local_dumped["version"] = str(local_dumped["version"])
-        local_dumped["views"] = [
-            (*space_external_id, str(version)) for *space_external_id, version in local_dumped["views"]
-        ]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -842,20 +821,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource_file(
-            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        # The version is a string, but the user often writes it as an int.
-        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
-        # This is technically a user mistake, as you should quote the version in the YAML file.
-        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
-        # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run)
 
 
 @final
