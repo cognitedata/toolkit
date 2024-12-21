@@ -109,7 +109,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
-    def get_required_capability(cls, items: GroupWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[GroupWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -261,9 +263,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for key, method in source.items()
         }
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    ) -> GroupWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> GroupWrite:
         group_write_list = GroupWriteList([])
 
         resources = [resource] if isinstance(resource, dict) else resource
@@ -493,7 +493,7 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: SecurityCategoryWriteList | None, read_only: bool
+        cls, items: Sequence[SecurityCategoryWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []

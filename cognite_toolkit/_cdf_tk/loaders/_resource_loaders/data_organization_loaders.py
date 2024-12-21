@@ -42,9 +42,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -66,7 +63,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
         return "data sets"
 
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[DataSetWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -93,23 +92,17 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
-    ) -> DataSetWrite:
-        data_sets = [resource] if isinstance(resource, dict) else resource
-
-        for data_set in data_sets:
-            if data_set.get("metadata"):
-                for key, value in data_set["metadata"].items():
-                    data_set["metadata"][key] = json.dumps(value)
-            if data_set.get("writeProtected") is None:
-                # Todo: Setting missing default value, bug in SDK.
-                data_set["writeProtected"] = False
-            if data_set.get("metadata") is None:
-                # Todo: Wrongly set to empty dict, bug in SDK.
-                data_set["metadata"] = {}
-
-        return DataSetWriteList.load(data_sets)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetWrite:
+        if resource.get("metadata"):
+            for key, value in resource["metadata"].items():
+                resource["metadata"][key] = json.dumps(value)
+        if resource.get("writeProtected") is None:
+            # Todo: Setting missing default value, bug in SDK.
+            resource["writeProtected"] = False
+        if resource.get("metadata") is None:
+            # Todo: Wrongly set to empty dict, bug in SDK.
+            resource["metadata"] = {}
+        return DataSetWrite._load(resource)
 
     def create(self, items: Sequence[DataSetWrite]) -> DataSetList:
         items = list(items)
@@ -195,7 +188,7 @@ class LabelLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: LabelDefinitionWriteList | None, read_only: bool
+        cls, items: Sequence[LabelDefinitionWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -267,27 +260,13 @@ class LabelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
-    ) -> LabelDefinitionWrite:
-        items: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
-        for item in items:
-            if "dataSetExternalId" in item:
-                ds_external_id = item.pop("dataSetExternalId")
-                item["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
-        loaded = LabelDefinitionWriteList.load(items)
-        return loaded[0] if isinstance(resource, dict) else loaded
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelDefinitionWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return LabelDefinitionWrite._load(resource)
 
-    def _are_equal(
-        self,
-        local: LabelDefinitionWrite,
-        cdf_resource: LabelDefinition,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: LabelDefinition, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped

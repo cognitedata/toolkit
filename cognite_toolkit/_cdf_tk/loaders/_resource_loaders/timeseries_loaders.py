@@ -338,23 +338,9 @@ class DatapointSubscriptionLoader(
         if "timeSeriesIds" not in dumped:
             return dumped
         # Sorting the timeSeriesIds in the local order
-
-
+        # Sorting in the same order as the local file.
+        ts_order_by_id = {ts_id: no for no, ts_id in enumerate(local.get("timeSeriesIds", []))}
+        end_of_list = len(ts_order_by_id)
+        dumped["timeSeriesIds"] = sorted(dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list))
         return dumped
 
-    def _are_equal(
-        self,
-        local: DataPointSubscriptionWrite,
-        cdf_resource: DatapointSubscription,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Two subscription objects are equal if they have the same timeSeriesIds
-        if "timeSeriesIds" in local_dumped:
-            local_dumped["timeSeriesIds"] = set(local_dumped["timeSeriesIds"])
-        if "timeSeriesIds" in cdf_dumped:
-            local_dumped["timeSeriesIds"] = set(cdf_dumped["timeSeriesIds"])
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
