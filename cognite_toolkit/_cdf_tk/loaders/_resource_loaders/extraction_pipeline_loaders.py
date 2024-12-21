@@ -25,7 +25,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineConfig,
     ExtractionPipelineList,
 )
-from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     ExtractionConfigsAcl,
@@ -52,7 +51,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     load_yaml_inject_variables,
     safe_read,
     stringify_value_by_key_in_yaml,
@@ -142,9 +140,7 @@ class ExtractionPipelineLoader(
                     if "tableName" in entry:
                         yield RawTableLoader, RawTable._load(entry)
 
-    def load_resource(
-            self, resource: dict[str, Any], is_dry_run: bool = False
-    )-> ExtractionPipelineWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if "createdBy" not in resource:
@@ -283,7 +279,7 @@ class ExtractionPipelineConfigLoader(
             yield ExtractionPipelineLoader, item["externalId"]
 
     def load_resource_file(
-            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
@@ -291,9 +287,7 @@ class ExtractionPipelineConfigLoader(
         resources = load_yaml_inject_variables(raw_str, {})
         return resources if isinstance(resources, list) else [resources]
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    )-> ExtractionPipelineConfigWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
         if isinstance(config_raw, str):
             # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax

@@ -225,9 +225,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                         ]
                     else:
                         values["scope"][scope_name][replace_method.id_name] = [
-                        replace_method.lookup_method(ext_id, is_dry_run) if isinstance(ext_id, str) else ext_id
-                        for ext_id in ids
-                    ]
+                            replace_method.lookup_method(ext_id, is_dry_run) if isinstance(ext_id, str) else ext_id
+                            for ext_id in ids
+                        ]
         return group
 
     def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
