@@ -101,11 +101,11 @@ class ResourceWorker(
             for resource_dict in resource_list:
                 identifier = self.loader.get_id(resource_dict)
                 if identifier in local_by_id:
-                    duplicates.append(identifier)  # type: ignore[assignment, arg-type]
+                    duplicates.append(identifier)
                 else:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
                     loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
-                    local_by_id[identifier] = resource_dict, loaded  # type: ignore[assignment, index]
+                    local_by_id[identifier] = resource_dict, loaded
 
         capabilities = self.loader.get_required_capability(
             [item for _, item in local_by_id.values()], read_only=is_dry_run
@@ -115,7 +115,7 @@ class ResourceWorker(
 
         # Lookup the existing resources in CDF
         cdf_resources: T_WritableCogniteResourceList
-        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))  # type: ignore[assignment]
+        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
         if return_existing:
             return cdf_resources, duplicates
 
@@ -123,12 +123,12 @@ class ResourceWorker(
         to_update: T_CogniteResourceList
         unchanged: T_CogniteResourceList
         to_create, to_update, unchanged = (
-            self.loader.list_write_cls([]),  # type: ignore[assignment]
-            self.loader.list_write_cls([]),  # type: ignore[assignment]
-            self.loader.list_write_cls([]),  # type: ignore[assignment]
+            self.loader.list_write_cls([]),
+            self.loader.list_write_cls([]),
+            self.loader.list_write_cls([]),
         )
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
-        for identifier, (local_dict, local_resource) in local_by_id.items():  # type: ignore[assignment]
+        for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_resource_by_id.get(identifier)
             if cdf_resource is None:
                 to_create.append(local_resource)
