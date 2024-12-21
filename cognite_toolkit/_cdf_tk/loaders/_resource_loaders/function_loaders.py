@@ -22,6 +22,7 @@ from cognite.client.data_classes.capabilities import (
     FunctionsAcl,
     SessionsAcl,
 )
+from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
@@ -156,12 +157,25 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             # Only in write (request) format of the function
             if key in local:
                 dumped[key] = local[key]
+        if "secrets" in dumped and "secrets" not in local:
+            # Secrets are masked in the response.
+            dumped.pop("secrets")
+        elif "secrets" in dumped and "secrets" in local:
+            # Note this will be misleading as the secrets might not be the same as the ones in the API.
+            # It will be caught by the hash comparison, but can cause confusion for the user if they
+            # compare the dumped file with the API.
+            dumped["secrets"] = local["secrets"]
 
         if file_id := dumped.pop("fileId", None):
             # The fileId is not part of the write object.
             function_zip_file = self.client.files.retrieve(id=file_id)
             if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+
+        if dumped.get("functionPath") == HANDLER_FILE_NAME and "functionPath" not in local:
+            # Remove the default value of the functionPath
+            dumped.pop("functionPath", None)
+
         return dumped
 
     def _is_activated(self, action: str) -> bool:

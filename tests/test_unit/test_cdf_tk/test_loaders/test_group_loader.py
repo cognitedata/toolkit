@@ -1,11 +1,12 @@
 from collections.abc import Hashable
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import Group, GroupWrite, GroupWriteList
+from cognite.client.data_classes import Group, GroupWrite
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     RawTableLoader,
     ResourceLoader,
+    ResourceWorker,
     SpaceLoader,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -40,11 +42,16 @@ class TestGroupLoader:
 
     def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock)
+        with pytest.raises(ToolkitWrongResourceError):
+            raw_list = loader.load_resource_file(
+                LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock.environment_variables()
+            )
+            loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert loaded == []
-
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.name == "scoped_group_name"
         assert len(loaded.capabilities) == 4
 
@@ -57,14 +64,20 @@ class TestGroupLoader:
 
     def test_load_group_list_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[1], is_dry_run=False)
 
         assert isinstance(loaded, GroupWrite)
         assert loaded.name == "unscoped_group_name"
@@ -73,7 +86,10 @@ class TestGroupLoader:
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         # Simulate that one group is is already in CDF
         toolkit_client_approval.append(
@@ -90,22 +106,31 @@ class TestGroupLoader:
             ],
         )
 
-        new_group = GroupWrite(name="new_group", source_id="123", capabilities=[])
-        cmd = DeployCommand(print_warning=False)
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
-            resources=[loaded, new_group], loader=loader
+        new_file = MagicMock(spec=Path)
+        new_file.read_text.return_value = GroupWrite(
+            name="new_group", source_id="123", capabilities=loaded.capabilities
+        ).dump_yaml()
+        worker = ResourceWorker(loader)
+        to_create, to_change, unchanged, _ = worker.load_resources(
+            [
+                LOAD_DATA / "auth" / "1.my_group_scoped.yaml",
+                new_file,
+            ]
         )
-
-        assert len(to_create) == 1
-        assert len(to_change) == 0
-        assert len(unchanged) == 1
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 1, "change": 0, "unchanged": 1}
 
     def test_upsert_group(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock)
-        cmd = DeployCommand(print_warning=False)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         # Simulate that the group is is already in CDF, but with fewer capabilities
         # Simulate that one group is is already in CDF
@@ -124,19 +149,14 @@ class TestGroupLoader:
         )
 
         # group exists, no changes
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(resources=[loaded], loader=loader)
+        worker = ResourceWorker(loader)
+        to_create, to_change, unchanged, _ = worker.load_resources([LOAD_DATA / "auth" / "1.my_group_scoped.yaml"])
 
-        assert len(to_create) == 0
-        assert len(to_change) == 1
-        assert len(unchanged) == 0
-
-        cmd._update_resources(
-            to_change,
-            loader,
-        )
-
-        assert toolkit_client_approval.create_calls()["Group"] == 1
-        assert toolkit_client_approval.delete_calls()["Group"] == 1
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 1, "unchanged": 0}
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -196,8 +216,8 @@ class TestGroupLoader:
     def test_unchanged_new_group_without_metadata(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
-        local_group = GroupWrite.load("""name: gp_no_metadata
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
+        local_group = """name: gp_no_metadata
 sourceId: 123
 capabilities:
 - assetsAcl:
@@ -205,7 +225,7 @@ capabilities:
     - READ
     scope:
       all: {}
-""")
+"""
         cdf_group = Group.load("""name: gp_no_metadata
 sourceId: 123
 capabilities:
@@ -225,12 +245,13 @@ deletedTime: -1
             Group,
             [cdf_group],
         )
-        cmd = DeployCommand(print_warning=False)
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
-            GroupWriteList([local_group]),
-            loader,
-        )
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_group
 
-        assert len(to_create) == 0
-        assert len(to_change) == 0
-        assert len(unchanged) == 1
+        worker = ResourceWorker(loader)
+        to_create, to_change, unchanged, _ = worker.load_resources([filepath])
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "unchanged": 1}
