@@ -6,6 +6,7 @@ from cognite.client.data_classes import Group, GroupWrite, GroupWriteList
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.commands import DeployCommand
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
     ExtractionPipelineLoader,
@@ -25,11 +26,17 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 class TestGroupLoader:
     def test_load_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock.environment_variables()
+        )
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.name == "unscoped_group_name"
 
-        loaded = loader.load_resource_file(LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock)
-        assert loaded == []
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
+        )
+        with pytest.raises(ToolkitWrongResourceError):
+            loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
         loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
