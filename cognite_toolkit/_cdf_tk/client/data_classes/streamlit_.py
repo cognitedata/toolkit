@@ -70,9 +70,11 @@ class StreamlitWrite(_StreamlitCore):
             data_set_id=resource.get("dataSetId"),
         )
         # Trick to avoid specifying defaults twice
-        for key in ["published", "theme", "cogniteToolkitAppHash"]:
+        for key in ["published", "theme"]:
             if key in resource:
                 args[key] = resource[key]
+        if "cogniteToolkitAppHash" in resource:
+            args["cognite_toolkit_app_hash"] = resource["cogniteToolkitAppHash"]
         return cls(**args)
 
     def as_write(self) -> "StreamlitWrite":
@@ -127,9 +129,11 @@ class Streamlit(_StreamlitCore):
             data_set_id=resource.get("dataSetId"),
         )
         # Trick to avoid specifying defaults twice
-        for key in ["theme", "app_hash", "cogniteToolkitAppHash"]:
+        for key in ["theme", "app_hash"]:
             if key in resource:
                 args[key] = resource[key]
+        if "cogniteToolkitAppHash" in resource:
+            args["cognite_toolkit_app_hash"] = resource["cogniteToolkitAppHash"]
         if "published" in resource:
             if isinstance(resource["published"], str):
                 args["published"] = resource["published"].strip().lower() == "true"
