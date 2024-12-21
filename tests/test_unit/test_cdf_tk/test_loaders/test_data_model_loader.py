@@ -6,10 +6,9 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.data_classes import data_modeling as dm
 
-from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
-from cognite_toolkit._cdf_tk.commands import DeployCommand
+from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
-from cognite_toolkit._cdf_tk.loaders import DataModelLoader
+from cognite_toolkit._cdf_tk.loaders import DataModelLoader, ResourceWorker
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -46,20 +45,23 @@ class TestDataModelLoader:
             ],
             description=None,
             name=None,
-        )
+        ).dump_yaml()
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_data_model
 
         loader = DataModelLoader.create_loader(cdf_tool_mock, None)
-        cmd = DeployCommand(print_warning=False)
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
-            dm.DataModelApplyList([local_data_model]), loader
-        )
+        worker = ResourceWorker(loader)
+        to_create, to_change, unchanged, _ = worker.load_resources([filepath])
 
-        assert len(to_create) == 0
-        assert len(to_change) == 0
-        assert len(unchanged) == 1
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
-        local_data_model = dm.DataModelApply.load("""space: sp_space
+        local_yaml = """space: sp_space
 externalId: my_model
 version: 1
 views:
@@ -67,7 +69,7 @@ views:
     externalId: first
     version: 1
     type: view
-        """)
+        """
         cdf_data_model = dm.DataModel(
             space="sp_space",
             external_id="my_model",
@@ -80,10 +82,14 @@ views:
             is_global=False,
         )
         loader = DataModelLoader.create_loader(cdf_tool_mock, None)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_yaml
+        # The load filepath method ensures version is read as an int.
+        local_dict = loader.load_resource_file(filepath, {})[0]
 
-        are_equal, local_dumped, cdf_dumped = loader.are_equal(local_data_model, cdf_data_model, return_dumped=True)
+        cdf_dumped = loader.dump_resource(cdf_data_model, local_dict)
 
-        assert local_dumped == cdf_dumped
+        assert local_dict == cdf_dumped
 
 
 class TestGraphQLLoader:
@@ -108,10 +114,12 @@ type GeneratingUnit {
             "GeneratingUnitModel",
         )
 
-        items = loader.load_resource_file(first_file, cdf_tool_mock)
-        items.extend(loader.load_resource_file(second_file, cdf_tool_mock))
+        items = loader.load_resource_file(first_file, {})
+        items.extend(loader.load_resource_file(second_file, {}))
 
-        loader.create(items)
+        resources = GraphQLDataModelWriteList([loader.load_resource(item) for item in items])
+
+        loader.create(resources)
 
         created = toolkit_client_approval.created_resources_of_type(GraphQLDataModel)
 
@@ -138,11 +146,11 @@ name: String}""",
             "SolarModel",
         )
 
-        items = loader.load_resource_file(first_file, cdf_tool_mock)
-        items.extend(loader.load_resource_file(second_file, cdf_tool_mock))
-
+        items = loader.load_resource_file(first_file, {})
+        items.extend(loader.load_resource_file(second_file, {}))
+        resources = GraphQLDataModelWriteList([loader.load_resource(item) for item in items])
         with pytest.raises(ToolkitCycleError) as e:
-            loader.create(items)
+            loader.create(resources)
 
         assert "Cycle detected" in str(e.value)
         assert [m.external_id for m in e.value.args[1]] == [
@@ -161,10 +169,11 @@ name: String}""",
         )
         loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
 
-        items = loader.load_resource_file(file, cdf_tool_mock)
+        items = loader.load_resource_file(file, {})
 
         assert len(items) == 1
-        assert items[0].version == "3_0_2"
+        resource = loader.load_resource(items[0], is_dry_run=False)
+        assert resource.version == "3_0_2"
 
     @staticmethod
     def _create_mock_file(model: str, space: str, external_id: str, version: int | str = "v1") -> MagicMock:
