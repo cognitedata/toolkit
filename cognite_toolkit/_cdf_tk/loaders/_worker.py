@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Generic, Literal, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, overload
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -14,11 +14,13 @@ from rich.panel import Panel
 from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
-from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
+
+if TYPE_CHECKING:
+    from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 
 
 class ResourceWorker(
