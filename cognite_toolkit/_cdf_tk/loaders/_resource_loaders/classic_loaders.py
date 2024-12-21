@@ -157,7 +157,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if "parentExternalId" in item:
             yield cls, item["parentExternalId"]
 
-    def load_resource_file(self, filepath: Path, ToolGlobals: CDFToolConfig) -> AssetWriteList:
+    def load_resource_file(
+            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
             use_environment_variables = (
@@ -182,8 +184,8 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.load_resource(resources, is_dry_run)
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> AssetWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    ) -> AssetWrite:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
@@ -486,8 +488,8 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
                 yield AssetLoader, asset_id
 
     def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False
-    ) -> EventWriteList:
+            self, resource: dict[str, Any], is_dry_run: bool = False
+    )-> EventWrite:
         resources: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:

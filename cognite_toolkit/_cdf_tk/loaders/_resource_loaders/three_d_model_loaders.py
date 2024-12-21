@@ -187,9 +187,7 @@ class ThreeDModelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    ) -> ThreeDModelWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ThreeDModelWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return ThreeDModelWrite._load(resource)
