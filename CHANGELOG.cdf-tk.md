@@ -25,6 +25,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - No more warning about missing `.env` file when running in `Google Cloud Build`.
+- When deploying a `Sequence` resource, Cognite Toolkit now replaces `dataSetExternalId` with `dataSetId`.
 
 ## [0.3.23] - 2024-12-13
 
