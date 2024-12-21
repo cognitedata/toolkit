@@ -1,34 +1,22 @@
 DataSet:
 - description: This dataset contains 3D data for the oid location.
   externalId: ds_3d_oid
-  metadata: {}
   name: 3d:oid
-  writeProtected: false
 - description: This dataset contains asset data for the oid location.
   externalId: ds_asset_oid
-  metadata: {}
   name: asset:oid
-  writeProtected: false
 - description: This dataset contains files for the oid location.
   externalId: ds_files_oid
-  metadata: {}
   name: files:oid
-  writeProtected: false
 - description: This dataset contains relationships data for the oid location.
   externalId: ds_relationships_oid
-  metadata: {}
   name: relationships:oid
-  writeProtected: false
 - description: This dataset contains timeseries for the oid location.
   externalId: ds_timeseries_oid
-  metadata: {}
   name: timeseries:oid
-  writeProtected: false
 - description: This dataset contains transformations data for the oid location.
   externalId: ds_transformations_oid
-  metadata: {}
   name: transformations:oid
-  writeProtected: false
 Database:
 - name: asset_oid_workmate
 - name: files_oid_fileshare

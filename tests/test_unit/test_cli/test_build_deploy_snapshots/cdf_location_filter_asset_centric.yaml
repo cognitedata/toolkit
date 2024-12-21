@@ -10,9 +10,7 @@ Asset:
 DataSet:
 - description: This is an example of a location filter asset centric data set
   externalId: ds_asset_location_filter
-  metadata: {}
   name: LocationFilter Asset DataSet
-  writeProtected: false
 LocationFilter:
 - assetCentric:
     assets:

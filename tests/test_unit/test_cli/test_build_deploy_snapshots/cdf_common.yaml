@@ -2,9 +2,7 @@ DataSet:
 - description: This dataset contains Transformations, Functions, and Workflows for
     ingesting data into Cognite Data Fusion.
   externalId: ingestion
-  metadata: {}
   name: Ingestion
-  writeProtected: false
 Database:
 - name: contextualizationState
 - name: ingestion

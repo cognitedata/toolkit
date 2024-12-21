@@ -3,20 +3,25 @@ DataSet:
   externalId: ds_3d_oid
   metadata:
     consoleSource: '{"names": ["fileshare"]}'
-    rawTables: '[{"databaseName": "3d_oid_fileshare", "tableName": "contextualization_good"},
-      {"databaseName": "3d_oid_fileshare", "tableName": "contextualization_bad"},
-      {"databaseName": "3d_oid_fileshare", "tableName": "contextualization_manual_input"}]'
+    rawTables:
+    - databaseName: 3d_oid_fileshare
+      tableName: contextualization_good
+    - databaseName: 3d_oid_fileshare
+      tableName: contextualization_bad
+    - databaseName: 3d_oid_fileshare
+      tableName: contextualization_manual_input
   name: 3d:oid
-  writeProtected: false
 - description: Asset data for oid
   externalId: ds_asset_oid
   metadata:
     consoleSource: '{"names": ["fileshare"]}'
-    rawTables: '[{"databaseName": "asset_oid_fileshare", "tableName": "assets"}]'
-    transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
-      "Transformations"}]'
+    rawTables:
+    - databaseName: asset_oid_fileshare
+      tableName: assets
+    transformations:
+    - externalId: tr_asset_oid_fileshare_asset_hierarchy
+      type: Transformations
   name: asset:oid
-  writeProtected: false
 Database:
 - name: 3d_oid_fileshare
 ExtractionPipeline:

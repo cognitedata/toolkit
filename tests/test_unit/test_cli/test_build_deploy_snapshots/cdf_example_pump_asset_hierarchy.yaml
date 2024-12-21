@@ -1,9 +1,7 @@
 DataSet:
 - description: This dataset contains the lift pump stations.
   externalId: src:lift_pump_stations
-  metadata: {}
   name: Lift Pump Stations
-  writeProtected: false
 Database:
 - name: pump_assets
 Row:

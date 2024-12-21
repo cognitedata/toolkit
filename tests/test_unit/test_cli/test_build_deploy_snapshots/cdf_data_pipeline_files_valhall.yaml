@@ -3,20 +3,24 @@ DataSet:
   externalId: ds_asset_oid
   metadata:
     consoleSource: '{"names": ["fileshare"]}'
-    rawTables: '[{"databaseName": "asset_oid_fileshare", "tableName": "assets"}]'
-    transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
-      "Transformations"}]'
+    rawTables:
+    - databaseName: asset_oid_fileshare
+      tableName: assets
+    transformations:
+    - externalId: tr_asset_oid_fileshare_asset_hierarchy
+      type: Transformations
   name: asset:oid
-  writeProtected: false
 - description: File data for oid
   externalId: ds_files_oid
   metadata:
     consoleSource: '{"names": ["fileshare"]}'
-    rawTables: '[{"databaseName": "files_oid_fileshare", "tableName": "files_metadata"}]'
-    transformations: '[{"externalId": "tr_files_oid_fileshare_file_metadata", "type":
-      "Transformations"}]'
+    rawTables:
+    - databaseName: files_oid_fileshare
+      tableName: files_metadata
+    transformations:
+    - externalId: tr_files_oid_fileshare_file_metadata
+      type: Transformations
   name: files:oid
-  writeProtected: false
 Database:
 - name: files_oid_fileshare
 ExtractionPipeline:

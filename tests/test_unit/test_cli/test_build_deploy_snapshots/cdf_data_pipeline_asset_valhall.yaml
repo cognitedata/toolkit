@@ -3,11 +3,13 @@ DataSet:
   externalId: ds_asset_oid
   metadata:
     consoleSource: '{"names": ["workmate"]}'
-    rawTables: '[{"databaseName": "asset_oid_workmate", "tableName": "assets"}]'
-    transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
-      "Transformations"}]'
+    rawTables:
+    - databaseName: asset_oid_workmate
+      tableName: assets
+    transformations:
+    - externalId: tr_asset_oid_workmate_asset_hierarchy
+      type: Transformations
   name: asset:oid
-  writeProtected: false
 Database:
 - name: asset_oid_workmate
 ExtractionPipeline:
