@@ -3,25 +3,18 @@ DataSet:
   externalId: ds_asset_oid
   metadata:
     consoleSource: '{"names": ["opcua"]}'
-    rawTables:
-    - databaseName: asset_oid_opcua
-      tableName: assets
-    transformations:
-    - externalId: tr_asset_oid_opcua_asset_hierarchy
-      type: Transformations
+    rawTables: '[{"databaseName": "asset_oid_opcua", "tableName": "assets"}]'
+    transformations: '[{"externalId": "tr_asset_oid_opcua_asset_hierarchy", "type":
+      "Transformations"}]'
   name: asset:oid
 - description: Time series data for oid extracted live from OPC-UA simulator and static
     examples from PI (OID data)
   externalId: ds_timeseries_oid
   metadata:
     consoleSource: '{"names": ["opcua", "pi - static OID test data"]}'
-    rawTables:
-    - databaseName: timeseries_oid_opcua
-      tableName: contextualization_good
-    - databaseName: timeseries_oid_opcua
-      tableName: contextualization_bad
-    - databaseName: timeseries_oid_opcua
-      tableName: contextualization_manual_input
+    rawTables: '[{"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_good"},
+      {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_bad"},
+      {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_manual_input"}]'
   name: timeseries:oid
 Database:
 - name: timeseries_oid_opcua

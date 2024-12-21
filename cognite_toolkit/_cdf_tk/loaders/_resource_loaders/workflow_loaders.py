@@ -287,6 +287,8 @@ class WorkflowVersionLoader(
             yield WorkflowLoader, item["workflowExternalId"]
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        if not ids:
+            return WorkflowVersionList([])
         return self.client.workflows.versions.list(list(ids))
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:

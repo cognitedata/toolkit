@@ -1,6 +1,5 @@
 externalId: shopConfigFile
 name: config_shop.yaml
-description: This is a config file uploaded
 directory: /files
 dataSetExternalId: ds_complete_org
 mimeType: application/yaml

@@ -550,6 +550,14 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             dumped.pop("properties", None)
         if not dumped.get("implements") and not local.get("implements"):
             dumped.pop("implements", None)
+        local_properties = local.get("properties", {})
+        for prop_id, prop in dumped.get("properties", {}).items():
+            if prop_id not in local_properties:
+                continue
+            local_prop = local_properties[prop_id]
+            if all(isinstance(v.get("container"), dict) for v in [prop, local_prop]):
+                if prop["container"].get("type") == "container" and "type" not in local_prop["container"]:
+                    prop["container"].pop("type", None)
         return dumped
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
@@ -1088,9 +1096,10 @@ class GraphQLLoader(
 
     def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if "dml" in local:
-            # Reference to the GraphQL file will cause the comparison to always be False
-            dumped["dml"] = local["dml"]
+        for key in ["dml", "preserveDml"]:
+            # Local values that are not returned from the API
+            if key in local:
+                dumped[key] = local[key]
 
         description = resource.description or ""
         if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
@@ -1265,6 +1274,10 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
             dumped.pop("existingVersion", None)
+        if dumped.get("instanceType") == "edge" and "instanceType" not in local:
+            # Toolkit uses file suffix to determine instanceType, so we need to remove it from the CDF resource
+            # to match the local resource.
+            dumped.pop("instanceType", None)
 
         return dumped
 
