@@ -314,7 +314,9 @@ class ExtractionPipelineConfigLoader(
                 latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
             except CogniteAPIError:
                 latest = None
-            if latest and self._are_equal(item, latest):
+            local_dict = item.dump()
+
+            if latest and local_dict == self.dump_resource(latest, local_dict):
                 updated.append(latest)
                 continue
             else:

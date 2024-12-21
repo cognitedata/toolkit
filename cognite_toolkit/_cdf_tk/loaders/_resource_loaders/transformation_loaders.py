@@ -543,12 +543,13 @@ class TransformationNotificationLoader(
         create: list[TransformationNotificationWrite] = []
         unchanged: list[str] = []
         delete: list[int] = []
-        for id_, item in item_by_id.items():
+        for id_, local_item in item_by_id.items():
             existing_item = exiting_by_id.get(id_)
-            if existing_item and self._are_equal(item, existing_item):
+            local_dict = local_item.dump()
+            if existing_item and local_item == self.dump_resource(existing_item, local_dict):
                 unchanged.append(self.get_id(existing_item))
             else:
-                create.append(item)
+                create.append(local_item)
             if existing_item:
                 delete.append(cast(int, existing_item.id))
         if delete:
