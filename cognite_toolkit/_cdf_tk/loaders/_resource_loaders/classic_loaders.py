@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import collections.abc
 import io
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
-import collections.abc
 
 import pandas as pd
 from cognite.client.data_classes import (
@@ -23,14 +23,13 @@ from cognite.client.data_classes import (
     SequenceWriteList,
     capabilities,
 )
-from cognite.client.data_classes._base import T_WriteClass, T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -73,7 +72,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: collections.abc.Sequence[AssetWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: collections.abc.Sequence[AssetWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.AssetsAcl.Scope.All | capabilities.AssetsAcl.Scope.DataSet = (  # type: ignore[valid-type]
@@ -164,7 +165,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     ) -> list[dict[str, Any]]:
         resources: list[dict[str, Any]]
         if filepath.suffix in {".yaml", ".yml"}:
-            raw_yaml = load_yaml_inject_variables(filepath, environment_variables if self.do_environment_variable_injection else {})
+            raw_yaml = load_yaml_inject_variables(
+                filepath, environment_variables if self.do_environment_variable_injection else {}
+            )
             resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
         elif filepath.suffix == ".csv" or filepath.suffix == ".parquet":
             if filepath.suffix == ".csv":
@@ -181,9 +184,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
 
         return resources
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    ) -> AssetWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> AssetWrite:
         # Unpack metadata keys from table formats (e.g. csv, parquet)
         metadata: dict = resource.get("metadata", {})
         for key, value in list(resource.items()):
@@ -248,7 +249,9 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: collections.abc.Sequence[SequenceWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: collections.abc.Sequence[SequenceWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: Any = capabilities.SequencesAcl.Scope.All()
@@ -331,7 +334,6 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             yield AssetLoader, item["assetExternalId"]
 
 
-
 @final
 class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventList]):
     folder_name = "classic"
@@ -370,7 +372,9 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: collections.abc.Sequence[EventWrite] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: collections.abc.Sequence[EventWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         scope: capabilities.EventsAcl.Scope.All | capabilities.EventsAcl.Scope.DataSet = (  # type: ignore[valid-type]
@@ -453,9 +457,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             if isinstance(asset_id, str):
                 yield AssetLoader, asset_id
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    )-> EventWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> EventWrite:
         if ds_external_id := resource.get("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if asset_external_ids := resource.pop("assetExternalIds", []):

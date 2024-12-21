@@ -27,7 +27,6 @@ import yaml
 from cognite.client.data_classes import (
     filters,
 )
-from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataModelInstancesAcl,
@@ -467,7 +466,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: Sequence[ViewApply] | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[ViewApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -546,7 +547,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return cdf_dumped
 
     def load_resource_file(
-            self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -554,7 +555,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(raw_str, environment_variables if self.do_environment_variable_injection else {})
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables if self.do_environment_variable_injection else {}
+        )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
@@ -684,7 +687,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return spec
 
 
-
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
     folder_name = "data_models"
@@ -751,7 +753,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(raw_str, environment_variables if self.do_environment_variable_injection else {})
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables if self.do_environment_variable_injection else {}
+        )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
     def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
@@ -763,7 +767,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         end_of_list = len(view_order_by_id)
         dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId.load(v), end_of_list))
         return dumped
-
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -820,7 +823,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we need to add it manually.
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
-
 
 
 @final

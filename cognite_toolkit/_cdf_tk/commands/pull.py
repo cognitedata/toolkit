@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     YAMLComment,
@@ -50,7 +51,6 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path, parse_user_selected_modules
 
-from ..tk_warnings import MediumSeverityWarning
 from ._base import ToolkitCommand
 from .build import BuildCommand
 from .clean import CleanCommand

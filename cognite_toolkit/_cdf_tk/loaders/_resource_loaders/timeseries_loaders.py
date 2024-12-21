@@ -13,7 +13,6 @@ from cognite.client.data_classes import (
     TimeSeriesWrite,
     TimeSeriesWriteList,
 )
-from cognite.client.data_classes._base import T_WritableCogniteResource, T_WriteClass
 from cognite.client.data_classes.capabilities import (
     Capability,
     TimeSeriesAcl,
@@ -28,9 +27,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
@@ -341,6 +337,7 @@ class DatapointSubscriptionLoader(
         # Sorting in the same order as the local file.
         ts_order_by_id = {ts_id: no for no, ts_id in enumerate(local.get("timeSeriesIds", []))}
         end_of_list = len(ts_order_by_id)
-        dumped["timeSeriesIds"] = sorted(dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list))
+        dumped["timeSeriesIds"] = sorted(
+            dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list)
+        )
         return dumped
-

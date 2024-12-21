@@ -163,8 +163,10 @@ class ToolkitResourceMissingError(ToolkitError):
     def __str__(self) -> str:
         return f"{super().__str__()}\nResource {self.resource!r} is missing"
 
+
 class ToolkitWrongResourceError(RuntimeError):
     """Special exception used by a loader to signal that the resource is not the expected type."""
+
     ...
 
 

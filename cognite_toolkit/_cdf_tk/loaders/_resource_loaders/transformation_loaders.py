@@ -44,7 +44,6 @@ from cognite.client.data_classes import (
     TransformationWrite,
     TransformationWriteList,
 )
-from cognite.client.data_classes._base import T_WritableCogniteResource
 from cognite.client.data_classes.capabilities import (
     Capability,
     TransformationsAcl,
@@ -67,12 +66,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
-    ToolkitYAMLFormatError,
     ToolkitTypeError,
+    ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -190,7 +188,9 @@ class TransformationLoader(
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-        resources = load_yaml_inject_variables(raw_str, environment_variables if self.do_environment_variable_injection else {})
+        resources = load_yaml_inject_variables(
+            raw_str, environment_variables if self.do_environment_variable_injection else {}
+        )
 
         raw_list = resources if isinstance(resources, list) else [resources]
 
@@ -211,8 +211,7 @@ class TransformationLoader(
                 )
             elif query_file and not query_file.exists():
                 # We checked above that filepath is not None
-                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found",
-                                               filepath)  # type: ignore[union-attr]
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
             elif query_file and "query" in item:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
@@ -223,9 +222,7 @@ class TransformationLoader(
                 item["query"] = safe_read(query_file)
         return raw_list
 
-    def load_resource(
-        self, resource: dict[str, Any], is_dry_run: bool = False
-    )-> TransformationWrite:
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
         invalid_parameters: dict[str, str] = {}
         if "action" in resource and "conflictMode" not in resource:
             invalid_parameters["action"] = "conflictMode"
@@ -262,7 +259,9 @@ class TransformationLoader(
             )
         except KeyError as e:
             item_id = self.get_id(resource)
-            raise ToolkitTypeError(f"Ill-formed Transformation {item_id}: Authentication property is missing required fields") from e
+            raise ToolkitTypeError(
+                f"Ill-formed Transformation {item_id}: Authentication property is missing required fields"
+            ) from e
         return TransformationWrite._load(resource)
 
     def dump_resource(self, resource: Transformation, local: TransformationWrite) -> dict[str, Any]:
