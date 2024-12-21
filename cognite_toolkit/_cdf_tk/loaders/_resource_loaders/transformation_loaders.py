@@ -189,7 +189,7 @@ class TransformationLoader(
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
         resources = load_yaml_inject_variables(
-            raw_str, environment_variables if self.do_environment_variable_injection else {}
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
 
         raw_list = resources if isinstance(resources, list) else [resources]
@@ -264,7 +264,7 @@ class TransformationLoader(
             ) from e
         return TransformationWrite._load(resource)
 
-    def dump_resource(self, resource: Transformation, local: TransformationWrite) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)

@@ -13,7 +13,7 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from typing import Any, cast, final
 
@@ -79,7 +79,7 @@ class FileMetadataLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: FileMetadataWriteList | None, read_only: bool
+        cls, items: Sequence[FileMetadataWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -254,7 +254,9 @@ class CogniteFileLoader(
         return id.dump(include_instance_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: ExtendableCogniteFileApplyList | None, read_only: bool) -> list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[ExtendableCogniteFileApply] | None, read_only: bool
+    ) -> list[Capability]:
         if not items and items is not None:
             return []
 

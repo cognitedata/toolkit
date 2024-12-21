@@ -160,7 +160,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         if file_id := dumped.pop("fileId", None):
             # The fileId is not part of the write object.
             function_zip_file = self.client.files.retrieve(id=file_id)
-            if data_set_id := function_zip_file.data_set_id:
+            if function_zip_file and (data_set_id := function_zip_file.data_set_id):
                 dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
@@ -192,12 +192,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             raise ValueError("build_path must be set to compare functions as function code must be compared.")
         for item in items:
             external_id = item.external_id or item.name
-            function_rootdir = self.function_dir_by_external_id[item.external_id]
+            function_rootdir = self.function_dir_by_external_id[external_id]
             file_id = self.client.functions._zip_and_upload_folder(
                 name=item.name,
                 folder=str(function_rootdir),
                 external_id=external_id,
-                data_set_id=self.data_set_id_by_external_id.get(item.external_id),
+                data_set_id=self.data_set_id_by_external_id.get(external_id),
             )
             # Wait until the files is available
             sleep_time = 1.0  # seconds
