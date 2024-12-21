@@ -6,7 +6,6 @@ import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
-from cognite_toolkit._cdf_tk.commands import DeployCommand
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, ResourceWorker, SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -109,19 +108,20 @@ class TestViewLoader:
             external_id="child",
             version="1",
             implements=[interface.as_id()],
-        )
+        ).dump_yaml()
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = child_local
+
         # Simulating that the interface and child_cdf are available in CDF
         toolkit_client_approval.append(dm.View, [interface, child_cdf])
 
-        loader = ViewLoader.create_loader(cdf_tool_mock, None)
-        cmd = DeployCommand(print_warning=False)
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(
-            dm.ViewApplyList([child_local]), loader
-        )
-
-        assert len(to_create) == 0
-        assert len(to_change) == 0
-        assert len(unchanged) == 1
+        worker = ResourceWorker(ViewLoader.create_loader(cdf_tool_mock, None))
+        to_create, to_change, unchanged, _ = worker.load_resources([file])
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "unchanged": 1}
 
     def test_unchanged_view_int_version(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
@@ -213,29 +213,3 @@ class TestViewLoader:
         actual = ViewLoader.get_dependent_items(item)
 
         assert list(actual) == expected
-
-    def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
-        local_view = dm.ViewApply.load("""space: sp_space
-externalId: my_view
-version: 1""")
-        cdf_view = dm.View(
-            space="sp_space",
-            external_id="my_view",
-            version="1",
-            last_updated_time=1,
-            created_time=1,
-            description=None,
-            name=None,
-            filter=None,
-            implements=None,
-            writable=True,
-            used_for="node",
-            is_global=False,
-            properties={},
-        )
-
-        loader = ViewLoader.create_loader(cdf_tool_mock, None)
-
-        _, local_dumped, cdf_dumped = loader.are_equal(local_view, cdf_view, return_dumped=True)
-
-        assert local_dumped == cdf_dumped

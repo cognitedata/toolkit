@@ -565,6 +565,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
             dumped.pop("properties", None)
+        if not dumped.get("implements") and not local.get("implements"):
+            dumped.pop("implements", None)
         return dumped
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
