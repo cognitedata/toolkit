@@ -1,8 +1,10 @@
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
+from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
 from cognite_toolkit._cdf_tk.loaders import (
@@ -88,8 +90,8 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
 
-def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> dict[str, list[str]]:
-    changed_resources: dict[str, list[str]] = {}
+def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> dict[str, set[Any]]:
+    changed_resources: dict[str, set[Any]] = {}
     for loader_cls in RESOURCE_LOADER_LIST:
         if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
             # These two we have no way of knowing if they have changed. So they are always redeployed.
@@ -98,9 +100,8 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
         worker = ResourceWorker(loader)
         files = worker.load_files()
         _, to_update, *__ = worker.load_resources(files, environment_variables=cdf_tool_config.environment_variables())
-        if to_update:
+        if changed := (set(loader.get_ids(to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
-            ids = set(loader.get_ids(to_update)) - {"MyExtendedFile"}
-            changed_resources[loader.display_name] = ids
+            changed_resources[loader.display_name] = changed
 
     return changed_resources
