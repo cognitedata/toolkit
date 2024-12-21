@@ -85,10 +85,10 @@ class CleanCommand(ToolkitCommand):
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
         existing_resources, duplicated = worker.load_resources(
             filepaths=files,
+            return_existing=True,
             environment_variables=ToolGlobals.environment_variables(),
             is_dry_run=True,
             verbose=verbose,
-            return_existing=True,
         )
         nr_of_existing = len(existing_resources)
 

@@ -15,7 +15,7 @@ class TestDeployCommand:
         worker = ResourceWorker(ViewLoader.create_loader(cdf_tool_mock, None))
 
         with pytest.raises(TypeError) as e:
-            worker.load_resources([path], {}, is_dry_run=True, verbose=False)
+            worker.load_resources([path], environment_variables={}, is_dry_run=True, verbose=False)
 
         assert e.value
 

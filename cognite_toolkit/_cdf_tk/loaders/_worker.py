@@ -62,29 +62,29 @@ class ResourceWorker(
     def load_resources(
         self,
         filepaths: list[Path],
-        environment_variables: dict[str, str | None],
-        is_dry_run: bool,
-        verbose: bool,
         return_existing: Literal[True],
+        environment_variables: dict[str, str | None] | None = None,
+        is_dry_run: bool = False,
+        verbose: bool = False,
     ) -> tuple[T_WritableCogniteResourceList, list[T_ID]]: ...
 
     @overload
     def load_resources(
         self,
         filepaths: list[Path],
-        environment_variables: dict[str, str | None],
-        is_dry_run: bool,
-        verbose: bool,
         return_existing: Literal[False] = False,
+        environment_variables: dict[str, str | None] | None = None,
+        is_dry_run: bool = False,
+        verbose: bool = False,
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]: ...
 
     def load_resources(
         self,
         filepaths: list[Path],
-        environment_variables: dict[str, str | None],
-        is_dry_run: bool,
-        verbose: bool,
         return_existing: bool = False,
+        environment_variables: dict[str, str | None] | None = None,
+        is_dry_run: bool = False,
+        verbose: bool = False,
     ) -> (
         tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]
         | tuple[T_WritableCogniteResourceList, list[T_ID]]
@@ -92,7 +92,9 @@ class ResourceWorker(
         duplicates: list[T_ID] = []
         local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}  # type: ignore[assignment]
         # Load all resources from files, get ids, and remove duplicates.
-        environment_variables = environment_variables if self.loader.do_environment_variable_injection else {}
+        environment_variables = (
+            environment_variables if self.loader.do_environment_variable_injection and environment_variables else {}
+        )
         for filepath in filepaths:
             try:
                 resource_list = self.loader.load_resource_file(filepath, environment_variables)

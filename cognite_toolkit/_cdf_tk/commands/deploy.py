@@ -219,7 +219,7 @@ class DeployCommand(ToolkitCommand):
             return None
 
         to_create, to_update, unchanged, duplicated = worker.load_resources(
-            files, ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+            files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
         )
 
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
