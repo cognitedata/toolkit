@@ -157,10 +157,9 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, ToolGlobals=cdf_tool_mock)
-        assert isinstance(
-            loaded, (loader.resource_write_cls, loader.list_write_cls)
-        ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
+        assert isinstance(loaded, list)
+        assert len(loaded) == 1
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
@@ -194,9 +193,7 @@ class TestFormatConsistency:
         file.parent.name = loader.folder_name
 
         loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
-        assert isinstance(
-            loaded, loader.resource_write_cls | loader.list_write_cls
-        ), f"loaded must be an instance of {loader.list_write_cls} or {loader.resource_write_cls} but is {type(loaded)}"
+        assert isinstance(loaded, list)
 
     @staticmethod
     def check_url(url) -> bool:
