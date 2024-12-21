@@ -103,7 +103,6 @@ def mock_read_yaml_file(
         "classic_loaders",
         "datamodel_loaders",
         "extraction_pipeline_loaders",
-        "function_loaders",
         "transformation_loaders",
     ]:
         monkeypatch.setattr(
