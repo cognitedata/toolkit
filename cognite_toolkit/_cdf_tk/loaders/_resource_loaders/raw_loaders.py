@@ -58,7 +58,9 @@ class RawDatabaseLoader(
         return "raw databases"
 
     @classmethod
-    def get_required_capability(cls, items: RawDatabaseList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[RawDatabase] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -172,7 +174,9 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
         return "raw tables"
 
     @classmethod
-    def get_required_capability(cls, items: RawTableList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[RawTable] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 

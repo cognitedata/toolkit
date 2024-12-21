@@ -6,7 +6,6 @@ import shutil
 import tempfile
 import uuid
 from collections import UserList
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
@@ -41,6 +40,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     YAMLComment,
@@ -459,7 +459,7 @@ class PullCommand(ToolkitCommand):
                 local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
                 filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
 
-        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals, is_dry_run=False)
+        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals.environment_variables())
 
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:
@@ -645,32 +645,35 @@ class PullCommand(ToolkitCommand):
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
         has_changes = False
+        environment_variables = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
             unique_destinations = {r.destination for r in resources if r.destination}
-            local_resource_by_id: dict[T_ID, T_WriteClass] = {}
+            local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
             local_resource_ids = set(resources.identifiers)
             for destination in unique_destinations:
-                loaded = loader.load_resource_file(destination, ToolGlobals, is_dry_run=dry_run)
-                loaded_list = loaded if isinstance(loaded, Sequence) else [loaded]
-                for local_resource in loaded_list:
-                    local_id = loader.get_id(local_resource)
-                    if local_id in local_resource_ids and not local_resource_by_id:
-                        local_resource_by_id[local_id] = local_resource
+                resource_list = loader.load_resource_file(destination, environment_variables)
+                for resource_dict in resource_list:
+                    identifier = loader.get_id(resource_dict)
+                    if identifier in local_resource_ids:
+                        local_resource_by_id[identifier] = resource_dict
 
             to_write: dict[T_ID, dict[str, Any]] = {}
-            for item_id, local_resource in local_resource_by_id.items():
+            for item_id, local_dict in local_resource_by_id.items():
                 cdf_resource = cdf_resource_by_id.get(item_id)
                 if cdf_resource is None:
-                    # Todo: Warning instead of error?
-                    raise ToolkitMissingResourceError(
-                        f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
-                    )
-                are_equal, local_dumped, cdf_dumped = loader.are_equal(
-                    local_resource, cdf_resource, return_dumped=True, ToolGlobals=ToolGlobals
-                )
-                if are_equal:
                     file_results.unchanged += 1
-                    to_write[item_id] = local_dumped
+                    to_write[item_id] = local_dict
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
+                        )
+                    )
+                    continue
+                cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
+
+                if cdf_dumped == local_dict:
+                    file_results.unchanged += 1
+                    to_write[item_id] = local_dict
                 else:
                     file_results.changed += 1
                     to_write[item_id] = cdf_dumped

@@ -51,9 +51,9 @@ from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
 class TestDataSetsLoader:
-    def test_existing_unchanged(self, cognite_client: CogniteClient):
-        data_sets = cognite_client.data_sets.list(limit=1, external_id_prefix="")
-        loader = DataSetsLoader(cognite_client, None)
+    def test_existing_unchanged(self, toolkit_client: ToolkitClient):
+        data_sets = toolkit_client.data_sets.list(limit=1, external_id_prefix="")
+        loader = DataSetsLoader(toolkit_client, None)
 
         cmd = DeployCommand(print_warning=False)
         created, changed, unchanged = cmd.to_create_changed_unchanged_triple(data_sets.as_write(), loader)

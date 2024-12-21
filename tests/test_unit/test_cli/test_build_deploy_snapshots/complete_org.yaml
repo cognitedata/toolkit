@@ -482,6 +482,7 @@ Sequence:
     externalId: mySequenceValue
     name: value
     valueType: Double
+  dataSetId: 7982613576047462211
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
@@ -516,7 +517,6 @@ TimeSeries:
   metadata:
     foo: bar
   name: CDF Toolkit Example Timeseries
-  securityCategories: []
 - dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
@@ -526,7 +526,6 @@ TimeSeries:
   metadata:
     bar: foo
   name: CDF Toolkit Example Timeseries 2
-  securityCategories: []
 Transformation:
 - conflictMode: upsert
   destination:
