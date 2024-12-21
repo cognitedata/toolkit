@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
+from datetime import date, datetime
 from functools import lru_cache
 from typing import Any, cast, final
 
@@ -30,6 +31,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
@@ -278,6 +280,30 @@ class CogniteFileLoader(
                 scope,  # type: ignore[arg-type]
             ),
         ]
+
+    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump(context="local")
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+        for key in list(dumped.keys()):
+            value = dumped[key]
+            if key not in local:
+                if value is None:
+                    dumped.pop(key)
+                continue
+            local_value = local[key]
+            if isinstance(local_value, datetime) and isinstance(value, str):
+                dumped[key] = convert_data_modelling_timestamp(value)
+            elif isinstance(local_value, date) and isinstance(value, str):
+                dumped[key] = date.fromisoformat(value)
+
+        if "nodeSource" in local:
+            dumped["nodeSource"] = local["nodeSource"]
+        if dumped.get("instanceType") == "node" and "instanceType" not in local:
+            dumped.pop("instanceType")
+        return dumped
 
     def create(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(

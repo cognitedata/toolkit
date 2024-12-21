@@ -286,28 +286,25 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ContainerApply:
-        for prop in resource.get("properties", {}).values():
-            type_ = prop.get("type", {})
-            if "list" not in type_:
-                # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-                # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-                # is used as read and write in the SDK, and the read class has it required while the write class does not)
-                type_["list"] = False
-            # Todo Bug in SDK, not setting defaults on load
-            if "nullable" not in prop:
-                prop["nullable"] = False
-            if "autoIncrement" not in prop:
-                prop["autoIncrement"] = False
-
-        return ContainerApply._load(resource)
-
     def dump_resource(self, resource: Container, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
                 dumped.pop(key, None)
+        local_prop_by_id = local.get("properties", {})
+        for prop_id, cdf_prop in dumped.get("properties", {}).items():
+            if prop_id not in local_prop_by_id:
+                continue
+            local_prop = local_prop_by_id[prop_id]
+            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", False)]:
+                if cdf_prop.get(key) is default and key not in local_prop:
+                    cdf_prop.pop(key, None)
+            cdf_type = cdf_prop.get("type", {})
+            local_type = local_prop.get("type", {})
+            for key, type_default in [("list", False), ("collation", "ucs_basic")]:
+                if cdf_type.get(key) == type_default and key not in local_type:
+                    cdf_type.pop(key, None)
         return dumped
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
