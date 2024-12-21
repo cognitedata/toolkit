@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_fr
 from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
+from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -35,9 +36,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
-    FunctionScheduleLoader,
     GroupResourceScopedLoader,
-    HostedExtractorDestinationLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
@@ -45,7 +44,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
     get_loader,
 )
-from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     tmp_build_directory,
@@ -132,11 +130,11 @@ class TestFormatConsistency:
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock, None)
+        loader = Loader.create_loader(cdf_tool_mock, tmp_path)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -163,11 +161,11 @@ class TestFormatConsistency:
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock, None)
+        loader = Loader.create_loader(cdf_tool_mock, tmp_path)
 
-        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel]:
+        if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
         elif loader.resource_cls in [Edge, Node, Destination]:
             pytest.skip(f"Skipping {loader.resource_cls} because it has special properties")
@@ -342,36 +340,26 @@ class TestResourceLoaders:
         [loader_cls for loader_cls in RESOURCE_LOADER_LIST if has_auth(loader_cls.get_write_cls_parameter_spec())],
     )
     def test_does_replace_env_var(self, loader_cls, cdf_tool_mock: CDFToolConfig, monkeypatch) -> None:
-        raw_path = Path(RESOURCES_WITH_ENVIRONMENT_VARIABLES) / "modules" / "example_module" / loader_cls.folder_name
+        raw_path = RESOURCES_WITH_ENVIRONMENT_VARIABLES / "modules" / "example_module" / loader_cls.folder_name
 
         tmp_file = next((file for file in raw_path.glob(f"*.{loader_cls.kind}.yaml")), None)
         assert tmp_file is not None, f"No yaml file found in {raw_path}"
+        loader = loader_cls.create_loader(
+            cdf_tool_mock, RESOURCES_WITH_ENVIRONMENT_VARIABLES / "modules" / "example_module"
+        )
 
-        monkeypatch.setenv("SOME_VARIABLE", "test_value")
-        monkeypatch.setenv("ANOTHER_VARIABLE", "another_test_value")
+        resource_without_replacement = loader.load_resource_file(tmp_file, environment_variables={})
+        resource = loader.load_resource_file(
+            tmp_file, environment_variables={"SOME_VARIABLE": "test_value", "ANOTHER_VARIABLE": "another_test_value"}
+        )
+        dumped = yaml.safe_dump(resource)
+        dumped_without_replacement = yaml.safe_dump(resource_without_replacement)
 
-        loader = loader_cls.create_loader(cdf_tool_mock, None)
-        resource = loader.load_resource_file(tmp_file, environment_variables=cdf_tool_mock.environment_variables())
-        if isinstance(resource, Iterable):
-            resource = next(iter(resource))
-
-        # special case: auth object is moved to extra_configs
-        if isinstance(loader, FunctionScheduleLoader):
-            id_, auth = next(iter(loader.authentication_by_id.items()))
-            assert auth.client_id == "test_value"
-            assert auth.client_secret == "another_test_value"
-        elif isinstance(loader, WorkflowTriggerLoader):
-            extras = next(iter(loader._authentication_by_id.items()), None)[1]
-            assert extras.client_id == "test_value"
-            assert extras.client_secret == "another_test_value"
-        elif isinstance(loader, HostedExtractorDestinationLoader):
-            pytest.skip(
-                "Hosted Extractor Destination Loader converts credentials to nonce using the session API, skipping"
-            )
-        else:
-            txt = str(resource.dump())
-            assert "test_value" in txt
-            assert "${SOME_VARIABLE}" not in txt
+        assert "${SOME_VARIABLE}" not in dumped
+        assert "test_value" in dumped
+        assert (
+            "${SOME_VARIABLE}" in dumped_without_replacement
+        ), f"Environment variable missing in {tmp_file.as_posix()}"
 
 
 class TestLoaders:
