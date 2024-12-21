@@ -53,6 +53,9 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
     changed_resources = get_changed_resources(cdf_tool_config, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir)
+    assert not changed_source_files, "Pulling the same source should not change anything"
+
 
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
@@ -105,3 +108,7 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
             changed_resources[loader.display_name] = changed
 
     return changed_resources
+
+
+def get_changed_source_files(cdf_tool_config: CDFToolConfig, build_dir: Path) -> set[Path]:
+    raise NotImplementedError("Modules pull command is not yet implemented")
