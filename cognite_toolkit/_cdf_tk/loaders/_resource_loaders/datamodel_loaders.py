@@ -302,6 +302,14 @@ class ContainerLoader(
 
         return ContainerApply._load(resource)
 
+    def dump_resource(self, resource: Container, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        for key in ["constraints", "indexes"]:
+            if not dumped.get(key) and key not in local:
+                # Set to empty dict by server.
+                dumped.pop(key, None)
+        return dumped
+
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
 
@@ -887,6 +895,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
             dumped.pop("existingVersion", None)
+
+        if "instanceType" in dumped and "instanceType" not in local:
+            # Toolkit uses file suffix to determine instanceType, so we need to remove it from the CDF resource
+            # to match the local resource.
+            dumped.pop("instanceType")
 
         return dumped
 

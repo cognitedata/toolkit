@@ -5,7 +5,13 @@ from pathlib import Path
 import pytest
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, RESOURCE_LOADER_LIST, ResourceWorker
+from cognite_toolkit._cdf_tk.loaders import (
+    LOADER_BY_FOLDER_NAME,
+    RESOURCE_LOADER_LIST,
+    HostedExtractorDestinationLoader,
+    HostedExtractorSourceLoader,
+    ResourceWorker,
+)
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests import data
 
@@ -85,6 +91,9 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
 def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> dict[str, list[str]]:
     changed_resources: dict[str, list[str]] = {}
     for loader_cls in RESOURCE_LOADER_LIST:
+        if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+            # These two we have no way of knowing if they have changed. So they are always redeployed.
+            continue
         loader = loader_cls.create_loader(cdf_tool_config, build_dir)
         worker = ResourceWorker(loader)
         files = worker.load_files()

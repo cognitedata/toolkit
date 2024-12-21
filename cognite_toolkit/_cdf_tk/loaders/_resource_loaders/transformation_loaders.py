@@ -268,7 +268,10 @@ class TransformationLoader(
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
-        # Todo Authentication Stuff.
+        if "authentication" in local:
+            # Todo: Need a way to detect changes in credentials instead of just assuming
+            #    that the credentials are always the same.
+            dumped["authentication"] = local["authentication"]
         return dumped
 
     def dump_resource_legacy(

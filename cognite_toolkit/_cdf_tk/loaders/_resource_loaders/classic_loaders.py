@@ -281,6 +281,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
+        local_col_by_id = {col["externalId"]: col for col in local.get("columns", []) if "externalId" in col}
+        for col in dumped.get("columns", []):
+            external_id = col.get("externalId")
+            if not external_id:
+                continue
+            if external_id not in local_col_by_id:
+                continue
+            local_col = local_col_by_id[external_id]
+            if not col.get("metadata") and "metadata" not in local_col:
+                col.pop("metadata", None)
         return dumped
 
     def create(self, items: SequenceWriteList) -> SequenceList:

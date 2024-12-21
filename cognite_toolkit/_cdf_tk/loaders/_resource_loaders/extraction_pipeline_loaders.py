@@ -152,6 +152,8 @@ class ExtractionPipelineLoader(
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
+            dumped.pop("createdBy", None)
         return dumped
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
