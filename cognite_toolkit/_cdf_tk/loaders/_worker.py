@@ -15,7 +15,7 @@ from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
@@ -100,11 +100,17 @@ class ResourceWorker(
                 raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.name}: {e}")
             for resource_dict in resource_list:
                 identifier = self.loader.get_id(resource_dict)
+                try:
+                    # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
+                    loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
+                except ToolkitWrongResourceError:
+                    # The ToolkitWrongResourceError is a special exception that as of 21/12/24 is used by
+                    # the GroupAllScopedLoader and GroupResourceScopedLoader to signal that the resource
+                    # should be handled by the other loader.
+                    continue
                 if identifier in local_by_id:
                     duplicates.append(identifier)
                 else:
-                    # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
-                    loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
                     local_by_id[identifier] = resource_dict, loaded
 
         capabilities = self.loader.get_required_capability(
