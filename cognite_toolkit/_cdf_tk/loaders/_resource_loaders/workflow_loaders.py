@@ -50,9 +50,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -201,21 +198,6 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         """
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
-
-    def _are_equal(
-        self,
-        local: WorkflowUpsert,
-        cdf_resource: Workflow,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
 
 @final

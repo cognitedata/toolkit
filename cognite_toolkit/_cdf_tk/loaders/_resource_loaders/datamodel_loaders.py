@@ -88,7 +88,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     GraphQLParser,
     calculate_str_or_file_hash,
     in_dict,
@@ -369,27 +368,6 @@ class ContainerLoader(
     @staticmethod
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
-
-    def _are_equal(
-        self,
-        local: ContainerApply,
-        remote: Container,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump(camel_case=True)
-        # 'usedFor' and 'cursorable' have default values set on the server side,
-        # but not when loading the container using the SDK. Thus, we set the default
-        # values here if they are not present.
-        if "usedFor" not in local_dumped:
-            local_dumped["usedFor"] = "node"
-        for index in local_dumped.get("indexes", {}).values():
-            if "cursorable" not in index:
-                index["cursorable"] = False
-
-        cdf_dumped = remote.as_write().dump(camel_case=True)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @classmethod
     @lru_cache(maxsize=1)
