@@ -83,7 +83,7 @@ class LookUpAPI(ToolkitAPI, ABC):
         id: int | Sequence[int],
     ) -> str | list[str]:
         ids = [id] if isinstance(id, int) else id
-        missing = [id_ for id_ in ids if id not in self._reverse_cache]
+        missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
         if missing:
             try:
                 lookup = self._external_id(missing)
