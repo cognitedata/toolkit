@@ -7,7 +7,7 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, SpaceLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, ResourceWorker, SpaceLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -132,9 +132,6 @@ class TestViewLoader:
   version: 1"""
         file = MagicMock(spec=Path)
         file.read_text.return_value = raw_file
-
-        local_view: dm.ViewApplyList = loader.load_resource_file(file, cdf_tool_mock)
-
         cdf_view = dm.View(
             space="sp_space",
             external_id="my_view",
@@ -153,13 +150,13 @@ class TestViewLoader:
 
         toolkit_client_approval.append(dm.View, [cdf_view])
 
-        cmd = DeployCommand(print_warning=False)
-
-        to_create, to_change, unchanged = cmd.to_create_changed_unchanged_triple(local_view, loader)
-
-        assert len(to_create) == 0, "No views should be created"
-        assert len(to_change) == 0, "No views should be changed"
-        assert len(unchanged) == 1, "One view should be unchanged"
+        worker = ResourceWorker(loader)
+        to_create, to_change, unchanged, _ = worker.load_resources([file])
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "unchanged": 1}
 
     @pytest.mark.parametrize(
         "item, expected",
