@@ -523,5 +523,8 @@ class WorkflowTriggerLoader(
         dumped = resource.as_write().dump()
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
-        # Todo: What to do with the authentication?
+        if "authentication" in local:
+            # Note that change in the authentication will not be detected, and thus,
+            # will require a forced redeployment.
+            dumped["authentication"] = local["authentication"]
         return dumped
