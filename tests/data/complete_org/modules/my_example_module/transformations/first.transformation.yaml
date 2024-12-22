@@ -1,6 +1,6 @@
 externalId: tr_first_transformation
 name: example:first:transformation
-destination: 
+destination:
   type: assets
 ignoreNullFields: true
 isPublic: true

@@ -163,13 +163,9 @@ def get_changed_source_files(
             local_resource_by_id = cmd._get_local_resource_dict_by_id(resources, loader, environment_variables)
             _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
-            # try:
             new_content, extra_files = cmd._to_write_content(
                 original_content, to_write, resources, environment_variables, loader
             )
-            # except Exception as e:
-            #     print(f"Failed to write {source_file.name} for {loader.display_name}: {e}")
-            #     continue
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
                 if verbose:
