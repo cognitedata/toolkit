@@ -1,5 +1,5 @@
 space: sp_schema
-externalId: 'AssetHierarchy'
+externalId: AssetHierarchy
 version: '3_0_2'
 name: Asset Hierarchy
 description: The Enterprise Data Model.

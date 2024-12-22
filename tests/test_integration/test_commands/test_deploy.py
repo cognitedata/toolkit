@@ -1,3 +1,4 @@
+import difflib
 import os
 import sys
 from pathlib import Path
@@ -96,7 +97,7 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
     changed_resources = get_changed_resources(cdf_tool_config, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules)
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=True)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
@@ -118,7 +119,7 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
 
 
 def get_changed_source_files(
-    cdf_tool_config: CDFToolConfig, build_dir: Path, built_modules: BuiltModuleList
+    cdf_tool_config: CDFToolConfig, build_dir: Path, built_modules: BuiltModuleList, verbose: bool = False
 ) -> dict[str, set[Path]]:
     # This is a modified copy of the PullCommand._pull_build_dir and PullCommand._pull_resources methods
     # This will likely be hard to maintain, but if the pull command changes, should be refactored to be more
@@ -155,11 +156,15 @@ def get_changed_source_files(
             )
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
+                if verbose:
+                    print("\n".join(difflib.unified_diff(new_content.splitlines(), original_content.splitlines())))
                 changed_source_files[loader.display_name].add(f"{loader.folder_name}/{source_file.name}")
             for path, new_extra_content in extra_files.items():
                 new_extra_content = remove_trailing_newline(new_extra_content)
                 original_extra_content = remove_trailing_newline(path.read_text())
                 if new_extra_content != original_extra_content:
+                    if verbose:
+                        print("\n".join(difflib.unified_diff(new_content.splitlines(), original_content.splitlines())))
                     changed_source_files[loader.display_name].add(f"{loader.folder_name}/{path.name}")
 
     return dict(changed_source_files)
