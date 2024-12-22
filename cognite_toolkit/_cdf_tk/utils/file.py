@@ -300,3 +300,10 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
 
     def values(self) -> ValuesView[T_Value]:
         return super().values()
+
+
+def remove_trailing_newline(content: str) -> str:
+    """Remove the trailing newline character from a string"""
+    while content.endswith("\n"):
+        content = content[:-1]
+    return content
