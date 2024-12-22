@@ -191,7 +191,7 @@ class TransformationLoader(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         resources = load_yaml_inject_variables(
-            safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
 
         raw_list = resources if isinstance(resources, list) else [resources]
