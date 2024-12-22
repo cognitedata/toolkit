@@ -156,9 +156,13 @@ def get_changed_source_files(
             if source_file.name == "extended.CogniteFile.yaml":
                 # This is not yet supported
                 continue
+            original_content = remove_trailing_newline(source_file.read_text())
+            if "$FILENAME" in original_content:
+                # File expansion pattern are not supported in pull.
+                continue
             local_resource_by_id = cmd._get_local_resource_dict_by_id(resources, loader, environment_variables)
             _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
-            original_content = remove_trailing_newline(source_file.read_text())
+
             # try:
             new_content, extra_files = cmd._to_write_content(
                 original_content, to_write, resources, environment_variables, loader

@@ -2,8 +2,8 @@ space: sp_nodes
 externalId: MyVanillaFile
 name: filecontent.txt
 tags:
-  - tag1
-  - tag2
+- tag1
+- tag2
 sourceCreatedTime: 2020-01-01T00:00:00Z
 sourceUpdatedTime: 2021-01-01T00:00:00Z
 sourceCreatedUser: MySelf

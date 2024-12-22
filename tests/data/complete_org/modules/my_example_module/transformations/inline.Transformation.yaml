@@ -1,7 +1,7 @@
 externalId: inlined_transformation
 name: Example of an inlined transformation
 destination:
-  type: 'assets'
+  type: assets
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
