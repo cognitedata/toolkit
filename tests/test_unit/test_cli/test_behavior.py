@@ -272,7 +272,7 @@ def test_pull_workflow_trigger_with_environment_variables(
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
-        module=source_yaml,
+        module=yaml_filepath,
         organization_dir=organization_dir_mutable,
         env="dev",
         dry_run=False,
