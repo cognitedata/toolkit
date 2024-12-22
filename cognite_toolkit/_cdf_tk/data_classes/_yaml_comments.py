@@ -51,16 +51,16 @@ class _YAMLCommentParser:
                 # Infer indentation size
                 indent_size = line.indent
 
-            if line.is_array and line.indent not in index_key_level_by_indent:
-                index_key_level_by_indent[line.indent] = 0, len(key)
-
             if line.is_comment_line:
                 ...
-            elif line.indent in index_key_level_by_indent:
-                index, key_level = index_key_level_by_indent[line.indent]
-                key = key[:key_level]
+            elif line.is_array:
+                if line.indent not in index_key_level_by_indent:
+                    index, key_level = 0, len(key)
+                else:
+                    index, key_level = index_key_level_by_indent[line.indent]
+                    index += 1
+                index_key_level_by_indent[line.indent] = index, key_level
                 key.append(index)
-                index_key_level_by_indent[line.indent] = index + 1, key_level
                 if line.key:
                     key.append(line.key)
             elif line.key and line.indent > last_indent:
@@ -76,7 +76,8 @@ class _YAMLCommentParser:
                 key.append(line.key)
 
             yield key, line
-            last_indent = line.indent
+            if not line.is_comment_line:
+                last_indent = line.indent
 
     def parse(self) -> dict[yaml_key, YAMLComment]:
         comments: dict[yaml_key, YAMLComment] = {}
