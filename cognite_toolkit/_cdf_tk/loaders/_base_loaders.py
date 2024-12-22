@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -265,6 +265,12 @@ class ResourceLoader(
             return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
         raise ValueError(f"Invalid ids: {ids}")
 
+    def safe_read(self, filepath: Path) -> str:
+        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
+        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
+        it is parsed as a string."""
+        return safe_read(filepath)
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
@@ -274,7 +280,7 @@ class ResourceLoader(
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
         raw_yaml = load_yaml_inject_variables(
-            filepath, environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 

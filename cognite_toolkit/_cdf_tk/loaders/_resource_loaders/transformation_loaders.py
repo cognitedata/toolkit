@@ -182,18 +182,18 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
+    def safe_read(self, filepath: Path) -> str:
+        # If the destination is a DataModel or a View we need to ensure that the version is a string
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        # If the destination is a DataModel or a View we need to ensure that the version is a string
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-
         resources = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
+            safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
 
         raw_list = resources if isinstance(resources, list) else [resources]
-
         for item in raw_list:
             query_file: Path | None = None
             if "queryFile" in item:

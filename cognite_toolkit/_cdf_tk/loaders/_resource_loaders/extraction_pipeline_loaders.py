@@ -51,7 +51,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    load_yaml_inject_variables,
     safe_read,
     stringify_value_by_key_in_yaml,
 )
@@ -288,14 +287,10 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
-        raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
-        resources = load_yaml_inject_variables(raw_str, {})
-        return resources if isinstance(resources, list) else [resources]
+        return stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")

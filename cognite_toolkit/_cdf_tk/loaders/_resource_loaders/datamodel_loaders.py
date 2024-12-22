@@ -530,19 +530,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     cdf_properties.pop(prop_name, None)
         return cdf_dumped
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
-        )
-        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
         dumped = self.dump_as_write(resource)
@@ -745,19 +739,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                     ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
                 )
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
-        )
-        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -1062,17 +1050,19 @@ class GraphQLLoader(
         if "space" in item:
             yield SpaceLoader, item["space"]
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
+            safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
