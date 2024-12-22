@@ -757,21 +757,21 @@ class PullCommand(ToolkitCommand):
 
         # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
-        variables_with_environment_list: list[BuildVariable] = []
-        for variable in variables:
-            if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
-                for key, value in environment_variables.items():
-                    if key in variable.value and isinstance(value, str):
-                        # Running through all environment variables, in case multiple are used in the same variable.
-                        # Note that variable are immutable, so we are not modifying the original variable.
-                        variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
-                variables_with_environment_list.append(variable)
-            else:
-                variables_with_environment_list.append(variable)
+        if environment_variables:
+            variables_with_environment_list: list[BuildVariable] = []
+            for variable in variables:
+                if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
+                    for key, value in environment_variables.items():
+                        if key in variable.value and isinstance(value, str):
+                            # Running through all environment variables, in case multiple are used in the same variable.
+                            # Note that variable are immutable, so we are not modifying the original variable.
+                            variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
+                    variables_with_environment_list.append(variable)
+                else:
+                    variables_with_environment_list.append(variable)
+            variables = BuildVariables(variables_with_environment_list)
 
-        variables_with_environment = BuildVariables(variables_with_environment_list)
-
-        content, value_by_placeholder = variables_with_environment.replace(source, use_placeholder=True)
+        content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
         loaded_with_placeholder = read_yaml_content(content)
 

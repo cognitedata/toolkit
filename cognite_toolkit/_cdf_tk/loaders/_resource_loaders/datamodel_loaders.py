@@ -96,6 +96,7 @@ from cognite_toolkit._cdf_tk.utils import (
     retrieve_view_ancestors,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -1359,3 +1360,15 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             )
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("sources",):
+
+            def identifier(source: dict[str, Any]) -> tuple[str, ...]:
+                source = source["source"]
+                return source["space"], source["externalId"], source.get("version", ""), source.get("type", "")
+
+            return diff_list_identifiable(local, cdf, get_identifier=identifier)
+        return super().diff_list(local, cdf, json_path)

@@ -124,7 +124,7 @@ def get_changed_source_files(
     # This will likely be hard to maintain, but if the pull command changes, should be refactored to be more
     # maintainable.
     cmd = PullCommand(silent=True, skip_tracking=True)
-    changed_source_files: dict[str, set[Path]] = defaultdict(set)
+    changed_source_files: dict[str, set[str]] = defaultdict(set)
     selected_loaders = cmd._clean_command.get_selected_loaders(build_dir, read_resource_folders=set(), include=None)
     for loader_cls in selected_loaders:
         if (not issubclass(loader_cls, ResourceLoader)) or (
@@ -144,6 +144,9 @@ def get_changed_source_files(
             cdf_tool_config.environment_variables() if loader.do_environment_variable_injection else {}
         )
         for source_file, resources in resources_by_file.items():
+            if source_file.name == "extended.CogniteFile.yaml":
+                # This is not yet supported
+                continue
             local_resource_by_id = cmd._get_local_resource_dict_by_id(resources, loader, environment_variables)
             _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
             original_content = remove_trailing_newline(source_file.read_text())
@@ -152,11 +155,11 @@ def get_changed_source_files(
             )
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
-                changed_source_files[loader.display_name].add(source_file)
+                changed_source_files[loader.display_name].add(source_file.name)
             for path, new_extra_content in extra_files.items():
                 new_extra_content = remove_trailing_newline(new_extra_content)
                 original_extra_content = remove_trailing_newline(path.read_text())
                 if new_extra_content != original_extra_content:
-                    changed_source_files[loader.display_name].add(path)
+                    changed_source_files[loader.display_name].add(path.name)
 
-    return changed_source_files
+    return dict(changed_source_files)
