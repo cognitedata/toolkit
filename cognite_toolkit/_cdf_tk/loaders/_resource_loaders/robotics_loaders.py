@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
 class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, FrameList]):
@@ -265,6 +266,13 @@ class RoboticsDataPostProcessingLoader(
     ) -> Iterable[DataPostProcessing]:
         return iter(self.client.robotics.data_postprocessing)
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "inputSchema":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
 
 class RobotCapabilityLoader(
     ResourceLoader[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
@@ -354,6 +362,13 @@ class RobotCapabilityLoader(
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] in {"inputSchema", "dataHandlingSchema"}:
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
 
 class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
