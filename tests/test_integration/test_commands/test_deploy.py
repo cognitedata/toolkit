@@ -7,6 +7,7 @@ import pytest
 from cognite.client.data_classes.data_modeling import NodeId
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
+from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     RESOURCE_LOADER_LIST,
@@ -24,7 +25,7 @@ from tests import data
 def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
-    build.execute(
+    built_modules = build.execute(
         verbose=False,
         organization_dir=data.COMPLETE_ORG,
         build_dir=build_dir,
@@ -53,7 +54,7 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
     changed_resources = get_changed_resources(cdf_tool_config, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir)
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
@@ -110,5 +111,7 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
     return changed_resources
 
 
-def get_changed_source_files(cdf_tool_config: CDFToolConfig, build_dir: Path) -> set[Path]:
+def get_changed_source_files(
+    cdf_tool_config: CDFToolConfig, build_dir: Path, built_modules: BuiltModuleList
+) -> dict[str, set[Path]]:
     raise NotImplementedError("Modules pull command is not yet implemented")

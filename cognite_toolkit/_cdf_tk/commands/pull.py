@@ -40,9 +40,14 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    HostedExtractorDestinationLoader,
+    HostedExtractorSourceLoader,
+    ResourceLoader,
+    TransformationLoader,
+)
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     YAMLComment,
@@ -625,6 +630,11 @@ class PullCommand(ToolkitCommand):
                 selected,
             )
             if not resources:
+                continue
+            if loader in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+                self.warn(
+                    LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
+                )
                 continue
             result = self._pull_resources(loader, resources, dry_run, ToolGlobals.environment_variables())
             results[loader.display_name] = result
