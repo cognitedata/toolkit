@@ -13,6 +13,7 @@ from typing import Any, Literal, TypeVar, overload
 import yaml
 from rich import print
 
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
@@ -55,7 +56,7 @@ def load_yaml_inject_variables(
             continue
         content = content.replace(f"${{{key}}}", value)
     if validate:
-        for match in re.finditer(r"\$\{([^}]+)\}", content):
+        for match in ENV_VAR_PATTERN.finditer(content):
             environment_variable = match.group(1)
             suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
             MediumSeverityWarning(

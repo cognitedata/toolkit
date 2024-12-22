@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import difflib
 import re
 import shutil
@@ -20,10 +21,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.builders import create_builder
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
+    BuildVariables,
     BuiltFullResourceList,
     BuiltModuleList,
     BuiltResourceFull,
@@ -680,7 +682,9 @@ class PullCommand(ToolkitCommand):
                     has_changes = True
 
             if has_changes and not dry_run:
-                new_content, extra_files = self._to_write_content(source_file.read_text(), to_write, resources, loader)  # type: ignore[arg-type]
+                new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
+                    source_file.read_text(), to_write, resources, environment_variables, loader
+                )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
                 for filepath, content in extra_files.items():
@@ -711,6 +715,7 @@ class PullCommand(ToolkitCommand):
         source: str,
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
+        environment_variables: dict[str, str | None],
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
@@ -724,7 +729,21 @@ class PullCommand(ToolkitCommand):
 
         # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
-        content, value_by_placeholder = variables.replace(source, use_placeholder=True)
+        variables_with_environment_list: list[BuildVariable] = []
+        for variable in variables:
+            if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
+                for key, value in environment_variables.items():
+                    if key in variable.value and isinstance(value, str):
+                        # Running through all environment variables, in case multiple are used in the same variable.
+                        # Note that variable are immutable, so we are not modifying the original variable.
+                        variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
+                variables_with_environment_list.append(variable)
+            else:
+                variables_with_environment_list.append(variable)
+
+        variables_with_environment = BuildVariables(variables_with_environment_list)
+
+        content, value_by_placeholder = variables_with_environment.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
         loaded_with_placeholder = read_yaml_content(content)
 
