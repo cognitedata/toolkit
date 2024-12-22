@@ -624,7 +624,7 @@ class PullCommand(ToolkitCommand):
             )
             if not resources:
                 continue
-            result = self._pull_resources(loader, resources, dry_run, ToolGlobals)
+            result = self._pull_resources(loader, resources, dry_run, ToolGlobals.environment_variables())
             results[loader.display_name] = result
 
         table = results.counts_table(exclude_columns={"Total"})
@@ -637,7 +637,7 @@ class PullCommand(ToolkitCommand):
         ],
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
-        ToolGlobals: CDFToolConfig,
+        environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
@@ -645,7 +645,7 @@ class PullCommand(ToolkitCommand):
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
         has_changes = False
-        environment_variables = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
+        environment_variables = environment_variables if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
             unique_destinations = {r.destination for r in resources if r.destination}
             local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
