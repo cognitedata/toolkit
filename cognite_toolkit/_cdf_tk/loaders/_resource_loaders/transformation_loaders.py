@@ -76,6 +76,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -273,6 +274,13 @@ class TransformationLoader(
             #    that the credentials are always the same.
             dumped["authentication"] = local["authentication"]
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[-1] == "scopes":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     def dump_resource_legacy(
         self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite

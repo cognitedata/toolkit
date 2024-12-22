@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .classic_loaders import AssetLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader
@@ -122,6 +123,15 @@ class LocationFilterLoader(
                     data_set_ids
                 )
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "assetCentric" or json_path == ("instanceSpaces",):
+            return diff_list_hashable(local, cdf)
+        elif json_path in [("dataModels",), ("views",), ("scene",)]:
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):

@@ -789,7 +789,7 @@ class PullCommand(ToolkitCommand):
         built_by_identifier = {r.identifier: r for r in resources}
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        loaded = read_yaml_content(loader.safe_read(source))
+        loaded = read_yaml_content(loader.safe_read(variables.replace(source)))
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
         replacer = ResourceReplacer(value_by_placeholder, loader)
@@ -896,13 +896,11 @@ class ResourceReplacer:
             placeholder_value = placeholder[modified_key]
             cdf_value = to_write[modified_key]
 
-            if isinstance(current_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
+            if isinstance(current_value, dict) and isinstance(cdf_value, dict):
                 updated[modified_key] = self._replace_dict(
                     current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
-            elif (
-                isinstance(current_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list)
-            ):
+            elif isinstance(current_value, list) and isinstance(cdf_value, list):
                 updated[modified_key] = self._replace_list(
                     current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
@@ -946,11 +944,11 @@ class ResourceReplacer:
         to_write: Any,
         json_path: tuple[str | int, ...],
     ) -> Any:
-        if isinstance(current, dict) and isinstance(placeholder_value, dict) and isinstance(to_write, dict):
+        if isinstance(current, dict) and isinstance(to_write, dict):
             return self._replace_dict(current, placeholder_value, to_write, json_path)
-        elif isinstance(current, list) and isinstance(placeholder_value, list) and isinstance(to_write, list):
+        elif isinstance(current, list) and isinstance(to_write, list):
             return self._replace_list(current, placeholder_value, to_write, json_path)
-        elif type(current) is type(placeholder_value) is type(to_write):
+        elif type(current) is type(to_write):
             if to_write == current:
                 return placeholder_value
             if not isinstance(to_write, str):
