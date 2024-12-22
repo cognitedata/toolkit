@@ -4,8 +4,8 @@ name: filecontent.txt
 tags:
 - tag1
 - tag2
-sourceCreatedTime: 2020-01-01T00:00:00Z
-sourceUpdatedTime: 2021-01-01T00:00:00Z
+sourceCreatedTime: 2020-01-01T00:00:00+00:00
+sourceUpdatedTime: 2021-01-01T00:00:00+00:00
 sourceCreatedUser: MySelf
 sourceUpdatedUser: Me
 mimeType: text/plain
