@@ -873,7 +873,7 @@ class ResourceReplacer:
         current: dict[str, Any],
         placeholder: dict[str, Any],
         to_write: dict[str, Any],
-        key_path: tuple[str | int, ...],
+        json_path: tuple[str | int, ...],
     ) -> dict[str, Any]:
         # Modified first to maintain original order
         # Then added, and skip removed
@@ -885,17 +885,17 @@ class ResourceReplacer:
 
             if isinstance(current_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
                 updated[modified_key] = self._replace_dict(
-                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
+                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
             elif (
                 isinstance(current_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list)
             ):
                 updated[modified_key] = self._replace_list(
-                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
+                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
             else:
                 updated[modified_key] = self._replace_value(
-                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
+                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
 
         for new_key in set(to_write.keys()) - set(current.keys()):
@@ -908,15 +908,18 @@ class ResourceReplacer:
         current: list[Any],
         placeholder: list[Any],
         to_write: list[Any],
-        key_path: tuple[str | int, ...],
+        json_path: tuple[str | int, ...],
     ) -> list[Any]:
-        modify_index_pairs, added_indices = self._loader.diff_list(current, to_write, key_path)
+        compare_indices, added_indices = self._loader.diff_list(current, to_write, json_path)
         updated: list[Any] = []
-        for current_index, cdf_index in modify_index_pairs:
-            current_value = current[current_index]
-            placeholder_value = placeholder[current_index]
-            cdf_value = to_write[cdf_index]
-            updated.append(self._replace_value(current_value, placeholder_value, cdf_value, (*key_path, current_index)))
+        for no, current_item in enumerate(current):
+            if no not in compare_indices:
+                # Removed item
+                continue
+            current_value = current_item
+            placeholder_value = placeholder[no]
+            cdf_value = to_write[compare_indices[no]]
+            updated.append(self._replace_value(current_value, placeholder_value, cdf_value, (*json_path, no)))
         for added_index in added_indices:
             # Note there cannot be variables in new items
             updated.append(to_write[added_index])
@@ -927,12 +930,12 @@ class ResourceReplacer:
         current: Any,
         placeholder_value: Any,
         to_write: Any,
-        key_path: tuple[str | int, ...],
+        json_path: tuple[str | int, ...],
     ) -> Any:
         if isinstance(current, dict) and isinstance(placeholder_value, dict) and isinstance(to_write, dict):
-            return self._replace_dict(current, placeholder_value, to_write, key_path)
+            return self._replace_dict(current, placeholder_value, to_write, json_path)
         elif isinstance(current, list) and isinstance(placeholder_value, list) and isinstance(to_write, list):
-            return self._replace_list(current, placeholder_value, to_write, key_path)
+            return self._replace_list(current, placeholder_value, to_write, json_path)
         elif type(current) is type(placeholder_value) is type(to_write):
             if to_write == current:
                 return placeholder_value
@@ -948,6 +951,6 @@ class ResourceReplacer:
             return to_write
         else:
             raise ToolkitValueError(
-                f"CDF value and local value should be of the same type in {'.'.join(map(str,key_path))}, "
+                f"CDF value and local value should be of the same type in {'.'.join(map(str,json_path))}, "
                 f"got {type(current)} != {type(to_write)}"
             )

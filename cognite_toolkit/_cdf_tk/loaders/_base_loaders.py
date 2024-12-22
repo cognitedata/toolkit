@@ -318,13 +318,13 @@ class ResourceLoader(
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
-    ) -> tuple[list[tuple[int, int]], list[int]]:
-        """Diff two lists and return the indices that have been modified and the indices that have been added.
+    ) -> tuple[dict[int, int], list[int]]:
+        """Diff two lists and return the indices that needs to be compared and the indices that have been added.
         The lists are subfields of the local and CDF resources.
 
         This is used by the pull command to determine changes to the local resources compared to the CDF resources. For
-        example, a sequence has a list of columns. This method is used to determine if the columns have been modified,
-        added, and removed.
+        example, a Sequence has a list of columns. This method is used to determine which columns to compare
+        and which has been added.
 
         Args:
             local (list[Any]): The local list.
@@ -333,11 +333,13 @@ class ResourceLoader(
                 in the case of a sequence.
 
         Returns:
-            tuple[list[tuple[int, int]], list[int]]: Modified indices, added indices. In the modified indices, the
-                first element is the index in the local list and the second element is the index in the CDF list. In the
-                added indices, the element is the index in the cdf list.
+            tuple[dict[int, int], list[int]]: A dictionary with the indices that needs to be compared and a list of
+                indices that have been added. The dictionary has local index as key and CDF index as value. The
+                list of indices that have been added are cdf indices.
         """
-        raise NotImplementedError(f"Missing implementation for {type(self).__name__}.")
+        raise NotImplementedError(
+            f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
+        )
 
     # Helper methods
     @classmethod
