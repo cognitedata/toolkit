@@ -13,10 +13,13 @@ from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeploy
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     RESOURCE_LOADER_LIST,
+    FunctionLoader,
+    GraphQLLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
     ResourceWorker,
+    StreamlitLoader,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
@@ -129,7 +132,10 @@ def get_changed_source_files(
     selected_loaders = cmd._clean_command.get_selected_loaders(build_dir, read_resource_folders=set(), include=None)
     for loader_cls in selected_loaders:
         if (not issubclass(loader_cls, ResourceLoader)) or (
+            # Authentication that causes the diff to fail
             loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+            # External files that cannot (or not yet supported) be pulled
+            or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
         ):
             continue
         loader = loader_cls.create_loader(cdf_tool_config, build_dir)

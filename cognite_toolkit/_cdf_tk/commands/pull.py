@@ -37,9 +37,12 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
+    FunctionLoader,
+    GraphQLLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
+    StreamlitLoader,
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
@@ -630,6 +633,14 @@ class PullCommand(ToolkitCommand):
             if loader in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
                 self.warn(
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
+                )
+                continue
+            if loader in {GraphQLLoader, FunctionLoader, StreamlitLoader}:
+                self.warn(
+                    LowSeverityWarning(
+                        f"Skipping {loader.display_name} as it is not supported by the pull command due to"
+                        "the external file(s)."
+                    )
                 )
                 continue
             result = self._pull_resources(loader, resources, dry_run, ToolGlobals.environment_variables())
