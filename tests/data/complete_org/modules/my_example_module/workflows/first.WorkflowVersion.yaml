@@ -27,4 +27,4 @@ workflowDefinition:
     timeout: 3600
     onFailure: skipTask
     dependsOn:
-      - externalId: {{ workflow_external_id }}_function_task
+    - externalId: {{ workflow_external_id }}_function_task
