@@ -100,10 +100,10 @@ class _YAMLCommentParser:
         for full_key, line in self._iterate_lines():
             if comment := comments.get(tuple(full_key)):
                 for above_comment in comment.above:
-                    new_lines.append(f"{' ' *line.indent}# {above_comment}")
+                    new_lines.append(f"{' ' *line.indent}#{above_comment}")
                 if comment.after:
                     after_comments = " ".join(comment.after)
-                    new_lines.append(f"{line.raw} # {after_comments}")
+                    new_lines.append(f"{line.raw} #{after_comments}")
                 else:
                     new_lines.append(line.raw)
             else:
@@ -117,22 +117,21 @@ class _YAMLCommentParser:
         comment: str | None = None
         in_single_quote = False
         in_double_quote = False
-        tokens = self.token_pattern.findall(line_str)
-        for no, token in enumerate(tokens):
-            if token == '"':
+        for no, character in enumerate(line_str):
+            if character == '"':
                 in_double_quote = not in_double_quote
-            elif token == "'":
+            elif character == "'":
                 in_single_quote = not in_single_quote
 
             if in_single_quote or in_double_quote:
                 continue
 
-            if token.startswith("#"):
-                comment = " ".join(tokens[no + 1 :])
+            if character == "#":
+                comment = "".join(line_str[no + 1 :])
                 break
-            elif token == ":" and no > 0:
-                key = tokens[no - 1]
-            elif token == "-":
+            elif character == ":" and no > 0:
+                key = "".join(line_str[:no]).lstrip()
+            elif character == "-":
                 is_array = True
                 indent = len(line_str) - len(line_str.lstrip().lstrip("-").lstrip())
 
