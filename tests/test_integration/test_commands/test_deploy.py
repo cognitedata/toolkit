@@ -7,6 +7,8 @@ from typing import Any
 import pytest
 from cognite.client.data_classes.data_modeling import NodeId
 from mypy.checkexpr import defaultdict
+from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
@@ -100,7 +102,7 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
     changed_resources = get_changed_resources(cdf_tool_config, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=True)
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=False)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
@@ -167,14 +169,26 @@ def get_changed_source_files(
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
                 if verbose:
-                    print("\n".join(difflib.unified_diff(new_content.splitlines(), original_content.splitlines())))
+                    print(
+                        Panel(
+                            "\n".join(difflib.unified_diff(original_content.splitlines(), new_content.splitlines())),
+                            title=f"Diff for {source_file.name}",
+                        )
+                    )
                 changed_source_files[loader.display_name].add(f"{loader.folder_name}/{source_file.name}")
             for path, new_extra_content in extra_files.items():
                 new_extra_content = remove_trailing_newline(new_extra_content)
                 original_extra_content = remove_trailing_newline(path.read_text())
                 if new_extra_content != original_extra_content:
                     if verbose:
-                        print("\n".join(difflib.unified_diff(new_content.splitlines(), original_content.splitlines())))
+                        print(
+                            Panel(
+                                "\n".join(
+                                    difflib.unified_diff(original_content.splitlines(), new_content.splitlines())
+                                ),
+                                title=f"Diff for {path.name}",
+                            )
+                        )
                     changed_source_files[loader.display_name].add(f"{loader.folder_name}/{path.name}")
 
     return dict(changed_source_files)

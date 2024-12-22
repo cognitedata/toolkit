@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -155,6 +156,13 @@ class ExtractionPipelineLoader(
         if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
             dumped.pop("createdBy", None)
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("rawTables",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: (x["dbName"], x["tableName"]))
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)

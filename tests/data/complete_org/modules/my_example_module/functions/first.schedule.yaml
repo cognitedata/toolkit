@@ -1,7 +1,7 @@
 - name: daily-8am-utc
   functionExternalId: fn_first_function
   description: Run every day at 8am UTC
-  cronExpression: "0 8 * * *"
+  cronExpression: 0 8 * * *
   data:
     breakfast: 'today: peanut butter sandwich and coffee'
     lunch: 'today: greek salad and water'

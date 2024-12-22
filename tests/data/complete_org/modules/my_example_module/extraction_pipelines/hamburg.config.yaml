@@ -1,5 +1,5 @@
-externalId: 'ep_src_asset_hamburg_sap'
-description: 'DB extractor config reading data from Hamburg SAP'
+externalId: ep_src_asset_hamburg_sap
+description: DB extractor config reading data from Hamburg SAP
 config:
   logger:
     console:

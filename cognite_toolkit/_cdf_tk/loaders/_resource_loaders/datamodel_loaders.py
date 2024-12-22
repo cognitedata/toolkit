@@ -96,7 +96,7 @@ from cognite_toolkit._cdf_tk.utils import (
     retrieve_view_ancestors,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -561,6 +561,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     prop["container"].pop("type", None)
         return dumped
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("implements",):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
+
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
 
@@ -761,6 +768,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         end_of_list = len(view_order_by_id)
         dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId.load(v), end_of_list))
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("views",):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -1365,10 +1379,5 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
         if json_path == ("sources",):
-
-            def identifier(source: dict[str, Any]) -> tuple[str, ...]:
-                source = source["source"]
-                return source["space"], source["externalId"], source.get("version", ""), source.get("type", "")
-
-            return diff_list_identifiable(local, cdf, get_identifier=identifier)
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: dm_identifier(x["source"]))
         return super().diff_list(local, cdf, json_path)

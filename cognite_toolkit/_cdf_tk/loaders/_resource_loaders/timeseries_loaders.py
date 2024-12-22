@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
@@ -341,3 +342,12 @@ class DatapointSubscriptionLoader(
             dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list)
         )
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "filter" or json_path == ("timeSeriesIds",):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("instanceIds",):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)

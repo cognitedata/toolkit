@@ -10,7 +10,7 @@ capabilities:
     scope:
       datasetScope:
         ids:
-          - ds_complete_org
+        - ds_complete_org
 - securityCategoriesAcl:
     actions:
     - LIST

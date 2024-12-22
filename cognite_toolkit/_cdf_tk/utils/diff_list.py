@@ -46,3 +46,7 @@ def hash_list(lst: list) -> int:
         else:
             raise ValueError(f"Cannot hash value {item}")
     return hash_
+
+
+def dm_identifier(data: dict[str, Any]) -> tuple[str, ...]:
+    return data.get("type", ""), data["space"], data["externalId"], data.get("version", "")
