@@ -646,40 +646,10 @@ class PullCommand(ToolkitCommand):
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
-        has_changes = False
         environment_variables = environment_variables if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
-            unique_destinations = {r.destination for r in resources if r.destination}
-            local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
-            local_resource_ids = set(resources.identifiers)
-            for destination in unique_destinations:
-                resource_list = loader.load_resource_file(destination, environment_variables)
-                for resource_dict in resource_list:
-                    identifier = loader.get_id(resource_dict)
-                    if identifier in local_resource_ids:
-                        local_resource_by_id[identifier] = resource_dict
-
-            to_write: dict[T_ID, dict[str, Any]] = {}
-            for item_id, local_dict in local_resource_by_id.items():
-                cdf_resource = cdf_resource_by_id.get(item_id)
-                if cdf_resource is None:
-                    file_results.unchanged += 1
-                    to_write[item_id] = local_dict
-                    self.warn(
-                        MediumSeverityWarning(
-                            f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
-                        )
-                    )
-                    continue
-                cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
-
-                if cdf_dumped == local_dict:
-                    file_results.unchanged += 1
-                    to_write[item_id] = local_dict
-                else:
-                    file_results.changed += 1
-                    to_write[item_id] = cdf_dumped
-                    has_changes = True
+            local_resource_by_id = self._get_local_resource_dict_by_id(resources, loader, environment_variables)
+            has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
             if has_changes and not dry_run:
                 new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
@@ -692,6 +662,58 @@ class PullCommand(ToolkitCommand):
                         f.write(content)
 
         return file_results
+
+    def _get_to_write(
+        self,
+        local_resource_by_id: dict[T_ID, dict[str, Any]],
+        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource],
+        file_results: ResourceDeployResult,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+    ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
+        to_write: dict[T_ID, dict[str, Any]] = {}
+        has_changes = False
+        for item_id, local_dict in local_resource_by_id.items():
+            cdf_resource = cdf_resource_by_id.get(item_id)
+            if cdf_resource is None:
+                file_results.unchanged += 1
+                to_write[item_id] = local_dict
+                self.warn(
+                    MediumSeverityWarning(
+                        f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
+                    )
+                )
+                continue
+            cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
+
+            if cdf_dumped == local_dict:
+                file_results.unchanged += 1
+                to_write[item_id] = local_dict
+            else:
+                file_results.changed += 1
+                to_write[item_id] = cdf_dumped
+                has_changes = True
+        return has_changes, to_write
+
+    @staticmethod
+    def _get_local_resource_dict_by_id(
+        resources: BuiltFullResourceList[T_ID],
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        environment_variables: dict[str, str | None],
+    ) -> dict[T_ID, dict[str, Any]]:
+        unique_destinations = {r.destination for r in resources if r.destination}
+        local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
+        local_resource_ids = set(resources.identifiers)
+        for destination in unique_destinations:
+            resource_list = loader.load_resource_file(destination, environment_variables)
+            for resource_dict in resource_list:
+                identifier = loader.get_id(resource_dict)
+                if identifier in local_resource_ids:
+                    local_resource_by_id[identifier] = resource_dict
+        return local_resource_by_id
 
     @staticmethod
     def _select_resource_ids(
