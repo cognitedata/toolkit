@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
+    ExtractionPipelineConfigLoader,
     FunctionLoader,
     GraphQLLoader,
     HostedExtractorDestinationLoader,
@@ -793,12 +794,19 @@ class PullCommand(ToolkitCommand):
 
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
-        loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
-
-        built_by_identifier = {r.identifier: r for r in resources}
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        loaded = read_yaml_content(loader.safe_read(variables.replace(source)))
+        if isinstance(loader, ExtractionPipelineConfigLoader):
+            # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
+            # but we need to load it as a dict so we can write it back to the file maintaining
+            # the order or the keys.
+            loaded = read_yaml_content(variables.replace(source))
+            loaded_with_placeholder = read_yaml_content(content)
+        else:
+            loaded = read_yaml_content(loader.safe_read(variables.replace(source)))
+            loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
+
+        built_by_identifier = {r.identifier: r for r in resources}
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
         replacer = ResourceReplacer(value_by_placeholder, loader)
@@ -982,8 +990,17 @@ class ResourceReplacer:
                     to_write = to_write.replace(variable.value, placeholder)  # type: ignore[arg-type]
                     # Iterate through all variables in case multiple are used in the same value.
             return to_write
-        else:
-            raise ToolkitValueError(
-                f"CDF value and local value should be of the same type in {'.'.join(map(str,json_path))}, "
-                f"got {type(current)} != {type(to_write)}"
-            )
+        elif isinstance(current, dict) and isinstance(to_write, str):
+            # This is a special case for the ExtractionPipelineConfigLoader where the config dict is typically a
+            # dict locally, but returned as a string from the server.
+            try:
+                to_write = read_yaml_content(to_write)
+            except yaml.YAMLError:
+                ...
+            else:
+                return self._replace_dict(current, placeholder_value, to_write, json_path)
+
+        raise ToolkitValueError(
+            f"CDF value and local value should be of the same type in {'.'.join(map(str,json_path))}, "
+            f"got {type(current)} != {type(to_write)}"
+        )

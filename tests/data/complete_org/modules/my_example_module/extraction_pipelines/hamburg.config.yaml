@@ -6,15 +6,14 @@ config:
       level: INFO
     file:
       level: INFO
-      path: 'file.log'
+      path: file.log
   # List of databases
   databases:
-    - type: odbc
-      name: postgres
-      connection-string: 'DSN={MyPostgresDsn}'
+  - type: odbc
+    name: postgres
+    connection-string: DSN={MyPostgresDsn}
   # List of queries
   queries:
-    - name: test-postgres
-      database: postgres
-      query: >
-        SELECT
+  - name: test-postgres
+    database: postgres
+    query: SELECT

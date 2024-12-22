@@ -54,7 +54,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     stringify_value_by_key_in_yaml,
 )
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -309,6 +309,14 @@ class ExtractionPipelineConfigLoader(
                     ).get_message()
                 )
         return ExtractionPipelineConfigWrite._load(resource)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "config":
+            # Assume all arrays in the config are hashable
+            return diff_list_force_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         updated = ExtractionPipelineConfigList([])

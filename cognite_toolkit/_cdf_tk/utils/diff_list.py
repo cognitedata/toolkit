@@ -20,6 +20,20 @@ def diff_list_identifiable(
     return diff_list_hashable([get_identifier(item) for item in local], [get_identifier(item) for item in cdf])
 
 
+def diff_list_force_hashable(local: Any, cdf: Any) -> tuple[dict[int, int], list[int]]:
+    return diff_list_identifiable(local, cdf, get_identifier=force_hash)
+
+
+def force_hash(item: Any) -> int:
+    if isinstance(item, dict):
+        return hash_dict(item)
+    if isinstance(item, list):
+        return hash_list(item)
+    if isinstance(item, Hashable):
+        return hash(item)
+    raise ValueError(f"Cannot hash value {item}")
+
+
 def hash_dict(d: dict) -> int:
     hash_ = 0
     for key, value in sorted(d.items(), key=lambda x: x[0]):
