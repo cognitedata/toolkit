@@ -878,8 +878,10 @@ class ResourceReplacer:
         # Modified first to maintain original order
         # Then added, and skip removed
         updated: dict[str, Any] = {}
-        for modified_key in set(current.keys()) & set(to_write.keys()):
-            current_value = current[modified_key]
+        for modified_key, current_value in current.items():
+            if modified_key not in to_write:
+                # Removed item by skipping
+                continue
             placeholder_value = placeholder[modified_key]
             cdf_value = to_write[modified_key]
 
@@ -898,9 +900,10 @@ class ResourceReplacer:
                     current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
 
-        for new_key in set(to_write.keys()) - set(current.keys()):
-            # Note there cannot be variables in new items
-            updated[new_key] = to_write[new_key]
+        for new_key in to_write:
+            if new_key not in current:
+                # Note there cannot be variables in new items
+                updated[new_key] = to_write[new_key]
         return updated
 
     def _replace_list(
