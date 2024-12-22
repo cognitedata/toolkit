@@ -265,7 +265,7 @@ class ResourceLoader(
             return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
         raise ValueError(f"Invalid ids: {ids}")
 
-    def safe_read(self, filepath: Path) -> str:
+    def safe_read(self, filepath: Path | str) -> str:
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
         it is parsed as a string."""

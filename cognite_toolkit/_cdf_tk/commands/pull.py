@@ -784,12 +784,12 @@ class PullCommand(ToolkitCommand):
 
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
-        loaded_with_placeholder = read_yaml_content(content)
+        loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
 
         built_by_identifier = {r.identifier: r for r in resources}
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        loaded = read_yaml_content(variables.replace(source))
+        loaded = read_yaml_content(loader.safe_read(source))
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
         replacer = ResourceReplacer(value_by_placeholder, loader)
