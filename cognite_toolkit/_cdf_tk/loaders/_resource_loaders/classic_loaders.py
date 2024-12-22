@@ -30,7 +30,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
-from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -293,6 +293,13 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             if not col.get("metadata") and "metadata" not in local_col:
                 col.pop("metadata", None)
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path != ("columns",):
+            return super().diff_list(local, cdf, json_path)
+        return diff_list_identifiable(local, cdf, get_identifier=lambda col: col["externalId"])
 
     def create(self, items: SequenceWriteList) -> SequenceList:
         return self.client.sequences.create(items)

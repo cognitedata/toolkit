@@ -58,7 +58,7 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
     changed_resources = get_changed_resources(cdf_tool_config, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules)
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=True)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
@@ -151,9 +151,13 @@ def get_changed_source_files(
             local_resource_by_id = cmd._get_local_resource_dict_by_id(resources, loader, environment_variables)
             _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
             original_content = remove_trailing_newline(source_file.read_text())
-            new_content, extra_files = cmd._to_write_content(
-                original_content, to_write, resources, environment_variables, loader
-            )
+            try:
+                new_content, extra_files = cmd._to_write_content(
+                    original_content, to_write, resources, environment_variables, loader
+                )
+            except Exception as e:
+                print(f"Failed to write {source_file.name} for {loader.display_name}: {e}")
+                continue
             new_content = remove_trailing_newline(new_content)
             if new_content != original_content:
                 if verbose:

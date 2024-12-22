@@ -1,35 +1,35 @@
 name: gp_resource_scoped_complete_org
-sourceId: "1234567890123456789"
+sourceId: '1234567890123456789'
 metadata:
   origin: cognite-toolkit
 capabilities:
-  - timeSeriesAcl:
-      actions:
-        - READ
-        - WRITE
-      scope:
-        datasetScope:
-          ids:
-            - ds_complete_org
-  - securityCategoriesAcl:
-      actions:
-      - LIST
-      - MEMBEROF
-      scope:
-        idscope:
-          ids:
-          - sc_demo_category
-  - timeSeriesAcl:
-      actions:
-        - READ
-      scope:
-        idscope:
-          ids:
-          - cdf_tooklit:example_timeseries
-  - locationFiltersAcl:
-      actions:
-      - READ
-      scope:
-        idScope:
-          ids:
-          - DataModelLocationFilter
+- timeSeriesAcl:
+    actions:
+    - READ
+    - WRITE
+    scope:
+      datasetScope:
+        ids:
+          - ds_complete_org
+- securityCategoriesAcl:
+    actions:
+    - LIST
+    - MEMBEROF
+    scope:
+      idscope:
+        ids:
+        - sc_demo_category
+- timeSeriesAcl:
+    actions:
+    - READ
+    scope:
+      idscope:
+        ids:
+        - cdf_tooklit:example_timeseries
+- locationFiltersAcl:
+    actions:
+    - READ
+    scope:
+      idScope:
+        ids:
+        - DataModelLocationFilter

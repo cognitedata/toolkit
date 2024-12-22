@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 
 @dataclass
@@ -411,6 +412,16 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             )
         )
         return spec
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("capabilities",):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif json_path[0] == "capabilities":
+            # All sublist inside capabilities are hashable
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
 
 @final
