@@ -778,6 +778,15 @@ class PullCommand(ToolkitCommand):
                             # Note that variable are immutable, so we are not modifying the original variable.
                             variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
                     variables_with_environment_list.append(variable)
+                elif isinstance(variable.value, tuple):
+                    new_value: list[str | int | float | bool] = []
+                    for var_item in variable.value:
+                        if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
+                            for key, value in environment_variables.items():
+                                if key in var_item and isinstance(value, str):
+                                    var_item = var_item.replace(f"${{{key}}}", value)
+                        new_value.append(var_item)
+                    variables_with_environment_list.append(dataclasses.replace(variable, value=tuple(new_value)))  # type: ignore[arg-type]
                 else:
                     variables_with_environment_list.append(variable)
             variables = BuildVariables(variables_with_environment_list)
@@ -901,9 +910,21 @@ class ResourceReplacer:
                     current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
             elif isinstance(current_value, list) and isinstance(cdf_value, list):
-                updated[modified_key] = self._replace_list(
-                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
-                )
+                if isinstance(placeholder_value, str) and current_value == cdf_value:
+                    # A list variable is used, and the list is unchanged.
+                    updated[modified_key] = placeholder_value
+                elif isinstance(placeholder_value, list):
+                    updated[modified_key] = self._replace_list(
+                        current_value, placeholder_value, cdf_value, (*json_path, modified_key)
+                    )
+                else:
+                    # A list variable is used, but the list is changed. Since the value is represented as a single
+                    # string, we cannot update it.
+                    if variable := self._value_by_placeholder.get(placeholder_value):
+                        raise ToolkitValueError(
+                            f"Pull is not supported for list variable: {variable.key}: {variable.value_variable}"
+                        )
+                    raise ToolkitValueError("Pull is not supported for list variable.")
             else:
                 updated[modified_key] = self._replace_value(
                     current_value, placeholder_value, cdf_value, (*json_path, modified_key)
