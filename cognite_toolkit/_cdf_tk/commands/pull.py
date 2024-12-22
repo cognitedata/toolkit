@@ -628,6 +628,7 @@ class PullCommand(ToolkitCommand):
                 loader.folder_name,  # type: ignore[arg-type]
                 loader.kind,
                 selected,
+                is_supported_file=loader.is_supported_file,
             )
             if not resources:
                 continue

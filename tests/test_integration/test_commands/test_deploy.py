@@ -141,7 +141,9 @@ def get_changed_source_files(
         ):
             continue
         loader = loader_cls.create_loader(cdf_tool_config, build_dir)
-        resources = built_modules.get_resources(None, loader.folder_name, loader.kind)
+        resources = built_modules.get_resources(
+            None, loader.folder_name, loader.kind, is_supported_file=loader.is_supported_file
+        )
         if not resources:
             continue
         cdf_resources = loader.retrieve(resources.identifiers)
@@ -154,7 +156,7 @@ def get_changed_source_files(
         )
         for source_file, resources in resources_by_file.items():
             if source_file.name == "extended.CogniteFile.yaml":
-                # This is not yet supported
+                # The extension of CogniteFile is not yet supported in Toolkit even though we have a test case for it.
                 continue
             original_content = remove_trailing_newline(source_file.read_text())
             if "$FILENAME" in original_content:
