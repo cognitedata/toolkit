@@ -498,8 +498,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: Example of an inlined transformation
-  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table  where
-    UNY is not null
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
+    where UNY is not null
 - conflictMode: upsert
   destination:
     type: assets

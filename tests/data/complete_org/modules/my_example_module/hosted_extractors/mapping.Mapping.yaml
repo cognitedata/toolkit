@@ -8,5 +8,5 @@ mapping:
 }].filter(datapoint => datapoint.value is not null)'
 input:
   type: csv
-  delimiter: ,
+  delimiter: ','
 published: true
