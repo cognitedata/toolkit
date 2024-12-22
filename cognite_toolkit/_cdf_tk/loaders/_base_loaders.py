@@ -316,6 +316,29 @@ class ResourceLoader(
         """
         return resource.dump(), {}
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[list[tuple[int, int]], list[int]]:
+        """Diff two lists and return the indices that have been modified and the indices that have been added.
+        The lists are subfields of the local and CDF resources.
+
+        This is used by the pull command to determine changes to the local resources compared to the CDF resources. For
+        example, a sequence has a list of columns. This method is used to determine if the columns have been modified,
+        added, and removed.
+
+        Args:
+            local (list[Any]): The local list.
+            cdf (list[Any]): The CDF list.
+            json_path (tuple[str | int, ...]): The json path to the list in the resource. For example, 'columns'
+                in the case of a sequence.
+
+        Returns:
+            tuple[list[tuple[int, int]], list[int]]: Modified indices, added indices. In the modified indices, the
+                first element is the index in the local list and the second element is the index in the CDF list. In the
+                added indices, the element is the index in the cdf list.
+        """
+        raise NotImplementedError(f"Missing implementation for {type(self).__name__}.")
+
     # Helper methods
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:

@@ -34,11 +34,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceDeployResult,
     YAMLComments,
 )
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitError,
-    ToolkitMissingResourceError,
-    ToolkitValueError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     HostedExtractorDestinationLoader,
@@ -785,6 +781,7 @@ class PullCommand(ToolkitCommand):
         loaded = read_yaml_content(variables.replace(source))
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
+        replacer = ResourceReplacer(value_by_placeholder, loader)
         if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
             item_id = loader.get_id(loaded)
             updated = self._update(
@@ -793,7 +790,7 @@ class PullCommand(ToolkitCommand):
                 loaded_with_placeholder,
                 to_write,
                 built_by_identifier,
-                value_by_placeholder,
+                replacer,
                 extra_files,
             )
         elif isinstance(loaded, list) and isinstance(loaded_with_placeholder, list):
@@ -807,7 +804,7 @@ class PullCommand(ToolkitCommand):
                         loaded_with_placeholder[i],
                         to_write,
                         built_by_identifier,
-                        value_by_placeholder,
+                        replacer,
                         extra_files,
                     )
                 )
@@ -828,7 +825,7 @@ class PullCommand(ToolkitCommand):
         loaded_with_placeholder: dict[str, Any],
         to_write: dict[T_ID, dict[str, Any]],
         built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
-        value_by_placeholder: dict[str, BuildVariable],
+        replacer: ResourceReplacer,
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
         if item_id not in to_write:
@@ -850,47 +847,107 @@ class PullCommand(ToolkitCommand):
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
                     extra_files[extra.path] = new_extra
-        return cls._replace(loaded, loaded_with_placeholder, item_write, value_by_placeholder)
+        return replacer.replace(loaded, loaded_with_placeholder, item_write)
 
-    @classmethod
-    def _replace(
-        cls,
-        loaded: dict[str, Any],
-        loaded_with_placeholder: dict[str, Any],
+
+class ResourceReplacer:
+    """Replaces values in a local resource directory with the updated values from CDF.
+
+    The local resource dict order is maintained. In addition, placeholders are used for variables.
+    """
+
+    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceLoader) -> None:
+        self._value_by_placeholder = value_by_placeholder
+        self._loader = loader
+
+    def replace(
+        self,
+        current: dict[str, Any],
+        placeholder: dict[str, Any],
         to_write: dict[str, Any],
-        value_by_placeholder: dict[str, BuildVariable],
     ) -> dict[str, Any]:
-        updated: dict[str, Any] = {}
-        for key, local_value in loaded.items():
-            if key not in to_write:
-                # Field is removed
-                continue
-            placeholder_value = loaded_with_placeholder[key]
-            cdf_value = to_write[key]
+        return self._replace_dict(current, placeholder, to_write, tuple())
 
-            if isinstance(local_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
-                updated[key] = cls._replace(local_value, placeholder_value, cdf_value, value_by_placeholder)
-            elif isinstance(local_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list):
-                updated[key] = [
-                    cls._replace(item, placeholder_value[i], cdf_value[i], value_by_placeholder)
-                    for i, item in enumerate(local_value)
-                ]
-            elif type(local_value) is type(placeholder_value) is type(cdf_value):
-                if cdf_value == local_value:
-                    updated[key] = placeholder_value
-                    continue
-                for placeholder, variable in value_by_placeholder.items():
-                    if placeholder in placeholder_value:
-                        # We use the placeholder and not the {{ variable }} in the value to ensure
-                        # that the result is valid yaml.
-                        cdf_value = cdf_value.replace(variable.value, placeholder)
-                updated[key] = cdf_value
+    def _replace_dict(
+        self,
+        current: dict[str, Any],
+        placeholder: dict[str, Any],
+        to_write: dict[str, Any],
+        key_path: tuple[str | int, ...],
+    ) -> dict[str, Any]:
+        # Modified first to maintain original order
+        # Then added, and skip removed
+        updated: dict[str, Any] = {}
+        for modified_key in set(current.keys()) & set(to_write.keys()):
+            current_value = current[modified_key]
+            placeholder_value = placeholder[modified_key]
+            cdf_value = to_write[modified_key]
+
+            if isinstance(current_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
+                updated[modified_key] = self._replace_dict(
+                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
+                )
+            elif (
+                isinstance(current_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list)
+            ):
+                updated[modified_key] = self._replace_list(
+                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
+                )
             else:
-                raise ValueError(
-                    f"CDF value and local value should be of the same type, got {type(local_value)} and {type(cdf_value)}"
+                updated[modified_key] = self._replace_value(
+                    current_value, placeholder_value, cdf_value, (*key_path, modified_key)
                 )
 
-        for new_key in to_write:
-            if new_key not in loaded:
-                updated[new_key] = to_write[new_key]
+        for new_key in set(to_write.keys()) - set(current.keys()):
+            # Note there cannot be variables in new items
+            updated[new_key] = to_write[new_key]
         return updated
+
+    def _replace_list(
+        self,
+        current: list[Any],
+        placeholder: list[Any],
+        to_write: list[Any],
+        key_path: tuple[str | int, ...],
+    ) -> list[Any]:
+        modify_index_pairs, added_indices = self._loader.diff_list(current, to_write, key_path)
+        updated: list[Any] = []
+        for current_index, cdf_index in modify_index_pairs:
+            current_value = current[current_index]
+            placeholder_value = placeholder[current_index]
+            cdf_value = to_write[cdf_index]
+            updated.append(self._replace_value(current_value, placeholder_value, cdf_value, (*key_path, current_index)))
+        for added_index in added_indices:
+            # Note there cannot be variables in new items
+            updated.append(to_write[added_index])
+        return updated
+
+    def _replace_value(
+        self,
+        current: Any,
+        placeholder_value: Any,
+        to_write: Any,
+        key_path: tuple[str | int, ...],
+    ) -> Any:
+        if isinstance(current, dict) and isinstance(placeholder_value, dict) and isinstance(to_write, dict):
+            return self._replace_dict(current, placeholder_value, to_write, key_path)
+        elif isinstance(current, list) and isinstance(placeholder_value, list) and isinstance(to_write, list):
+            return self._replace_list(current, placeholder_value, to_write, key_path)
+        elif type(current) is type(placeholder_value) is type(to_write):
+            if to_write == current:
+                return placeholder_value
+            if not isinstance(to_write, str):
+                # Variable substitution is only supported for strings
+                return to_write
+            for placeholder, variable in self._value_by_placeholder.items():
+                if placeholder in placeholder_value:
+                    # We use the placeholder and not the {{ variable }} in the value to ensure
+                    # that the result is valid yaml.
+                    to_write = to_write.replace(variable.value, placeholder)  # type: ignore[arg-type]
+                    # Iterate through all variables in case multiple are used in the same value.
+            return to_write
+        else:
+            raise ToolkitValueError(
+                f"CDF value and local value should be of the same type in {'.'.join(map(str,key_path))}, "
+                f"got {type(current)} != {type(to_write)}"
+            )
