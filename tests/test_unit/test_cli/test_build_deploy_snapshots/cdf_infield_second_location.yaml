@@ -1,39 +1,25 @@
 DataSet:
 - description: This dataset contains 3D data for the oid2 location.
   externalId: ds_3d_oid2
-  metadata: {}
   name: 3d:oid2
-  writeProtected: false
 - description: This dataset contains asset data for the oid2 location.
   externalId: ds_asset_oid2
-  metadata: {}
   name: asset:oid2
-  writeProtected: false
 - description: This dataset contains files for the oid2 location.
   externalId: ds_files_oid2
-  metadata: {}
   name: files:oid2
-  writeProtected: false
 - description: This dataset is for writing data from Infield for the location oid2.
   externalId: ds_infield_oid2_app_data
-  metadata: {}
   name: infield:oid2:app_data
-  writeProtected: false
 - description: This dataset contains relationships data for the oid2 location.
   externalId: ds_relationships_oid2
-  metadata: {}
   name: relationships:oid2
-  writeProtected: false
 - description: This dataset contains timeseries for the oid2 location.
   externalId: ds_timeseries_oid2
-  metadata: {}
   name: timeseries:oid2
-  writeProtected: false
 - description: This dataset contains transformations data for the oid2 location.
   externalId: ds_transformations_oid2
-  metadata: {}
   name: transformations:oid2
-  writeProtected: false
 Group:
 - capabilities:
   - groupsAcl:

@@ -20,7 +20,6 @@ Container:
   indexes: {}
   properties:
     fileCategory:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -28,7 +27,6 @@ Container:
         list: false
         type: text
     status:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -85,15 +83,11 @@ DataPostProcessing:
 DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 Database:
 - name: db_complete_org
 DatapointSubscription:
@@ -147,9 +141,6 @@ ExtractionPipelineConfig:
   description: DB extractor config reading data from Hamburg SAP
   externalId: ep_src_asset_hamburg_sap
 FileLoader:
-- externalId: MyExtendedFile
-  filehash: 5e6be7b4
-  space: sp_nodes
 - externalId: MyVanillaFile
   filehash: adc874a9
   space: sp_nodes
@@ -299,33 +290,6 @@ Mapping:
       }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
-- externalId: MyExtendedFile
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      fileCategory: Document
-      mimeType: text/plain
-      name: anotherfile.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
-      sourceCreatedUser: I
-      sourceId: null
-      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
-      sourceUpdatedUser: Myself
-      status: Active
-      tags: null
-    source:
-      externalId: MyFileExtension
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_nodes
 - externalId: MyNodeType
   instanceType: node
   space: sp_schema
@@ -477,11 +441,11 @@ Sequence:
   - description: Epoch time
     externalId: mySequenceTime
     name: Time
-    valueType: Double
+    valueType: DOUBLE
   - description: The value of the sequence
     externalId: mySequenceValue
     name: value
-    valueType: Double
+    valueType: DOUBLE
   dataSetId: 7982613576047462211
   description: A sequence of numbers
   externalId: mySequence

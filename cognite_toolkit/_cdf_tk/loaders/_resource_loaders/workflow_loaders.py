@@ -117,7 +117,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         return WorkflowUpsert._load(resource)
 
     def dump_resource(self, resource: Workflow, local: dict[str, Any]) -> dict[str, Any]:
-        dumped = resource.dump()
+        dumped = resource.as_write().dump()
         if data_set_id := dumped.get("dataSetId"):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
@@ -254,12 +254,41 @@ class WorkflowVersionLoader(
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
 
+    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local_task_order_by_id = {
+            task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
+        }
+        end_of_list = len(local_task_order_by_id)
+        dumped["workflowDefinition"]["tasks"] = sorted(
+            dumped["workflowDefinition"]["tasks"],
+            key=lambda t: local_task_order_by_id.get(t["externalId"], end_of_list),
+        )
+
+        local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
+        for cdf_task in dumped["workflowDefinition"]["tasks"]:
+            task_id = cdf_task["externalId"]
+            if task_id not in local_task_by_id:
+                continue
+            local_task = local_task_by_id[task_id]
+            if local_task["type"] == "function" and cdf_task["type"] == "function":
+                cdf_parameters = cdf_task["parameters"]
+                local_parameters = local_task["parameters"]
+                if "function" in cdf_parameters and "function" in local_parameters:
+                    cdf_function = cdf_parameters["function"]
+                    local_function = local_parameters["function"]
+                    if local_function["data"] == {} and "data" not in cdf_function:
+                        cdf_parameters["function"] = local_parameters["function"]
+        return dumped
+
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "workflowExternalId" in item:
             yield WorkflowLoader, item["workflowExternalId"]
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        if not ids:
+            return WorkflowVersionList([])
         return self.client.workflows.versions.list(list(ids))
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:

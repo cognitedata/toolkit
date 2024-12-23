@@ -4,10 +4,10 @@ externalId: mySequence
 dataSetExternalId: ds_complete_org
 columns:
   - name: Time
-    type: DOUBLE
+    valueType: DOUBLE
     description: Epoch time
     externalId: mySequenceTime
   - name: value
-    type: DOUBLE
+    valueType: DOUBLE
     description: The value of the sequence
     externalId: mySequenceValue

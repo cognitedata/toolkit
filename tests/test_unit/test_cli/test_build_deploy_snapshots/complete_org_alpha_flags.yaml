@@ -23,9 +23,7 @@ Container:
   indexes: {}
   properties:
     myContainerProperty:
-      autoIncrement: false
       immutable: false
-      nullable: false
       type:
         collation: ucs_basic
         list: false
@@ -35,19 +33,13 @@ Container:
 DataSet:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
-  metadata: {}
   name: Dataset for assets on Drammen
-  writeProtected: false
 - description: This is the dataset for all assets on Oslo
   externalId: ds_Oslo_assets
-  metadata: {}
   name: Dataset for assets on Oslo
-  writeProtected: false
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 Edge:
 - endNode:
     externalId: endNode
@@ -84,6 +76,9 @@ Event:
   subtype: info
   type: success
 FileLoader:
+- externalId: MyExtendedFile
+  filehash: 5e6be7b4
+  space: sp_nodes
 - external_id: myapp
   filehash: c59dc2b6
 - external_id: shopConfigFile
@@ -133,6 +128,33 @@ Node:
 - externalId: AnEdgeType
   instanceType: node
   space: sp_schema
+- externalId: MyExtendedFile
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      fileCategory: Document
+      mimeType: text/plain
+      name: anotherfile.txt
+      source: null
+      sourceContext: null
+      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
+      sourceCreatedUser: I
+      sourceId: null
+      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
+      sourceUpdatedUser: Myself
+      status: Active
+      tags: null
+    source:
+      externalId: MyFileExtension
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_nodes
 - externalId: endNode
   instanceType: node
   space: sp_instance

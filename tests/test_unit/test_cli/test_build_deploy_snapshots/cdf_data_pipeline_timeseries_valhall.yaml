@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_opcua_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 - description: Time series data for oid extracted live from OPC-UA simulator and static
     examples from PI (OID data)
   externalId: ds_timeseries_oid
@@ -17,7 +16,6 @@ DataSet:
       {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_bad"},
       {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_manual_input"}]'
   name: timeseries:oid
-  writeProtected: false
 Database:
 - name: timeseries_oid_opcua
 ExtractionPipeline:

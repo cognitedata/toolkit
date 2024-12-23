@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 - description: File data for oid
   externalId: ds_files_oid
   metadata:
@@ -16,7 +15,6 @@ DataSet:
     transformations: '[{"externalId": "tr_files_oid_fileshare_file_metadata", "type":
       "Transformations"}]'
   name: files:oid
-  writeProtected: false
 Database:
 - name: files_oid_fileshare
 ExtractionPipeline:

@@ -164,4 +164,6 @@ class RelationshipLoader(ResourceLoader[str, RelationshipWrite, Relationship, Re
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if not dumped.get("labels") and "labels" not in local:
+            dumped.pop("labels", None)
         return dumped

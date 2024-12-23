@@ -94,15 +94,30 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetWrite:
         if resource.get("metadata"):
-            for key, value in resource["metadata"].items():
-                resource["metadata"][key] = json.dumps(value)
-        if resource.get("writeProtected") is None:
-            # Todo: Setting missing default value, bug in SDK.
-            resource["writeProtected"] = False
-        if resource.get("metadata") is None:
-            # Todo: Wrongly set to empty dict, bug in SDK.
-            resource["metadata"] = {}
+            for key, value in list(resource["metadata"].items()):
+                if isinstance(value, dict | list):
+                    resource["metadata"][key] = json.dumps(value)
         return DataSetWrite._load(resource)
+
+    def dump_resource(self, resource: DataSet, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "writeProtected" not in local and dumped.get("writeProtected") is False:
+            # Default value is False, so we don't need to dump it.
+            dumped.pop("writeProtected")
+        if "metadata" not in local and not dumped.get("metadata"):
+            # Default value is empty dict, so we don't need to dump it.
+            dumped.pop("metadata", None)
+        if "metadata" in dumped and "metadata" in local:
+            meta_local = local["metadata"]
+            for key, value in list(dumped["metadata"].items()):
+                if isinstance(meta_local.get(key), dict | list):
+                    try:
+                        converted = json.loads(value)
+                    except json.JSONDecodeError:
+                        continue
+                    dumped["metadata"][key] = converted
+
+        return dumped
 
     def create(self, items: Sequence[DataSetWrite]) -> DataSetList:
         items = list(items)

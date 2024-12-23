@@ -281,6 +281,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
+        local_col_by_id = {col["externalId"]: col for col in local.get("columns", []) if "externalId" in col}
+        for col in dumped.get("columns", []):
+            external_id = col.get("externalId")
+            if not external_id:
+                continue
+            if external_id not in local_col_by_id:
+                continue
+            local_col = local_col_by_id[external_id]
+            if not col.get("metadata") and "metadata" not in local_col:
+                col.pop("metadata", None)
         return dumped
 
     def create(self, items: SequenceWriteList) -> SequenceList:
@@ -469,7 +479,11 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if asset_ids := dumped.pop("assetIds", None):
-            dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
+            local_order = {asset: no for no, asset in enumerate(local.get("assetExternalIds", []))}
+            end_of_list = len(local_order)
+            dumped["assetExternalIds"] = sorted(
+                self.client.lookup.assets.external_id(asset_ids), key=lambda a: local_order.get(a, end_of_list)
+            )
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
         return dumped

@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_workmate_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 Database:
 - name: asset_oid_workmate
 ExtractionPipeline:

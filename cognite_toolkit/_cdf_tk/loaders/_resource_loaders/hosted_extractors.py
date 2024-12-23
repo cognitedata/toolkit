@@ -265,6 +265,12 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             HostedExtractorsAcl.Scope.All(),
         )
 
+    def dump_resource(self, resource: Job, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if not dumped.get("config") and "config" not in local:
+            dumped.pop("config", None)
+        return dumped
+
     def create(self, items: JobWriteList) -> JobList:
         return self.client.hosted_extractors.jobs.create(items)
 
