@@ -8,7 +8,6 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -74,12 +73,12 @@ class TestLoadResources:
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataLoader(toolkit_client_approval.client, None)
+        loader = FileMetadataLoader(toolkit_client_approval.mock_client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
-        cdf_tool = CDFToolConfig(skip_initialization=True)
-        resources = loader.load_resource_file(filepath, cdf_tool, is_dry_run=False)
+        raw_list = loader.load_resource_file(filepath, {})
+        resources = FileMetadataWriteList([loader.load_resource(item, is_dry_run=False) for item in raw_list])
 
         assert resources.dump() == expected.dump()
 

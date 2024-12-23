@@ -452,7 +452,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PDT-92602:X.Value
-  securityCategories: []
 - dataSetId: 10875617807794485048
   description: PH 1stStgSuctCool Gas Out
   externalId: pi_160696
@@ -508,7 +507,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92504:X.Value
-  securityCategories: []
 - dataSetId: 10875617807794485048
   description: PH 1stStgComp Discharge
   externalId: pi_160702
@@ -564,7 +562,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92536:X.Value
-  securityCategories: []
   unit: bar
 - dataSetId: 10875617807794485048
   description: PH 1stStgSuctCool Gas Out Measured Value
@@ -621,7 +618,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TIC-92504:Z.X.Value
-  securityCategories: []
   unit: degC
 - dataSetId: 10875617807794485048
   description: PH 1stStgDiscCool CM Out
@@ -678,7 +674,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-PT-92608:X.Value
-  securityCategories: []
 - dataSetId: 10875617807794485048
   description: PH 1stStgDiscClr CoolMed Sply
   externalId: pi_163657
@@ -734,7 +729,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-TT-92606:X.Value
-  securityCategories: []
 - dataSetId: 10875617807794485048
   description: PH 1stStgDiscCool Gas Out Output
   externalId: pi_191092
@@ -790,7 +784,6 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TT-92604A:X.Value
-  securityCategories: []
   unit: degC
 Transformation:
 - conflictMode: upsert

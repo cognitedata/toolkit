@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceContainerDeployResult,
     ResourceDeployResult,
 )
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
@@ -34,6 +35,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
+    ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, Loader, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import (
@@ -48,7 +50,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
 )
 
-from ._utils import _print_ids_or_length, _remove_duplicates
+from ._utils import _print_ids_or_length
 
 
 class CleanCommand(ToolkitCommand):
@@ -58,6 +60,7 @@ class CleanCommand(ToolkitCommand):
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         ToolGlobals: CDFToolConfig,
+        read_modules: list[ReadModule],
         dry_run: bool = False,
         drop: bool = True,
         drop_data: bool = False,
@@ -77,25 +80,16 @@ class CleanCommand(ToolkitCommand):
             )
             return ResourceContainerDeployResult(name=loader.display_name, item_name=loader.item_name)
 
-        filepaths = loader.find_files()
-
+        worker = ResourceWorker(loader)
+        files = worker.load_files(read_modules=read_modules)
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=True)
-
-        # Duplicates are warned in the build step, but the use might continue, so we
-        # need to check for duplicates here as well.
-        loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
-
-        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
-
-        if capabilities and (missing := ToolGlobals.toolkit_client.verify.authorization(capabilities)):
-            raise ToolGlobals.toolkit_client.verify.create_error(missing, action=f"clean {loader.display_name}")
-
-        nr_of_items = len(loaded_resources)
-        if nr_of_items == 0:
-            return ResourceDeployResult(name=loader.display_name)
-
-        existing_resources = loader.retrieve(loader.get_ids(loaded_resources))
+        existing_resources, duplicated = worker.load_resources(
+            filepaths=files,
+            return_existing=True,
+            environment_variables=ToolGlobals.environment_variables(),
+            is_dry_run=True,
+            verbose=verbose,
+        )
         nr_of_existing = len(existing_resources)
 
         if drop:
@@ -106,7 +100,7 @@ class CleanCommand(ToolkitCommand):
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicates:
+            for duplicate in duplicated:
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
@@ -121,7 +115,7 @@ class CleanCommand(ToolkitCommand):
             return ResourceContainerDeployResult(
                 name=loader.display_name,
                 deleted=nr_of_deleted,
-                total=nr_of_items,
+                total=nr_of_existing,
                 dropped_datapoints=nr_of_dropped_datapoints,
                 item_name=loader.item_name,
             )
@@ -129,7 +123,7 @@ class CleanCommand(ToolkitCommand):
             nr_of_deleted = self._delete_resources(existing_resources, loader, dry_run, verbose)
             if verbose:
                 print("")
-            return ResourceDeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_items)
+            return ResourceDeployResult(name=loader.display_name, deleted=nr_of_deleted, total=nr_of_existing)
         else:
             return ResourceDeployResult(name=loader.display_name)
 
@@ -275,6 +269,7 @@ class CleanCommand(ToolkitCommand):
             result = self.clean_resources(
                 loader,
                 ToolGlobals,
+                read_modules=clean_state.read_modules,
                 drop=True,
                 dry_run=dry_run,
                 drop_data=True,

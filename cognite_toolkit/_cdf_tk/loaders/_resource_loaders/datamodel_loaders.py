@@ -88,7 +88,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     GraphQLParser,
     calculate_str_or_file_hash,
     in_dict,
@@ -120,7 +119,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
 
     @classmethod
     def get_required_capability(
-        cls, items: SpaceApplyList | None, read_only: bool
+        cls, items: Sequence[SpaceApply] | None, read_only: bool
     ) -> list[Capability] | list[Capability]:
         if not items and items is not None:
             return []
@@ -240,7 +239,7 @@ class ContainerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ContainerApplyList | None, read_only: bool
+        cls, items: Sequence[ContainerApply] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -287,25 +286,21 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> ContainerApply | ContainerApplyList:
-        dict_items = resource if isinstance(resource, list) else [resource]
-        for raw_instance in dict_items:
-            for prop in raw_instance.get("properties", {}).values():
-                type_ = prop.get("type", {})
-                if "list" not in type_:
-                    # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
-                    # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
-                    # is used as read and write in the SDK, and the read class has it required while the write class does not)
-                    type_["list"] = False
-                # Todo Bug in SDK, not setting defaults on load
-                if "nullable" not in prop:
-                    prop["nullable"] = False
-                if "autoIncrement" not in prop:
-                    prop["autoIncrement"] = False
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ContainerApply:
+        for prop in resource.get("properties", {}).values():
+            type_ = prop.get("type", {})
+            if "list" not in type_:
+                # In the Python-SDK, list property of a container.properties.<property>.type.list is required.
+                # This is not the case in the API, so we need to set it here. (This is due to the PropertyType class
+                # is used as read and write in the SDK, and the read class has it required while the write class does not)
+                type_["list"] = False
+            # Todo Bug in SDK, not setting defaults on load
+            if "nullable" not in prop:
+                prop["nullable"] = False
+            if "autoIncrement" not in prop:
+                prop["autoIncrement"] = False
 
-        return ContainerApplyList.load(dict_items)
+        return ContainerApply._load(resource)
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
         return self.client.data_modeling.containers.apply(items)
@@ -373,27 +368,6 @@ class ContainerLoader(
     @staticmethod
     def _chunker(seq: Sequence, size: int) -> Iterable[Sequence]:
         return (seq[pos : pos + size] for pos in range(0, len(seq), size))
-
-    def _are_equal(
-        self,
-        local: ContainerApply,
-        remote: Container,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump(camel_case=True)
-        # 'usedFor' and 'cursorable' have default values set on the server side,
-        # but not when loading the container using the SDK. Thus, we set the default
-        # values here if they are not present.
-        if "usedFor" not in local_dumped:
-            local_dumped["usedFor"] = "node"
-        for index in local_dumped.get("indexes", {}).values():
-            if "cursorable" not in index:
-                index["cursorable"] = False
-
-        cdf_dumped = remote.as_write().dump(camel_case=True)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -470,7 +444,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return "views"
 
     @classmethod
-    def get_required_capability(cls, items: ViewApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[ViewApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -548,27 +524,28 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     cdf_properties.pop(prop_name, None)
         return cdf_dumped
 
-    def _are_equal(
-        self,
-        local: ViewApply,
-        cdf_resource: View,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = self.dump_as_write(cdf_resource)
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
+        )
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-        # The version is always a string from the API, but can be an int when reading from YAML.
-        local_dumped["version"] = str(local_dumped["version"])
-
-        if not cdf_dumped.get("properties"):
+    def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = self.dump_as_write(resource)
+        if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
-            cdf_dumped.pop("properties", None)
-        if "properties" in local_dumped and not local_dumped["properties"]:
-            # In case the local properties are set to an empty dict.
-            local_dumped.pop("properties", None)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+            dumped.pop("properties", None)
+        if not dumped.get("implements") and not local.get("implements"):
+            dumped.pop("implements", None)
+        return dumped
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
@@ -689,21 +666,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> ViewApply | ViewApplyList:
-        # The version is a string, but the user often writes it as an int.
-        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
-        # This is technically a user mistake, as you should quote the version in the YAML file.
-        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
-        # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
-
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -723,7 +685,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
 
     @classmethod
     def get_required_capability(
-        cls, items: DataModelApplyList | None, read_only: bool
+        cls, items: Sequence[DataModelApply] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -762,33 +724,29 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                     ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
                 )
 
-    def _are_equal(
-        self,
-        local: DataModelApply,
-        cdf_resource: DataModel,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        # Data models that have the same views, but in different order, are considered equal.
-        # We also account for whether views are given as IDs or View objects.
-        local_dumped["views"] = sorted(
-            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in local.views or []
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
-        cdf_dumped["views"] = sorted(
-            (v if isinstance(v, ViewId) else v.as_id()).as_tuple() for v in cdf_resource.views or []
-        )
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-        # The version is always a string when returned from the API, but locally YAML can read it as an int.
-        # We need to convert it to a string.
-        local_dumped["version"] = str(local_dumped["version"])
-        local_dumped["views"] = [
-            (*space_external_id, str(version)) for *space_external_id, version in local_dumped["views"]
-        ]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "views" not in dumped:
+            return dumped
+        # Sorting in the same order as the local file.
+        view_order_by_id = {ViewId.load(v): no for no, v in enumerate(local.get("views", []))}
+        end_of_list = len(view_order_by_id)
+        dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId.load(v), end_of_list))
+        return dumped
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -797,34 +755,31 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         return self.client.data_modeling.data_models.retrieve(cast(Sequence, ids))
 
     def update(self, items: DataModelApplyList) -> DataModelList:
-        update = self.create(items)
+        updated = self.create(items)
         # There is a bug in the API not raising an exception if view is removed from a data model.
         # So we check here that the update was fixed.
-        update_by_id = {item.as_id(): item for item in update}
-        for item in items:
-            item_id = item.as_id()
-            if item_id in update_by_id:
-                are_equal = self.are_equal(item, update_by_id[item_id], return_dumped=False)
-                if are_equal:
-                    continue
-                views_updated = {v.as_id() if isinstance(v, View) else v for v in update_by_id[item_id].views or []}
-                views_local = set(v.as_id() if isinstance(v, ViewApply) else v for v in item.views or [])
+        updated_by_id = {item.as_id(): item for item in updated}
+        for local in items:
+            item_id = local.as_id()
+            if item_id in updated_by_id:
+                views_updated = {v.as_id() if isinstance(v, View) else v for v in updated_by_id[item_id].views or []}
+                views_local = set(v.as_id() if isinstance(v, ViewApply) else v for v in local.views or [])
                 missing = views_local - views_updated
                 extra = views_updated - views_local
-
-                raise CogniteAPIError(
-                    f"The API did not update the data model, {item_id} correctly. You might have "
-                    f"to increase the version number of the data model for it to update.\nMissing views in CDF: {missing}\n"
-                    f"Extra views in the CDF: {extra}",
-                    code=500,
-                )
+                if missing or extra:
+                    raise CogniteAPIError(
+                        f"The API did not update the data model, {item_id} correctly. You might have "
+                        f"to increase the version number of the data model for it to update.\nMissing views in CDF: {missing}\n"
+                        f"Extra views in the CDF: {extra}",
+                        code=500,
+                    )
             else:
                 raise CogniteAPIError(
                     f"The data model {item_id} was not updated. Please check the data model manually.",
                     code=500,
                 )
 
-        return update
+        return updated
 
     def delete(self, ids: SequenceNotStr[DataModelId]) -> int:
         return len(self.client.data_modeling.data_models.delete(cast(Sequence, ids)))
@@ -846,21 +801,6 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> DataModelApply | DataModelApplyList:
-        # The version is a string, but the user often writes it as an int.
-        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
-        # This is technically a user mistake, as you should quote the version in the YAML file.
-        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
-        # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
-
 
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
@@ -880,7 +820,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return "nodes"
 
     @classmethod
-    def get_required_capability(cls, items: NodeApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[NodeApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -928,40 +870,25 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def _are_equal(
-        self,
-        local: NodeApply,
-        cdf_resource: Node,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """Comparison for nodes to include properties in the comparison
-
-        Note this is an expensive operation as we to an extra retrieve to fetch the properties.
-        Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
-        """
-        local_dumped = local.dump()
-        # Note reading from a container is not supported.
-        sources = [
-            source_prop_pair.source
-            for source_prop_pair in local.sources or []
-            if isinstance(source_prop_pair.source, ViewId)
-        ]
+    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+        # CDF resource does not have properties set, so we need to do a lookup
+        sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                nodes=cdf_resource.as_id(), sources=sources
+                nodes=resource.as_id(), sources=sources
             ).nodes[0]
         except CogniteAPIError:
-            # View does not exist, so node does not exist.
-            return self._return_are_equal(local_dumped, {}, return_dumped)
-        cdf_dumped = cdf_resource_with_properties.as_write().dump()
+            # View does not exist
+            dumped = resource.as_write().dump()
+        else:
+            dumped = cdf_resource_with_properties.as_write().dump()
 
-        if "existingVersion" not in local_dumped:
+        if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
-            local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
+            dumped.pop("existingVersion", None)
 
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return dumped
 
     def dump_resource_legacy(
         self, resource: NodeApply, source_file: Path, local_resource: NodeApply
@@ -1085,7 +1012,7 @@ class GraphQLLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: GraphQLDataModelWriteList | None, read_only: bool
+        cls, items: Sequence[GraphQLDataModelWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -1102,66 +1029,32 @@ class GraphQLLoader(
         if "space" in item:
             yield SpaceLoader, item["space"]
 
-    def _are_equal(
-        self,
-        local: GraphQLDataModelWrite,
-        cdf_resource: GraphQLDataModel,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_graphql_file = self._get_graphql_content(local.as_id())
-
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        local_dumped["graphql_file"] = calculate_str_or_file_hash(local_graphql_file)[:8]
-
-        description = cdf_resource.description or ""
-        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
-            cdf_dumped["graphql_file"] = match.group(3)
-            description = description[: -len(match.group(2))]
-            cdf_dumped["description"] = description
-        else:
-            cdf_dumped["graphql_file"] = ""
-
-        # Reference to the GraphQL file will cause the comparison to always be False.
-        local_dumped.pop("dml", None)
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> GraphQLDataModelWriteList:
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        raw_yaml = load_yaml_inject_variables(
+            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
         )
-        raw_yaml = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
+        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> GraphQLDataModelWriteList:
-        if filepath is None:
-            raise ValueError("filepath must be set when loading a GraphQL schema.")
-        raw_list = resource if isinstance(resource, list) else [resource]
-        models = GraphQLDataModelWriteList._load(raw_list)
-
-        # Find the GraphQL files adjacent to the DML files
-        for model in models:
+        for item in raw_list:
+            model_id = self.get_id(item)
+            # Find the GraphQL files adjacent to the DML files
             graphql_file = filepath.with_suffix(".graphql")
-
             if not graphql_file.is_file():
                 raise ToolkitFileNotFoundError(
                     f"Failed to find GraphQL file. Expected {graphql_file.name} adjacent to {filepath.as_posix()}"
                 )
-            model_id = model.as_id()
+
             self._graphql_filepath_cache[model_id] = graphql_file
             graphql_content = safe_read(graphql_file)
+
             parser = GraphQLParser(graphql_content, model_id)
             try:
                 for view in parser.get_views():
@@ -1170,7 +1063,29 @@ class GraphQLLoader(
             except Exception as e:
                 # We catch a broad exception here to give a more user-friendly error message.
                 raise GraphQLParseError(f"Failed to parse GraphQL file {graphql_file.as_posix()}: {e}") from e
-        return models
+
+            # Add hash to description
+            description = item.get("description", "")
+            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            suffix = f"{self._hash_name}{hash_}"
+            if len(description) + len(suffix) > 1024:
+                LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
+                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
+            description += f" {suffix}"
+            item["description"] = description
+            item["graphqlFile"] = hash_
+        return raw_list
+
+    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "dml" in local:
+            # Reference to the GraphQL file will cause the comparison to always be False
+            dumped["dml"] = local["dml"]
+
+        description = resource.description or ""
+        if match := re.match(rf"(.|\n)*( {self._hash_name}([a-f0-9]{{8}}))$", description):
+            dumped["graphqlFile"] = match.group(3)
+        return dumped
 
     def create(self, items: GraphQLDataModelWriteList) -> list[DMLApplyResult]:
         creation_order = self._topological_sort(items)
@@ -1179,15 +1094,6 @@ class GraphQLLoader(
         for item in creation_order:
             item_id = item.as_id()
             graphql_file_content = self._get_graphql_content(item_id)
-
-            # Add hash to description
-            description = item.description or ""
-            hash_ = calculate_str_or_file_hash(graphql_file_content)[:8]
-            suffix = f"{self._hash_name}{hash_}"
-            if len(description) + len(suffix) > 1024:
-                print(LowSeverityWarning(f"Description is above limit for {item_id}. Truncating..."))
-                description = description[: 1024 - len(suffix) + 1 - 3] + "..."
-            description += f" {suffix}"
             if "--verbose" in sys.argv:
                 print(f"Deploying GraphQL schema {item_id}")
 
@@ -1195,7 +1101,7 @@ class GraphQLLoader(
                 item.as_id(),
                 dml=graphql_file_content,
                 name=item.name,
-                description=description,
+                description=item.description,
                 previous_version=item.previous_version,
                 preserve_dml=item.preserve_dml,
             )
@@ -1277,7 +1183,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         return "edges"
 
     @classmethod
-    def get_required_capability(cls, items: EdgeApplyList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[EdgeApply] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -1330,40 +1238,25 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def _are_equal(
-        self,
-        local: EdgeApply,
-        cdf_resource: Edge,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """Comparison for edges to include properties in the comparison
-
-        Note this is an expensive operation as we to an extra retrieve to fetch the properties.
-        Thus, the cdf-tk should not be used to upload nodes that are data only nodes used for configuration.
-        """
-        local_dumped = local.dump()
-        # Note reading from a container is not supported.
-        sources = [
-            source_prop_pair.source
-            for source_prop_pair in local.sources or []
-            if isinstance(source_prop_pair.source, ViewId)
-        ]
+    def dump_resource(self, resource: Edge, local: dict[str, Any]) -> dict[str, Any]:
+        # CDF resource does not have properties set, so we need to do a lookup
+        sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                edges=cdf_resource.as_id(), sources=sources
+                edges=resource.as_id(), sources=sources
             ).edges[0]
         except CogniteAPIError:
-            # View does not exist, so node does not exist.
-            return self._return_are_equal(local_dumped, {}, return_dumped)
-        cdf_dumped = cdf_resource_with_properties.as_write().dump()
+            # View does not exist
+            dumped = resource.as_write().dump()
+        else:
+            dumped = cdf_resource_with_properties.as_write().dump()
 
-        if "existingVersion" not in local_dumped:
+        if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.
-            local_dumped["existingVersion"] = cdf_dumped.get("existingVersion", None)
+            dumped.pop("existingVersion", None)
 
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return dumped
 
     def dump_resource_legacy(
         self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply

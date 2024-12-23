@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -62,7 +62,6 @@ class Loader(ABC):
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.extra_configs: dict[Hashable, Any] = {}
 
     @classmethod
     def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
@@ -182,7 +181,7 @@ class ResourceLoader(
     @classmethod
     @abstractmethod
     def get_required_capability(
-        cls, items: T_CogniteResourceList | None, read_only: bool
+        cls, items: Sequence[T_WriteClass] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
@@ -267,22 +266,33 @@ class ResourceLoader(
         raise ValueError(f"Invalid ids: {ids}")
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
-    ) -> T_WriteClass | T_CogniteResourceList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        return self.load_resource(raw_yaml, is_dry_run, filepath)
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        """Loads the resource(s) from a file. CAn be overwritten in subclasses.
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> T_WriteClass | T_CogniteResourceList:
+        Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
+        DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
+        """
+        raw_yaml = load_yaml_inject_variables(
+            filepath, environment_variables or {} if self.do_environment_variable_injection else {}
+        )
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
-        if isinstance(resource, list):
-            return self.list_write_cls.load(resource)
-        else:
-            return self.list_write_cls([self.resource_write_cls.load(resource)])
+        return self.resource_write_cls._load(resource)
+
+    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any]) -> dict[str, Any]:
+        """Dumps the resource to a dictionary that matches the write format.
+
+        This is intended to be overwritten in subclasses that require special dumping logic, for example,
+        replacing dataSetId with dataSetExternalId.
+
+        Args:
+            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
+            local (dict[str, Any]): The local resource.
+        """
+        return resource.as_write().dump()
 
     def dump_resource_legacy(
         self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
@@ -305,74 +315,6 @@ class ResourceLoader(
              content.
         """
         return resource.dump(), {}
-
-    def dump_resource(self, resource: T_WritableCogniteResource, local: T_WriteClass) -> dict[str, Any]:
-        """Dumps the resource to a dictionary that matches the write format.
-
-        This is intended to be overwritten in subclasses that require special dumping logic, for example,
-        replacing dataSetId with dataSetExternalId.
-
-        Args:
-            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            local (T_WriteClass): The local resource.
-        """
-        return resource.as_write().dump()
-
-    @overload
-    def are_equal(
-        self,
-        local: T_WriteClass,
-        cdf_resource: T_WritableCogniteResource,
-        return_dumped: Literal[False] = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool: ...
-
-    @overload
-    def are_equal(
-        self,
-        local: T_WriteClass,
-        cdf_resource: T_WritableCogniteResource,
-        return_dumped: Literal[True],
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> tuple[bool, dict[str, Any], dict[str, Any]]: ...
-
-    def are_equal(
-        self,
-        local: T_WriteClass,
-        cdf_resource: T_WritableCogniteResource,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        return self._are_equal(local, cdf_resource, return_dumped, ToolGlobals)
-
-    # Private to avoid having to overload in all subclasses
-    def _are_equal(
-        self,
-        local: T_WriteClass,
-        cdf_resource: T_WritableCogniteResource,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """This can be overwritten in subclasses that require special comparison logic.
-
-        For example, TransformationWrite has OIDC credentials that will not be returned
-        by the retrieve method, and thus needs special handling.
-        """
-        local_dumped = local.dump()
-        if ToolGlobals is None:
-            cdf_dumped = cdf_resource.as_write().dump()
-        else:
-            cdf_dumped = self.dump_resource(cdf_resource, local)
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    @staticmethod
-    def _return_are_equal(
-        local_dumped: dict[str, Any], cdf_dumped: dict[str, Any], return_dumped: bool
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        if return_dumped:
-            return local_dumped == cdf_dumped, local_dumped, cdf_dumped
-        else:
-            return local_dumped == cdf_dumped
 
     # Helper methods
     @classmethod

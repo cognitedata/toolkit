@@ -239,6 +239,15 @@ class ApprovalToolkitClient:
         else:
             self._existing_resources[resource_cls.__name__].append(items)
 
+    def clear_cdf_resources(self, resource_cls: type[CogniteResource]) -> None:
+        """Clears the existing resources in CDF.
+
+        Args:
+            resource_cls: The type of resource to clear.
+
+        """
+        self._existing_resources[resource_cls.__name__].clear()
+
     def _create_delete_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
         deleted_resources = self._deleted_resources
         resource_cls = resource.resource_cls

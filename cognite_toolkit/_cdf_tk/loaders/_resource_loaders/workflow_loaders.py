@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
@@ -50,9 +50,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -86,7 +83,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -114,16 +111,16 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> WorkflowUpsertList:
-        workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
-        for workflow in workflows:
-            if "dataSetExternalId" in workflow:
-                ds_external_id = workflow.pop("dataSetExternalId")
-                workflow["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowUpsert:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return WorkflowUpsert._load(resource)
 
-        return WorkflowUpsertList.load(workflows)
+    def dump_resource(self, resource: Workflow, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.dump()
+        if data_set_id := dumped.get("dataSetId"):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
         workflows = []
@@ -202,21 +199,6 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def _are_equal(
-        self,
-        local: WorkflowUpsert,
-        cdf_resource: Workflow,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
 
 @final
 class WorkflowVersionLoader(
@@ -243,7 +225,7 @@ class WorkflowVersionLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowVersionUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowVersionUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -387,7 +369,7 @@ class WorkflowTriggerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowTriggerUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowTriggerUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -500,16 +482,17 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
-    def load_resource(
-        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
-    ) -> WorkflowTriggerUpsertList:
-        raw_list = resource if isinstance(resource, list) else [resource]
-        loaded = WorkflowTriggerUpsertList([])
-        for item in raw_list:
-            if "data" in item and isinstance(item["data"], dict):
-                item["data"] = json.dumps(item["data"])
-            if "authentication" in item:
-                raw_auth = item.pop("authentication")
-                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
-            loaded.append(WorkflowTriggerUpsert.load(item))
-        return loaded
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
+        if isinstance(resource.get("data"), dict):
+            resource["data"] = json.dumps(resource["data"])
+        if "authentication" in resource:
+            raw_auth = resource.pop("authentication")
+            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
+        return WorkflowTriggerUpsert._load(resource)
+
+    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
+            dumped["data"] = json.loads(dumped["data"])
+        # Todo: What to do with the authentication?
+        return dumped

@@ -8,7 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitTypeError
 from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     DataSetsLoader,
@@ -47,13 +47,13 @@ conflictMode: upsert
         self,
         toolkit_client_approval: ApprovalToolkitClient,
         cdf_tool_real: CDFToolConfig,
-        monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
-        loader._get_query_file = _return_none
-        loaded = loader.load_resource_file(filepath, cdf_tool_real)
+        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None
 
@@ -77,8 +77,9 @@ conflictMode: upsert
         }
         filepath = self._create_mock_file(yaml.dump(resource))
 
-        loader._get_query_file = _return_none
-        loaded = loader.load_resource_file(filepath, cdf_tool_real)
+        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+
         assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
         assert loaded.destination is not None
 
@@ -106,10 +107,10 @@ conflictMode: upsert
             "clientSecret": "{{cicd_clientSecret}}",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
-        loader._get_query_file = _return_none
 
-        with pytest.raises(ToolkitYAMLFormatError):
-            loader.load_resource_file(filepath, cdf_tool_real)
+        with pytest.raises(ToolkitTypeError):
+            raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+            loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_sql_inline(
         self,
@@ -122,7 +123,8 @@ conflictMode: upsert
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        loaded = loader.load_resource_file(filepath, cdf_tool_real)
+        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 
     @pytest.mark.parametrize(
