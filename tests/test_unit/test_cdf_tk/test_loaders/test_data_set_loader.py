@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 from cognite.client.data_classes import DataSet
 
 from cognite_toolkit._cdf_tk.commands import DeployCommand
@@ -10,15 +8,10 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestDataSetsLoader:
-    def test_upsert_data_set(self, toolkit_client_approval: ApprovalToolkitClient):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
-        loader = DataSetsLoader.create_loader(cdf_tool, None)
+    def test_upsert_data_set(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
+        loader = DataSetsLoader.create_loader(cdf_tool_mock, None)
         loaded = loader.load_resource_file(
-            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool, skip_validation=False
+            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool_mock, is_dry_run=False
         )
         assert len(loaded) == 2
 

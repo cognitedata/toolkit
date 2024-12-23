@@ -36,10 +36,12 @@ class DumpCommand(ToolkitCommand):
             data_model_id = selected_data_model
 
         print(f"Dumping {data_model_id} from project {ToolGlobals.project}...")
+        client = ToolGlobals.toolkit_client
         print("Verifying access rights...")
-        client = ToolGlobals.verify_authorization(
-            DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All()),
-        )
+        if missing := client.verify.authorization(
+            DataModelsAcl([DataModelsAcl.Action.Read], DataModelsAcl.Scope.All())
+        ):
+            raise client.verify.create_error(missing, "dumping data model")
 
         data_models = client.data_modeling.data_models.retrieve(data_model_id, inline_views=True)
         if not data_models:

@@ -182,19 +182,12 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
-    def dump_resource(
-        self,
-        resource: Transformation,
-        local: TransformationWrite,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: TransformationWrite) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if "dataSetId" in dumped and local.data_set_id != -1 and ToolGlobals is not None:
+        if "dataSetId" in dumped and local.data_set_id != -1:
             # -1 is a special value that means dry run
             data_set_id = dumped.pop("dataSetId")
-            dumped["dataSetExternalId"] = ToolGlobals.reverse_verify_dataset(
-                data_set_id, action="replace dataSetId with dataSetExternalId in transformation"
-            )
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
 
         if local.source_oidc_credentials:
             dumped["sourceOidcCredentials"] = local.source_oidc_credentials.dump()
@@ -210,7 +203,7 @@ class TransformationLoader(
         ToolGlobals: CDFToolConfig | None = None,
     ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
         local_dumped = local.dump()
-        cdf_dumped = self.dump_resource(cdf_resource, local, ToolGlobals)
+        cdf_dumped = self.dump_resource(cdf_resource, local)
         if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
             # Dry run
             local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
@@ -218,7 +211,7 @@ class TransformationLoader(
         return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> TransformationWrite | TransformationWriteList:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
         raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
@@ -227,14 +220,10 @@ class TransformationLoader(
             ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
         )
         resources = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+        return self.load_resource(resources, is_dry_run, filepath)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> TransformationWrite | TransformationWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
@@ -256,9 +245,7 @@ class TransformationLoader(
 
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in transformation"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if resource.get("conflictMode") is None:
                 # Todo; Bug SDK missing default value
                 resource["conflictMode"] = "upsert"

@@ -199,11 +199,7 @@ class HostedExtractorDestinationLoader(
         return iter(self.client.hosted_extractors.destinations)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> DestinationWriteList:
         raw_list = resource if isinstance(resource, list) else [resource]
         loaded = DestinationWriteList([])
@@ -211,18 +207,14 @@ class HostedExtractorDestinationLoader(
             if "credentials" in item:
                 raw_auth = item.pop("credentials")
                 credentials = ClientCredentials._load(raw_auth)
-                if skip_validation:
+                if is_dry_run:
                     item["credentials"] = {"nonce": "dummy_nonce"}
                 else:
                     session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
                     item["credentials"] = {"nonce": session.nonce}
             if item.get("targetDataSetExternalId") is not None:
                 ds_external_id = item.pop("targetDataSetExternalId")
-                item["targetDataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation,
-                    action="replace targetDataSetExternalId with targetDataSetId in hosted extractor destination",
-                )
+                item["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             loaded.append(DestinationWrite.load(item))
         return loaded
 

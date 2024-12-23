@@ -102,25 +102,17 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
             yield AssetLoader, item["assetExternalId"]
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> TimeSeriesWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
         for resource in resources:
             if resource.get("dataSetExternalId") is not None:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in time series"
-                )
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "securityCategoryNames" in resource:
                 if security_categories_names := resource.pop("securityCategoryNames", []):
-                    security_categories = ToolGlobals.verify_security_categories(
-                        security_categories_names,
-                        skip_validation,
-                        action="replace securityCategoryNames with securityCategoryIDs in time series",
+                    security_categories = self.client.lookup.security_categories.id(
+                        security_categories_names, is_dry_run
                     )
                     resource["securityCategories"] = security_categories
             if resource.get("securityCategories") is None:
@@ -128,9 +120,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 resource["securityCategories"] = []
             if "assetExternalId" in resource:
                 asset_external_id = resource.pop("assetExternalId")
-                resource["assetId"] = ToolGlobals.verify_asset(
-                    asset_external_id, skip_validation, action="replace assetExternalId with assetId in time series"
-                )
+                resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
         return TimeSeriesWriteList.load(resources)
 
     def _are_equal(

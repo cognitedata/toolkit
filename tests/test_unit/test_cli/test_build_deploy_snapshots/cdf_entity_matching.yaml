@@ -2,7 +2,7 @@ Database:
 - name: contextualizationState
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 0
+  dataSetId: 316416785021717804
   description: Matches entities based on their properties
   documentation: "# Entity Matcher\nThis extraction pipeline is responsible for matching\
     \ entities based on their properties. This means it looks for, for example, how\
@@ -104,7 +104,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 316416785021717804
   - extractionRunsAcl:
       actions:
       - READ
@@ -112,7 +112,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 316416785021717804
   - rawAcl:
       actions:
       - READ
@@ -154,7 +154,7 @@ Table:
 - createdTime: 1
   name: entityMatching
 Workflow:
-- dataSetId: 0
+- dataSetId: 316416785021717804
   description: This workflow entity matches and writes the approved annotations into
     the data.
   externalId: entity_matching

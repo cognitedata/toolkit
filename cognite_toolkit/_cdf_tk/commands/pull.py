@@ -459,7 +459,7 @@ class PullCommand(ToolkitCommand):
                 local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
                 filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
 
-        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals, skip_validation=False)
+        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals, is_dry_run=False)
 
         cdf_resources = loader.retrieve([resource_id])
         if not cdf_resources:
@@ -650,7 +650,7 @@ class PullCommand(ToolkitCommand):
             local_resource_by_id: dict[T_ID, T_WriteClass] = {}
             local_resource_ids = set(resources.identifiers)
             for destination in unique_destinations:
-                loaded = loader.load_resource_file(destination, ToolGlobals, skip_validation=dry_run)
+                loaded = loader.load_resource_file(destination, ToolGlobals, is_dry_run=dry_run)
                 loaded_list = loaded if isinstance(loaded, Sequence) else [loaded]
                 for local_resource in loaded_list:
                     local_id = loader.get_id(local_resource)

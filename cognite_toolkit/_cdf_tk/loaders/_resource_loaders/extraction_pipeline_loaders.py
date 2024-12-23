@@ -142,22 +142,15 @@ class ExtractionPipelineLoader(
                         yield RawTableLoader, RawTable._load(entry)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 
         for resource in resources:
             if "dataSetExternalId" in resource:
                 ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation,
-                    action="replace datasetExternalId with dataSetId in extraction pipeline",
-                )
+
+                resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
             if "createdBy" not in resource:
                 # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
                 resource["createdBy"] = "unknown"
@@ -306,20 +299,16 @@ class ExtractionPipelineConfigLoader(
             yield ExtractionPipelineLoader, item["externalId"]
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
+        self, filepath: Path, ToolGlobals: CDFToolConfig, is_dry_run: bool = False
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
         resources = load_yaml_inject_variables(raw_str, {})
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+        return self.load_resource(resources, is_dry_run, filepath)
 
     def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
+        self, resource: dict[str, Any] | list[dict[str, Any]], is_dry_run: bool = False, filepath: Path | None = None
     ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
         resources = [resource] if isinstance(resource, dict) else resource
 

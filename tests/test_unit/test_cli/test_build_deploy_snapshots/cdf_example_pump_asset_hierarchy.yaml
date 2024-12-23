@@ -89,7 +89,7 @@ Table:
   name: collections_pump
 Transformation:
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 7014735397269994397
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
