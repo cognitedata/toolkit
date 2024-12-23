@@ -64,7 +64,9 @@ class Builder(ABC):
 
     def load_extra_field(self, extra: str) -> tuple[str, Any]:
         """Overload in subclass to load extra fields from a file."""
-        raise NotImplementedError()
+        raise NotImplementedError(
+            f"Extra field {extra!r} by {type(self).__name__} - {self.resource_folder} is not supported."
+        )
 
     def validate_directory(
         self, built_resources: BuiltResourceList, module: ModuleLocation

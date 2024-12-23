@@ -5,4 +5,4 @@ dataSetExternalId: ds_complete_org
 mimeType: application/yaml
 source: doctrino
 metadata:
-   origin: cognite-toolkit
+  origin: cognite-toolkit

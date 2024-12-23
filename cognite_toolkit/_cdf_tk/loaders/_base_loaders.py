@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -265,6 +265,12 @@ class ResourceLoader(
             return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
         raise ValueError(f"Invalid ids: {ids}")
 
+    def safe_read(self, filepath: Path | str) -> str:
+        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
+        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
+        it is parsed as a string."""
+        return safe_read(filepath)
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
@@ -274,7 +280,7 @@ class ResourceLoader(
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
         raw_yaml = load_yaml_inject_variables(
-            filepath, environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -315,6 +321,31 @@ class ResourceLoader(
              content.
         """
         return resource.dump(), {}
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        """Diff two lists and return the indices that needs to be compared and the indices that have been added.
+        The lists are subfields of the local and CDF resources.
+
+        This is used by the pull command to determine changes to the local resources compared to the CDF resources. For
+        example, a Sequence has a list of columns. This method is used to determine which columns to compare
+        and which has been added.
+
+        Args:
+            local (list[Any]): The local list.
+            cdf (list[Any]): The CDF list.
+            json_path (tuple[str | int, ...]): The json path to the list in the resource. For example, 'columns'
+                in the case of a sequence.
+
+        Returns:
+            tuple[dict[int, int], list[int]]: A dictionary with the indices that needs to be compared and a list of
+                indices that have been added. The dictionary has local index as key and CDF index as value. The
+                list of indices that have been added are cdf indices.
+        """
+        raise NotImplementedError(
+            f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
+        )
 
     # Helper methods
     @classmethod

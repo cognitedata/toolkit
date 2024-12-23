@@ -82,3 +82,6 @@ class DataModelBuilder(Builder):
                     f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {source_file.source.path.as_posix()}"
                 )
         return extra_sources
+
+    def load_extra_field(self, extra: str) -> tuple[str, Any]:
+        return "dml", extra

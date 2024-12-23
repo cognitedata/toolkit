@@ -71,6 +71,9 @@ def cdf_tool_mock(
         "IDP_FUN_CLIENT_SECRET": "dummy",
         "IDP_WF_CLIENT_ID": "dummy",
         "IDP_WF_CLIENT_SECRET": "dummy",
+        # The secrets in the cdf_ingestion workflow
+        "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+        "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
     }
     existing = {}
     for key, value in environment_variables.items():

@@ -3,11 +3,11 @@ description: A sequence of numbers
 externalId: mySequence
 dataSetExternalId: ds_complete_org
 columns:
-  - name: Time
-    valueType: DOUBLE
-    description: Epoch time
-    externalId: mySequenceTime
-  - name: value
-    valueType: DOUBLE
-    description: The value of the sequence
-    externalId: mySequenceValue
+- name: Time
+  valueType: DOUBLE
+  description: Epoch time
+  externalId: mySequenceTime
+- name: value
+  valueType: DOUBLE
+  description: The value of the sequence
+  externalId: mySequenceValue

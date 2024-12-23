@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -280,6 +281,18 @@ class WorkflowVersionLoader(
                     if local_function["data"] == {} and "data" not in cdf_function:
                         cdf_parameters["function"] = local_parameters["function"]
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("workflowDefinition", "tasks"):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
+        elif len(json_path) == 4 and json_path[:2] == ("workflowDefinition", "tasks") and json_path[3] == "dependsOn":
+            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
+        elif len(json_path) >= 2 and json_path[:2] == ("workflowDefinition", "tasks"):
+            # Assume all other arrays in the tasks are hashable
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -523,5 +536,8 @@ class WorkflowTriggerLoader(
         dumped = resource.as_write().dump()
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
-        # Todo: What to do with the authentication?
+        if "authentication" in local:
+            # Note that change in the authentication will not be detected, and thus,
+            # will require a forced redeployment.
+            dumped["authentication"] = local["authentication"]
         return dumped

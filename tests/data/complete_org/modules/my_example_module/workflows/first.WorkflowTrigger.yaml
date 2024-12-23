@@ -1,6 +1,6 @@
 externalId: MyTrigger
 triggerRule:
   triggerType: schedule
-  cronExpression: "5 4 * * *"
+  cronExpression: 5 4 * * *
 workflowExternalId: {{ workflow_external_id }}
-workflowVersion: "1"
+workflowVersion: '1'

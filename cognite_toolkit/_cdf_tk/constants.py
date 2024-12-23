@@ -69,6 +69,9 @@ DRY_RUN_ID = -1
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
 
+# This is used to detect environment variables in a string.
+ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
+
 HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]

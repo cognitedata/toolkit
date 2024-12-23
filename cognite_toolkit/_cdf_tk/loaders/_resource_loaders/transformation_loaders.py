@@ -76,6 +76,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -182,18 +183,18 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
+    def safe_read(self, filepath: Path | str) -> str:
+        # If the destination is a DataModel or a View we need to ensure that the version is a string
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        # If the destination is a DataModel or a View we need to ensure that the version is a string
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-
         resources = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
 
         raw_list = resources if isinstance(resources, list) else [resources]
-
         for item in raw_list:
             query_file: Path | None = None
             if "queryFile" in item:
@@ -273,6 +274,13 @@ class TransformationLoader(
             #    that the credentials are always the same.
             dumped["authentication"] = local["authentication"]
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[-1] == "scopes":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     def dump_resource_legacy(
         self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite

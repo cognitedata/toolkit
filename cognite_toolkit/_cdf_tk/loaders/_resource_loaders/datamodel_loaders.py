@@ -96,6 +96,7 @@ from cognite_toolkit._cdf_tk.utils import (
     retrieve_view_ancestors,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -529,19 +530,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     cdf_properties.pop(prop_name, None)
         return cdf_dumped
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
-        )
-        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
         dumped = self.dump_as_write(resource)
@@ -559,6 +554,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 if prop["container"].get("type") == "container" and "type" not in local_prop["container"]:
                     prop["container"].pop("type", None)
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("implements",):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         return self.client.data_modeling.views.apply(items)
@@ -737,19 +739,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
                     ViewId(view["space"], view["externalId"], str(v) if (v := view.get("version")) else None),
                 )
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-        raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
-        )
-        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -760,6 +756,13 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         end_of_list = len(view_order_by_id)
         dumped["views"] = sorted(dumped["views"], key=lambda v: view_order_by_id.get(ViewId.load(v), end_of_list))
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("views",):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: DataModelApplyList) -> DataModelList:
         return self.client.data_modeling.data_models.apply(items)
@@ -1047,17 +1050,19 @@ class GraphQLLoader(
         if "space" in item:
             yield SpaceLoader, item["space"]
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
+    def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
         raw_yaml = load_yaml_inject_variables(
-            raw_str, environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
@@ -1359,3 +1364,10 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             )
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("sources",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: dm_identifier(x["source"]))
+        return super().diff_list(local, cdf, json_path)

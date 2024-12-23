@@ -348,12 +348,9 @@ class FunctionScheduleLoader(
         dumped = resource.as_write().dump()
         if "functionId" in dumped and "functionId" not in local:
             dumped.pop("functionId")
-        item_id = self.get_id(resource)
-        if item_id in self.authentication_by_id:
-            dumped["authentication"] = {
-                "clientId": self.authentication_by_id[item_id].client_id,
-                "clientSecret": self.authentication_by_id[item_id].client_secret,
-            }
+        if "authentication" in local:
+            # The authentication is not returned in the response, so we need to add it back.
+            dumped["authentication"] = local["authentication"]
         return dumped
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:

@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - [alpha feature] Support for running `cdf build` without comparing against CDF project for missing dependencies
   with the flag `--offline`.
+- [alpha feature] New subcommand `cdf modules pull` which pulls the configuration from the CDF project to the local
+  modules directory.
 
 ### Fixed
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import difflib
 import re
 import shutil
@@ -20,10 +21,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.builders import create_builder
-from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE
+from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
     BuildVariable,
+    BuildVariables,
     BuiltFullResourceList,
     BuiltModuleList,
     BuiltResourceFull,
@@ -32,15 +34,20 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceDeployResult,
     YAMLComments,
 )
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitError,
-    ToolkitMissingResourceError,
-    ToolkitValueError,
-)
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
-from cognite_toolkit._cdf_tk.loaders import ResourceLoader, TransformationLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    ExtractionPipelineConfigLoader,
+    FunctionLoader,
+    GraphQLLoader,
+    HostedExtractorDestinationLoader,
+    HostedExtractorSourceLoader,
+    ResourceLoader,
+    StreamlitLoader,
+    TransformationLoader,
+)
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     YAMLComment,
@@ -621,10 +628,24 @@ class PullCommand(ToolkitCommand):
                 loader.folder_name,  # type: ignore[arg-type]
                 loader.kind,
                 selected,
+                is_supported_file=loader.is_supported_file,
             )
             if not resources:
                 continue
-            result = self._pull_resources(loader, resources, dry_run, ToolGlobals)
+            if loader in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+                self.warn(
+                    LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
+                )
+                continue
+            if loader in {GraphQLLoader, FunctionLoader, StreamlitLoader}:
+                self.warn(
+                    LowSeverityWarning(
+                        f"Skipping {loader.display_name} as it is not supported by the pull command due to"
+                        "the external file(s)."
+                    )
+                )
+                continue
+            result = self._pull_resources(loader, resources, dry_run, ToolGlobals.environment_variables())
             results[loader.display_name] = result
 
         table = results.counts_table(exclude_columns={"Total"})
@@ -637,50 +658,22 @@ class PullCommand(ToolkitCommand):
         ],
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
-        ToolGlobals: CDFToolConfig,
+        environment_variables: dict[str, str | None],
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
-        has_changes = False
-        environment_variables = ToolGlobals.environment_variables() if loader.do_environment_variable_injection else {}
+        environment_variables = environment_variables if loader.do_environment_variable_injection else {}
         for source_file, resources in resources_by_file.items():
-            unique_destinations = {r.destination for r in resources if r.destination}
-            local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
-            local_resource_ids = set(resources.identifiers)
-            for destination in unique_destinations:
-                resource_list = loader.load_resource_file(destination, environment_variables)
-                for resource_dict in resource_list:
-                    identifier = loader.get_id(resource_dict)
-                    if identifier in local_resource_ids:
-                        local_resource_by_id[identifier] = resource_dict
-
-            to_write: dict[T_ID, dict[str, Any]] = {}
-            for item_id, local_dict in local_resource_by_id.items():
-                cdf_resource = cdf_resource_by_id.get(item_id)
-                if cdf_resource is None:
-                    file_results.unchanged += 1
-                    to_write[item_id] = local_dict
-                    self.warn(
-                        MediumSeverityWarning(
-                            f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
-                        )
-                    )
-                    continue
-                cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
-
-                if cdf_dumped == local_dict:
-                    file_results.unchanged += 1
-                    to_write[item_id] = local_dict
-                else:
-                    file_results.changed += 1
-                    to_write[item_id] = cdf_dumped
-                    has_changes = True
+            local_resource_by_id = self._get_local_resource_dict_by_id(resources, loader, environment_variables)
+            has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
             if has_changes and not dry_run:
-                new_content, extra_files = self._to_write_content(source_file.read_text(), to_write, resources, loader)  # type: ignore[arg-type]
+                new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
+                    source_file.read_text(), to_write, resources, environment_variables, loader
+                )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)
                 for filepath, content in extra_files.items():
@@ -688,6 +681,58 @@ class PullCommand(ToolkitCommand):
                         f.write(content)
 
         return file_results
+
+    def _get_to_write(
+        self,
+        local_resource_by_id: dict[T_ID, dict[str, Any]],
+        cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource],
+        file_results: ResourceDeployResult,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+    ) -> tuple[bool, dict[T_ID, dict[str, Any]]]:
+        to_write: dict[T_ID, dict[str, Any]] = {}
+        has_changes = False
+        for item_id, local_dict in local_resource_by_id.items():
+            cdf_resource = cdf_resource_by_id.get(item_id)
+            if cdf_resource is None:
+                file_results.unchanged += 1
+                to_write[item_id] = local_dict
+                self.warn(
+                    MediumSeverityWarning(
+                        f"No {loader.display_name} with id {item_id} found in CDF. Have you deployed it?"
+                    )
+                )
+                continue
+            cdf_dumped = loader.dump_resource(cdf_resource, local_dict)
+
+            if cdf_dumped == local_dict:
+                file_results.unchanged += 1
+                to_write[item_id] = local_dict
+            else:
+                file_results.changed += 1
+                to_write[item_id] = cdf_dumped
+                has_changes = True
+        return has_changes, to_write
+
+    @staticmethod
+    def _get_local_resource_dict_by_id(
+        resources: BuiltFullResourceList[T_ID],
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        environment_variables: dict[str, str | None],
+    ) -> dict[T_ID, dict[str, Any]]:
+        unique_destinations = {r.destination for r in resources if r.destination}
+        local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
+        local_resource_ids = set(resources.identifiers)
+        for destination in unique_destinations:
+            resource_list = loader.load_resource_file(destination, environment_variables)
+            for resource_dict in resource_list:
+                identifier = loader.get_id(resource_dict)
+                if identifier in local_resource_ids:
+                    local_resource_by_id[identifier] = resource_dict
+        return local_resource_by_id
 
     @staticmethod
     def _select_resource_ids(
@@ -711,6 +756,7 @@ class PullCommand(ToolkitCommand):
         source: str,
         to_write: dict[T_ID, dict[str, Any]],
         resources: BuiltFullResourceList[T_ID],
+        environment_variables: dict[str, str | None],
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
@@ -724,16 +770,47 @@ class PullCommand(ToolkitCommand):
 
         # All resources are assumed to be in the same file, and thus the same build variables.
         variables = resources[0].build_variables
+        if environment_variables:
+            variables_with_environment_list: list[BuildVariable] = []
+            for variable in variables:
+                if isinstance(variable.value, str) and ENV_VAR_PATTERN.match(variable.value):
+                    for key, value in environment_variables.items():
+                        if key in variable.value and isinstance(value, str):
+                            # Running through all environment variables, in case multiple are used in the same variable.
+                            # Note that variable are immutable, so we are not modifying the original variable.
+                            variable = dataclasses.replace(variable, value=variable.value.replace(f"${{{key}}}", value))
+                    variables_with_environment_list.append(variable)
+                elif isinstance(variable.value, tuple):
+                    new_value: list[str | int | float | bool] = []
+                    for var_item in variable.value:
+                        if isinstance(var_item, str) and ENV_VAR_PATTERN.match(var_item):
+                            for key, value in environment_variables.items():
+                                if key in var_item and isinstance(value, str):
+                                    var_item = var_item.replace(f"${{{key}}}", value)
+                        new_value.append(var_item)
+                    variables_with_environment_list.append(dataclasses.replace(variable, value=tuple(new_value)))  # type: ignore[arg-type]
+                else:
+                    variables_with_environment_list.append(variable)
+            variables = BuildVariables(variables_with_environment_list)
+
         content, value_by_placeholder = variables.replace(source, use_placeholder=True)
         comments = YAMLComments.load(source)
-        loaded_with_placeholder = read_yaml_content(content)
-
-        built_by_identifier = {r.identifier: r for r in resources}
         # If there is a variable in the identifier, we need to replace it with the value
         # such that we can look it up in the to_write dict.
-        loaded = read_yaml_content(variables.replace(source))
+        if isinstance(loader, ExtractionPipelineConfigLoader):
+            # The safe read in ExtractionPipelineConfigLoader stringifies the config dict,
+            # but we need to load it as a dict so we can write it back to the file maintaining
+            # the order or the keys.
+            loaded = read_yaml_content(variables.replace(source))
+            loaded_with_placeholder = read_yaml_content(content)
+        else:
+            loaded = read_yaml_content(loader.safe_read(variables.replace(source)))
+            loaded_with_placeholder = read_yaml_content(loader.safe_read(content))
+
+        built_by_identifier = {r.identifier: r for r in resources}
         updated: dict[str, Any] | list[dict[str, Any]]
         extra_files: dict[Path, str] = {}
+        replacer = ResourceReplacer(value_by_placeholder, loader)
         if isinstance(loaded, dict) and isinstance(loaded_with_placeholder, dict):
             item_id = loader.get_id(loaded)
             updated = self._update(
@@ -742,7 +819,7 @@ class PullCommand(ToolkitCommand):
                 loaded_with_placeholder,
                 to_write,
                 built_by_identifier,
-                value_by_placeholder,
+                replacer,
                 extra_files,
             )
         elif isinstance(loaded, list) and isinstance(loaded_with_placeholder, list):
@@ -756,7 +833,7 @@ class PullCommand(ToolkitCommand):
                         loaded_with_placeholder[i],
                         to_write,
                         built_by_identifier,
-                        value_by_placeholder,
+                        replacer,
                         extra_files,
                     )
                 )
@@ -777,7 +854,7 @@ class PullCommand(ToolkitCommand):
         loaded_with_placeholder: dict[str, Any],
         to_write: dict[T_ID, dict[str, Any]],
         built_by_identifier: dict[T_ID, BuiltResourceFull[T_ID]],
-        value_by_placeholder: dict[str, BuildVariable],
+        replacer: ResourceReplacer,
         extra_files: dict[Path, str],
     ) -> dict[str, Any]:
         if item_id not in to_write:
@@ -799,47 +876,132 @@ class PullCommand(ToolkitCommand):
                         if placeholder in extra_content:
                             new_extra = new_extra.replace(variable.value, f"{{{{ {variable.key} }}}}")
                     extra_files[extra.path] = new_extra
-        return cls._replace(loaded, loaded_with_placeholder, item_write, value_by_placeholder)
+        return replacer.replace(loaded, loaded_with_placeholder, item_write)
 
-    @classmethod
-    def _replace(
-        cls,
-        loaded: dict[str, Any],
-        loaded_with_placeholder: dict[str, Any],
+
+class ResourceReplacer:
+    """Replaces values in a local resource directory with the updated values from CDF.
+
+    The local resource dict order is maintained. In addition, placeholders are used for variables.
+    """
+
+    def __init__(self, value_by_placeholder: dict[str, BuildVariable], loader: ResourceLoader) -> None:
+        self._value_by_placeholder = value_by_placeholder
+        self._loader = loader
+
+    def replace(
+        self,
+        current: dict[str, Any],
+        placeholder: dict[str, Any],
         to_write: dict[str, Any],
-        value_by_placeholder: dict[str, BuildVariable],
     ) -> dict[str, Any]:
-        updated: dict[str, Any] = {}
-        for key, local_value in loaded.items():
-            if key not in to_write:
-                # Field is removed
-                continue
-            placeholder_value = loaded_with_placeholder[key]
-            cdf_value = to_write[key]
+        return self._replace_dict(current, placeholder, to_write, tuple())
 
-            if isinstance(local_value, dict) and isinstance(placeholder_value, dict) and isinstance(cdf_value, dict):
-                updated[key] = cls._replace(local_value, placeholder_value, cdf_value, value_by_placeholder)
-            elif isinstance(local_value, list) and isinstance(placeholder_value, list) and isinstance(cdf_value, list):
-                updated[key] = [
-                    cls._replace(item, placeholder_value[i], cdf_value[i], value_by_placeholder)
-                    for i, item in enumerate(local_value)
-                ]
-            elif type(local_value) is type(placeholder_value) is type(cdf_value):
-                if cdf_value == local_value:
-                    updated[key] = placeholder_value
-                    continue
-                for placeholder, variable in value_by_placeholder.items():
-                    if placeholder in placeholder_value:
-                        # We use the placeholder and not the {{ variable }} in the value to ensure
-                        # that the result is valid yaml.
-                        cdf_value = cdf_value.replace(variable.value, placeholder)
-                updated[key] = cdf_value
+    def _replace_dict(
+        self,
+        current: dict[str, Any],
+        placeholder: dict[str, Any],
+        to_write: dict[str, Any],
+        json_path: tuple[str | int, ...],
+    ) -> dict[str, Any]:
+        # Modified first to maintain original order
+        # Then added, and skip removed
+        updated: dict[str, Any] = {}
+        for modified_key, current_value in current.items():
+            if modified_key not in to_write:
+                # Removed item by skipping
+                continue
+            placeholder_value = placeholder[modified_key]
+            cdf_value = to_write[modified_key]
+
+            if isinstance(current_value, dict) and isinstance(cdf_value, dict):
+                updated[modified_key] = self._replace_dict(
+                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
+                )
+            elif isinstance(current_value, list) and isinstance(cdf_value, list):
+                if isinstance(placeholder_value, str) and current_value == cdf_value:
+                    # A list variable is used, and the list is unchanged.
+                    updated[modified_key] = placeholder_value
+                elif isinstance(placeholder_value, list):
+                    updated[modified_key] = self._replace_list(
+                        current_value, placeholder_value, cdf_value, (*json_path, modified_key)
+                    )
+                else:
+                    # A list variable is used, but the list is changed. Since the value is represented as a single
+                    # string, we cannot update it.
+                    if variable := self._value_by_placeholder.get(placeholder_value):
+                        raise ToolkitValueError(
+                            f"Pull is not supported for list variable: {variable.key}: {variable.value_variable}"
+                        )
+                    raise ToolkitValueError("Pull is not supported for list variable.")
             else:
-                raise ValueError(
-                    f"CDF value and local value should be of the same type, got {type(local_value)} and {type(cdf_value)}"
+                updated[modified_key] = self._replace_value(
+                    current_value, placeholder_value, cdf_value, (*json_path, modified_key)
                 )
 
         for new_key in to_write:
-            if new_key not in loaded:
+            if new_key not in current:
+                # Note there cannot be variables in new items
                 updated[new_key] = to_write[new_key]
         return updated
+
+    def _replace_list(
+        self,
+        current: list[Any],
+        placeholder: list[Any],
+        to_write: list[Any],
+        json_path: tuple[str | int, ...],
+    ) -> list[Any]:
+        compare_indices, added_indices = self._loader.diff_list(current, to_write, json_path)
+        updated: list[Any] = []
+        for no, current_item in enumerate(current):
+            if no not in compare_indices:
+                # Removed item
+                continue
+            current_value = current_item
+            placeholder_value = placeholder[no]
+            cdf_value = to_write[compare_indices[no]]
+            updated.append(self._replace_value(current_value, placeholder_value, cdf_value, (*json_path, no)))
+        for added_index in added_indices:
+            # Note there cannot be variables in new items
+            updated.append(to_write[added_index])
+        return updated
+
+    def _replace_value(
+        self,
+        current: Any,
+        placeholder_value: Any,
+        to_write: Any,
+        json_path: tuple[str | int, ...],
+    ) -> Any:
+        if isinstance(current, dict) and isinstance(to_write, dict):
+            return self._replace_dict(current, placeholder_value, to_write, json_path)
+        elif isinstance(current, list) and isinstance(to_write, list):
+            return self._replace_list(current, placeholder_value, to_write, json_path)
+        elif type(current) is type(to_write):
+            if to_write == current:
+                return placeholder_value
+            if not isinstance(to_write, str):
+                # Variable substitution is only supported for strings
+                return to_write
+            for placeholder, variable in self._value_by_placeholder.items():
+                if placeholder in placeholder_value:
+                    # We use the placeholder and not the {{ variable }} in the value to ensure
+                    # that the result is valid yaml.
+                    to_write = to_write.replace(variable.value, placeholder)  # type: ignore[arg-type]
+                    # Iterate through all variables in case multiple are used in the same value.
+            return to_write
+        elif isinstance(current, dict) and isinstance(to_write, str):
+            # This is a special case for the ExtractionPipelineConfigLoader where the config dict is typically a
+            # dict locally, but returned as a string from the server.
+            try:
+                to_write = read_yaml_content(to_write)
+            except yaml.YAMLError:
+                ...
+            else:
+                return self._replace_dict(current, placeholder_value, to_write, json_path)
+
+        raise ToolkitValueError(
+            f"CDF value and local value should be of the same type in {'.'.join(map(str,json_path))}, "
+            f"got {type(current)} != {type(to_write)}"
+        )
