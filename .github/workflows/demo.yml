@@ -44,7 +44,7 @@ jobs:
         run: cdf auth verify --no-prompt
       - name: "Deploy the templates"
         run: |
-          cdf-tk deploy --drop --env=demo ./build
+          cdf deploy --env demo
       - name: "Run transformations and other post-processing"
         run: |
           poetry run python ./demo/postproc.py
