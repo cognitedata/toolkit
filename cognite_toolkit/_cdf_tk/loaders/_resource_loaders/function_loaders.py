@@ -153,6 +153,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if key not in local:
                 # Server set default values
                 dumped.pop(key, None)
+            elif isinstance(local.get(key), float) and local[key] < dumped[key]:
+                # On Azure and AWS, the server sets the CPU and Memory to the default values, if the user
+                # pass in a lower value. This should not trigger a redeploy.
+                dumped[key] = local[key]
         for key in ["indexUrl", "extraIndexUrls"]:
             # Only in write (request) format of the function
             if key in local:
@@ -224,7 +228,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             else:
                 raise RuntimeError("Could not retrieve file from files API")
             item.file_id = file_id
-            created.append(self.client.functions.create(item))
+            created_item = self.client.functions.create(item)
+            created.append(created_item)
         return created
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
