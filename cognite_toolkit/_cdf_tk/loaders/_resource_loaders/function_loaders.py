@@ -256,7 +256,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             return
         # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
         # This happens on Azure and AWS. Warning the user about this.
-        LowSeverityWarning(f"{prefix} is not configurable. Function {item.external_id!r} set {suffix}").print_warning()
+        LowSeverityWarning(
+            f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
+        ).print_warning()
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
         if not self._is_activated("retrieve"):
