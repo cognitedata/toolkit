@@ -85,7 +85,7 @@ def module_directory_from_path(path: Path) -> Path:
     if len(path.parts) == 1:
         raise ValueError("Path is not a module")
 
-    while path:
+    for _ in range(len(path.parts)):
         if path.name in LOADER_BY_FOLDER_NAME and path.parent != path:
             return path.parent
         path = path.parent

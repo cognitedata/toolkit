@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import re
 import traceback
 from graphlib import TopologicalSorter
 from pathlib import Path
-from typing import Any
 
-from cognite.client.data_classes._base import T_CogniteResourceList
+from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableCogniteResource, T_WriteClass
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
+from cognite.client.utils._identifier import T_ID
 from rich import print
 from rich.panel import Panel
 
@@ -16,7 +15,6 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
-    TABLE_FORMATS,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -27,6 +25,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ResourceDeployResult,
     UploadDeployResult,
 )
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ResourceUpdateError,
@@ -40,19 +39,19 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
+    ResourceWorker,
 )
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
-    MediumSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     read_yaml_file,
-    to_diff,
 )
 
-from ._utils import _print_ids_or_length, _remove_duplicates
+from ._utils import _print_ids_or_length
 
 
 class DeployCommand(ToolkitCommand):
@@ -143,6 +142,7 @@ class DeployCommand(ToolkitCommand):
                 result = self._clean_command.clean_resources(
                     loader,
                     ToolGlobals,
+                    read_modules=deploy_state.read_modules,
                     drop=drop,
                     dry_run=dry_run,
                     drop_data=drop_data,
@@ -190,7 +190,7 @@ class DeployCommand(ToolkitCommand):
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(
-                loader, ToolGlobals, state, dry_run, has_done_drop, has_dropped_data, force_update, verbose
+                loader, ToolGlobals, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
             )
         elif isinstance(loader, DataLoader):
             return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
@@ -199,54 +199,27 @@ class DeployCommand(ToolkitCommand):
 
     def _deploy_resources(
         self,
-        loader: ResourceLoader,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
         ToolGlobals: CDFToolConfig,
-        state: BuildEnvironment,
+        read_modules: list[ReadModule],
         dry_run: bool = False,
         has_done_drop: bool = False,
         has_dropped_data: bool = False,
         force_update: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        filepaths = loader.find_files()
-
-        for read_module in state.read_modules:
-            if resource_dir := read_module.resource_dir_path(loader.folder_name):
-                # As of 05/11/24, Asset support csv and parquet files in addition to YAML.
-                # These table formats are not built, i.e., no variable replacement is done,
-                # so we load them directly from the source module.
-                filepaths.extend(loader.find_files(resource_dir, include_formats=TABLE_FORMATS))
-
-        if not filepaths:
-            # Skipping silently as this is not an error.
+        worker = ResourceWorker(loader)
+        files = worker.load_files(read_modules=read_modules)
+        if not files:
             return None
 
-        def sort_key(p: Path) -> int:
-            if result := re.findall(r"^(\d+)", p.stem):
-                return int(result[0])
-            else:
-                return len(filepaths)
+        to_create, to_update, unchanged, duplicated = worker.load_resources(
+            files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+        )
 
-        # In the build step, the resource files are prefixed a number that controls the order in which
-        # the resources are deployed. The custom 'sort_key' here is to get a sort on integer instead of a default string
-        # sort.
-        filepaths = sorted(filepaths, key=sort_key)
-
-        loaded_resources = self._load_files(loader, filepaths, ToolGlobals, skip_validation=dry_run)
-
-        # Duplicates should be handled on the build step,
-        # but in case any of them slip through, we do it here as well to
-        # avoid an error.
-        loaded_resources, duplicates = _remove_duplicates(loaded_resources, loader)
-
-        if not loaded_resources:
-            return ResourceDeployResult(name=loader.display_name)
-
-        capabilities = loader.get_required_capability(loaded_resources, read_only=dry_run)
-        if capabilities:
-            ToolGlobals.verify_authorization(capabilities, action=f"deploy {loader.display_name}")
-
-        nr_of_items = len(loaded_resources)
+        nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
 
@@ -254,11 +227,11 @@ class DeployCommand(ToolkitCommand):
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicates:
+            for duplicate in duplicated:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = 0
-        to_create, to_update, unchanged = self.to_create_changed_unchanged_triple(loaded_resources, loader, verbose)
+
         if force_update:
             to_update.extend(unchanged)
             unchanged.clear()
@@ -312,66 +285,6 @@ class DeployCommand(ToolkitCommand):
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
             )
-
-    def to_create_changed_unchanged_triple(
-        self,
-        resources: T_CogniteResourceList,
-        loader: ResourceLoader,
-        verbose: bool = False,
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList]:
-        """Returns a triple of lists of resources that should be created, updated, and are unchanged."""
-        resource_ids = loader.get_ids(resources)
-        to_create, to_update, unchanged = (
-            loader.list_write_cls([]),
-            loader.list_write_cls([]),
-            loader.list_write_cls([]),
-        )
-        try:
-            cdf_resources = loader.retrieve(resource_ids)
-        except CogniteAPIError as e:
-            self.warn(
-                MediumSeverityWarning(
-                    f"Failed to retrieve {len(resource_ids)} of {loader.display_name}. Proceeding assuming not data in CDF. Error {e}."
-                )
-            )
-            print(Panel(traceback.format_exc()))
-            cdf_resource_by_id = {}
-        else:
-            cdf_resource_by_id = {loader.get_id(resource): resource for resource in cdf_resources}
-
-        for item in resources:
-            identifier = loader.get_id(item)
-            cdf_resource = cdf_resource_by_id.get(identifier)
-            local_dumped: dict[str, Any] = {}
-            cdf_dumped: dict[str, Any] = {}
-            are_equal = False
-            if cdf_resource:
-                try:
-                    are_equal, local_dumped, cdf_dumped = loader.are_equal(item, cdf_resource, return_dumped=True)
-                except CogniteAPIError as e:
-                    self.warn(
-                        MediumSeverityWarning(
-                            f"Failed to compare {loader.display_name} {loader.get_id(item)} for equality. Proceeding assuming not data in CDF. Error {e}."
-                        )
-                    )
-                    print(Panel(traceback.format_exc()))
-
-            if are_equal:
-                unchanged.append(item)
-            elif cdf_resource:
-                if verbose:
-                    print(
-                        Panel(
-                            "\n".join(to_diff(cdf_dumped, local_dumped)),
-                            title=f"{loader.display_name}: {identifier}",
-                            expand=False,
-                        )
-                    )
-                to_update.append(item)
-            else:
-                to_create.append(item)
-
-        return to_create, to_update, unchanged
 
     def _verbose_print(
         self,

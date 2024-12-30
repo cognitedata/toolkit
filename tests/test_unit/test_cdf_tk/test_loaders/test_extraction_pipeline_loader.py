@@ -7,7 +7,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import ExtractionPipelineConfig
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.commands import CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     RawTableLoader,
     ResourceLoader,
+    ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -32,29 +33,9 @@ class TestExtractionPipelineDependencies:
         description: 'DB extractor config reading data from Springfield SAP'
     """
 
-    def test_load_extraction_pipeline_upsert_create_one(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
-    ):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-
-        toolkit_client_approval.append(
-            ExtractionPipelineConfig,
-            ExtractionPipelineConfig(
-                external_id="ep_src_asset",
-                description="DB extractor config reading data from Springfield SAP",
-            ),
-        )
-
     def test_load_extraction_pipeline_upsert_update_one(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
@@ -67,22 +48,18 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        cmd = DeployCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource_file(local_file, cdf_tool, skip_validation=False)
-        to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
-        assert len(to_create) == 0
-        assert len(changed) == 1
-        assert len(unchanged) == 0
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
+        worker = ResourceWorker(loader)
+        to_create, changed, unchanged, _ = worker.load_resources([local_file])
+        assert {
+            "create": len(to_create),
+            "changed": len(changed),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "changed": 1, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
@@ -94,11 +71,12 @@ class TestExtractionPipelineDependencies:
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
+        local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
         with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
-            res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
+            res = cmd.clean_resources(loader, cdf_tool_mock, [], dry_run=True, drop=True)
             assert res.deleted == 1
 
 

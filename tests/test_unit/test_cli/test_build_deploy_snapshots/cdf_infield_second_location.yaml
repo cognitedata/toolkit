@@ -1,39 +1,25 @@
 DataSet:
 - description: This dataset contains 3D data for the oid2 location.
   externalId: ds_3d_oid2
-  metadata: {}
   name: 3d:oid2
-  writeProtected: false
 - description: This dataset contains asset data for the oid2 location.
   externalId: ds_asset_oid2
-  metadata: {}
   name: asset:oid2
-  writeProtected: false
 - description: This dataset contains files for the oid2 location.
   externalId: ds_files_oid2
-  metadata: {}
   name: files:oid2
-  writeProtected: false
 - description: This dataset is for writing data from Infield for the location oid2.
   externalId: ds_infield_oid2_app_data
-  metadata: {}
   name: infield:oid2:app_data
-  writeProtected: false
 - description: This dataset contains relationships data for the oid2 location.
   externalId: ds_relationships_oid2
-  metadata: {}
   name: relationships:oid2
-  writeProtected: false
 - description: This dataset contains timeseries for the oid2 location.
   externalId: ds_timeseries_oid2
-  metadata: {}
   name: timeseries:oid2
-  writeProtected: false
 - description: This dataset contains transformations data for the oid2 location.
   externalId: ds_transformations_oid2
-  metadata: {}
   name: transformations:oid2
-  writeProtected: false
 Group:
 - capabilities:
   - groupsAcl:
@@ -48,51 +34,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 602107201404095109
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5096762070954742755
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 10090639848482064152
+          - 12324423757107659546
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 1226912750051062432
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 8598487943312317353
+          - 12324423757107659546
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - dataModelsAcl:
       actions:
       - READ
@@ -142,51 +128,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 602107201404095109
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5096762070954742755
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 10090639848482064152
+          - 12324423757107659546
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 1226912750051062432
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 8598487943312317353
+          - 12324423757107659546
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - dataModelsAcl:
       actions:
       - READ
@@ -236,51 +222,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 602107201404095109
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5096762070954742755
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 10090639848482064152
+          - 12324423757107659546
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 1226912750051062432
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 8598487943312317353
+          - 12324423757107659546
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 4
+          - 12324423757107659546
   - dataModelsAcl:
       actions:
       - READ
@@ -330,37 +316,37 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 602107201404095109
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 2
+          - 5096762070954742755
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 3
-          - 4
+          - 10090639848482064152
+          - 12324423757107659546
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 5
+          - 1226912750051062432
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 6
-          - 4
+          - 8598487943312317353
+          - 12324423757107659546
   - dataModelsAcl:
       actions:
       - READ
@@ -405,7 +391,7 @@ Space:
   space: sp_infield_oid2_app_data
 Transformation:
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 11743928659384212067
   destination:
     instanceSpace: sp_asset_oid2_source
     type: nodes
@@ -447,7 +433,7 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 11743928659384212067
   destination:
     dataModel:
       destinationType: APM_Activity

@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 - description: File data for oid
   externalId: ds_files_oid
   metadata:
@@ -16,12 +15,11 @@ DataSet:
     transformations: '[{"externalId": "tr_files_oid_fileshare_file_metadata", "type":
       "Transformations"}]'
   name: files:oid
-  writeProtected: false
 Database:
 - name: files_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 0
+  dataSetId: 8524431518038195316
   description: Annotation of P&ID documents from file source  oid:fileshare
   documentation: "# Contextualization / Annotation of P&ID Documents\n\nThe P&ID Annotation\
     \ runs as a process in CDF Functions. Process triggers on new and updated documents\
@@ -45,7 +43,7 @@ ExtractionPipeline:
   name: ctx:files:oid:fileshare:pandid_annotation
   source: fileshare
 - createdBy: unknown
-  dataSetId: 0
+  dataSetId: 8524431518038195316
   description: File source extraction pipeline with configuration for File extractor
     reading data from oid:fileshare
   documentation: "The Cognite File Extractor is a generic file extractor that can\
@@ -137,14 +135,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   - extractionConfigsAcl:
       actions:
       - READ
       scope:
         extractionPipelineScope:
           ids:
-          - 1
+          - 13081016686738274100
   - extractionRunsAcl:
       actions:
       - READ
@@ -152,7 +150,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_extractor
@@ -181,7 +179,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 1
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
@@ -189,7 +187,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   - extractionConfigsAcl:
       actions:
       - READ
@@ -197,7 +195,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   - extractionRunsAcl:
       actions:
       - READ
@@ -205,7 +203,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   - annotationsAcl:
       actions:
       - READ
@@ -239,7 +237,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_processing
@@ -262,7 +260,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_read
@@ -272,7 +270,7 @@ Table:
   name: files_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 8524431518038195316
   destination:
     type: files
   destinationOidcCredentials:
@@ -309,7 +307,7 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 Workflow:
-- dataSetId: 0
+- dataSetId: 8524431518038195316
   description: Annotation process on files
   externalId: wf_oid_files_annotation
 WorkflowVersion:

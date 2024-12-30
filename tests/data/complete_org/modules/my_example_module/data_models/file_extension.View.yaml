@@ -4,7 +4,6 @@ implements:
   space: cdf_cdm
   type: view
   version: v1
-
 properties:
   status:
     container:

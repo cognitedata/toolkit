@@ -62,10 +62,15 @@ SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
+# This is used in the lookup of for example datasets to indicate that is a dry run.
+DRY_RUN_ID = -1
 
 # This is a regular expression that matches any non-word character or underscore
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+# This is used to detect environment variables in a string.
+ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
 HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5

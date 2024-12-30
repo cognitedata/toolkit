@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
@@ -17,7 +16,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
+from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .classic_loaders import AssetLoader, SequenceLoader
 from .data_organization_loaders import DataSetsLoader
@@ -60,7 +60,7 @@ class LocationFilterLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: LocationFilterWriteList | None, read_only: bool
+        cls, items: Sequence[LocationFilterWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -90,47 +90,48 @@ class LocationFilterLoader(
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> LocationFilterWriteList:
-        raw_list = resource if isinstance(resource, list) else [resource]
-        for raw in raw_list:
-            if "parentExternalId" in raw:
-                parent_external_id = raw.pop("parentExternalId")
-                raw["parentId"] = ToolGlobals.verify_locationfilter(
-                    parent_external_id, skip_validation, action="replace parentExternalId with parentExternalId"
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
+        if parent_external_id := resource.pop("parentExternalId", None):
+            resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
+        if "assetCentric" not in resource:
+            return LocationFilterWrite._load(resource)
+        asset_centric = resource["assetCentric"]
+        if data_set_external_ids := asset_centric.pop("dataSetExternalIds", None):
+            asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
+        for subfilter_name in self.subfilter_names:
+            subfilter = asset_centric.get(subfilter_name, {})
+            if data_set_external_ids := subfilter.pop("dataSetExternalIds", []):
+                asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(
+                    data_set_external_ids, is_dry_run
                 )
 
-            if "assetCentric" not in raw:
-                continue
-            asset_centric = raw["assetCentric"]
-            if "dataSetExternalIds" in asset_centric:
-                data_set_external_ids = asset_centric.pop("dataSetExternalIds")
-                asset_centric["dataSetIds"] = [
-                    ToolGlobals.verify_dataset(
-                        data_set_external_id,
-                        skip_validation,
-                        action="replace dataSetExternalIds with dataSetIds in location filter",
-                    )
-                    for data_set_external_id in data_set_external_ids
-                ]
-            for subfilter_name in self.subfilter_names:
-                subfilter = asset_centric.get(subfilter_name, {})
-                if "dataSetExternalIds" in subfilter:
-                    data_set_external_ids = asset_centric[subfilter_name].pop("dataSetExternalIds")
-                    asset_centric[subfilter_name]["dataSetIds"] = [
-                        ToolGlobals.verify_dataset(
-                            data_set_external_id,
-                            skip_validation,
-                            action="replace dataSetExternalIds with dataSetIds in location filter",
-                        )
-                        for data_set_external_id in data_set_external_ids
-                    ]
-        return LocationFilterWriteList._load(raw_list)
+        return LocationFilterWrite._load(resource)
+
+    def dump_resource(self, resource: LocationFilter, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if parent_id := dumped.pop("parentId", None):
+            dumped["parentExternalId"] = self.client.lookup.location_filters.external_id(parent_id)
+        if "assetCentric" not in dumped:
+            return dumped
+        asset_centric = dumped["assetCentric"]
+        if data_set_ids := asset_centric.pop("dataSetIds", None):
+            asset_centric["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
+        for subfilter_name in self.subfilter_names:
+            subfilter = asset_centric.get(subfilter_name, {})
+            if data_set_ids := subfilter.pop("dataSetIds", []):
+                asset_centric[subfilter_name]["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(
+                    data_set_ids
+                )
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "assetCentric" or json_path == ("instanceSpaces",):
+            return diff_list_hashable(local, cdf)
+        elif json_path in [("dataModels",), ("views",), ("scene",)]:
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):
@@ -317,37 +318,3 @@ class LocationFilterLoader(
         for data_model in item.get("dataModels", []):
             if in_dict(["space", "externalId", "version"], data_model):
                 yield DataModelLoader, DataModelId(data_model["space"], data_model["externalId"], data_model["version"])
-
-    def _are_equal(
-        self,
-        local: LocationFilterWrite,
-        cdf_resource: LocationFilter,
-        return_dumped: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        if "assetCentric" in local_dumped and "assetCentric" in cdf_dumped:
-            local_centric = local_dumped["assetCentric"]
-            cdf_centric = cdf_dumped["assetCentric"]
-            if (
-                "dataSetIds" in local_centric
-                and "dataSetIds" in cdf_centric
-                and all(data_set_id == -1 for data_set_id in local_centric["dataSetIds"])
-            ):
-                # Dry run
-                local_centric["dataSetIds"] = cdf_centric["dataSetIds"]
-            for subfilter_name in self.subfilter_names:
-                if subfilter_name in local_centric and subfilter_name in cdf_centric:
-                    local_subfilter = local_centric[subfilter_name]
-                    cdf_subfilter = cdf_centric[subfilter_name]
-                    if (
-                        "dataSetIds" in local_subfilter
-                        and "dataSetIds" in cdf_subfilter
-                        and all(data_set_id == -1 for data_set_id in local_subfilter["dataSetIds"])
-                    ):
-                        # Dry run
-                        local_subfilter["dataSetIds"] = cdf_subfilter["dataSetIds"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)

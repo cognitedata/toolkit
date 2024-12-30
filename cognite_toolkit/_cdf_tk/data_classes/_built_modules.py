@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Iterator, MutableSequence
+from collections.abc import Callable, Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, SupportsIndex, overload
@@ -82,6 +82,7 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
         resource_dir: ResourceTypes,
         kind: str | None = None,
         selected: Path | str | None = None,
+        is_supported_file: Callable[[Path], bool] | None = None,
     ) -> BuiltFullResourceList[T_ID]:
         resources = (
             resource.create_full(module, resource_dir)
@@ -97,6 +98,10 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
                 for resource in resources
                 if (resource.source.path == selected or resource.source.path.is_relative_to(selected))
             )
+        if is_supported_file:
+            # This is necessary as the destination file can be created from a source file that is not supported.
+            # This happens for RAW table files which produces a Database file.
+            resources = (resource for resource in resources if is_supported_file(resource.source.path))
 
         return BuiltFullResourceList[T_ID](list(resources))
 

@@ -112,7 +112,6 @@ Container:
   indexes: {}
   properties:
     appDataSpaceId:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -120,7 +119,6 @@ Container:
         list: false
         type: text
     appDataSpaceVersion:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -128,7 +126,6 @@ Container:
         list: false
         type: text
     customerDataSpaceId:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -136,7 +133,6 @@ Container:
         list: false
         type: text
     customerDataSpaceVersion:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -144,14 +140,12 @@ Container:
         list: false
         type: text
     featureConfiguration:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
         list: false
         type: json
     name:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:

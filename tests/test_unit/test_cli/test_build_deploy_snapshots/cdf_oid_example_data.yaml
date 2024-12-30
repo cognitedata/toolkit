@@ -1,34 +1,22 @@
 DataSet:
 - description: This dataset contains 3D data for the oid location.
   externalId: ds_3d_oid
-  metadata: {}
   name: 3d:oid
-  writeProtected: false
 - description: This dataset contains asset data for the oid location.
   externalId: ds_asset_oid
-  metadata: {}
   name: asset:oid
-  writeProtected: false
 - description: This dataset contains files for the oid location.
   externalId: ds_files_oid
-  metadata: {}
   name: files:oid
-  writeProtected: false
 - description: This dataset contains relationships data for the oid location.
   externalId: ds_relationships_oid
-  metadata: {}
   name: relationships:oid
-  writeProtected: false
 - description: This dataset contains timeseries for the oid location.
   externalId: ds_timeseries_oid
-  metadata: {}
   name: timeseries:oid
-  writeProtected: false
 - description: This dataset contains transformations data for the oid location.
   externalId: ds_transformations_oid
-  metadata: {}
   name: transformations:oid
-  writeProtected: false
 Database:
 - name: asset_oid_workmate
 - name: files_oid_fileshare
@@ -84,47 +72,47 @@ FileLoader:
 - external_id: fileshare_PH-ME-P-0160-001.pdf
   filehash: cb217742
 FileMetadata:
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-25578-P-4110006-001.pdf
   name: 25578-P-4110006-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-25578-P-4110010-001.pdf
   name: 25578-P-4110010-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-25578-P-4110119-001.pdf
   name: 25578-P-4110119-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0003-001.pdf
   name: ME-P-0003-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0004-001.pdf
   name: ME-P-0004-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0151-001.pdf
   name: ME-P-0151-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0152-001.pdf
   name: ME-P-0152-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0153-001.pdf
   name: ME-P-0153-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0156-001.pdf
   name: ME-P-0156-001.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0156-002.pdf
   name: ME-P-0156-002.pdf
   source: fileshare
-- dataSetId: 2
+- dataSetId: 8524431518038195316
   externalId: fileshare_PH-ME-P-0160-001.pdf
   name: ME-P-0160-001.pdf
   source: fileshare
@@ -397,7 +385,7 @@ Table:
 - createdTime: 1
   name: workorders
 TimeSeries:
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1st Stg Disch Gas Coolers
   externalId: pi_160633
   isStep: false
@@ -452,8 +440,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PDT-92602:X.Value
-  securityCategories: []
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgSuctCool Gas Out
   externalId: pi_160696
   isStep: false
@@ -508,8 +495,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92504:X.Value
-  securityCategories: []
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgComp Discharge
   externalId: pi_160702
   isStep: false
@@ -564,9 +550,8 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-PT-92536:X.Value
-  securityCategories: []
   unit: bar
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgSuctCool Gas Out Measured Value
   externalId: pi_160781
   isStep: false
@@ -621,9 +606,8 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TIC-92504:Z.X.Value
-  securityCategories: []
   unit: degC
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgDiscCool CM Out
   externalId: pi_163582
   isStep: false
@@ -678,8 +662,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-PT-92608:X.Value
-  securityCategories: []
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgDiscClr CoolMed Sply
   externalId: pi_163657
   isStep: false
@@ -734,8 +717,7 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_45-TT-92606:X.Value
-  securityCategories: []
-- dataSetId: 1
+- dataSetId: 10875617807794485048
   description: PH 1stStgDiscCool Gas Out Output
   externalId: pi_191092
   isStep: false
@@ -790,11 +772,10 @@ TimeSeries:
     userreal2: '0'
     zero: '0'
   name: VAL_23-TT-92604A:X.Value
-  securityCategories: []
   unit: degC
 Transformation:
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 17668258978621355368
   destination:
     type: asset_hierarchy
   destinationOidcCredentials:
@@ -820,7 +801,7 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 17668258978621355368
   destination:
     type: events
   destinationOidcCredentials:
@@ -855,7 +836,7 @@ Transformation:
     scopes: https://bluefield.cognitedata.com/.default
     tokenUri: dummy
 - conflictMode: upsert
-  dataSetId: 0
+  dataSetId: 17668258978621355368
   destination:
     type: events
   destinationOidcCredentials:

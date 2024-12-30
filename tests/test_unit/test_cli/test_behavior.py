@@ -6,7 +6,7 @@ import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite
+from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite, WorkflowTrigger
 from pytest import MonkeyPatch
 from typer import Context
 
@@ -124,7 +124,8 @@ def test_pull_transformation(
         content += f"\nqueryFile: {transformation_yaml.with_suffix('.sql').name}"
         transformation_yaml.write_text(content)
 
-        transformation = loader.load_resource_file(transformation_yaml, cdf_tool_mock, skip_validation=True)
+        raw_list = loader.load_resource_file(transformation_yaml, cdf_tool_mock.environment_variables())
+        transformation = loader.load_resource(raw_list[0], is_dry_run=False)
         # Write back original content
         transformation_yaml.write_text(original)
         return cast(TransformationWrite, transformation)
@@ -238,10 +239,50 @@ def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToo
     for key, value in variables:
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
     data = yaml.safe_load(raw_transformation)
-    data["dataSetId"] = cdf_tool_mock.verify_dataset(data.pop("dataSetExternalId"))
+    data["dataSetId"] = cdf_tool_mock.toolkit_client.lookup.data_sets.id(data.pop("dataSetExternalId"))
     transformation = Transformation._load(data)
 
     return transformation
+
+
+def test_pull_workflow_trigger_with_environment_variables(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected workflow trigger to be pulled
+    yaml_filepath = (
+        organization_dir_mutable / "modules" / "cdf_ingestion" / "workflows" / "trigger.WorkflowTrigger.yaml"
+    )
+    source_yaml = yaml_filepath.read_text()
+    vars_replaced = source_yaml
+    for key, value in [
+        ("{{ workflow }}", "ingestion"),
+        # These two secrets are replaced by environment variables
+        # that are then replaced with the actual values.
+        ("{{ ingestionClientId }}", "this-is-the-ingestion-client-id"),
+        ("{{ ingestionClientSecret }}", "this-is-the-ingestion-client-secret"),
+    ]:
+        vars_replaced = vars_replaced.replace(key, value)
+    trigger_dict = yaml.safe_load(vars_replaced)
+    trigger_dict["triggerRule"]["cronExpression"] = "* 4 * * *"
+    trigger = WorkflowTrigger._load(trigger_dict)
+    toolkit_client_approval.append(WorkflowTrigger, trigger)
+
+    cmd = PullCommand(silent=True)
+    cmd.pull_module(
+        module=yaml_filepath,
+        organization_dir=organization_dir_mutable,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+    )
+    reloaded = yaml_filepath.read_text()
+    assert "cronExpression: '* 4 * * *'" in reloaded, "Workflow trigger was not updated"
+    assert "clientId: {{ ingestionClientId }}" in reloaded, "Environment variables were not replaced"
+    assert "clientSecret: {{ ingestionClientSecret }}" in reloaded, "Environment variables were not replaced"
 
 
 def test_dump_datamodel(

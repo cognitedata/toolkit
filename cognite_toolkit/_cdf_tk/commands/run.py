@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session, in_dict
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
 
 from ._base import ToolkitCommand
 
@@ -644,7 +644,7 @@ class RunTransformationCommand(ToolkitCommand):
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
-        session = get_oneshot_session(ToolGlobals.toolkit_client)
+        session = ToolGlobals.toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
         if session is None:
             print("[bold red]ERROR:[/] Could not get a oneshot session.")
             return False

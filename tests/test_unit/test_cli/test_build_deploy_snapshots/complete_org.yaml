@@ -1,12 +1,12 @@
 Asset:
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   description: The root asset in the SAP hierarchy
   externalId: my_root_asset
   metadata:
     origin: cdf-toolkit
   name: SAP hierarchy
   source: SAP
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   description: This is the root asset
   externalId: root
   metadata:
@@ -20,7 +20,6 @@ Container:
   indexes: {}
   properties:
     fileCategory:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -28,7 +27,6 @@ Container:
         list: false
         type: text
     status:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -85,15 +83,11 @@ DataPostProcessing:
 DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 Database:
 - name: db_complete_org
 DatapointSubscription:
@@ -126,10 +120,10 @@ Destination:
 - credentials:
     nonce: '123'
   externalId: EventHubTarget
-  targetDataSetId: 0
+  targetDataSetId: 7982613576047462211
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 0
+  dataSetId: 7982613576047462211
   description: Asset source extraction pipeline with configuration for a DB extractor
     reading data from Hamburg SAP
   documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
@@ -141,15 +135,12 @@ ExtractionPipeline:
   source: doctrino
 ExtractionPipelineConfig:
 - config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
-    \ 'file.log'\n# List of databases\ndatabases:\n  - type: odbc\n    name: postgres\n\
-    \    connection-string: 'DSN={MyPostgresDsn}'\n# List of queries\nqueries:\n \
-    \ - name: test-postgres\n    database: postgres\n    query: >\n      SELECT\n"
+    \ file.log\n# List of databases\ndatabases:\n- type: odbc\n  name: postgres\n\
+    \  connection-string: DSN={MyPostgresDsn}\n# List of queries\nqueries:\n- name:\
+    \ test-postgres\n  database: postgres\n  query: SELECT\n"
   description: DB extractor config reading data from Hamburg SAP
   externalId: ep_src_asset_hamburg_sap
 FileLoader:
-- externalId: MyExtendedFile
-  filehash: 5e6be7b4
-  space: sp_nodes
 - externalId: MyVanillaFile
   filehash: adc874a9
   space: sp_nodes
@@ -159,7 +150,7 @@ FileLoader:
   filehash: e0b202a1
   space: sp_complete_org_files
 FileMetadata:
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   directory: /files
   externalId: classicFileMetadata
   metadata:
@@ -217,7 +208,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 0
+          - 7982613576047462211
   - securityCategoriesAcl:
       actions:
       - LIST
@@ -225,21 +216,21 @@ Group:
       scope:
         idscope:
           ids:
-          - 1
+          - 12263997670725665908
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         idscope:
           ids:
-          - 1
+          - 8000473161398881718
   - locationFiltersAcl:
       actions:
       - READ
       scope:
         idScope:
           ids:
-          - 1
+          - 2013659761282392869
   metadata:
     origin: cognite-toolkit
   name: gp_resource_scoped_complete_org
@@ -253,11 +244,11 @@ Job:
     type: value
   sourceId: my_eventhub
 LabelDefinition:
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
   externalId: label_flow
   name: Flows
-- dataSetId: 0
+- dataSetId: 7982613576047462211
   description: Pump label
   externalId: label_pump
   name: Pump
@@ -299,33 +290,6 @@ Mapping:
       }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
-- externalId: MyExtendedFile
-  instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      fileCategory: Document
-      mimeType: text/plain
-      name: anotherfile.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
-      sourceCreatedUser: I
-      sourceId: null
-      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
-      sourceUpdatedUser: Myself
-      status: Active
-      tags: null
-    source:
-      externalId: MyFileExtension
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_nodes
 - externalId: MyNodeType
   instanceType: node
   space: sp_schema
@@ -477,11 +441,12 @@ Sequence:
   - description: Epoch time
     externalId: mySequenceTime
     name: Time
-    valueType: Double
+    valueType: DOUBLE
   - description: The value of the sequence
     externalId: mySequenceValue
     name: value
-    valueType: Double
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
@@ -502,12 +467,12 @@ Table:
   name: asset
 ThreeDModel:
 - createdTime: 1
-  dataSetId: 0
+  dataSetId: 7982613576047462211
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
 TimeSeries:
-- dataSetId: 1
+- dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries
@@ -516,8 +481,7 @@ TimeSeries:
   metadata:
     foo: bar
   name: CDF Toolkit Example Timeseries
-  securityCategories: []
-- dataSetId: 1
+- dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries:2
@@ -526,7 +490,6 @@ TimeSeries:
   metadata:
     bar: foo
   name: CDF Toolkit Example Timeseries 2
-  securityCategories: []
 Transformation:
 - conflictMode: upsert
   destination:
@@ -535,8 +498,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: Example of an inlined transformation
-  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table  where
-    UNY is not null
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
+    where UNY is not null
 - conflictMode: upsert
   destination:
     type: assets
