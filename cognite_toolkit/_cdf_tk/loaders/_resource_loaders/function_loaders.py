@@ -229,8 +229,34 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 raise RuntimeError("Could not retrieve file from files API")
             item.file_id = file_id
             created_item = self.client.functions.create(item)
+            self._warn_if_cpu_or_memory_changed(created_item, item)
             created.append(created_item)
         return created
+
+    @staticmethod
+    def _warn_if_cpu_or_memory_changed(created_item: Function, item: FunctionWrite) -> None:
+        is_cpu_increased = (
+            isinstance(item.cpu, float) and isinstance(created_item.cpu, float) and item.cpu < created_item.cpu
+        )
+        is_mem_increased = (
+            isinstance(item.memory, float)
+            and isinstance(created_item.memory, float)
+            and item.memory < created_item.memory
+        )
+        if is_cpu_increased and is_mem_increased:
+            prefix = "CPU and Memory"
+            suffix = f"CPU {item.cpu} -> {created_item.cpu}, Memory {item.memory} -> {created_item.memory}"
+        elif is_cpu_increased:
+            prefix = "CPU"
+            suffix = f"{item.cpu} -> {created_item.cpu}"
+        elif is_mem_increased:
+            prefix = "Memory"
+            suffix = f"{item.memory} -> {created_item.memory}"
+        else:
+            return
+        # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
+        # This happens on Azure and AWS. Warning the user about this.
+        LowSeverityWarning(f"{prefix} is not configurable. Function {item.external_id!r} set {suffix}").print_warning()
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
         if not self._is_activated("retrieve"):
