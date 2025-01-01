@@ -5,3 +5,6 @@ dataModels:
 - space: DataModelSpace
   externalId: DataModelLocation
   version: v1
+assetCentric:
+  dataSetExternalIds:
+    - ""
