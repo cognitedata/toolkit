@@ -97,6 +97,8 @@ class LookUpAPI(ToolkitAPI, ABC):
     ) -> str | list[str]:
         ids = [id] if isinstance(id, int) else id
         missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
+        if 0 in missing:
+            missing.remove(0)
         if missing:
             try:
                 lookup = self._external_id(missing)
@@ -116,7 +118,17 @@ class LookUpAPI(ToolkitAPI, ABC):
                 raise ResourceRetrievalError(
                     f"Failed to retrieve {self.resource_name} with id {missing}." "Have you created it?"
                 )
-        return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[id] for id in ids]
+        return (
+            self._get_external_id_from_cache(id)
+            if isinstance(id, int)
+            else [self._get_external_id_from_cache(id) for id in ids]
+        )
+
+    def _get_external_id_from_cache(self, id: int) -> str:
+        if id == 0:
+            # Reverse of looking up an empty string.
+            return ""
+        return self._reverse_cache[id]
 
     @abstractmethod
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
