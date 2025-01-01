@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import cast
+from typing import Literal, cast
 
 from cognite.client import ClientConfig, CogniteClient
 
@@ -13,11 +13,11 @@ from .api.verify import VerifyAPI
 
 class ToolkitClientConfig(ClientConfig):
     @property
-    def cluster_provider(self) -> str:
+    def cluster_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
         cdf_cluster = self.cdf_cluster
         if cdf_cluster is None:
             return "unknown"
-        elif cdf_cluster.startswith("az-") or cdf_cluster in {"azure_dev", "bluefield", "westeurope-1"}:
+        elif cdf_cluster.startswith("az-") or cdf_cluster in {"azure-dev", "bluefield", "westeurope-1"}:
             return "azure"
         elif cdf_cluster.startswith("aws-") or cdf_cluster in {"orangefield"}:
             return "aws"
