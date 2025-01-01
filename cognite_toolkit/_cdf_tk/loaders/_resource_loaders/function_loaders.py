@@ -153,7 +153,11 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if key not in local:
                 # Server set default values
                 dumped.pop(key, None)
-            elif isinstance(local.get(key), float) and local[key] < dumped[key]:
+            elif (
+                self.client.config.cluster_provider in ("azure", "aws")
+                and isinstance(local.get(key), float)
+                and local[key] < dumped[key]
+            ):
                 # On Azure and AWS, the server sets the CPU and Memory to the default values, if the user
                 # pass in a lower value. This should not trigger a redeploy.
                 dumped[key] = local[key]
