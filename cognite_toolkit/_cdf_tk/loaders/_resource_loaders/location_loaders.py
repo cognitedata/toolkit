@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
@@ -16,7 +17,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .classic_loaders import AssetLoader, SequenceLoader
@@ -89,6 +90,14 @@ class LocationFilterLoader(
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
+
+    def safe_read(self, filepath: Path | str) -> str:
+        # The version is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):

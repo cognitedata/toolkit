@@ -55,6 +55,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     ExtractionPipelineConfigLoader,
     FileLoader,
+    LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -455,7 +456,11 @@ class BuildCommand(ToolkitCommand):
                 source_files.append(BuildSourceFile(source, content, None))
                 continue
 
-            if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
+            if resource_name in {
+                TransformationLoader.folder_name,
+                DataModelLoader.folder_name,
+                LocationFilterLoader.folder_name,
+            }:
                 # Ensure that all keys that are version gets read as strings.
                 # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
                 content = quote_int_value_by_key_in_yaml(content, key="version")
