@@ -53,6 +53,14 @@ class ModulesApp(typer.Typer):
                 help="Clean target directory if it exists",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
@@ -100,6 +108,14 @@ class ModulesApp(typer.Typer):
                 help="Path to project directory with the modules. This is used to search for available functions.",
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Add one or more new module(s) to the project."""
         cmd = ModulesCommand()
@@ -179,6 +195,14 @@ class ModulesApp(typer.Typer):
                 help="Build environment to use.",
             ),
         ] = CDF_TOML.cdf.default_env,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """List all available modules in the project."""
         cmd = ModulesCommand()

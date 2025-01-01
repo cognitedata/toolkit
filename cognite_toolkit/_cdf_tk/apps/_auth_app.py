@@ -37,6 +37,14 @@ class AuthApp(typer.Typer):
                 help="If you verify, and you pass this flag no changes to CDF will be made.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Sets the OIDC parameters required to authenticate and authorize the Cognite Toolkit in Cognite Data Fusion.
 
@@ -72,6 +80,14 @@ class AuthApp(typer.Typer):
                 "-np",
                 help="Whether to skip the prompt to continue. This is useful for CI/CD pipelines."
                 "If you include this flag, the execution will stop if the user or service principal does not have the required capabilities.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
     ) -> None:
