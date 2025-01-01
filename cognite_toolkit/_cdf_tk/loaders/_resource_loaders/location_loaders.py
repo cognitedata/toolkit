@@ -135,7 +135,7 @@ class LocationFilterLoader(
                 asset_centric[subfilter_name]["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(
                     data_set_ids
                 )
-        if "dataModelingType" in dumped and "dataModelingType" not in dumped:
+        if "dataModelingType" in dumped and "dataModelingType" not in local:
             # Default set on server side
             dumped.pop("dataModelingType")
         return dumped
