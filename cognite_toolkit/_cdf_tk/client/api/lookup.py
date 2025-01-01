@@ -36,14 +36,22 @@ class LookUpAPI(ToolkitAPI, ABC):
         return type(self).__name__.removesuffix("LookUpAPI")
 
     @overload
-    def id(self, external_id: str, is_dry_run: bool = False) -> int: ...
+    def id(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int: ...
 
     @overload
-    def id(self, external_id: SequenceNotStr[str], is_dry_run: bool = False) -> list[int]: ...
+    def id(
+        self, external_id: SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+    ) -> list[int]: ...
 
-    def id(self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False) -> int | list[int]:
+    def id(
+        self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+    ) -> int | list[int]:
         ids = [external_id] if isinstance(external_id, str) else external_id
         missing = [id for id in ids if id not in self._cache]
+        if allow_empty and "" in missing:
+            # Note we do not want to put empty string in the cache. It is a special case that
+            # as of 01/02/2025 only applies to LocationFilters
+            missing.remove("")
         if missing:
             try:
                 lookup = self._id(missing)
@@ -63,14 +71,19 @@ class LookUpAPI(ToolkitAPI, ABC):
                 raise ResourceRetrievalError(
                     f"Failed to retrieve {self.resource_name} with external_id {missing}." "Have you created it?"
                 )
-        if is_dry_run:
-            return (
-                self._cache.get(external_id, self.dry_run_id)
-                if isinstance(external_id, str)
-                else [self._cache.get(id, self.dry_run_id) for id in ids]
-            )
+        return (
+            self._get_id_from_cache(external_id, is_dry_run, allow_empty)
+            if isinstance(external_id, str)
+            else [self._get_id_from_cache(id, is_dry_run, allow_empty) for id in ids]
+        )
 
-        return self._cache[external_id] if isinstance(external_id, str) else [self._cache[id] for id in ids]
+    def _get_id_from_cache(self, external_id: str, is_dry_run: bool = False, allow_empty: bool = False) -> int:
+        if allow_empty and external_id == "":
+            return 0
+        elif is_dry_run:
+            return self._cache.get(external_id, self.dry_run_id)
+        else:
+            return self._cache[external_id]
 
     @overload
     def external_id(self, id: int) -> str: ...

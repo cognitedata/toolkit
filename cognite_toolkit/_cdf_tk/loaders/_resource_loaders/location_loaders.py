@@ -97,12 +97,16 @@ class LocationFilterLoader(
             return LocationFilterWrite._load(resource)
         asset_centric = resource["assetCentric"]
         if data_set_external_ids := asset_centric.pop("dataSetExternalIds", None):
-            asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(data_set_external_ids, is_dry_run)
+            asset_centric["dataSetIds"] = self.client.lookup.data_sets.id(
+                data_set_external_ids, is_dry_run, allow_empty=True
+            )
         for subfilter_name in self.subfilter_names:
             subfilter = asset_centric.get(subfilter_name, {})
             if data_set_external_ids := subfilter.pop("dataSetExternalIds", []):
                 asset_centric[subfilter_name]["dataSetIds"] = self.client.lookup.data_sets.id(
-                    data_set_external_ids, is_dry_run
+                    data_set_external_ids,
+                    is_dry_run,
+                    allow_empty=True,
                 )
 
         return LocationFilterWrite._load(resource)
