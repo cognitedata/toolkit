@@ -64,6 +64,7 @@ class TestLocationFilterAPI:
             created = toolkit_client.location_filters.create(location_filter)
             assert isinstance(created, LocationFilter)
             assert created.as_write().dump() == location_filter.dump()
+            assert created.data_modeling_type is not None
 
             retrieved = toolkit_client.location_filters.retrieve(created.id)
             assert isinstance(retrieved, LocationFilter)
