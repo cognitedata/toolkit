@@ -158,8 +158,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 and isinstance(local.get(key), float)
                 and local[key] < dumped[key]
             ):
-                # On Azure and AWS, the server sets the CPU and Memory to the default values, if the user
-                # pass in a lower value. This should not trigger a redeploy.
+                # On Azure and AWS, the server sets the CPU and Memory to the default values if the user
+                # pass in lower values. We set this to match the local to avoid triggering a redeploy.
+                # Note the user will get a warning about this when the function is created.
                 dumped[key] = local[key]
         for key in ["indexUrl", "extraIndexUrls"]:
             # Only in write (request) format of the function
