@@ -153,15 +153,19 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if key not in local:
                 # Server set default values
                 dumped.pop(key, None)
-            elif (
-                self.client.config.cloud_provider in ("azure", "aws")
-                and isinstance(local.get(key), float)
-                and local[key] < dumped[key]
-            ):
+            elif isinstance(local.get(key), float) and local[key] < dumped[key]:
                 # On Azure and AWS, the server sets the CPU and Memory to the default values if the user
                 # pass in lower values. We set this to match the local to avoid triggering a redeploy.
                 # Note the user will get a warning about this when the function is created.
-                dumped[key] = local[key]
+                if self.client.config.cloud_provider in ("azure", "aws"):
+                    dumped[key] = local[key]
+                elif self.client.config.cloud_provider == "gcp" and key == "cpu" and local[key] < 1.0:
+                    # GCP does not allow CPU to be set to below 1.0
+                    dumped[key] = local[key]
+                elif self.client.config.cloud_provider == "gcp" and key == "memory" and local[key] < 1.5:
+                    # GCP does not allow Memory to be set to below 1.5
+                    dumped[key] = local[key]
+
         for key in ["indexUrl", "extraIndexUrls"]:
             # Only in write (request) format of the function
             if key in local:
