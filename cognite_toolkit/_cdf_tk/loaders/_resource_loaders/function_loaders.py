@@ -154,7 +154,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 # Server set default values
                 dumped.pop(key, None)
             elif (
-                self.client.config.cluster_provider in ("azure", "aws")
+                self.client.config.cloud_provider in ("azure", "aws")
                 and isinstance(local.get(key), float)
                 and local[key] < dumped[key]
             ):

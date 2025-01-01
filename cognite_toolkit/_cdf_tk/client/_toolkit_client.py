@@ -13,7 +13,7 @@ from .api.verify import VerifyAPI
 
 class ToolkitClientConfig(ClientConfig):
     @property
-    def cluster_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
+    def cloud_provider(self) -> Literal["azure", "aws", "gcp", "unknown"]:
         cdf_cluster = self.cdf_cluster
         if cdf_cluster is None:
             return "unknown"
