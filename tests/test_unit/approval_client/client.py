@@ -86,7 +86,7 @@ class LookUpAPIMock:
         self._reverse_cache: dict[int, str] = {}
 
     @staticmethod
-    def _create_id(string: str, allow_empty: bool) -> int:
+    def _create_id(string: str, allow_empty: bool = False) -> int:
         if allow_empty and string == "":
             return 0
         # This simulates CDF setting the internal ID.
