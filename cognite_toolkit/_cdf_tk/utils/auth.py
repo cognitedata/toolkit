@@ -23,7 +23,6 @@ from typing import Any, Literal, TypeAlias, overload
 
 import questionary
 import typer
-from cognite.client import ClientConfig
 from cognite.client.config import global_config
 from cognite.client.credentials import (
     CredentialProvider,
@@ -38,7 +37,7 @@ from questionary import Choice
 from rich import print
 from rich.prompt import Prompt
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     TOOLKIT_CLIENT_ENTRA_ID,
@@ -659,7 +658,7 @@ class CDFToolConfig:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
         self._token_url = auth.token_url
         self._toolkit_client = ToolkitClient(
-            ClientConfig(
+            ToolkitClientConfig(
                 client_name=self._client_name,
                 base_url=self._cdf_url,
                 project=self._project,
@@ -790,7 +789,7 @@ class CDFToolConfig:
         )
 
         return ToolkitClient(
-            config=ClientConfig(
+            config=ToolkitClientConfig(
                 client_name=self._client_name,
                 project=self._project,
                 base_url=self._cdf_url,
