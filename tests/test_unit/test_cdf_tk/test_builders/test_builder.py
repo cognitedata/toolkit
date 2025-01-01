@@ -29,7 +29,7 @@ if not Flags.REQUIRE_KIND.is_enabled():
         ("dbName: my_database\ntableName: my_table\n", RawTableLoader),
     ],
 )
-def test_get_loader_database_only_file(content: str, expected_loader_cls: type[ResourceLoader]) -> None:
+def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[ResourceLoader]) -> None:
     filepath = MagicMock(spec=Path)
     filepath.name = "filelocation.yaml"
     filepath.stem = "filelocation"

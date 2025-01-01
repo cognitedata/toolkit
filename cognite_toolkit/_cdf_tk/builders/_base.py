@@ -17,6 +17,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     GroupLoader,
+    RawDatabaseLoader,
     RawTableLoader,
     ResourceLoader,
 )
@@ -136,8 +137,15 @@ def get_loader(
                 )
         return None, UnknownResourceTypeWarning(source_path, suggestion)
     elif len(loaders) > 1 and all(loader.folder_name == "raw" for loader in loaders):
-        # Multiple raw loaders load from the same file.
-        return RawTableLoader, None
+        # Raw files can be ambiguous, so we need to check the content.
+        # If there is a tableName field, it is a table, otherwise it is a database.
+        if any(
+            line.strip().startswith("tableName:") or line.strip().startswith("- tableName:")
+            for line in source_path.read_text().splitlines()
+        ):
+            return RawTableLoader, None
+        else:
+            return RawDatabaseLoader, None
     elif len(loaders) > 1 and all(issubclass(loader, GroupLoader) for loader in loaders):
         # There are two group loaders, one for resource scoped and one for all scoped.
         return GroupLoader, None
