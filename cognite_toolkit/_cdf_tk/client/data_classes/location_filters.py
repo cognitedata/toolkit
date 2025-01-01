@@ -242,6 +242,7 @@ class LocationFilter(LocationFilterCore):
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
+        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
     ) -> None:
         super().__init__(
             external_id, name, parent_id, description, data_models, instance_spaces, scene, asset_centric, views
@@ -249,6 +250,8 @@ class LocationFilter(LocationFilterCore):
         self.id = id
         self.created_time = created_time
         self.updated_time = updated_time
+        # Inferred on the server side based on the filter.
+        self.data_modeling_type = data_modeling_type
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -267,6 +270,7 @@ class LocationFilter(LocationFilterCore):
             views=[LocationFilterView._load(view) for view in resource["views"]] if "views" in resource else None,
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
+            data_modeling_type=resource.get("dataModelingType"),
         )
 
 
