@@ -46,6 +46,6 @@ class ToolkitClient(CogniteClient):
         """Returns a config object containing the configuration for the current client.
 
         Returns:
-            ClientConfig: The configuration object.
+            ToolkitClientConfig: The configuration object.
         """
         return cast(ToolkitClientConfig, self._config)
