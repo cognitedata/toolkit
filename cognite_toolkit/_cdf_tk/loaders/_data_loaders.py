@@ -60,6 +60,13 @@ class DatapointsLoader(DataLoader):
                 else:
                     ts_str = f"{len(timeseries_ids):,} timeseries"
 
+                if data.empty:
+                    yield (
+                        f"Empty file {datafile.as_posix()!r}. No datapoints to inserted.",
+                        0,
+                    )
+                    continue
+
                 if dry_run:
                     yield (
                         f" Would insert '{len(data):,}x{len(data.columns):,}' datapoints from '{datafile!s}' into {ts_str}",
@@ -195,9 +202,10 @@ class RawFileLoader(DataLoader):
 
             if data.empty:
                 yield (
-                    f" No rows to insert from '{datafile!s}' into {table!r}.",
+                    f"Empty file {datafile.as_posix()!r}. No rows to insert into {table!r}.",
                     0,
                 )
+                continue
 
             if dry_run:
                 yield (
@@ -209,9 +217,6 @@ class RawFileLoader(DataLoader):
                 )
                 continue
 
-            if table.table_name is None:
-                # This should never happen
-                raise ValueError(f"Missing table name for {datafile.name}")
             self.client.raw.rows.insert_dataframe(
                 db_name=table.db_name, table_name=table.table_name, dataframe=data, ensure_parent=False
             )
