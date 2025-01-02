@@ -30,6 +30,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.exceptions import (
+    ResourceCreationError,
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
@@ -253,6 +254,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 data_set_id=self.data_set_id_by_external_id.get(external_id),
             )
             # Wait until the files is available
+            t0 = time.perf_counter()
             sleep_time = 1.0  # seconds
             for i in range(6):
                 file = self.client.files.retrieve(external_id=external_id)
@@ -261,7 +263,12 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 time.sleep(sleep_time)
                 sleep_time *= 2
             else:
-                raise RuntimeError("Could not retrieve file from files API")
+                elapsed_time = time.perf_counter() - t0
+                raise ResourceCreationError(
+                    f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
+                    "seconds while waiting for the function code to be uploaded. Wait and try again? If the"
+                    " problem persists, please contact Cognite support."
+                )
             item.file_id = file_id
             created_item = self.client.functions.create(item)
             self._warn_if_cpu_or_memory_changed(created_item, item)
