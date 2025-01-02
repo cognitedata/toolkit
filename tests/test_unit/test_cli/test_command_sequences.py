@@ -189,6 +189,7 @@ if (
     or Flags.GRAPHQL.is_enabled()
     or Flags.STREAMLIT.is_enabled()
     or Flags.EDGES.is_enabled()
+    or Flags.FUNCTION_MULTI_FILE_HASH.is_enabled()
 ):
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 

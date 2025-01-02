@@ -138,7 +138,7 @@ def set_alpha(off: bool = False) -> None:
         if header_match := re.match(r"\[(\w+)\]", line.strip()):
             header = header_match.group(1)
             print(header)
-            if header == "feature_flags":
+            if header == "alpha_flags":
                 is_feature_flag = True
             else:
                 is_feature_flag = False
