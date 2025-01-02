@@ -5,7 +5,7 @@ import tempfile
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
-from collections.abc import ItemsView, KeysView, ValuesView
+from collections.abc import Hashable, ItemsView, KeysView, ValuesView
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -313,7 +313,13 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def read_any_csv_dialect(path: Path, sniff_lines: int = 5) -> pd.DataFrame:
+def read_any_csv_dialect(
+    path: Path | typing.TextIO,
+    sniff_lines: int = 5,
+    parse_dates: bool | None = None,
+    index_col: Hashable | None = None,
+    dtype: Any | None = None,
+) -> pd.DataFrame:
     """Reads any CSV dialect
 
     Args:
@@ -323,12 +329,24 @@ def read_any_csv_dialect(path: Path, sniff_lines: int = 5) -> pd.DataFrame:
     Returns:
         pd.DataFrame: DataFrame with the CSV data.
     """
-    with path.open(mode="r") as buffer:
-        to_sniff = ""
-        for _ in range(sniff_lines):
-            to_sniff += buffer.readline()
-        if to_sniff == "":
-            return pd.DataFrame()
-        dialect = csv.Sniffer().sniff(to_sniff)
-        buffer.seek(0)
-        return pd.read_csv(buffer, dialect=dialect())
+    if isinstance(path, Path):
+        with path.open(mode="r") as buffer:
+            return _read_any_csv_dialect(buffer, sniff_lines, parse_dates, index_col, dtype)
+    return _read_any_csv_dialect(path, sniff_lines, parse_dates, index_col, dtype)
+
+
+def _read_any_csv_dialect(
+    buffer: typing.TextIO,
+    sniff_lines: int = 5,
+    parse_dates: bool | None = None,
+    index_col: Hashable | None = None,
+    dtype: Any | None = None,
+) -> pd.DataFrame:
+    to_sniff = ""
+    for _ in range(sniff_lines):
+        to_sniff += buffer.readline()
+    if to_sniff == "":
+        return pd.DataFrame()
+    dialect = csv.Sniffer().sniff(to_sniff)
+    buffer.seek(0)
+    return pd.read_csv(buffer, dialect=dialect(), parse_dates=parse_dates, index_col=index_col, dtype=dtype)
