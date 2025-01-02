@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverity
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_secure_hash,
+    calculate_str_or_file_hash,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -60,6 +61,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     do_environment_variable_injection = True
+    metadata_value_limit = 512
 
     class _MetadataKey:
         if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
@@ -128,13 +130,32 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             self.function_dir_by_external_id[item_id] = function_rootdir
             if "metadata" not in item:
                 item["metadata"] = {}
-            item["metadata"][self._MetadataKey.function_hash] = calculate_directory_hash(
-                function_rootdir, ignore_files={".pyc"}
-            )
+            if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
+                value = self._create_hash_values(function_rootdir)
+            else:
+                value = calculate_directory_hash(function_rootdir, ignore_files={".pyc"})
+            item["metadata"][self._MetadataKey.function_hash] = value
             if "secrets" in item:
                 item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
 
         return raw_list
+
+    @classmethod
+    def _create_hash_values(cls, function_rootdir: Path) -> str:
+        root_hash = calculate_directory_hash(function_rootdir, ignore_files={".pyc"}, shorten=True)
+        hash_value = f"/={root_hash}"
+        to_search = [function_rootdir]
+        while to_search:
+            search_dir = to_search.pop()
+            for file in search_dir.glob("*"):
+                if file.is_dir():
+                    to_search.append(file)
+                file_hash = calculate_str_or_file_hash(file, shorten=True)
+                new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
+                if len(hash_value) + len(new_entry) > (cls.metadata_value_limit - 1):
+                    break
+                hash_value += f";{new_entry}"
+        return hash_value
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
         item_id = self.get_id(resource)
@@ -144,7 +165,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             # The fileID is required for the function to be created, but in the `.create` method
             # we first create that file and then set the fileID.
             resource["fileId"] = "<will_be_generated>"
-        # Todo special handling of CPU and Memory on Azure and AWS clusters
         return FunctionWrite._load(resource)
 
     def dump_resource(self, resource: Function, local: dict[str, Any]) -> dict[str, Any]:
