@@ -3,10 +3,9 @@
 - name: Multi File Function
   externalId: fn_multi_file_function
   owner: doctrino
-  description: Uses multiple files.
+  description: Uses multiple modules.
   metadata:
     version: '1'
-    CDF_ENV: '${CDF_ENVIRON}'
   runtime: 'py311'
   # Data set id for the zip file with the code that is uploaded.
   dataSetExternalId: ds_complete_org

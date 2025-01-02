@@ -106,12 +106,11 @@ FileMetadata:
   name: config_shop.yaml
   source: doctrino
 Function:
-- description: Uses multiple files.
+- description: Uses multiple modules.
   externalId: fn_multi_file_function
   fileId: -1
   functionPath: handler.py
   metadata:
-    CDF_ENV: dev
     cdf-toolkit-function-hash: ddc72a0f653499bef0ae5b0511f198f60fea4ebeda2701a63a2ed5e90ea9803e
     version: '1'
   name: Multi File Function
