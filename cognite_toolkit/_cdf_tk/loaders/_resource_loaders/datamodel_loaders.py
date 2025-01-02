@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
@@ -115,6 +116,11 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     kind = "Space"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
+    delete_recreate_limit_seconds: int = 10
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
+        super().__init__(client, build_dir)
+        self._deleted_time_by_id: dict[str, float] = {}
 
     @property
     def display_name(self) -> str:
@@ -142,13 +148,19 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return {"space": id}
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
+        for item in items:
+            item_id = self.get_id(item)
+            if item_id in self._deleted_time_by_id:
+                elapsed_since_delete = time.perf_counter() - self._deleted_time_by_id[item_id]
+                if elapsed_since_delete < self.delete_recreate_limit_seconds:
+                    time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
         return self.client.data_modeling.spaces.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SpaceList:
         return self.client.data_modeling.spaces.retrieve(ids)
 
     def update(self, items: Sequence[SpaceApply]) -> SpaceList:
-        return self.client.data_modeling.spaces.apply(items)
+        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.client.data_modeling.spaces.retrieve(ids)
@@ -159,6 +171,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             )
         to_delete = [space for space in ids if space not in is_global]
         deleted = self.client.data_modeling.spaces.delete(to_delete)
+        for item_id in to_delete:
+            self._deleted_time_by_id[item_id] = time.perf_counter()
         return len(deleted)
 
     def _iterate(

@@ -55,7 +55,7 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
         self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
