@@ -266,7 +266,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 elapsed_time = time.perf_counter() - t0
                 raise ResourceCreationError(
                     f"Failed to create function {external_id}. CDF API timed out after {elapsed_time:.0f} "
-                    "seconds while waiting for the function code to be uploaded. Wait and try again? If the"
+                    "seconds while waiting for the function code to be uploaded. Wait and try again.\nIf the"
                     " problem persists, please contact Cognite support."
                 )
             item.file_id = file_id
