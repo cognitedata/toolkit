@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, Paramete
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -174,7 +175,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             if filepath.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content))
+                data = read_any_csv_dialect(io.StringIO(file_content))
             else:
                 data = pd.read_parquet(filepath)
             data.replace(pd.NA, None, inplace=True)
