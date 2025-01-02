@@ -57,13 +57,17 @@ def my_data_model(toolkit_client: ToolkitClient, toolkit_space: Space) -> DataMo
 class TestLocationFilterAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, my_data_model: DataModel) -> None:
         location_filter = LocationFilterWrite(
-            name="loc", external_id=SESSION_EXTERNAL_ID, data_models=[my_data_model.as_id()]
+            name="loc",
+            external_id=SESSION_EXTERNAL_ID,
+            data_models=[my_data_model.as_id()],
+            data_modeling_type="DATA_MODELING_ONLY",
         )
         created: LocationFilter | None = None
         try:
             created = toolkit_client.location_filters.create(location_filter)
             assert isinstance(created, LocationFilter)
             assert created.as_write().dump() == location_filter.dump()
+            assert created.data_modeling_type is not None
 
             retrieved = toolkit_client.location_filters.retrieve(created.id)
             assert isinstance(retrieved, LocationFilter)

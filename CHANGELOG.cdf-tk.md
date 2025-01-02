@@ -23,6 +23,7 @@ Changes are grouped as follows:
   with the flag `--offline`.
 - [alpha feature] New subcommand `cdf modules pull` which pulls the configuration from the CDF project to the local
   modules directory.
+- Support for property `dataModelingType` in `LocationFilter` resources.
 
 ### Fixed
 
@@ -31,6 +32,8 @@ Changes are grouped as follows:
 - Cognite Toolkit has improved resources that have server set default values that can lead to redeploy even when
   unchanged. This includes `Sequences`, `Containers`, `DataSets`, `Views`, `Nodes`, `Edges`, `ExtractionPipelines`,
   `CogniteFiles`, `HostedExtractorJobs`, `Relationships`, `RobotMaps`, and `WorkflowVersions`.
+- `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
+- `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
 
 ## [0.3.23] - 2024-12-13
 
