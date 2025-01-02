@@ -606,7 +606,7 @@ class BuildCommand(ToolkitCommand):
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source.path)
             warning_list.extend(data_set_warnings)
 
-            item_warnings = item_loader.check_item(item)
+            item_warnings = item_loader.check_item(item, filepath=source.path, element_no=element_no)
             warning_list.extend(item_warnings)
 
         return warning_list, identifier_kind_pairs

@@ -49,7 +49,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -298,6 +299,32 @@ class WorkflowVersionLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "workflowExternalId" in item:
             yield WorkflowLoader, item["workflowExternalId"]
+
+    @classmethod
+    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
+        warnings: list[ToolkitWarning] = []
+        tasks = item.get("workflowDefinition", {}).get("tasks", [])
+        if not tasks:
+            # We do not check for tasks here, that is done by comparing the spec.
+            return warnings
+        # Checking for invalid dependsOn
+        tasks_ids = {task["externalId"] for task in tasks if "externalId" in task}
+        for task in tasks:
+            if not isinstance(depends_on := task.get("dependsOn"), list):
+                continue
+            invalid_tasks = [
+                dep["externalId"] for dep in depends_on if "externalId" in dep and dep["externalId"] not in tasks_ids
+            ]
+            if invalid_tasks:
+                warnings.append(
+                    MissingReferencedWarning(
+                        filepath=filepath,
+                        element_no=element_no,
+                        path=tuple(),
+                        message=f"Task {task['externalId']} depends on non-existing tasks: {humanize_collection(invalid_tasks)}.",
+                    )
+                )
+        return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
         if not ids:
