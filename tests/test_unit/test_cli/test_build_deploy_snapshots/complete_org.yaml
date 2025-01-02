@@ -38,7 +38,7 @@ Container:
 DataModel:
 - externalId: DataModelLocation
   space: DataModelSpace
-  version: v1
+  version: '1_0_0'
   views:
   - externalId: CogniteFile
     space: cdf_cdm
