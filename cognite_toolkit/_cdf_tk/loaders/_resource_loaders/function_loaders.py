@@ -33,6 +33,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -61,7 +62,10 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     do_environment_variable_injection = True
 
     class _MetadataKey:
-        function_hash = "cdf-toolkit-function-hash"
+        if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
+            function_hash = "cognite-toolkit-hash"
+        else:
+            function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
     def __init__(self, client: ToolkitClient, build_path: Path | None):
