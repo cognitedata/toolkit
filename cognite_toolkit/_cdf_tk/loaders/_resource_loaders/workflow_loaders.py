@@ -321,7 +321,7 @@ class WorkflowVersionLoader(
                         filepath=filepath,
                         element_no=element_no,
                         path=tuple(),
-                        message=f"Task {task['externalId']} depends on non-existing tasks: {humanize_collection(invalid_tasks)}.",
+                        message=f"Task {task['externalId']!r} depends on non-existing task(s): {humanize_collection(invalid_tasks)!r}",
                     )
                 )
         return warnings

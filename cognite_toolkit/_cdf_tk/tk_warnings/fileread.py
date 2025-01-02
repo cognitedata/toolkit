@@ -180,7 +180,7 @@ class MissingReferencedWarning(YAMLFileWithElementWarning):
     message: str
 
     def get_message(self) -> str:
-        return f"{type(self).__name__}: Missing referenced identifier {self._location} {self.message}."
+        return f"{type(self).__name__}: {self.message}."
 
 
 @dataclass(frozen=True)
