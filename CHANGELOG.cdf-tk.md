@@ -28,6 +28,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - No more warning about missing `.env` file when running in `Google Cloud Build`.
+- No more warning about missing `.env` file if all variables are set in the environment.
 - When deploying a `Sequence` resource, Cognite Toolkit now replaces `dataSetExternalId` with `dataSetId`.
 - Cognite Toolkit has improved resources that have server set default values that can lead to redeploy even when
   unchanged. This includes `Sequences`, `Containers`, `DataSets`, `Views`, `Nodes`, `Edges`, `ExtractionPipelines`,
