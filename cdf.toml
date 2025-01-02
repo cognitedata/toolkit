@@ -16,6 +16,7 @@ classic = true
 purge = true
 build-offline = true
 module-pull = true
+function-multi-file-hash = true
 
 [plugins]
 run = true
