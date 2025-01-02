@@ -147,7 +147,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         to_search = [function_rootdir]
         while to_search:
             search_dir = to_search.pop()
-            for file in search_dir.glob("*"):
+            for file in sorted(search_dir.glob("*"), key=lambda x: x.relative_to(function_rootdir).as_posix()):
                 if file.is_dir():
                     to_search.append(file)
                 file_hash = calculate_str_or_file_hash(file, shorten=True)
