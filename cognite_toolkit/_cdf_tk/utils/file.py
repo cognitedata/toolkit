@@ -1,3 +1,4 @@
+import csv
 import re
 import shutil
 import tempfile
@@ -10,6 +11,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, TypeVar, overload
 
+import pandas as pd
 import yaml
 from rich import print
 
@@ -309,3 +311,24 @@ def remove_trailing_newline(content: str) -> str:
     while content.endswith("\n"):
         content = content[:-1]
     return content
+
+
+def read_any_csv_dialect(path: Path, sniff_lines: int = 5) -> pd.DataFrame:
+    """Reads any CSV dialect
+
+    Args:
+        path (Path): Path to the CSV file.
+        sniff_lines (int, optional): Number of lines to sniff. Defaults to 5.
+
+    Returns:
+        pd.DataFrame: DataFrame with the CSV data.
+    """
+    with path.open(mode="r") as buffer:
+        to_sniff = ""
+        for _ in range(sniff_lines):
+            to_sniff += buffer.readline()
+        if to_sniff == "":
+            return pd.DataFrame()
+        dialect = csv.Sniffer().sniff(to_sniff)
+        buffer.seek(0)
+        return pd.read_csv(buffer, dialect=dialect())
