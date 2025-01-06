@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import re
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
@@ -71,6 +72,7 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -86,7 +88,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_str_or_file_hash,
@@ -95,6 +97,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     retrieve_view_ancestors,
     safe_read,
+    to_diff,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
@@ -113,6 +116,11 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     kind = "Space"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
+    delete_recreate_limit_seconds: int = 10
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
+        super().__init__(client, build_dir)
+        self._deleted_time_by_id: dict[str, float] = {}
 
     @property
     def display_name(self) -> str:
@@ -140,13 +148,19 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
         return {"space": id}
 
     def create(self, items: Sequence[SpaceApply]) -> SpaceList:
+        for item in items:
+            item_id = self.get_id(item)
+            if item_id in self._deleted_time_by_id:
+                elapsed_since_delete = time.perf_counter() - self._deleted_time_by_id[item_id]
+                if elapsed_since_delete < self.delete_recreate_limit_seconds:
+                    time.sleep(self.delete_recreate_limit_seconds - elapsed_since_delete)
         return self.client.data_modeling.spaces.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> SpaceList:
         return self.client.data_modeling.spaces.retrieve(ids)
 
     def update(self, items: Sequence[SpaceApply]) -> SpaceList:
-        return self.client.data_modeling.spaces.apply(items)
+        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         existing = self.client.data_modeling.spaces.retrieve(ids)
@@ -157,6 +171,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
             )
         to_delete = [space for space in ids if space not in is_global]
         deleted = self.client.data_modeling.spaces.delete(to_delete)
+        for item_id in to_delete:
+            self._deleted_time_by_id[item_id] = time.perf_counter()
         return len(deleted)
 
     def _iterate(
@@ -315,7 +331,33 @@ class ContainerLoader(
         return self.client.data_modeling.containers.retrieve(cast(Sequence, ids))
 
     def update(self, items: Sequence[ContainerApply]) -> ContainerList:
-        return self.create(items)
+        updated = self.create(items)
+        # The API might silently fail to update a container.
+        updated_by_id = {item.as_id(): item for item in updated}
+        for local in items:
+            item_id = local.as_id()
+            local_dict = local.dump()
+            if item_id not in updated_by_id:
+                raise CogniteAPIError(
+                    f"The container {item_id} was not updated. You might need to delete and recreate it.",
+                    code=500,
+                )
+            cdf_dict = self.dump_resource(updated_by_id[item_id], local_dict)
+            if cdf_dict != local_dict:
+                is_verbose = "-v" in sys.argv or "--verbose" in sys.argv
+                if is_verbose:
+                    print(
+                        Panel(
+                            "\n".join(to_diff(cdf_dict, local_dict)),
+                            title=f"{self.display_name}: {item_id}",
+                            expand=False,
+                        )
+                    )
+                suffix = "" if is_verbose else " (use -v for more info)"
+                HighSeverityWarning(
+                    f"The container {item_id} was not updated. You might need to delete and recreate it{suffix}."
+                ).print_warning()
+        return updated
 
     def delete(self, ids: SequenceNotStr[ContainerId]) -> int:
         deleted = self.client.data_modeling.containers.delete(cast(Sequence, ids))
