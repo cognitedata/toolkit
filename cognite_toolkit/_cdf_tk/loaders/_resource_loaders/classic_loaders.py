@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, Paramete
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
+from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -174,7 +175,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             if filepath.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = pd.read_csv(io.StringIO(file_content))
+                data = read_any_csv_dialect(io.StringIO(file_content))
             else:
                 data = pd.read_parquet(filepath)
             data.replace(pd.NA, None, inplace=True)
@@ -274,12 +275,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if asset_external_id := resource.pop("assetExternalId", None):
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
         return SequenceWrite._load(resource)
 
     def dump_resource(self, resource: Sequence, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if asset_id := dumped.pop("assetId", None):
+            dumped["assetExternalId"] = self.client.lookup.assets.external_id(asset_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
         local_col_by_id = {col["externalId"]: col for col in local.get("columns", []) if "externalId" in col}
