@@ -36,6 +36,8 @@ Changes are grouped as follows:
   the required value no longer triggers a redeploy.
 - `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
 - `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
+- All commands now has a verbose flag `--verbose`. Not all commands have an `--verbose` output, but
+  error handling has a more verbose output which applies to all commands.
 
 ## [0.3.23] - 2024-12-13
 
