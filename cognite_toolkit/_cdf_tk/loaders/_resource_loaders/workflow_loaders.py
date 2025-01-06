@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
@@ -49,10 +49,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -86,7 +85,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -114,22 +113,16 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> WorkflowUpsertList:
-        workflows: list[dict[str, Any]] = [resource] if isinstance(resource, dict) else resource
-        for workflow in workflows:
-            if "dataSetExternalId" in workflow:
-                ds_external_id = workflow.pop("dataSetExternalId")
-                workflow["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in workflow"
-                )
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowUpsert:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return WorkflowUpsert._load(resource)
 
-        return WorkflowUpsertList.load(workflows)
+    def dump_resource(self, resource: Workflow, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.get("dataSetId"):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowList:
         workflows = []
@@ -208,17 +201,6 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def _are_equal(
-        self, local: WorkflowUpsert, cdf_resource: Workflow, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
 
 @final
 class WorkflowVersionLoader(
@@ -245,7 +227,7 @@ class WorkflowVersionLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowVersionUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowVersionUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -274,12 +256,79 @@ class WorkflowVersionLoader(
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
 
+    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local_task_order_by_id = {
+            task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
+        }
+        end_of_list = len(local_task_order_by_id)
+        dumped["workflowDefinition"]["tasks"] = sorted(
+            dumped["workflowDefinition"]["tasks"],
+            key=lambda t: local_task_order_by_id.get(t["externalId"], end_of_list),
+        )
+
+        local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
+        for cdf_task in dumped["workflowDefinition"]["tasks"]:
+            task_id = cdf_task["externalId"]
+            if task_id not in local_task_by_id:
+                continue
+            local_task = local_task_by_id[task_id]
+            if local_task["type"] == "function" and cdf_task["type"] == "function":
+                cdf_parameters = cdf_task["parameters"]
+                local_parameters = local_task["parameters"]
+                if "function" in cdf_parameters and "function" in local_parameters:
+                    cdf_function = cdf_parameters["function"]
+                    local_function = local_parameters["function"]
+                    if local_function["data"] == {} and "data" not in cdf_function:
+                        cdf_parameters["function"] = local_parameters["function"]
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("workflowDefinition", "tasks"):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
+        elif len(json_path) == 4 and json_path[:2] == ("workflowDefinition", "tasks") and json_path[3] == "dependsOn":
+            return diff_list_identifiable(local, cdf, get_identifier=lambda t: t["externalId"])
+        elif len(json_path) >= 2 and json_path[:2] == ("workflowDefinition", "tasks"):
+            # Assume all other arrays in the tasks are hashable
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "workflowExternalId" in item:
             yield WorkflowLoader, item["workflowExternalId"]
 
+    @classmethod
+    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
+        warnings: list[ToolkitWarning] = []
+        tasks = item.get("workflowDefinition", {}).get("tasks", [])
+        if not tasks:
+            # We do not check for tasks here, that is done by comparing the spec.
+            return warnings
+        # Checking for invalid dependsOn
+        tasks_ids = {task["externalId"] for task in tasks if "externalId" in task}
+        for task in tasks:
+            if not isinstance(depends_on := task.get("dependsOn"), list):
+                continue
+            invalid_tasks = [
+                dep["externalId"] for dep in depends_on if "externalId" in dep and dep["externalId"] not in tasks_ids
+            ]
+            if invalid_tasks:
+                warnings.append(
+                    MissingReferencedWarning(
+                        filepath=filepath,
+                        element_no=element_no,
+                        path=tuple(),
+                        message=f"Task {task['externalId']!r} depends on non-existing task(s): {humanize_collection(invalid_tasks)!r}",
+                    )
+                )
+        return warnings
+
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        if not ids:
+            return WorkflowVersionList([])
         return self.client.workflows.versions.list(list(ids))
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
@@ -389,7 +438,7 @@ class WorkflowTriggerLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: WorkflowTriggerUpsertList | None, read_only: bool
+        cls, items: Sequence[WorkflowTriggerUpsert] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -502,20 +551,20 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> WorkflowTriggerUpsertList:
-        raw_list = resource if isinstance(resource, list) else [resource]
-        loaded = WorkflowTriggerUpsertList([])
-        for item in raw_list:
-            if "data" in item and isinstance(item["data"], dict):
-                item["data"] = json.dumps(item["data"])
-            if "authentication" in item:
-                raw_auth = item.pop("authentication")
-                self._authentication_by_id[self.get_id(item)] = ClientCredentials._load(raw_auth)
-            loaded.append(WorkflowTriggerUpsert.load(item))
-        return loaded
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
+        if isinstance(resource.get("data"), dict):
+            resource["data"] = json.dumps(resource["data"])
+        if "authentication" in resource:
+            raw_auth = resource.pop("authentication")
+            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
+        return WorkflowTriggerUpsert._load(resource)
+
+    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
+            dumped["data"] = json.loads(dumped["data"])
+        if "authentication" in local:
+            # Note that change in the authentication will not be detected, and thus,
+            # will require a forced redeployment.
+            dumped["authentication"] = local["authentication"]
+        return dumped

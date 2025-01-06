@@ -164,6 +164,12 @@ class ToolkitResourceMissingError(ToolkitError):
         return f"{super().__str__()}\nResource {self.resource!r} is missing"
 
 
+class ToolkitWrongResourceError(RuntimeError):
+    """Special exception used by a loader to signal that the resource is not the expected type."""
+
+    ...
+
+
 class UploadFileError(ToolkitError):
     pass
 

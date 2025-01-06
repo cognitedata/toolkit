@@ -51,11 +51,10 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    load_yaml_inject_variables,
     safe_read,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_force_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -84,7 +83,7 @@ class ExtractionPipelineLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ExtractionPipelineWriteList | None, read_only: bool
+        cls, items: Sequence[ExtractionPipelineWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -141,41 +140,28 @@ class ExtractionPipelineLoader(
                     if "tableName" in entry:
                         yield RawTableLoader, RawTable._load(entry)
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> ExtractionPipelineWrite | ExtractionPipelineWriteList:
-        resources = [resource] if isinstance(resource, dict) else resource
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if "createdBy" not in resource:
+            # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
+            resource["createdBy"] = "unknown"
+        return ExtractionPipelineWrite._load(resource)
 
-        for resource in resources:
-            if "dataSetExternalId" in resource:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation,
-                    action="replace datasetExternalId with dataSetId in extraction pipeline",
-                )
-            if "createdBy" not in resource:
-                # Todo; Bug SDK missing default value (this will be set on the server-side if missing)
-                resource["createdBy"] = "unknown"
+    def dump_resource(self, resource: ExtractionPipeline, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if dumped.get("createdBy") == "unknown" and "createdBy" not in local:
+            dumped.pop("createdBy", None)
+        return dumped
 
-        if len(resources) == 1:
-            return ExtractionPipelineWrite.load(resources[0])
-        else:
-            return ExtractionPipelineWriteList.load(resources)
-
-    def _are_equal(
-        self, local: ExtractionPipelineWrite, cdf_resource: ExtractionPipeline, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("rawTables",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda x: (x["dbName"], x["tableName"]))
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ExtractionPipelineWrite]) -> ExtractionPipelineList:
         items = list(items)
@@ -266,7 +252,7 @@ class ExtractionPipelineConfigLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: ExtractionPipelineConfigWriteList | None, read_only: bool
+        cls, items: Sequence[ExtractionPipelineConfigWrite] | None, read_only: bool
     ) -> list[Capability]:
         if not items and items is not None:
             return []
@@ -301,44 +287,36 @@ class ExtractionPipelineConfigLoader(
         if "externalId" in item:
             yield ExtractionPipelineLoader, item["externalId"]
 
-    def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
+    def safe_read(self, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
-        raw_str = stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
-        resources = load_yaml_inject_variables(raw_str, {})
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
+        return stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> ExtractionPipelineConfigWrite | ExtractionPipelineConfigWriteList:
-        resources = [resource] if isinstance(resource, dict) else resource
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
+        config_raw = resource.get("config")
+        if isinstance(config_raw, str):
+            # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
+            # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
+            # replace it with `connection-string: keyvault secret` to make it valid.
+            config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
+            try:
+                yaml.safe_load(config_raw)
+            except yaml.YAMLError as e:
+                print(
+                    HighSeverityWarning(
+                        f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
+                        f"as valid YAML, which is the recommended format. Error: {e}"
+                    ).get_message()
+                )
+        return ExtractionPipelineConfigWrite._load(resource)
 
-        for resource in resources:
-            config_raw = resource.get("config")
-            if isinstance(config_raw, str):
-                # There might be keyvauls secrets in the config that would lead to parsing errors. The syntax
-                # for this is `connection-string: !keyvault secret`. This is not valid YAML, so we need to
-                # replace it with `connection-string: keyvault secret` to make it valid.
-                config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
-                try:
-                    yaml.safe_load(config_raw)
-                except yaml.YAMLError as e:
-                    print(
-                        HighSeverityWarning(
-                            f"Configuration for {resource.get('external_id', 'missing')} could not be parsed "
-                            f"as valid YAML, which is the recommended format. Error: {e}"
-                        ).get_message()
-                    )
-        if len(resources) == 1:
-            return ExtractionPipelineConfigWrite.load(resources[0])
-        else:
-            return ExtractionPipelineConfigWriteList.load(resources)
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "config":
+            # Assume all arrays in the config are hashable
+            return diff_list_force_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         updated = ExtractionPipelineConfigList([])
@@ -349,7 +327,9 @@ class ExtractionPipelineConfigLoader(
                 latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
             except CogniteAPIError:
                 latest = None
-            if latest and self._are_equal(item, latest):
+            local_dict = item.dump()
+
+            if latest and local_dict == self.dump_resource(latest, local_dict):
                 updated.append(latest)
                 continue
             else:

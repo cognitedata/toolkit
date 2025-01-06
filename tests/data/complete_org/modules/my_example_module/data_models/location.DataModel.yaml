@@ -1,8 +1,8 @@
 space: DataModelSpace
 externalId: DataModelLocation
-version: v1
+version: '1_0_0'
 views:
-  - space: cdf_cdm
-    externalId: CogniteFile
-    version: v1
-    type: view
+- space: cdf_cdm
+  externalId: CogniteFile
+  version: v1
+  type: view

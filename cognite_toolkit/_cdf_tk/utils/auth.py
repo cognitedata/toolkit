@@ -17,15 +17,12 @@ import itertools
 import json
 import os
 import shutil
-import warnings
-from collections.abc import Sequence
 from dataclasses import _MISSING_TYPE, dataclass, field, fields
 from pathlib import Path
 from typing import Any, Literal, TypeAlias, overload
 
 import questionary
 import typer
-from cognite.client import ClientConfig
 from cognite.client.config import global_config
 from cognite.client.credentials import (
     CredentialProvider,
@@ -35,32 +32,18 @@ from cognite.client.credentials import (
     Token,
 )
 from cognite.client.data_classes import ClientCredentials
-from cognite.client.data_classes.capabilities import (
-    AssetsAcl,
-    Capability,
-    DataSetsAcl,
-    ExtractionPipelinesAcl,
-    LocationFiltersAcl,
-    SecurityCategoriesAcl,
-    TimeSeriesAcl,
-)
-from cognite.client.data_classes.iam import TokenInspection
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich import print
 from rich.prompt import Prompt
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     TOOLKIT_CLIENT_ENTRA_ID,
-    URL,
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
-    AuthorizationError,
-    ResourceRetrievalError,
-    ToolkitResourceMissingError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSeverityWarning
@@ -514,22 +497,8 @@ class CDFToolConfig:
 
     Properties:
         toolkit_client: active ToolkitClient
-    Functions:
-        verify_client: verify that the client has correct credentials and specified access capabilities
-        verify_dataset: verify that the data set exists and that the client has access to it
 
     """
-
-    @dataclass
-    class _Cache:
-        existing_spaces: set[str] = field(default_factory=set)
-        data_set_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        extraction_pipeline_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        security_categories_by_name: dict[str, int] = field(default_factory=dict)
-        asset_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        timeseries_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        locationfilter_id_by_external_id: dict[str, int] = field(default_factory=dict)
-        token_inspect: TokenInspection | None = None
 
     def __init__(
         self,
@@ -540,7 +509,6 @@ class CDFToolConfig:
         auth_vars: AuthVariables | None = None,
         skip_initialization: bool = False,
     ) -> None:
-        self._cache = self._Cache()
         self._environ: dict[str, str | None] = {}
         # If cluster, project, or token are passed as arguments, we override the environment variables.
         # This means these will be used when we initialize the CogniteClient when we initialize from
@@ -690,7 +658,7 @@ class CDFToolConfig:
             raise AuthenticationError(f"Login flow {auth.login_flow} is not supported.")
         self._token_url = auth.token_url
         self._toolkit_client = ToolkitClient(
-            ClientConfig(
+            ToolkitClientConfig(
                 client_name=self._client_name,
                 base_url=self._cdf_url,
                 project=self._project,
@@ -808,346 +776,6 @@ class CDFToolConfig:
         self._environ[attr] = var
         return var
 
-    @property
-    def _token_inspection(self) -> TokenInspection:
-        if self._cache.token_inspect is None:
-            with warnings.catch_warnings():
-                # If the user has unknown capabilities, we don't want the user to see the warning:
-                # "UserWarning: Unknown capability '<unknown warning>'.
-                warnings.simplefilter("ignore")
-                try:
-                    self._cache.token_inspect = self.toolkit_client.iam.token.inspect()
-                except CogniteAPIError as e:
-                    raise AuthorizationError(
-                        f"Don't seem to have any access rights. {e}\n"
-                        f"Please visit [link={URL.configure_access}]the documentation[/link] "
-                        f"and ensure you have configured your access correctly."
-                    ) from e
-        return self._cache.token_inspect
-
-    def verify_authorization(
-        self, capabilities: Capability | Sequence[Capability], action: str | None = None
-    ) -> ToolkitClient:
-        """Verify that the client has correct credentials and required access rights
-
-        Args:
-            capabilities (Capability | Sequence[Capability]): access capabilities to verify
-            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
-
-        Returns:
-            ToolkitClient: Verified client with access rights
-        """
-        token_inspect = self._token_inspection
-        with warnings.catch_warnings():
-            # If the user has unknown capabilities, we don't want the user to see the warning:
-            # "UserWarning: Unknown capability '<unknown warning>' will be ignored in comparison"
-            # This is irrelevant for the user as we are only checking the capabilities that are known.
-            warnings.simplefilter("ignore")
-            missing_capabilities = self.toolkit_client.iam.compare_capabilities(
-                token_inspect.capabilities, capabilities
-            )
-        if missing_capabilities:
-            missing = "  - \n".join(repr(c) for c in missing_capabilities)
-            first_sentence = "Don't have correct access rights"
-            if action:
-                first_sentence += f" to {action}."
-            else:
-                first_sentence += "."
-
-            raise AuthorizationError(
-                f"{first_sentence} Missing:\n{missing}\n"
-                f"Please [blue][link={URL.auth_toolkit}]click here[/link][/blue] to visit the documentation "
-                "and ensure that you have setup authentication for the CDF toolkit correctly."
-            )
-        return self.toolkit_client
-
-    def verify_dataset(
-        self, data_set_external_id: str, skip_validation: bool = False, action: str | None = None
-    ) -> int:
-        """Verify that the configured data set exists and is accessible
-
-        Args:
-            data_set_external_id (str): External_id of the data set to verify
-            skip_validation (bool): Skip validation of the data set. If this is set, the function will
-                not check for access rights to the data set and return -1 if the dataset does not exist
-                or you don't have access rights to it. Defaults to False.
-           action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
-
-        Returns:
-            data_set_id (int)
-        """
-        if data_set_external_id in self._cache.data_set_id_by_external_id:
-            return self._cache.data_set_id_by_external_id[data_set_external_id]
-        if skip_validation:
-            return -1
-
-        self.verify_authorization(
-            DataSetsAcl(
-                [DataSetsAcl.Action.Read],
-                ExtractionPipelinesAcl.Scope.All(),
-            ),
-            action=action,
-        )
-
-        try:
-            data_set = self.toolkit_client.data_sets.retrieve(external_id=data_set_external_id)
-        except CogniteAPIError as e:
-            raise ResourceRetrievalError(f"Failed to retrieve data set {data_set_external_id}: {e}")
-
-        if data_set is not None and data_set.id is not None:
-            self._cache.data_set_id_by_external_id[data_set_external_id] = data_set.id
-            return data_set.id
-        raise ToolkitResourceMissingError(
-            f"Data set {data_set_external_id} does not exist, you need to create it first. "
-            f"Do this by adding a config file to the data_sets folder.",
-            data_set_external_id,
-        )
-
-    def verify_extraction_pipeline(
-        self, external_id: str, skip_validation: bool = False, action: str | None = None
-    ) -> int:
-        """Verify that the configured extraction pipeline exists and is accessible
-
-        Args:
-            external_id (str): External id of the extraction pipeline to verify
-            skip_validation (bool): Skip validation of the extraction pipeline. If this is set, the function will
-                not check for access rights to the extraction pipeline and return -1 if the extraction pipeline does not exist
-                or you don't have access rights to it. Defaults to False.
-            action (str, optional): What you are trying to do. It is used with the error message Defaults to None.
-
-        Yields:
-            extraction pipeline id (int)
-        """
-        if external_id in self._cache.extraction_pipeline_id_by_external_id:
-            return self._cache.extraction_pipeline_id_by_external_id[external_id]
-        if skip_validation:
-            return -1
-
-        self.verify_authorization(
-            ExtractionPipelinesAcl([ExtractionPipelinesAcl.Action.Read], ExtractionPipelinesAcl.Scope.All()), action
-        )
-        try:
-            pipeline = self.toolkit_client.extraction_pipelines.retrieve(external_id=external_id)
-        except CogniteAPIError as e:
-            raise ResourceRetrievalError(f"Failed to retrieve extraction pipeline {external_id}: {e}")
-
-        if pipeline is not None and pipeline.id is not None:
-            self._cache.extraction_pipeline_id_by_external_id[external_id] = pipeline.id
-            return pipeline.id
-
-        raise ToolkitResourceMissingError(
-            "Extraction pipeline does not exist. You need to create it first.", external_id
-        )
-
-    @overload
-    def verify_security_categories(
-        self, names: str, skip_validation: bool = False, action: str | None = None
-    ) -> int: ...
-
-    @overload
-    def verify_security_categories(
-        self, names: list[str], skip_validation: bool = False, action: str | None = None
-    ) -> list[int]: ...
-
-    def verify_security_categories(
-        self, names: str | list[str], skip_validation: bool = False, action: str | None = None
-    ) -> int | list[int]:
-        if skip_validation:
-            return [-1 for _ in range(len(names))] if isinstance(names, list) else -1
-        if isinstance(names, str) and names in self._cache.security_categories_by_name:
-            return self._cache.security_categories_by_name[names]
-        elif isinstance(names, list):
-            existing_by_name: dict[str, int] = {
-                name: self._cache.security_categories_by_name[name]
-                for name in names
-                if name in self._cache.security_categories_by_name
-            }
-            if len(existing_by_name) == len(names):
-                return [existing_by_name[name] for name in names]
-
-        self.verify_authorization(
-            SecurityCategoriesAcl([SecurityCategoriesAcl.Action.List], SecurityCategoriesAcl.Scope.All()), action
-        )
-
-        all_security_categories = self.toolkit_client.iam.security_categories.list(limit=-1)
-        self._cache.security_categories_by_name.update(
-            {sc.name: sc.id for sc in all_security_categories if sc.id and sc.name}
-        )
-
-        try:
-            if isinstance(names, str):
-                return self._cache.security_categories_by_name[names]
-            return [self._cache.security_categories_by_name[name] for name in names]
-        except KeyError as e:
-            raise ToolkitResourceMissingError(
-                f"Security category {e} does not exist. You need to create it first.", e.args[0]
-            ) from e
-
-    @overload
-    def verify_asset(self, external_id: str, skip_validation: bool = False, action: str | None = None) -> int: ...
-
-    @overload
-    def verify_asset(
-        self, external_id: list[str], skip_validation: bool = False, action: str | None = None
-    ) -> list[int]: ...
-
-    def verify_asset(
-        self, external_id: str | list[str], skip_validation: bool = False, action: str | None = None
-    ) -> int | list[int]:
-        if skip_validation:
-            return [-1 for _ in range(len(external_id))] if isinstance(external_id, list) else -1
-
-        if isinstance(external_id, str) and external_id in self._cache.asset_id_by_external_id:
-            return self._cache.asset_id_by_external_id[external_id]
-        elif isinstance(external_id, str):
-            missing_external_ids = [external_id]
-        elif isinstance(external_id, list):
-            existing_by_external_id: dict[str, int] = {
-                ext_id: self._cache.asset_id_by_external_id[ext_id]
-                for ext_id in external_id
-                if ext_id in self._cache.asset_id_by_external_id
-            }
-            if len(existing_by_external_id) == len(existing_by_external_id):
-                return [existing_by_external_id[ext_id] for ext_id in external_id]
-            missing_external_ids = [ext_id for ext_id in external_id if ext_id not in existing_by_external_id]
-        else:
-            raise ValueError(f"Expected external_id to be str or list of str, but got {type(external_id)}")
-
-        self.verify_authorization(AssetsAcl([AssetsAcl.Action.Read], AssetsAcl.Scope.All()), action)
-
-        missing_assets = self.toolkit_client.assets.retrieve_multiple(
-            external_ids=missing_external_ids, ignore_unknown_ids=True
-        )
-
-        self._cache.asset_id_by_external_id.update(
-            {asset.external_id: asset.id for asset in missing_assets if asset.id and asset.external_id}
-        )
-
-        if missing := [ext_id for ext_id in missing_external_ids if ext_id not in self._cache.asset_id_by_external_id]:
-            raise ToolkitResourceMissingError(
-                "Asset(s) does not exist. You need to create it/them first.", str(missing)
-            )
-
-        if isinstance(external_id, str):
-            return self._cache.asset_id_by_external_id[external_id]
-        else:
-            return [self._cache.asset_id_by_external_id[ext_id] for ext_id in external_id]
-
-    @overload
-    def verify_timeseries(self, external_id: str, skip_validation: bool = False, action: str | None = None) -> int: ...
-
-    @overload
-    def verify_timeseries(
-        self, external_id: list[str], skip_validation: bool = False, action: str | None = None
-    ) -> list[int]: ...
-
-    def verify_timeseries(
-        self, external_id: str | list[str], skip_validation: bool = False, action: str | None = None
-    ) -> int | list[int]:
-        if skip_validation:
-            return [-1 for _ in range(len(external_id))] if isinstance(external_id, list) else -1
-
-        if isinstance(external_id, str) and external_id in self._cache.timeseries_id_by_external_id:
-            return self._cache.timeseries_id_by_external_id[external_id]
-        elif isinstance(external_id, str):
-            missing_external_ids = [external_id]
-        elif isinstance(external_id, list):
-            existing_by_external_id: dict[str, int] = {
-                ext_id: self._cache.timeseries_id_by_external_id[ext_id]
-                for ext_id in external_id
-                if ext_id in self._cache.timeseries_id_by_external_id
-            }
-            if len(existing_by_external_id) == len(existing_by_external_id):
-                return [existing_by_external_id[ext_id] for ext_id in external_id]
-            missing_external_ids = [ext_id for ext_id in external_id if ext_id not in existing_by_external_id]
-        else:
-            raise ValueError(f"Expected external_id to be str or list of str, but got {type(external_id)}")
-
-        self.verify_authorization(TimeSeriesAcl([TimeSeriesAcl.Action.Read], TimeSeriesAcl.Scope.All()), action)
-
-        missing_timeseries = self.toolkit_client.time_series.retrieve_multiple(
-            external_ids=missing_external_ids, ignore_unknown_ids=True
-        )
-
-        self._cache.timeseries_id_by_external_id.update(
-            {
-                timeseries.external_id: timeseries.id
-                for timeseries in missing_timeseries
-                if timeseries.id and timeseries.external_id
-            }
-        )
-
-        if missing := [
-            ext_id for ext_id in missing_external_ids if ext_id not in self._cache.timeseries_id_by_external_id
-        ]:
-            raise ToolkitResourceMissingError(
-                "TimeSeries(s) does not exist. You need to create it/them first.", str(missing)
-            )
-
-        if isinstance(external_id, str):
-            return self._cache.timeseries_id_by_external_id[external_id]
-        else:
-            return [self._cache.timeseries_id_by_external_id[ext_id] for ext_id in external_id]
-
-    @overload
-    def verify_locationfilter(
-        self, external_id: str, skip_validation: bool = False, action: str | None = None
-    ) -> int: ...
-
-    @overload
-    def verify_locationfilter(
-        self, external_id: list[str], skip_validation: bool = False, action: str | None = None
-    ) -> list[int]: ...
-
-    def verify_locationfilter(
-        self, external_id: str | list[str], skip_validation: bool = False, action: str | None = None
-    ) -> int | list[int]:
-        if skip_validation:
-            return [-1 for _ in range(len(external_id))] if isinstance(external_id, list) else -1
-
-        if isinstance(external_id, str) and external_id in self._cache.locationfilter_id_by_external_id:
-            return self._cache.locationfilter_id_by_external_id[external_id]
-        elif isinstance(external_id, str):
-            missing_external_ids = [external_id]
-        elif isinstance(external_id, list):
-            existing_by_external_id: dict[str, int] = {
-                ext_id: self._cache.locationfilter_id_by_external_id[ext_id]
-                for ext_id in external_id
-                if ext_id in self._cache.locationfilter_id_by_external_id
-            }
-            if len(existing_by_external_id) == len(existing_by_external_id):
-                return [existing_by_external_id[ext_id] for ext_id in external_id]
-            missing_external_ids = [ext_id for ext_id in external_id if ext_id not in existing_by_external_id]
-        else:
-            raise ValueError(f"Expected external_id to be str or list of str, but got {type(external_id)}")
-
-        self.verify_authorization(
-            LocationFiltersAcl([LocationFiltersAcl.Action.Read], LocationFiltersAcl.Scope.All()), action
-        )
-
-        # Location filter cannot retrieve by external_id, so need to lookup all.
-        all_filters = self.toolkit_client.location_filters.list()
-
-        self._cache.locationfilter_id_by_external_id.update(
-            {
-                locationfilter.external_id: locationfilter.id
-                for locationfilter in all_filters
-                if locationfilter.id and locationfilter.external_id
-            }
-        )
-
-        if missing := [
-            ext_id for ext_id in missing_external_ids if ext_id not in self._cache.locationfilter_id_by_external_id
-        ]:
-            raise ToolkitResourceMissingError(
-                "LocationFilter(s) does not exist. You need to create it/them first.", str(missing)
-            )
-
-        if isinstance(external_id, str):
-            return self._cache.locationfilter_id_by_external_id[external_id]
-        else:
-            return [self._cache.locationfilter_id_by_external_id[ext_id] for ext_id in external_id]
-
     def create_client(self, credentials: ClientCredentials) -> ToolkitClient:
         if self._auth_vars.token_url is None or self._auth_vars.scopes is None:
             raise AuthenticationError("Token URL and Scopes are required to create a client.")
@@ -1161,7 +789,7 @@ class CDFToolConfig:
         )
 
         return ToolkitClient(
-            config=ClientConfig(
+            config=ToolkitClientConfig(
                 client_name=self._client_name,
                 project=self._project,
                 base_url=self._cdf_url,

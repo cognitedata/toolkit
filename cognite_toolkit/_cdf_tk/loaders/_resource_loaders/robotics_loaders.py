@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
 class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, FrameList]):
@@ -63,7 +64,9 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: FrameWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[FrameWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
@@ -129,7 +132,9 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: LocationWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[LocationWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         actions = (
@@ -205,7 +210,7 @@ class RoboticsDataPostProcessingLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: DataPostProcessingWriteList | None, read_only: bool
+        cls, items: Sequence[DataPostProcessingWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -261,6 +266,13 @@ class RoboticsDataPostProcessingLoader(
     ) -> Iterable[DataPostProcessing]:
         return iter(self.client.robotics.data_postprocessing)
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "inputSchema":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
 
 class RobotCapabilityLoader(
     ResourceLoader[str, RobotCapabilityWrite, RobotCapability, RobotCapabilityWriteList, RobotCapabilityList]
@@ -292,7 +304,7 @@ class RobotCapabilityLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: RobotCapabilityWriteList | None, read_only: bool
+        cls, items: Sequence[RobotCapabilityWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -351,6 +363,13 @@ class RobotCapabilityLoader(
     ) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] in {"inputSchema", "dataHandlingSchema"}:
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
 
 class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
     folder_name = "robotics"
@@ -380,7 +399,9 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MapWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[MapWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -399,6 +420,13 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         )
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
+
+    def dump_resource(self, resource: Map, local: dict[str, Any]) -> dict[str, Any]:
+        dump = resource.as_write().dump()
+        if dump.get("scale") == 1.0 and "scale" not in local:
+            # Default value set on the server side.
+            del dump["scale"]
+        return dump
 
     def create(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.create(items)

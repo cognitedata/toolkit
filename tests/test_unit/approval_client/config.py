@@ -677,7 +677,7 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
             "retrieve": [
-                Method(api_class_method="get_triggers", mock_class_method="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
     ),

@@ -1,12 +1,30 @@
+import difflib
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
+from cognite.client.data_classes.data_modeling import NodeId
+from mypy.checkexpr import defaultdict
+from rich import print
+from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
+from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
+from cognite_toolkit._cdf_tk.loaders import (
+    LOADER_BY_FOLDER_NAME,
+    RESOURCE_LOADER_LIST,
+    FunctionLoader,
+    GraphQLLoader,
+    HostedExtractorDestinationLoader,
+    HostedExtractorSourceLoader,
+    ResourceLoader,
+    ResourceWorker,
+    StreamlitLoader,
+)
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
 
 
@@ -16,7 +34,7 @@ from tests import data
 def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
-    build.execute(
+    built_modules = build.execute(
         verbose=False,
         organization_dir=data.COMPLETE_ORG,
         build_dir=build_dir,
@@ -42,6 +60,12 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
         verbose=True,
     )
 
+    changed_resources = get_changed_resources(cdf_tool_config, build_dir)
+    assert not changed_resources, "Redeploying the same resources should not change anything"
+
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=True)
+    assert len(changed_source_files) == 0, f"Pulling the same source should not change anything {changed_source_files}"
+
 
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
@@ -49,7 +73,7 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
 def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
-    build.execute(
+    built_modules = build.execute(
         verbose=False,
         organization_dir=data.COMPLETE_ORG_ALPHA_FLAGS,
         build_dir=build_dir,
@@ -74,3 +98,99 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
         include=list(LOADER_BY_FOLDER_NAME.keys()),
         verbose=True,
     )
+
+    changed_resources = get_changed_resources(cdf_tool_config, build_dir)
+    assert not changed_resources, "Redeploying the same resources should not change anything"
+
+    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=False)
+    assert not changed_source_files, "Pulling the same source should not change anything"
+
+
+def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> dict[str, set[Any]]:
+    changed_resources: dict[str, set[Any]] = {}
+    for loader_cls in RESOURCE_LOADER_LIST:
+        if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+            # These two we have no way of knowing if they have changed. So they are always redeployed.
+            continue
+        loader = loader_cls.create_loader(cdf_tool_config, build_dir)
+        worker = ResourceWorker(loader)
+        files = worker.load_files()
+        _, to_update, *__ = worker.load_resources(files, environment_variables=cdf_tool_config.environment_variables())
+        if changed := (set(loader.get_ids(to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
+            # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
+            changed_resources[loader.display_name] = changed
+
+    return changed_resources
+
+
+def get_changed_source_files(
+    cdf_tool_config: CDFToolConfig, build_dir: Path, built_modules: BuiltModuleList, verbose: bool = False
+) -> dict[str, set[Path]]:
+    # This is a modified copy of the PullCommand._pull_build_dir and PullCommand._pull_resources methods
+    # This will likely be hard to maintain, but if the pull command changes, should be refactored to be more
+    # maintainable.
+    cmd = PullCommand(silent=True, skip_tracking=True)
+    changed_source_files: dict[str, set[str]] = defaultdict(set)
+    selected_loaders = cmd._clean_command.get_selected_loaders(build_dir, read_resource_folders=set(), include=None)
+    for loader_cls in selected_loaders:
+        if (not issubclass(loader_cls, ResourceLoader)) or (
+            # Authentication that causes the diff to fail
+            loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+            # External files that cannot (or not yet supported) be pulled
+            or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
+        ):
+            continue
+        loader = loader_cls.create_loader(cdf_tool_config, build_dir)
+        resources = built_modules.get_resources(
+            None, loader.folder_name, loader.kind, is_supported_file=loader.is_supported_file
+        )
+        if not resources:
+            continue
+        cdf_resources = loader.retrieve(resources.identifiers)
+        cdf_resource_by_id = {loader.get_id(r): r for r in cdf_resources}
+
+        resources_by_file = resources.by_file()
+        file_results = ResourceDeployResult(loader.display_name)
+        environment_variables = (
+            cdf_tool_config.environment_variables() if loader.do_environment_variable_injection else {}
+        )
+        for source_file, resources in resources_by_file.items():
+            if source_file.name == "extended.CogniteFile.yaml":
+                # The extension of CogniteFile is not yet supported in Toolkit even though we have a test case for it.
+                continue
+            original_content = remove_trailing_newline(source_file.read_text())
+            if "$FILENAME" in original_content:
+                # File expansion pattern are not supported in pull.
+                continue
+            local_resource_by_id = cmd._get_local_resource_dict_by_id(resources, loader, environment_variables)
+            _, to_write = cmd._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
+
+            new_content, extra_files = cmd._to_write_content(
+                original_content, to_write, resources, environment_variables, loader
+            )
+            new_content = remove_trailing_newline(new_content)
+            if new_content != original_content:
+                if verbose:
+                    print(
+                        Panel(
+                            "\n".join(difflib.unified_diff(original_content.splitlines(), new_content.splitlines())),
+                            title=f"Diff for {source_file.name}",
+                        )
+                    )
+                changed_source_files[loader.display_name].add(f"{loader.folder_name}/{source_file.name}")
+            for path, new_extra_content in extra_files.items():
+                new_extra_content = remove_trailing_newline(new_extra_content)
+                original_extra_content = remove_trailing_newline(path.read_text())
+                if new_extra_content != original_extra_content:
+                    if verbose:
+                        print(
+                            Panel(
+                                "\n".join(
+                                    difflib.unified_diff(original_content.splitlines(), new_content.splitlines())
+                                ),
+                                title=f"Diff for {path.name}",
+                            )
+                        )
+                    changed_source_files[loader.display_name].add(f"{loader.folder_name}/{path.name}")
+
+    return dict(changed_source_files)

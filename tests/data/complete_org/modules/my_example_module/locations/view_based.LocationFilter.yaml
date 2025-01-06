@@ -2,9 +2,9 @@ externalId: fornebu_location_filter
 name: Fornebu location filter
 description: A location filter for the Fornebu location
 views:
-  - space: cdf_cdm
-    externalId: CogniteAsset
-    version: 'v1'
-    representsEntity: ASSET
+- space: cdf_cdm
+  externalId: CogniteAsset
+  version: v1
+  representsEntity: ASSET
 instanceSpaces:
-  - DataModelSpace
+- DataModelSpace

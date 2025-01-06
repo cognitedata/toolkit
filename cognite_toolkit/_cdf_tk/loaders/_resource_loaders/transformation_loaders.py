@@ -66,16 +66,17 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
+    ToolkitTypeError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -118,7 +119,7 @@ class TransformationLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -182,73 +183,27 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
-    def _are_equal(
-        self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        local_dumped.pop("destinationOidcCredentials", None)
-        local_dumped.pop("sourceOidcCredentials", None)
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def safe_read(self, filepath: Path | str) -> str:
+        # If the destination is a DataModel or a View we need to ensure that the version is a string
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def load_resource_file(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationWrite | TransformationWriteList:
-        # If the destination is a DataModel or a View we need to ensure that the version is a string
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
-
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = load_yaml_inject_variables(
+            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
         )
-        resources = load_yaml_inject_variables(raw_str, use_environment_variables)
-        return self.load_resource(resources, ToolGlobals, skip_validation, filepath)
 
-    def load_resource(
-        self,
-        resource: dict[str, Any] | list[dict[str, Any]],
-        ToolGlobals: CDFToolConfig,
-        skip_validation: bool,
-        filepath: Path | None = None,
-    ) -> TransformationWrite | TransformationWriteList:
-        resources = [resource] if isinstance(resource, dict) else resource
-
-        transformations = TransformationWriteList([])
-
-        for resource in resources:
-            invalid_parameters: dict[str, str] = {}
-            if "action" in resource and "conflictMode" not in resource:
-                invalid_parameters["action"] = "conflictMode"
-            if "shared" in resource and "isPublic" not in resource:
-                invalid_parameters["shared"] = "isPublic"
-            if invalid_parameters:
-                raise ToolkitInvalidParameterNameError(
-                    "Parameters invalid. These are specific for the "
-                    "'transformation-cli' and not supported by cognite-toolkit",
-                    resource.get("externalId", "<Missing>"),
-                    invalid_parameters,
-                )
-
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in transformation"
-                )
-            if resource.get("conflictMode") is None:
-                # Todo; Bug SDK missing default value
-                resource["conflictMode"] = "upsert"
-
+        raw_list = resources if isinstance(resources, list) else [resources]
+        for item in raw_list:
             query_file: Path | None = None
-            if "queryFile" in resource:
+            if "queryFile" in item:
                 if filepath is None:
                     raise ValueError("filepath must be set if queryFile is set")
-                query_file = filepath.parent / Path(resource.pop("queryFile"))
+                query_file = filepath.parent / Path(item.pop("queryFile"))
 
-            external_id = resource.get("externalId", "UNKNOWN")
-            if query_file is None and "query" not in resource:
+            external_id = self.get_id(item)
+            if query_file is None and "query" not in item:
                 if filepath is None:
                     raise ValueError("filepath must be set if query is not set")
                 raise ToolkitYAMLFormatError(
@@ -258,40 +213,76 @@ class TransformationLoader(
             elif query_file and not query_file.exists():
                 # We checked above that filepath is not None
                 raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
-            elif query_file and "query" in resource:
+            elif query_file and "query" in item:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
                     f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                     filepath,
                 )
             elif query_file:
-                resource["query"] = safe_read(query_file)
+                item["query"] = safe_read(query_file)
+        return raw_list
 
-            source_oidc_credentials = (
-                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
+        invalid_parameters: dict[str, str] = {}
+        if "action" in resource and "conflictMode" not in resource:
+            invalid_parameters["action"] = "conflictMode"
+        if "shared" in resource and "isPublic" not in resource:
+            invalid_parameters["shared"] = "isPublic"
+        if invalid_parameters:
+            raise ToolkitInvalidParameterNameError(
+                "Parameters invalid. These are specific for the "
+                "'transformation-cli' and not supported by cognite-toolkit",
+                resource.get("externalId", "<Missing>"),
+                invalid_parameters,
             )
-            destination_oidc_credentials = (
-                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if "conflictMode" not in resource:
+            # Todo; Bug SDK missing default value
+            resource["conflictMode"] = "upsert"
+
+        source_oidc_credentials = (
+            resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+        )
+        destination_oidc_credentials = (
+            resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+        )
+        transformation = TransformationWrite._load(resource)
+        try:
+            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                source_oidc_credentials
             )
-            transformation = TransformationWrite.load(resource)
-            try:
-                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                    source_oidc_credentials
-                )
 
-                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                    destination_oidc_credentials
-                )
-            except KeyError as e:
-                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
-            transformations.append(transformation)
+            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                destination_oidc_credentials
+            )
+        except KeyError as e:
+            item_id = self.get_id(resource)
+            raise ToolkitTypeError(
+                f"Ill-formed Transformation {item_id}: Authentication property is missing required fields"
+            ) from e
+        return transformation
 
-        if len(transformations) == 1:
-            return transformations[0]
-        else:
-            return transformations
+    def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if "authentication" in local:
+            # Todo: Need a way to detect changes in credentials instead of just assuming
+            #    that the credentials are always the same.
+            dumped["authentication"] = local["authentication"]
+        return dumped
 
-    def dump_resource(
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[-1] == "scopes":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
+    def dump_resource_legacy(
         self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
     ) -> tuple[dict[str, Any], dict[Path, str]]:
         dumped = resource.dump()
@@ -395,7 +386,7 @@ class TransformationScheduleLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationScheduleWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationScheduleWrite] | None, read_only: bool
     ) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
@@ -509,26 +500,19 @@ class TransformationNotificationLoader(
             "destination": destination,
         }
 
-    def _are_equal(
-        self,
-        local: TransformationNotificationWrite,
-        cdf_resource: TransformationNotification,
-        return_dumped: bool = False,
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        cdf_dumped.pop("transformationId")
-        cdf_dumped["transformationExternalId"] = local.transformation_external_id
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
     @classmethod
     def get_required_capability(
-        cls, items: TransformationNotificationWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationNotificationWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    def dump_resource(self, resource: TransformationNotification, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        dumped.pop("transformationId")
+        dumped["transformationExternalId"] = local["transformationExternalId"]
+        return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
@@ -570,12 +554,13 @@ class TransformationNotificationLoader(
         create: list[TransformationNotificationWrite] = []
         unchanged: list[str] = []
         delete: list[int] = []
-        for id_, item in item_by_id.items():
+        for id_, local_item in item_by_id.items():
             existing_item = exiting_by_id.get(id_)
-            if existing_item and self._are_equal(item, existing_item):
+            local_dict = local_item.dump()
+            if existing_item and local_item == self.dump_resource(existing_item, local_dict):
                 unchanged.append(self.get_id(existing_item))
             else:
-                create.append(item)
+                create.append(local_item)
             if existing_item:
                 delete.append(cast(int, existing_item.id))
         if delete:

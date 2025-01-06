@@ -1,5 +1,3 @@
-from unittest.mock import MagicMock
-
 import pytest
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 
@@ -8,7 +6,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     AssetCentricSubFilter,
     LocationFilterScene,
     LocationFilterWrite,
-    LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -19,30 +16,26 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 @pytest.fixture
 def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
     loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
-    loaded = loader.load_resource_file(
-        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock, skip_validation=False
+    raw_list = loader.load_resource_file(
+        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock.environment_variables()
     )
-    assert len(loaded) == 1
-    return loaded[0]
+    loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+    return loaded
 
 
 class TestLocationFilterLoader:
     def test_load_minimum_location_filter(
         self,
+        cdf_tool_mock: CDFToolConfig,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-
-        loader = LocationFilterLoader.create_loader(cdf_tool, None)
-        loaded = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool, skip_validation=False
+        loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
+        raw_list = loader.load_resource_file(
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool_mock.environment_variables()
         )
-        assert isinstance(loaded, LocationFilterWriteList)
-        assert len(loaded) == 1
-        first = loaded[0]
-        assert isinstance(first, LocationFilterWrite)
-        assert first.external_id == "springfield"
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+        assert isinstance(loaded, LocationFilterWrite)
+        assert loaded.external_id == "springfield"
 
     def test_load_filter_write(self, exhaustive_filter: LocationFilterWrite) -> None:
         assert isinstance(exhaustive_filter, LocationFilterWrite)

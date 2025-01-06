@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV,
-    MODULE_PATH_SEP,
     MODULES,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
@@ -43,6 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
     flatten_dict,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._version import __version__
 
 from . import BuiltModuleList
@@ -87,26 +87,8 @@ class Environment:
             name=build_name,
             project=data["project"],
             build_type=build_type,
-            selected=cls.load_selected(data.get("selected")),
+            selected=parse_user_selected_modules(data.get("selected")),
         )
-
-    @classmethod
-    def load_selected(cls, raw: list[str | Path] | None, organization_dir: Path | None = None) -> list[str | Path]:
-        # The type of raw path is set just to make mypy happy.
-        raw_paths: list[str | Path] = [selected for selected in raw or [] if isinstance(selected, Path)]
-        raw_str = [selected for selected in raw or [] if isinstance(selected, str)]
-        cleaned = (selected.replace("\\", "/") for selected in raw_str or [])
-        all_selected: Iterable[str | Path] = (
-            Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
-        )
-        if organization_dir:
-            all_selected = (
-                selected.relative_to(organization_dir)
-                if isinstance(selected, Path) and selected.is_relative_to(organization_dir)
-                else selected
-                for selected in all_selected
-            )
-        return list(all_selected) + raw_paths
 
     def dump(self) -> dict[str, Any]:
         return {
@@ -282,7 +264,7 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean", "pull"] = "build"
     ) -> BuildEnvironment:
         if "name" in data and build_name is not None and data["name"] != build_name:
             raise ToolkitEnvError(

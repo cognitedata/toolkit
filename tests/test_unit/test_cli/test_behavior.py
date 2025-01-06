@@ -6,12 +6,13 @@ import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import GroupWrite, Transformation, TransformationWrite
+from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite, WorkflowTrigger
 from pytest import MonkeyPatch
 from typer import Context
 
 from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
@@ -123,7 +124,8 @@ def test_pull_transformation(
         content += f"\nqueryFile: {transformation_yaml.with_suffix('.sql').name}"
         transformation_yaml.write_text(content)
 
-        transformation = loader.load_resource_file(transformation_yaml, cdf_tool_mock, skip_validation=True)
+        raw_list = loader.load_resource_file(transformation_yaml, cdf_tool_mock.environment_variables())
+        transformation = loader.load_resource(raw_list[0], is_dry_run=False)
         # Write back original content
         transformation_yaml.write_text(original)
         return cast(TransformationWrite, transformation)
@@ -147,6 +149,140 @@ def test_pull_transformation(
     after_loaded = load_transformation()
 
     assert after_loaded.name == "New transformation name"
+
+
+def test_pull_dataset(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected dataset to be pulled
+    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    dataset.description = "New description"
+    toolkit_client_approval.append(DataSet, dataset)
+
+    cmd = PullCommand(silent=True)
+    cmd.pull_module(
+        module=dataset_yaml,
+        organization_dir=organization_dir_mutable,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+    )
+
+    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    assert reloaded.description == "New description"
+
+
+def test_pull_transformation_sql(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected transformation to be pulled
+    transformation_yaml = (
+        organization_dir_mutable
+        / "modules"
+        / "sourcesystem"
+        / "cdf_pi"
+        / "transformations"
+        / "population"
+        / "timeseries.Transformation.yaml"
+    )
+    source_yaml = transformation_yaml.read_text()
+    transformation = _load_cdf_pi_transformation(transformation_yaml, cdf_tool_mock)
+    new_query = """select
+  someValue as externalId,
+  name as name,
+  'string' as type,
+
+from `ingestion`.`timeseries_metadata`"""
+    transformation.query = new_query
+
+    toolkit_client_approval.append(Transformation, transformation)
+    cmd = PullCommand(silent=True)
+    cmd.pull_module(
+        module=transformation_yaml,
+        organization_dir=organization_dir_mutable,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+    )
+    sql_file = transformation_yaml.with_suffix(".sql")
+    assert sql_file.exists()
+    assert sql_file.read_text() == new_query.replace("ingestion", "{{ rawSourceDatabase }}"), "SQL file was not updated"
+
+    target_yaml = transformation_yaml.read_text()
+    # Cleanup file endings.
+    while target_yaml.endswith("\n"):
+        target_yaml = target_yaml[:-1]
+    while source_yaml.endswith("\n"):
+        source_yaml = source_yaml[:-1]
+    assert target_yaml == source_yaml, "Transformation file should not be updated"
+
+
+def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToolConfig) -> Transformation:
+    variables = [
+        ("dataset", "ingestion"),
+        ("schemaSpace", "sp_enterprise_process_industry"),
+        ("instanceSpace", "springfield_instances"),
+        ("organization", "YourOrg"),
+        ("timeseriesTransformationExternalId", "pi_timeseries_springfield_aveva_pi"),
+        ("sourceName", "Springfield AVEVA PI"),
+    ]
+    raw_transformation = transformation_yaml.read_text()
+    for key, value in variables:
+        raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
+    data = yaml.safe_load(raw_transformation)
+    data["dataSetId"] = cdf_tool_mock.toolkit_client.lookup.data_sets.id(data.pop("dataSetExternalId"))
+    transformation = Transformation._load(data)
+
+    return transformation
+
+
+def test_pull_workflow_trigger_with_environment_variables(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    cdf_tool_mock: CDFToolConfig,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected workflow trigger to be pulled
+    yaml_filepath = (
+        organization_dir_mutable / "modules" / "cdf_ingestion" / "workflows" / "trigger.WorkflowTrigger.yaml"
+    )
+    source_yaml = yaml_filepath.read_text()
+    vars_replaced = source_yaml
+    for key, value in [
+        ("{{ workflow }}", "ingestion"),
+        # These two secrets are replaced by environment variables
+        # that are then replaced with the actual values.
+        ("{{ ingestionClientId }}", "this-is-the-ingestion-client-id"),
+        ("{{ ingestionClientSecret }}", "this-is-the-ingestion-client-secret"),
+    ]:
+        vars_replaced = vars_replaced.replace(key, value)
+    trigger_dict = yaml.safe_load(vars_replaced)
+    trigger_dict["triggerRule"]["cronExpression"] = "* 4 * * *"
+    trigger = WorkflowTrigger._load(trigger_dict)
+    toolkit_client_approval.append(WorkflowTrigger, trigger)
+
+    cmd = PullCommand(silent=True)
+    cmd.pull_module(
+        module=yaml_filepath,
+        organization_dir=organization_dir_mutable,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        ToolGlobals=cdf_tool_mock,
+    )
+    reloaded = yaml_filepath.read_text()
+    assert "cronExpression: '* 4 * * *'" in reloaded, "Workflow trigger was not updated"
+    assert "clientId: {{ ingestionClientId }}" in reloaded, "Environment variables were not replaced"
+    assert "clientSecret: {{ ingestionClientSecret }}" in reloaded, "Environment variables were not replaced"
 
 
 def test_dump_datamodel(

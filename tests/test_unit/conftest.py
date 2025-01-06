@@ -51,7 +51,7 @@ def local_tmp_repo_path() -> Iterator[Path]:
     shutil.rmtree(repo_path, ignore_errors=True)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def cdf_tool_mock(
     toolkit_client_approval: ApprovalToolkitClient,
     monkeypatch: MonkeyPatch,
@@ -71,6 +71,9 @@ def cdf_tool_mock(
         "IDP_FUN_CLIENT_SECRET": "dummy",
         "IDP_WF_CLIENT_ID": "dummy",
         "IDP_WF_CLIENT_SECRET": "dummy",
+        # The secrets in the cdf_ingestion workflow
+        "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+        "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
     }
     existing = {}
     for key, value in environment_variables.items():
@@ -81,8 +84,6 @@ def cdf_tool_mock(
         real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
         # Build must always be executed from root of the project
         cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
         cdf_tool.toolkit_client = toolkit_client_approval.mock_client
         cdf_tool._login_flow = "client_credentials"
         cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]
@@ -97,9 +98,7 @@ def cdf_tool_mock(
         cdf_tool._token_url = "dummy-url"
 
         cdf_tool.environment_variables.side_effect = real_config.environment_variables
-        cdf_tool.verify_dataset.return_value = 42
-        cdf_tool.verify_asset.return_value = 666
-        cdf_tool.data_set_id = 999
+
         yield cdf_tool
 
     for key, value in existing.items():

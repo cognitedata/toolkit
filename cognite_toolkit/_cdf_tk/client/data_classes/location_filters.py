@@ -148,6 +148,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
+        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
     ) -> None:
         self.external_id = external_id
         self.name = name
@@ -158,6 +159,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self.scene = scene
         self.asset_centric = asset_centric
         self.views = views
+        self.data_modeling_type = data_modeling_type
 
     def as_write(self) -> LocationFilterWrite:
         return LocationFilterWrite(
@@ -170,6 +172,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
             scene=self.scene,
             asset_centric=self.asset_centric,
             views=self.views,
+            data_modeling_type=self.data_modeling_type,
         )
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
@@ -208,6 +211,7 @@ class LocationFilterWrite(LocationFilterCore):
             scene=scene,
             asset_centric=asset_centric,
             views=views,
+            data_modeling_type=resource.get("dataModelingType"),
         )
 
 
@@ -242,9 +246,19 @@ class LocationFilter(LocationFilterCore):
         scene: LocationFilterScene | None = None,
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
+        data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
     ) -> None:
         super().__init__(
-            external_id, name, parent_id, description, data_models, instance_spaces, scene, asset_centric, views
+            external_id,
+            name,
+            parent_id,
+            description,
+            data_models,
+            instance_spaces,
+            scene,
+            asset_centric,
+            views,
+            data_modeling_type,
         )
         self.id = id
         self.created_time = created_time
@@ -267,6 +281,7 @@ class LocationFilter(LocationFilterCore):
             views=[LocationFilterView._load(view) for view in resource["views"]] if "views" in resource else None,
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
+            data_modeling_type=resource.get("dataModelingType"),
         )
 
 

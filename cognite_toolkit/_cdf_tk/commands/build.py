@@ -53,8 +53,10 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataLoader,
     DataModelLoader,
+    DataSetsLoader,
     ExtractionPipelineConfigLoader,
     FileLoader,
+    LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -83,6 +85,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -117,7 +120,7 @@ class BuildCommand(ToolkitCommand):
         no_clean: bool,
         ToolGlobals: CDFToolConfig | None = None,
         on_error: Literal["continue", "raise"] = "continue",
-    ) -> None:
+    ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
@@ -131,7 +134,7 @@ class BuildCommand(ToolkitCommand):
             config = BuildConfigYAML.load_default(organization_dir)
 
         if selected:
-            config.environment.selected = config.environment.load_selected(selected, organization_dir)
+            config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
@@ -150,7 +153,7 @@ class BuildCommand(ToolkitCommand):
 
         config.set_environment_variables()
 
-        self.build_config(
+        return self.build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
             config=config,
@@ -454,7 +457,11 @@ class BuildCommand(ToolkitCommand):
                 source_files.append(BuildSourceFile(source, content, None))
                 continue
 
-            if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
+            if resource_name in {
+                TransformationLoader.folder_name,
+                DataModelLoader.folder_name,
+                LocationFilterLoader.folder_name,
+            }:
                 # Ensure that all keys that are version gets read as strings.
                 # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
                 content = quote_int_value_by_key_in_yaml(content, key="version")
@@ -506,9 +513,12 @@ class BuildCommand(ToolkitCommand):
         for loader_cls, id_ in missing_dependencies:
             if self._is_system_resource(loader_cls, id_):
                 continue
-            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+            elif loader_cls is DataSetsLoader and id_ == "":
+                # Special case used by the location filter to indicate filter out all classical resources.
                 continue
-            if loader_cls.resource_cls is RawDatabase:
+            elif ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+                continue
+            elif loader_cls.resource_cls is RawDatabase:
                 # Raw Databases are automatically created when a Raw Table is created.
                 continue
             required_by = {
@@ -599,6 +609,9 @@ class BuildCommand(ToolkitCommand):
 
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source.path)
             warning_list.extend(data_set_warnings)
+
+            item_warnings = item_loader.check_item(item, filepath=source.path, element_no=element_no)
+            warning_list.extend(item_warnings)
 
         return warning_list, identifier_kind_pairs
 

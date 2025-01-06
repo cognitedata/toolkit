@@ -7,7 +7,6 @@ DataSet:
       {"databaseName": "3d_oid_fileshare", "tableName": "contextualization_bad"},
       {"databaseName": "3d_oid_fileshare", "tableName": "contextualization_manual_input"}]'
   name: 3d:oid
-  writeProtected: false
 - description: Asset data for oid
   externalId: ds_asset_oid
   metadata:
@@ -16,12 +15,11 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 Database:
 - name: 3d_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 1111003405993120033
   description: Contextualization of 3D model and assets for  oid:fileshare
   documentation: "# 3D model and assets Contextualization\nThe 3d model and assets\
     \ Contextualization runs as a process in CDF Functions. Process triggers on new\
@@ -61,7 +59,7 @@ ExtractionPipeline:
     tableName: contextualization_manual_input
   source: fileshare
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 1111003405993120033
   description: File source extraction pipeline with configuration for File extractor
     reading 3D data from oid:fileshare
   documentation: "The Cognite File Extractor is a generic file extractor that can\
@@ -132,14 +130,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - extractionConfigsAcl:
       actions:
       - READ
       scope:
         extractionPipelineScope:
           ids:
-          - 1
+          - 11440594430018823143
   - extractionRunsAcl:
       actions:
       - READ
@@ -147,7 +145,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   metadata:
     origin: cdf-project-templates
   name: gp_3d_oid_extractor
@@ -176,7 +174,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
@@ -184,7 +182,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - threedAcl:
       actions:
       - READ
@@ -194,7 +192,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - extractionConfigsAcl:
       actions:
       - READ
@@ -202,7 +200,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - extractionRunsAcl:
       actions:
       - READ
@@ -210,7 +208,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - entitymatchingAcl:
       actions:
       - READ
@@ -245,14 +243,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   metadata:
     origin: cdf-project-templates
   name: gp_3d_oid_read
@@ -287,5 +285,5 @@ Table:
   name: contextualization_manual_input
 ThreeDModel:
 - createdTime: 1
-  dataSetId: 42
+  dataSetId: 1111003405993120033
   name: Valhall

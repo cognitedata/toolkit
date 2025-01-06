@@ -8,12 +8,11 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
+from tests.test_unit.approval_client.client import LookUpAPIMock
 
 
 def file_metadata_config_cases() -> Iterable[ParameterSet]:
-    data_set_mapping = {"ds_files": 42}
     yield pytest.param(
         """externalId: sharepointABC
 name: A file.txt
@@ -21,14 +20,13 @@ dataSetExternalId: ds_files
 source: sharepointABC
 """,
         ["1.A file.txt"],
-        data_set_mapping,
         FileMetadataWriteList(
             [
                 FileMetadataWrite(
                     external_id="sharepointABC",
                     source="sharepointABC",
                     name="A file.txt",
-                    data_set_id=42,
+                    data_set_id=LookUpAPIMock._create_id("ds_files"),
                 )
             ]
         ),
@@ -45,20 +43,19 @@ source: sharepointABC
   source: sharepointABC
 """,
         ["1.A file.txt", "1.Another file.txt"],
-        data_set_mapping,
         FileMetadataWriteList(
             [
                 FileMetadataWrite(
                     external_id="sharepointABC",
                     source="sharepointABC",
                     name="A file.txt",
-                    data_set_id=42,
+                    data_set_id=LookUpAPIMock._create_id("ds_files"),
                 ),
                 FileMetadataWrite(
                     external_id="sharepointABC2",
                     source="sharepointABC",
                     name="Another file.txt",
-                    data_set_id=42,
+                    data_set_id=LookUpAPIMock._create_id("ds_files"),
                 ),
             ]
         ),
@@ -67,24 +64,21 @@ source: sharepointABC
 
 
 class TestLoadResources:
-    @pytest.mark.parametrize("yaml_content, files, data_set_mapping, expected", list(file_metadata_config_cases()))
+    @pytest.mark.parametrize("yaml_content, files, expected", list(file_metadata_config_cases()))
     def test_load_resources(
         self,
         yaml_content: str,
         files: list[str],
-        data_set_mapping: dict[str, int],
         expected: FileMetadataWriteList,
         toolkit_client_approval: ApprovalToolkitClient,
         monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = FileMetadataLoader(toolkit_client_approval.client, None)
+        loader = FileMetadataLoader(toolkit_client_approval.mock_client, None)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = yaml_content
         filepath.parent.glob.return_value = [Path(f) for f in files]
-        cdf_tool = CDFToolConfig(skip_initialization=True)
-        cdf_tool._cache.data_set_id_by_external_id = data_set_mapping
-
-        resources = loader.load_resource_file(filepath, cdf_tool, skip_validation=False)
+        raw_list = loader.load_resource_file(filepath, {})
+        resources = FileMetadataWriteList([loader.load_resource(item, is_dry_run=False) for item in raw_list])
 
         assert resources.dump() == expected.dump()
 

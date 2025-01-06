@@ -1,9 +1,11 @@
-from collections.abc import Iterator
+import itertools
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Literal, overload
 
 from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
+    MODULE_PATH_SEP,
     ROOT_MODULES,
 )
 
@@ -83,7 +85,7 @@ def module_directory_from_path(path: Path) -> Path:
     if len(path.parts) == 1:
         raise ValueError("Path is not a module")
 
-    while path:
+    for _ in range(len(path.parts)):
         if path.name in LOADER_BY_FOLDER_NAME and path.parent != path:
             return path.parent
         path = path.parent
@@ -99,6 +101,17 @@ def resource_folder_from_path(path: Path) -> str:
         if part in LOADER_BY_FOLDER_NAME:
             return part
     raise ValueError("Path does not contain a resource folder")
+
+
+def is_module_path(path: Path) -> bool:
+    """Check if a path is a module path"""
+    # local import to avoid circular import
+    from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+
+    if not path.is_dir():
+        return False
+
+    return any(sub_folder.name in LOADER_BY_FOLDER_NAME for sub_folder in path.iterdir() if sub_folder.is_dir())
 
 
 def find_directory_with_subdirectories(
@@ -118,3 +131,39 @@ def find_directory_with_subdirectories(
                 return root, [d.name for d in root.iterdir() if d.is_dir()]
             search.append(root)
     return None, []
+
+
+def parse_user_selected_modules(
+    user_selected: list[str | Path] | None, organization_dir: Path | None = None
+) -> list[str | Path]:
+    """Parse user selected modules.
+
+    The selected modules can be a mix of strings and Paths. If the string contains the module path separator, it is
+    assumed to be a Path, otherwise we consider it a module name. If organization_dir is provided, we will convert
+    relative paths to be relative to the organization_dir.
+
+    Args:
+        user_selected: The user selected modules
+        organization_dir: The organization directory
+
+    Returns:
+        list[str | Path]: The parsed user selected modules
+
+    """
+    # The type of raw path is set just to make mypy happy.
+    raw_paths = (selected for selected in user_selected or [] if isinstance(selected, Path))
+    raw_str = (selected for selected in user_selected or [] if isinstance(selected, str))
+    cleaned = (selected.replace("\\", "/") for selected in raw_str or [])
+    all_selected: Iterable[str | Path] = itertools.chain(
+        (Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned), raw_paths
+    )
+
+    if organization_dir:
+        all_selected = (
+            selected.relative_to(organization_dir)
+            if isinstance(selected, Path) and selected.is_relative_to(organization_dir)
+            else selected
+            for selected in all_selected
+        )
+
+    return list(all_selected)

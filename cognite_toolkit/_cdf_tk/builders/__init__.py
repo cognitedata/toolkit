@@ -11,7 +11,7 @@ from ._transformation import TransformationBuilder
 
 def create_builder(
     resource_folder: str,
-    build_dir: Path,
+    build_dir: Path | None,
 ) -> Builder:
     if builder_cls := _BUILDER_BY_RESOURCE_FOLDER.get(resource_folder):
         return builder_cls(build_dir)  # type: ignore[abstract]
