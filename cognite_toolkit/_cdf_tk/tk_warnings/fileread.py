@@ -176,6 +176,14 @@ class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
+class MissingReferencedWarning(YAMLFileWithElementWarning):
+    message: str
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: {self.message}."
+
+
+@dataclass(frozen=True)
 class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
     path: str
 

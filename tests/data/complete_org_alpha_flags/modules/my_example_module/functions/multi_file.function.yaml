@@ -1,0 +1,11 @@
+# The dir with the function code should have the same name
+# and externalId as the function itself as defined below.
+- name: Multi File Function
+  externalId: fn_multi_file_function
+  owner: doctrino
+  description: Uses multiple modules.
+  metadata:
+    version: '1'
+  runtime: 'py311'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: ds_complete_org

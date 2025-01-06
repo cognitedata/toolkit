@@ -275,12 +275,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SequenceWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if asset_external_id := resource.pop("assetExternalId", None):
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
         return SequenceWrite._load(resource)
 
     def dump_resource(self, resource: Sequence, local: dict[str, Any]) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if asset_id := dumped.pop("assetId", None):
+            dumped["assetExternalId"] = self.client.lookup.assets.external_id(asset_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
         local_col_by_id = {col["externalId"]: col for col in local.get("columns", []) if "externalId" in col}
