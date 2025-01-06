@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
 
 if TYPE_CHECKING:
@@ -259,6 +260,26 @@ class ResourceLoader(
         """
         return
         yield
+
+    @classmethod
+    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
+        """Check the item for any issues.
+
+        This is intended to be overwritten in subclasses that require special checking of the item.
+
+        Example, it is used in the WorkflowVersionLoader to check that all tasks dependsOn tasks that are in the same
+        workflow.
+
+        Args:
+            item (dict): The item to check.
+            filepath (Path): The path to the file where the item is located.
+            element_no (int): The element number in the file. This is used to provide better error messages.
+                None if the item is an object and not a list.
+
+        Returns:
+            list[ToolkitWarning]: A list of warnings.
+        """
+        return []
 
     @classmethod
     def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
