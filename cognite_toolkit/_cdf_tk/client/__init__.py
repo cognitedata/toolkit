@@ -1,3 +1,3 @@
-from ._toolkit_client import ToolkitClient
+from ._toolkit_client import ToolkitClient, ToolkitClientConfig
 
-__all__ = ["ToolkitClient"]
+__all__ = ["ToolkitClient", "ToolkitClientConfig"]

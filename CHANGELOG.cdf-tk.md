@@ -28,12 +28,17 @@ Changes are grouped as follows:
 ### Fixed
 
 - No more warning about missing `.env` file when running in `Google Cloud Build`.
+- No more warning about missing `.env` file if all variables are set in the environment.
 - When deploying a `Sequence` resource, Cognite Toolkit now replaces `dataSetExternalId` with `dataSetId`.
 - Cognite Toolkit has improved resources that have server set default values that can lead to redeploy even when
   unchanged. This includes `Sequences`, `Containers`, `DataSets`, `Views`, `Nodes`, `Edges`, `ExtractionPipelines`,
   `CogniteFiles`, `HostedExtractorJobs`, `Relationships`, `RobotMaps`, and `WorkflowVersions`.
+- When uploading a `csv` file (RAW table, Datapoints, or Assets) any CSV dialect is now supported.
 - `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
 - `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
+- On CDF deployed on Azure and AWS clouds, setting the `CPU` and `memory` of a CogniteFiles to lower than
+  the required value no longer triggers a redeploy.
+- Toolkit now looks up the `assetExternalId` in the `Sequence` resource when deploying.
 
 ## [0.3.23] - 2024-12-13
 

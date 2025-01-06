@@ -16,6 +16,10 @@ classic = true
 purge = true
 build-offline = true
 module-pull = true
+# This is not activated as it will break the tests
+# (tests needs to switch between alpha flags activated and not activated)
+# That is not easily possible with this flag.
+function-multi-file-hash = false
 
 [plugins]
 run = true

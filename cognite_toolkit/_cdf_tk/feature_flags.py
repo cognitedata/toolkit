@@ -60,6 +60,11 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables builds without comparing against CDF project for missing dependencies.",
     }
+    FUNCTION_MULTI_FILE_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Toolkit will has each individual file in a multi-file function. This is useful when"
+        "you want to inspect why a function needs to redeploy.",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
