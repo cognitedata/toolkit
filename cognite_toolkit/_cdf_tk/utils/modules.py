@@ -103,6 +103,17 @@ def resource_folder_from_path(path: Path) -> str:
     raise ValueError("Path does not contain a resource folder")
 
 
+def is_module_path(path: Path) -> bool:
+    """Check if a path is a module path"""
+    # local import to avoid circular import
+    from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
+
+    if not path.is_dir():
+        return False
+
+    return any(sub_folder.name in LOADER_BY_FOLDER_NAME for sub_folder in path.iterdir() if sub_folder.is_dir())
+
+
 def find_directory_with_subdirectories(
     directory_name: str | None, root_directory: Path
 ) -> tuple[Path | None, list[str]]:

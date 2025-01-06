@@ -10,6 +10,7 @@ from cognite.client.data_classes._base import (
     T_WritableCogniteResource,
     T_WriteClass,
 )
+from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
 
