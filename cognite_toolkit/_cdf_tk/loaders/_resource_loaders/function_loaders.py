@@ -33,11 +33,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
     calculate_secure_hash,
+    calculate_str_or_file_hash,
 )
 
 from .auth_loaders import GroupAllScopedLoader
@@ -59,9 +61,13 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     do_environment_variable_injection = True
+    metadata_value_limit = 512
 
     class _MetadataKey:
-        function_hash = "cdf-toolkit-function-hash"
+        if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
+            function_hash = "cognite-toolkit-hash"
+        else:
+            function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
     def __init__(self, client: ToolkitClient, build_path: Path | None):
@@ -124,13 +130,34 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             self.function_dir_by_external_id[item_id] = function_rootdir
             if "metadata" not in item:
                 item["metadata"] = {}
-            item["metadata"][self._MetadataKey.function_hash] = calculate_directory_hash(
-                function_rootdir, ignore_files={".pyc"}
-            )
+            if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
+                value = self._create_hash_values(function_rootdir)
+            else:
+                value = calculate_directory_hash(function_rootdir, ignore_files={".pyc"})
+            item["metadata"][self._MetadataKey.function_hash] = value
             if "secrets" in item:
                 item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
 
         return raw_list
+
+    @classmethod
+    def _create_hash_values(cls, function_rootdir: Path) -> str:
+        root_hash = calculate_directory_hash(function_rootdir, ignore_files={".pyc"}, shorten=True)
+        hash_value = f"/={root_hash}"
+        to_search = [function_rootdir]
+        while to_search:
+            search_dir = to_search.pop()
+            for file in sorted(search_dir.glob("*"), key=lambda x: x.relative_to(function_rootdir).as_posix()):
+                if file.is_dir():
+                    to_search.append(file)
+                elif file.is_file() and file.suffix == ".pyc":
+                    continue
+                file_hash = calculate_str_or_file_hash(file, shorten=True)
+                new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
+                if len(hash_value) + len(new_entry) > (cls.metadata_value_limit - 1):
+                    break
+                hash_value += f";{new_entry}"
+        return hash_value
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
         item_id = self.get_id(resource)
@@ -140,7 +167,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             # The fileID is required for the function to be created, but in the `.create` method
             # we first create that file and then set the fileID.
             resource["fileId"] = "<will_be_generated>"
-        # Todo special handling of CPU and Memory on Azure and AWS clusters
         return FunctionWrite._load(resource)
 
     def dump_resource(self, resource: Function, local: dict[str, Any]) -> dict[str, Any]:
@@ -153,6 +179,19 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             if key not in local:
                 # Server set default values
                 dumped.pop(key, None)
+            elif isinstance(local.get(key), float) and local[key] < dumped[key]:
+                # On Azure and AWS, the server sets the CPU and Memory to the default values if the user
+                # pass in lower values. We set this to match the local to avoid triggering a redeploy.
+                # Note the user will get a warning about this when the function is created.
+                if self.client.config.cloud_provider in ("azure", "aws"):
+                    dumped[key] = local[key]
+                elif self.client.config.cloud_provider == "gcp" and key == "cpu" and local[key] < 1.0:
+                    # GCP does not allow CPU to be set to below 1.0
+                    dumped[key] = local[key]
+                elif self.client.config.cloud_provider == "gcp" and key == "memory" and local[key] < 1.5:
+                    # GCP does not allow Memory to be set to below 1.5
+                    dumped[key] = local[key]
+
         for key in ["indexUrl", "extraIndexUrls"]:
             # Only in write (request) format of the function
             if key in local:
@@ -224,8 +263,37 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             else:
                 raise RuntimeError("Could not retrieve file from files API")
             item.file_id = file_id
-            created.append(self.client.functions.create(item))
+            created_item = self.client.functions.create(item)
+            self._warn_if_cpu_or_memory_changed(created_item, item)
+            created.append(created_item)
         return created
+
+    @staticmethod
+    def _warn_if_cpu_or_memory_changed(created_item: Function, item: FunctionWrite) -> None:
+        is_cpu_increased = (
+            isinstance(item.cpu, float) and isinstance(created_item.cpu, float) and item.cpu < created_item.cpu
+        )
+        is_mem_increased = (
+            isinstance(item.memory, float)
+            and isinstance(created_item.memory, float)
+            and item.memory < created_item.memory
+        )
+        if is_cpu_increased and is_mem_increased:
+            prefix = "CPU and Memory"
+            suffix = f"CPU {item.cpu} -> {created_item.cpu}, Memory {item.memory} -> {created_item.memory}"
+        elif is_cpu_increased:
+            prefix = "CPU"
+            suffix = f"{item.cpu} -> {created_item.cpu}"
+        elif is_mem_increased:
+            prefix = "Memory"
+            suffix = f"{item.memory} -> {created_item.memory}"
+        else:
+            return
+        # The server sets the CPU and Memory to the default values, if the user pass in a lower value.
+        # This happens on Azure and AWS. Warning the user about this.
+        LowSeverityWarning(
+            f"Function {prefix} is not configurable. Function {item.external_id!r} set {suffix}"
+        ).print_warning()
 
     def retrieve(self, ids: SequenceNotStr[str]) -> FunctionList:
         if not self._is_activated("retrieve"):

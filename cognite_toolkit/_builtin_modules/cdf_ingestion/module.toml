@@ -9,3 +9,6 @@ tags = [
 
 [dependencies]
 modules = []
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"

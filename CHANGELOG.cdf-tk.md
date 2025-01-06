@@ -35,6 +35,7 @@ Changes are grouped as follows:
   `CogniteFiles`, `HostedExtractorJobs`, `Relationships`, `RobotMaps`, and `WorkflowVersions`.
 - `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
 - `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
+- Toolkit now looks up the `assetExternalId` in the `Sequence` resource when deploying.
 
 ## [0.3.23] - 2024-12-13
 
