@@ -3,12 +3,12 @@ import shutil
 from pathlib import Path
 
 import pytest
-from cognite.client import ClientConfig, CogniteClient, global_config
+from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.constants import REPO_ROOT
@@ -18,7 +18,7 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 
 
 @pytest.fixture(scope="session")
-def cognite_client() -> CogniteClient:
+def toolkit_client_config() -> ToolkitClientConfig:
     load_dotenv(REPO_ROOT / ".env", override=True)
     # Ensure that we do not collect data during tests
     cmd = CollectCommand()
@@ -33,19 +33,22 @@ def cognite_client() -> CogniteClient:
         audience=f"https://{cdf_cluster}.cognitedata.com",
     )
     global_config.disable_pypi_version_check = True
-    return CogniteClient(
-        ClientConfig(
-            client_name="cdf-toolkit-integration-tests",
-            base_url=f"https://{cdf_cluster}.cognitedata.com",
-            project=os.environ["CDF_PROJECT"],
-            credentials=credentials,
-        )
+    return ToolkitClientConfig(
+        client_name="cdf-toolkit-integration-tests",
+        base_url=f"https://{cdf_cluster}.cognitedata.com",
+        project=os.environ["CDF_PROJECT"],
+        credentials=credentials,
     )
 
 
 @pytest.fixture(scope="session")
-def toolkit_client(cognite_client: CogniteClient) -> ToolkitClient:
-    return ToolkitClient(cognite_client._config)
+def cognite_client(toolkit_client_config: ToolkitClientConfig) -> CogniteClient:
+    return CogniteClient(toolkit_client_config)
+
+
+@pytest.fixture(scope="session")
+def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(toolkit_client_config)
 
 
 @pytest.fixture(scope="session")
