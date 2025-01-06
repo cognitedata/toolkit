@@ -53,8 +53,10 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataLoader,
     DataModelLoader,
+    DataSetsLoader,
     ExtractionPipelineConfigLoader,
     FileLoader,
+    LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -455,7 +457,11 @@ class BuildCommand(ToolkitCommand):
                 source_files.append(BuildSourceFile(source, content, None))
                 continue
 
-            if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
+            if resource_name in {
+                TransformationLoader.folder_name,
+                DataModelLoader.folder_name,
+                LocationFilterLoader.folder_name,
+            }:
                 # Ensure that all keys that are version gets read as strings.
                 # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
                 content = quote_int_value_by_key_in_yaml(content, key="version")
@@ -507,9 +513,12 @@ class BuildCommand(ToolkitCommand):
         for loader_cls, id_ in missing_dependencies:
             if self._is_system_resource(loader_cls, id_):
                 continue
-            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+            elif loader_cls is DataSetsLoader and id_ == "":
+                # Special case used by the location filter to indicate filter out all classical resources.
                 continue
-            if loader_cls.resource_cls is RawDatabase:
+            elif ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+                continue
+            elif loader_cls.resource_cls is RawDatabase:
                 # Raw Databases are automatically created when a Raw Table is created.
                 continue
             required_by = {

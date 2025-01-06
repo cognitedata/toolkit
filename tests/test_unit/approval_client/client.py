@@ -86,7 +86,9 @@ class LookUpAPIMock:
         self._reverse_cache: dict[int, str] = {}
 
     @staticmethod
-    def _create_id(string: str) -> int:
+    def _create_id(string: str, allow_empty: bool = False) -> int:
+        if allow_empty and string == "":
+            return 0
         # This simulates CDF setting the internal ID.
         # By using hashing, we will always get the same ID for the same string.
         # Thus, the ID will be consistent between runs and can be used in snapshots.
@@ -95,15 +97,17 @@ class LookUpAPIMock:
         hash_int = int(hex_dig[:16], 16)
         return hash_int
 
-    def id(self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False) -> int | list[int]:
+    def id(
+        self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+    ) -> int | list[int]:
         if isinstance(external_id, str):
-            id_ = self._create_id(external_id)
+            id_ = self._create_id(external_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = external_id
             return id_
         output: list[int] = []
         for ext_id in external_id:
-            id_ = self._create_id(ext_id)
+            id_ = self._create_id(ext_id, allow_empty)
             if id_ not in self._reverse_cache:
                 self._reverse_cache[id_] = ext_id
             output.append(id_)
