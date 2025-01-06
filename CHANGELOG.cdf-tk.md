@@ -33,6 +33,7 @@ Changes are grouped as follows:
 - Cognite Toolkit has improved resources that have server set default values that can lead to redeploy even when
   unchanged. This includes `Sequences`, `Containers`, `DataSets`, `Views`, `Nodes`, `Edges`, `ExtractionPipelines`,
   `CogniteFiles`, `HostedExtractorJobs`, `Relationships`, `RobotMaps`, and `WorkflowVersions`.
+- When uploading a `csv` file (RAW table, Datapoints, or Assets) any CSV dialect is now supported.
 - `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
 - `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
 - On CDF deployed on Azure and AWS clouds, setting the `CPU` and `memory` of a CogniteFiles to lower than
