@@ -56,7 +56,11 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path, parse_user_selected_modules
+from cognite_toolkit._cdf_tk.utils.modules import (
+    is_module_path,
+    module_directory_from_path,
+    parse_user_selected_modules,
+)
 
 from ._base import ToolkitCommand
 from .build import BuildCommand
@@ -575,11 +579,16 @@ class PullCommand(ToolkitCommand):
                 # need to build the entire module.
                 build_module = module_directory_from_path(selected)
             except ValueError:
-                # If this is a superpath of a module, we can build just this module.
-                build_module = selected
+                # Remove this if-statement and set the build_module to selected
+                # to support pulling more than one module.
+                if is_module_path(selected):
+                    build_module = selected
+                else:
+                    raise ToolkitValueError(
+                        "Select module or a sub-path of a module. Multiple modules are not supported."
+                    )
         else:
             raise ValueError("Expected a string or Path")
-
         build_cmd = BuildCommand(silent=True, skip_tracking=True)
         build_dir = Path(tempfile.mkdtemp())
         try:
