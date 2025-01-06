@@ -43,6 +43,14 @@ class RunApp(typer.Typer):
                 help="External id of the transformation to run.",
             ),
         ],
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         cmd = RunTransformationCommand()
@@ -91,6 +99,14 @@ class RunApp(typer.Typer):
                     "--wait",
                     "-w",
                     help="Whether to wait for the workflow to complete.",
+                ),
+            ] = False,
+            verbose: Annotated[
+                bool,
+                typer.Option(
+                    "--verbose",
+                    "-v",
+                    help="Turn on to get more verbose output when running the command",
                 ),
             ] = False,
         ) -> None:
@@ -158,6 +174,14 @@ class RunFunctionApp(typer.Typer):
                 help="Whether to rebuild the environment before running the function.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
@@ -212,6 +236,14 @@ class RunFunctionApp(typer.Typer):
                 "--wait",
                 "-w",
                 help="Whether to wait for the function to complete.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
     ) -> None:
