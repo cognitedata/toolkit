@@ -1,0 +1,29 @@
+externalId: SequenceWithRows
+columns:
+- wind_speed
+- power
+rows:
+  - rowNumber: 1
+    values:
+    - 0.0
+    - 0.0
+  - rowNumber: 2
+    values:
+    - 5.0
+    - 309000.0
+  - rowNumber: 3
+    values:
+    - 10.0
+    - 2693000.0
+  - rowNumber: 4
+    values:
+    - 15.0
+    - 3450000.0
+  - rowNumber: 5
+    values:
+    - 20.0
+    - 3450000.0
+  - rowNumber: 6
+    values:
+    - 25.0
+    - 3450000.0
