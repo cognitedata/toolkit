@@ -28,6 +28,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRows,
     ToolkitSequenceRowsList,
@@ -35,6 +36,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
@@ -380,6 +382,12 @@ class SequenceRowLoader(
     parent_resource = frozenset({SequenceLoader})
     _doc_url = "Sequences/operation/createSequenceRows"
 
+    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+        super().__init__(client, build_dir)
+        # Used in the .diff_list method to keep track of the last column in the local list
+        # such that the values in the rows can be matched to the correct column.
+        self._last_column: tuple[dict[int, int], list[int]] = {}, []
+
     @property
     def display_name(self) -> str:
         return "sequence rows"
@@ -464,6 +472,9 @@ class SequenceRowLoader(
         dumped = resource.as_write().dump()
         if "id" in dumped and "id" not in local:
             dumped.pop("id")
+        # Ensure that the rows is the last key in the dumped dictionary,
+        # This information is used in the .diff_list method to match the values in the rows to the correct column.
+        dumped["rows"] = dumped.pop("rows")
         return dumped
 
     def diff_list(
@@ -472,9 +483,18 @@ class SequenceRowLoader(
         if json_path == ("rows",):
             return diff_list_identifiable(local, cdf, get_identifier=lambda row: row["rowNumber"])
         elif json_path == ("columns",):
-            return diff_list_hashable(local, cdf)
+            self._last_column = diff_list_hashable(local, cdf)
+            # This is a special case where we need to keep track of the last column in the local list
+            # such that the values in the rows can be matched to the correct column.
+            return self._last_column
         elif len(json_path) == 3 and json_path[0] == "rows" and json_path[2] == "values":
-            return diff_list_hashable(local, cdf)
+            local_by_cdf, added = self._last_column
+            if len(cdf) == len(local_by_cdf) + len(added):
+                return local_by_cdf, added
+            else:
+                LowSeverityWarning("Number of rows in does not match the number of columns").print_warning()
+                # Just assume that the rows are in the correct order
+                return {no: no for no in range(len(cdf))}, []
         return super().diff_list(local, cdf, json_path)
 
 
