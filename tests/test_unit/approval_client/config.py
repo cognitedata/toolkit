@@ -61,6 +61,8 @@ from cognite.client.data_classes import (
     SecurityCategoryWriteList,
     Sequence,
     SequenceList,
+    SequenceRows,
+    SequenceRowsList,
     SequenceWrite,
     SequenceWriteList,
     Table,
@@ -162,7 +164,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList
-from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows, ToolkitSequenceRowsList
 
 from .data_classes import APIResource, Method
 
@@ -671,14 +672,14 @@ API_RESOURCES = [
     ),
     APIResource(
         api_name="sequences.rows",
-        resource_cls=ToolkitSequenceRows,
-        list_cls=ToolkitSequenceRowsList,
-        _write_cls=ToolkitSequenceRows,
-        _write_list_cls=ToolkitSequenceRowsList,
+        resource_cls=SequenceRows,
+        list_cls=SequenceRowsList,
+        _write_cls=SequenceRows,
+        _write_list_cls=SequenceRowsList,
         methods={
             "create": [Method(api_class_method="insert", mock_class_method="create_single")],
             "retrieve": [
-                Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
