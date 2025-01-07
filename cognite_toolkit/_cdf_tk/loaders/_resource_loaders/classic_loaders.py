@@ -460,6 +460,23 @@ class SequenceRowLoader(
         """
         yield SequenceLoader, item["externalId"]
 
+    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any]) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if "id" in dumped and "id" not in local:
+            dumped.pop("id")
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("rows",):
+            return diff_list_identifiable(local, cdf, get_identifier=lambda row: row["rowNumber"])
+        elif json_path == ("columns",):
+            return diff_list_hashable(local, cdf)
+        elif len(json_path) == 3 and json_path[0] == "rows" and json_path[2] == "values":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
 
 @final
 class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventList]):
