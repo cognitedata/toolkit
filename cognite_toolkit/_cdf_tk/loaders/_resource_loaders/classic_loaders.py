@@ -28,7 +28,12 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows, ToolkitSequenceRowsList
+from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
+    ToolkitSequenceRows,
+    ToolkitSequenceRowsList,
+    ToolkitSequenceRowsWrite,
+    ToolkitSequenceRowsWriteList,
+)
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -360,14 +365,16 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
 
 @final
 class SequenceRowLoader(
-    ResourceLoader[str, ToolkitSequenceRows, ToolkitSequenceRows, ToolkitSequenceRowsList, ToolkitSequenceRowsList]
+    ResourceLoader[
+        str, ToolkitSequenceRowsWrite, ToolkitSequenceRows, ToolkitSequenceRowsWriteList, ToolkitSequenceRowsList
+    ]
 ):
     folder_name = "classic"
     filename_pattern = r"^.*\.SequenceRow$"
     resource_cls = ToolkitSequenceRows
-    resource_write_cls = ToolkitSequenceRows
+    resource_write_cls = ToolkitSequenceRowsWrite
     list_cls = ToolkitSequenceRowsList
-    list_write_cls = ToolkitSequenceRowsList
+    list_write_cls = ToolkitSequenceRowsWriteList
     kind = "SequenceRow"
     dependencies = frozenset({SequenceLoader})
     parent_resource = frozenset({SequenceLoader})
@@ -378,7 +385,7 @@ class SequenceRowLoader(
         return "sequence rows"
 
     @classmethod
-    def get_id(cls, item: ToolkitSequenceRows | dict) -> str:
+    def get_id(cls, item: ToolkitSequenceRows | ToolkitSequenceRowsWrite | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         if not item.external_id:
@@ -386,7 +393,7 @@ class SequenceRowLoader(
         return item.external_id
 
     @classmethod
-    def get_internal_id(cls, item: ToolkitSequenceRows | dict) -> int:
+    def get_internal_id(cls, item: ToolkitSequenceRows | ToolkitSequenceRowsWrite | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -399,21 +406,22 @@ class SequenceRowLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: collections.abc.Sequence[ToolkitSequenceRows] | None, read_only: bool
+        cls, items: collections.abc.Sequence[ToolkitSequenceRowsWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: ToolkitSequenceRowsList) -> ToolkitSequenceRowsList:
+    def create(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
+        item: ToolkitSequenceRowsWrite
         for item in items:
-            self.client.sequences.rows.insert(item)
+            self.client.sequences.rows.insert(item.as_sequence_rows())
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ToolkitSequenceRowsList:
         retrieved = self.client.sequences.rows.retrieve(external_id=ids)
         return ToolkitSequenceRowsList([ToolkitSequenceRows._load(row.dump(camel_case=True)) for row in retrieved])
 
-    def update(self, items: ToolkitSequenceRowsList) -> ToolkitSequenceRowsList:
+    def update(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
         self.delete(items.as_external_ids())
         return self.create(items)
 
