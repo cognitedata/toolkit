@@ -244,17 +244,18 @@ colorama = {version = "*", markers = "platform_system == \"Windows\""}
 
 [[package]]
 name = "cognite-sdk"
-version = "7.70.7"
+version = "7.71.2"
 description = "Cognite Python SDK"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "cognite_sdk-7.70.7-py3-none-any.whl", hash = "sha256:1fed281d72c14321051dfd2f7830ab5be27b07a5e660bbf37da0a48aaae1dedf"},
-    {file = "cognite_sdk-7.70.7.tar.gz", hash = "sha256:5074f094412ca23fcaf20c91d44fedf24a9a7aa66baece774a6a3859f722958c"},
+    {file = "cognite_sdk-7.71.2-py3-none-any.whl", hash = "sha256:c1157f2e5b3612876a58a3f11b727b1a4bec4b7c734b62209634576d047439fd"},
+    {file = "cognite_sdk-7.71.2.tar.gz", hash = "sha256:6796e15086709781bec7c0a305034b9a719855776deb1aaa3744420b2e8185cc"},
 ]
 
 [package.dependencies]
 msal = ">=1.31,<2.0"
+packaging = ">=20"
 pandas = {version = ">=2.1", optional = true, markers = "extra == \"pandas\" or extra == \"all\""}
 protobuf = ">=4"
 requests = ">=2.27,<3.0"
@@ -590,7 +591,6 @@ files = [
     {file = "fastparquet-2024.11.0-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:0e2d7f02f57231e6c86d26e9ea71953737202f20e948790e5d4db6d6a1a150dc"},
     {file = "fastparquet-2024.11.0-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:fbe4468146b633d8f09d7b196fea0547f213cb5ce5f76e9d1beb29eaa9593a93"},
     {file = "fastparquet-2024.11.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:29d5c718817bcd765fc519b17f759cad4945974421ecc1931d3bdc3e05e57fa9"},
-    {file = "fastparquet-2024.11.0-cp312-cp312-win_amd64.whl", hash = "sha256:74a0b3c40ab373442c0fda96b75a36e88745d8b138fcc3a6143e04682cbbb8ca"},
     {file = "fastparquet-2024.11.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:59e5c5b51083d5b82572cdb7aed0346e3181e3ac9d2e45759da2e804bdafa7ee"},
     {file = "fastparquet-2024.11.0-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:bdadf7b6bad789125b823bfc5b0a719ba5c4a2ef965f973702d3ea89cff057f6"},
     {file = "fastparquet-2024.11.0-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:46b2db02fc2a1507939d35441c8ab211d53afd75d82eec9767d1c3656402859b"},
@@ -1489,13 +1489,13 @@ typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
 name = "pygments"
-version = "2.19.0"
+version = "2.19.1"
 description = "Pygments is a syntax highlighting package written in Python."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "pygments-2.19.0-py3-none-any.whl", hash = "sha256:4755e6e64d22161d5b61432c0600c923c5927214e7c956e31c23923c89251a9b"},
-    {file = "pygments-2.19.0.tar.gz", hash = "sha256:afc4146269910d4bdfabcd27c24923137a74d562a23a320a41a55ad303e19783"},
+    {file = "pygments-2.19.1-py3-none-any.whl", hash = "sha256:9ea1544ad55cecf4b8242fab6dd35a93bbce657034b0611ee383099054ab6d8c"},
+    {file = "pygments-2.19.1.tar.gz", hash = "sha256:61c16d2a8576dc0649d9f39e089b5f02bcd27fba10d8fb4dcc28173f7a45151f"},
 ]
 
 [package.extras]
@@ -2237,4 +2237,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "fe0c196be25dd3ef1d5061f01e7d1b3e06f2fd4304ee2252a73d720b8bcc0e58"
+content-hash = "875f900714e590d2e0e2431d0665e1f377625cfa41c363dcd1e7300351357f70"
