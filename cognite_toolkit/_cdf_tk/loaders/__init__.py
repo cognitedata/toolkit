@@ -54,6 +54,7 @@ from ._resource_loaders import (
     RoboticsDataPostProcessingLoader,
     SecurityCategoryLoader,
     SequenceLoader,
+    SequenceRowLoader,
     SpaceLoader,
     StreamlitLoader,
     ThreeDModelLoader,
@@ -82,6 +83,7 @@ if not Flags.EDGES.is_enabled():
 if not Flags.CLASSIC.is_enabled():
     _EXCLUDED_LOADERS.add(EventLoader)
     _EXCLUDED_LOADERS.add(RelationshipLoader)
+    _EXCLUDED_LOADERS.add(SequenceRowLoader)
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
@@ -204,6 +206,7 @@ __all__ = [
     "RoboticsDataPostProcessingLoader",
     "SecurityCategoryLoader",
     "SequenceLoader",
+    "SequenceRowLoader",
     "SpaceLoader",
     "StreamlitLoader",
     "ThreeDModelLoader",

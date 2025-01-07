@@ -19,6 +19,8 @@ from cognite.client.data_classes import (
     EventWriteList,
     Sequence,
     SequenceList,
+    SequenceRows,
+    SequenceRowsList,
     SequenceWrite,
     SequenceWriteList,
     capabilities,
@@ -355,6 +357,97 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             yield DataSetsLoader, item["dataSetExternalId"]
         if "assetExternalId" in item:
             yield AssetLoader, item["assetExternalId"]
+
+
+@final
+class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, SequenceRows, SequenceRowsList]):
+    folder_name = "classic"
+    filename_pattern = r"^.*\.SequenceRow$"
+    resource_cls = SequenceRows
+    resource_write_cls = SequenceRows
+    list_cls = SequenceRowsList
+    list_write_cls = SequenceRowsList
+    kind = "SequenceRow"
+    dependencies = frozenset({SequenceLoader})
+    parent_resource = frozenset({SequenceLoader})
+    _doc_url = "Sequences/operation/createSequenceRows"
+
+    @property
+    def display_name(self) -> str:
+        return "sequence rows"
+
+    @classmethod
+    def get_id(cls, item: SequenceRows | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("SequenceRows must have external_id")
+        return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: SequenceRows | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if not item.id:
+            raise KeyError("SequenceRows must have id")
+        return item.id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[SequenceRows] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
+        return []
+
+    def create(self, items: SequenceRowsList) -> SequenceRowsList:
+        for item in items:
+            self.client.sequences.rows.insert(item)
+        return items
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> SequenceRowsList:
+        return self.client.sequences.rows.retrieve(external_id=ids)
+
+    def update(self, items: SequenceRowsList) -> SequenceRowsList:
+        self.delete(items.as_external_ids())
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        for id_ in ids:
+            self.client.sequences.rows.delete_range(start=0, end=None, external_id=id_)
+        return len(ids)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[SequenceRows]:
+        if parent_ids is None:
+            parent_ids = self.client.sequences(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None
+            )
+        for sequence_id in parent_ids:
+            if isinstance(sequence_id, str):
+                res = self.client.sequences.rows.retrieve(external_id=sequence_id)
+                if res:
+                    yield res
+            elif isinstance(sequence_id, int):
+                res = self.client.sequences.rows.retrieve(id=sequence_id)
+                if res:
+                    yield res
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        """Returns all items that this item requires.
+
+        For example, a TimeSeries requires a DataSet, so this method would return the
+        DatasetLoader and identifier of that dataset.
+        """
+        yield SequenceLoader, item["externalId"]
 
 
 @final
