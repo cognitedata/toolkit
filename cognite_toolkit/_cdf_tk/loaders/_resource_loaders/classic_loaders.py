@@ -380,7 +380,7 @@ class SequenceRowLoader(
     kind = "SequenceRow"
     dependencies = frozenset({SequenceLoader})
     parent_resource = frozenset({SequenceLoader})
-    _doc_url = "Sequences/operation/createSequenceRows"
+    _doc_url = "Sequences/operation/postSequenceData"
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
