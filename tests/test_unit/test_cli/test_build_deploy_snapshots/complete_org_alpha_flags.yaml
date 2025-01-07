@@ -180,6 +180,52 @@ Relationship:
   sourceType: asset
   targetExternalId: MyEvent
   targetType: event
+Sequence:
+- columns:
+  - description: The wind speed
+    externalId: wind_speed
+    name: Wind Speed
+    valueType: DOUBLE
+  - description: The power production
+    externalId: power
+    name: Power
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
+  description: A power curve sequence
+  externalId: SequenceWithRows
+  name: SequenceWithRows
+SequenceRows:
+- columns:
+  - externalId: wind_speed
+    valueType: Double
+  - externalId: power
+    valueType: Double
+  externalId: SequenceWithRows
+  rows:
+  - rowNumber: 1
+    values:
+    - 0.0
+    - 0.0
+  - rowNumber: 2
+    values:
+    - 5.0
+    - 309000.0
+  - rowNumber: 3
+    values:
+    - 10.0
+    - 2693000.0
+  - rowNumber: 4
+    values:
+    - 15.0
+    - 3450000.0
+  - rowNumber: 5
+    values:
+    - 20.0
+    - 3450000.0
+  - rowNumber: 6
+    values:
+    - 25.0
+    - 3450000.0
 Space:
 - space: sp_instance
 - space: sp_schema

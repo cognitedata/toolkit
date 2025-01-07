@@ -414,7 +414,7 @@ class SequenceRowLoader(
     def create(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
         item: ToolkitSequenceRowsWrite
         for item in items:
-            self.client.sequences.rows.insert(item.as_sequence_rows())
+            self.client.sequences.rows.insert(item.as_sequence_rows(), external_id=item.external_id)
         return items
 
     def retrieve(self, ids: SequenceNotStr[str]) -> ToolkitSequenceRowsList:
