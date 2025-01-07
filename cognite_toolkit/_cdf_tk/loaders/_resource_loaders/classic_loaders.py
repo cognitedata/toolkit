@@ -19,8 +19,6 @@ from cognite.client.data_classes import (
     EventWriteList,
     Sequence,
     SequenceList,
-    SequenceRows,
-    SequenceRowsList,
     SequenceWrite,
     SequenceWriteList,
     capabilities,
@@ -30,6 +28,7 @@ from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows, ToolkitSequenceRowsList
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -360,13 +359,15 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
 
 
 @final
-class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, SequenceRows, SequenceRowsList]):
+class SequenceRowLoader(
+    ResourceLoader[str, ToolkitSequenceRows, ToolkitSequenceRows, ToolkitSequenceRowsList, ToolkitSequenceRowsList]
+):
     folder_name = "classic"
     filename_pattern = r"^.*\.SequenceRow$"
-    resource_cls = SequenceRows
-    resource_write_cls = SequenceRows
-    list_cls = SequenceRowsList
-    list_write_cls = SequenceRowsList
+    resource_cls = ToolkitSequenceRows
+    resource_write_cls = ToolkitSequenceRows
+    list_cls = ToolkitSequenceRowsList
+    list_write_cls = ToolkitSequenceRowsList
     kind = "SequenceRow"
     dependencies = frozenset({SequenceLoader})
     parent_resource = frozenset({SequenceLoader})
@@ -377,7 +378,7 @@ class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, Sequ
         return "sequence rows"
 
     @classmethod
-    def get_id(cls, item: SequenceRows | dict) -> str:
+    def get_id(cls, item: ToolkitSequenceRows | dict) -> str:
         if isinstance(item, dict):
             return item["externalId"]
         if not item.external_id:
@@ -385,7 +386,7 @@ class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, Sequ
         return item.external_id
 
     @classmethod
-    def get_internal_id(cls, item: SequenceRows | dict) -> int:
+    def get_internal_id(cls, item: ToolkitSequenceRows | dict) -> int:
         if isinstance(item, dict):
             return item["id"]
         if not item.id:
@@ -398,20 +399,21 @@ class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, Sequ
 
     @classmethod
     def get_required_capability(
-        cls, items: Sequence[SequenceRows] | None, read_only: bool
+        cls, items: collections.abc.Sequence[ToolkitSequenceRows] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # We don't have any capabilities for SequenceRows, that is already handled by the Sequence
         return []
 
-    def create(self, items: SequenceRowsList) -> SequenceRowsList:
+    def create(self, items: ToolkitSequenceRowsList) -> ToolkitSequenceRowsList:
         for item in items:
             self.client.sequences.rows.insert(item)
         return items
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> SequenceRowsList:
-        return self.client.sequences.rows.retrieve(external_id=ids)
+    def retrieve(self, ids: SequenceNotStr[str]) -> ToolkitSequenceRowsList:
+        retrieved = self.client.sequences.rows.retrieve(external_id=ids)
+        return ToolkitSequenceRowsList([ToolkitSequenceRows._load(row.dump(camel_case=True)) for row in retrieved])
 
-    def update(self, items: SequenceRowsList) -> SequenceRowsList:
+    def update(self, items: ToolkitSequenceRowsList) -> ToolkitSequenceRowsList:
         self.delete(items.as_external_ids())
         return self.create(items)
 
@@ -425,20 +427,21 @@ class SequenceRowLoader(ResourceLoader[str, SequenceRows, SequenceRowsList, Sequ
         data_set_external_id: str | None = None,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
-    ) -> Iterable[SequenceRows]:
+    ) -> Iterable[ToolkitSequenceRows]:
         if parent_ids is None:
-            parent_ids = self.client.sequences(
+            sequence_iterable = self.client.sequences(
                 data_set_external_ids=[data_set_external_id] if data_set_external_id else None
             )
+            parent_ids = [seq.external_id or seq.id for seq in sequence_iterable]
         for sequence_id in parent_ids:
             if isinstance(sequence_id, str):
                 res = self.client.sequences.rows.retrieve(external_id=sequence_id)
                 if res:
-                    yield res
+                    yield ToolkitSequenceRows._load(res.dump(camel_case=True))
             elif isinstance(sequence_id, int):
                 res = self.client.sequences.rows.retrieve(id=sequence_id)
                 if res:
-                    yield res
+                    yield ToolkitSequenceRows._load(res.dump(camel_case=True))
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
