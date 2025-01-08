@@ -363,3 +363,7 @@ def _read_any_csv_dialect(
     return pd.read_csv(
         buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
     )
+
+
+def rmtree() -> None:
+    raise NotImplementedError
