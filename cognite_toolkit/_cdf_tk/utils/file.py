@@ -367,3 +367,7 @@ def _read_any_csv_dialect(
     except pd.errors.ParserError:
         buffer.seek(0)
         return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
+
+
+def rmtree() -> None:
+    raise NotImplementedError
