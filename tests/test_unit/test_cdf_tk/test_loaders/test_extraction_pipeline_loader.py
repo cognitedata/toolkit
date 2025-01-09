@@ -77,6 +77,7 @@ class TestExtractionPipelineDependencies:
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
         with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
             res = cmd.clean_resources(loader, cdf_tool_mock, [], dry_run=True, drop=True)
+            assert res is not None
             assert res.deleted == 1
 
 

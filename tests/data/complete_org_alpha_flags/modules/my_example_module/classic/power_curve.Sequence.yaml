@@ -1,0 +1,13 @@
+name: SequenceWithRows
+description: A power curve sequence
+externalId: SequenceWithRows
+dataSetExternalId: ds_complete_org
+columns:
+- name: Wind Speed
+  valueType: DOUBLE
+  description: The wind speed
+  externalId: wind_speed
+- name: Power
+  valueType: DOUBLE
+  description: The power production
+  externalId: power

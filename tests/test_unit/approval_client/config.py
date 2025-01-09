@@ -61,6 +61,8 @@ from cognite.client.data_classes import (
     SecurityCategoryWriteList,
     Sequence,
     SequenceList,
+    SequenceRows,
+    SequenceRowsList,
     SequenceWrite,
     SequenceWriteList,
     Table,
@@ -665,6 +667,19 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="sequences.rows",
+        resource_cls=SequenceRows,
+        list_cls=SequenceRowsList,
+        _write_cls=SequenceRows,
+        _write_list_cls=SequenceRowsList,
+        methods={
+            "create": [Method(api_class_method="insert", mock_class_method="create_single")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
             ],
         },
     ),
