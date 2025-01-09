@@ -342,7 +342,7 @@ def read_any_csv_dialect(
 
 def _read_any_csv_dialect(
     buffer: typing.TextIO,
-    sniff_lines: int = 5,
+    sniff_lines: int = 20,
     error: Literal["continue", "raise"] = "continue",
     parse_dates: bool | None = None,
     index_col: Hashable | None = None,
