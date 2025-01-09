@@ -21,6 +21,10 @@ Changes are grouped as follows:
 
 - [alpha feature] Support for `SequenceRows` resources in the `classic` directory. Alpha flag `classic=True`.
 
+### Fixed
+
+- Deploying raw tables or datapoints from csv should no longer raise a `pandas.errors.ParserError`.
+
 ## [0.3.24] - 2025-01-06
 
 ### Added
