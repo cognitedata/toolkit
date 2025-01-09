@@ -360,9 +360,13 @@ def _read_any_csv_dialect(
             raise
         dialect = None
     buffer.seek(0)
-    return pd.read_csv(
-        buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
-    )
+    try:
+        return pd.read_csv(
+            buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
+        )
+    except pd.errors.ParserError:
+        buffer.seek(0)
+        return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
 
 
 def rmtree() -> None:
