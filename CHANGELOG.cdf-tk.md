@@ -25,6 +25,11 @@ Changes are grouped as follows:
 
 - Deploying raw tables or datapoints from csv should no longer raise a `pandas.errors.ParserError`.
 
+### Improved
+
+- On Windows, commands such as `cdf modules list` were Toolkit needs to delete a temporary directory no longer
+  raise an `PermissionError`, but instead has a gracefully fallback, and gives a warning if the fallback fails.
+
 ## [0.3.24] - 2025-01-06
 
 ### Added
