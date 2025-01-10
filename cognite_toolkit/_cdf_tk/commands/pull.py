@@ -3,7 +3,6 @@ from __future__ import annotations
 import dataclasses
 import difflib
 import re
-import shutil
 import tempfile
 import uuid
 from collections import UserList
@@ -56,6 +55,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.modules import (
     is_module_path,
     module_directory_from_path,
@@ -608,7 +608,7 @@ class PullCommand(ToolkitCommand):
             self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, ToolGlobals)
         finally:
             try:
-                shutil.rmtree(build_dir)
+                safe_rmtree(build_dir)
             except Exception as e:
                 raise ToolkitError(f"Failed to clean up temporary build directory {build_dir}.") from e
 

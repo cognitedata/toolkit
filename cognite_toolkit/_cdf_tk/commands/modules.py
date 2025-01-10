@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, Toolki
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -117,7 +118,7 @@ class ModulesCommand(ToolkitCommand):
         modules_root_dir = organization_dir / MODULES
         if mode == "clean" and modules_root_dir.is_dir():
             print(f"{INDENT}[yellow]Clearing directory[/]")
-            shutil.rmtree(modules_root_dir)
+            safe_rmtree(modules_root_dir)
 
         modules_root_dir.mkdir(parents=True, exist_ok=True)
 
@@ -148,7 +149,7 @@ class ModulesCommand(ToolkitCommand):
                         f"{INDENT}Module {module.name} already exists in folder {target_dir}. Would you like to overwrite?",
                         default=False,
                     ).ask():
-                        shutil.rmtree(target_dir)
+                        safe_rmtree(target_dir)
                     else:
                         continue
                 ignore_patterns = ["default.*"]

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import re
-import shutil
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
@@ -85,6 +84,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
@@ -178,7 +178,7 @@ class BuildCommand(ToolkitCommand):
     ) -> BuiltModuleList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
-            shutil.rmtree(build_dir)
+            safe_rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
                 self.console(f"Cleaned existing build directory {build_dir!s}.")

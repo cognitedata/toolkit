@@ -65,7 +65,7 @@ class CleanCommand(ToolkitCommand):
         drop: bool = True,
         drop_data: bool = False,
         verbose: bool = False,
-    ) -> ResourceDeployResult:
+    ) -> ResourceDeployResult | None:
         if not isinstance(loader, ResourceContainerLoader) and not drop:
             # Skipping silently as this, we will not drop data or delete this resource
             return ResourceDeployResult(name=loader.display_name)
@@ -82,6 +82,8 @@ class CleanCommand(ToolkitCommand):
 
         worker = ResourceWorker(loader)
         files = worker.load_files(read_modules=read_modules)
+        if not files:
+            return None
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
         existing_resources, duplicated = worker.load_resources(
             filepaths=files,

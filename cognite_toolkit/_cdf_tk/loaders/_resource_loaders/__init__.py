@@ -1,5 +1,5 @@
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
-from .classic_loaders import AssetLoader, EventLoader, SequenceLoader
+from .classic_loaders import AssetLoader, EventLoader, SequenceLoader, SequenceRowLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 from .datamodel_loaders import (
     ContainerLoader,
@@ -71,6 +71,7 @@ __all__ = [
     "RoboticsDataPostProcessingLoader",
     "SecurityCategoryLoader",
     "SequenceLoader",
+    "SequenceRowLoader",
     "SpaceLoader",
     "StreamlitLoader",
     "ThreeDModelLoader",
