@@ -145,7 +145,7 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
     try:
         yield build_dir
     finally:
-        shutil.rmtree(build_dir)
+        safe_rmtree(build_dir)
 
 
 def safe_read(file: Path | str) -> str:

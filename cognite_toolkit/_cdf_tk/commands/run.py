@@ -50,6 +50,7 @@ from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 
 from ._base import ToolkitCommand
 
@@ -463,7 +464,7 @@ if __name__ == "__main__":
 
         function_destination_code = function_venv / "local_code"
         if function_destination_code.exists():
-            shutil.rmtree(function_destination_code)
+            safe_rmtree(function_destination_code)
         shutil.copytree(function_source_code, function_destination_code)
         init_py = function_destination_code / "__init__.py"
         if not init_py.exists():

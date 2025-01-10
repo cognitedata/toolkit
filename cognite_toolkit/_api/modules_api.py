@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 import tempfile
 from collections.abc import Sequence
 from pathlib import Path
@@ -19,6 +18,7 @@ from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH, MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment, InitConfigYAML
 from cognite_toolkit._cdf_tk.loaders import ResourceTypes
 from cognite_toolkit._cdf_tk.utils import iterate_modules
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 
 
 class ModulesAPI:
@@ -31,7 +31,7 @@ class ModulesAPI:
             pid = 0
         self._build_dir = Path(tempfile.gettempdir()) / "cognite-toolkit" / f"build-{pid}"
         if self._build_dir.exists():
-            shutil.rmtree(self._build_dir)
+            safe_rmtree(self._build_dir)
         self._build_dir.mkdir(parents=True, exist_ok=True)
         self.__module_by_name: dict[str, ModuleMeta] = {}
         self._build_env = "dev"
