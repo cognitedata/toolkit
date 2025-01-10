@@ -1,6 +1,9 @@
 import csv
+import errno
+import os
 import re
 import shutil
+import stat
 import tempfile
 import typing
 from abc import abstractmethod
@@ -369,5 +372,26 @@ def _read_any_csv_dialect(
         return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
 
 
-def rmtree() -> None:
-    raise NotImplementedError
+def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
+    excvalue = exc[1]
+    if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
+        # On Windows, if the file is read-only, first remove the read-only attribute
+        os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
+        func(path)
+    else:
+        raise
+
+
+def rmtree(path: Path) -> None:
+    try:
+        shutil.rmtree(path, ignore_errors=False, onerror=_handle_remove_readonly)
+    except PermissionError:
+        if path.is_dir():
+            name = "directory"
+        elif path.is_file():
+            name = "file"
+        else:
+            name = "path"
+        MediumSeverityWarning(
+            f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
+        ).print_warning()
