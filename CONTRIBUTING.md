@@ -2,10 +2,13 @@
 
 ## How to contribute
 
-We are always looking for ways to improve the templates and the workflow. You can
-[file bugs](https://github.com/cognitedata/toolkit/issues/new/choose) in the repo.
+We are always looking for ways to improve the Cognite Toolkit CLI. You can
+report bugs and ask questions in [our Cognite Hub group](https://hub.cognite.com/groups/cognite-data-fusion-toolkit-277).
 
-We are also looking for contributions to new modules, especially example modules can be very
+We are also looking for contributions to new modules (content) and the Toolkit codebase that make the configuration of Cognite Data Fusion simpler, faster and more reliable. 
+
+
+, especially example modules can be very
 useful for others. Please open a PR with your suggested changes or propose a functionality
 by creating an issue.
 
