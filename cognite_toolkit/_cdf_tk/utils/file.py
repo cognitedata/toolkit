@@ -342,7 +342,7 @@ def read_any_csv_dialect(
 
 def _read_any_csv_dialect(
     buffer: typing.TextIO,
-    sniff_lines: int = 5,
+    sniff_lines: int = 20,
     error: Literal["continue", "raise"] = "continue",
     parse_dates: bool | None = None,
     index_col: Hashable | None = None,
@@ -360,6 +360,10 @@ def _read_any_csv_dialect(
             raise
         dialect = None
     buffer.seek(0)
-    return pd.read_csv(
-        buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
-    )
+    try:
+        return pd.read_csv(
+            buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
+        )
+    except pd.errors.ParserError:
+        buffer.seek(0)
+        return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
