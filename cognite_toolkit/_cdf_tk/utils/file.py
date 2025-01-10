@@ -375,14 +375,14 @@ def _read_any_csv_dialect(
 def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
     excvalue = exc[1]
     if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
-        # On Windows, if the file is read-only, first remove the read-only attribute
+        # Typically on Windows, if the file is read-only, first remove the read-only attribute
         os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
         func(path)
     else:
         raise
 
 
-def rmtree(path: Path) -> None:
+def safe_rmtree(path: Path) -> None:
     try:
         shutil.rmtree(path, ignore_errors=False, onerror=_handle_remove_readonly)
     except PermissionError:
