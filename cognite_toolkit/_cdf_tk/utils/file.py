@@ -376,6 +376,7 @@ def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
     excvalue = exc[1]
     if func in (os.rmdir, os.remove) and excvalue.errno == errno.EACCES:
         # Typically on Windows, if the file is read-only, first remove the read-only attribute
+        # https://stackoverflow.com/questions/1213706/what-user-do-python-scripts-run-as-in-windows
         os.chmod(path, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)  # 0777
         func(path)
     else:
