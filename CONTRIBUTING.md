@@ -37,7 +37,7 @@ environment and paths correctly (to avoid conflicts with the installed cdf packa
 `SENTRY_ENABLED` environment variable to `false` to avoid sending errors to Sentry.
 In .vscode/launch.json you will see a number of examples of debugging configurations that you can use to debug.
 
-### Essential code entry points
+### Essential code
 
 - Main app entry point: [cognite_toolkit/_cdf.py](cognite_toolkit/_cdf.py)
 - App subcommands: [cognite_toolkit/_cdf_tk/commands](cognite_toolkit/_cdf_tk/commands)
