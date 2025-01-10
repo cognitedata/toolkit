@@ -14,6 +14,8 @@ from unittest.mock import patch
 
 from cognite.client.config import global_config
 
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
@@ -201,7 +203,7 @@ def create_project_init(version: str) -> None:
 
     print(f"Project init for version {version} created.")
     with chdir(TEST_DIR_ROOT):
-        shutil.rmtree(environment_directory)
+        safe_rmtree(environment_directory)
 
 
 def run_modules_upgrade(
@@ -274,7 +276,7 @@ def delete_modules_requiring_manual_changes(changes):
             continue
         for file in change.needs_to_change():
             if file.is_dir():
-                shutil.rmtree(file)
+                safe_rmtree(file)
             else:
                 module = module_from_path(file)
                 for part in reversed(file.parts):
@@ -282,7 +284,7 @@ def delete_modules_requiring_manual_changes(changes):
                         break
                     file = file.parent
                 if file.exists():
-                    shutil.rmtree(file)
+                    safe_rmtree(file)
 
 
 def update_config_yaml_to_select_all_modules(project_path):
@@ -331,7 +333,7 @@ def tool_globals() -> Iterator[CDFToolConfig]:
 def local_tmp_project_path() -> Path:
     project_path = TEST_DIR_ROOT / "tmp-project"
     if project_path.exists():
-        shutil.rmtree(project_path)
+        safe_rmtree(project_path)
     project_path.mkdir(exist_ok=True)
     try:
         yield project_path
@@ -343,7 +345,7 @@ def local_tmp_project_path() -> Path:
 def local_build_path() -> Path:
     build_path = TEST_DIR_ROOT / "build"
     if build_path.exists():
-        shutil.rmtree(build_path)
+        safe_rmtree(build_path)
 
     build_path.mkdir(exist_ok=True)
     # This is a small hack to get 0.1.0b1-4 working

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import shutil
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from functools import lru_cache
@@ -27,6 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 
 
 class DumpAssetsCommand(ToolkitCommand):
@@ -60,7 +60,7 @@ class DumpAssetsCommand(ToolkitCommand):
         if format_ not in {"yaml", "csv", "parquet"}:
             raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet.")
         if output_dir.exists() and clean:
-            shutil.rmtree(output_dir)
+            safe_rmtree(output_dir)
         elif output_dir.exists():
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:

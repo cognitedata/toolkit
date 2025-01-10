@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import itertools
-import shutil
 from pathlib import Path
 
 import questionary
@@ -17,6 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 
 from ._base import ToolkitCommand
 
@@ -58,7 +58,7 @@ class DumpCommand(ToolkitCommand):
 
         is_populated = output_dir.exists() and any(output_dir.iterdir())
         if is_populated and clean:
-            shutil.rmtree(output_dir)
+            safe_rmtree(output_dir)
             output_dir.mkdir()
             print(f"  [bold green]INFO:[/] Cleaned existing output directory {output_dir!s}.")
         elif is_populated:
