@@ -2,12 +2,55 @@
 
 ## How to contribute
 
-We are always looking for ways to improve the templates and the workflow. You can
-[file bugs](https://github.com/cognitedata/toolkit/issues/new/choose) in the repo.
+We are always looking for ways to improve the Cognite Toolkit CLI. You can
+report bugs and ask questions in [our Cognite Hub group](https://hub.cognite.com/groups/cognite-data-fusion-toolkit-277).
 
-We are also looking for contributions to new modules, especially example modules can be very
-useful for others. Please open a PR with your suggested changes or propose a functionality
-by creating an issue.
+We are also looking for contributions to new modules (content) and the Toolkit codebase that make the configuration of
+Cognite Data Fusion easier, faster and more reliable.
+
+## Improving the codebase
+
+If you want to contribute to the codebase, you can do so by creating a new branch and
+[opening a pull request](https://github.com/cognitedata/toolkit/compare). Prefix the PR title with the Jira issue
+number on the form `[CDF-12345]`. A good PR should include a good description of the change to help the reviewer
+understand the nature and context of the change.
+
+### Linting and testing
+
+The Cognite Toolkit CLI and modules have an extensive test and linting battery to ensure quality and speed of development.
+
+See [pyproject.toml](pyproject.toml) for the linting and testing configuration.
+
+See [tests](tests/README.md) for more information on how to run and maintain tests.
+
+The `cdf_` prefixed modules are tested as part of the product development.
+
+### Setting up the local environment
+
+Your local environment needs a working Python installation and a virtual environment. We use `poetry` to manage
+the environment and its dependencies.
+
+Install pre-commit hooks by running `poetry run pre-commit install` in the root of the repository.
+
+When developing in vscode, the `cdf-tk-dev.py` file is useful to run the toolkit. This script will set the
+environment and paths correctly (to avoid conflicts with the installed cdf package) and also sets the
+`SENTRY_ENABLED` environment variable to `false` to avoid sending errors to Sentry.
+In .vscode/launch.json you will see a number of examples of debugging configurations that you can use to debug.
+
+### Essential code
+
+- Main app entry point: [cognite_toolkit/_cdf.py](cognite_toolkit/_cdf.py)
+- App subcommands: [cognite_toolkit/_cdf_tk/commands](cognite_toolkit/_cdf_tk/commands)
+- Resource loaders: [cognite_toolkit/_cdf_tk/loaders](cognite_toolkit/_cdf_tk/loaders)
+- Tests: [tests](tests)
+- CI/CD: [.github/workflows](.github/workflows)
+
+### Sentry
+
+When you develop the Cognite Toolkit you should avoid sending errors to  `sentry`. You can control `sentry` by setting
+the  `environment` variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.
+
+### Contributing in modules
 
 ## Module ownership
 
@@ -70,37 +113,6 @@ Of course, where data population of e.g. data model is part of the configuration
 The scripts are continuously under development to simplify management of configurations, and
 we are pushing the functionality into the Python SDK when that makes sense.
 
-## Testing
-
-The `cdf_` prefixed modules should be tested as part of the product development. Our internal
-test framework for scenario based testing can be found in the Cognite private big-smoke repository.
-
-The `cdf-tk deploy` script command will clean configurations if you specify `--drop`, so you can
-try to apply the configuration multiple times without having to clean up manually. If you want to delete
-everything that is governed by your templates, including data ingested into data models, the  `cdf-tk clean`
-script command can be used to clean up configurations using the `scripts/delete.py` functions.
-
-See [tests](tests/README.md) for more information on how to run tests.
-
-## Setting up Environment
-
-In order to develop `cdf-tk` you need to set up a development environment. You need a working python
-installation and a virtual environment. We recommend using `poetry` to set up the environment as this is
-the package tool that the toolkit repo uses also to create the installable python package.
-
-When developing, you should use `cdf-tk-dev.py` to run the toolkit. This script will set the environment and paths
-correctly (to avoid running the installed cdf-tk package) and also set the `SENTRY_ENABLED` environment
-variable to `false` to avoid sending errors to Sentry.
-In .vscode/launch.json you will see a number of examples of debugging configurations that you can use to debug.
-If you use VSCode or another IDE supporting devcontainers, the easiest way to set up the environment is to
-run in the Dev Container as configured in .devcontainer. It creates a virtual python environment in .venv/ that
-will automatically be picked up by VSCode or poetry also if you want to run outside the devcontainer.
-
-### Sentry
-
-When you develop `cdf-tk` you should avoid sending errors to  `sentry`. You can control `sentry` by setting
-the  `environment` variable `SENTRY_ENABLED=false`. This is set automatically when you use the `cdf-tk-dev.py`.
-
 ## Releasing
 
 The templates are bundled with the `cdf-tk` tool, so they are released together.
@@ -132,12 +144,12 @@ To release a new version of the `cdf-tk` tool and the templates, you need to do 
       - deactivate
       - run script again
 
-1. Get approval to squash merge the branch into `main`:
+1. Get approval to **squash merge** the branch into `main`:
    1. Verify that all Github actions pass.
 1. Create a release branch: `release-x.y.z` from `main`:
    1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
    2. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
-   3. Get approval and merge (do not squash).
+   3. Get approval and merge (**do not squash**).
    4. Verify that the Github action `release` passes and pushes to PyPi.
 1. Create a new release on github.com with the tag and release notes:
    1. Find the tag you created and create the new release.
