@@ -1,0 +1,14 @@
+externalId: {{ activityToEquipmentTransformationExternalId}}
+dataSetExternalId: {{ dataset }}
+name: Activity to equipment Connection Transformation
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteActivity
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+

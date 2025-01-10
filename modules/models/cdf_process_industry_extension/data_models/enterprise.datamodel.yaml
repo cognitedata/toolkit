@@ -1,0 +1,66 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}ProcessIndustries
+name: {{ organization }} enterprise model
+description: {{ organization }} enterprise model
+version: v1
+views:
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}MaintenanceOrder
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Operation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Notification
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSourceSystem
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Asset
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteAssetClass
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteAssetType
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Equipment
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteEquipmentType
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}File
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteFileCategory
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Activity
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}TimeSeries
+  version: v1
+  type: view
+- space: cdf_cdm
+  externalId: CogniteUnit
+  version: v1
+  type: view

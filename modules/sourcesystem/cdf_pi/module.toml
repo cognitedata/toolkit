@@ -1,0 +1,30 @@
+[module]
+title = "OSIsoft/AVEVA PI Data Source"
+is_selected_by_default = false
+
+[packages]
+tags = [
+    "sourcesystem",
+    "quickstart",
+]
+
+[dependencies]
+modules = []
+
+[[data]]
+repoType = "http"
+repo = "https://apps-cdn.cogniteapp.com/toolkit"
+source = "publicdata/pi_timeseries.Table.csv"
+destination = "raw/timeseries.Table.csv"
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"
+
+[[extra_resources]]
+location = "cdf_common/raw/source.DataBase.yaml"
+
+[[extra_resources]]
+location = "models/cdf_process_industry_extension/data_models"
