@@ -61,7 +61,7 @@ class FileBuilder(Builder):
             ):
                 raw_type = "dict" if isinstance(raw_list, dict) else "list with multiple entries"
                 LowSeverityWarning(
-                    f"Invalid file template name {cls.template_pattern!r} detected in {module.relative_path.as_posix()!r}."
+                    f"Invalid file template {cls.template_pattern!r} detected in {module.relative_path.as_posix()!r}."
                     f"Expected a list with a single dictionary, but got {raw_type}."
                 ).print_warning()
 
