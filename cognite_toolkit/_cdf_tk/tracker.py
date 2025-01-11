@@ -12,7 +12,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from mixpanel import Consumer, Mixpanel
+from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import IN_BROWSER
@@ -91,7 +91,7 @@ class Tracker:
 
         def track() -> None:
             # If we are unable to connect to Mixpanel, we don't want to crash the program
-            with suppress(ConnectionError):
+            with suppress(ConnectionError, MixpanelException):
                 self.mp.track(
                     distinct_id,
                     event_name,
@@ -118,7 +118,7 @@ class Tracker:
 
         distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
         cache.write_text(distinct_id)
-        with suppress(ConnectionError):
+        with suppress(ConnectionError, MixpanelException):
             self.mp.people_set(
                 distinct_id,
                 {
