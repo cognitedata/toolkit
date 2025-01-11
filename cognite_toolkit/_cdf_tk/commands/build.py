@@ -484,7 +484,9 @@ class BuildCommand(ToolkitCommand):
                 ]:
                     variable_str = humanize_collection(unresolved_variables)
                     source_str = variables.source_path.as_posix() if variables.source_path else "config.[ENV].yaml"
-                    message += f"\n{HINT_LEAD_TEXT}Add the following variables to the {source_str!r}: {variable_str!r}"
+                    message += (
+                        f"\n{HINT_LEAD_TEXT}Add the following variables to the {source_str!r} file: {variable_str!r}"
+                    )
 
                 raise ToolkitYAMLFormatError(message)
 
