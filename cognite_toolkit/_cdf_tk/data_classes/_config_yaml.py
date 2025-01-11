@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal, get_args
+from typing import Any, ClassVar, Literal, cast, get_args
 
 import yaml
 from rich import print
@@ -40,6 +40,7 @@ from cognite_toolkit._cdf_tk.utils import (
     YAMLWithComments,
     calculate_str_or_file_hash,
     flatten_dict,
+    read_yaml_content,
     safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
@@ -503,7 +504,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = safe_read(default_config)
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
-            file_data = yaml.safe_load(raw_file)
+            file_data = cast(dict, read_yaml_content(raw_file))
             for key, value in file_data.items():
                 if len(parts) >= 1 and parts[0] in ROOT_MODULES:
                     key_path = (self._variables, *parts, key)
@@ -540,7 +541,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         """
         raw_file = existing_config_yaml
         comments = cls._extract_comments(raw_file)
-        config = yaml.safe_load(raw_file)
+        config = cast(dict, read_yaml_content(raw_file))
         if cls._environment in config:
             environment = Environment.load(config[cls._environment], build_env_name)
         else:

@@ -68,11 +68,8 @@ def load_yaml_inject_variables(
                 f"Variable {environment_variable} is not set in the environment.{suffix}"
             ).print_warning()
 
-    if yaml.__with_libyaml__:
-        # CSafeLoader is faster than yaml.safe_load
-        result = yaml.CSafeLoader(content).get_data()
-    else:
-        result = yaml.safe_load(content)
+    result = read_yaml_content(content)
+
     if required_return_type == "any":
         return result
     elif required_return_type == "list":
@@ -122,10 +119,9 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     """
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
-        config_data = yaml.CSafeLoader(content).get_data()
+        return yaml.CSafeLoader(content).get_data()
     else:
-        config_data = yaml.safe_load(content)
-    return config_data
+        return yaml.safe_load(content)
 
 
 # Spaces are allowed, but we replace them as well
