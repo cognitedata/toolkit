@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, Toolki
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -236,7 +236,7 @@ class ModulesCommand(ToolkitCommand):
             print(
                 f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]{'Updating' if mode == 'update' else 'Creating'} config.{environment}.yaml[/]"
             )
-            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+            safe_write(Path(organization_dir) / f"config.{environment}.yaml", config_init.dump_yaml_with_comments())
 
         cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0] if environments else "dev")
 

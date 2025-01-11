@@ -429,9 +429,9 @@ class AuthReader:
                 default=False,
             ).ask():
                 shutil.move(".env", filename)
-                Path(".env").write_text(new_env_file)
+                Path(".env").write_text(new_env_file, encoding="utf-8")
         elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
-            Path(".env").write_text(new_env_file)
+            Path(".env").write_text(new_env_file, encoding="utf-8")
 
         return auth_vars
 
