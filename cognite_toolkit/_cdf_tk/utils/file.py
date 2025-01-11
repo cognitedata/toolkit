@@ -5,6 +5,7 @@ import re
 import shutil
 import stat
 import tempfile
+import time
 import typing
 from abc import abstractmethod
 from collections import UserDict, defaultdict
@@ -18,7 +19,7 @@ import pandas as pd
 import yaml
 from rich import print
 
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
@@ -112,16 +113,31 @@ def read_yaml_file(
     return config_data
 
 
+_TOTAL_ELAPSED_TIME = 0.0
+_HAS_HINTED = False
+
+
 def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     """Read a YAML string and return a dictionary
 
     content: string containing the YAML content
     """
+    global _TOTAL_ELAPSED_TIME, _HAS_HINTED
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
         return yaml.CSafeLoader(content).get_data()
-    else:
-        return yaml.safe_load(content)
+
+    t0 = time.perf_counter()
+    result = yaml.safe_load(content)
+    _TOTAL_ELAPSED_TIME += time.perf_counter() - t0
+    if _TOTAL_ELAPSED_TIME > 60.0 and not _HAS_HINTED:
+        _HAS_HINTED = True
+        MediumSeverityWarning(
+            f"YAML parsing is taking a long time. {HINT_LEAD_TEXT}Consider installing the `libyaml` package for faster parsing."
+            f" See [link={URL.libyaml}]{URL.libyaml}[/link] for more information."
+        ).print_warning()
+
+    return result
 
 
 # Spaces are allowed, but we replace them as well
