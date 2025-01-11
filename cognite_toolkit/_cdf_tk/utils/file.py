@@ -133,7 +133,7 @@ def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     if _TOTAL_ELAPSED_TIME > 60.0 and not _HAS_HINTED:
         _HAS_HINTED = True
         MediumSeverityWarning(
-            f"YAML parsing is taking a long time. {HINT_LEAD_TEXT}Consider installing the `libyaml` package for faster parsing."
+            f"YAML parsing is taking a long time.\n{HINT_LEAD_TEXT}Consider installing the `libyaml` package for faster parsing."
             f" See [link={URL.libyaml}]{URL.libyaml}[/link] for more information."
         ).print_warning()
 
