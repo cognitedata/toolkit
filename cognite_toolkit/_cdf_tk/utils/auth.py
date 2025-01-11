@@ -417,7 +417,7 @@ class AuthReader:
 
         new_env_file = auth_vars.create_dotenv_file()
         if Path(".env").exists():
-            existing = Path(".env").read_text()
+            existing = Path(".env").read_text(encoding="utf-8")
             if existing == new_env_file:
                 print("Identical '.env' file already exist.")
                 return auth_vars

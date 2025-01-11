@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree
 
 from ._base import ToolkitCommand
 
@@ -627,7 +627,7 @@ if __name__ == "__main__":
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
-        parsed = ast.parse(py_file.read_text())
+        parsed = ast.parse(safe_read(py_file))
         handle_function = next(
             (item for item in parsed.body if isinstance(item, ast.FunctionDef) and item.name == function_name), None
         )
