@@ -476,7 +476,9 @@ class BuildCommand(ToolkitCommand):
             try:
                 loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
-                message = f"YAML validation error for {source_path.name} after substituting config variables: {e}"
+                message = (
+                    f"YAML validation error for {source_path.as_posix()!r} after substituting config variables:\n{e}"
+                )
                 if unresolved_variables := [
                     w.variable.removesuffix("}}").removeprefix("{{").strip()
                     for w in replace_warnings
