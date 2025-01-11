@@ -620,6 +620,13 @@ class AuthCommand(ToolkitCommand):
             if not has_function_write_access:
                 self.warn(HighSeverityWarning("Cannot activate function service, missing function write access."))
                 return function_status.status
+
+            if client.config.is_private_link:
+                print(
+                    "  [bold yellow]INFO:[/] Function service has not been activated. "
+                    "Function activation must be done manually."
+                )
+                return function_status.status
             try:
                 client.functions.activate()
             except CogniteAPIError as e:
