@@ -59,10 +59,10 @@ class FileBuilder(Builder):
                 isinstance(raw_list, list)
                 and any(cls.template_pattern in entry.get("externalId", "") for entry in raw_list)
             ):
-                raw_type = "dict" if isinstance(raw_list, dict) else "list with multiple entries"
+                raw_type = "dictionary" if isinstance(raw_list, dict) else "list with multiple entries"
                 LowSeverityWarning(
-                    f"Invalid file template {cls.template_pattern!r} detected in {module.relative_path.as_posix()!r}."
-                    f"Expected a list with a single dictionary, but got {raw_type}."
+                    f"Invalid file template {cls.template_pattern!r} usage detected in {module.relative_path.as_posix()!r}.\n"
+                    f"The file template is expected in a list with a single entry, but got {raw_type}."
                 ).print_warning()
 
             return raw_list
