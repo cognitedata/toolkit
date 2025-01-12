@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 
 
 class ImportTransformationCLI(ToolkitCommand):
@@ -36,6 +37,7 @@ class ImportTransformationCLI(ToolkitCommand):
         destination: Path,
         overwrite: bool,
         flatten: bool,
+        clean: bool,
         verbose: bool = False,
     ) -> None:
         # Manifest files are documented at
@@ -106,6 +108,14 @@ class ImportTransformationCLI(ToolkitCommand):
         for resource_type, count in count_by_resource_type.items():
             table.add_row(resource_type, str(count))
         print(table)
+
+        if clean:
+            if source.is_dir():
+                print(f"Cleaning up source directory {source}.")
+                safe_rmtree(source)
+            else:
+                print(f"Cleaning up source file {source}.")
+                source.unlink()
 
     def _load_file(self, yaml_file: Path) -> dict[str, Any] | None:
         content = read_yaml_file(yaml_file, expected_output="dict")

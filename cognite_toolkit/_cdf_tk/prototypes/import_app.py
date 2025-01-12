@@ -25,8 +25,9 @@ def transformation_cli(
     ctx: typer.Context,
     source: Path = typer.Argument(..., help="Path to the transformation CLI manifest directory or files."),
     destination: Path = typer.Argument(..., help="Path to the destination directory."),
-    overwrite: bool = typer.Option(False, help="Overwrite existing files."),
+    overwrite: bool = typer.Option(False, help="Overwrite destination if it already exists."),
     flatten: bool = typer.Option(False, help="Flatten the directory structure."),
+    clean: bool = typer.Option(False, help="Remove the source directory after import."),
 ) -> None:
     """Import transformation CLI manifests into Cognite-Toolkit modules."""
 
@@ -39,4 +40,4 @@ def transformation_cli(
 
     cmd = ImportTransformationCLI(print_warning=True, get_client=get_client)
 
-    cmd.execute(source, destination, overwrite, flatten, verbose=ctx.obj.verbose)
+    cmd.execute(source, destination, overwrite, flatten, clean, verbose=ctx.obj.verbose)

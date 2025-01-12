@@ -17,7 +17,7 @@ class TestImportTransformationCLI:
         )
         expected = {transformation, schedule, notification}
         cmd = ImportTransformationCLI(print_warning=False)
-        cmd.execute(TRANSFORMATION_CLI / f"{source_name}.yaml", tmp_path, False, False, verbose=False)
+        cmd.execute(TRANSFORMATION_CLI / f"{source_name}.yaml", tmp_path, False, False, False, verbose=False)
 
         files_by_name = {file.stem: file for file in tmp_path.rglob("*")}
         assert len(files_by_name) == len(expected)
