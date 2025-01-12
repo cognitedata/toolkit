@@ -348,7 +348,7 @@ class DeployCommand(ToolkitCommand):
                     loader.get_ids(resources), environment_variable_warning_by_id
                 ):
                     message += hint
-                raise ResourceCreationError() from e
+                raise ResourceCreationError(message) from e
         except CogniteDuplicatedError as e:
             self.warn(
                 LowSeverityWarning(
