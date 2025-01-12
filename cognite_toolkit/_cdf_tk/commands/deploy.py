@@ -8,6 +8,7 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from cognite.client.utils._identifier import T_ID
 from rich import print
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -42,6 +43,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.tk_warnings.base import catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
@@ -215,9 +217,12 @@ class DeployCommand(ToolkitCommand):
         if not files:
             return None
 
-        to_create, to_update, unchanged, duplicated = worker.load_resources(
-            files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
-        )
+        with catch_warnings() as warnings:
+            to_create, to_update, unchanged, duplicated = worker.load_resources(
+                files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+            )
+        if warnings:
+            print(str(warnings))
 
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
@@ -321,7 +326,7 @@ class DeployCommand(ToolkitCommand):
             else:
                 # This must be printed as this if not rich filters out regex patterns from
                 # the error message which typically contains the critical information.
-                print(e)
+                print(escape(str(e)))
                 raise ResourceCreationError(f"Failed to create resource(s). Error: {e!s}.") from e
         except CogniteDuplicatedError as e:
             self.warn(
