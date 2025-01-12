@@ -13,7 +13,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.builders import get_loader
 from cognite_toolkit._cdf_tk.constants import DOCKER_IMAGE_NAME
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
-from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read
+from cognite_toolkit._cdf_tk.utils import iterate_modules, read_yaml_file, safe_read, safe_write
 from cognite_toolkit._version import __version__
 
 
@@ -133,7 +133,7 @@ views:
                     else:
                         indent = None
                 new_lines.append(line)
-            resource_yaml.write_text("\n".join(new_lines))
+            safe_write(resource_yaml, "\n".join(new_lines))
             changed.add(resource_yaml)
         return changed
 
@@ -194,7 +194,7 @@ After:
                     new_content.append(line)
                 if has_api_call_parameters:
                     changed.add(resource_yaml)
-                    resource_yaml.write_text("\n".join(new_content))
+                    safe_write(resource_yaml, "\n".join(new_content))
 
         return changed
 
@@ -320,7 +320,7 @@ default_organization_dir = "my_organization"
                     changes.add(cdf_toml)
             else:
                 new_cdf_toml.append(line)
-        cdf_toml.write_text("\n".join(new_cdf_toml))
+        cdf_toml.write_text("\n".join(new_cdf_toml), encoding="utf-8")
         return changes
 
 
@@ -371,7 +371,7 @@ After:
         cdf_toml_content = cdf_toml_content.replace(f'version = "{__version__}"', f'version = "{current_version}"')
 
         cdf_toml_path = Path.cwd() / "cdf.toml"
-        cdf_toml_path.write_text(cdf_toml_content)
+        cdf_toml_path.write_text(cdf_toml_content, encoding="utf-8")
         system_yaml.unlink()
         return {cdf_toml_path, system_yaml}
 
@@ -449,7 +449,7 @@ After:
                     updated_file.append(line.replace("modules:", "variables:"))
                 else:
                     updated_file.append(line)
-            config_yaml.write_text("\n".join(updated_file))
+            safe_write(config_yaml, "\n".join(updated_file))
         return changed
 
 
@@ -540,7 +540,7 @@ dataSetExternalId: my_external_id
                 if "externalDataSetId" in content:
                     changed.add(resource_yaml)
                     content = content.replace("externalDataSetId", "dataSetExternalId")
-                    resource_yaml.write_text(content)
+                    safe_write(resource_yaml, content)
         return changed
 
 
@@ -573,7 +573,7 @@ environment:
             if "selected_modules_and_packages" in data:
                 changed.add(config_yaml)
                 data = data.replace("selected_modules_and_packages", "selected")
-                config_yaml.write_text(data)
+                safe_write(config_yaml, data)
         return changed
 
 
@@ -658,7 +658,7 @@ class UpdateModuleVersion(AutomaticChange):
                     changes.add(cdf_toml)
             else:
                 new_cdf_toml.append(line)
-        cdf_toml.write_text("\n".join(new_cdf_toml))
+        safe_write(cdf_toml, "\n".join(new_cdf_toml))
         return changes
 
 class UpdateDockerImageVersion(AutomaticChange):
@@ -674,7 +674,7 @@ class UpdateDockerImageVersion(AutomaticChange):
             content = safe_read(workflow_file)
             new_content = re.sub(rf"image: {DOCKER_IMAGE_NAME}:[0-9.ab]+", f"image: {DOCKER_IMAGE_NAME}:{__version__}", content)
             if new_content != content:
-                workflow_file.write_text(new_content)
+                safe_write(workflow_file, new_content)
                 changed.add(workflow_file)
         return changed
 

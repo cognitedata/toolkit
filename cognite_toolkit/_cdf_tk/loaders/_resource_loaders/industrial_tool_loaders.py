@@ -23,6 +23,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitNotADirectoryError, Toolki
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
+    safe_read,
 )
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
 
@@ -117,11 +118,11 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
         requirements_txt = app_path / "requirements.txt"
         if requirements_txt.exists():
-            requirements_txt_lines = requirements_txt.read_text().splitlines()
+            requirements_txt_lines = safe_read(requirements_txt).splitlines()
         else:
             requirements_txt_lines = ["pyodide-http==0.2.1", f"cognite-sdk=={CogniteSDKVersion.__version__}"]
         files = {
-            py_file.relative_to(app_path).as_posix(): {"content": {"text": py_file.read_text(), "$case": "text"}}
+            py_file.relative_to(app_path).as_posix(): {"content": {"text": safe_read(py_file), "$case": "text"}}
             for py_file in app_path.rglob("*.py")
             if py_file.is_file()
         }

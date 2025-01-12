@@ -69,7 +69,7 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definition_path = root_module_dir / "package.toml"
         if not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
-        package_definitions = toml.loads(package_definition_path.read_text())["packages"]
+        package_definitions = toml.loads(package_definition_path.read_text(encoding="utf-8"))["packages"]
 
         collected: dict[str, Package] = {
             package_name: Package.load(package_name, package_definition)

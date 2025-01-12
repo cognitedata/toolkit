@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
 )
 from cognite_toolkit._cdf_tk.utils import (
     humanize_collection,
+    safe_read,
 )
 
 
@@ -141,7 +142,7 @@ def get_loader(
         # If there is a tableName field, it is a table, otherwise it is a database.
         if any(
             line.strip().startswith("tableName:") or line.strip().startswith("- tableName:")
-            for line in source_path.read_text().splitlines()
+            for line in safe_read(source_path).splitlines()
         ):
             return RawTableLoader, None
         else:

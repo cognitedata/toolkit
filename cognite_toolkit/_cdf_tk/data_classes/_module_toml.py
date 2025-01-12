@@ -48,7 +48,7 @@ class ModuleToml:
     @classmethod
     def load(cls, data: dict[str, Any] | Path) -> ModuleToml:
         if isinstance(data, Path):
-            return cls.load(toml.loads(data.read_text()))
+            return cls.load(toml.loads(data.read_text(encoding="utf-8")))
 
         if "dependencies" in data:
             dependencies = frozenset(data["dependencies"].get("modules", set()))

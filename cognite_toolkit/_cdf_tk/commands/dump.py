@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
 
@@ -70,7 +70,7 @@ class DumpCommand(ToolkitCommand):
         resource_folder.mkdir(exist_ok=True)
         for space in spaces:
             space_file = resource_folder / f"{space.space}.space.yaml"
-            space_file.write_text(space.as_write().dump_yaml())
+            safe_write(space_file, space.as_write().dump_yaml())
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped space {space.space} to {space_file!s}.")
 
@@ -82,7 +82,7 @@ class DumpCommand(ToolkitCommand):
             if prefix_space:
                 file_name = f"{container.space}_{file_name}"
             container_file = container_folder / file_name
-            container_file.write_text(container.as_write().dump_yaml())
+            safe_write(container_file, container.as_write().dump_yaml())
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped container {container.external_id} to {container_file!s}.")
 
@@ -99,14 +99,14 @@ class DumpCommand(ToolkitCommand):
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
             view_file = view_folder / file_name
             view_write = view_loader.dump_as_write(view)
-            view_file.write_text(yaml.safe_dump(view_write, sort_keys=False))
+            safe_write(view_file, yaml.safe_dump(view_write, sort_keys=False))
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped view {view.as_id()} to {view_file!s}.")
 
         data_model_file = resource_folder / f"{data_model.external_id}.datamodel.yaml"
         data_model_write = data_model.as_write()
         data_model_write.views = views.as_ids()  # type: ignore[assignment]
-        data_model_file.write_text(data_model_write.dump_yaml())
+        safe_write(data_model_file, data_model_write.dump_yaml())
 
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
 
