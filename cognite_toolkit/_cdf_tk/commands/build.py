@@ -264,6 +264,7 @@ class BuildCommand(ToolkitCommand):
             if verbose:
                 self.console(f"Processing module {module.name}")
             module_variable_sets = variables.get_module_variables(module)
+            last_identifiers: set[tuple[Hashable, Path]] = set()
             for iteration, module_variables in enumerate(module_variable_sets, 1):
                 try:
                     built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
@@ -279,6 +280,25 @@ class BuildCommand(ToolkitCommand):
                     built_module_resources = {}
                 else:
                     built_status = "Success"
+
+                # Check for duplicates
+                identifiers = {
+                    (resource.identifier, resource.source.path)
+                    for resources in built_module_resources.values()
+                    for resource in resources
+                }
+                if duplicates := (identifiers & last_identifiers):
+                    duplicate_warnings = WarningList[FileReadWarning]()
+                    hint = (
+                        f"This is likely due to missing variable in the "
+                        f"identifier when using the module {module.name} as a template."
+                    )
+                    for identifier, path in duplicates:
+                        duplicate_warnings.append(DuplicatedItemWarning(path, identifier, path, hint=hint))
+                    print(str(duplicate_warnings))
+                    self.warning_list.extend(duplicate_warnings)
+
+                last_identifiers = identifiers
 
                 module_warnings = len(self.warning_list) - warning_count
                 warning_count = len(self.warning_list)
