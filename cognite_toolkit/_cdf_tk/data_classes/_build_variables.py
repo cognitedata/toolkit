@@ -68,12 +68,14 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     # Subclassing tuple to make the class immutable. BuildVariables is expected to be initialized and
     # then used as a read-only object.
-    def __new__(cls, collection: Collection[BuildVariable]) -> BuildVariables:
+    def __new__(cls, collection: Collection[BuildVariable], source_path: Path | None = None) -> BuildVariables:
         # Need to override __new__ to as we are subclassing a tuple:
         #   https://stackoverflow.com/questions/1565374/subclassing-tuple-with-multiple-init-arguments
         return super().__new__(cls, tuple(collection))
 
-    def __init__(self, collection: Collection[BuildVariable]) -> None: ...
+    def __init__(self, collection: Collection[BuildVariable], source_path: Path | None = None) -> None:
+        super().__init__()
+        self.source_path = source_path
 
     @cached_property
     def selected(self) -> BuildVariables:
@@ -85,6 +87,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         raw_variable: dict[str, Any],
         available_modules: set[Path],
         selected_modules: set[Path] | None = None,
+        source_path: Path | None = None,
     ) -> BuildVariables:
         """Loads the variables from the user input."""
         variables = []
@@ -113,7 +116,7 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     is_selected = selected_modules is None or path in selected_modules
                     variables.append(BuildVariable(key, hashable_values, is_selected, path, iteration))
 
-        return cls(variables)
+        return cls(variables, source_path=source_path)
 
     @classmethod
     def load(cls, data: list[dict[str, Any]]) -> BuildVariables:
@@ -147,7 +150,8 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
                     # We select the variable with the longest path to ensure that the most specific variable is selected
                     max(variables, key=lambda v: len(v.location.parts))
                     for variables in variable_set.values()
-                ]
+                ],
+                source_path=self.source_path,
             )
             for variable_set in variable_sets
         ]
