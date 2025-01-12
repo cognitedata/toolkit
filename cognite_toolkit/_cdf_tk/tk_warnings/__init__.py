@@ -3,6 +3,7 @@ from .base import (
     SeverityLevel,
     ToolkitWarning,
     WarningList,
+    catch_warnings,
 )
 from .fileread import (
     CaseTypoWarning,
@@ -76,4 +77,5 @@ __all__ = [
     "WarningList",
     "YAMLFileWarning",
     "YAMLFileWithElementWarning",
+    "catch_warnings",
 ]

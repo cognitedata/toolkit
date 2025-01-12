@@ -106,7 +106,7 @@ class GeneralWarning(ToolkitWarning, ABC):
 
 
 @contextmanager
-def catch_warnings() -> Iterator[WarningList[ToolkitWarning]]:
+def catch_warnings(warning_type: type[ToolkitWarning] | None = None) -> Iterator[WarningList[ToolkitWarning]]:
     """Catch warnings and append them to the issues list."""
     warning_list = WarningList[ToolkitWarning]()
     with warnings.catch_warnings(record=True) as warning_logger:
@@ -114,7 +114,10 @@ def catch_warnings() -> Iterator[WarningList[ToolkitWarning]]:
         try:
             yield warning_list
         finally:
-            if warning_logger:
-                warning_list.extend(
-                    [warning.message for warning in warning_logger if isinstance(warning.message, ToolkitWarning)]
-                )
+            for warning in warning_logger:
+                if warning_type is None or isinstance(warning.message, warning_type):
+                    warning_list.append(warning.message)
+                elif isinstance(warning.message, ToolkitWarning):
+                    warning.message.print_warning()
+                else:
+                    warnings.warn(warning.message, stacklevel=2)

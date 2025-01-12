@@ -232,6 +232,7 @@ class MissingFileWarning(FileReadWarning):
 class EnvironmentVariableMissingWarning(FileReadWarning):
     severity = SeverityLevel.HIGH
     variables: frozenset[str]
+    identifiers: frozenset[Hashable] | None = None
 
     def get_message(self) -> str:
         from cognite_toolkit._cdf_tk.utils import humanize_collection

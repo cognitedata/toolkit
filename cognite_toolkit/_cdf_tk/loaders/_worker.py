@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import warnings
+from collections.abc import Hashable
 from copy import deepcopy
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Literal, overload
@@ -16,6 +18,7 @@ from yaml import YAMLError
 
 from cognite_toolkit._cdf_tk.constants import TABLE_FORMATS
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
@@ -99,12 +102,15 @@ class ResourceWorker(
             environment_variables if self.loader.do_environment_variable_injection and environment_variables else {}
         )
         for filepath in filepaths:
-            try:
-                resource_list = self.loader.load_resource_file(filepath, environment_variables)
-            except YAMLError as e:
-                raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.name}: {e}")
+            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+                try:
+                    resource_list = self.loader.load_resource_file(filepath, environment_variables)
+                except YAMLError as e:
+                    raise ToolkitYAMLFormatError(f"YAML validation error for {filepath.name}: {e}")
+            identifiers: list[Hashable] = []
             for resource_dict in resource_list:
                 identifier = self.loader.get_id(resource_dict)
+                identifiers.append(identifier)
                 try:
                     # The load resource modifies the resource_dict, so we deepcopy it to avoid side effects.
                     loaded = self.loader.load_resource(deepcopy(resource_dict), is_dry_run)
@@ -117,6 +123,15 @@ class ResourceWorker(
                     duplicates.append(identifier)
                 else:
                     local_by_id[identifier] = resource_dict, loaded
+
+            for warning in warning_list:
+                if isinstance(warning, EnvironmentVariableMissingWarning):
+                    # Warnings are immutable, so we use the below method to override it.
+                    object.__setattr__(warning, "identifiers", frozenset(identifiers))
+                    # Reraise the warning to be caught higher up.
+                    warnings.warn(warning, stacklevel=2)
+                else:
+                    warning.print_warning()
 
         capabilities = self.loader.get_required_capability(
             [item for _, item in local_by_id.values()], read_only=is_dry_run
