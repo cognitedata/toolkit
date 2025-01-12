@@ -24,7 +24,6 @@ from pathlib import Path
 from time import sleep
 from typing import Any, cast, final
 
-import yaml
 from cognite.client.data_classes import (
     filters,
 )
@@ -95,6 +94,7 @@ from cognite_toolkit._cdf_tk.utils import (
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
+    read_yaml_content,
     retrieve_view_ancestors,
     safe_read,
     to_diff,
@@ -971,7 +971,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         node_dumped.pop("existingVersion", None)
 
         # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = yaml.safe_load("\n".join(safe_read(source_file).splitlines()[:3]))
+        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
 
         dumped["nodes"] = [node_dumped]
 
@@ -1346,7 +1346,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         edge_dumped.pop("existingVersion", None)
 
         # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = yaml.safe_load("\n".join(safe_read(source_file).splitlines()[:3]))
+        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
 
         dumped["edges"] = [edge_dumped]
 

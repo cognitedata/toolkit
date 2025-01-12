@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    read_yaml_content,
     safe_read,
     stringify_value_by_key_in_yaml,
 )
@@ -300,7 +301,7 @@ class ExtractionPipelineConfigLoader(
             # replace it with `connection-string: keyvault secret` to make it valid.
             config_raw = re.sub(r": !(\w+)", r": \1", config_raw)
             try:
-                yaml.safe_load(config_raw)
+                read_yaml_content(config_raw)
             except yaml.YAMLError as e:
                 print(
                     HighSeverityWarning(

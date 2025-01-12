@@ -89,3 +89,4 @@ class URL:
     docs = "https://docs.cognite.com/"
     configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/configs"
     plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
+    libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"
