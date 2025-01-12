@@ -17,7 +17,11 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.data_classes import BuildVariable, BuildVariables
-from cognite_toolkit._cdf_tk.tk_warnings import TemplateVariableWarning
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    EnvironmentVariableMissingWarning,
+    TemplateVariableWarning,
+    catch_warnings,
+)
 from cognite_toolkit._cdf_tk.utils import (
     AuthReader,
     AuthVariables,
@@ -33,7 +37,6 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
-from tests.test_unit.utils import PrintCapture
 
 
 class TestLoadYamlInjectVariables:
@@ -45,16 +48,16 @@ class TestLoadYamlInjectVariables:
 
         assert loaded["test"] == "my_injected_value"
 
-    def test_warning_when_missing_env_variable(self, tmp_path: Path, capture_print: PrintCapture) -> None:
-        my_file = tmp_path / "test.yaml"
-        my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
-        expected_warning = f"Variable TEST is not set in the environment. It is expected in {my_file.name}."
+    def test_warning_when_missing_env_variable(self) -> None:
+        path = Path("test.yaml")
+        content = yaml.safe_dump({"test": "${TEST}"})
+        expected_warning = EnvironmentVariableMissingWarning(path, frozenset({"TEST"}))
 
-        load_yaml_inject_variables(my_file, {})
+        with catch_warnings() as warning_list:
+            load_yaml_inject_variables(content, {}, original_filepath=path)
 
-        assert capture_print.messages, "Nothing was printed"
-        last_message = capture_print.messages[-1]
-        assert last_message == expected_warning
+        assert len(warning_list) == 1
+        assert warning_list[0] == expected_warning
 
 
 @pytest.mark.parametrize(

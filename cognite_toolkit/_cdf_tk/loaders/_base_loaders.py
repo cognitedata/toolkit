@@ -307,13 +307,15 @@ class ResourceLoader(
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        """Loads the resource(s) from a file. CAn be overwritten in subclasses.
+        """Loads the resource(s) from a file. Can be overwritten in subclasses.
 
         Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
         raw_yaml = load_yaml_inject_variables(
-            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath),
+            environment_variables or {} if self.do_environment_variable_injection else {},
+            original_filepath=filepath,
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
