@@ -161,6 +161,7 @@ class BuiltResourceFull(BuiltResource[T_ID]):
             content,
             environment_variables,
             validate=validate,
+            original_filepath=self.source.path,
         )
         if isinstance(raw, dict):
             return raw

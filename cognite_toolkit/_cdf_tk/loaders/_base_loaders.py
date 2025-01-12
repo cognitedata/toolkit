@@ -313,7 +313,9 @@ class ResourceLoader(
         DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
         """
         raw_yaml = load_yaml_inject_variables(
-            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath),
+            environment_variables or {} if self.do_environment_variable_injection else {},
+            original_filepath=filepath,
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
