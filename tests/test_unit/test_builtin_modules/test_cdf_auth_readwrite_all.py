@@ -108,9 +108,9 @@ class TestCDFAuthReadWriteAll:
         # For your convenience, the missing capabilities will be copied to your clipboard. You
         # need to go to the 'cognite_toolkit/builtin_modules' and find the 'cdf_auth_readwrite_all' module,
         # and update the capabilities in the 'gp_admin_read_write' group.
-        assert (
-            not missing_capabilities
-        ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."
+        assert not missing_capabilities, (
+            f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard."
+        )
 
     def test_readonly_group_is_up_to_date(self, readonly_group: GroupWrite) -> None:
         missing_capabilities = IAMAPI.compare_capabilities(
@@ -124,6 +124,6 @@ class TestCDFAuthReadWriteAll:
         # Similar to the previous test, this test will fail typically after you have updated the
         # cognite-sdk-python package.
         # Running this you need to update the 'gp_admin_readonly' group in the 'cdf_auth_readwrite_all' module.
-        assert (
-            not missing_capabilities
-        ), f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard"
+        assert not missing_capabilities, (
+            f"Missing {len(missing_capabilities)} the missing capabilities have been copied to your clipboard"
+        )

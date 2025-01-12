@@ -101,7 +101,7 @@ class DeployCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"[bold]{verb}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
                 expand=False,
             )
         )

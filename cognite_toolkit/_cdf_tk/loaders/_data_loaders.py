@@ -221,9 +221,6 @@ class RawFileLoader(DataLoader):
                 db_name=table.db_name, table_name=table.table_name, dataframe=data, ensure_parent=False
             )
             yield (
-                (
-                    f" Inserted {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' "
-                    f"into {table!r}."
-                ),
+                (f" Inserted {len(data):,} rows of {len(data.columns):,} columns from '{datafile!s}' into {table!r}."),
                 len(data),
             )

@@ -175,7 +175,7 @@ class DeployResults(UserDict):
         return table
 
     def uploads_table(self) -> Table:
-        table = Table(title=f"Summary of Data {self.action.title()} operation" " (data is always uploaded):")
+        table = Table(title=f"Summary of Data {self.action.title()} operation (data is always uploaded):")
         prefix = "Would have " if self.dry_run else ""
         table.add_column("Resource", justify="right")
         table.add_column(f"{prefix}Uploaded Data", justify="right", style="cyan")

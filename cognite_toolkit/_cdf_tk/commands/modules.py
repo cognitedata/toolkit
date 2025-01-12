@@ -142,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
                 if module.definition:
                     extra_resources.update(module.definition.extra_resources)
 
-                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
+                print(f"{INDENT * 2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
                 target_dir = modules_root_dir / module.relative_path
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(

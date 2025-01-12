@@ -327,13 +327,13 @@ class TestResourceLoaders:
         has_auth_params = has_auth(loader_cls.get_write_cls_parameter_spec())
 
         if has_auth_params:
-            assert (
-                loader_cls.do_environment_variable_injection
-            ), f"{loader_cls.folder_name} has auth but is not set to replace env vars"
+            assert loader_cls.do_environment_variable_injection, (
+                f"{loader_cls.folder_name} has auth but is not set to replace env vars"
+            )
         else:
-            assert (
-                not loader_cls.do_environment_variable_injection
-            ), f"{loader_cls.folder_name} has no auth but is set to replace env vars"
+            assert not loader_cls.do_environment_variable_injection, (
+                f"{loader_cls.folder_name} has no auth but is set to replace env vars"
+            )
 
     @pytest.mark.parametrize(
         "loader_cls",
@@ -357,9 +357,9 @@ class TestResourceLoaders:
 
         assert "${SOME_VARIABLE}" not in dumped
         assert "test_value" in dumped
-        assert (
-            "${SOME_VARIABLE}" in dumped_without_replacement
-        ), f"Environment variable missing in {tmp_file.as_posix()}"
+        assert "${SOME_VARIABLE}" in dumped_without_replacement, (
+            f"Environment variable missing in {tmp_file.as_posix()}"
+        )
 
 
 class TestLoaders:

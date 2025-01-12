@@ -626,8 +626,7 @@ class AuthCommand(ToolkitCommand):
                 self.warn(HighSeverityWarning(f"Unable to activate function service.\n{e}"))
                 return function_status.status
             print(
-                "  [bold green]OK[/] - Function service has been activated. "
-                "This may take up to 2 hours to take effect."
+                "  [bold green]OK[/] - Function service has been activated. This may take up to 2 hours to take effect."
             )
         else:
             print("  [bold green]OK[/] - Function service has been activated.")

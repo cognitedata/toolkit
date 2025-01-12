@@ -100,7 +100,7 @@ class _YAMLCommentParser:
         for full_key, line in self._iterate_lines():
             if comment := comments.get(tuple(full_key)):
                 for above_comment in comment.above:
-                    new_lines.append(f"{' ' *line.indent}#{above_comment}")
+                    new_lines.append(f"{' ' * line.indent}#{above_comment}")
                 if comment.after:
                     after_comments = " ".join(comment.after)
                     new_lines.append(f"{line.raw} #{after_comments}")

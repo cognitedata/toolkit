@@ -1011,6 +1011,6 @@ class ResourceReplacer:
                 return self._replace_dict(current, placeholder_value, to_write, json_path)
 
         raise ToolkitValueError(
-            f"CDF value and local value should be of the same type in {'.'.join(map(str,json_path))}, "
+            f"CDF value and local value should be of the same type in {'.'.join(map(str, json_path))}, "
             f"got {type(current)} != {type(to_write)}"
         )

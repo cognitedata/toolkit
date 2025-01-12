@@ -200,7 +200,7 @@ class PurgeCommand(ToolkitCommand):
         if external_id is None:
             datasets = client.data_sets.list(limit=-1)
             selected_dataset: str = questionary.select(
-                "Which space are you going to purge" " (delete all resources in dataset)?",
+                "Which space are you going to purge (delete all resources in dataset)?",
                 [dataset.external_id for dataset in datasets if dataset.external_id],
             ).ask()
         else:

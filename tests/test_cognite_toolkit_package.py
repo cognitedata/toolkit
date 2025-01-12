@@ -69,9 +69,9 @@ def test_changelog_entry_date(changelog_name: str) -> None:
     try:
         datetime.strptime(date := match.group(3), "%Y-%m-%d")
     except Exception:
-        assert (
-            False
-        ), f"Date given in the newest entry in '{changelog_name}', {date!r}, is not valid/parsable (YYYY-MM-DD)"
+        assert False, (
+            f"Date given in the newest entry in '{changelog_name}', {date!r}, is not valid/parsable (YYYY-MM-DD)"
+        )
     else:
         assert True
 

@@ -63,7 +63,7 @@ class Environment:
     def __post_init__(self) -> None:
         if self.build_type not in _AVAILABLE_ENV_TYPES:
             raise ToolkitEnvError(
-                f"Invalid type {self.build_type} in {self.name!s}. " f"Must be one of {_AVAILABLE_ENV_TYPES}"
+                f"Invalid type {self.build_type} in {self.name!s}. Must be one of {_AVAILABLE_ENV_TYPES}"
             )
 
     @classmethod

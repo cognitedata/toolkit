@@ -557,7 +557,7 @@ class ApprovalToolkitClient:
 
             if created_nodes and created_edges:
                 raise ValueError(
-                    "Cannot create both nodes and edges at the same time. Toolikt should" " call one at a time"
+                    "Cannot create both nodes and edges at the same time. Toolikt should call one at a time"
                 )
             created_resources[Node.__name__].extend(created_nodes)
             created_resources[Edge.__name__].extend(created_edges)
