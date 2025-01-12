@@ -221,12 +221,13 @@ class DeployCommand(ToolkitCommand):
         if not files:
             return None
 
-        with catch_warnings() as warning_list:
+        with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
             to_create, to_update, unchanged, duplicated = worker.load_resources(
                 files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
             )
         if warning_list:
             print(str(warning_list))
+            self.warning_list.extend(warning_list)
 
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
