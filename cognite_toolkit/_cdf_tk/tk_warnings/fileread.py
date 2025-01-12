@@ -18,7 +18,7 @@ class FileReadWarning(ToolkitWarning, ABC):
         return (self.filepath,)
 
     def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}"
+        return f"    In File {self.filepath.as_posix()!r}"
 
     def __str__(self) -> str:
         return self.get_message()
