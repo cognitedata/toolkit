@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- [alpha feature] `cdf import transformation-cli` now has a new flag `--clean` to remove the
+  source files after importing the configurations.
+
 ## [0.3.25] - 2025-01-10
 
 ### Added
