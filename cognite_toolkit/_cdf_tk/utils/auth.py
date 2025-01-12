@@ -52,6 +52,7 @@ from cognite_toolkit._version import __version__
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 Provider: TypeAlias = Literal["entra_id", "cdf", "other"]
 
+CLIENT_NAME = f"CDF-Toolkit:{__version__}"
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
     "interactive": "Login using the browser with your user credentials",
@@ -523,7 +524,7 @@ class CDFToolConfig:
             self._environ["CDF_URL"] = cdf_url
 
         # ClientName is used for logging usage of the CDF-Toolkit.
-        self._client_name = f"CDF-Toolkit:{__version__}"
+        self._client_name = CLIENT_NAME
 
         self._cluster: str | None = cluster
         self._project: str | None = project
