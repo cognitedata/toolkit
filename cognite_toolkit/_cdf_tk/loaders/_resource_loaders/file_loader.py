@@ -201,6 +201,7 @@ class FileMetadataLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
         spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
 
         spec.add(
