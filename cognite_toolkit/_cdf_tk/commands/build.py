@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     DEV_ONLY_MODULES,
+    HINT_LEAD_TEXT,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     YAML_SUFFIX,
@@ -289,15 +290,14 @@ class BuildCommand(ToolkitCommand):
                 }
                 if duplicates := (identifiers & last_identifiers):
                     duplicate_warnings = WarningList[FileReadWarning]()
-                    hint = (
-                        f"This is likely due to missing variable in the "
-                        f"identifier when using the module {module.name} as a template."
-                    )
                     for identifier, path in duplicates:
-                        duplicate_warnings.append(DuplicatedItemWarning(path, identifier, path, hint=hint))
-                    print(str(duplicate_warnings))
+                        duplicate_warnings.append(DuplicatedItemWarning(path, identifier, path))
                     self.warning_list.extend(duplicate_warnings)
-
+                    print(str(duplicate_warnings))
+                    print(
+                        f"    {HINT_LEAD_TEXT}This is likely due to missing variable in the "
+                        f"identifier when using the module {module.name!r} as a template."
+                    )
                 last_identifiers = identifiers
 
                 module_warnings = len(self.warning_list) - warning_count

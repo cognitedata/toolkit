@@ -6,8 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
-from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
-
 from .base import SeverityLevel, ToolkitWarning
 
 
@@ -62,16 +60,12 @@ class DuplicatedItemWarning(YAMLFileWarning):
     severity = SeverityLevel.MEDIUM
     identifier: Hashable
     first_location: Path
-    hint: str | None = None
 
     def get_message(self) -> str:
-        message = (
+        return (
             f"{type(self).__name__}: Duplicated item with identifier "
-            f"{self.identifier!r} first seen in {self.first_location.name}."
+            f"{self.identifier!r} first seen in {self.first_location.name!r}."
         )
-        if self.hint:
-            message += f"\n{HINT_LEAD_TEXT}{self.hint}"
-        return message
 
 
 @dataclass(frozen=True)
