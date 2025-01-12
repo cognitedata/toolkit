@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 import itertools
+import warnings
 from abc import ABC, abstractmethod
 from collections import UserList
-from collections.abc import Collection
+from collections.abc import Collection, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import total_ordering
@@ -36,7 +38,7 @@ class SeverityLevel(Enum):
 
 @total_ordering
 @dataclass(frozen=True)
-class ToolkitWarning(ABC):
+class ToolkitWarning(ABC, UserWarning):
     severity: ClassVar[SeverityLevel]
 
     def group_key(self) -> tuple[Any, ...]:
@@ -101,3 +103,18 @@ class WarningList(UserList, Generic[T_Warning]):
 class GeneralWarning(ToolkitWarning, ABC):
     severity: ClassVar[SeverityLevel]
     message: ClassVar[str | None] = None
+
+
+@contextmanager
+def catch_warnings() -> Iterator[WarningList[ToolkitWarning]]:
+    """Catch warnings and append them to the issues list."""
+    warning_list = WarningList[ToolkitWarning]()
+    with warnings.catch_warnings(record=True) as warning_logger:
+        warnings.simplefilter("always")
+        try:
+            yield warning_list
+        finally:
+            if warning_logger:
+                warning_list.extend(
+                    [warning.message for warning in warning_logger if isinstance(warning.message, ToolkitWarning)]
+                )

@@ -226,3 +226,16 @@ class MissingFileWarning(FileReadWarning):
     def get_message(self) -> str:
         message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
         return message
+
+
+@dataclass(frozen=True)
+class EnvironmentVariableMissingWarning(FileReadWarning):
+    severity = SeverityLevel.HIGH
+    variables: frozenset[str]
+
+    def get_message(self) -> str:
+        from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+        suffix = "s are" if len(self.variables) > 1 else " is"
+        variables = humanize_collection(self.variables, sort=True, bind_word="and")
+        return f"The environment variable{suffix} missing: {variables}"

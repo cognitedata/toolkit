@@ -6,6 +6,7 @@ import shutil
 import stat
 import tempfile
 import typing
+import warnings
 from abc import abstractmethod
 from collections import UserDict, defaultdict
 from collections.abc import Hashable, ItemsView, KeysView, ValuesView
@@ -22,7 +23,7 @@ from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
 
 
 @overload
@@ -60,13 +61,9 @@ def load_yaml_inject_variables(
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
-    if validate:
-        for match in ENV_VAR_PATTERN.finditer(content):
-            environment_variable = match.group(1)
-            suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
-            MediumSeverityWarning(
-                f"Variable {environment_variable} is not set in the environment.{suffix}"
-            ).print_warning()
+    if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
+        actual_filepath = filepath if isinstance(filepath, Path) else Path("UNKNOWN")
+        warnings.warn(EnvironmentVariableMissingWarning(actual_filepath, frozenset(missing_variables)), stacklevel=2)
 
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
