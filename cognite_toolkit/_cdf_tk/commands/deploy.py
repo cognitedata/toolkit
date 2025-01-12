@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 from collections.abc import Hashable
 from graphlib import TopologicalSorter
 from pathlib import Path
@@ -340,10 +339,7 @@ class DeployCommand(ToolkitCommand):
             if e.code == 409:
                 self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
             else:
-                # This must be printed as this if not rich filters out regex patterns from
-                # the error message which typically contains the critical information.
-                print(escape(str(e)))
-                message = f"Failed to create resource(s). Error: {e!s}."
+                message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
                 if hint := self._environment_variable_hint(
                     loader.get_ids(resources), environment_variable_warning_by_id
                 ):
@@ -368,8 +364,7 @@ class DeployCommand(ToolkitCommand):
         try:
             updated = loader.update(resources)
         except CogniteAPIError as e:
-            print(Panel(traceback.format_exc()))
-            message = f"Failed to update resource(s). Error: {e!r}."
+            message = f"Failed to update resource(s). Error: {escape(str(e))}."
             if hint := self._environment_variable_hint(loader.get_ids(resources), environment_variable_warning_by_id):
                 message += hint
             raise ResourceUpdateError(message) from e
@@ -390,7 +385,7 @@ class DeployCommand(ToolkitCommand):
         if missing_variables:
             variables_str = humanize_collection(missing_variables)
             suffix = "s" if len(missing_variables) > 1 else ""
-            return f"\n{HINT_LEAD_TEXT} This is likely due to missing environment variable{suffix}: {variables_str}"
+            return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
         return ""
 
     def _deploy_data(
