@@ -66,7 +66,7 @@ class DuplicatedItemWarning(YAMLFileWarning):
     def get_message(self) -> str:
         return (
             f"{type(self).__name__}: Duplicated item with identifier "
-            f"{self.identifier!r} first seen in {self.first_location.name}."
+            f"{self.identifier!r} first seen in {self.first_location.name!r}."
         )
 
 
