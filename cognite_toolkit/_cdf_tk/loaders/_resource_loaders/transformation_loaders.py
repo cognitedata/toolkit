@@ -26,6 +26,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import warnings
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -295,7 +296,11 @@ class TransformationLoader(
         return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        return self.client.transformations.create(items)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
         internal_ids, external_ids = self._split_ids(ids)
@@ -304,7 +309,11 @@ class TransformationLoader(
         )
 
     def update(self, items: TransformationWriteList) -> TransformationList:
-        return self.client.transformations.update(items, mode="replace")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
         existing = self.retrieve(ids).as_ids()
