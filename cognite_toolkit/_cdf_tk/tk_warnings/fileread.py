@@ -20,7 +20,7 @@ class FileReadWarning(ToolkitWarning, ABC):
         return (self.filepath,)
 
     def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}"
+        return f"    In File {self.filepath.as_posix()!r}"
 
     def __str__(self) -> str:
         return self.get_message()
@@ -231,3 +231,17 @@ class MissingFileWarning(FileReadWarning):
     def get_message(self) -> str:
         message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
         return message
+
+
+@dataclass(frozen=True)
+class EnvironmentVariableMissingWarning(FileReadWarning):
+    severity = SeverityLevel.HIGH
+    variables: frozenset[str]
+    identifiers: frozenset[Hashable] | None = None
+
+    def get_message(self) -> str:
+        from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+        suffix = "s are" if len(self.variables) > 1 else " is"
+        variables = humanize_collection(self.variables, sort=True, bind_word="and")
+        return f"The environment variable{suffix} missing: {variables}"

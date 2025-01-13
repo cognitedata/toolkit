@@ -78,18 +78,26 @@ def mock_read_yaml_file(
 
     def fake_load_yaml_inject_variables(
         filepath: Path | str,
-        variables: dict[str, str | None],
+        environment_variables: dict[str, str | None],
         required_return_type: Literal["any", "list", "dict"] = "any",
+        validate: bool = True,
+        original_filepath: Path | None = None,
     ) -> dict[str, Any] | list[dict[str, Any]]:
         if isinstance(filepath, str):
-            return load_yaml_inject_variables(filepath, variables, required_return_type)
+            return load_yaml_inject_variables(
+                filepath, environment_variables, required_return_type, validate, original_filepath
+            )
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
-                source = load_yaml_inject_variables(filepath, variables, required_return_type)
+                source = load_yaml_inject_variables(
+                    filepath, environment_variables, required_return_type, validate, original_filepath
+                )
                 source.update(file_content)
                 file_content = source
             return file_content
-        return load_yaml_inject_variables(filepath, variables, required_return_type)
+        return load_yaml_inject_variables(
+            filepath, environment_variables, required_return_type, validate, original_filepath
+        )
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)

@@ -484,7 +484,7 @@ class WorkflowTriggerLoader(
                 self.client.workflows.triggers.delete(external_id=item.external_id)
 
             credentials = self._authentication_by_id.get(item.external_id)
-            created = self.client.workflows.triggers.create(item, client_credentials=credentials)
+            created = self.client.workflows.triggers.upsert(item, client_credentials=credentials)
             updated.append(created)
         return updated
 
