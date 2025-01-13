@@ -97,8 +97,7 @@ class CDFToml:
                 alpha_flags = {clean_name(k): v for k, v in raw["alpha_flags"].items()}
             if not alpha_flags and "feature_flags" in raw:
                 MediumSeverityWarning(
-                    "The 'feature_flags' section has been renamed to 'alpha_flags'. "
-                    "Please update your cdf.toml file."
+                    "The 'feature_flags' section has been renamed to 'alpha_flags'. Please update your cdf.toml file."
                 ).print_warning()
                 alpha_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
 

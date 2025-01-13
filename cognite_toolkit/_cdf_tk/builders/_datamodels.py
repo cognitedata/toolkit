@@ -71,7 +71,7 @@ class DataModelBuilder(Builder):
             if "dml" in entry:
                 expected_filename = entry["dml"]
             else:
-                expected_filename = f'{INDEX_PATTERN.sub("", source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix("."))}.graphql'
+                expected_filename = f"{INDEX_PATTERN.sub('', source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix('.'))}.graphql"
             expected_path = source_file.source.path.parent / Path(expected_filename)
 
             if expected_path in graphql_files:

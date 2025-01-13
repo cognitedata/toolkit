@@ -78,7 +78,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
             content = f"  ┗ {MODULES}\n"
 
         panel = Panel(
-            f"Toolkit expects the following structure:\n" f"{organization_dir!s}/\n{content}",
+            f"Toolkit expects the following structure:\n{organization_dir!s}/\n{content}",
             expand=False,
         )
     else:
@@ -110,7 +110,7 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
         prefix = "Directories" if len(deprecated_modules) > 1 else "Directory"
         verb = "are" if len(deprecated_modules) > 1 else "is"
         MediumSeverityWarning(
-            f"{prefix} {', '.join(deprecated_modules)} {verb} deprecated and will be removed in 0.4.0. " f"{suffix}"
+            f"{prefix} {', '.join(deprecated_modules)} {verb} deprecated and will be removed in 0.4.0. {suffix}"
         ).print_warning()
 
     config_path = organization_dir / config_file
@@ -119,7 +119,9 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
     if root_modules or (config_path.is_file() or build_env_name is None):
         print(panel)
         if not root_modules:
-            raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")
+            raise ToolkitNotADirectoryError(
+                f"Could not find the {(organization_dir / MODULES).as_posix()!r} directory."
+            )
         if build_env_name is None:
             return
         else:
@@ -165,4 +167,4 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
                 f"'{CDFToml.file_name}' file to avoid using the -o/--organization-dir argument"
             )
 
-    raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir/ MODULES).as_posix()!r} directory.")
+    raise ToolkitNotADirectoryError(f"Could not find the {(organization_dir / MODULES).as_posix()!r} directory.")

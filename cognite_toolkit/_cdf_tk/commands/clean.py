@@ -196,10 +196,7 @@ class CleanCommand(ToolkitCommand):
             )
         else:
             # Count is not supported
-            print(
-                f" {prefix} all {loader.item_name} from {loader.display_name}: "
-                f"{_print_ids_or_length(resource_ids)}."
-            )
+            print(f" {prefix} all {loader.item_name} from {loader.display_name}: {_print_ids_or_length(resource_ids)}.")
 
     def execute(
         self,
@@ -221,7 +218,7 @@ class CleanCommand(ToolkitCommand):
             self.warn(error)
         if errors:
             raise ToolkitCleanResourceError(
-                "One or more source files have been modified since the last build. " "Please rebuild the project."
+                "One or more source files have been modified since the last build. Please rebuild the project."
             )
 
         environment_vars = ""
