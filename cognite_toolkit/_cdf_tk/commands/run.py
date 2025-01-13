@@ -819,7 +819,7 @@ class RunWorkflowCommand(ToolkitCommand):
 
         for task in result.executed_tasks:
             task_duration = (
-                f"{datetime.timedelta(seconds=(task.end_time - task.start_time)/1000).total_seconds():.1f} seconds"
+                f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
                 if task.end_time and task.start_time
                 else ""
             )
