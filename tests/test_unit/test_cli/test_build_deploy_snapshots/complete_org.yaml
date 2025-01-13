@@ -519,7 +519,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
-  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n"
+  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n\
+    -- this is a comment with an ← Unicode character"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project

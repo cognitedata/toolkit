@@ -56,7 +56,7 @@ def load_yaml_inject_variables(
     if isinstance(filepath, str):
         content = filepath
     else:
-        content = filepath.read_text()
+        content = safe_read(filepath)
     for key, value in variables.items():
         if value is None:
             continue
@@ -101,7 +101,7 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        config_data = read_yaml_content(filepath.read_text())
+        config_data = read_yaml_content(safe_read(filepath))
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}

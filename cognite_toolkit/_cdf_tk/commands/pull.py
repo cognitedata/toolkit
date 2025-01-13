@@ -681,7 +681,7 @@ class PullCommand(ToolkitCommand):
 
             if has_changes and not dry_run:
                 new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
-                    source_file.read_text(), to_write, resources, environment_variables, loader
+                    safe_read(source_file), to_write, resources, environment_variables, loader
                 )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)

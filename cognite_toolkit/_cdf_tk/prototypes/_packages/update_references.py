@@ -17,6 +17,7 @@ from cognite.client.data_classes.transformations.common import TransformationDes
 from cognite.client.utils._text import to_camel_case
 
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils import safe_read
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 
 
@@ -303,7 +304,7 @@ def validate(target_path: Path) -> None:
         folder = target_path / loader_cls.folder_name
         file_name = folder / Path(f"reference.{loader_cls.kind}.yaml")
         warnings = validate_resource_yaml(
-            data=yaml.safe_load(Path.read_text(file_name)),
+            data=yaml.safe_load(safe_read(file_name)),
             spec=loader_cls.get_write_cls_parameter_spec(),
             source_file=file_name,
         )

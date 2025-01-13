@@ -418,7 +418,7 @@ class AuthReader:
 
         new_env_file = auth_vars.create_dotenv_file()
         if Path(".env").exists():
-            existing = Path(".env").read_text()
+            existing = Path(".env").read_text(encoding="utf-8")
             if existing == new_env_file:
                 print("Identical '.env' file already exist.")
                 return auth_vars
@@ -430,9 +430,9 @@ class AuthReader:
                 default=False,
             ).ask():
                 shutil.move(".env", filename)
-                Path(".env").write_text(new_env_file)
+                Path(".env").write_text(new_env_file, encoding="utf-8")
         elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
-            Path(".env").write_text(new_env_file)
+            Path(".env").write_text(new_env_file, encoding="utf-8")
 
         return auth_vars
 
