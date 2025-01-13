@@ -244,7 +244,7 @@ class EnvironmentVariables:
             is_optional = hasattr(self, field.name.lower())
             if is_optional and first_optional:
                 lines.append(
-                    "# The below variables are the defaults, they are automatically " "constructed unless they are set."
+                    "# The below variables are the defaults, they are automatically constructed unless they are set."
                 )
                 first_optional = False
             name = field.name.lower() if is_optional else field.name
