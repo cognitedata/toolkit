@@ -29,7 +29,7 @@ Changes are grouped as follows:
 
 ### Changed
 
-- Running `cdf auth init/verify` no longer automatically activates CogniteFunctions on CDF hosted in private link
+- Running `cdf auth init/verify` no longer automatically activates Cognite Functions on private link environments
   projects.
 
 ### Improved
