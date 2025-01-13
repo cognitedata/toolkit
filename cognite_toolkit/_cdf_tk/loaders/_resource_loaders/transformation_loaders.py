@@ -26,6 +26,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import warnings
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -81,6 +82,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 
 
@@ -108,6 +110,7 @@ class TransformationLoader(
             DataModelLoader,
             RawTableLoader,
             RawDatabaseLoader,
+            GroupResourceScopedLoader,
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
@@ -191,7 +194,9 @@ class TransformationLoader(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
         resources = load_yaml_inject_variables(
-            self.safe_read(filepath), environment_variables or {} if self.do_environment_variable_injection else {}
+            self.safe_read(filepath),
+            environment_variables or {} if self.do_environment_variable_injection else {},
+            original_filepath=filepath,
         )
 
         raw_list = resources if isinstance(resources, list) else [resources]
@@ -293,7 +298,11 @@ class TransformationLoader(
         return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        return self.client.transformations.create(items)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.create(items)
 
     def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
         internal_ids, external_ids = self._split_ids(ids)
@@ -302,7 +311,11 @@ class TransformationLoader(
         )
 
     def update(self, items: TransformationWriteList) -> TransformationList:
-        return self.client.transformations.update(items, mode="replace")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
         existing = self.retrieve(ids).as_ids()

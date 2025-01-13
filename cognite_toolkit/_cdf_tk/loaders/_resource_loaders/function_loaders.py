@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.utils import (
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 
 
 @final
@@ -351,7 +352,7 @@ class FunctionScheduleLoader(
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
-    dependencies = frozenset({FunctionLoader})
+    dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     do_environment_variable_injection = True
     parent_resource = frozenset({FunctionLoader})
