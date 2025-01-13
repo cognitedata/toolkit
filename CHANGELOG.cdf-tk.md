@@ -24,7 +24,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- All groups are now corretly deployed before resources that has authentication to them (`Transformation`,
+- All groups are now correctly deployed before resources that has authentication to them (`Transformation`,
   `'FunctionSchedule`, `WorkflowTrigger`).
 
 ### Changed
