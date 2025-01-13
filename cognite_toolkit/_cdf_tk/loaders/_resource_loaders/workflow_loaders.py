@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
 from .function_loaders import FunctionLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 from .transformation_loaders import TransformationLoader
 
 
@@ -412,7 +413,7 @@ class WorkflowTriggerLoader(
     list_cls = WorkflowTriggerList
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
+    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     parent_resource = frozenset({WorkflowLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"

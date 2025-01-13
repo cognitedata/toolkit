@@ -81,6 +81,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 
 
@@ -108,6 +109,7 @@ class TransformationLoader(
             DataModelLoader,
             RawTableLoader,
             RawDatabaseLoader,
+            GroupResourceScopedLoader,
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
