@@ -22,6 +22,11 @@ Changes are grouped as follows:
 - [alpha feature] `cdf import transformation-cli` now has a new flag `--clean` to remove the
   source files after importing.
 
+### Fixed
+
+- All groups are now corretly deployed before resources that has authentication to them (`Transformation`,
+  `'FunctionSchedule`, `WorkflowTrigger`).
+
 ### Changed
 
 - Running `cdf auth init/verify` no longer automatically activates CogniteFunctions on CDF hosted in private link
