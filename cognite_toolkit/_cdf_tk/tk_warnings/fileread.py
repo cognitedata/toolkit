@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+
 from .base import SeverityLevel, ToolkitWarning
 
 
@@ -64,7 +66,7 @@ class DuplicatedItemWarning(YAMLFileWarning):
     def get_message(self) -> str:
         return (
             f"{type(self).__name__}: Duplicated item with identifier "
-            f"{self.identifier!r} first seen in {self.first_location.name}."
+            f"{self.identifier!r} first seen in {self.first_location.name!r}."
         )
 
 
@@ -87,7 +89,10 @@ class UnusedParameterWarning(YAMLFileWithElementWarning):
     actual: str
 
     def get_message(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+        message = f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+        if self.actual == "dataSetId" or self.actual == "data_set_id":
+            message += f" {HINT_LEAD_TEXT}The parameter 'dataSetExternalId' should be used instead."
+        return message
 
 
 @dataclass(frozen=True)

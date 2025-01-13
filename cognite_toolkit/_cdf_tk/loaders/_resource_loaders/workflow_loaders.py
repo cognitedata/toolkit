@@ -43,7 +43,7 @@ from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
-from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_lis
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
 from .function_loaders import FunctionLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 from .transformation_loaders import TransformationLoader
 
 
@@ -398,6 +399,14 @@ class WorkflowVersionLoader(
                 _is_nullable=False,
             )
         )
+        spec.add(
+            ParameterSpec(
+                ("workflowDefinition", "tasks", ANY_INT, "parameters", "subworkflow", ANYTHING),
+                frozenset({"dict"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
         return spec
 
 
@@ -412,7 +421,7 @@ class WorkflowTriggerLoader(
     list_cls = WorkflowTriggerList
     list_write_cls = WorkflowTriggerUpsertList
     kind = "WorkflowTrigger"
-    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader})
+    dependencies = frozenset({WorkflowLoader, WorkflowVersionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     parent_resource = frozenset({WorkflowLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"

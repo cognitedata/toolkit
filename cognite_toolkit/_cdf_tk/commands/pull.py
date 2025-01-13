@@ -162,7 +162,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
     @classmethod
     def load(cls, build_content: str, source_content: str) -> ResourceYAMLDifference:
         comments = cls._extract_comments(build_content)
-        build = yaml.safe_load(build_content)
+        build = read_yaml_content(build_content)
         build_flatten = cls._flatten(build)
         items: dict[tuple[str | int, ...], ResourceProperty] = {}
         for key, value in build_flatten.items():
@@ -172,7 +172,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
             )
 
         source_content, variable_by_placeholder = cls._replace_variables(source_content)
-        source = yaml.safe_load(source_content)
+        source = read_yaml_content(source_content)
         source_items = cls._flatten(source)
         for key, value in source_items.items():
             for placeholder, variable in variable_by_placeholder.items():
@@ -681,7 +681,7 @@ class PullCommand(ToolkitCommand):
 
             if has_changes and not dry_run:
                 new_content, extra_files = self._to_write_content(  # type: ignore[arg-type]
-                    source_file.read_text(), to_write, resources, environment_variables, loader
+                    safe_read(source_file), to_write, resources, environment_variables, loader
                 )
                 with source_file.open("w", encoding=ENCODING, newline=NEWLINE) as f:
                     f.write(new_content)

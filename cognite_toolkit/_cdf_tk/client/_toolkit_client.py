@@ -31,6 +31,13 @@ class ToolkitClientConfig(ClientConfig):
         else:
             return "unknown"
 
+    @property
+    def is_private_link(self) -> bool:
+        if "cognitedata.com" not in self.base_url:
+            return False
+        subdomain = self.base_url.split("cognitedata.com", maxsplit=1)[0]
+        return "plink" in subdomain
+
 
 class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None) -> None:

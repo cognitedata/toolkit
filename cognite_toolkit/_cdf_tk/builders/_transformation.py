@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import safe_write
 
 
 class TransformationBuilder(Builder):
@@ -85,7 +86,7 @@ class TransformationBuilder(Builder):
                 )
             elif query_file is not None:
                 destination_path = self._create_destination_path(query_file.source.path, "Query")
-                destination_path.write_text(query_file.content)
+                safe_write(destination_path, query_file.content)
                 relative = destination_path.relative_to(transformation_destination_path.parent)
                 entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)
