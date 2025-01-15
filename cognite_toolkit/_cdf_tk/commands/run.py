@@ -598,10 +598,6 @@ class RunTransformationCommand(ToolkitCommand):
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
-        session = get_oneshot_session(ToolGlobals.toolkit_client)
-        if session is None:
-            print("[bold red]ERROR:[/] Could not get a oneshot session.")
-            return False
         try:
             transformations: TransformationList = ToolGlobals.toolkit_client.transformations.retrieve_multiple(
                 external_ids=external_ids
@@ -613,8 +609,12 @@ class RunTransformationCommand(ToolkitCommand):
         if transformations is None or len(transformations) == 0:
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
-        nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=ToolGlobals.project)
         for transformation in transformations:
+            session = get_oneshot_session(ToolGlobals.toolkit_client)
+            if session is None:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                return False
+            nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=ToolGlobals.project)
             transformation.source_nonce = nonce
             transformation.destination_nonce = nonce
         try:
