@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, Toolki
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -142,7 +142,7 @@ class ModulesCommand(ToolkitCommand):
                 if module.definition:
                     extra_resources.update(module.definition.extra_resources)
 
-                print(f"{INDENT*2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
+                print(f"{INDENT * 2}[{'yellow' if mode == 'clean' else 'green'}]Creating module {module.name}[/]")
                 target_dir = modules_root_dir / module.relative_path
                 if Path(target_dir).exists() and mode == "update":
                     if questionary.confirm(
@@ -204,7 +204,7 @@ class ModulesCommand(ToolkitCommand):
         for environment in environments:
             if mode == "update":
                 config_init = InitConfigYAML.load_existing(
-                    (Path(organization_dir) / f"config.{environment}.yaml").read_text(), environment
+                    safe_read(Path(organization_dir) / f"config.{environment}.yaml"), environment
                 ).load_defaults(self._builtin_modules_path, selected_paths)
             else:
                 ignore_variable_patterns: list[tuple[str, ...]] | None = None
@@ -236,7 +236,7 @@ class ModulesCommand(ToolkitCommand):
             print(
                 f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]{'Updating' if mode == 'update' else 'Creating'} config.{environment}.yaml[/]"
             )
-            (Path(organization_dir) / f"config.{environment}.yaml").write_text(config_init.dump_yaml_with_comments())
+            safe_write(Path(organization_dir) / f"config.{environment}.yaml", config_init.dump_yaml_with_comments())
 
         cdf_toml_content = self.create_cdf_toml(organization_dir, environments[0] if environments else "dev")
 
@@ -247,7 +247,7 @@ class ModulesCommand(ToolkitCommand):
             destination.write_text(cdf_toml_content, encoding="utf-8")
 
     def create_cdf_toml(self, organization_dir: Path, env: EnvType = "dev") -> str:
-        cdf_toml_content = (self._builtin_modules_path / CDFToml.file_name).read_text()
+        cdf_toml_content = safe_read(self._builtin_modules_path / CDFToml.file_name)
         if organization_dir != Path.cwd():
             cdf_toml_content = cdf_toml_content.replace(
                 "#<PLACEHOLDER>",

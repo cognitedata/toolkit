@@ -3,11 +3,13 @@ from .base import (
     SeverityLevel,
     ToolkitWarning,
     WarningList,
+    catch_warnings,
 )
 from .fileread import (
     CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
+    EnvironmentVariableMissingWarning,
     FileReadWarning,
     MissingFileWarning,
     MissingReferencedWarning,
@@ -43,6 +45,7 @@ __all__ = [
     "CaseTypoWarning",
     "DataSetMissingWarning",
     "DuplicatedItemWarning",
+    "EnvironmentVariableMissingWarning",
     "FileReadWarning",
     "GeneralWarning",
     "HTTPWarning",
@@ -74,4 +77,5 @@ __all__ = [
     "WarningList",
     "YAMLFileWarning",
     "YAMLFileWithElementWarning",
+    "catch_warnings",
 ]

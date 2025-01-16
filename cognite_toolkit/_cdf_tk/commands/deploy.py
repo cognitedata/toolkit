@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import traceback
+from collections.abc import Hashable
 from graphlib import TopologicalSorter
 from pathlib import Path
 
@@ -8,6 +8,7 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 from cognite.client.exceptions import CogniteAPIError, CogniteDuplicatedError
 from cognite.client.utils._identifier import T_ID
 from rich import print
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -15,6 +16,7 @@ from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     BUILD_ENVIRONMENT_FILE,
+    HINT_LEAD_TEXT,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -42,12 +44,15 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
+from cognite_toolkit._cdf_tk.tk_warnings.base import catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
+    humanize_collection,
     read_yaml_file,
 )
 
@@ -101,7 +106,7 @@ class DeployCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"[bold]{verb}[/]resource files from {build_dir} directory." f"{environment_vars}",
+                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
                 expand=False,
             )
         )
@@ -215,9 +220,13 @@ class DeployCommand(ToolkitCommand):
         if not files:
             return None
 
-        to_create, to_update, unchanged, duplicated = worker.load_resources(
-            files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
-        )
+        with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+            to_create, to_update, unchanged, duplicated = worker.load_resources(
+                files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+            )
+        if warning_list:
+            print(str(warning_list))
+            self.warning_list.extend(warning_list)
 
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
@@ -255,14 +264,20 @@ class DeployCommand(ToolkitCommand):
             nr_of_created += len(to_create)
             nr_of_changed += len(to_update)
         else:
+            environment_variable_warning_by_id = {
+                identifier: warning
+                for warning in warning_list
+                if isinstance(warning, EnvironmentVariableMissingWarning)
+                for identifier in warning.identifiers or []
+            }
             nr_of_unchanged += len(unchanged)
 
             if to_create:
-                created = self._create_resources(to_create, loader)
+                created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
                 nr_of_created += created
 
             if to_update:
-                updated = self._update_resources(to_update, loader)
+                updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
                 nr_of_changed += updated
 
         if verbose:
@@ -312,17 +327,24 @@ class DeployCommand(ToolkitCommand):
         else:
             print(f"{prefix_message}{', '.join(print_outs[:-1])} and {print_outs[-1]}")
 
-    def _create_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader) -> int:
+    def _create_resources(
+        self,
+        resources: T_CogniteResourceList,
+        loader: ResourceLoader,
+        environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
+    ) -> int:
         try:
             created = loader.create(resources)
         except CogniteAPIError as e:
             if e.code == 409:
                 self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
             else:
-                # This must be printed as this if not rich filters out regex patterns from
-                # the error message which typically contains the critical information.
-                print(e)
-                raise ResourceCreationError(f"Failed to create resource(s). Error: {e!s}.") from e
+                message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
+                if hint := self._environment_variable_hint(
+                    loader.get_ids(resources), environment_variable_warning_by_id
+                ):
+                    message += hint
+                raise ResourceCreationError(message) from e
         except CogniteDuplicatedError as e:
             self.warn(
                 LowSeverityWarning(
@@ -333,14 +355,38 @@ class DeployCommand(ToolkitCommand):
             return len(created) if created is not None else 0
         return 0
 
-    def _update_resources(self, resources: T_CogniteResourceList, loader: ResourceLoader) -> int:
+    def _update_resources(
+        self,
+        resources: T_CogniteResourceList,
+        loader: ResourceLoader,
+        environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
+    ) -> int:
         try:
             updated = loader.update(resources)
         except CogniteAPIError as e:
-            print(Panel(traceback.format_exc()))
-            raise ResourceUpdateError(f"Failed to update resource(s). Error: {e!r}.") from e
+            message = f"Failed to update resource(s). Error: {escape(str(e))}."
+            if hint := self._environment_variable_hint(loader.get_ids(resources), environment_variable_warning_by_id):
+                message += hint
+            raise ResourceUpdateError(message) from e
 
         return len(updated)
+
+    @staticmethod
+    def _environment_variable_hint(
+        identifiers: list[Hashable],
+        environment_variable_warning_by_id: dict[Hashable, EnvironmentVariableMissingWarning],
+    ) -> str:
+        if not environment_variable_warning_by_id:
+            return ""
+        missing_variables: set[str] = set()
+        for identifier in identifiers:
+            if warning := environment_variable_warning_by_id.get(identifier):
+                missing_variables.update(warning.variables)
+        if missing_variables:
+            variables_str = humanize_collection(missing_variables)
+            suffix = "s" if len(missing_variables) > 1 else ""
+            return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
+        return ""
 
     def _deploy_data(
         self,

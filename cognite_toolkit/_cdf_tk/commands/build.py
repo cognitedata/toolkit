@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     DEV_ONLY_MODULES,
+    HINT_LEAD_TEXT,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     YAML_SUFFIX,
@@ -209,7 +210,9 @@ class BuildCommand(ToolkitCommand):
             for module in [module.name for module in modules.selected]:
                 self.console(f"    {module}", prefix="")
 
-        variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
+        variables = BuildVariables.load_raw(
+            config.variables, modules.available_paths, modules.selected.available_paths, config.filepath
+        )
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.console(
@@ -264,6 +267,7 @@ class BuildCommand(ToolkitCommand):
             if verbose:
                 self.console(f"Processing module {module.name}")
             module_variable_sets = variables.get_module_variables(module)
+            last_identifiers: set[tuple[Hashable, Path]] = set()
             for iteration, module_variables in enumerate(module_variable_sets, 1):
                 try:
                     built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
@@ -279,6 +283,24 @@ class BuildCommand(ToolkitCommand):
                     built_module_resources = {}
                 else:
                     built_status = "Success"
+
+                # Check for duplicates
+                identifiers = {
+                    (resource.identifier, resource.source.path)
+                    for resources in built_module_resources.values()
+                    for resource in resources
+                }
+                if duplicates := (identifiers & last_identifiers):
+                    duplicate_warnings = WarningList[FileReadWarning]()
+                    for identifier, path in duplicates:
+                        duplicate_warnings.append(DuplicatedItemWarning(path, identifier, path))
+                    self.warning_list.extend(duplicate_warnings)
+                    print(str(duplicate_warnings))
+                    print(
+                        f"    {HINT_LEAD_TEXT}This is likely due to missing variable in the "
+                        f"identifier when using the module {module.name!r} as a template."
+                    )
+                last_identifiers = identifiers
 
                 module_warnings = len(self.warning_list) - warning_count
                 warning_count = len(self.warning_list)
@@ -451,7 +473,7 @@ class BuildCommand(ToolkitCommand):
 
             content = variables.replace(content, source_path.suffix)
 
-            self._check_variables_replaced(content, module_dir, source_path)
+            replace_warnings = self._check_variables_replaced(content, module_dir, source_path)
 
             if source_path.suffix not in YAML_SUFFIX:
                 source_files.append(BuildSourceFile(source, content, None))
@@ -473,15 +495,26 @@ class BuildCommand(ToolkitCommand):
             try:
                 loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
-                raise ToolkitYAMLFormatError(
-                    f"YAML validation error for {source_path.name} after substituting config variables: {e}"
+                message = (
+                    f"YAML validation error for {source_path.as_posix()!r} after substituting config variables:\n{e}"
                 )
+                if unresolved_variables := [
+                    w.variable.removesuffix("}}").removeprefix("{{").strip()
+                    for w in replace_warnings
+                    if isinstance(w, UnresolvedVariableWarning)
+                ]:
+                    variable_str = humanize_collection(unresolved_variables)
+                    source_str = variables.source_path.as_posix() if variables.source_path else "config.[ENV].yaml"
+                    suffix = "s" if len(unresolved_variables) > 1 else ""
+                    message += f"\n{HINT_LEAD_TEXT}Add the following variable{suffix} to the {source_str!r} file: {variable_str!r}"
+
+                raise ToolkitYAMLFormatError(message)
 
             source_files.append(BuildSourceFile(source, content, loaded))
 
         return source_files
 
-    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> None:
+    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> WarningList[FileReadWarning]:
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         warning_list = WarningList[FileReadWarning]()
         for unmatched in all_unmatched:
@@ -506,6 +539,7 @@ class BuildCommand(ToolkitCommand):
         self.warning_list.extend(warning_list)
         if self.print_warning and warning_list:
             print(str(warning_list))
+        return warning_list
 
     def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}

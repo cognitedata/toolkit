@@ -5,7 +5,9 @@ import re
 import shutil
 import stat
 import tempfile
+import time
 import typing
+import warnings
 from abc import abstractmethod
 from collections import UserDict, defaultdict
 from collections.abc import Hashable, ItemsView, KeysView, ValuesView
@@ -18,61 +20,83 @@ import pandas as pd
 import yaml
 from rich import print
 
-from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
+from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["list"], validate: bool = True
+    filepath: Path | str,
+    environment_variables: dict[str, str | None],
+    required_return_type: Literal["list"],
+    validate: bool = True,
+    original_filepath: Path | None = None,
 ) -> list[dict[str, Any]]: ...
 
 
 @overload
 def load_yaml_inject_variables(
-    filepath: Path | str, variables: dict[str, str | None], required_return_type: Literal["dict"], validate: bool = True
+    filepath: Path | str,
+    environment_variables: dict[str, str | None],
+    required_return_type: Literal["dict"],
+    validate: bool = True,
+    original_filepath: Path | None = None,
 ) -> dict[str, Any]: ...
 
 
 @overload
 def load_yaml_inject_variables(
     filepath: Path | str,
-    variables: dict[str, str | None],
-    required_return_type: Literal["any"] = "any",
+    environment_variables: dict[str, str | None],
+    required_return_type: Literal["any", "list", "dict"] = "any",
     validate: bool = True,
+    original_filepath: Path | None = None,
 ) -> dict[str, Any] | list[dict[str, Any]]: ...
 
 
 def load_yaml_inject_variables(
     filepath: Path | str,
-    variables: dict[str, str | None],
+    environment_variables: dict[str, str | None],
     required_return_type: Literal["any", "list", "dict"] = "any",
     validate: bool = True,
+    original_filepath: Path | None = None,
 ) -> dict[str, Any] | list[dict[str, Any]]:
+    """Loads a YAML file and injects environment variables into it.
+
+    Args:
+        filepath (Path | str): Path to the YAML file or file content.
+        environ_variables (dict[str, str | None]): Dictionary with environment variables.
+        required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
+        validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
+        original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
+            Used for error messages. Defaults to None.
+
+    Returns:
+        dict[str, Any] | list[dict[str, Any]]: The YAML content with the environment variables injected.
+
+    """
     if isinstance(filepath, str):
         content = filepath
     else:
-        content = filepath.read_text()
-    for key, value in variables.items():
+        content = safe_read(filepath)
+    for key, value in environment_variables.items():
         if value is None:
             continue
         content = content.replace(f"${{{key}}}", value)
-    if validate:
-        for match in ENV_VAR_PATTERN.finditer(content):
-            environment_variable = match.group(1)
-            suffix = f" It is expected in {filepath.name}." if isinstance(filepath, Path) else ""
-            MediumSeverityWarning(
-                f"Variable {environment_variable} is not set in the environment.{suffix}"
-            ).print_warning()
+    if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
+        if isinstance(filepath, Path):
+            source = filepath
+        elif original_filepath:
+            source = original_filepath
+        else:
+            source = Path("UNKNOWN")
+        warnings.warn(EnvironmentVariableMissingWarning(source, frozenset(missing_variables)), stacklevel=2)
 
-    if yaml.__with_libyaml__:
-        # CSafeLoader is faster than yaml.safe_load
-        result = yaml.CSafeLoader(content).get_data()
-    else:
-        result = yaml.safe_load(content)
+    result = read_yaml_content(content)
+
     if required_return_type == "any":
         return result
     elif required_return_type == "list":
@@ -103,7 +127,7 @@ def read_yaml_file(
     filepath: path to the YAML file
     """
     try:
-        config_data = read_yaml_content(filepath.read_text())
+        config_data = read_yaml_content(safe_read(filepath))
     except yaml.YAMLError as e:
         print(f"  [bold red]ERROR:[/] reading {filepath}: {e}")
         return {}
@@ -115,17 +139,31 @@ def read_yaml_file(
     return config_data
 
 
+_TOTAL_ELAPSED_TIME = 0.0
+_HAS_HINTED = False
+
+
 def read_yaml_content(content: str) -> dict[str, Any] | list[dict[str, Any]]:
     """Read a YAML string and return a dictionary
 
     content: string containing the YAML content
     """
+    global _TOTAL_ELAPSED_TIME, _HAS_HINTED
     if yaml.__with_libyaml__:
         # CSafeLoader is faster than yaml.safe_load
-        config_data = yaml.CSafeLoader(content).get_data()
-    else:
-        config_data = yaml.safe_load(content)
-    return config_data
+        return yaml.CSafeLoader(content).get_data()
+
+    t0 = time.perf_counter()
+    result = yaml.safe_load(content)
+    _TOTAL_ELAPSED_TIME += time.perf_counter() - t0
+    if _TOTAL_ELAPSED_TIME > 60.0 and not _HAS_HINTED:
+        _HAS_HINTED = True
+        MediumSeverityWarning(
+            f"YAML parsing is taking a long time.\n{HINT_LEAD_TEXT}Consider installing the `libyaml` package for faster parsing."
+            f" See [link={URL.libyaml}]{URL.libyaml}[/link] for more information."
+        ).print_warning()
+
+    return result
 
 
 # Spaces are allowed, but we replace them as well

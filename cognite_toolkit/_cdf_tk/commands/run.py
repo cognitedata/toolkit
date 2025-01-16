@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
 
@@ -429,7 +429,7 @@ if __name__ == "__main__":
         virtual_envs_dir.mkdir(exist_ok=True)
         readme_overview = virtual_envs_dir / "README.md"
         if not readme_overview.exists():
-            readme_overview.write_text(self.default_readme_md)
+            safe_write(readme_overview, self.default_readme_md)
 
         function_venv = Path(virtual_envs_dir) / function_external_id
         function_source_code = function_build.source.path.parent / function_external_id
@@ -489,8 +489,9 @@ if __name__ == "__main__":
         )
 
         import_check = "import_check.py"
-        (function_venv / import_check).write_text(
-            self.import_check_py.format(handler_import=self._create_handler_import(handler_file))
+        safe_write(
+            function_venv / import_check,
+            self.import_check_py.format(handler_import=self._create_handler_import(handler_file)),
         )
 
         virtual_env.execute(Path(import_check), f"import_check {function_external_id}")
@@ -524,7 +525,7 @@ if __name__ == "__main__":
             env = {k: str(v) for k, v in env.items()}
 
         run_check = "run_check.py"
-        (function_venv / run_check).write_text(run_check_py)
+        safe_write(function_venv / run_check, run_check_py)
         virtual_env.execute(Path(run_check), f"run_check {function_external_id}", env)
 
         print(f"    [green]✓ 4/4[/green] Function {function_external_id!r} successfully executed code.")
@@ -627,7 +628,7 @@ if __name__ == "__main__":
 
     @staticmethod
     def _get_function_args(py_file: Path, function_name: str) -> set[str]:
-        parsed = ast.parse(py_file.read_text())
+        parsed = ast.parse(safe_read(py_file))
         handle_function = next(
             (item for item in parsed.body if isinstance(item, ast.FunctionDef) and item.name == function_name), None
         )
@@ -819,7 +820,7 @@ class RunWorkflowCommand(ToolkitCommand):
 
         for task in result.executed_tasks:
             task_duration = (
-                f"{datetime.timedelta(seconds=(task.end_time - task.start_time)/1000).total_seconds():.1f} seconds"
+                f"{datetime.timedelta(seconds=(task.end_time - task.start_time) / 1000).total_seconds():.1f} seconds"
                 if task.end_time and task.start_time
                 else ""
             )

@@ -15,6 +15,35 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.26] - 2025-01-16
+
+### Added
+
+- [alpha feature] `cdf import transformation-cli` now has a new flag `--clean` to remove the
+  source files after importing.
+
+### Fixed
+
+- All groups are now correctly deployed before resources that has authentication to them (`Transformation`,
+  `'FunctionSchedule`, `WorkflowTrigger`).
+
+### Changed
+
+- Running `cdf auth init/verify` no longer automatically activates Cognite Functions on private link environments
+  projects.
+
+### Improved
+
+- You now get a warning if you use the `$FILENAME` template incorrectly in the `CogniteFile`/`FileMetadata` resource.
+- If a `{{ variable }}` replacement causes a `YAMLFormatError`, the Toolkit now gives you a hint on how to fix it.
+- If you use a `dataSetId`, the Toolkit now gives you a hint to use `dataSetExternalId` instead.
+- The Toolkit fallback to read any file as `utf-8` if it fails to read.
+- The Toolkit no longer gives `UnusedParamterWarning` for `WorkflowVersion` using a `subworkflow` task.
+- If a `Transformation`/`FunctionSchedule`/`WorkflowTrigger` fails to deploy due to environment variables missing,
+  the Toolkit now gives a hint on how to fix it.
+- [alpha feature] If you get a duplicated item due to using the `repeated-module` feature. The Toolkit now gives
+  you a hint on how to fix it.
+
 ## [0.3.25] - 2025-01-10
 
 ### Added
