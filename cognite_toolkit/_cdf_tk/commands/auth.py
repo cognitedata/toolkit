@@ -532,7 +532,8 @@ class AuthCommand(ToolkitCommand):
             table = Table(title="CDF Group ids, Names, and Source Ids")
             table.add_column("Id", justify="left")
             table.add_column("Name", justify="left")
-            table.add_column("Source Id", justify="left")
+    if has_source_id:
+        table.add_column("Source Id", justify="left")
             for group in user_group:
                 name = group.name
                 if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
