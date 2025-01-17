@@ -209,7 +209,7 @@ class AuthCommand(ToolkitCommand):
         if cdf_toolkit_group is None:
             return VerifyAuthResult()
 
-        if not is_demo and not is_user_in_toolkit_group and cdf_toolkit_group.source_id:
+        if not is_demo and not is_user_in_toolkit_group:
             print(
                 Panel(
                     f"To use the Toolkit, for example, 'cdf deploy', [red]you need to switch[/red] "
