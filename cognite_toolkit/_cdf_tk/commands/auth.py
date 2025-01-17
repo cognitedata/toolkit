@@ -248,7 +248,7 @@ class AuthCommand(ToolkitCommand):
         toolkit_group: GroupWrite,
         all_groups: GroupList,
         is_interactive: bool,
-        dry_run: bool
+        dry_run: bool,
     ) -> Group | None:
         if not is_interactive:
             raise AuthorizationError(
@@ -285,7 +285,7 @@ class AuthCommand(ToolkitCommand):
                 )
                 if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
                     return None
-        else:  #authentication through cog idp (cdf)
+        else:  # authentication through cog idp (cdf)
             toolkit_group.members = [auth_vars.client_id]
         return self._create_toolkit_group_in_cdf(ToolGlobals, toolkit_group)
 
@@ -547,7 +547,7 @@ class AuthCommand(ToolkitCommand):
                 if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
                     name = f"[bold]{group.name}[/]"
                 table.add_row(str(group.id), name)
-            print(table)            
+            print(table)
 
         if len(user_group) > 1:
             self.warn(
