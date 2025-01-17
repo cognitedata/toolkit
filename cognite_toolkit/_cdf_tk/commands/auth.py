@@ -285,7 +285,7 @@ class AuthCommand(ToolkitCommand):
                 )
                 if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
                     return None
-        else:  #authentication through cog idp (cdf)
+        else:  # authentication through cog idp (cdf)
             if auth_vars.client_id:
                 toolkit_group.members = [auth_vars.client_id]
         return self._create_toolkit_group_in_cdf(ToolGlobals, toolkit_group)
