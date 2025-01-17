@@ -209,7 +209,7 @@ class AuthCommand(ToolkitCommand):
         if cdf_toolkit_group is None:
             return VerifyAuthResult()
 
-        if not is_demo and not is_user_in_toolkit_group:
+        if not is_demo and not is_user_in_toolkit_group and cdf_toolkit_group.source_id:
             print(
                 Panel(
                     f"To use the Toolkit, for example, 'cdf deploy', [red]you need to switch[/red] "
@@ -222,9 +222,10 @@ class AuthCommand(ToolkitCommand):
 
         if not is_demo:
             self.check_count_group_memberships(user_groups)
-
-            self.check_source_id_usage(all_groups, cdf_toolkit_group)
-
+            if cdf_toolkit_group.source_id:
+                self.check_source_id_usage(all_groups, cdf_toolkit_group)
+            elif cdf_toolkit_group.members:
+                self.check_members_usage(all_groups, cdf_toolkit_group)
             if extra := self.check_duplicated_names(all_groups, cdf_toolkit_group):
                 if (
                     is_interactive
@@ -247,7 +248,7 @@ class AuthCommand(ToolkitCommand):
         toolkit_group: GroupWrite,
         all_groups: GroupList,
         is_interactive: bool,
-        dry_run: bool,
+        dry_run: bool
     ) -> Group | None:
         if not is_interactive:
             raise AuthorizationError(
@@ -256,7 +257,7 @@ class AuthCommand(ToolkitCommand):
                 f"\n{HINT_LEAD_TEXT}Run this command without --no-prompt to get assistance to create the group."
             )
         if not questionary.confirm(
-            "Do you want to create a it?",
+            "Do you want to create it?",
             default=True,
         ).ask():
             return None
@@ -266,25 +267,26 @@ class AuthCommand(ToolkitCommand):
                 f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
             )
             return None
-
-        while True:
-            source_id = questionary.text(
-                "What is the source id for the new group (typically a group id in the identity provider)?"
-            ).ask()
-            if source_id:
-                break
-            print("Source id cannot be empty.")
-
-        toolkit_group.source_id = source_id
-        if already_used := [group.name for group in all_groups if group.source_id == source_id]:
-            self.warn(
-                HighSeverityWarning(
-                    f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
+        auth_vars = AuthVariables.from_env()
+        if auth_vars.provider != "cdf":
+            while True:
+                source_id = questionary.text(
+                    "What is the source id for the new group (typically a group id in the identity provider)?"
+                ).ask()
+                if source_id:
+                    break
+                print("Source id cannot be empty.")
+            toolkit_group.source_id = source_id
+            if already_used := [group.name for group in all_groups if group.source_id == source_id]:
+                self.warn(
+                    HighSeverityWarning(
+                        f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
+                    )
                 )
-            )
-            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
-                return None
-
+                if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+                    return None
+        else:  #authentication through cog idp (cdf)
+            toolkit_group.members = [auth_vars.client_id]
         return self._create_toolkit_group_in_cdf(ToolGlobals, toolkit_group)
 
     @staticmethod
@@ -524,17 +526,28 @@ class AuthCommand(ToolkitCommand):
 
     def check_count_group_memberships(self, user_group: GroupList) -> None:
         print("Checking CDF group memberships for the current client configured...")
-
-        table = Table(title="CDF Group ids, Names, and Source Ids")
-        table.add_column("Id", justify="left")
-        table.add_column("Name", justify="left")
-        table.add_column("Source Id", justify="left")
-        for group in user_group:
-            name = group.name
-            if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
-                name = f"[bold]{group.name}[/]"
-            table.add_row(str(group.id), name, group.source_id)
-        print(table)
+        has_source_id = any(group.source_id for group in user_group)
+        if has_source_id:
+            table = Table(title="CDF Group ids, Names, and Source Ids")
+            table.add_column("Id", justify="left")
+            table.add_column("Name", justify="left")
+            table.add_column("Source Id", justify="left")
+            for group in user_group:
+                name = group.name
+                if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
+                    name = f"[bold]{group.name}[/]"
+                table.add_row(str(group.id), name, group.source_id)
+            print(table)
+        else:
+            table = Table(title="CDF Group ids and Names")
+            table.add_column("Id", justify="left")
+            table.add_column("Name", justify="left")
+            for group in user_group:
+                name = group.name
+                if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
+                    name = f"[bold]{group.name}[/]"
+                table.add_row(str(group.id), name)
+            print(table)            
 
         if len(user_group) > 1:
             self.warn(
@@ -560,6 +573,22 @@ class AuthCommand(ToolkitCommand):
                     f"The following groups have the same source id, {cdf_toolkit_group.source_id},\n"
                     f"as the {cdf_toolkit_group.name!r} group: \n    {group_names_str!r}.\n"
                     f"It is recommended that only the {cdf_toolkit_group.name!r} group has this source id."
+                )
+            )
+
+    def check_members_usage(self, all_groups: GroupList, cdf_toolkit_group: Group) -> None:
+        reuse_members = [
+            group.name
+            for group in all_groups
+            if group.source_id == cdf_toolkit_group.source_id and group.id != cdf_toolkit_group.id
+        ]
+        if reuse_members:
+            group_names_str = humanize_collection(reuse_members)
+            self.warn(
+                MediumSeverityWarning(
+                    f"The following groups have the same membership, {cdf_toolkit_group.members},\n"
+                    f"as the {cdf_toolkit_group.name!r} group: \n    {group_names_str!r}.\n"
+                    f"It is recommended that only the {cdf_toolkit_group.name!r} group has this membership."
                 )
             )
 
