@@ -248,7 +248,7 @@ class AuthCommand(ToolkitCommand):
         toolkit_group: GroupWrite,
         all_groups: GroupList,
         is_interactive: bool,
-        dry_run: bool
+        dry_run: bool,
     ) -> Group | None:
         if not is_interactive:
             raise AuthorizationError(
@@ -548,7 +548,7 @@ class AuthCommand(ToolkitCommand):
                 if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
                     name = f"[bold]{group.name}[/]"
                 table.add_row(str(group.id), name)
-            print(table)            
+            print(table)
 
         if len(user_group) > 1:
             self.warn(
