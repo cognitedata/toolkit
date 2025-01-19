@@ -55,6 +55,9 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self._available_data_sets: dict[int, DataSetWrite] | None = None
         self._available_hierarchies: dict[int, Asset] | None = None
 
+        self._written_files: list[Path] = []
+        self._used_columns: set[str] = set()
+
     def execute(
         self,
         ToolGlobals: CDFToolConfig,
@@ -143,9 +146,27 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     if verbose:
                         print(f"Dumped {len(df):,} time_series to {file_path}")
                     count += len(df)
+                    self._written_files.append(file_path)
+                    self._used_columns.update(df.columns)
                     progress.advance(write_to_file, advance=len(df))
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
+
+        if format_ in {"csv", "parquet"}:
+            # Standardize columns across all files
+            for file_path in self._written_files:
+                if format_ == "csv":
+                    df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
+                else:
+                    df = pd.read_parquet(file_path)
+                for missing_column in self._used_columns - set(df.columns):
+                    df[missing_column] = None
+                # Standardize column order
+                df.sort_index(axis=1, inplace=True)
+                if format_ == "csv":
+                    df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
+                elif format_ == "parquet":
+                    df.to_parquet(file_path, index=False)
 
         print(f"Dumped {count:,} time_series to {output_dir}")
 
