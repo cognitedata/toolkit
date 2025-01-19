@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from functools import lru_cache
@@ -13,7 +14,7 @@ import yaml
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
-from rich.progress import Progress, TaskID
+from rich.progress import Progress, TaskID, track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -146,11 +147,15 @@ class DumpAssetsCommand(ToolkitCommand):
 
         if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
             # Standardize columns across all files
-            for file_path in self._written_files:
-                if format_ == "csv":
-                    df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
-                else:
-                    df = pd.read_parquet(file_path)
+            for file_path in track(
+                self._written_files, total=len(self._written_files), description="Standardizing columns"
+            ):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    if format_ == "csv":
+                        df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
+                    else:
+                        df = pd.read_parquet(file_path)
                 for missing_column in self._used_columns - set(df.columns):
                     df[missing_column] = None
                 # Standardize column order
