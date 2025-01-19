@@ -129,6 +129,8 @@ class DumpAssetsCommand(ToolkitCommand):
                     file_count = file_count_by_hierarchy[group]
                     file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
                     self._used_columns.update(df.columns)
+                    # Standardize column order
+                    df.sort_index(axis=1, inplace=True)
                     if format_ == "csv":
                         df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
                     elif format_ == "parquet":
@@ -142,7 +144,7 @@ class DumpAssetsCommand(ToolkitCommand):
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
-        if format_ in {"csv", "parquet"}:
+        if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
             # Standardize columns across all files
             for file_path in self._written_files:
                 if format_ == "csv":

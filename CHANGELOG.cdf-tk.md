@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- The `cdf dump asset` and `cdf dump timeseries` commands now always dump tables with
+  the same columns in the same order.
+
 ## [0.3.26] - 2025-01-16
 
 ### Added

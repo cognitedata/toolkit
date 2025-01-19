@@ -133,6 +133,8 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     folder_path = output_dir / TIME_SERIES_FOLDER_NAME
                     folder_path.mkdir(parents=True, exist_ok=True)
                     file_path = folder_path / f"part-{file_count:04}.TimeSeries.{format_}"
+                    # Standardize column order
+                    df.sort_index(axis=1, inplace=True)
                     if format_ == "csv":
                         df.to_csv(
                             file_path,
@@ -152,7 +154,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
-        if format_ in {"csv", "parquet"}:
+        if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
             # Standardize columns across all files
             for file_path in self._written_files:
                 if format_ == "csv":
