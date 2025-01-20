@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.28] - TBD
+
+### Fixed
+
+- Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
+  environment variables has been restored with the exception of Extraction Pipeline Configs.
+
 ## [0.3.27] - 2025-01-20
 
 ### Improved
