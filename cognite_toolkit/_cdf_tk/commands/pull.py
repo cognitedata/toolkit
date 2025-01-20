@@ -55,7 +55,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import (
     is_module_path,
     module_directory_from_path,
@@ -456,7 +456,7 @@ class PullCommand(ToolkitCommand):
         local_resource_dict = built_local.load_resource_dict(ToolGlobals.environment_variables(), validate=True)
 
         filepath_mock = MagicMock(spec=Path)
-        filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
+        filepath_mock.read_text.return_value = yaml_safe_dump(local_resource_dict)
         filepath_mock.stem.return_value = "hack"
         filepath_mock.name = "hack.yaml"
 
@@ -468,7 +468,7 @@ class PullCommand(ToolkitCommand):
                 query_mock_file = MagicMock(spec=Path)
                 query_mock_file.read_text.return_value = query_content
                 local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
-                filepath_mock.read_text.return_value = yaml.safe_dump(local_resource_dict)
+                filepath_mock.read_text.return_value = yaml_safe_dump(local_resource_dict)
 
         local_resource = loader.load_resource_file(filepath_mock, ToolGlobals.environment_variables())
 
@@ -849,7 +849,7 @@ class PullCommand(ToolkitCommand):
         else:
             raise ValueError("Loaded and loaded_with_ids should be of the same type")
 
-        dumped = yaml.safe_dump(updated, sort_keys=False)
+        dumped = yaml_safe_dump(updated)
         for placeholder, variable in value_by_placeholder.items():
             dumped = dumped.replace(placeholder, f"{{{{ {variable.key} }}}}")
         file_content = comments.dump(dumped)

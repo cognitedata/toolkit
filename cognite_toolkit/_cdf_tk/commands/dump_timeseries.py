@@ -8,7 +8,6 @@ from typing import Any, Literal, cast
 
 import pandas as pd
 import questionary
-import yaml
 from cognite.client.data_classes import (
     Asset,
     DataSetWrite,
@@ -30,7 +29,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 TIME_SERIES_FOLDER_NAME = TimeSeriesLoader.folder_name
 
@@ -122,10 +121,10 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     if file_path.exists():
                         with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                             f.write("\n")
-                            f.write(yaml.safe_dump(time_series, sort_keys=False))
+                            f.write(yaml_safe_dump(time_series))
                     else:
                         with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                            f.write(yaml.safe_dump(time_series, sort_keys=False))
+                            f.write(yaml_safe_dump(time_series))
                     count += len(time_series)
                     progress.advance(write_to_file, advance=len(time_series))
             elif format_ in {"csv", "parquet"}:

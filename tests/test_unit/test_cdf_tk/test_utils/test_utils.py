@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
@@ -42,7 +43,7 @@ from tests.data import DATA_FOLDER, PROJECT_FOR_TEST
 class TestLoadYamlInjectVariables:
     def test_load_yaml_inject_variables(self, tmp_path: Path) -> None:
         my_file = tmp_path / "test.yaml"
-        my_file.write_text(yaml.safe_dump({"test": "${TEST}"}))
+        my_file.write_text(yaml_safe_dump({"test": "${TEST}"}))
 
         loaded = load_yaml_inject_variables(my_file, {"TEST": "my_injected_value"})
 
@@ -50,7 +51,7 @@ class TestLoadYamlInjectVariables:
 
     def test_warning_when_missing_env_variable(self) -> None:
         path = Path("test.yaml")
-        content = yaml.safe_dump({"test": "${TEST}"})
+        content = yaml_safe_dump({"test": "${TEST}"})
         expected_warning = EnvironmentVariableMissingWarning(path, frozenset({"TEST"}))
 
         with catch_warnings() as warning_list:

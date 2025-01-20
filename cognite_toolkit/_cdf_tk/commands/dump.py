@@ -4,7 +4,6 @@ import itertools
 from pathlib import Path
 
 import questionary
-import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes.capabilities import DataModelsAcl
 from cognite.client.data_classes.data_modeling import DataModelId
@@ -16,7 +15,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders import ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
 
 from ._base import ToolkitCommand
 
@@ -99,7 +98,7 @@ class DumpCommand(ToolkitCommand):
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
             view_file = view_folder / file_name
             view_write = view_loader.dump_as_write(view)
-            safe_write(view_file, yaml.safe_dump(view_write, sort_keys=False))
+            safe_write(view_file, yaml_safe_dump(view_write))
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped view {view.as_id()} to {view_file!s}.")
 
