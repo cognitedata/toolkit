@@ -121,9 +121,9 @@ ExtractionPipelineConfig:
     \        timeout: 0\n        max-tries: 10\n        max-delay: 20s\n        initial-delay:\
     \ 2s\n        retry-status-codes:\n            - 2150694912\n            - 2148007936\n\
     cognite:\n    # The project to connect to in the API, uses the environment variable\
-    \ COGNITE_PROJECT.\n    project: pytest-project\n    host: https://bluefield.cognitedata.com\n\
-    \n    # If this is set to true, credentials can be left out, and the extractor\n\
-    \    # will read data without pushing it to CDF.\n    debug: false\n    non-finite-replacement:\n\
+    \ COGNITE_PROJECT.\n    project: ${CDF_PROJECT}\n    host: ${CDF_URL}\n\n    #\
+    \ If this is set to true, credentials can be left out, and the extractor\n   \
+    \ # will read data without pushing it to CDF.\n    debug: false\n    non-finite-replacement:\n\
     \    data-set-external-id: 'ds_timeseries_oid'\n    cdf-chunking:\n        data-point-time-series:\
     \ 500\n        data-points: 10000\n\nextraction:\n    # Global prefix for externalId\
     \ in destinations. Should be unique to prevent name conflicts.\n    id-prefix:\
