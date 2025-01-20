@@ -177,7 +177,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if filepath.suffix in {".yaml", ".yml"}:
             raw_yaml = load_yaml_inject_variables(
                 self.safe_read(filepath),
-                environment_variables or {} if self.do_environment_variable_injection else {},
+                environment_variables or {},
                 original_filepath=filepath,
             )
             resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml

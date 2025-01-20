@@ -1105,7 +1105,7 @@ class GraphQLLoader(
     ) -> list[dict[str, Any]]:
         raw_yaml = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]

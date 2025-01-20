@@ -174,7 +174,6 @@ class ResourceLoader(
     support_drop = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
-    do_environment_variable_injection = False
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
     # This is used in the iterate method to ensure that nothing is returned if
     # the resource type does not have a parent resource.
@@ -314,7 +313,7 @@ class ResourceLoader(
         """
         raw_yaml = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
         return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]

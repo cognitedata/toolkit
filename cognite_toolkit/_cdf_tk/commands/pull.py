@@ -674,7 +674,7 @@ class PullCommand(ToolkitCommand):
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
-        environment_variables = environment_variables if loader.do_environment_variable_injection else {}
+        environment_variables = environment_variables or {}
         for source_file, resources in resources_by_file.items():
             local_resource_by_id = self._get_local_resource_dict_by_id(resources, loader, environment_variables)
             has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)

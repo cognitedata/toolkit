@@ -98,9 +98,8 @@ class ResourceWorker(
         duplicates: list[T_ID] = []
         local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}  # type: ignore[assignment]
         # Load all resources from files, get ids, and remove duplicates.
-        environment_variables = (
-            environment_variables if self.loader.do_environment_variable_injection and environment_variables else {}
-        )
+        environment_variables = environment_variables or {}
+
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 try:
