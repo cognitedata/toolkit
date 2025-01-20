@@ -314,7 +314,7 @@ class ExtractionPipelineConfigLoader(
         for orig_item, repl_item in zip(original, replaced):
             if "config" in orig_item:
                 repl_item["config"] = orig_item.get("config")  # type: ignore
-        return replacedif isinstance(replaced, list) else [replaced]
+        return replaced if isinstance(replaced, list) else [replaced]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
