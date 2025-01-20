@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
-from _cdf_tk.utils.file import yaml_safe_dump
 from _pytest.mark import ParameterSet
 from cognite.client.credentials import OAuthClientCredentials, OAuthInteractive
 from pytest import MonkeyPatch
@@ -35,6 +34,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.validation import validate_modules_variables
 from tests.data import DATA_FOLDER, PROJECT_FOR_TEST

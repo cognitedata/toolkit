@@ -3,7 +3,6 @@ from typing import Any
 
 import pyperclip
 import pytest
-from _cdf_tk.utils.file import yaml_safe_dump
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
@@ -14,6 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 SKIP_ACLS = frozenset(
     {

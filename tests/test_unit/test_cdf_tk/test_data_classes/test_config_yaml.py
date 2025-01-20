@@ -4,7 +4,6 @@ from typing import Any
 
 import pytest
 import yaml
-from _cdf_tk.utils.file import yaml_safe_dump
 
 from cognite_toolkit._cdf_tk.data_classes import (
     ConfigEntry,
@@ -12,6 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     InitConfigYAML,
 )
 from cognite_toolkit._cdf_tk.utils import YAMLComment, flatten_dict
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 from tests.data import PROJECT_FOR_TEST
 
 

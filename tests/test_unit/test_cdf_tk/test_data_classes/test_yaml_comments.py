@@ -2,9 +2,9 @@ from collections.abc import Iterable
 
 import pytest
 import yaml
-from _cdf_tk.utils.file import yaml_safe_dump
 
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 def load_dump_test_cases() -> Iterable:
