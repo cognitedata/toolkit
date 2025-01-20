@@ -35,4 +35,4 @@ class BuildDestinationFile:
 
     @property
     def content(self) -> str:
-        return yaml.safe_dump(self.loaded, sort_keys=False)
+        return yaml.safe_dump(self.loaded, sort_keys=False, allow_unicode=True)
