@@ -86,23 +86,22 @@ ExtractionPipeline:
     \ name - other names can also be used) and contain the following parameters:\n\
     \n    ``` yaml\n      # Version of the config schema\n      version: 1\n\n   \
     \   type: remote\n      cognite:\n          # The project to connect to in the\
-    \ API, uses the environment variable COGNITE_PROJECT.\n          project: ${CDF_PROJECT}\
-    \ <ex: my_project>\n          host: ${CDF_URL} <ex: https://api.cognitedata.com>\n\
+    \ API, uses the environment variable COGNITE_PROJECT.\n          project: pytest-project\
+    \ <ex: my_project>\n          host: https://bluefield.cognitedata.com <ex: https://api.cognitedata.com>\n\
     \n          # If this is set to true, credentials can be left out, and the extractor\n\
     \          # will read data without pushing it to CDF.\n          # This is for\
     \ microsoft as IdP, to use a different provider,\n          # set implementation:\
     \ Basic, and use token-url instead of tenant.\n          # See the example config\
     \ for the full list of options.\n          idp-authentication:\n             \
-    \ # Directory tenant\n              tenant: ${IDP_TENANT_ID} <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
-    \ >\n              # Application Id\n              client-id: ${IDP_CLIENT_ID}\
-    \  <ex: 1f4afa-asfd-3434-bb46-93123s423ds >\n              # Client secret\n \
-    \             secret: ${IDP_CLIENT_SECRET} <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
+    \ # Directory tenant\n              tenant: dummy <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
+    \ >\n              # Application Id\n              client-id: dummy  <ex: 1f4afa-asfd-3434-bb46-93123s423ds\
+    \ >\n              # Client secret\n              secret: dummy <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
     \ >\n              # List of resource scopes, ex:\n              # scopes:\n \
     \             #   - scopeA\n              #   - scopeB\n              scopes:\n\
-    \                  - ${IDP_SCOPES} <ex: https://api.cognitedata.com/.default>\n\
+    \                  - https://bluefield.cognitedata.com/.default <ex: https://api.cognitedata.com/.default>\n\
     \          extraction-pipeline:\n              # ExternalId of extraction pipeline\n\
     \              pipeline-id: ep_src_timeseries_oid_opcua\n\n    ```\n\n    All\
-    \ parameters in the config file that are environment variables ex: `${CDF_PROJECT}`\
+    \ parameters in the config file that are environment variables ex: `pytest-project`\
     \ that should be set on the host running the extractor.\n"
   externalId: ep_src_timeseries_oid_opcua
   name: src:timeseries:oid:opcua
@@ -122,9 +121,9 @@ ExtractionPipelineConfig:
     \        timeout: 0\n        max-tries: 10\n        max-delay: 20s\n        initial-delay:\
     \ 2s\n        retry-status-codes:\n            - 2150694912\n            - 2148007936\n\
     cognite:\n    # The project to connect to in the API, uses the environment variable\
-    \ COGNITE_PROJECT.\n    project: ${CDF_PROJECT}\n    host: ${CDF_URL}\n\n    #\
-    \ If this is set to true, credentials can be left out, and the extractor\n   \
-    \ # will read data without pushing it to CDF.\n    debug: false\n    non-finite-replacement:\n\
+    \ COGNITE_PROJECT.\n    project: pytest-project\n    host: https://bluefield.cognitedata.com\n\
+    \n    # If this is set to true, credentials can be left out, and the extractor\n\
+    \    # will read data without pushing it to CDF.\n    debug: false\n    non-finite-replacement:\n\
     \    data-set-external-id: 'ds_timeseries_oid'\n    cdf-chunking:\n        data-point-time-series:\
     \ 500\n        data-points: 10000\n\nextraction:\n    # Global prefix for externalId\
     \ in destinations. Should be unique to prevent name conflicts.\n    id-prefix:\

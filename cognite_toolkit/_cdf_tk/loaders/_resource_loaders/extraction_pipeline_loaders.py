@@ -293,6 +293,14 @@ class ExtractionPipelineConfigLoader(
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         return stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
 
+    def load_resource_file(
+        ## special case where the environment variable keys should not be replaced but preserved as is
+        self,
+        filepath: Path,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        return super().load_resource_file(filepath, {})
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
         if isinstance(config_raw, str):

@@ -1,3 +1,0 @@
-externalId: tr_first_transformation
-interval: '{{scheduleHourly}}'
-isPaused: true
