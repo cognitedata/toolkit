@@ -74,6 +74,7 @@ def cdf_tool_mock(
         # The secrets in the cdf_ingestion workflow
         "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
         "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
+        "NON-SECRET": "this-is-not-a-secret",
     }
     existing = {}
     for key, value in environment_variables.items():

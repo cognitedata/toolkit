@@ -62,7 +62,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     kind = "Function"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
-    do_environment_variable_injection = True
     metadata_value_limit = 512
 
     class _MetadataKey:
@@ -354,7 +353,6 @@ class FunctionScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
-    do_environment_variable_injection = True
     parent_resource = frozenset({FunctionLoader})
 
     def __init__(self, client: ToolkitClient, build_path: Path | None):

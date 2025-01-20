@@ -21,7 +21,6 @@ from pytest import MonkeyPatch
 from pytest_regressions.data_regression import DataRegressionFixture
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_from_dict
-from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpecSet
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
@@ -50,7 +49,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
-from tests.data import LOAD_DATA, PROJECT_FOR_TEST, RESOURCES_WITH_ENVIRONMENT_VARIABLES
+from tests.data import LOAD_DATA, PROJECT_FOR_TEST
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.test_cdf_tk.constants import BUILD_DIR, SNAPSHOTS_DIR_ALL
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -77,19 +76,6 @@ def test_loader_class(
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
-
-
-def has_auth(params: ParameterSpecSet) -> bool:
-    for param in params:
-        path_segments = param.path if isinstance(param.path, (list, tuple)) else [param.path]
-        if (
-            any("authentication" in segment for segment in path_segments)
-            or any("credentials" in segment for segment in path_segments)
-            or any("secrets" in segment for segment in path_segments)
-            or any("envVars" in segment for segment in path_segments)
-        ):
-            return True
-    return False
 
 
 class TestDeployResources:
@@ -321,45 +307,6 @@ class TestResourceLoaders:
         duplicated.pop("auth")
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
-
-    @pytest.mark.parametrize("loader_cls", [loader for loader in RESOURCE_LOADER_LIST])
-    def test_should_replace_env_var(self, loader_cls) -> None:
-        has_auth_params = has_auth(loader_cls.get_write_cls_parameter_spec())
-
-        if has_auth_params:
-            assert loader_cls.do_environment_variable_injection, (
-                f"{loader_cls.folder_name} has auth but is not set to replace env vars"
-            )
-        else:
-            assert not loader_cls.do_environment_variable_injection, (
-                f"{loader_cls.folder_name} has no auth but is set to replace env vars"
-            )
-
-    @pytest.mark.parametrize(
-        "loader_cls",
-        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if has_auth(loader_cls.get_write_cls_parameter_spec())],
-    )
-    def test_does_replace_env_var(self, loader_cls, cdf_tool_mock: CDFToolConfig, monkeypatch) -> None:
-        raw_path = RESOURCES_WITH_ENVIRONMENT_VARIABLES / "modules" / "example_module" / loader_cls.folder_name
-
-        tmp_file = next((file for file in raw_path.glob(f"*.{loader_cls.kind}.yaml")), None)
-        assert tmp_file is not None, f"No yaml file found in {raw_path}"
-        loader = loader_cls.create_loader(
-            cdf_tool_mock, RESOURCES_WITH_ENVIRONMENT_VARIABLES / "modules" / "example_module"
-        )
-
-        resource_without_replacement = loader.load_resource_file(tmp_file, environment_variables={})
-        resource = loader.load_resource_file(
-            tmp_file, environment_variables={"SOME_VARIABLE": "test_value", "ANOTHER_VARIABLE": "another_test_value"}
-        )
-        dumped = yaml.safe_dump(resource)
-        dumped_without_replacement = yaml.safe_dump(resource_without_replacement)
-
-        assert "${SOME_VARIABLE}" not in dumped
-        assert "test_value" in dumped
-        assert "${SOME_VARIABLE}" in dumped_without_replacement, (
-            f"Environment variable missing in {tmp_file.as_posix()}"
-        )
 
 
 class TestLoaders:

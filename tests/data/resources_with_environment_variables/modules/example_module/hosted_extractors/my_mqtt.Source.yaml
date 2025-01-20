@@ -1,8 +1,0 @@
-type: mqtt3
-externalId: my_mqtt_broker
-host: myMqttBroker
-eventHubName: The name of the myMqttBroker
-authentication:
-  type: basic
-  username: ${SOME_VARIABLE}
-  password: ${ANOTHER_VARIABLE}
