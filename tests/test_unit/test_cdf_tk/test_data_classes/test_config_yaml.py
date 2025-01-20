@@ -4,6 +4,7 @@ from typing import Any
 
 import pytest
 import yaml
+from _cdf_tk.utils.file import yaml_safe_dump
 
 from cognite_toolkit._cdf_tk.data_classes import (
     ConfigEntry,
@@ -98,7 +99,7 @@ variable4: "value with #in it" # But a comment after
         # Removed = Exists in config.yaml but not in the BUILD_CONFIG directory default.config.yaml files
         existing_config_yaml["variables"]["modules"]["another_module"]["removed_variable"] = "old_value"
 
-        config = InitConfigYAML.load_existing(yaml.safe_dump(existing_config_yaml)).load_defaults(PROJECT_FOR_TEST)
+        config = InitConfigYAML.load_existing(yaml_safe_dump(existing_config_yaml)).load_defaults(PROJECT_FOR_TEST)
 
         removed = [v for v in config.values() if v.default_value is None]
         # There is already a custom variable in the config.yaml file

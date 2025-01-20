@@ -2,8 +2,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
 )
@@ -13,6 +11,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import (
     FileReadWarning,
 )
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 from ._built_resources import SourceLocation
 
@@ -35,4 +34,4 @@ class BuildDestinationFile:
 
     @property
     def content(self) -> str:
-        return yaml.safe_dump(self.loaded, sort_keys=False, allow_unicode=True)
+        return yaml_safe_dump(self.loaded)

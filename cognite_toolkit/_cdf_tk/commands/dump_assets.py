@@ -10,7 +10,6 @@ from typing import Any, Literal, cast
 
 import pandas as pd
 import questionary
-import yaml
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
@@ -27,7 +26,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
-from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 
 class DumpAssetsCommand(ToolkitCommand):
@@ -116,10 +115,10 @@ class DumpAssetsCommand(ToolkitCommand):
                     if file_path.exists():
                         with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                             f.write("\n")
-                            f.write(yaml.safe_dump(assets, sort_keys=False))
+                            f.write(yaml_safe_dump(assets))
                     else:
                         with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                            f.write(yaml.safe_dump(assets, sort_keys=False))
+                            f.write(yaml_safe_dump(assets))
                     count += len(assets)
                     progress.advance(write_to_file, advance=len(assets))
             elif format_ in {"csv", "parquet"}:
@@ -186,10 +185,10 @@ class DumpAssetsCommand(ToolkitCommand):
                 if file_path.exists():
                     with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                         f.write("\n")
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+                        f.write(yaml_safe_dump(to_dump_dicts))
                 else:
                     with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+                        f.write(yaml_safe_dump(to_dump_dicts))
 
                 print(f"Dumped {len(labels):,} labels to {file_path}")
 

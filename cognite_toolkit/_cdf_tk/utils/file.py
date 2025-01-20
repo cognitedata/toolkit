@@ -209,6 +209,10 @@ def safe_write(file: Path, content: str) -> None:
         file.write_text(content, encoding="utf-8")
 
 
+def yaml_safe_dump(data: Any, sort_keys: bool = False, indent: int | None = None) -> str:
+    return yaml.safe_dump(data, sort_keys=sort_keys, allow_unicode=True, indent=indent)
+
+
 def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
     """Quote a value in a yaml string"""
     # This pattern will match the key if it is not already quoted

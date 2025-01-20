@@ -2,7 +2,7 @@ import difflib
 from collections.abc import Collection, Iterable, Iterator
 from typing import Any
 
-import yaml
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
@@ -18,8 +18,8 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
 
 
 def to_diff(a: dict[str, Any], b: dict[str, Any]) -> Iterator[str]:
-    a_str = yaml.safe_dump(a, sort_keys=True)
-    b_str = yaml.safe_dump(b, sort_keys=True)
+    a_str = yaml_safe_dump(a, sort_keys=True)
+    b_str = yaml_safe_dump(b, sort_keys=True)
 
     return difflib.unified_diff(a_str.splitlines(), b_str.splitlines())
 

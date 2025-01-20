@@ -3,7 +3,7 @@ from typing import Any
 
 import pyperclip
 import pytest
-import yaml
+from _cdf_tk.utils.file import yaml_safe_dump
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
@@ -99,7 +99,7 @@ class TestCDFAuthReadWriteAll:
         )
         if missing_capabilities:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
-            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
         # This test will fail typically after you have updated the cognite-sdk-python package.
@@ -118,7 +118,7 @@ class TestCDFAuthReadWriteAll:
         )
         if missing_capabilities:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
-            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
         # Similar to the previous test, this test will fail typically after you have updated the

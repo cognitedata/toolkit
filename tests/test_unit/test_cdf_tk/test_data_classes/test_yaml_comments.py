@@ -2,6 +2,7 @@ from collections.abc import Iterable
 
 import pytest
 import yaml
+from _cdf_tk.utils.file import yaml_safe_dump
 
 from cognite_toolkit._cdf_tk.data_classes import YAMLComments
 
@@ -51,5 +52,5 @@ class TestYAMLComments:
     def test_load_dump(self, yaml_str: str, indent: int) -> None:
         comments = YAMLComments.load(yaml_str)
         data = yaml.safe_load(yaml_str)
-        dumped = yaml.safe_dump(data, sort_keys=False, indent=indent)
+        dumped = yaml_safe_dump(data, indent=indent)
         assert comments.dump(dumped) == yaml_str
