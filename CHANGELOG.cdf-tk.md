@@ -22,6 +22,10 @@ Changes are grouped as follows:
 - The `cdf dump asset` and `cdf dump timeseries` commands now always dump tables with
   the same columns in the same order.
 
+### Fixed
+
+- The `cdf build` no longer raises a `ToolkitFileNotFoundError` when building without a `config.[env].yaml` file.
+
 ## [0.3.26] - 2025-01-16
 
 ### Added

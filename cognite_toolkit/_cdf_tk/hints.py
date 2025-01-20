@@ -16,6 +16,8 @@ from .loaders import LOADER_BY_FOLDER_NAME
 from .tk_warnings import MediumSeverityWarning
 from .utils import find_directory_with_subdirectories
 
+CDF_TOML = CDFToml.load(Path.cwd())
+
 
 class Hint:
     _indent = " " * 5
@@ -71,8 +73,9 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
 
     config_file = BuildConfigYAML.get_filename(build_env_name or "MISSING")
 
+    has_config_yaml = CDF_TOML.cdf.has_user_set_default_env and build_env_name is not None
     if organization_dir != Path.cwd():
-        if build_env_name:
+        if has_config_yaml:
             content = f"  ┣ {MODULES}/\n  ┗ {config_file}\n"
         else:
             content = f"  ┗ {MODULES}\n"
@@ -114,15 +117,15 @@ def verify_module_directory(organization_dir: Path, build_env_name: str | None) 
         ).print_warning()
 
     config_path = organization_dir / config_file
-    if root_modules and (config_path.is_file() or build_env_name is None):
+    if root_modules and (config_path.is_file() or not has_config_yaml):
         return
-    if root_modules or (config_path.is_file() or build_env_name is None):
+    if root_modules or (config_path.is_file() or not has_config_yaml):
         print(panel)
         if not root_modules:
             raise ToolkitNotADirectoryError(
                 f"Could not find the {(organization_dir / MODULES).as_posix()!r} directory."
             )
-        if build_env_name is None:
+        if not has_config_yaml:
             return
         else:
             raise ToolkitFileNotFoundError(f"Could not find the {config_path.as_posix()!r} file.")
