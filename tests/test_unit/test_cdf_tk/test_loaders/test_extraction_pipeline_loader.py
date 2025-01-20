@@ -111,9 +111,12 @@ class TestExtractionPipelineLoader:
     def test_omit_environment_variables(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch) -> None:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """
-            externalId: 'ep_src_asset'
-            name: 'Hamburg SAP'
-            config: 'secret: ${INGESTION_CLIENT_SECRET}'
+            - externalId: 'ep_src_asset'
+              name: 'Hamburg SAP'
+              config: 'secret: ${INGESTION_CLIENT_SECRET}'
+            - externalId: 'ep_src_asset_2'
+              name: '${NON-SECRET}'
+              config: 'secret: ${INGESTION_CLIENT_SECRET}'
         """
         local_file.stem = "ep_src_asset"
 
@@ -123,3 +126,4 @@ class TestExtractionPipelineLoader:
         )
         # Assert that env vars are skipped for this loader
         assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
+        assert res[1]["name"] == "this-is-not-a-secret"
