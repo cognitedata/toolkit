@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterator
 from functools import lru_cache
 from pathlib import Path
@@ -17,7 +18,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
-from rich.progress import Progress, TaskID
+from rich.progress import Progress, TaskID, track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -54,6 +55,9 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         self._used_data_sets: set[int] = set()
         self._available_data_sets: dict[int, DataSetWrite] | None = None
         self._available_hierarchies: dict[int, Asset] | None = None
+
+        self._written_files: list[Path] = []
+        self._used_columns: set[str] = set()
 
     def execute(
         self,
@@ -130,6 +134,8 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     folder_path = output_dir / TIME_SERIES_FOLDER_NAME
                     folder_path.mkdir(parents=True, exist_ok=True)
                     file_path = folder_path / f"part-{file_count:04}.TimeSeries.{format_}"
+                    # Standardize column order
+                    df.sort_index(axis=1, inplace=True)
                     if format_ == "csv":
                         df.to_csv(
                             file_path,
@@ -143,9 +149,31 @@ class DumpTimeSeriesCommand(ToolkitCommand):
                     if verbose:
                         print(f"Dumped {len(df):,} time_series to {file_path}")
                     count += len(df)
+                    self._written_files.append(file_path)
+                    self._used_columns.update(df.columns)
                     progress.advance(write_to_file, advance=len(df))
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
+
+        if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
+            # Standardize columns across all files
+            for file_path in track(
+                self._written_files, total=len(self._written_files), description="Standardizing columns"
+            ):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    if format_ == "csv":
+                        df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
+                    else:
+                        df = pd.read_parquet(file_path)
+                for missing_column in self._used_columns - set(df.columns):
+                    df[missing_column] = None
+                # Standardize column order
+                df.sort_index(axis=1, inplace=True)
+                if format_ == "csv":
+                    df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
+                elif format_ == "parquet":
+                    df.to_parquet(file_path, index=False)
 
         print(f"Dumped {count:,} time_series to {output_dir}")
 
