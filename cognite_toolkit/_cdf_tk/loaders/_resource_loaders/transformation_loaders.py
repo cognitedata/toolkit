@@ -114,7 +114,6 @@ class TransformationLoader(
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
-    do_environment_variable_injection = True
 
     @property
     def display_name(self) -> str:
@@ -195,7 +194,7 @@ class TransformationLoader(
     ) -> list[dict[str, Any]]:
         resources = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
 

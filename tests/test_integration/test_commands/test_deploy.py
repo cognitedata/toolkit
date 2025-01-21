@@ -151,9 +151,9 @@ def get_changed_source_files(
 
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
-        environment_variables = (
-            cdf_tool_config.environment_variables() if loader.do_environment_variable_injection else {}
-        )
+
+        environment_variables = cdf_tool_config.environment_variables()
+
         for source_file, resources in resources_by_file.items():
             if source_file.name == "extended.CogniteFile.yaml":
                 # The extension of CogniteFile is not yet supported in Toolkit even though we have a test case for it.

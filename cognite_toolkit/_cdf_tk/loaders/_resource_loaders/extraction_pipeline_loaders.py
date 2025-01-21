@@ -51,6 +51,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
+    load_yaml_inject_variables,
     read_yaml_content,
     safe_read,
     stringify_value_by_key_in_yaml,
@@ -292,6 +293,28 @@ class ExtractionPipelineConfigLoader(
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
         return stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
+
+    def load_resource_file(
+        # special case where the environment variable keys in the 'config' value
+        # should not be replaced but preserved as is
+        self,
+        filepath: Path,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        raw_str = self.safe_read(filepath)
+
+        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
+
+        if isinstance(original, dict) and isinstance(replaced, dict):
+            if "config" in original:
+                replaced["config"] = original.get("config")
+                return [replaced]
+
+        for orig_item, repl_item in zip(original, replaced):
+            if "config" in orig_item:
+                repl_item["config"] = orig_item.get("config")  # type: ignore
+        return replaced if isinstance(replaced, list) else [replaced]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> ExtractionPipelineConfigWrite:
         config_raw = resource.get("config")
