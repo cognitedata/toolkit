@@ -163,7 +163,7 @@ class ResourceWorker(
             if cdf_dict == local_dict:
                 unchanged.append(local_resource)
                 continue
-            if self.loader.supports_update:
+            if self.loader.support_update:
                 to_update.append(local_resource)
             else:
                 to_delete.append(identifier)

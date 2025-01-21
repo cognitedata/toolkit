@@ -265,6 +265,7 @@ class DeployCommand(ToolkitCommand):
             nr_of_unchanged += len(unchanged)
             nr_of_created += len(to_create)
             nr_of_changed += len(to_update)
+            nr_of_deleted += len(to_delete)
         else:
             environment_variable_warning_by_id = {
                 identifier: warning
