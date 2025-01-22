@@ -84,6 +84,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             cap.IDScopeLowerCase,
         }
     )
+    support_update = False
     resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
     _doc_url = "Groups/operation/createGroups"
 
@@ -338,9 +339,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
         self.client.iam.groups.delete(to_delete)
         return created
-
-    def update(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self._upsert(items)
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
         return self._upsert(items)

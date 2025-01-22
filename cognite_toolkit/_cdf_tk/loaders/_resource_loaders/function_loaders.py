@@ -1,6 +1,6 @@
 import time
 from collections import defaultdict
-from collections.abc import Hashable, Iterable, Sequence, Sized
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast, final
@@ -63,6 +63,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
+    support_update = False
 
     class _MetadataKey:
         if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
@@ -307,10 +308,6 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             return FunctionList([])
         return self.client.functions.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
 
-    def update(self, items: FunctionWriteList) -> FunctionList:
-        self.delete(items.as_external_ids())
-        return self.create(items)
-
     def delete(self, ids: SequenceNotStr[str]) -> int:
         functions = self.retrieve(ids)
 
@@ -354,6 +351,7 @@ class FunctionScheduleLoader(
     dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionLoader})
+    support_update = False
 
     def __init__(self, client: ToolkitClient, build_path: Path | None):
         super().__init__(client, build_path)
@@ -463,11 +461,6 @@ class FunctionScheduleLoader(
             created.function_external_id = id_.function_external_id
             created_list.append(created)
         return created_list
-
-    def update(self, items: FunctionScheduleWriteList) -> Sized:
-        # Function schedule does not have an update, so we delete and recreate
-        self.delete(self.get_ids(items))
-        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[FunctionScheduleID]) -> int:
         schedules = self.retrieve(ids)
