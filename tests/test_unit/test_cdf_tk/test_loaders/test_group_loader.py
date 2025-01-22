@@ -111,7 +111,7 @@ class TestGroupLoader:
             name="new_group", source_id="123", capabilities=loaded.capabilities
         ).dump_yaml()
         worker = ResourceWorker(loader)
-        to_create, to_change, unchanged, _ = worker.load_resources(
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
             [
                 LOAD_DATA / "auth" / "1.my_group_scoped.yaml",
                 new_file,
@@ -120,8 +120,9 @@ class TestGroupLoader:
         assert {
             "create": len(to_create),
             "change": len(to_change),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 1, "change": 0, "unchanged": 1}
+        } == {"create": 1, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_upsert_group(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
@@ -150,13 +151,16 @@ class TestGroupLoader:
 
         # group exists, no changes
         worker = ResourceWorker(loader)
-        to_create, to_change, unchanged, _ = worker.load_resources([LOAD_DATA / "auth" / "1.my_group_scoped.yaml"])
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
+            [LOAD_DATA / "auth" / "1.my_group_scoped.yaml"]
+        )
 
         assert {
             "create": len(to_create),
             "change": len(to_change),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "change": 1, "unchanged": 0}
+        } == {"create": 0, "change": 1, "delete": 0, "unchanged": 0}
 
     @pytest.mark.parametrize(
         "item, expected",
@@ -249,9 +253,10 @@ deletedTime: -1
         filepath.read_text.return_value = local_group
 
         worker = ResourceWorker(loader)
-        to_create, to_change, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
         assert {
             "create": len(to_create),
             "change": len(to_change),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "change": 0, "unchanged": 1}
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
