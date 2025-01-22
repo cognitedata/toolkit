@@ -27,7 +27,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
-  environment variables has been restored with the exception of Extraction Pipeline Configs.
+  environment variables has been restored except Extraction Pipeline Configs.
 - Supporting non-ascii characters like æ,ø, å, ç, ã in built files  
 
 ## [0.3.27] - 2025-01-20
