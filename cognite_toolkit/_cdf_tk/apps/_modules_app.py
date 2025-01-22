@@ -124,13 +124,13 @@ class ModulesApp(typer.Typer):
     def pull(
         self,
         ctx: typer.Context,
-        module: Annotated[
-            str,
+        module_name_or_path: Annotated[
+            Optional[str],
             typer.Argument(
-                help="The module or path to module to pull from CDF.",
+                help="The module or path to module to pull from CDF. If not provided, interactive mode will be used.",
                 allow_dash=True,
             ),
-        ],
+        ] = None,
         organization_dir: Annotated[
             Path,
             typer.Option(
@@ -169,7 +169,7 @@ class ModulesApp(typer.Typer):
         ToolGlobals = CDFToolConfig.from_context(ctx)
         cmd.run(
             lambda: cmd.pull_module(
-                module=module,
+                module_name_or_path=module_name_or_path,
                 organization_dir=organization_dir,
                 env=build_env,
                 dry_run=dry_run,

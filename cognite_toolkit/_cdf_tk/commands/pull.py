@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltModuleList,
     BuiltResourceFull,
     DeployResults,
+    ModuleDirectories,
     ModuleResources,
     ResourceDeployResult,
     YAMLComments,
@@ -562,14 +563,21 @@ class PullCommand(ToolkitCommand):
 
     def pull_module(
         self,
-        module: str | Path,
+        module_name_or_path: str | Path | None,
         organization_dir: Path,
         env: str,
         dry_run: bool,
         verbose: bool,
         ToolGlobals: CDFToolConfig,
     ) -> None:
-        selected = parse_user_selected_modules([module])[0]
+        if not module_name_or_path:
+            modules = ModuleDirectories.load(organization_dir, None)
+            selected = questionary.select(
+                "Select a module to pull",
+                choices=[Choice(title=module.name, value=module.name) for module in modules],
+            ).ask()
+        else:
+            selected = parse_user_selected_modules([module_name_or_path])[0]
         build_module: str | Path
         if isinstance(selected, str):
             build_module = selected
@@ -603,7 +611,7 @@ class PullCommand(ToolkitCommand):
                 on_error="raise",
             )
         except ToolkitError as e:
-            raise ToolkitError(f"Failed to build module {module}.") from e
+            raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e
         else:
             self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, ToolGlobals)
         finally:

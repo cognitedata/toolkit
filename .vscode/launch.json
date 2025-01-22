@@ -90,7 +90,9 @@
       "args": [
         "build",
         "--env=local",
-        "--verbose"
+        "--verbose",
+        "-o",
+        "./cognite_toolkit/"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -115,6 +117,22 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "deploy",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf modules pull",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules",
+        "pull",
+        "--env", 
+        "local",
+        "-o",
+        "./cognite_toolkit/"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
