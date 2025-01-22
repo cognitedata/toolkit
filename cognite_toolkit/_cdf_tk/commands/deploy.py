@@ -222,7 +222,11 @@ class DeployCommand(ToolkitCommand):
 
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
             to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
-                files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+                files,
+                environment_variables=ToolGlobals.environment_variables(),
+                is_dry_run=dry_run,
+                force_update=force_update,
+                verbose=verbose,
             )
         if warning_list:
             print(str(warning_list))
@@ -242,10 +246,6 @@ class DeployCommand(ToolkitCommand):
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = nr_of_deleted = 0
-
-        if force_update:
-            to_update.extend(unchanged)
-            unchanged.clear()
 
         if dry_run:
             if (
