@@ -113,7 +113,9 @@ class TestFunctionScheduleLoader:
         )
         identifier = loader.get_id(function_schedule)
 
-        loader.update(FunctionScheduleWriteList([function_schedule]))
+        # Function schedules cannot be updated, they must be deleted and recreated.
+        loader.delete([identifier])
+        loader.create(FunctionScheduleWriteList([function_schedule]))
 
         retrieved = loader.retrieve([identifier])
         if not retrieved or retrieved[0].description != function_schedule.description:
