@@ -383,6 +383,7 @@ class SequenceRowLoader(
     dependencies = frozenset({SequenceLoader})
     parent_resource = frozenset({SequenceLoader})
     _doc_url = "Sequences/operation/postSequenceData"
+    support_update = False
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None):
         super().__init__(client, build_dir)
@@ -430,10 +431,6 @@ class SequenceRowLoader(
     def retrieve(self, ids: SequenceNotStr[str]) -> ToolkitSequenceRowsList:
         retrieved = self.client.sequences.rows.retrieve(external_id=ids)
         return ToolkitSequenceRowsList([ToolkitSequenceRows._load(row.dump(camel_case=True)) for row in retrieved])
-
-    def update(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
-        self.delete(items.as_external_ids())
-        return self.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         for id_ in ids:

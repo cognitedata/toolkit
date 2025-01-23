@@ -71,6 +71,7 @@ class ResourceWorker(
         return_existing: Literal[True],
         environment_variables: dict[str, str | None] | None = None,
         is_dry_run: bool = False,
+        force_update: bool = False,
         verbose: bool = False,
     ) -> tuple[T_WritableCogniteResourceList, list[T_ID]]: ...
 
@@ -81,8 +82,9 @@ class ResourceWorker(
         return_existing: Literal[False] = False,
         environment_variables: dict[str, str | None] | None = None,
         is_dry_run: bool = False,
+        force_update: bool = False,
         verbose: bool = False,
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]: ...
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList, list[T_ID]]: ...
 
     def load_resources(
         self,
@@ -90,9 +92,10 @@ class ResourceWorker(
         return_existing: bool = False,
         environment_variables: dict[str, str | None] | None = None,
         is_dry_run: bool = False,
+        force_update: bool = False,
         verbose: bool = False,
     ) -> (
-        tuple[T_CogniteResourceList, T_CogniteResourceList, T_CogniteResourceList, list[T_ID]]
+        tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList, list[T_ID]]
         | tuple[T_WritableCogniteResourceList, list[T_ID]]
     ):
         duplicates: list[T_ID] = []
@@ -146,6 +149,7 @@ class ResourceWorker(
 
         to_create: T_CogniteResourceList
         to_update: T_CogniteResourceList
+        to_delete: list[T_ID] = []
         unchanged: T_CogniteResourceList
         to_create, to_update, unchanged = (
             self.loader.list_write_cls([]),
@@ -159,10 +163,14 @@ class ResourceWorker(
                 to_create.append(local_resource)
                 continue
             cdf_dict = self.loader.dump_resource(cdf_resource, local_dict)
-            if cdf_dict == local_dict:
+            if not force_update and cdf_dict == local_dict:
                 unchanged.append(local_resource)
                 continue
-            to_update.append(local_resource)
+            if self.loader.support_update:
+                to_update.append(local_resource)
+            else:
+                to_delete.append(identifier)
+                to_create.append(local_resource)
             if verbose:
                 print(
                     Panel(
@@ -171,4 +179,4 @@ class ResourceWorker(
                         expand=False,
                     )
                 )
-        return to_create, to_update, unchanged, duplicates
+        return to_create, to_update, to_delete, unchanged, duplicates

@@ -172,6 +172,7 @@ class ResourceLoader(
     list_write_cls: type[T_CogniteResourceList]
     # Optional to set in the subclass
     support_drop = True
+    support_update = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
     # For example, TransformationNotification and Schedule has Transformation as the parent resource
@@ -205,9 +206,8 @@ class ResourceLoader(
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         raise NotImplementedError
 
-    @abstractmethod
     def update(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
+        raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
