@@ -50,12 +50,13 @@ class TestExtractionPipelineDependencies:
 
         loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
         worker = ResourceWorker(loader)
-        to_create, changed, unchanged, _ = worker.load_resources([local_file])
+        to_create, changed, to_delete, unchanged, _ = worker.load_resources([local_file])
         assert {
             "create": len(to_create),
             "changed": len(changed),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "changed": 1, "unchanged": 0}
+        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch

@@ -15,12 +15,19 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not
+  support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
+
 ## [0.3.28] - 2025-01-21
 
 ### Fixed
 
 - Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
-  environment variables has been restored with the exception of Extraction Pipeline Configs.
+  environment variables has been restored except Extraction Pipeline Configs.
 - Supporting non-ascii characters like æ,ø, å, ç, ã in built files  
 
 ## [0.3.27] - 2025-01-20

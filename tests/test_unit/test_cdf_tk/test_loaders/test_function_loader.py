@@ -65,13 +65,14 @@ secrets:
         filepath.parent.name = FunctionLoader.folder_name
 
         worker = ResourceWorker(FunctionLoader.create_loader(cdf_tool_mock, tmp_path))
-        to_create, to_update, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
 
         assert {
             "create": len(to_create),
             "update": len(to_update),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "update": 0, "unchanged": 1}
+        } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
         toolkit_client_approval.clear_cdf_resources(Function)
         cdf_function.metadata[FunctionLoader._MetadataKey.secret_hash] = calculate_secure_hash(
@@ -81,13 +82,14 @@ secrets:
             }
         )
         toolkit_client_approval.append(Function, cdf_function)
-        to_create, to_update, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
 
         assert {
             "create": len(to_create),
             "update": len(to_update),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "update": 1, "unchanged": 0}
+        } == {"create": 1, "update": 0, "delete": 1, "unchanged": 0}
 
     def test_dump_index_url_set(self, cdf_tool_mock: CDFToolConfig, tmp_path: Path) -> None:
         local_dict = FunctionWrite(
