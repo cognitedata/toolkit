@@ -635,6 +635,10 @@ class PullCommand(ToolkitCommand):
             build_dir, read_resource_folders=built.read_resource_folders, include=None
         )
 
+        if len(selected_loaders) == 0:
+            self.warn(LowSeverityWarning(f"No valid resources recognized in {selected}"))
+            return
+
         results = DeployResults([], action="pull", dry_run=dry_run)
         for loader_cls in selected_loaders:
             if not issubclass(loader_cls, ResourceLoader):

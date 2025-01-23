@@ -122,7 +122,7 @@
       "justMyCode": false
     },
     {
-      "name": "cdf modules pull",
+      "name": "cdf modules pull interactive",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
@@ -133,6 +133,23 @@
         "local",
         "-o",
         "./cognite_toolkit/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "cdf modules pull",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules",
+        "pull",
+        "--env", 
+        "local",
+        "-o",
+        "./cognite_toolkit/",
+        "hextractors"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
