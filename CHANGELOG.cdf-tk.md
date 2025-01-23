@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- Interactive selection mode if you don't provide a path or module name as argument to `cdf modules pull`.
+
 ### Improved
 
 - Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not

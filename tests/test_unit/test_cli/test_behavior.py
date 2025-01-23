@@ -165,7 +165,7 @@ def test_pull_dataset(
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
-        module=dataset_yaml,
+        module_name_or_path=dataset_yaml,
         organization_dir=organization_dir_mutable,
         env="dev",
         dry_run=False,
@@ -206,7 +206,7 @@ from `ingestion`.`timeseries_metadata`"""
     toolkit_client_approval.append(Transformation, transformation)
     cmd = PullCommand(silent=True)
     cmd.pull_module(
-        module=transformation_yaml,
+        module_name_or_path=transformation_yaml,
         organization_dir=organization_dir_mutable,
         env="dev",
         dry_run=False,
@@ -272,7 +272,7 @@ def test_pull_workflow_trigger_with_environment_variables(
 
     cmd = PullCommand(silent=True)
     cmd.pull_module(
-        module=yaml_filepath,
+        module_name_or_path=yaml_filepath,
         organization_dir=organization_dir_mutable,
         env="dev",
         dry_run=False,
