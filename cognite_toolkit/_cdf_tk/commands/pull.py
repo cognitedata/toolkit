@@ -642,7 +642,7 @@ class PullCommand(ToolkitCommand):
 
         if len(selected_loaders) == 0:
             if isinstance(selected, Path):
-                self.warn(LowSeverityWarning(f"No valid resource recognized at {selected}"))
+                self.warn(LowSeverityWarning(f"No valid resource recognized at {selected.as_posix()}"))
             else:
                 self.warn(LowSeverityWarning(f"No valid resources recognized in {selected}"))
             return
