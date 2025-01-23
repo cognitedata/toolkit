@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Interactive selection mode if you don't provide a path or module name as argument to `cdf modules pull`.
+
 ## [0.3.28] - 2025-01-21
 
 ### Fixed

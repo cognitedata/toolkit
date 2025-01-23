@@ -572,6 +572,11 @@ class PullCommand(ToolkitCommand):
     ) -> None:
         if not module_name_or_path:
             modules = ModuleDirectories.load(organization_dir, None)
+            if not modules:
+                raise ToolkitValueError(
+                    "No module argument provided and no modules found in the organization directory."
+                )
+
             selected = questionary.select(
                 "Select a module to pull",
                 choices=[Choice(title=module.name, value=module.name) for module in modules],
