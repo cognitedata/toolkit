@@ -636,7 +636,10 @@ class PullCommand(ToolkitCommand):
         )
 
         if len(selected_loaders) == 0:
-            self.warn(LowSeverityWarning(f"No valid resources recognized in {selected}"))
+            if isinstance(selected, Path):
+                self.warn(LowSeverityWarning(f"No valid resource recognized at {selected}"))
+            else:
+                self.warn(LowSeverityWarning(f"No valid resources recognized in {selected}"))
             return
 
         results = DeployResults([], action="pull", dry_run=dry_run)
