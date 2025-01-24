@@ -604,8 +604,8 @@ if __name__ == "__main__":
                     from dotenv import load_dotenv
 
                     for parent in Path(__file__).resolve().parents:
-                    if (parent / ".env").exists():
-                        load_dotenv(par / '.env')
+                        if (parent / ".env").exists():
+                            load_dotenv(par / '.env')
                 except ImportError:
                     ...
             """)
