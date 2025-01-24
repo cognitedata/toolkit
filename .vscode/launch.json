@@ -29,11 +29,10 @@
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "--verbose",
         "--override-env",
         "run",
         "function",
-        "live",
+        "local",
         "--env=local",
         "-o",
         "./cognite_toolkit/"
@@ -155,76 +154,20 @@
       "justMyCode": false
     },
     {
-      "name": "Python: clean",
+      "name": "cdf run function local",
       "type": "debugpy",
       "request": "launch",
       "program": "./cdf-tk-dev.py",
       "args": [
-        "clean",
-        //"--dry-run",
-        "--env=local"
-        //"--include=transformations"
-      ],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: auth verify",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": ["--override-env", "auth", "verify"],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: cdf.py",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": [
-        //"--project=TEST",
         "run",
         "function",
-        "--external_id=fn_test2",
-        "--local",
-        "--env=local",
+        "--env", 
+        "local",
+        "-o",
         "./cognite_toolkit/"
       ],
       "console": "integratedTerminal",
       "justMyCode": false
-    },
-    {
-      "name": "Python: P&ID annotation function test",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_context_files_oid_fileshare_annotation/handler.py",
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: TS - Asset Contextualization function test",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_timeseries_valhall/functions/fn_context_timeseries_oid_opcua_asset/handler.py",
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: TS - Star of workflow test",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_files_valhall/functions/fn_workflow_files_oid_fileshare_annotation/handler.py",
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-        "name": "Python: TS - 3D annotation function test",
-        "type": "debugpy",
-        "request": "launch",
-        "program": "./cognite_toolkit/cognite_modules/examples/cdf_data_pipeline_3d_valhall/functions/fn_context_3d_oid_fileshare_asset/handler.py",
-        "console": "integratedTerminal",
-        "justMyCode": false
     },
     {
       "name": "Python: init",
@@ -241,15 +184,6 @@
         //"--package=quickstart"
         //"--package=empty",
       ],
-      "console": "integratedTerminal",
-      "justMyCode": false
-    },
-    {
-      "name": "Python: build local",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "./cdf-tk-dev.py",
-      "args": ["build", "--env", "local", "./my_organization"],
       "console": "integratedTerminal",
       "justMyCode": false
     },
@@ -283,7 +217,9 @@
       "args": [
         "modules", 
         "list",
-        "--env", "local"],
+        "--env", "local", "-o",
+        "./cognite_toolkit/"
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     },

@@ -599,14 +599,13 @@ if __name__ == "__main__":
 
         load_dotenv = ""
         if (Path.cwd() / ".env").is_file():
-            levels = len(function_venv_dir.parts)
-            load_dotenv = textwrap.dedent(f"""
+            load_dotenv = textwrap.dedent("""
                 try:
                     from dotenv import load_dotenv
 
-                    ROOT = Path(__file__).resolve().parents[{levels}]
-
-                    load_dotenv(ROOT / '.env')
+                    for parent in Path(__file__).resolve().parents:
+                    if (parent / ".env").exists():
+                        load_dotenv(par / '.env')
                 except ImportError:
                     ...
             """)
