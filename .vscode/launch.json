@@ -154,6 +154,22 @@
       "justMyCode": false
     },
     {
+      "name": "Python: clean",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "modules",
+        "pull",
+        "--env", 
+        "local",
+        "-o",
+        "./cognite_toolkits/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "cdf run function local",
       "type": "debugpy",
       "request": "launch",
