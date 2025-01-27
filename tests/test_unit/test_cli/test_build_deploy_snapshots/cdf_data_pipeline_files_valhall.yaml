@@ -322,6 +322,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_files_oid_fileshare_file_metadata
+          useTransformationCredentials: false
       retries: 3
       timeout: null
       type: transformation

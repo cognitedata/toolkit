@@ -21,6 +21,7 @@ workflowDefinition:
       transformation:
         externalId: tr_first_transformation
         concurrencyPolicy: fail
+        useTransformationCredentials: false
     name: Task Two
     description: Task Two Ipsum lorem dolor sit amet
     retries: 3
