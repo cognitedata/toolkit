@@ -5,7 +5,7 @@ from collections.abc import Hashable
 from graphlib import TopologicalSorter
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate
+from cognite.client.data_classes import DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
 
 from ._base import ToolkitCommand
 
@@ -374,10 +374,13 @@ class PurgeCommand(ToolkitCommand):
                     try:
                         loader.delete([node_id])
                         deleted += 1
-                    except CogniteAPIError as e:
+                    except CogniteAPIError:
+                        is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
+                        instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
                         self.warn(
                             HighSeverityWarning(
-                                f"Failed to delete {node_id!r}. This is because it is used as a node type in a different space: {e!s}"
+                                f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
+                                f"which must be purged first: {humanize_collection(instance_spaces)}"
                             )
                         )
             elif (
