@@ -27,6 +27,8 @@ Changes are grouped as follows:
   support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
 - [alpha feature] The `cdf purge space` now automatically reduces the batch size when deleting nodes when getting a
   408 timeout error.
+- [alpha feature] The `cdf purge space` now tells which spaces needs to be purged first if the current space has
+  dependencies. This happens when a node in one space is used as a node type in another space.
 
 ## [0.3.28] - 2025-01-21
 
