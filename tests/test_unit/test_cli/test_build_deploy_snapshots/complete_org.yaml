@@ -595,6 +595,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_first_transformation
+          useTransformationCredentials: false
       retries: 3
       timeout: 3600
       type: transformation

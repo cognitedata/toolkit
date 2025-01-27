@@ -52,13 +52,14 @@ class TestDataModelLoader:
 
         loader = DataModelLoader.create_loader(cdf_tool_mock, None)
         worker = ResourceWorker(loader)
-        to_create, to_change, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
 
         assert {
             "create": len(to_create),
             "change": len(to_change),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "change": 0, "unchanged": 1}
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
         local_yaml = """space: sp_space

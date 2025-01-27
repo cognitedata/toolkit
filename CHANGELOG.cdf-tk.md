@@ -15,12 +15,27 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.29] - 2025-01-27
+
+### Added
+
+- Interactive selection mode if you don't provide a path or module name as argument to `cdf modules pull`.
+
+### Improved
+
+- Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not
+  support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when deleting nodes when getting a
+  408 timeout error.
+- [alpha feature] The `cdf purge space` now tells which spaces needs to be purged first if the current space has
+  dependencies. This happens when a node in one space is used as a node type in another space.
+
 ## [0.3.28] - 2025-01-21
 
 ### Fixed
 
 - Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
-  environment variables has been restored with the exception of Extraction Pipeline Configs.
+  environment variables has been restored except Extraction Pipeline Configs.
 - Supporting non-ascii characters like æ,ø, å, ç, ã in built files  
 
 ## [0.3.27] - 2025-01-20

@@ -221,13 +221,19 @@ class DeployCommand(ToolkitCommand):
             return None
 
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-            to_create, to_update, unchanged, duplicated = worker.load_resources(
-                files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+            to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
+                files,
+                environment_variables=ToolGlobals.environment_variables(),
+                is_dry_run=dry_run,
+                force_update=force_update,
+                verbose=verbose,
             )
         if warning_list:
             print(str(warning_list))
             self.warning_list.extend(warning_list)
 
+        # We are not counting to_delete as these are captured by to_create.
+        # (to_delete is used for resources that does not support update and instead needs to be deleted and recreated)
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
@@ -239,11 +245,7 @@ class DeployCommand(ToolkitCommand):
             for duplicate in duplicated:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
-        nr_of_created = nr_of_changed = nr_of_unchanged = 0
-
-        if force_update:
-            to_update.extend(unchanged)
-            unchanged.clear()
+        nr_of_created = nr_of_changed = nr_of_unchanged = nr_of_deleted = 0
 
         if dry_run:
             if (
@@ -263,6 +265,7 @@ class DeployCommand(ToolkitCommand):
             nr_of_unchanged += len(unchanged)
             nr_of_created += len(to_create)
             nr_of_changed += len(to_update)
+            nr_of_deleted += len(to_delete)
         else:
             environment_variable_warning_by_id = {
                 identifier: warning
@@ -271,6 +274,10 @@ class DeployCommand(ToolkitCommand):
                 for identifier in warning.identifiers or []
             }
             nr_of_unchanged += len(unchanged)
+
+            if to_delete:
+                deleted = loader.delete(to_delete)
+                nr_of_deleted += deleted
 
             if to_create:
                 created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
@@ -288,6 +295,7 @@ class DeployCommand(ToolkitCommand):
                 name=loader.display_name,
                 created=nr_of_created,
                 changed=nr_of_changed,
+                deleted=nr_of_deleted,
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
                 item_name=loader.item_name,
@@ -297,6 +305,7 @@ class DeployCommand(ToolkitCommand):
                 name=loader.display_name,
                 created=nr_of_created,
                 changed=nr_of_changed,
+                deleted=nr_of_deleted,
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
             )
