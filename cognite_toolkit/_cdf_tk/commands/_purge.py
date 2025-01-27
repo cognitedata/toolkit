@@ -5,7 +5,7 @@ from collections.abc import Hashable
 from graphlib import TopologicalSorter
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate
+from cognite.client.data_classes import DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -32,7 +32,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
 
 from ._base import ToolkitCommand
 
@@ -345,36 +345,64 @@ class PurgeCommand(ToolkitCommand):
                 continue
             batch_ids.append(node_id)
             if len(batch_ids) >= batch_size:
-                count += self._delete_node_batch(batch_ids, loader, verbose)
+                deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+                count += deleted
                 batch_ids = []
 
         if batch_ids:
-            count += self._delete_node_batch(batch_ids, loader, verbose)
+            deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+            count += deleted
 
         # Finally delete all node types
-        count += self._delete_node_batch(list(node_types), loader, verbose)
+        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, verbose)
+        count += deleted
         return count
 
-    def _delete_node_batch(self, batch_ids: list[NodeId], loader: NodeLoader, verbose: bool) -> int:
+    def _delete_node_batch(
+        self, batch_ids: list[NodeId], loader: NodeLoader, batch_size: int, verbose: bool
+    ) -> tuple[int, int]:
         try:
             deleted = loader.delete(batch_ids)
-        except CogniteAPIError as e:
-            if e.code == 400 and "Attempted to delete a node which is used as a type" in e.message:
+        except CogniteAPIError as delete_error:
+            if (
+                delete_error.code == 400
+                and "Attempted to delete a node which is used as a type" in delete_error.message
+            ):
                 # Fallback to delete one by one
                 deleted = 0
                 for node_id in batch_ids:
                     try:
                         loader.delete([node_id])
                         deleted += 1
-                    except CogniteAPIError as e:
+                    except CogniteAPIError:
+                        is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
+                        instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
                         self.warn(
                             HighSeverityWarning(
-                                f"Failed to delete {node_id!r}. This is because it is used as a node type in a different space: {e!s}"
+                                f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
+                                f"which must be purged first: {humanize_collection(instance_spaces)}"
                             )
                         )
+            elif (
+                delete_error.code == 408
+                and "timed out" in delete_error.message.casefold()
+                and batch_size > 1
+                and (len(batch_ids) > 1)
+            ):
+                self.warn(
+                    HighSeverityWarning(
+                        f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
+                    )
+                )
+                new_batch_size = len(batch_ids) // 2
+                first = batch_ids[:new_batch_size]
+                second = batch_ids[new_batch_size:]
+                first_deleted, first_batch_size = self._delete_node_batch(first, loader, new_batch_size, verbose)
+                second_deleted, second_batch_size = self._delete_node_batch(second, loader, new_batch_size, verbose)
+                return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
             else:
-                raise
+                raise delete_error
 
         if verbose:
             print(f"Deleted {deleted:,} {loader.display_name}")
-        return deleted
+        return deleted, batch_size
