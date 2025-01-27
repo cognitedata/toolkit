@@ -25,6 +25,8 @@ Changes are grouped as follows:
 
 - Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not
   support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when deleting nodes when getting a
+  408 timeout error.
 
 ## [0.3.28] - 2025-01-21
 
