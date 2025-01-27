@@ -115,49 +115,47 @@ we are pushing the functionality into the Python SDK when that makes sense.
 
 ## Releasing
 
-The templates are bundled with the `cdf-tk` tool, so they are released together.
-To release a new version of the `cdf-tk` tool and the templates, you need to do the following:
+The templates are bundled with the `cdf` tool, so they are released together.
+To release a new version of the `cdf` tool and the templates, you need to do the following:
 
-1. Create a new preparation branch from `main` where you can make the final changes and do version bumping,
+1. Make sure that the CHANGELOG.cdf-tk.md is up to date. The top entry should be `## TBD` only.
+2. Go to <https://github.com/cognitedata/toolkit/actions/workflows/prepare-release.yaml> and run the workflow.
+
+   > Use `patch` to bump z in the x.y.z version number, `minor` to bump y, and `major` to bump x.
+
+   This will create a new preparation branch from `main` with final changes and version bumping,
    e.g. `prepare_for_0_1_0b3`. Use `aX` for alpha, `bX` for beta, and `rcX` for
    release candidate:
-   1. Update `CHANGELOG.cdf-tk.md` file with a header e.g. `## [0.1.0b3] - 2024-01-12` and review the
+   - Updates `CHANGELOG.cdf-tk.md` file with a header e.g. `## [0.1.0b3] - 2024-01-12` and review the
       change comments since the previous release. Ensure that the changes are correctly reflected in the
       comments and that the changes can be easily understood. Also verify that any breaking changes
       are clearly marked as such (`**BREAKING**`).
-   2. Do the same update to `CHANGELOG.templates.md` file.
-   3. Update the files with the new version number, this is done with
+   - Does the same update to `CHANGELOG.templates.md` file.
+   - Updates the files with the new version number, this is done with
       the `cdf bump --patch` (or `--minor`, `--major`, `--alpha`, `--beta`) command.
       - `cognite_toolkit/_version.py`
       - `pyproject.toml`
       - `_system.yaml` (multiple)
 
-      You can use the `python bump --minor --alpha` command to bump the version in all files.
-   4. Run `poetry lock` to update the `poetry.lock` file.
-   5. Run `pytest tests` locally to ensure that tests pass.
-   6. Run `python module_upgrade/run_check.py` to ensure that the `cdf-tk modules upgrade` command works as expected.
+   - Runs `poetry lock` to update the `poetry.lock` file.
+   - Runs `pytest tests` locally to ensure that tests pass.
+   - Runs `python module_upgrade/run_check.py` to ensure that the `cdf-tk modules upgrade` command works as expected
       against previous versions. See [Module Upgrade](module_upgrade/README.md) for more information.
 
-      if a check fails due to missing package:
-      - source .venv/.../bin/activate
-      - pip install dependency
-      - deactivate
-      - run script again
-
-1. Get approval to **squash merge** the branch into `main`:
+3. Get approval to **squash merge** the branch into `main`:
    1. Verify that all Github actions pass.
-1. Create a release branch: `release-x.y.z` from `main`:
+4. Create a release branch: `release-x.y.z` from `main`:
    1. Create a new tag on the branch with the version number, e.g. `v0.1.0b3`.
    2. Open a PR with the existing `release` branch as base comparing to your new `release-x.y.z` branch.
    3. Get approval and merge (**do not squash**).
    4. Verify that the Github action `release` passes and pushes to PyPi.
-1. Create a new release on github.com with the tag and release notes:
+5. Create a new release on github.com with the tag and release notes:
    1. Find the tag you created and create the new release.
    2. Copy the release notes from the `CHANGELOG.cdf-tk.md` file, add a `# cdf-tk` header.
    3. Copy then further below the release notes from the `CHANGELOG.templates.md` file, add
       a `# Templates` header.
    4. Remember to mark as pre-release if this is not a final release.
-1. Evaluate necessary announcements:
+6. Evaluate necessary announcements:
    1. On the Cognite Hub group, create a new post.
    2. As part of product releases, evaluate what to include.
    3. Cognite internal announcements.
