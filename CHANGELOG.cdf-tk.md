@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when listing the nodes/edges to
+  delete when getting a 408 timeout error.
+
 ## [0.3.29] - 2025-01-27
 
 ### Added
