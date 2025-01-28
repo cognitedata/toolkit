@@ -83,7 +83,10 @@ def iterate_instances(
 def iterate_instances(
     client: ToolkitClient, instance_type: Literal["node", "edge"] = "node", space: str | None = None
 ) -> Iterator[Node] | Iterator[Edge]:
-    """Toolkit specific implementation of the client.data_modeling.instances(...) method to account for 408."""
+    """Toolkit specific implementation of the client.data_modeling.instances(...) method to account for 408.
+
+    In addition, we enforce sort based on the argument below (provided by Alex B.).
+    """
     body: dict[str, Any] = {"limit": 1_000, "cursor": None, "instanceType": instance_type}
     # Without a sort, the sort is implicitly by the internal id, as cursoring needs a stable sort.
     # By making the sort be on external_id, Postgres should pick the index that's on (project_id, space, external_id)
