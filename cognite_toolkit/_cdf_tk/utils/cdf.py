@@ -91,15 +91,18 @@ def iterate_instances(
     # Without a sort, the sort is implicitly by the internal id, as cursoring needs a stable sort.
     # By making the sort be on external_id, Postgres should pick the index that's on (project_id, space, external_id)
     # WHERE deleted_at IS NULL. In other words, avoiding soft deleted instances.
-    body["sort"] = {
-        "property": [instance_type, "externalId"],
-        "direction": "ascending",
-    }
+    body["sort"] = [
+        {
+            "property": [instance_type, "externalId"],
+            "direction": "ascending",
+        }
+    ]
+    url = f"/api/{client._API_VERSION}/projects/{client.config.project}/models/instances/list"
     if space:
         body["filter"] = SpaceFilter(space=space, instance_type=instance_type).dump()
     while True:
         try:
-            response = client.post(url="/models/instances/list", json=body)
+            response = client.post(url=url, json=body)
         except CogniteAPIError as e:
             if e.code == 408 and body["limit"] > 1:
                 MediumSeverityWarning(
