@@ -99,6 +99,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     to_diff,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
@@ -1007,7 +1008,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
-        return iter(self.client.data_modeling.instances(space=space))
+        return iter(iterate_instances(self.client, space=space, instance_type="node"))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
@@ -1384,7 +1385,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Edge]:
-        return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
+        return iter(iterate_instances(self.client, space=space, instance_type="edge"))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:
         return len(ids)
