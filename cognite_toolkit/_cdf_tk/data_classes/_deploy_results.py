@@ -161,15 +161,15 @@ class DeployResults(UserDict):
 
             row = [item.name]
             if exclude_columns is None or "Created" not in exclude_columns:
-                row.append(str(item.created))
+                row.append(f"{item.created:,}")
             if exclude_columns is None or "Deleted" not in exclude_columns:
-                row.append(str(item.deleted))
+                row.append(f"{item.deleted:,}")
             if exclude_columns is None or "Changed" not in exclude_columns:
-                row.append(str(item.changed))
+                row.append(f"{item.changed:,}")
             if exclude_columns is None or "Untouched" not in exclude_columns:
-                row.append(str(item.unchanged) if is_deploy else "-")
+                row.append(f"{item.unchanged:,}" if is_deploy else "-")
             if exclude_columns is None or "Total" not in exclude_columns:
-                row.append(str(item.total))
+                row.append(f"{item.total:,}")
             table.add_row(*row)
 
         return table
