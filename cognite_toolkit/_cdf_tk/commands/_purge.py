@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import time
 import uuid
-from collections.abc import Hashable
+from collections.abc import Generator, Hashable, Iterable
 from graphlib import TopologicalSorter
+from typing import Any
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate, filters
+from cognite.client.data_classes._base import WriteableCogniteResource
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -32,6 +35,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     SpaceLoader,
     StreamlitLoader,
     TransformationLoader,
+    ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
@@ -264,39 +268,57 @@ class PurgeCommand(ToolkitCommand):
                 ]
                 count = 0
                 batch_ids: list[Hashable] = []
-                for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
-                    try:
-                        batch_ids.append(loader.get_id(resource))
-                    except ToolkitRequiredValueError as e:
-                        try:
-                            batch_ids.append(loader.get_internal_id(resource))
-                        except (AttributeError, NotImplementedError):
-                            self.warn(
-                                HighSeverityWarning(
-                                    f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
-                                ),
-                                console=status.console,
-                            )
-                            is_purged = False
-                            continue
+                epochs = (
+                    epoch for epoch in [loader.iterate(data_set_external_id=selected_data_set, space=selected_space)]
+                )
+                if isinstance(loader, ViewLoader) and not dry_run:
+                    # Views are not always deleted, so we need to iterate over all views 3 times to ensure all are
+                    # deleted
+                    def view_epochs() -> Generator[Iterable[WriteableCogniteResource], Any, None]:
+                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
+                        time.sleep(10)
+                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
+                        time.sleep(10)
+                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
 
-                    if len(batch_ids) >= batch_size:
+                    epochs = view_epochs()
+
+                for epoch in epochs:
+                    for resource in epoch:
+                        try:
+                            batch_ids.append(loader.get_id(resource))
+                        except ToolkitRequiredValueError as e:
+                            try:
+                                batch_ids.append(loader.get_internal_id(resource))
+                            except (AttributeError, NotImplementedError):
+                                self.warn(
+                                    HighSeverityWarning(
+                                        f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
+                                    ),
+                                    console=status.console,
+                                )
+                                is_purged = False
+                                continue
+
+                        if len(batch_ids) >= batch_size:
+                            child_deletion = self._delete_children(
+                                batch_ids, child_loaders, dry_run, status.console, verbose
+                            )
+                            count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
+                            status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                            batch_ids = []
+                            # The DeployResults is overloaded such that the below accumulates the counts
+                            for name, child_count in child_deletion.items():
+                                results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
+                    if batch_ids:
                         child_deletion = self._delete_children(
                             batch_ids, child_loaders, dry_run, status.console, verbose
                         )
                         count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
                         status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                        batch_ids = []
-                        # The DeployResults is overloaded such that the below accumulates the counts
                         for name, child_count in child_deletion.items():
                             results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
-                if batch_ids:
-                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, status.console, verbose)
-                    count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
-                    status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                    for name, child_count in child_deletion.items():
-                        results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
                 status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
                 results[loader.display_name] = ResourceDeployResult(
                     name=loader.display_name,
