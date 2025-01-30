@@ -106,8 +106,8 @@ def iterate_instances(
         except CogniteAPIError as e:
             if e.code == 408 and body["limit"] > 1:
                 MediumSeverityWarning(
-                    f"Timeout with limit {body['limit']}, retrying with {body['limit'] // 2}"
-                ).print_warning()
+                    f"Timeout with limit {body['limit']}, retrying with {body['limit'] // 2}."
+                ).print_warning(include_timestamp=True)
                 body["limit"] = body["limit"] // 2
                 continue
             raise e

@@ -8,6 +8,7 @@ from collections import UserList
 from collections.abc import Collection, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from functools import total_ordering
 from typing import Any, ClassVar, Generic, TypeVar
@@ -75,9 +76,13 @@ class ToolkitWarning(ABC, UserWarning):
         message = self.get_message().replace("\n", end)
         return prefix, message
 
-    def print_warning(self) -> None:
+    def print_warning(self, include_timestamp: bool = False) -> None:
         prefix, message = self.print_prepare()
-        print(prefix, message)
+        if include_timestamp:
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            print(f"[bold]{timestamp}[/]", prefix, message)
+        else:
+            print(prefix, message)
 
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
