@@ -4,7 +4,8 @@ import sys
 from collections.abc import Callable
 from typing import Any
 
-from rich import Console, print
+from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,

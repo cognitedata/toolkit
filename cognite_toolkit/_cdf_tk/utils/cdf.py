@@ -5,7 +5,7 @@ from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.data_modeling import Edge, Node, View, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
-from rich import Console
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock

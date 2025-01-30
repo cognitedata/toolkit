@@ -26,6 +26,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -385,8 +386,8 @@ class SequenceRowLoader(
     _doc_url = "Sequences/operation/postSequenceData"
     support_update = False
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console)
         # Used in the .diff_list method to keep track of the last column in the local list
         # such that the values in the rows can be matched to the correct column.
         self._last_column: tuple[dict[int, int], list[int]] = {}, []

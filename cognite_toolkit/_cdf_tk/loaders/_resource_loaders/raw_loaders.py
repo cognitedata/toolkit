@@ -26,6 +26,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
@@ -50,8 +51,8 @@ class RawDatabaseLoader(
     support_update = False
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
+        super().__init__(client, build_dir, console)
         self._loaded_db_names: set[str] = set()
 
     @property
@@ -164,8 +165,8 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
     _doc_url = "Raw/operation/createTables"
     parent_resource = frozenset({RawDatabaseLoader})
 
-    def __init__(self, client: ToolkitClient, build_dir: Path):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
+        super().__init__(client, build_dir, console)
         self._printed_warning = False
 
     @property
