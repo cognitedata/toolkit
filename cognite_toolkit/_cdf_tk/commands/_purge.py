@@ -228,8 +228,8 @@ class PurgeCommand(ToolkitCommand):
         is_purged = True
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
-        status_prefix = "Would delete" if dry_run else "Deleted"
-        with Console().status("Start", spinner="aesthetic", speed=0.4) as status:
+        status_prefix = "Would have deleted" if dry_run else "Deleted"
+        with Console().status("Starting...", spinner="aesthetic", speed=0.4) as status:
             for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
                 if loader_cls not in loaders:
                     # Dependency that is included
@@ -297,7 +297,7 @@ class PurgeCommand(ToolkitCommand):
                     status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                     for name, child_count in child_deletion.items():
                         results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
+                status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
                 results[loader.display_name] = ResourceDeployResult(
                     name=loader.display_name,
                     deleted=count,
@@ -377,7 +377,7 @@ class PurgeCommand(ToolkitCommand):
         # Finally delete all node types
         deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
         count += deleted
-        status.update(f"Deleted {count:,} {loader.display_name}...")
+        status.console.print(f"Deleted {count:,} {loader.display_name}.")
         return count
 
     def _delete_node_batch(
