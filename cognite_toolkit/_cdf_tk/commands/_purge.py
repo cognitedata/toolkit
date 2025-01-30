@@ -9,6 +9,7 @@ from cognite.client.data_classes import DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -258,32 +259,41 @@ class PurgeCommand(ToolkitCommand):
             ]
             count = 0
             batch_ids: list[Hashable] = []
-            for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
-                try:
-                    batch_ids.append(loader.get_id(resource))
-                except ToolkitRequiredValueError as e:
+            prefix = "Would delete" if dry_run else "Deleted"
+            with (
+                Console() as console,
+                console.status(f"{prefix} {loader.display_name}...", spinner="aesthetic", speed=0.4) as status,
+            ):
+                for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
                     try:
-                        batch_ids.append(loader.get_internal_id(resource))
-                    except (AttributeError, NotImplementedError):
-                        self.warn(
-                            HighSeverityWarning(f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}")
-                        )
-                        is_purged = False
-                        continue
+                        batch_ids.append(loader.get_id(resource))
+                    except ToolkitRequiredValueError as e:
+                        try:
+                            batch_ids.append(loader.get_internal_id(resource))
+                        except (AttributeError, NotImplementedError):
+                            self.warn(
+                                HighSeverityWarning(
+                                    f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
+                                )
+                            )
+                            is_purged = False
+                            continue
 
-                if len(batch_ids) >= batch_size:
+                    if len(batch_ids) >= batch_size:
+                        child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
+                        count += self._delete_batch(batch_ids, dry_run, loader, verbose)
+                        status.update(f"{prefix} {count:,} {loader.display_name}...")
+                        batch_ids = []
+                        # The DeployResults is overloaded such that the below accumulates the counts
+                        for name, child_count in child_deletion.items():
+                            results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
+                if batch_ids:
                     child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
                     count += self._delete_batch(batch_ids, dry_run, loader, verbose)
-                    batch_ids = []
-                    # The DeployResults is overloaded such that the below accumulates the counts
+                    status.update(f"{prefix} {count:,} {loader.display_name}...")
                     for name, child_count in child_deletion.items():
                         results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
-            if batch_ids:
-                child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
-                count += self._delete_batch(batch_ids, dry_run, loader, verbose)
-                for name, child_count in child_deletion.items():
-                    results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
 
             results[loader.display_name] = ResourceDeployResult(
                 name=loader.display_name,
@@ -338,24 +348,30 @@ class PurgeCommand(ToolkitCommand):
                 node_types.add(NodeId(node.type.space, node.type.external_id))
         count = 0
         batch_ids: list[NodeId] = []
-        for node in loader.iterate(space=selected_space):
-            node_id = node.as_id()
-            if node_id in node_types:
-                # Skip if it is a node type
-                continue
-            batch_ids.append(node_id)
-            if len(batch_ids) >= batch_size:
+        with (
+            Console() as console,
+            console.status(f"Deleted {loader.display_name}...", spinner="aesthetic", speed=0.4) as status,
+        ):
+            for node in loader.iterate(space=selected_space):
+                node_id = node.as_id()
+                if node_id in node_types:
+                    # Skip if it is a node type
+                    continue
+                batch_ids.append(node_id)
+                if len(batch_ids) >= batch_size:
+                    deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+                    count += deleted
+                    status.update(f"Deleted {count:,} {loader.display_name}...")
+                    batch_ids = []
+
+            if batch_ids:
                 deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
                 count += deleted
-                batch_ids = []
 
-        if batch_ids:
-            deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+            # Finally delete all node types
+            deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, verbose)
             count += deleted
-
-        # Finally delete all node types
-        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, verbose)
-        count += deleted
+            status.update(f"Deleted {count:,} {loader.display_name}...")
         return count
 
     def _delete_node_batch(
