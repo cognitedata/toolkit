@@ -268,6 +268,7 @@ class PurgeCommand(ToolkitCommand):
                     if child_loader in child_loader_classes
                 ]
                 count = 0
+                status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                 batch_ids: list[Hashable] = []
                 epochs = (
                     epoch for epoch in [loader.iterate(data_set_external_id=selected_data_set, space=selected_space)]
