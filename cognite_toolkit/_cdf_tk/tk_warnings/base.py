@@ -14,6 +14,7 @@ from functools import total_ordering
 from typing import Any, ClassVar, Generic, TypeVar
 
 from rich import print
+from rich.console import Console
 
 RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
 RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
@@ -76,13 +77,15 @@ class ToolkitWarning(ABC, UserWarning):
         message = self.get_message().replace("\n", end)
         return prefix, message
 
-    def print_warning(self, include_timestamp: bool = False) -> None:
-        prefix, message = self.print_prepare()
+    def print_warning(self, include_timestamp: bool = False, console: Console | None = None) -> None:
+        parts: tuple[str, ...] = self.print_prepare()
         if include_timestamp:
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
-            print(f"[bold]{timestamp}[/]", prefix, message)
+            parts = (timestamp, *parts)
+        if console is None:
+            print(*parts)
         else:
-            print(prefix, message)
+            console.print(*parts)
 
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)
