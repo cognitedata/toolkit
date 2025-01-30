@@ -198,6 +198,7 @@ class PurgeCommand(ToolkitCommand):
                 title=f"Purge {resource_type}",
                 title_align="left",
                 border_style="red",
+                expand=False,
             )
         )
 
@@ -233,7 +234,7 @@ class PurgeCommand(ToolkitCommand):
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
         status_prefix = "Would have deleted" if dry_run else "Deleted"
-        with Console().status("Starting...", spinner="aesthetic", speed=0.4) as status:
+        with Console().status("...", spinner="aesthetic", speed=0.4) as status:
             for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
                 if loader_cls not in loaders:
                     # Dependency that is included
@@ -304,9 +305,12 @@ class PurgeCommand(ToolkitCommand):
                             child_deletion = self._delete_children(
                                 batch_ids, child_loaders, dry_run, status.console, verbose
                             )
+                            batch_delete, batch_size = self._delete_batch(
+                                batch_ids, dry_run, loader, batch_size, status.console, verbose
+                            )
                             if epoch_no == 0:
                                 # Only update if it is the first epoch.
-                                count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
+                                count += batch_delete
                                 status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                             batch_ids = []
                             # The DeployResults is overloaded such that the below accumulates the counts
@@ -317,9 +321,12 @@ class PurgeCommand(ToolkitCommand):
                         child_deletion = self._delete_children(
                             batch_ids, child_loaders, dry_run, status.console, verbose
                         )
+                        batch_delete, batch_size = self._delete_batch(
+                            batch_ids, dry_run, loader, batch_size, status.console, verbose
+                        )
                         if epoch_no == 0:
                             # Only update if it is the first epoch.
-                            count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
+                            count += batch_delete
                             status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                             for name, child_count in child_deletion.items():
                                 results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
@@ -334,19 +341,51 @@ class PurgeCommand(ToolkitCommand):
         print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
         return is_purged
 
-    @staticmethod
     def _delete_batch(
-        batch_ids: list[Hashable], dry_run: bool, loader: ResourceLoader, console: Console, verbose: bool
-    ) -> int:
+        self,
+        batch_ids: list[Hashable],
+        dry_run: bool,
+        loader: ResourceLoader,
+        batch_size: int,
+        console: Console,
+        verbose: bool,
+    ) -> tuple[int, int]:
         if dry_run:
             deleted = len(batch_ids)
         else:
-            deleted = loader.delete(batch_ids)
+            try:
+                deleted = loader.delete(batch_ids)
+            except CogniteAPIError as delete_error:
+                if (
+                    delete_error.code == 408
+                    and "timed out" in delete_error.message.casefold()
+                    and batch_size > 1
+                    and (len(batch_ids) > 1)
+                ):
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
+                        ),
+                        include_timestamp=True,
+                        console=console,
+                    )
+                    new_batch_size = len(batch_ids) // 2
+                    first = batch_ids[:new_batch_size]
+                    second = batch_ids[new_batch_size:]
+                    first_deleted, first_batch_size = self._delete_batch(
+                        first, dry_run, loader, new_batch_size, console, verbose
+                    )
+                    second_deleted, second_batch_size = self._delete_batch(
+                        second, dry_run, loader, new_batch_size, console, verbose
+                    )
+                    return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
+                else:
+                    raise delete_error
 
         if verbose:
             prefix = "Would delete" if dry_run else "Deleted"
             console.print(f"{prefix} {deleted:,} {loader.display_name}")
-        return deleted
+        return deleted, batch_size
 
     @staticmethod
     def _delete_children(
