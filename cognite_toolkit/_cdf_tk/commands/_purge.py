@@ -283,7 +283,7 @@ class PurgeCommand(ToolkitCommand):
 
                     epochs = view_epochs()
 
-                for epoch in epochs:
+                for epoch_no, epoch in enumerate(epochs):
                     for resource in epoch:
                         try:
                             batch_ids.append(loader.get_id(resource))
@@ -304,8 +304,10 @@ class PurgeCommand(ToolkitCommand):
                             child_deletion = self._delete_children(
                                 batch_ids, child_loaders, dry_run, status.console, verbose
                             )
-                            count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
-                            status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                            if epoch_no == 0:
+                                # Only update if it is the first epoch.
+                                count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
+                                status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                             batch_ids = []
                             # The DeployResults is overloaded such that the below accumulates the counts
                             for name, child_count in child_deletion.items():
@@ -315,10 +317,13 @@ class PurgeCommand(ToolkitCommand):
                         child_deletion = self._delete_children(
                             batch_ids, child_loaders, dry_run, status.console, verbose
                         )
-                        count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
-                        status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                        for name, child_count in child_deletion.items():
-                            results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+                        if epoch_no == 0:
+                            # Only update if it is the first epoch.
+                            count += self._delete_batch(batch_ids, dry_run, loader, status.console, verbose)
+                            status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                            for name, child_count in child_deletion.items():
+                                results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+                        batch_ids = []
                 if count > 0:
                     status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
                 results[loader.display_name] = ResourceDeployResult(

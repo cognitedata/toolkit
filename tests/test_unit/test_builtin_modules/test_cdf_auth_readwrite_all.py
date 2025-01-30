@@ -58,7 +58,7 @@ def read_write_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) ->
     read_write_resource = next((resource for resource in auth if resource.identifier == "gp_admin_read_write"), None)
     assert read_write_resource is not None
 
-    loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None)
+    loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None, None)
     items = loader.load_resource_file(read_write_resource.destination, cdf_tool_mock.environment_variables())
     return loader.load_resource(items[0], is_dry_run=True)
 
