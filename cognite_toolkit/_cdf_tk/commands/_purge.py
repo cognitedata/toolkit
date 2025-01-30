@@ -319,7 +319,8 @@ class PurgeCommand(ToolkitCommand):
                         status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                         for name, child_count in child_deletion.items():
                             results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-                status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
+                if count > 0:
+                    status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
                 results[loader.display_name] = ResourceDeployResult(
                     name=loader.display_name,
                     deleted=count,
@@ -399,7 +400,8 @@ class PurgeCommand(ToolkitCommand):
         # Finally delete all node types
         deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
         count += deleted
-        status.console.print(f"Deleted {count:,} {loader.display_name}.")
+        if count > 0:
+            status.console.print(f"Deleted {count:,} {loader.display_name}.")
         return count
 
     def _delete_node_batch(
