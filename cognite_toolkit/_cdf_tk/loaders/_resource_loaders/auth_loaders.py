@@ -49,9 +49,6 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-)
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 
@@ -103,14 +100,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     @property
     def display_name(self) -> str:
         return f"groups({self.target_scopes.removesuffix('_only')})"
-
-    @classmethod
-    def create_loader(
-        cls,
-        ToolGlobals: CDFToolConfig,
-        build_dir: Path | None,
-    ) -> GroupLoader:
-        return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
     def get_required_capability(

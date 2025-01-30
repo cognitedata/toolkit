@@ -5,6 +5,7 @@ from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.data_modeling import Edge, Node, View, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
+from rich import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
@@ -70,18 +71,24 @@ def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
 
 @overload
 def iterate_instances(
-    client: ToolkitClient, instance_type: Literal["node"] = "node", space: str | None = None
+    client: ToolkitClient,
+    instance_type: Literal["node"] = "node",
+    space: str | None = None,
+    console: Console | None = None,
 ) -> Iterator[Node]: ...
 
 
 @overload
 def iterate_instances(
-    client: ToolkitClient, instance_type: Literal["edge"], space: str | None = None
+    client: ToolkitClient, instance_type: Literal["edge"], space: str | None = None, console: Console | None = None
 ) -> Iterator[Edge]: ...
 
 
 def iterate_instances(
-    client: ToolkitClient, instance_type: Literal["node", "edge"] = "node", space: str | None = None
+    client: ToolkitClient,
+    instance_type: Literal["node", "edge"] = "node",
+    space: str | None = None,
+    console: Console | None = None,
 ) -> Iterator[Node] | Iterator[Edge]:
     """Toolkit specific implementation of the client.data_modeling.instances(...) method to account for 408.
 
@@ -107,7 +114,7 @@ def iterate_instances(
             if e.code == 408 and body["limit"] > 1:
                 MediumSeverityWarning(
                     f"Timeout with limit {body['limit']}, retrying with {body['limit'] // 2}."
-                ).print_warning(include_timestamp=True)
+                ).print_warning(include_timestamp=True, console=console)
                 body["limit"] = body["limit"] // 2
                 continue
             raise e

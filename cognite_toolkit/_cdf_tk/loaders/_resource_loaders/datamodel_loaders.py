@@ -1008,7 +1008,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
-        return iter(iterate_instances(self.client, space=space, instance_type="node"))
+        return iter(iterate_instances(self.client, space=space, instance_type="node", console=self.console))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
