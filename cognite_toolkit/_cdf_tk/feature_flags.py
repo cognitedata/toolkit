@@ -16,30 +16,9 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
-    STREAMLIT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for deploying Streamlit apps",
-    }
     MODULE_REPEAT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
-    }
-    EDGES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for creating edges between nodes",
-    }
-    CLASSIC: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for events and relationships",
-    }
-    MODULE_PULL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for pulling modules from the CDF",
-    }
-    FUNCTION_MULTI_FILE_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Toolkit will has each individual file in a multi-file function. This is useful when"
-        "you want to inspect why a function needs to redeploy.",
     }
 
     def is_enabled(self) -> bool:

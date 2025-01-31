@@ -184,12 +184,7 @@ def test_init_build_clean(
 
 
 TEST_CASES = [COMPLETE_ORG]
-if (
-    Flags.GRAPHQL.is_enabled()
-    or Flags.STREAMLIT.is_enabled()
-    or Flags.EDGES.is_enabled()
-    or Flags.FUNCTION_MULTI_FILE_HASH.is_enabled()
-):
+if Flags.GRAPHQL.is_enabled():
     TEST_CASES.append(COMPLETE_ORG_ALPHA_FLAGS)
 
 

@@ -35,7 +35,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -67,10 +66,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     support_update = False
 
     class _MetadataKey:
-        if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
-            function_hash = "cognite-toolkit-hash"
-        else:
-            function_hash = "cdf-toolkit-function-hash"
+        function_hash = "cognite-toolkit-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
@@ -133,10 +129,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             self.function_dir_by_external_id[item_id] = function_rootdir
             if "metadata" not in item:
                 item["metadata"] = {}
-            if Flags.FUNCTION_MULTI_FILE_HASH.is_enabled():
-                value = self._create_hash_values(function_rootdir)
-            else:
-                value = calculate_directory_hash(function_rootdir, ignore_files={".pyc"})
+            value = self._create_hash_values(function_rootdir)
             item["metadata"][self._MetadataKey.function_hash] = value
             if "secrets" in item:
                 item["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(item["secrets"])
