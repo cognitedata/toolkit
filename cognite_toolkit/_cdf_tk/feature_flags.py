@@ -32,10 +32,6 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying Streamlit apps",
     }
-    FORCE_UPDATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": False,
-        "description": "Adding the --force-update flag to the deploy command",
-    }
     MODULE_REPEAT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
@@ -51,14 +47,6 @@ class Flags(Enum):
     MODULE_PULL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for pulling modules from the CDF",
-    }
-    PURGE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for purging datasets and spaces",
-    }
-    BUILD_OFFLINE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables builds without comparing against CDF project for missing dependencies.",
     }
     FUNCTION_MULTI_FILE_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
