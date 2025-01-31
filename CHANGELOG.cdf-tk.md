@@ -15,6 +15,27 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- The `ado-pipeline` feature is no longer an alpha feature.
+- The `cdf run workflow` feature is no longer an alpha feature.
+- The resources `streamlit`, `edges`, `relationships`, `sequences rows` are no longer alpha features.
+- The `cdf deploy --force-update` flag is no longer an alpha feature.
+- The `cdf build --offline` flag is no longer an alpha feature.
+- The `cdf modules pull` feature is no longer an alpha feature.
+
+### Changed
+
+- All `YAML` files now requires a `kind` in the files name to identify the resource type.
+- Toolkit now hashes individual files in functions to check if they have changed. This is to get a better
+  granularity when checking if a function has changed.
+
+### Removed
+
+- The plugin `cdf pull` has been removed and is now replaced by `cdf modules pull`.
+
 ## [0.3.30] - 2025-01-31
 
 ### Improved
