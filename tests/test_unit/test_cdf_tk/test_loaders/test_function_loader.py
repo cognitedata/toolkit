@@ -44,7 +44,7 @@ secrets:
             file_id=123,
             status="Ready",
             metadata={
-                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function"),
+                FunctionLoader._MetadataKey.function_hash: FunctionLoader._create_hash_values(tmp_path / "my_function"),
                 FunctionLoader._MetadataKey.secret_hash: calculate_secure_hash(
                     {
                         "secret1": "value1",
