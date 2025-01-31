@@ -39,6 +39,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The `cdf purge dataset` now correctly falls back to internal IDs if external IDs are not found.
+- Upserting nodes without a `source` does not raise an IndexError anymore.
 
 ## [0.3.30] - 2025-01-31
 
