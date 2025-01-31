@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -48,8 +49,8 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def display_name(self) -> str:
         return "Streamlit apps"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._source_file_by_external_id: dict[str, Path] = {}
 
     @classmethod

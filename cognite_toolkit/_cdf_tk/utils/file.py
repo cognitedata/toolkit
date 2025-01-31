@@ -1,4 +1,3 @@
-import csv
 import errno
 import os
 import re
@@ -358,20 +357,16 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def read_any_csv_dialect(
+def read_csv(
     path: Path | typing.TextIO,
-    sniff_lines: int = 5,
-    error: Literal["continue", "raise"] = "continue",
     parse_dates: bool | None = None,
     index_col: Hashable | None = None,
     dtype: Any | None = None,
 ) -> pd.DataFrame:
-    """Reads any CSV dialect
+    """Reads CSV
 
     Args:
         path (Path): Path to the CSV file.
-        sniff_lines (int, optional): Number of lines to sniff. Defaults to 5.
-        error (Literal["continue", "raise"], optional): Whether to raise an error if the CSV dialect cannot be sniffed. Defaults to "continue".
         parse_dates (bool, optional): Whether to parse dates. Defaults to None.
         index_col (Hashable, optional): Index column. Defaults to None.
         dtype (Any, optional): Data types. Defaults to None
@@ -379,39 +374,7 @@ def read_any_csv_dialect(
     Returns:
         pd.DataFrame: DataFrame with the CSV data.
     """
-    if isinstance(path, Path):
-        with path.open(mode="r") as buffer:
-            return _read_any_csv_dialect(buffer, sniff_lines, error, parse_dates, index_col, dtype)
-    return _read_any_csv_dialect(path, sniff_lines, error, parse_dates, index_col, dtype)
-
-
-def _read_any_csv_dialect(
-    buffer: typing.TextIO,
-    sniff_lines: int = 20,
-    error: Literal["continue", "raise"] = "continue",
-    parse_dates: bool | None = None,
-    index_col: Hashable | None = None,
-    dtype: Any | None = None,
-) -> pd.DataFrame:
-    to_sniff = ""
-    for _ in range(sniff_lines):
-        to_sniff += buffer.readline()
-    if to_sniff == "":
-        return pd.DataFrame()
-    try:
-        dialect: type[csv.Dialect] | None = csv.Sniffer().sniff(to_sniff)
-    except csv.Error:
-        if error == "raise":
-            raise
-        dialect = None
-    buffer.seek(0)
-    try:
-        return pd.read_csv(
-            buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
-        )
-    except pd.errors.ParserError:
-        buffer.seek(0)
-        return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
+    return pd.read_csv(path, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
 
 
 def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:

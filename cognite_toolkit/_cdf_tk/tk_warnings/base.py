@@ -8,11 +8,13 @@ from collections import UserList
 from collections.abc import Collection, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from enum import Enum
 from functools import total_ordering
 from typing import Any, ClassVar, Generic, TypeVar
 
 from rich import print
+from rich.console import Console
 
 RICH_WARNING_FORMAT = "    [bold yellow]WARNING:[/] "
 RICH_WARNING_DETAIL_FORMAT = f"{'    ' * 2}"
@@ -75,9 +77,15 @@ class ToolkitWarning(ABC, UserWarning):
         message = self.get_message().replace("\n", end)
         return prefix, message
 
-    def print_warning(self) -> None:
-        prefix, message = self.print_prepare()
-        print(prefix, message)
+    def print_warning(self, include_timestamp: bool = False, console: Console | None = None) -> None:
+        parts: tuple[str, ...] = self.print_prepare()
+        if include_timestamp:
+            timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+            parts = (timestamp, *parts)
+        if console is None:
+            print(*parts)
+        else:
+            console.print(*parts)
 
 
 T_Warning = TypeVar("T_Warning", bound=ToolkitWarning)

@@ -26,6 +26,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -39,7 +40,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
-from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
+from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -185,7 +186,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             if filepath.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = read_any_csv_dialect(io.StringIO(file_content))
+                data = read_csv(io.StringIO(file_content))
             else:
                 data = pd.read_parquet(filepath)
             data.replace(pd.NA, None, inplace=True)
@@ -385,8 +386,8 @@ class SequenceRowLoader(
     _doc_url = "Sequences/operation/postSequenceData"
     support_update = False
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console)
         # Used in the .diff_list method to keep track of the last column in the local list
         # such that the values in the rows can be matched to the correct column.
         self._last_column: tuple[dict[int, int], list[int]] = {}, []

@@ -15,6 +15,20 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.3.30] - 2025-01-31
+
+### Improved
+
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when listing the nodes/edges to
+  delete when getting a 408 timeout error.
+- [alpha feature] The `cdf purge` now shows a spinner and updates the progress when deleting resources.
+
+### Fixed
+
+- Reverting the fix from `0.3.24` to read any csv dialect when uploading a `csv` file
+  (RAW table, Datapoints, or Assets). Now, only the comma-separated dialect is supported. This is because the dialect
+  inference performed too poorly and failed to read the data correctly in many cases.
+
 ## [0.3.29] - 2025-01-27
 
 ### Added

@@ -15,6 +15,7 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -56,17 +57,20 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
+        self.console = console
 
     @classmethod
-    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
-        return cls(ToolGlobals.toolkit_client, build_dir)
+    def create_loader(
+        cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None, console: Console | None = None
+    ) -> T_Loader:
+        return cls(ToolGlobals.toolkit_client, build_dir, console)
 
     @property
     def display_name(self) -> str:
