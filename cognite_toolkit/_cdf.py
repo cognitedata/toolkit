@@ -10,6 +10,7 @@ from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.hints import Hint
@@ -26,7 +27,6 @@ from cognite_toolkit._cdf_tk.apps import (
     DumpApp,
     LandingApp,
     ModulesApp,
-    PullApp,
     PurgeApp,
     RepoApp,
     RunApp,
@@ -90,13 +90,10 @@ if Plugins.run.value.is_enabled():
     _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
-if Plugins.pull.value.is_enabled():
-    _app.add_typer(PullApp(**default_typer_kws), name="pull")
-
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 
-if Flags.PURGE.is_enabled():
+if Plugins.purge.value.is_enabled():
     _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
 
 
@@ -162,9 +159,11 @@ def app() -> NoReturn:
         if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
             cmd = result.group(1)
             if cmd in Plugins.list():
+                plugin = r"[plugins]"
                 print(
                     f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
-                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the \[plugins] section."
+                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
+                    f"[bold]{escape(plugin)}[/bold] section."
                     f"\nDocs to lean more: {Hint._link(URL.plugins, URL.plugins)}"
                 )
         raise

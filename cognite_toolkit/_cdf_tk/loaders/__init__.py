@@ -76,14 +76,6 @@ else:
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
-if not Flags.STREAMLIT.is_enabled():
-    _EXCLUDED_LOADERS.add(StreamlitLoader)
-if not Flags.EDGES.is_enabled():
-    _EXCLUDED_LOADERS.add(EdgeLoader)
-if not Flags.CLASSIC.is_enabled():
-    _EXCLUDED_LOADERS.add(EventLoader)
-    _EXCLUDED_LOADERS.add(RelationshipLoader)
-    _EXCLUDED_LOADERS.add(SequenceRowLoader)
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
@@ -113,43 +105,24 @@ for loader in LOADER_LIST:
     KINDS_BY_FOLDER_NAME[loader.folder_name].add(loader.kind)
 del loader  # cleanup module namespace
 
-if not Flags.STREAMLIT.is_enabled():
-    ResourceTypes: TypeAlias = Literal[
-        "3dmodels",
-        "auth",
-        "classic",
-        "data_models",
-        "data_sets",
-        "hosted_extractors",
-        "locations",
-        "transformations",
-        "files",
-        "timeseries",
-        "extraction_pipelines",
-        "functions",
-        "raw",
-        "robotics",
-        "workflows",
-    ]
-else:
-    ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
-        "3dmodels",
-        "auth",
-        "classic",
-        "data_models",
-        "data_sets",
-        "hosted_extractors",
-        "locations",
-        "transformations",
-        "files",
-        "timeseries",
-        "extraction_pipelines",
-        "functions",
-        "raw",
-        "robotics",
-        "streamlit",
-        "workflows",
-    ]
+ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
+    "3dmodels",
+    "auth",
+    "classic",
+    "data_models",
+    "data_sets",
+    "hosted_extractors",
+    "locations",
+    "transformations",
+    "files",
+    "timeseries",
+    "extraction_pipelines",
+    "functions",
+    "raw",
+    "robotics",
+    "streamlit",
+    "workflows",
+]
 
 
 def get_loader(resource_dir: str, kind: str) -> type[Loader]:
@@ -174,6 +147,7 @@ __all__ = [
     "DataSetsLoader",
     "DatapointSubscriptionLoader",
     "DatapointsLoader",
+    "EdgeLoader",
     "EventLoader",
     "ExtractionPipelineConfigLoader",
     "ExtractionPipelineLoader",

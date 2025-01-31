@@ -6,7 +6,6 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._version import __version__
 
@@ -19,8 +18,7 @@ class ModulesApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.upgrade)
-        if Flags.MODULE_PULL.is_enabled():
-            self.command()(self.pull)
+        self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
 
