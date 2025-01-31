@@ -44,7 +44,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotSupported,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
@@ -295,34 +294,32 @@ if __name__ == "__main__":
             for schedule in schedules
             if schedule.identifier.function_external_id == function_external_id
         }
-        if Flags.RUN_WORKFLOW.is_enabled():
-            workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
-            raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
-            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
-                raw_trigger = trigger.load_resource_dict({}, validate=False)
-                loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
-                raw_trigger_by_workflow_id[
-                    WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
-                ] = raw_trigger
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
+        for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
+            raw_trigger = trigger.load_resource_dict({}, validate=False)
+            loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
+            raw_trigger_by_workflow_id[
+                WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
+            ] = raw_trigger
 
-            for workflow in workflows:
-                raw_workflow = workflow.load_resource_dict({}, validate=False)
-                loaded = WorkflowVersionUpsert.load(raw_workflow)
-                for task in loaded.workflow_definition.tasks:
-                    if (
-                        isinstance(task.parameters, FunctionTaskParameters)
-                        and task.parameters.external_id == function_external_id
-                    ):
-                        data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
-                        raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
-                        options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
-                            data,
-                            raw_trigger.get("authentication"),
-                        )
+        for workflow in workflows:
+            raw_workflow = workflow.load_resource_dict({}, validate=False)
+            loaded = WorkflowVersionUpsert.load(raw_workflow)
+            for task in loaded.workflow_definition.tasks:
+                if (
+                    isinstance(task.parameters, FunctionTaskParameters)
+                    and task.parameters.external_id == function_external_id
+                ):
+                    data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
+                    raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
+                    options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
+                        data,
+                        raw_trigger.get("authentication"),
+                    )
 
         if len(options) == 0:
-            items = "schedules or workflows" if Flags.RUN_WORKFLOW.is_enabled() else "schedules"
-            print(f"No {items} found for this {function_external_id} function.")
+            print(f"No schedules or workflows found for this {function_external_id} function.")
             return {}, None
         selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
         selected = options[selected_name]
@@ -350,23 +347,22 @@ if __name__ == "__main__":
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
-        if Flags.RUN_WORKFLOW.is_enabled():
-            workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
-            found = False
-            for workflow in workflows:
-                if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
-                    isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
-                ):
-                    raw_workflow = workflow.load_resource_dict({}, validate=False)
-                    loaded = WorkflowVersionUpsert.load(raw_workflow)
-                    for task in loaded.workflow_definition.tasks:
-                        if (
-                            isinstance(task.parameters, FunctionTaskParameters)
-                            and task.parameters.external_id == function_external_id
-                        ):
-                            data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
-                            found = True
-                            break
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        found = False
+        for workflow in workflows:
+            if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
+                isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
+            ):
+                raw_workflow = workflow.load_resource_dict({}, validate=False)
+                loaded = WorkflowVersionUpsert.load(raw_workflow)
+                for task in loaded.workflow_definition.tasks:
+                    if (
+                        isinstance(task.parameters, FunctionTaskParameters)
+                        and task.parameters.external_id == function_external_id
+                    ):
+                        data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
+                        found = True
+                        break
             for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)

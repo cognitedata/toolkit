@@ -11,7 +11,6 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
@@ -87,14 +86,11 @@ class FileLoader(DataLoader):
     folder_name = "files"
     kind = "File"
     filetypes = frozenset()
-    if Flags.REQUIRE_KIND.is_enabled():
-        exclude_filetype: frozenset[str] = frozenset({})
-        filename_pattern = (
-            # Exclude FileMetadata and CogniteFile
-            r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
-        )
-    else:
-        exclude_filetypes = frozenset({"yml", "yaml"})
+    exclude_filetype: frozenset[str] = frozenset({})
+    filename_pattern = (
+        # Exclude FileMetadata and CogniteFile
+        r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
+    )
     dependencies = frozenset({FileMetadataLoader, CogniteFileLoader})
     _doc_url = "Files/operation/initFileUpload"
 

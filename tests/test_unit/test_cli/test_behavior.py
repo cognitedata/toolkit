@@ -6,16 +6,15 @@ import pytest
 import typer
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, GroupWrite, Transformation, TransformationWrite, WorkflowTrigger
+from cognite.client.data_classes import DataSet, GroupWrite, Transformation, WorkflowTrigger
 from pytest import MonkeyPatch
 from typer import Context
 
-from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp, PullApp
+from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp
 from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -88,67 +87,6 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
     assert l3 == "modules/examples/module1"
     assert l4 == "modules/models/module1"
     assert l5.startswith("You can use the path syntax to disambiguate between modules with the same name")
-
-
-def test_pull_transformation(
-    build_tmp_path: Path,
-    monkeypatch: MonkeyPatch,
-    toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
-    organization_dir_mutable: Path,
-) -> None:
-    # Loading a selected transformation to be pulled
-    transformation_yaml = (
-        organization_dir_mutable
-        / "modules"
-        / "examples"
-        / "cdf_example_pump_asset_hierarchy"
-        / "transformations"
-        / "pump_asset_hierarchy-load-collections_pump.Transformation.yaml"
-    )
-    loader = TransformationLoader.create_loader(cdf_tool_mock, None)
-
-    def load_transformation() -> TransformationWrite:
-        # Injecting variables into the transformation file, so we can load it.
-        original = transformation_yaml.read_text()
-        content = original.replace("{{data_set}}", "ds_test")
-        content = content.replace("{{cicd_clientId}}", "123")
-        content = content.replace("{{cicd_clientSecret}}", "123")
-        content = content.replace("{{cicd_tokenUri}}", "123")
-        content = content.replace("{{cdfProjectName}}", "123")
-        content = content.replace("{{cicd_scopes}}", "scope")
-        content = content.replace("{{cicd_audience}}", "123")
-        # The loader expects the query to have a reference to the transformation file.
-        # This is a workaround for this test.
-        content += f"\nqueryFile: {transformation_yaml.with_suffix('.sql').name}"
-        transformation_yaml.write_text(content)
-
-        raw_list = loader.load_resource_file(transformation_yaml, cdf_tool_mock.environment_variables())
-        transformation = loader.load_resource(raw_list[0], is_dry_run=False)
-        # Write back original content
-        transformation_yaml.write_text(original)
-        return cast(TransformationWrite, transformation)
-
-    loaded = load_transformation()
-
-    # Simulate a change in the transformation in CDF.
-    loaded.name = "New transformation name"
-    read_transformation = Transformation.load(loaded.dump())
-    toolkit_client_approval.append(Transformation, read_transformation)
-
-    app = PullApp()
-    app.pull_transformation_cmd(
-        typer_context,
-        organization_dir=organization_dir_mutable,
-        external_id=read_transformation.external_id,
-        env="dev",
-        dry_run=False,
-    )
-
-    after_loaded = load_transformation()
-
-    assert after_loaded.name == "New transformation name"
 
 
 def test_pull_dataset(

@@ -7,7 +7,6 @@ import questionary
 import cognite_toolkit
 from cognite_toolkit._cdf_tk.constants import REPO_FILES_DIR
 from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
-from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 
 from . import _cli_commands
@@ -15,13 +14,10 @@ from ._base import ToolkitCommand
 
 REPOSITORY_HOSTING = [
     "GitHub",
+    "Azure DevOps",
     "Other",
     "None",
 ]
-
-
-if FeatureFlag.is_enabled(Flags.ADO_PIPELINES):
-    REPOSITORY_HOSTING.insert(1, "Azure DevOps")
 
 
 class RepoCommand(ToolkitCommand):

@@ -5,28 +5,14 @@ default_organization_dir = "cognite_toolkit"
 [alpha_flags]
 graphql = true
 import-cmd = true
-ado-pipelines = true
-require-kind = true
-run-workflow = true
-streamlit = true
-force-update = true
 module-repeat = true
-edges = true
-classic = true
-purge = true
-build-offline = true
-module-pull = true
-# This is not activated as it will break the tests
-# (tests needs to switch between alpha flags activated and not activated)
-# That is not easily possible with this flag.
-function-multi-file-hash = false
 
 [plugins]
 run = true
-pull = true
+purge = true
 dump = true
 
 [modules]
-# This is the version of the modules. It should not be changed manually.
+# This is the version of the modules. It should'n be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
 version = "0.3.30"
