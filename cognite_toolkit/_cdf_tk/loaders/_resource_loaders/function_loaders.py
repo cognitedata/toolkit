@@ -146,6 +146,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             for file in sorted(search_dir.glob("*"), key=lambda x: x.relative_to(function_rootdir).as_posix()):
                 if file.is_dir():
                     to_search.append(file)
+                    continue
                 elif file.is_file() and file.suffix == ".pyc":
                     continue
                 file_hash = calculate_str_or_file_hash(file, shorten=True)
