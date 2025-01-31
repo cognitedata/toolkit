@@ -16,10 +16,6 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
-    RUN_WORKFLOW: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for running workflows",
-    }
     STREAMLIT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for deploying Streamlit apps",
