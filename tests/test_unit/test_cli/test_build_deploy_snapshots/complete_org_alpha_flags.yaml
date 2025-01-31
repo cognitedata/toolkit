@@ -4,32 +4,11 @@ Asset:
   externalId: Drammen_root
   name: RootAsset
   source: doctrino
-- dataSetId: 7982613576047462211
-  externalId: MyAsset
-  name: MyAsset
-  source: doctrino
-- dataSetId: 7982613576047462211
-  externalId: MyAsset2
-  name: MyAsset2
-  source: doctrino
 - dataSetId: 8534518845016003109
   description: This is the root asset on Oslo
   externalId: Oslo_root
   name: RootAsset
   source: doctrino
-Container:
-- constraints: {}
-  externalId: myContainer
-  indexes: {}
-  properties:
-    myContainerProperty:
-      immutable: false
-      type:
-        collation: ucs_basic
-        list: false
-        type: text
-  space: sp_schema
-  usedFor: edge
 DataSet:
 - description: This is the dataset for all assets on Drammen
   externalId: ds_Drammen_assets
@@ -40,63 +19,13 @@ DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
   name: Example dataset.
-Edge:
-- endNode:
-    externalId: endNode
-    space: sp_instance
-  externalId: MyEdge
-  instanceType: edge
-  sources:
-  - properties:
-      myProperty: myValue
-    source:
-      externalId: MyView
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_instance
-  startNode:
-    externalId: startNode
-    space: sp_instance
-  type:
-    externalId: AnEdgeType
-    space: sp_schema
-Event:
-- assetIds:
-  - 13458544937205513867
-  - 221232397997127486
-  dataSetId: 7982613576047462211
-  description: My event description
-  endTime: 1732959346052
-  externalId: MyEvent
-  metadata:
-    key: value
-  source: my_source
-  startTime: 1732959346052
-  subtype: info
-  type: success
 FileLoader:
 - externalId: MyExtendedFile
   filehash: 5e6be7b4
   space: sp_nodes
-- external_id: myapp
-  filehash: c59dc2b6
 - external_id: shopConfigFile
   filehash: 09d16fb3
 FileMetadata:
-- dataSetId: 7982613576047462211
-  directory: /streamlit-apps/
-  externalId: myapp
-  metadata:
-    cdf-toolkit-app-hash: c59dc2b6
-    creator: doctrino@github.com
-    description: This is a super app
-    entrypoint: main.py
-    name: MySuperApp
-    published: true
-    theme: Light
-    thumbnail: data:image/webp;base64,....
-  name: MySuperApp-source.json
 - dataSetId: 7982613576047462211
   directory: /files
   externalId: shopConfigFile
@@ -136,9 +65,6 @@ GraphQLDataModel:
   space: sp_schema
   version: '3_0_2'
 Node:
-- externalId: AnEdgeType
-  instanceType: node
-  space: sp_schema
 - externalId: MyExtendedFile
   instanceType: node
   sources:
@@ -166,78 +92,6 @@ Node:
       type: view
       version: v1
   space: sp_nodes
-- externalId: endNode
-  instanceType: node
-  space: sp_instance
-- externalId: startNode
-  instanceType: node
-  space: sp_instance
-Relationship:
-- confidence: 0.42
-  dataSetId: 7982613576047462211
-  externalId: MyRelationship
-  sourceExternalId: MyAsset
-  sourceType: asset
-  targetExternalId: MyEvent
-  targetType: event
-Sequence:
-- columns:
-  - description: The wind speed
-    externalId: wind_speed
-    name: Wind Speed
-    valueType: DOUBLE
-  - description: The power production
-    externalId: power
-    name: Power
-    valueType: DOUBLE
-  dataSetId: 7982613576047462211
-  description: A power curve sequence
-  externalId: SequenceWithRows
-  name: SequenceWithRows
-SequenceRows:
-- columns:
-  - externalId: wind_speed
-    valueType: Double
-  - externalId: power
-    valueType: Double
-  externalId: SequenceWithRows
-  rows:
-  - rowNumber: 1
-    values:
-    - 0.0
-    - 0.0
-  - rowNumber: 2
-    values:
-    - 5.0
-    - 309000.0
-  - rowNumber: 3
-    values:
-    - 10.0
-    - 2693000.0
-  - rowNumber: 4
-    values:
-    - 15.0
-    - 3450000.0
-  - rowNumber: 5
-    values:
-    - 20.0
-    - 3450000.0
-  - rowNumber: 6
-    values:
-    - 25.0
-    - 3450000.0
 Space:
 - space: sp_instance
 - space: sp_schema
-View:
-- externalId: MyView
-  implements: []
-  properties:
-    myProperty:
-      container:
-        externalId: myContainer
-        space: sp_schema
-        type: container
-      containerPropertyIdentifier: myContainerProperty
-  space: sp_schema
-  version: v1
