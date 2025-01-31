@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import time
 import uuid
-from collections.abc import Generator, Hashable, Iterable
+from collections.abc import Hashable
 from graphlib import TopologicalSorter
-from typing import Any
 
 import questionary
 from cognite.client.data_classes import DataSetUpdate, filters
-from cognite.client.data_classes._base import WriteableCogniteResource
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -233,13 +230,17 @@ class PurgeCommand(ToolkitCommand):
         is_purged = True
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
-        status_prefix = "Would have deleted" if dry_run else "Deleted"
+        has_purged_views = False
         with Console().status("...", spinner="aesthetic", speed=0.4) as status:
             for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
                 if loader_cls not in loaders:
                     # Dependency that is included
                     continue
                 loader = loader_cls.create_loader(ToolGlobals, None, console=status.console)
+                status_prefix = "Would have deleted" if dry_run else "Deleted"
+                if isinstance(loader, ViewLoader) and not dry_run:
+                    status_prefix = "Expected deleted"  # Views are not always deleted immediately
+                    has_purged_views = True
 
                 if isinstance(loader, NodeLoader) and not dry_run:
                     # Special handling of nodes as node type must be deleted after regular nodes
@@ -270,68 +271,46 @@ class PurgeCommand(ToolkitCommand):
                 count = 0
                 status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                 batch_ids: list[Hashable] = []
-                epochs = (
-                    epoch for epoch in [loader.iterate(data_set_external_id=selected_data_set, space=selected_space)]
-                )
-                if isinstance(loader, ViewLoader) and not dry_run:
-                    # Views are not always deleted, so we need to iterate over all views 3 times to ensure all are
-                    # deleted
-                    def view_epochs() -> Generator[Iterable[WriteableCogniteResource], Any, None]:
-                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
-                        time.sleep(10)
-                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
-                        time.sleep(10)
-                        yield loader.iterate(data_set_external_id=selected_data_set, space=selected_space)
 
-                    epochs = view_epochs()
-
-                for epoch_no, epoch in enumerate(epochs):
-                    for resource in epoch:
+                for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
+                    try:
+                        batch_ids.append(loader.get_id(resource))
+                    except ToolkitRequiredValueError as e:
                         try:
-                            batch_ids.append(loader.get_id(resource))
-                        except ToolkitRequiredValueError as e:
-                            try:
-                                batch_ids.append(loader.get_internal_id(resource))
-                            except (AttributeError, NotImplementedError):
-                                self.warn(
-                                    HighSeverityWarning(
-                                        f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
-                                    ),
-                                    console=status.console,
-                                )
-                                is_purged = False
-                                continue
-
-                        if len(batch_ids) >= batch_size:
-                            child_deletion = self._delete_children(
-                                batch_ids, child_loaders, dry_run, status.console, verbose
+                            batch_ids.append(loader.get_internal_id(resource))
+                        except (AttributeError, NotImplementedError):
+                            self.warn(
+                                HighSeverityWarning(
+                                    f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
+                                ),
+                                console=status.console,
                             )
-                            batch_delete, batch_size = self._delete_batch(
-                                batch_ids, dry_run, loader, batch_size, status.console, verbose
-                            )
-                            if epoch_no == 0:
-                                # Only update if it is the first epoch.
-                                count += batch_delete
-                                status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                            batch_ids = []
-                            # The DeployResults is overloaded such that the below accumulates the counts
-                            for name, child_count in child_deletion.items():
-                                results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+                            is_purged = False
+                            continue
 
-                    if batch_ids:
+                    if len(batch_ids) >= batch_size:
                         child_deletion = self._delete_children(
                             batch_ids, child_loaders, dry_run, status.console, verbose
                         )
                         batch_delete, batch_size = self._delete_batch(
                             batch_ids, dry_run, loader, batch_size, status.console, verbose
                         )
-                        if epoch_no == 0:
-                            # Only update if it is the first epoch.
-                            count += batch_delete
-                            status.update(f"{status_prefix} {count:,} {loader.display_name}...")
-                            for name, child_count in child_deletion.items():
-                                results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+                        count += batch_delete
+                        status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                         batch_ids = []
+                        # The DeployResults is overloaded such that the below accumulates the counts
+                        for name, child_count in child_deletion.items():
+                            results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
+                if batch_ids:
+                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, status.console, verbose)
+                    batch_delete, batch_size = self._delete_batch(
+                        batch_ids, dry_run, loader, batch_size, status.console, verbose
+                    )
+                    count += batch_delete
+                    status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                    for name, child_count in child_deletion.items():
+                        results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
                 if count > 0:
                     status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
                 results[loader.display_name] = ResourceDeployResult(
@@ -340,6 +319,8 @@ class PurgeCommand(ToolkitCommand):
                     total=count,
                 )
         print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+        if has_purged_views:
+            print("You might need to run the purge command multiple times to delete all views.")
         return is_purged
 
     def _delete_batch(
