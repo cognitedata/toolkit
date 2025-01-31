@@ -36,6 +36,10 @@ Changes are grouped as follows:
 
 - The plugin `cdf pull` has been removed and is now replaced by `cdf modules pull`.
 
+### Fixed
+
+- The `cdf purge dataset` now correctly falls back to internal IDs if external IDs are not found.
+
 ## [0.3.30] - 2025-01-31
 
 ### Improved
