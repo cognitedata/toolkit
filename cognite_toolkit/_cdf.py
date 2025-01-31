@@ -10,6 +10,7 @@ from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.hints import Hint
@@ -158,9 +159,11 @@ def app() -> NoReturn:
         if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
             cmd = result.group(1)
             if cmd in Plugins.list():
+                plugin = r"[plugins]"
                 print(
                     f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
-                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the \[plugins] section."
+                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
+                    f"[bold]{escape(plugin)}[/bold] section."
                     f"\nDocs to lean more: {Hint._link(URL.plugins, URL.plugins)}"
                 )
         raise
