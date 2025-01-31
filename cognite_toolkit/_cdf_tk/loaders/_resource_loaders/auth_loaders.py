@@ -40,6 +40,7 @@ from cognite.client.data_classes.iam import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -48,9 +49,6 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
-)
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
 )
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
@@ -92,25 +90,18 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         self,
         client: ToolkitClient,
         build_dir: Path | None,
+        console: Console | None,
         target_scopes: Literal[
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all_scoped_only",
     ):
-        super().__init__(client, build_dir)
+        super().__init__(client, build_dir, console)
         self.target_scopes = target_scopes
 
     @property
     def display_name(self) -> str:
         return f"groups({self.target_scopes.removesuffix('_only')})"
-
-    @classmethod
-    def create_loader(
-        cls,
-        ToolGlobals: CDFToolConfig,
-        build_dir: Path | None,
-    ) -> GroupLoader:
-        return cls(ToolGlobals.toolkit_client, build_dir)
 
     @classmethod
     def get_required_capability(
@@ -424,8 +415,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
 @final
 class GroupAllScopedLoader(GroupLoader):
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir, "all_scoped_only")
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console, "all_scoped_only")
 
     @property
     def display_name(self) -> str:

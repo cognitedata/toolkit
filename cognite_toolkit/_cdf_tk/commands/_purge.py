@@ -9,7 +9,9 @@ from cognite.client.data_classes import DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
+from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
@@ -30,8 +32,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     SpaceLoader,
     StreamlitLoader,
     TransformationLoader,
+    ViewLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
 
 from ._base import ToolkitCommand
@@ -192,6 +195,7 @@ class PurgeCommand(ToolkitCommand):
                 title=f"Purge {resource_type}",
                 title_align="left",
                 border_style="red",
+                expand=False,
             )
         )
 
@@ -226,88 +230,148 @@ class PurgeCommand(ToolkitCommand):
         is_purged = True
         results = DeployResults([], "purge", dry_run=dry_run)
         loader_cls: type[ResourceLoader]
-        for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
-            if loader_cls not in loaders:
-                # Dependency that is included
-                continue
-            loader = loader_cls.create_loader(ToolGlobals, None)
+        has_purged_views = False
+        with Console().status("...", spinner="aesthetic", speed=0.4) as status:
+            for loader_cls in reversed(list(TopologicalSorter(loaders).static_order())):
+                if loader_cls not in loaders:
+                    # Dependency that is included
+                    continue
+                loader = loader_cls.create_loader(ToolGlobals, None, console=status.console)
+                status_prefix = "Would have deleted" if dry_run else "Deleted"
+                if isinstance(loader, ViewLoader) and not dry_run:
+                    status_prefix = "Expected deleted"  # Views are not always deleted immediately
+                    has_purged_views = True
 
-            if isinstance(loader, NodeLoader) and not dry_run:
-                # Special handling of nodes as node type must be deleted after regular nodes
-                # In dry-run mode, we are not deleting the nodes, so we can skip this.
-                warnings_before = len(self.warning_list)
-                deleted_nodes = self._purge_nodes(loader, selected_space, verbose)
-                results[loader.display_name] = ResourceDeployResult(
-                    name=loader.display_name,
-                    deleted=deleted_nodes,
-                    total=deleted_nodes,
-                )
-                if len(self.warning_list) > warnings_before:
-                    is_purged = False
-                continue
-
-            # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
-            # These must delete all resources that are connected to the resource that the loader is deleting
-            # Exclude loaders that we are already iterating over
-            child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
-            child_loaders = [
-                child_loader.create_loader(ToolGlobals, None)
-                for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
-                # Necessary as the topological sort includes dependencies that are not in the loaders
-                if child_loader in child_loader_classes
-            ]
-            count = 0
-            batch_ids: list[Hashable] = []
-            for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
-                try:
-                    batch_ids.append(loader.get_id(resource))
-                except ToolkitRequiredValueError as e:
-                    try:
-                        batch_ids.append(loader.get_internal_id(resource))
-                    except (AttributeError, NotImplementedError):
-                        self.warn(
-                            HighSeverityWarning(f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}")
-                        )
+                if isinstance(loader, NodeLoader) and not dry_run:
+                    # Special handling of nodes as node type must be deleted after regular nodes
+                    # In dry-run mode, we are not deleting the nodes, so we can skip this.
+                    warnings_before = len(self.warning_list)
+                    deleted_nodes = self._purge_nodes(loader, status, selected_space, verbose)
+                    results[loader.display_name] = ResourceDeployResult(
+                        name=loader.display_name,
+                        deleted=deleted_nodes,
+                        total=deleted_nodes,
+                    )
+                    if len(self.warning_list) > warnings_before and any(
+                        isinstance(warn, HighSeverityWarning) for warn in self.warning_list[warnings_before:]
+                    ):
                         is_purged = False
-                        continue
+                    continue
 
-                if len(batch_ids) >= batch_size:
-                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
-                    count += self._delete_batch(batch_ids, dry_run, loader, verbose)
-                    batch_ids = []
-                    # The DeployResults is overloaded such that the below accumulates the counts
+                # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
+                # These must delete all resources that are connected to the resource that the loader is deleting
+                # Exclude loaders that we are already iterating over
+                child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
+                child_loaders = [
+                    child_loader.create_loader(ToolGlobals, None)
+                    for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
+                    # Necessary as the topological sort includes dependencies that are not in the loaders
+                    if child_loader in child_loader_classes
+                ]
+                count = 0
+                status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                batch_ids: list[Hashable] = []
+
+                for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
+                    try:
+                        batch_ids.append(loader.get_id(resource))
+                    except ToolkitRequiredValueError as e:
+                        try:
+                            batch_ids.append(loader.get_internal_id(resource))
+                        except (AttributeError, NotImplementedError):
+                            self.warn(
+                                HighSeverityWarning(
+                                    f"Cannot delete {type(resource).__name__}. Failed to obtain ID: {e}"
+                                ),
+                                console=status.console,
+                            )
+                            is_purged = False
+                            continue
+
+                    if len(batch_ids) >= batch_size:
+                        child_deletion = self._delete_children(
+                            batch_ids, child_loaders, dry_run, status.console, verbose
+                        )
+                        batch_delete, batch_size = self._delete_batch(
+                            batch_ids, dry_run, loader, batch_size, status.console, verbose
+                        )
+                        count += batch_delete
+                        status.update(f"{status_prefix} {count:,} {loader.display_name}...")
+                        batch_ids = []
+                        # The DeployResults is overloaded such that the below accumulates the counts
+                        for name, child_count in child_deletion.items():
+                            results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
+
+                if batch_ids:
+                    child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, status.console, verbose)
+                    batch_delete, batch_size = self._delete_batch(
+                        batch_ids, dry_run, loader, batch_size, status.console, verbose
+                    )
+                    count += batch_delete
+                    status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                     for name, child_count in child_deletion.items():
                         results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
-            if batch_ids:
-                child_deletion = self._delete_children(batch_ids, child_loaders, dry_run, verbose)
-                count += self._delete_batch(batch_ids, dry_run, loader, verbose)
-                for name, child_count in child_deletion.items():
-                    results[name] = ResourceDeployResult(name, deleted=child_count, total=child_count)
-
-            results[loader.display_name] = ResourceDeployResult(
-                name=loader.display_name,
-                deleted=count,
-                total=count,
-            )
+                if count > 0:
+                    status.console.print(f"{status_prefix} {count:,} {loader.display_name}.")
+                results[loader.display_name] = ResourceDeployResult(
+                    name=loader.display_name,
+                    deleted=count,
+                    total=count,
+                )
         print(results.counts_table(exclude_columns={"Created", "Changed", "Untouched", "Total"}))
+        if has_purged_views:
+            print("You might need to run the purge command multiple times to delete all views.")
         return is_purged
 
-    @staticmethod
-    def _delete_batch(batch_ids: list[Hashable], dry_run: bool, loader: ResourceLoader, verbose: bool) -> int:
+    def _delete_batch(
+        self,
+        batch_ids: list[Hashable],
+        dry_run: bool,
+        loader: ResourceLoader,
+        batch_size: int,
+        console: Console,
+        verbose: bool,
+    ) -> tuple[int, int]:
         if dry_run:
             deleted = len(batch_ids)
         else:
-            deleted = loader.delete(batch_ids)
+            try:
+                deleted = loader.delete(batch_ids)
+            except CogniteAPIError as delete_error:
+                if (
+                    delete_error.code == 408
+                    and "timed out" in delete_error.message.casefold()
+                    and batch_size > 1
+                    and (len(batch_ids) > 1)
+                ):
+                    self.warn(
+                        MediumSeverityWarning(
+                            f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
+                        ),
+                        include_timestamp=True,
+                        console=console,
+                    )
+                    new_batch_size = len(batch_ids) // 2
+                    first = batch_ids[:new_batch_size]
+                    second = batch_ids[new_batch_size:]
+                    first_deleted, first_batch_size = self._delete_batch(
+                        first, dry_run, loader, new_batch_size, console, verbose
+                    )
+                    second_deleted, second_batch_size = self._delete_batch(
+                        second, dry_run, loader, new_batch_size, console, verbose
+                    )
+                    return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
+                else:
+                    raise delete_error
 
         if verbose:
             prefix = "Would delete" if dry_run else "Deleted"
-            print(f"{prefix} {deleted:,} {loader.display_name}")
-        return deleted
+            console.print(f"{prefix} {deleted:,} {loader.display_name}")
+        return deleted, batch_size
 
     @staticmethod
     def _delete_children(
-        parent_ids: list[Hashable], child_loaders: list[ResourceLoader], dry_run: bool, verbose: bool
+        parent_ids: list[Hashable], child_loaders: list[ResourceLoader], dry_run: bool, console: Console, verbose: bool
     ) -> dict[str, int]:
         child_deletion: dict[str, int] = {}
         for child_loader in child_loaders:
@@ -323,12 +387,17 @@ class PurgeCommand(ToolkitCommand):
 
                 if verbose:
                     prefix = "Would delete" if dry_run else "Deleted"
-                    print(f"{prefix} {count:,} {child_loader.display_name}")
+                    console.print(f"{prefix} {count:,} {child_loader.display_name}")
             child_deletion[child_loader.display_name] = count
         return child_deletion
 
     def _purge_nodes(
-        self, loader: NodeLoader, selected_space: str | None = None, verbose: bool = False, batch_size: int = 1000
+        self,
+        loader: NodeLoader,
+        status: Status,
+        selected_space: str | None = None,
+        verbose: bool = False,
+        batch_size: int = 1000,
     ) -> int:
         """Special handling of nodes as we must ensure all node types are deleted last."""
         # First find all Node Types
@@ -345,21 +414,24 @@ class PurgeCommand(ToolkitCommand):
                 continue
             batch_ids.append(node_id)
             if len(batch_ids) >= batch_size:
-                deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+                deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
                 count += deleted
+                status.update(f"Deleted {count:,} {loader.display_name}...")
                 batch_ids = []
 
         if batch_ids:
-            deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, verbose)
+            deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
             count += deleted
 
         # Finally delete all node types
-        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, verbose)
+        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
         count += deleted
+        if count > 0:
+            status.console.print(f"Deleted {count:,} {loader.display_name}.")
         return count
 
     def _delete_node_batch(
-        self, batch_ids: list[NodeId], loader: NodeLoader, batch_size: int, verbose: bool
+        self, batch_ids: list[NodeId], loader: NodeLoader, batch_size: int, console: Console, verbose: bool
     ) -> tuple[int, int]:
         try:
             deleted = loader.delete(batch_ids)
@@ -381,7 +453,8 @@ class PurgeCommand(ToolkitCommand):
                             HighSeverityWarning(
                                 f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
                                 f"which must be purged first: {humanize_collection(instance_spaces)}"
-                            )
+                            ),
+                            console=console,
                         )
             elif (
                 delete_error.code == 408
@@ -390,19 +463,25 @@ class PurgeCommand(ToolkitCommand):
                 and (len(batch_ids) > 1)
             ):
                 self.warn(
-                    HighSeverityWarning(
+                    MediumSeverityWarning(
                         f"Timed out deleting {loader.display_name}. Trying again with a smaller batch size."
-                    )
+                    ),
+                    include_timestamp=True,
+                    console=console,
                 )
                 new_batch_size = len(batch_ids) // 2
                 first = batch_ids[:new_batch_size]
                 second = batch_ids[new_batch_size:]
-                first_deleted, first_batch_size = self._delete_node_batch(first, loader, new_batch_size, verbose)
-                second_deleted, second_batch_size = self._delete_node_batch(second, loader, new_batch_size, verbose)
+                first_deleted, first_batch_size = self._delete_node_batch(
+                    first, loader, new_batch_size, console, verbose
+                )
+                second_deleted, second_batch_size = self._delete_node_batch(
+                    second, loader, new_batch_size, console, verbose
+                )
                 return first_deleted + second_deleted, min(first_batch_size, second_batch_size)
             else:
                 raise delete_error
 
         if verbose:
-            print(f"Deleted {deleted:,} {loader.display_name}")
+            console.print(f"Deleted {deleted:,} {loader.display_name}")
         return deleted, batch_size

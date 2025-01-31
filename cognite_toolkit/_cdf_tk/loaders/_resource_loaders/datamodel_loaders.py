@@ -71,6 +71,7 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
@@ -99,6 +100,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_read,
     to_diff,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
@@ -118,8 +120,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         self._deleted_time_by_id: dict[str, float] = {}
 
     @property
@@ -482,8 +484,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
 
@@ -1007,7 +1009,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
-        return iter(self.client.data_modeling.instances(space=space))
+        return iter(iterate_instances(self.client, space=space, instance_type="node", console=self.console))
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
@@ -1050,8 +1052,8 @@ class GraphQLLoader(
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
         self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
@@ -1384,7 +1386,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Edge]:
-        return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
+        return iter(iterate_instances(self.client, space=space, instance_type="edge"))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:
         return len(ids)

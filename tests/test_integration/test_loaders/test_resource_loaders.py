@@ -103,7 +103,7 @@ class TestFunctionScheduleLoader:
     def test_update_function_schedule(
         self, toolkit_client: ToolkitClient, dummy_function: Function, dummy_schedule: FunctionSchedule
     ) -> None:
-        loader = FunctionScheduleLoader(toolkit_client, None)
+        loader = FunctionScheduleLoader(toolkit_client, None, None)
         function_schedule = dummy_schedule.as_write()
 
         function_schedule.description = (
@@ -134,7 +134,7 @@ class TestFunctionScheduleLoader:
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleLoader(toolkit_client, None)
+        loader = FunctionScheduleLoader(toolkit_client, None, None)
 
         created: FunctionSchedulesList | None = None
         try:

@@ -25,6 +25,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -72,8 +73,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             function_hash = "cdf-toolkit-function-hash"
         secret_hash = "cdf-toolkit-secret-hash"
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None):
-        super().__init__(client, build_path)
+    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
+        super().__init__(client, build_path, console)
         self.data_set_id_by_external_id: dict[str, int] = {}
         self.function_dir_by_external_id: dict[str, Path] = {}
 
@@ -353,8 +354,8 @@ class FunctionScheduleLoader(
     parent_resource = frozenset({FunctionLoader})
     support_update = False
 
-    def __init__(self, client: ToolkitClient, build_path: Path | None):
-        super().__init__(client, build_path)
+    def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
+        super().__init__(client, build_path, console)
         self.authentication_by_id: dict[FunctionScheduleID, ClientCredentials] = {}
 
     @property
@@ -426,7 +427,9 @@ class FunctionScheduleLoader(
         return dumped
 
     def _resolve_functions_ext_id(self, items: FunctionScheduleWriteList) -> FunctionScheduleWriteList:
-        functions = FunctionLoader(self.client, None).retrieve(list(set([item.function_external_id for item in items])))
+        functions = FunctionLoader(self.client, None, None).retrieve(
+            list(set([item.function_external_id for item in items]))
+        )
         for item in items:
             for func in functions:
                 if func.external_id == item.function_external_id:
@@ -437,7 +440,7 @@ class FunctionScheduleLoader(
         names_by_function: dict[str, set[str]] = defaultdict(set)
         for id_ in ids:
             names_by_function[id_.function_external_id].add(id_.name)
-        functions = FunctionLoader(self.client, None).retrieve(list(names_by_function))
+        functions = FunctionLoader(self.client, None, None).retrieve(list(names_by_function))
         schedules = FunctionSchedulesList([])
         for func in functions:
             func_external_id = cast(str, func.external_id)

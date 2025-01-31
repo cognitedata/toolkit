@@ -42,6 +42,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -426,8 +427,8 @@ class WorkflowTriggerLoader(
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
     @property

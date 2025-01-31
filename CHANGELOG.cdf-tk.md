@@ -17,6 +17,12 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Improved
+
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when listing the nodes/edges to
+  delete when getting a 408 timeout error.
+- [alpha feature] The `cdf purge` now shows a spinner and updates the progress when deleting resources.
+
 ### Fixed
 
 - Reverting the fix from `0.3.24` to read any csv dialect when uploading a `csv` file

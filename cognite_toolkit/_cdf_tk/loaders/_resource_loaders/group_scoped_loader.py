@@ -16,6 +16,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import final
 
+from rich.console import Console
+
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
 from .auth_loaders import GroupLoader, SecurityCategoryLoader
@@ -44,8 +46,8 @@ class GroupResourceScopedLoader(GroupLoader):
         }
     )
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir, "resource_scoped_only")
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console, "resource_scoped_only")
 
     @property
     def display_name(self) -> str:
