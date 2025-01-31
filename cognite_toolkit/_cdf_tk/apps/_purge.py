@@ -61,7 +61,7 @@ class PurgeApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will pull the specified transformation and update its YAML file in the module folder"""
+        """This command will delete the contents of the specified dataset"""
         cmd = PurgeCommand()
         cmd.run(
             lambda: cmd.dataset(
@@ -116,7 +116,7 @@ class PurgeApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will pull the specified node and update its YAML file in the module folder."""
+        """This command will delete the contents of the specified space."""
 
         cmd = PurgeCommand()
 
