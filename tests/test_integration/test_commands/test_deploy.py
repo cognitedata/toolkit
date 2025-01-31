@@ -180,7 +180,7 @@ def get_changed_source_files(
                 changed_source_files[loader.display_name].add(f"{loader.folder_name}/{source_file.name}")
             for path, new_extra_content in extra_files.items():
                 new_extra_content = remove_trailing_newline(new_extra_content)
-                original_extra_content = remove_trailing_newline(path.read_text())
+                original_extra_content = remove_trailing_newline(path.read_text(encoding="utf-8"))
                 if new_extra_content != original_extra_content:
                     if verbose:
                         print(

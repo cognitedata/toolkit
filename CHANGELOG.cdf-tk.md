@@ -15,6 +15,14 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Reverting the fix from `0.3.24` to read any csv dialect when uploading a `csv` file
+  (RAW table, Datapoints, or Assets). Now, only the comma-separated dialect is supported. This is because the dialect
+  inference performed too poorly and failed to read the data correctly in many cases.
+
 ## [0.3.29] - 2025-01-27
 
 ### Added
