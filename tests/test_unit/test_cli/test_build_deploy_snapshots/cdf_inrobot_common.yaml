@@ -152,7 +152,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 691fc618f5b4db3abd6a6f67a344f2880cc38046b5d1b290796015963a5cd352
+    cognite-toolkit-hash: /=691fc618;README.md=1298bed9;__init__.py=902542db;handler.py=b5f6f122;requirements.txt=0281500f;common/README.md=4ac089da;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
   name: Contextualize robot data
   owner: Robotics team
   runtime: py39
@@ -164,7 +164,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: adbf9658c179f61e08a15b7081892b094adefa70f378c762fadb1cc4b7ca6f5f
+    cognite-toolkit-hash: /=adbf9658;README.md=a23f8d37;__init__.py=df4a4214;handler.py=4bccc8d4;requirements.txt=ac9cd188;common/README.md=4ac089da;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
   name: Gauge reading
   owner: Robotics team
   runtime: py39
@@ -176,7 +176,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 3294e33e4816e0c9d56e456df9e060b8cbfb6fbb1acc62afc7ea544988b449a6
+    cognite-toolkit-hash: /=3294e33e;README.md=e6ac8065;__init__.py=ca7dbb21;handler.py=5467a6e6;requirements.txt=3c27268b;common/README.md=4ac089da;common/__init__.py=e3b0c442;common/apm_helpers.py=70a92fce;common/cdf_helpers.py=7ea4870e;common/utils.py=72dacf22;common/dataclass/__init__.py=e3b0c442;common/dataclass/common.py=731db5cb;common/dataclass/vision.py=5121f330
   name: Get IR data From IR raw
   owner: Robotics team
   runtime: py39
@@ -188,7 +188,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: da02145aab6ac6c370ea0134a8b34a534733b8aa9cac18898f645f0fa2e717b5
+    cognite-toolkit-hash: /=da02145a;README.md=410b0207;__init__.py=99690d7b;cognite_threesixty_images.py=9308e253;handler.py=b74d849b;requirements.txt=16a8f346
   name: Process 360
   owner: Robotics team
   runtime: py39
