@@ -1,8 +1,0 @@
-- externalId: MyAsset
-  name: MyAsset
-  source: doctrino
-  dataSetExternalId: ds_complete_org
-- externalId: MyAsset2
-  name: MyAsset2
-  source: doctrino
-  dataSetExternalId: ds_complete_org

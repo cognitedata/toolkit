@@ -1,9 +1,0 @@
-space: sp_schema
-externalId: MyView
-version: v1
-properties:
-  myProperty:
-    container:
-      space: sp_schema
-      externalId: myContainer
-    containerPropertyIdentifier: myContainerProperty

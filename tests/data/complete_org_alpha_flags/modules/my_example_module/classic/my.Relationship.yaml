@@ -1,7 +1,0 @@
-externalId: MyRelationship
-sourceType: asset
-sourceExternalId: MyAsset
-targetType: event
-targetExternalId: MyEvent
-dataSetExternalId: ds_complete_org
-confidence: 0.42
