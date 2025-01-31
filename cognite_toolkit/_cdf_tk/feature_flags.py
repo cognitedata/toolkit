@@ -16,14 +16,6 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
-    ADO_PIPELINES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables creation of Azure DevOps pipelines in repo init command",
-    }
-    REQUIRE_KIND: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Require kind in all config file names. For example, `my.FileMetadata.yaml`",
-    }
     RUN_WORKFLOW: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for running workflows",

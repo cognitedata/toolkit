@@ -185,8 +185,7 @@ def test_init_build_clean(
 
 TEST_CASES = [COMPLETE_ORG]
 if (
-    Flags.REQUIRE_KIND.is_enabled()
-    or Flags.GRAPHQL.is_enabled()
+    Flags.GRAPHQL.is_enabled()
     or Flags.STREAMLIT.is_enabled()
     or Flags.EDGES.is_enabled()
     or Flags.FUNCTION_MULTI_FILE_HASH.is_enabled()
@@ -247,13 +246,12 @@ def test_complete_org_is_complete() -> None:
             for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
                 if any(loader.is_supported_file(file) for file in files):
                     used_loader_by_folder_name[resource_folder].add(loader)
-    if Flags.STREAMLIT.is_enabled() or Flags.GRAPHQL.is_enabled() or Flags.REQUIRE_KIND.is_enabled():
-        alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
-        for module in alpha_modules:
-            for resource_folder, files in module.source_paths_by_resource_folder.items():
-                for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
-                    if any(loader.is_supported_file(file) for file in files):
-                        used_loader_by_folder_name[resource_folder].add(loader)
+    alpha_modules = ModuleDirectories.load(COMPLETE_ORG_ALPHA_FLAGS)
+    for module in alpha_modules:
+        for resource_folder, files in module.source_paths_by_resource_folder.items():
+            for loader in LOADER_BY_FOLDER_NAME[resource_folder]:
+                if any(loader.is_supported_file(file) for file in files):
+                    used_loader_by_folder_name[resource_folder].add(loader)
 
     unused_loaders = {
         loader

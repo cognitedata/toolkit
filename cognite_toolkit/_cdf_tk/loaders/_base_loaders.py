@@ -20,7 +20,6 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
 
@@ -131,7 +130,7 @@ class Loader(ABC):
             return False
         if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
-        if force_pattern is False and Flags.REQUIRE_KIND.is_enabled() and not issubclass(cls, DataLoader):
+        if force_pattern is False and not issubclass(cls, DataLoader):
             return file.stem.casefold().endswith(cls.kind.casefold())
         else:
             if cls.filename_pattern:
