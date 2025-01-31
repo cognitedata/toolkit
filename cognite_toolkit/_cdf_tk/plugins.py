@@ -18,7 +18,6 @@ class Plugin:
 
 class Plugins(Enum):
     run = Plugin("run", "plugin for Run command to execute Python scripts in CDF")
-    pull = Plugin("pull", "plugin for Pull command to retrieve resources from CDF")
     dump = Plugin("dump", "plugin for Dump command to retrieve Asset resources from CDF")
 
     @staticmethod

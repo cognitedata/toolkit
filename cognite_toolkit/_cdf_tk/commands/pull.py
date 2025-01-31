@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import dataclasses
-import difflib
 import re
 import tempfile
 import uuid
@@ -9,7 +8,6 @@ from collections import UserList
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Union
-from unittest.mock import MagicMock
 
 import questionary
 import yaml
@@ -30,12 +28,10 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceFull,
     DeployResults,
     ModuleDirectories,
-    ModuleResources,
     ResourceDeployResult,
     YAMLComments,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitMissingResourceError, ToolkitValueError
-from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ExtractionPipelineConfigLoader,
     FunctionLoader,
@@ -44,7 +40,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     HostedExtractorSourceLoader,
     ResourceLoader,
     StreamlitLoader,
-    TransformationLoader,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
@@ -410,156 +405,6 @@ class PullCommand(ToolkitCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
-
-    def execute(
-        self,
-        organization_dir: Path,
-        id_: T_ID | None,
-        env: str | None,
-        dry_run: bool,
-        verbose: bool,
-        ToolGlobals: CDFToolConfig,
-        Loader: type[
-            ResourceLoader[
-                T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
-            ]
-        ],
-    ) -> None:
-        verify_module_directory(organization_dir, env)
-        # The id_type is only used for type hints, so it is safe to ignore the type here
-        local_resources: BuiltFullResourceList = ModuleResources(organization_dir, env).list_resources(
-            None,  # type: ignore[arg-type]
-            Loader.folder_name,  # type: ignore[arg-type]
-            Loader.kind,
-        )
-        loader = Loader.create_loader(ToolGlobals, None)
-
-        if id_ is None:
-            resource_id = questionary.select(
-                f"Select a {loader.display_name} to pull",
-                choices=[
-                    Choice(title=f"{r.identifier!r} - ({r.module_name})", value=r.identifier) for r in local_resources
-                ],
-            ).ask()
-        elif id_ not in local_resources.identifiers:
-            raise ToolkitMissingResourceError(
-                f"No {loader.display_name} with external id {id_} found in the current configuration in {organization_dir}."
-            )
-        else:
-            resource_id = id_
-
-        print(f"[bold]Pulling {loader.display_name} {resource_id!r}...[/]")
-
-        built_local = next(r for r in local_resources if r.identifier == resource_id)
-        if sum(1 for r in local_resources if r.source.path == built_local.source.path) > 1:
-            raise ToolkitValueError(f"Pull of {loader.display_name} only supports one resource per file.")
-
-        local_resource_dict = built_local.load_resource_dict(ToolGlobals.environment_variables(), validate=True)
-
-        filepath_mock = MagicMock(spec=Path)
-        filepath_mock.read_text.return_value = yaml_safe_dump(local_resource_dict)
-        filepath_mock.stem.return_value = "hack"
-        filepath_mock.name = "hack.yaml"
-
-        if Loader is TransformationLoader:
-            # Todo Hack to pass in the local resource_dict
-            query_file = Path(built_local.source.path.with_suffix(".sql"))
-            if query_file.exists():
-                query_content = built_local.build_variables.replace(safe_read(query_file))
-                query_mock_file = MagicMock(spec=Path)
-                query_mock_file.read_text.return_value = query_content
-                local_resource_dict["queryFile"] = query_file.relative_to(built_local.source.path.parent).as_posix()
-                filepath_mock.read_text.return_value = yaml_safe_dump(local_resource_dict)
-
-        local_resource = loader.load_resource_file(filepath_mock, ToolGlobals.environment_variables())
-
-        cdf_resources = loader.retrieve([resource_id])
-        if not cdf_resources:
-            raise ToolkitMissingResourceError(f"No {loader.display_name} with {id_} found in CDF.")
-
-        cdf_resource = cdf_resources[0].as_write()
-        if cdf_resource == local_resource:
-            print(f"  [bold green]INFO:[/] {loader.display_name.capitalize()} {id_} is up to date.")
-            return
-        source_file = built_local.source.path
-
-        # Todo: How to load the resource correctly with for example the .sql included in the resource.
-        cdf_dumped, extra_files = loader.dump_resource_legacy(cdf_resource, source_file, local_resource)  # type: ignore[arg-type]
-
-        # Using the ResourceYAML class to load and dump the file to preserve comments and detect changes
-        built_content = built_local.build_variables.replace(safe_read(source_file))
-        resource = ResourceYAMLDifference.load(built_content, safe_read(source_file))
-        resource.update_cdf_resource(cdf_dumped)
-
-        resource.display(title=f"Resource differences for {loader.display_name} {id_}")
-        new_content = resource.dump_yaml_with_comments()
-
-        if dry_run:
-            print(
-                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_!r} will be updated in file "
-                f"'{source_file.relative_to(organization_dir)}'."
-            )
-
-        if verbose:
-            old_content = safe_read(source_file)
-            print(
-                Panel(
-                    "\n".join(difflib.unified_diff(old_content.splitlines(), new_content.splitlines())),
-                    title=f"Updates to file {source_file.name!r}",
-                )
-            )
-
-        if not dry_run:
-            with source_file.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-                f.write(new_content)
-            print(
-                f"[bold green]INFO:[/] {loader.display_name.capitalize()} {id_} updated in "
-                f"'{source_file.relative_to(organization_dir)}'."
-            )
-
-        if Loader is TransformationLoader:
-            query_file = Path(built_local.source.path.with_suffix(".sql"))
-            query_content2: str | None = None
-            if query_file.exists():
-                query_content2 = built_local.build_variables.replace(safe_read(query_file))
-
-            for filepath, content in extra_files.items():
-                if not filepath.exists():
-                    print(f"[bold red]ERROR:[/] {filepath} does not exist.")
-                    continue
-                if query_content2 is None:
-                    continue
-
-                file_diffs = TextFileDifference.load(query_content2, safe_read(filepath))
-                file_diffs.update_cdf_content(content)
-
-                has_changed = any(line.is_added or line.is_changed for line in file_diffs)
-                if dry_run:
-                    if has_changed:
-                        print(
-                            f"[bold green]INFO:[/] In addition, would update file '{filepath.relative_to(organization_dir)}'."
-                        )
-                    else:
-                        print(
-                            f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' has not changed, "
-                            "thus no update would have been done."
-                        )
-
-                if verbose:
-                    old_content = safe_read(filepath)
-                    print(
-                        Panel(
-                            "\n".join(difflib.unified_diff(old_content.splitlines(), content.splitlines())),
-                            title=f"Difference between local and CDF resource {filepath.name!r}",
-                        )
-                    )
-
-                if not dry_run and has_changed:
-                    with filepath.open(mode="w", encoding=ENCODING, newline=NEWLINE) as f:
-                        f.write(content)
-                    print(f"[bold green]INFO:[/] File '{filepath.relative_to(organization_dir)}' updated.")
-
-        print("[bold green]INFO:[/] Pull complete. Cleaned up temporary files.")
 
     def pull_module(
         self,

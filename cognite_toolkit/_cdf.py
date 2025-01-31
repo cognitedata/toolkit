@@ -26,7 +26,6 @@ from cognite_toolkit._cdf_tk.apps import (
     DumpApp,
     LandingApp,
     ModulesApp,
-    PullApp,
     PurgeApp,
     RepoApp,
     RunApp,
@@ -89,9 +88,6 @@ _app.add_typer(AuthApp(**default_typer_kws), name="auth")
 if Plugins.run.value.is_enabled():
     _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
-
-if Plugins.pull.value.is_enabled():
-    _app.add_typer(PullApp(**default_typer_kws), name="pull")
 
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
