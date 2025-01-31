@@ -271,11 +271,10 @@ class PurgeCommand(ToolkitCommand):
                 count = 0
                 status.update(f"{status_prefix} {count:,} {loader.display_name}...")
                 batch_ids: list[Hashable] = []
-
                 for resource in loader.iterate(data_set_external_id=selected_data_set, space=selected_space):
                     try:
                         batch_ids.append(loader.get_id(resource))
-                    except ToolkitRequiredValueError as e:
+                    except (ToolkitRequiredValueError, KeyError) as e:
                         try:
                             batch_ids.append(loader.get_internal_id(resource))
                         except (AttributeError, NotImplementedError):
