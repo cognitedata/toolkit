@@ -13,7 +13,6 @@ force-update = true
 module-repeat = true
 edges = true
 classic = true
-purge = true
 build-offline = true
 module-pull = true
 # This is not activated as it will break the tests
@@ -23,7 +22,7 @@ function-multi-file-hash = false
 
 [plugins]
 run = true
-pull = true
+purge = true
 dump = true
 
 [modules]

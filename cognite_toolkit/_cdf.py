@@ -92,7 +92,7 @@ _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
 
-if Flags.PURGE.is_enabled():
+if Plugins.purge.value.is_enabled():
     _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
 
 
