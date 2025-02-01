@@ -785,8 +785,17 @@ class ResourceReplacer:
             if modified_key not in to_write:
                 # Removed item by skipping
                 continue
-            placeholder_value = placeholder[modified_key]
             cdf_value = to_write[modified_key]
+
+            if modified_key in placeholder:
+                placeholder_value = placeholder[modified_key]
+            elif variable := self._value_by_placeholder.get(modified_key):
+                # The key is a variable
+                modified_key = variable.key
+                placeholder_value = variable.value
+            else:
+                # Bug in the code if this is reached, using a fallback.
+                placeholder_value = current_value
 
             if isinstance(current_value, dict) and isinstance(cdf_value, dict):
                 updated[modified_key] = self._replace_dict(

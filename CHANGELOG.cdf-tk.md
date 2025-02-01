@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `cdf modules pull` command no longer raise a `NotImplementedError` for Groups with `members`.
+- The `cdf modules pull` command no longer raise a `KeyValueError` if a variable is used as a key in a dictionary.
+
 ## [0.4.0] - 2025-01-31
 
 ### Added

@@ -410,6 +410,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         elif json_path[0] == "capabilities":
             # All sublist inside capabilities are hashable
             return diff_list_hashable(local, cdf)
+        elif json_path == ("members",):
+            return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
 
