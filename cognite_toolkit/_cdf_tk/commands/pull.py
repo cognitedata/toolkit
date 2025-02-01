@@ -781,6 +781,7 @@ class ResourceReplacer:
         # Modified first to maintain original order
         # Then added, and skip removed
         updated: dict[str, Any] = {}
+        variable_keys: set[str] = set()
         for modified_key, current_value in current.items():
             if modified_key not in to_write:
                 # Removed item by skipping
@@ -789,10 +790,18 @@ class ResourceReplacer:
 
             if modified_key in placeholder:
                 placeholder_value = placeholder[modified_key]
-            elif variable := self._value_by_placeholder.get(modified_key):
+            elif variable_key := next(
+                (
+                    key
+                    for key, variable in self._value_by_placeholder.items()
+                    if key in placeholder and variable.value == modified_key
+                ),
+                None,
+            ):
                 # The key is a variable
-                modified_key = variable.key
-                placeholder_value = variable.value
+                variable_keys.add(modified_key)
+                modified_key = variable_key
+                placeholder_value = placeholder[variable_key]
             else:
                 # Bug in the code if this is reached, using a fallback.
                 placeholder_value = current_value
@@ -823,7 +832,7 @@ class ResourceReplacer:
                 )
 
         for new_key in to_write:
-            if new_key not in current:
+            if (new_key not in current) and new_key not in variable_keys:
                 # Note there cannot be variables in new items
                 updated[new_key] = to_write[new_key]
         return updated
