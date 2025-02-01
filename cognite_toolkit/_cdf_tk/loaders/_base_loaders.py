@@ -338,28 +338,6 @@ class ResourceLoader(
         """
         return resource.as_write().dump()
 
-    def dump_resource_legacy(
-        self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        """Dumps the resource to a dictionary that matches the write format.
-
-        THIS IS DEPRECATED AND SHOULD NOT BE USED. USE dump_resource INSTEAD.
-        It should be removed once the cdf pull plugin is replaced with the cdf modules pull command.
-
-        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
-        Transformations to dump the 'query' key to an .sql file.
-
-        Args:
-            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            source_file (Path): The source file that the resource was loaded from.
-            local_resource (T_WritableCogniteResource): The local resource.
-
-        Returns:
-            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
-             content.
-        """
-        return resource.dump(), {}
-
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:

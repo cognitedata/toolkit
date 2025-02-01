@@ -947,30 +947,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
         return dumped
 
-    def dump_resource_legacy(
-        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_node = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
-        if not nodes:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_node.dump(), {}
-        node = nodes[0]
-        node_dumped = node.as_write().dump()
-        node_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["nodes"] = [node_dumped]
-
-        return dumped, {}
-
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items, auto_create_direct_relations=True, replace=False
@@ -1325,30 +1301,6 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             dumped.pop("instanceType", None)
 
         return dumped
-
-    def dump_resource_legacy(
-        self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_edge = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        edges = self.client.data_modeling.instances.retrieve(edges=local_node.as_id(), sources=list(view_ids)).edges
-        if not edges:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_edge.dump(), {}
-        node = edges[0]
-        edge_dumped = node.as_write().dump()
-        edge_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["edges"] = [edge_dumped]
-
-        return dumped, {}
 
     def create(self, items: EdgeApplyList) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
