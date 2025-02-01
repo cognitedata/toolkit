@@ -20,7 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The `cdf modules pull` command no longer raise a `NotImplementedError` for Groups with `members`.
-- The `cdf modules pull` command no longer raise a `KeyValueError` if a variable is used as a key in a dictionary.
+- The `cdf modules pull` command no longer raise a `KeyError` if a variable is used as a key in a dictionary.
 
 ## [0.4.0] - 2025-01-31
 
