@@ -14,8 +14,8 @@ from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError, ToolkitResourceMissingError
 from cognite_toolkit._cdf_tk.loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning, YAMLFileWarning, FileExistsWarning
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -28,15 +28,15 @@ from collections.abc import Iterator, Iterable
 from dataclasses import dataclass
 
 
-class ResourceSelector(Iterable, ABC):
+class ResourceFinder(Iterable, ABC):
     def __init__(self, identifier: Hashable | None = None):
         self.identifier = identifier
 
-    def _interactive_select(self, loader: ResourceLoader) -> Iterator[Hashable]:
+    def _interactive_select(self) -> Iterator[Hashable]:
         raise NotImplementedError
 
     def _selected(self) -> Hashable:
-        return self.identifier or self.interactive_select()
+        return self.identifier or self._interactive_select()
 
     def update(self, resources: CogniteResourceList) -> None:
         raise NotImplementedError
@@ -51,7 +51,7 @@ class ResourceSelector(Iterable, ABC):
 class DumpResource(ToolkitCommand):
     def dump_to_yamls(
          self,
-         selector: ResourceSelector,
+         finder: ResourceFinder,
          output_dir: Path,
          clean: bool,
          verbose: bool,
@@ -66,24 +66,24 @@ class DumpResource(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
-        for identifiers, loader, subfolder in selector:
+        for identifiers, loader, subfolder in finder:
             try:
                 resources = loader.retrieve(identifiers)
             except CogniteAPIError as e:
-                raise ResourceRetrievalError(f"Failed to retrieve {identifiers}: {e!s}") from e
+                raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
             if len(resources) == 0:
-                raise ToolkitResourceMissingError(f"Resource {identifiers} not found", str(identifiers))
-            selector.update(resources)
+                raise ToolkitResourceMissingError(f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers))
+            finder.update(resources)
             resource_folder = output_dir / loader.folder_name
             if subfolder:
                 resource_folder = resource_folder / subfolder
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
-                dumped = loader.dump_resource(resource)
                 filepath = resource_folder / f"{loader.as_str(resource)}.{loader.kind}.yaml"
                 if filepath.exists():
-                    # Todo warning and skip instead.
-                    raise FileExistsError(f"File {filepath!s} already exists")
+                    self.warn(FileExistsWarning(filepath, "Skipping... Use --clean to remove existing files."))
+                    continue
+                dumped = loader.dump_resource(resource)
                 safe_write(filepath, yaml_safe_dump(dumped), encoding="utf-8")
                 if verbose:
                     self.console(f"Dumped {loader.kind} {loader.as_str(resource)} to {filepath!s}")

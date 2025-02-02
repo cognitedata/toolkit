@@ -6,6 +6,7 @@ from .base import (
     catch_warnings,
 )
 from .fileread import (
+    FileExistsWarning,
     CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
@@ -76,6 +77,7 @@ __all__ = [
     "UnusedParameterWarning",
     "WarningList",
     "YAMLFileWarning",
+    "FileExistsWarning",
     "YAMLFileWithElementWarning",
     "catch_warnings",
 ]
