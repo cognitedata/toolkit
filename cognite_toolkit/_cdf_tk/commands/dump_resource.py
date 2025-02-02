@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Generic
 
 import questionary
+import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Group,
@@ -294,7 +295,12 @@ class GroupFinder(ResourceFinder[str]):
 
 
 class NodeFinder(ResourceFinder[dm.ViewId]):
+    def __init__(self, client: ToolkitClient, identifier: dm.ViewId | None = None):
+        super().__init__(client, identifier)
+        self.is_interactive = False
+
     def _interactive_select(self) -> dm.ViewId:
+        self.is_interactive = True
         spaces = self.client.data_modeling.spaces.list(limit=-1)
         if not spaces:
             raise ToolkitMissingResourceError("No spaces found")
@@ -315,7 +321,19 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
-        loader = NodeLoader(self.client, None, None, None)
+        loader = NodeLoader(self.client, None, None, self.identifier)
+        if self.is_interactive:
+            count = self.client.data_modeling.instances.aggregate(
+                self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
+            ).value
+            if count == 0:
+                raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
+            elif count > 50:
+                if not questionary.confirm(
+                    f"Are you sure you want to dump {count} nodes? This may take a while.",
+                    default=False,
+                ).ask():
+                    typer.Exit(0)
         nodes = dm.NodeList[dm.Node](list(loader.iterate()))
         yield [], nodes, loader, None
 
