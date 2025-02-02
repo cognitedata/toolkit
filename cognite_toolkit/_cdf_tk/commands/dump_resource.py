@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
     GroupLoader,
+    NodeLoader,
     ResourceLoader,
     SpaceLoader,
     TransformationLoader,
@@ -290,6 +291,33 @@ class GroupFinder(ResourceFinder[str]):
             yield [], GroupList([self.group]), GroupLoader.create_loader(self.client), None
         else:
             yield [self.identifier], None, GroupLoader.create_loader(self.client), None
+
+
+class NodeFinder(ResourceFinder[dm.ViewId]):
+    def _interactive_select(self) -> dm.ViewId:
+        spaces = self.client.data_modeling.spaces.list(limit=-1)
+        if not spaces:
+            raise ToolkitMissingResourceError("No spaces found")
+        selected_space: str = questionary.select(
+            "In which space is your node property view located?", [space.space for space in spaces]
+        ).ask()
+
+        views = self.client.data_modeling.views.list(space=selected_space, limit=-1, all_versions=False)
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found in {selected_space}")
+        if len(views) == 1:
+            return views[0].as_id()
+        selected_view_id: dm.ViewId = questionary.select(
+            "Which node property view would you like to dump?",
+            [Choice(repr(view), value=view) for view in views.as_ids()],
+        ).ask()
+        return selected_view_id
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        loader = NodeLoader(self.client, None, None, None)
+        nodes = dm.NodeList[dm.Node](list(loader.iterate()))
+        yield [], nodes, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

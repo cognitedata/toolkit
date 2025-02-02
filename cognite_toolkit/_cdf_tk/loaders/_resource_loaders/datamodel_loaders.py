@@ -1027,6 +1027,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
+    @classmethod
+    def as_str(cls, id: NodeId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
+
 
 class GraphQLLoader(
     ResourceContainerLoader[
