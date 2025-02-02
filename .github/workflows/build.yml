@@ -49,7 +49,7 @@ jobs:
           python-version: "3.10"
       - uses: snok/install-poetry@v1
         with:
-          version: 2.0.1
+          version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: false
       - name: Install core dependencies
         run: poetry install
