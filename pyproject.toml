@@ -5,8 +5,8 @@ description = "Official Cognite Data Fusion tool for project templates and confi
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
 readme = "README.md"
-documentation = "https://developer.cognite.com/sdks/toolkit/"
-homepage = "https://developer.cognite.com/sdks/toolkit/"
+documentation = "https://github.com/cognitedata/toolkit/blob/main/CHANGELOG.cdf-tk.md"
+homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
 repository = "https://github.com/cognitedata/toolkit"
 packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
