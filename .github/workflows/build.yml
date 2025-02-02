@@ -23,7 +23,7 @@ jobs:
         run: |
           # Necessary for running the mypy pre-commit hook
           poetry config virtualenvs.create false
-          poetry install
+          poetry sync
       - name: Linting and static code checks
         continue-on-error: true
         id: pre-commit-first-run
