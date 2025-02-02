@@ -1,4 +1,3 @@
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
@@ -26,11 +25,6 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
 
 from ._base import ToolkitCommand
-
-if sys.version_info >= (3, 11):
-    pass
-else:
-    pass
 
 
 class ResourceFinder(Iterable, ABC):
