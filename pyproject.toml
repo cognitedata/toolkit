@@ -5,11 +5,14 @@ description = "Official Cognite Data Fusion tool for project templates and confi
 authors = ["Cognite AS <support@cognite.com>"]
 license = "Apache-2"
 readme = "README.md"
-documentation = "https://github.com/cognitedata/toolkit/releases"
-homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
-repository = "https://github.com/cognitedata/toolkit"
 packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
+
+[project.urls]
+Homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
+Changelog = "https://github.com/cognitedata/toolkit/releases"
+GitHub = "https://github.com/cognitedata/toolkit"
+Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
 [tool.poetry.dependencies]
 python = "^3.10"
