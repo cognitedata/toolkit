@@ -153,7 +153,7 @@ class DumpResourceCommand(ToolkitCommand):
                     f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
                 )
             if not first_identifier:
-                first_identifier = repr(resources[0])
+                first_identifier = repr(loader.get_id(resources[0]))
             finder.update(resources)
             resource_folder = output_dir / loader.folder_name
             if subfolder:
