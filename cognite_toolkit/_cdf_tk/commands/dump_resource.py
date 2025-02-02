@@ -1,4 +1,5 @@
 import itertools
+from abc import ABC
 from collections.abc import Hashable
 from pathlib import Path
 
@@ -19,22 +20,42 @@ from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_saf
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
-    T_WriteClass,
+    T_WriteClass, CogniteResourceList,
 )
 from ._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
+from collections.abc import Iterator, Iterable
+from dataclasses import dataclass
+
+
+class ResourceSelector(Iterable, ABC):
+    def __init__(self, identifier: Hashable | None = None):
+        self.identifier = identifier
+
+    def _interactive_select(self, loader: ResourceLoader) -> Iterator[Hashable]:
+        raise NotImplementedError
+
+    def _selected(self) -> Hashable:
+        return self.identifier or self.interactive_select()
+
+    def update(self, resources: CogniteResourceList) -> None:
+        raise NotImplementedError
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], ResourceLoader, str | None]]:
+        return self
+
+    def __next__(self) -> tuple[list[Hashable], ResourceLoader, str | None]:
+        raise NotImplementedError
 
 
 class DumpResource(ToolkitCommand):
-    def dump_to_yaml(
-            self,
-             identifier: Hashable | None,
-             loader: ResourceLoader,
-             dependencies_by_subfolder: dict[str | None, list[ResourceLoader]] | None,
-             output_dir: Path,
-             clean: bool,
-             verbose: bool,
-        ) -> None:
+    def dump_to_yamls(
+         self,
+         selector: ResourceSelector,
+         output_dir: Path,
+         clean: bool,
+         verbose: bool,
+    ) -> None:
         is_populated = output_dir.exists() and any(output_dir.iterdir())
         if is_populated and clean:
             safe_rmtree(output_dir)
@@ -45,37 +66,24 @@ class DumpResource(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
-        selected_identifier = identifier or self._interactive_select_identifier(loader)
-        try:
-            resources = loader.retrieve([selected_identifier])
-        except CogniteAPIError as e:
-            raise ResourceRetrievalError(f"Failed to retrieve {identifier}: {e!s}") from e
-
-        if len(resources) == 0:
-            raise ToolkitResourceMissingError(f"Resource {selected_identifier} not found", str(selected_identifier))
-        elif len(resources) > 1:
-            raise ResourceRetrievalError(f"Expected 1 resource, got {len(resources)}: {loader.get_ids(resources)}")
-        resource = loader.dump_resource(resources[0], {})
-
-        resource_folder = output_dir / loader.folder_name
-        resource_folder.mkdir(exist_ok=True)
-        filepath = resource_folder / f"{loader.as_str(resource)}.{loader.kind}.yaml"
-        if filepath.exists():
-            raise FileExistsError(f"File {filepath!s} already exists")
-        safe_write(filepath, yaml_safe_dump(resource), encoding="utf-8")
-
-        for dependency_loader in dependencies_by_subfolder or []:
-            for resource_list in loader.iterate(linked=[resource]):
-                for resource in resource_list:
-                    write = dependency_loader.dump_resource(resource, {})
-                    write_folder = output_dir / dependency_loader.folder_name
-                    write_folder.mkdir(exist_ok=True)
-                    write_filepath = write_folder / f"{dependency_loader.as_str(write)}.{dependency_loader.kind}.yaml"
-                    safe_write(write_filepath, yaml_safe_dump(write), encoding="utf-8")
-                    if verbose:
-                        self.console(f"Dumped {dependency_loader.kind} {dependency_loader.as_str(write)} to {write_filepath!s}")
-
-
-
-    def _interactive_select_identifier(self, loader: ResourceLoader) -> Hashable:
-        raise NotImplementedError
+        for identifiers, loader, subfolder in selector:
+            try:
+                resources = loader.retrieve(identifiers)
+            except CogniteAPIError as e:
+                raise ResourceRetrievalError(f"Failed to retrieve {identifiers}: {e!s}") from e
+            if len(resources) == 0:
+                raise ToolkitResourceMissingError(f"Resource {identifiers} not found", str(identifiers))
+            selector.update(resources)
+            resource_folder = output_dir / loader.folder_name
+            if subfolder:
+                resource_folder = resource_folder / subfolder
+            resource_folder.mkdir(exist_ok=True, parents=True)
+            for resource in resources:
+                dumped = loader.dump_resource(resource)
+                filepath = resource_folder / f"{loader.as_str(resource)}.{loader.kind}.yaml"
+                if filepath.exists():
+                    # Todo warning and skip instead.
+                    raise FileExistsError(f"File {filepath!s} already exists")
+                safe_write(filepath, yaml_safe_dump(dumped), encoding="utf-8")
+                if verbose:
+                    self.console(f"Dumped {loader.kind} {loader.as_str(resource)} to {filepath!s}")
