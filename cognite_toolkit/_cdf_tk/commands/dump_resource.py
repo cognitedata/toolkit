@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
+from typing import Generic
 
 import questionary
 from cognite.client import data_modeling as dm
@@ -8,6 +9,14 @@ from cognite.client.data_classes._base import (
     CogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.workflows import (
+    Workflow,
+    WorkflowList,
+    WorkflowTriggerList,
+    WorkflowVersion,
+    WorkflowVersionId,
+    WorkflowVersionList,
+)
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
 from rich import print
@@ -19,7 +28,17 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingResourceError,
     ToolkitResourceMissingError,
 )
-from cognite_toolkit._cdf_tk.loaders import ContainerLoader, DataModelLoader, ResourceLoader, SpaceLoader, ViewLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    ContainerLoader,
+    DataModelLoader,
+    ResourceLoader,
+    SpaceLoader,
+    ViewLoader,
+    WorkflowLoader,
+    WorkflowTriggerLoader,
+    WorkflowVersionLoader,
+)
+from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID
 from cognite_toolkit._cdf_tk.tk_warnings import FileExistsWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
@@ -27,12 +46,12 @@ from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_saf
 from ._base import ToolkitCommand
 
 
-class ResourceFinder(Iterable, ABC):
-    def __init__(self, client: ToolkitClient, identifier: Hashable | None = None):
+class ResourceFinder(Iterable, ABC, Generic[T_ID]):
+    def __init__(self, client: ToolkitClient, identifier: T_ID | None = None):
         self.client = client
         self.identifier = identifier
 
-    def _selected(self) -> Hashable:
+    def _selected(self) -> T_ID:
         return self.identifier or self._interactive_select()
 
     @abstractmethod
@@ -40,7 +59,7 @@ class ResourceFinder(Iterable, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _interactive_select(self) -> Hashable:
+    def _interactive_select(self) -> T_ID:
         raise NotImplementedError
 
     @abstractmethod
@@ -48,15 +67,15 @@ class ResourceFinder(Iterable, ABC):
         raise NotImplementedError
 
 
-class DataModelFinder(ResourceFinder):
-    def __init__(self, client: ToolkitClient, identifier: Hashable | None = None):
+class DataModelFinder(ResourceFinder[DataModelId]):
+    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None):
         super().__init__(client, identifier)
         self.data_model: dm.DataModel[dm.ViewId] | None = None
         self.view_ids: set[dm.ViewId] = set()
         self.container_ids: set[dm.ContainerId] = set()
         self.space_ids: set[str] = set()
 
-    def _interactive_select(self) -> Hashable:
+    def _interactive_select(self) -> DataModelId:
         include_global = False
         spaces = self.client.data_modeling.spaces.list(limit=-1, include_global=include_global)
         selected_space: str = questionary.select(
@@ -126,6 +145,64 @@ class DataModelFinder(ResourceFinder):
         yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
         yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
         yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+
+
+class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
+    def __init__(self, client: ToolkitClient, identifier: WorkflowVersionId | None = None):
+        super().__init__(client, identifier)
+        self._workflow: Workflow | None = None
+        self._workflow_version: WorkflowVersion | None = None
+
+    def _interactive_select(self) -> WorkflowVersionId:
+        workflows = self.client.workflows.list(limit=-1)
+        if not workflows:
+            raise ToolkitMissingResourceError("No workflows found")
+        selected_workflow_id: str = questionary.select(
+            "Which workflow would you like to dump?",
+            [Choice(workflow_id, value=workflow_id) for workflow_id in workflows.as_external_ids()],
+        ).ask()
+        for workflow in workflows:
+            if workflow.external_id == selected_workflow_id:
+                self._workflow = workflow
+                break
+
+        versions = self.client.workflows.versions.list(selected_workflow_id, limit=-1)
+        if len(versions) == 0:
+            raise ToolkitMissingResourceError(f"No versions found for workflow {selected_workflow_id}")
+        if len(versions) == 1:
+            self._workflow_version = versions[0]
+            return self._workflow_version.as_id()
+
+        selected_version: WorkflowVersionId = questionary.select(
+            "Which version would you like to dump?",
+            [Choice(f"{version!r}", value=version) for version in versions.as_ids()],
+        ).ask()
+        for version in versions:
+            if version.version == selected_version.version:
+                self._workflow_version = version
+                break
+        return selected_version
+
+    def update(self, resources: CogniteResourceList) -> None: ...
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        selected = self._selected()
+        if self._workflow:
+            yield [], WorkflowList([self._workflow]), WorkflowLoader.create_loader(self.client), None
+        else:
+            yield [selected.workflow_external_id], None, WorkflowLoader.create_loader(self.client), None
+        if self._workflow_version:
+            yield (
+                [],
+                WorkflowVersionList([self._workflow_version]),
+                WorkflowVersionLoader.create_loader(self.client),
+                None,
+            )
+        else:
+            yield [selected], None, WorkflowVersionLoader.create_loader(self.client), None
+        trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
+        trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[selected.workflow_external_id]))
+        yield [], trigger_list, trigger_loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):

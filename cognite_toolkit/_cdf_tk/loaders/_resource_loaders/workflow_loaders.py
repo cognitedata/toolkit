@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -414,6 +414,17 @@ class WorkflowVersionLoader(
             )
         )
         return spec
+
+    @classmethod
+    def as_str(cls, id: WorkflowVersionId) -> str:
+        version = ""
+        if id.version is None:
+            version = ""
+        elif not version.startswith("v"):
+            version = f"_v{version}"
+        else:
+            version = f"_{id.version}"
+        return to_directory_compatible(f"{id.workflow_external_id}{version}")
 
 
 @final
