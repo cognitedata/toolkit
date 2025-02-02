@@ -325,7 +325,7 @@ class ResourceLoader(
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
-    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
         This is intended to be overwritten in subclasses that require special dumping logic, for example,
@@ -333,7 +333,8 @@ class ResourceLoader(
 
         Args:
             resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            local (dict[str, Any]): The local resource.
+            local (dict[str, Any] | None): The local resource. When used in a dump/import command, there is no local
+                resource.
         """
         return resource.as_write().dump()
 
