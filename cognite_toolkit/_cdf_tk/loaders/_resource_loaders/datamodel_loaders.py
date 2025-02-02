@@ -95,9 +95,9 @@ from cognite_toolkit._cdf_tk.utils import (
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
-    read_yaml_content,
     safe_read,
     to_diff,
+    to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
@@ -472,6 +472,10 @@ class ContainerLoader(
         )
         return output
 
+    @classmethod
+    def as_str(cls, id: ContainerId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
@@ -711,6 +715,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
+    @classmethod
+    def as_str(cls, id: ViewId) -> str:
+        return to_directory_compatible(id.external_id)
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -847,6 +855,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we need to add it manually.
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
+
+    @classmethod
+    def as_str(cls, id: DataModelId) -> str:
+        return to_directory_compatible(id.external_id)
 
 
 @final
