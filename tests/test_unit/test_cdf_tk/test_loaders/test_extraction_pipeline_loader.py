@@ -48,7 +48,7 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock.toolkit_client)
         worker = ResourceWorker(loader)
         to_create, changed, to_delete, unchanged, _ = worker.load_resources([local_file])
         assert {
@@ -75,7 +75,7 @@ class TestExtractionPipelineDependencies:
         local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock.toolkit_client)
         with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
             res = cmd.clean_resources(loader, cdf_tool_mock, [], dry_run=True, drop=True)
             assert res is not None
@@ -121,7 +121,7 @@ class TestExtractionPipelineLoader:
         """
         local_file.stem = "ep_src_asset"
 
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock, None)
+        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock.toolkit_client)
         res = loader.load_resource_file(
             filepath=local_file, environment_variables=cdf_tool_mock.environment_variables()
         )

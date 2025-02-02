@@ -68,15 +68,11 @@ class Loader(ABC):
     @classmethod
     def create_loader(
         cls: type[T_Loader],
-        ToolGlobals: CDFToolConfig | ToolkitClient,
+        client: ToolkitClient,
         build_dir: Path | None = None,
         console: Console | None = None,
     ) -> T_Loader:
-        if isinstance(ToolGlobals, CDFToolConfig):
-            return cls(ToolGlobals.toolkit_client, build_dir, console)
-        elif isinstance(ToolGlobals, ToolkitClient):
-            return cls(ToolGlobals, build_dir, console)
-        raise ValueError(f"Invalid type for ToolGlobals: {type(ToolGlobals)}")
+        return cls(client, build_dir, console)
 
     @property
     def display_name(self) -> str:

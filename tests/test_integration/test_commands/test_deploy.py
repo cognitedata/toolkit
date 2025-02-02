@@ -112,7 +112,7 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
         if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
             # These two we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        loader = loader_cls.create_loader(cdf_tool_config, build_dir)
+        loader = loader_cls.create_loader(cdf_tool_config.toolkit_client, build_dir)
         worker = ResourceWorker(loader)
         files = worker.load_files()
         _, to_update, *__ = worker.load_resources(files, environment_variables=cdf_tool_config.environment_variables())
@@ -140,7 +140,7 @@ def get_changed_source_files(
             or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
         ):
             continue
-        loader = loader_cls.create_loader(cdf_tool_config, build_dir)
+        loader = loader_cls.create_loader(cdf_tool_config.toolkit_client, build_dir)
         resources = built_modules.get_resources(
             None, loader.folder_name, loader.kind, is_supported_file=loader.is_supported_file
         )

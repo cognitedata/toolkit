@@ -11,7 +11,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestFunctionLoader:
     def test_load_functions(self, cdf_tool_mock: CDFToolConfig) -> None:
-        loader = FunctionLoader.create_loader(cdf_tool_mock, LOAD_DATA)
+        loader = FunctionLoader.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_functions.yaml", cdf_tool_mock.environment_variables()
@@ -20,7 +20,7 @@ class TestFunctionLoader:
         assert len(raw_list) == 2
 
     def test_load_function(self, cdf_tool_mock: CDFToolConfig) -> None:
-        loader = FunctionLoader.create_loader(cdf_tool_mock, LOAD_DATA)
+        loader = FunctionLoader.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
 
         raw_list = loader.load_resource_file(
             LOAD_DATA / "functions" / "1.my_function.yaml", cdf_tool_mock.environment_variables()
@@ -64,7 +64,7 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionLoader.folder_name
 
-        worker = ResourceWorker(FunctionLoader.create_loader(cdf_tool_mock, tmp_path))
+        worker = ResourceWorker(FunctionLoader.create_loader(cdf_tool_mock.toolkit_client, tmp_path))
         to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
 
         assert {
@@ -106,7 +106,7 @@ secrets:
                 FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function"),
             },
         )
-        loader = FunctionLoader.create_loader(cdf_tool_mock, tmp_path)
+        loader = FunctionLoader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
 
         dumped = loader.dump_resource(cdf_function, local_dict)
 

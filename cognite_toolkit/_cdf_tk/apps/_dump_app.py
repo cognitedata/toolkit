@@ -25,8 +25,8 @@ class DumpApp(typer.Typer):
             print("Use [bold yellow]cdf dump --help[/] for more information.")
         return None
 
+    @staticmethod
     def dump_datamodel_cmd(
-        self,
         ctx: typer.Context,
         data_model_id: Annotated[
             Optional[list[str]],

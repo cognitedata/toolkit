@@ -496,7 +496,7 @@ class PullCommand(ToolkitCommand):
         for loader_cls in selected_loaders:
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals, build_dir)
+            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
             resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
                 None,
                 loader.folder_name,  # type: ignore[arg-type]
