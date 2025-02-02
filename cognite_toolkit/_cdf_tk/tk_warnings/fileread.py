@@ -25,6 +25,7 @@ class FileReadWarning(ToolkitWarning, ABC):
     def __str__(self) -> str:
         return self.get_message()
 
+
 @dataclass(frozen=True)
 class FileExistsWarning(FileReadWarning):
     severity = SeverityLevel.MEDIUM

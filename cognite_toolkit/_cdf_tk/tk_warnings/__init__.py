@@ -6,11 +6,11 @@ from .base import (
     catch_warnings,
 )
 from .fileread import (
-    FileExistsWarning,
     CaseTypoWarning,
     DataSetMissingWarning,
     DuplicatedItemWarning,
     EnvironmentVariableMissingWarning,
+    FileExistsWarning,
     FileReadWarning,
     MissingFileWarning,
     MissingReferencedWarning,
@@ -47,6 +47,7 @@ __all__ = [
     "DataSetMissingWarning",
     "DuplicatedItemWarning",
     "EnvironmentVariableMissingWarning",
+    "FileExistsWarning",
     "FileReadWarning",
     "GeneralWarning",
     "HTTPWarning",
@@ -77,7 +78,6 @@ __all__ = [
     "UnusedParameterWarning",
     "WarningList",
     "YAMLFileWarning",
-    "FileExistsWarning",
     "YAMLFileWithElementWarning",
     "catch_warnings",
 ]
