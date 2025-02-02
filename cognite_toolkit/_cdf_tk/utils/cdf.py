@@ -2,7 +2,7 @@ from collections.abc import Iterator
 from typing import Any, Literal, overload
 
 from cognite.client.data_classes import CreatedSession
-from cognite.client.data_classes.data_modeling import Edge, Node
+from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
@@ -41,13 +41,18 @@ def iterate_instances(
     client: ToolkitClient,
     instance_type: Literal["node"] = "node",
     space: str | None = None,
+    source: ViewId | None = None,
     console: Console | None = None,
 ) -> Iterator[Node]: ...
 
 
 @overload
 def iterate_instances(
-    client: ToolkitClient, instance_type: Literal["edge"], space: str | None = None, console: Console | None = None
+    client: ToolkitClient,
+    instance_type: Literal["edge"],
+    space: str | None = None,
+    source: ViewId | None = None,
+    console: Console | None = None,
 ) -> Iterator[Edge]: ...
 
 
@@ -55,6 +60,7 @@ def iterate_instances(
     client: ToolkitClient,
     instance_type: Literal["node", "edge"] = "node",
     space: str | None = None,
+    source: ViewId | None = None,
     console: Console | None = None,
 ) -> Iterator[Node] | Iterator[Edge]:
     """Toolkit specific implementation of the client.data_modeling.instances(...) method to account for 408.
@@ -74,6 +80,8 @@ def iterate_instances(
     url = f"/api/{client._API_VERSION}/projects/{client.config.project}/models/instances/list"
     if space:
         body["filter"] = SpaceFilter(space=space, instance_type=instance_type).dump()
+    if source:
+        body["sources"] = [{"source": source.dump(include_type=True, camel_case=True)}]
     while True:
         try:
             response = client.post(url=url, json=body)
