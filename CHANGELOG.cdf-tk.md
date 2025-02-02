@@ -17,6 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Added
+
+- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group` to the
+  `dump` plugin command.
+
 ### Fixed
 
 - The `cdf modules upgrade` no longer raises a `FileNotExists` when renaming files in an upgrade to `0.4.0`.
