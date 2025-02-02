@@ -22,7 +22,7 @@ class Flags(Enum):
     }
     DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables support for dump workflow/transformation/group",
+        "description": "Enables support for dump workflow/transformation/group/node",
     }
 
     def is_enabled(self) -> bool:
