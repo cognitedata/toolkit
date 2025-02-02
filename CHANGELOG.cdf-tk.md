@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `cdf modules upgrade` no longer raises a `FileNotExists` when renaming files in an upgrade to `0.4.0`.
+
 ## [0.4.0] - 2025-01-31
 
 ### Added
