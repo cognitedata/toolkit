@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
         with:
-            version: 1.6.1
+            version: ${{ env.POETRY_VERSION }}
             virtualenvs-create: false
       - name: Install dependencies and run lints
         run: |
