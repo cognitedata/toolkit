@@ -67,9 +67,16 @@ class Loader(ABC):
 
     @classmethod
     def create_loader(
-        cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None, console: Console | None = None
+        cls: type[T_Loader],
+        ToolGlobals: CDFToolConfig | ToolkitClient,
+        build_dir: Path | None = None,
+        console: Console | None = None,
     ) -> T_Loader:
-        return cls(ToolGlobals.toolkit_client, build_dir, console)
+        if isinstance(ToolGlobals, CDFToolConfig):
+            return cls(ToolGlobals.toolkit_client, build_dir, console)
+        elif isinstance(ToolGlobals, ToolkitClient):
+            return cls(ToolGlobals, build_dir, console)
+        raise ValueError(f"Invalid type for ToolGlobals: {type(ToolGlobals)}")
 
     @property
     def display_name(self) -> str:
@@ -389,7 +396,10 @@ class ResourceLoader(
     def as_str(cls, id: T_ID) -> str:
         if isinstance(id, str):
             return to_directory_compatible(id)
-        raise NotImplementedError(f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}.")
+        raise NotImplementedError(
+            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+        )
+
 
 class ResourceContainerLoader(
     ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
