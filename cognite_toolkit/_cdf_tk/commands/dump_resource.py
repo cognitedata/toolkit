@@ -5,6 +5,14 @@ from typing import Generic
 
 import questionary
 from cognite.client import data_modeling as dm
+from cognite.client.data_classes import (
+    Group,
+    GroupList,
+    Transformation,
+    TransformationList,
+    TransformationNotificationList,
+    TransformationScheduleList,
+)
 from cognite.client.data_classes._base import (
     CogniteResourceList,
 )
@@ -27,12 +35,17 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
     ToolkitResourceMissingError,
+    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
+    GroupLoader,
     ResourceLoader,
     SpaceLoader,
+    TransformationLoader,
+    TransformationNotificationLoader,
+    TransformationScheduleLoader,
     ViewLoader,
     WorkflowLoader,
     WorkflowTriggerLoader,
@@ -62,9 +75,8 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
     def _interactive_select(self) -> T_ID:
         raise NotImplementedError
 
-    @abstractmethod
-    def update(self, resources: CogniteResourceList) -> None:
-        raise NotImplementedError
+    # Can be implemented in subclasses
+    def update(self, resources: CogniteResourceList) -> None: ...
 
 
 class DataModelFinder(ResourceFinder[DataModelId]):
@@ -183,8 +195,6 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
                 break
         return selected_version
 
-    def update(self, resources: CogniteResourceList) -> None: ...
-
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         selected = self._selected()
         if self._workflow:
@@ -203,6 +213,83 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
         trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[selected.workflow_external_id]))
         yield [], trigger_list, trigger_loader, None
+
+
+class TransformationFinder(ResourceFinder[str]):
+    def __init__(self, client: ToolkitClient, identifier: str | None = None):
+        super().__init__(client, identifier)
+        self.transformation: Transformation | None = None
+
+    def _interactive_select(self) -> str:
+        transformations = self.client.transformations.list(limit=-1)
+        transformation_ids = [
+            transformation.external_id for transformation in transformations if transformation.external_id
+        ]
+
+        if transformations and not transformation_ids:
+            raise ToolkitValueError(
+                "ExternalID is required for dumping transformations. "
+                f"Found {len(transformations)} transformations with only internal IDs."
+            )
+        elif not transformation_ids:
+            raise ToolkitMissingResourceError("No transformations found")
+
+        selected_transformation_id: str = questionary.select(
+            "Which transformation would you like to dump?",
+            [
+                Choice(transformation.external_id, value=transformation.external_id)
+                for transformation in transformations
+                if transformation.external_id
+            ],
+        ).ask()
+        for transformation in transformations:
+            if transformation.external_id == selected_transformation_id:
+                self.transformation = transformation
+                break
+
+        return selected_transformation_id
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        selected = self._selected()
+        if self.transformation:
+            yield [], TransformationList([self.transformation]), TransformationLoader.create_loader(self.client), None
+        else:
+            yield [selected], None, TransformationLoader.create_loader(self.client), None
+
+        schedule_loader = TransformationScheduleLoader.create_loader(self.client)
+        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=[selected]))
+        yield [], schedule_list, schedule_loader, None
+        notification_loader = TransformationNotificationLoader.create_loader(self.client)
+        notification_list = TransformationNotificationList(notification_loader.iterate(parent_ids=[selected]))
+        yield [], notification_list, notification_loader, None
+
+
+class GroupFinder(ResourceFinder[str]):
+    def __init__(self, client: ToolkitClient, identifier: str | None = None):
+        super().__init__(client, identifier)
+        self.group: Group | None = None
+
+    def _interactive_select(self) -> str:
+        groups = self.client.iam.groups.list(all=True)
+        if not groups:
+            raise ToolkitMissingResourceError("No groups found")
+        group_names = [group.name for group in groups]
+        selected_group_name: str = questionary.select(
+            "Which group would you like to dump?",
+            [Choice(group, value=group) for group in group_names],
+        ).ask()
+        for group in groups:
+            if group.name == selected_group_name:
+                self.group = group
+                break
+        return selected_group_name
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        selected = self._selected()
+        if self.group:
+            yield [], GroupList([self.group]), GroupLoader.create_loader(self.client), None
+        else:
+            yield [selected], None, GroupLoader.create_loader(self.client), None
 
 
 class DumpResourceCommand(ToolkitCommand):
