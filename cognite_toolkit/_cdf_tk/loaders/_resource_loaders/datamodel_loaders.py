@@ -610,7 +610,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return self.client.data_modeling.views.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
-        return self.client.data_modeling.views.retrieve(cast(Sequence, ids))
+        return self.client.data_modeling.views.retrieve(
+            cast(Sequence, ids), include_inherited_properties=False, all_versions=False
+        )
 
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
@@ -628,7 +630,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             sleep(2)
             to_delete = existing
         else:
-            print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
+            msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
+            if self.console:
+                self.console.print(msg)
+            else:
+                print(msg)
         return nr_of_deleted
 
     def _iterate(
