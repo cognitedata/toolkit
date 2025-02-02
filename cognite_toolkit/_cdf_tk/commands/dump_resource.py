@@ -160,14 +160,15 @@ class DumpResourceCommand(ToolkitCommand):
                 resource_folder = resource_folder / subfolder
             resource_folder.mkdir(exist_ok=True, parents=True)
             for resource in resources:
-                filepath = resource_folder / f"{loader.as_str(resource)}.{loader.kind}.yaml"
+                name = loader.as_str(loader.get_id(resource))
+                filepath = resource_folder / f"{name}.{loader.kind}.yaml"
                 if filepath.exists():
                     self.warn(FileExistsWarning(filepath, "Skipping... Use --clean to remove existing files."))
                     continue
                 dumped = loader.dump_resource(resource)
                 safe_write(filepath, yaml_safe_dump(dumped), encoding="utf-8")
                 if verbose:
-                    self.console(f"Dumped {loader.kind} {loader.as_str(resource)} to {filepath!s}")
+                    self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
 
         if first_identifier:
             print(Panel(f"Dumped {first_identifier}", title="Success", style="green", expand=False))
