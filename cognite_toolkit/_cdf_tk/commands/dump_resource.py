@@ -26,19 +26,20 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCognit
 
 
 class DumpResource(ToolkitCommand):
-    def execute(self,
-                identifier: Hashable | None,
-                loader: ResourceLoader,
-                dependency_loaders: list[ResourceLoader] | None,
-                output_dir: Path,
-                clean: bool,
-                verbose: bool,
-                ) -> None:
+    def dump_to_yaml(
+            self,
+             identifier: Hashable | None,
+             loader: ResourceLoader,
+             dependencies_by_subfolder: dict[str | None, list[ResourceLoader]] | None,
+             output_dir: Path,
+             clean: bool,
+             verbose: bool,
+        ) -> None:
         is_populated = output_dir.exists() and any(output_dir.iterdir())
         if is_populated and clean:
             safe_rmtree(output_dir)
             output_dir.mkdir()
-            print(f"  [bold green]INFO:[/] Cleaned existing output directory {output_dir!s}.")
+            self.console(f"Cleaned existing output directory {output_dir!s}.")
         elif is_populated:
             self.warn(MediumSeverityWarning("Output directory is not empty. Use --clean to remove existing files."))
         elif not output_dir.exists():
@@ -59,7 +60,22 @@ class DumpResource(ToolkitCommand):
         resource_folder = output_dir / loader.folder_name
         resource_folder.mkdir(exist_ok=True)
         filepath = resource_folder / f"{loader.as_str(resource)}.{loader.kind}.yaml"
+        if filepath.exists():
+            raise FileExistsError(f"File {filepath!s} already exists")
         safe_write(filepath, yaml_safe_dump(resource), encoding="utf-8")
+
+        for dependency_loader in dependencies_by_subfolder or []:
+            for resource_list in loader.iterate(linked=[resource]):
+                for resource in resource_list:
+                    write = dependency_loader.dump_resource(resource, {})
+                    write_folder = output_dir / dependency_loader.folder_name
+                    write_folder.mkdir(exist_ok=True)
+                    write_filepath = write_folder / f"{dependency_loader.as_str(write)}.{dependency_loader.kind}.yaml"
+                    safe_write(write_filepath, yaml_safe_dump(write), encoding="utf-8")
+                    if verbose:
+                        self.console(f"Dumped {dependency_loader.kind} {dependency_loader.as_str(write)} to {write_filepath!s}")
+
+
 
     def _interactive_select_identifier(self, loader: ResourceLoader) -> Hashable:
         raise NotImplementedError
