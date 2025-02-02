@@ -29,7 +29,7 @@ jobs:
           virtualenvs-create: false
       - name: Install dependencies and build the package
         run: |
-          poetry install
+          poetry sync
           poetry build
       - name: Install cdf-tk
         run: pip install .
