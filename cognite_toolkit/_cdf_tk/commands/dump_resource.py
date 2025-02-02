@@ -12,6 +12,8 @@ from cognite.client.data_classes._base import (
 from cognite.client.data_classes.data_modeling import DataModelId
 from cognite.client.exceptions import CogniteAPIError
 from questionary import Choice
+from rich import print
+from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -141,6 +143,7 @@ class DumpResource(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
+        first_identifier = ""
         for identifiers, loader, subfolder in finder:
             if not identifiers:
                 # No resources to dump
@@ -153,6 +156,8 @@ class DumpResource(ToolkitCommand):
                 raise ToolkitResourceMissingError(
                     f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
                 )
+            if not first_identifier:
+                first_identifier = repr(resources[0])
             finder.update(resources)
             resource_folder = output_dir / loader.folder_name
             if subfolder:
@@ -167,3 +172,6 @@ class DumpResource(ToolkitCommand):
                 safe_write(filepath, yaml_safe_dump(dumped), encoding="utf-8")
                 if verbose:
                     self.console(f"Dumped {loader.kind} {loader.as_str(resource)} to {filepath!s}")
+
+        if first_identifier:
+            print(Panel(f"Dumped {first_identifier}", title="Success", style="green", expand=False))
