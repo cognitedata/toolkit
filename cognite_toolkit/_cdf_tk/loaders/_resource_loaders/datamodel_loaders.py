@@ -304,8 +304,9 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def dump_resource(self, resource: Container, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Container, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
@@ -560,8 +561,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: View, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
             dumped.pop("properties", None)
@@ -775,8 +777,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: DataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if "views" not in dumped:
             return dumped
         # Sorting in the same order as the local file.
@@ -914,8 +917,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Node, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         if sources:
             try:
@@ -1133,8 +1137,9 @@ class GraphQLLoader(
             item["graphqlFile"] = hash_
         return raw_list
 
-    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["dml", "preserveDml"]:
             # Local values that are not returned from the API
             if key in local:
@@ -1296,8 +1301,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def dump_resource(self, resource: Edge, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Edge, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(

@@ -269,8 +269,9 @@ class TransformationLoader(
             ) from e
         return transformation
 
-    def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if "authentication" in local:
@@ -520,10 +521,13 @@ class TransformationNotificationLoader(
         # first, so we don't need to check for any capabilities here.
         return []
 
-    def dump_resource(self, resource: TransformationNotification, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(
+        self, resource: TransformationNotification, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        dumped.pop("transformationId")
-        dumped["transformationExternalId"] = local["transformationExternalId"]
+        if local and "transformationExternalId" in local:
+            dumped.pop("transformationId")
+            dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:

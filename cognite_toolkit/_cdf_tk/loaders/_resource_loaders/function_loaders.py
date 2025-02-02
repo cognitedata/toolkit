@@ -166,7 +166,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             resource["fileId"] = "<will_be_generated>"
         return FunctionWrite._load(resource)
 
-    def dump_resource(self, resource: Function, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Function, local: dict[str, Any] | None = None) -> dict[str, Any]:
         if resource.status == "Failed":
             dumped = self.dump_id(resource.external_id or resource.name)
             dumped["status"] = "Failed"
@@ -411,8 +411,9 @@ class FunctionScheduleLoader(
 
         return FunctionScheduleWrite._load(resource)
 
-    def dump_resource(self, resource: FunctionSchedule, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: FunctionSchedule, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if "functionId" in dumped and "functionId" not in local:
             dumped.pop("functionId")
         if "authentication" in local:

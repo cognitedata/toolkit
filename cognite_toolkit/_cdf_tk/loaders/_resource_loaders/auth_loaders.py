@@ -304,8 +304,9 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
 
         return loaded
 
-    def dump_resource(self, resource: Group, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Group, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
