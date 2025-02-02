@@ -7,7 +7,12 @@ from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpResourceCommand, DumpTimeSeriesCommand
-from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
+from cognite_toolkit._cdf_tk.commands.dump_resource import (
+    DataModelFinder,
+    GroupFinder,
+    TransformationFinder,
+    WorkflowFinder,
+)
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -23,6 +28,8 @@ class DumpApp(typer.Typer):
 
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("workflow")(self.dump_workflow)
+            self.command("transformation")(self.dump_transformation)
+            self.command("group")(self.dump_group)
 
     def dump_main(self, ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
@@ -94,7 +101,7 @@ class DumpApp(typer.Typer):
             Optional[list[str]],
             typer.Argument(
                 help="Workflow ID to dump. Format: external_id version. Example: 'my_external_id v1'. "
-                "If nothing is provided, an interactive prompt will be shown to select the data model.",
+                "If nothing is provided, an interactive prompt will be shown to select the workflow",
             ),
         ] = None,
         output_dir: Annotated[
@@ -137,6 +144,104 @@ class DumpApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 WorkflowFinder(client, selected_workflow),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_transformation(
+        ctx: typer.Context,
+        transformation_id: Annotated[
+            Optional[str],
+            typer.Argument(
+                help="Transformation ID to dump. Format: external_id. Example: 'my_external_id'. "
+                "If nothing is provided, an interactive prompt will be shown to select the transformation.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the transformation files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the transformation.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected transformation as yaml to the folder specified, defaults to /tmp."""
+        client = CDFToolConfig.from_context(ctx).toolkit_client
+
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                TransformationFinder(client, transformation_id),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_group(
+        ctx: typer.Context,
+        group_name: Annotated[
+            Optional[str],
+            typer.Argument(
+                help="Group name to dump. Format: name. Example: 'my_group'. "
+                "If nothing is provided, an interactive prompt will be shown to select the group.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the group files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the group.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected group as yaml to the folder specified, defaults to /tmp."""
+        client = CDFToolConfig.from_context(ctx).toolkit_client
+
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                GroupFinder(client, group_name),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
