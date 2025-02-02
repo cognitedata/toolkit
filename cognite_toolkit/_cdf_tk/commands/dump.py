@@ -4,7 +4,6 @@ import itertools
 from pathlib import Path
 
 import questionary
-from cognite.client import data_modeling as dm
 from cognite.client.data_classes.capabilities import DataModelsAcl
 from cognite.client.data_classes.data_modeling import DataModelId
 from questionary import Choice
@@ -12,7 +11,6 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
-from cognite_toolkit._cdf_tk.loaders import ViewLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_safe_dump
@@ -42,12 +40,14 @@ class DumpCommand(ToolkitCommand):
         ):
             raise client.verify.create_error(missing, "dumping data model")
 
-        data_models = client.data_modeling.data_models.retrieve(data_model_id, inline_views=True)
+        data_models = client.data_modeling.data_models.retrieve(data_model_id, inline_views=False)
         if not data_models:
             raise ToolkitMissingResourceError(f"Data model {data_model_id} does not exist")
 
         data_model = data_models.latest_version()
-        views = dm.ViewList(data_model.views)
+        views = client.data_modeling.views.retrieve(
+            data_model.views, include_inherited_properties=False, all_versions=False
+        )
 
         container_ids = views.referenced_containers()
 
@@ -89,7 +89,6 @@ class DumpCommand(ToolkitCommand):
         suffix_version = len(views) != len({f"{view.space}{view.external_id}" for view in views})
         view_folder = resource_folder / "views"
         view_folder.mkdir(exist_ok=True)
-        view_loader = ViewLoader.create_loader(ToolGlobals, None)
         for view in views:
             file_name = f"{view.external_id}.view.yaml"
             if prefix_space:
@@ -97,14 +96,13 @@ class DumpCommand(ToolkitCommand):
             if suffix_version:
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
             view_file = view_folder / file_name
-            view_write = view_loader.dump_as_write(view)
+            view_write = view.as_write()
             safe_write(view_file, yaml_safe_dump(view_write))
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped view {view.as_id()} to {view_file!s}.")
 
         data_model_file = resource_folder / f"{data_model.external_id}.datamodel.yaml"
         data_model_write = data_model.as_write()
-        data_model_write.views = views.as_ids()  # type: ignore[assignment]
         safe_write(data_model_file, data_model_write.dump_yaml())
 
         print(Panel(f"Dumped {data_model_id} to {resource_folder!s}", title="Success", style="green"))
