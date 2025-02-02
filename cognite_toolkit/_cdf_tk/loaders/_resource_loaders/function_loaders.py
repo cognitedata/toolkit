@@ -172,6 +172,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
             dumped["status"] = "Failed"
             return dumped
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["cpu", "memory", "runtime"]:
             if key not in local:
                 # Server set default values
