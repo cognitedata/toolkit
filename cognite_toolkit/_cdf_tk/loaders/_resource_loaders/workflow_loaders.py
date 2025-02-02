@@ -417,13 +417,13 @@ class WorkflowVersionLoader(
 
     @classmethod
     def as_str(cls, id: WorkflowVersionId) -> str:
-        version = ""
         if id.version is None:
             version = ""
-        elif not version.startswith("v"):
-            version = f"_v{version}"
-        else:
+        elif id.version.startswith("v"):
             version = f"_{id.version}"
+        else:
+            version = f"_v{id.version}"
+
         return to_directory_compatible(f"{id.workflow_external_id}{version}")
 
 
