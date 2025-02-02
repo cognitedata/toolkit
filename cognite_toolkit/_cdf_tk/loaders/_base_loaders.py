@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read, to_directory_compatible
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -385,6 +385,11 @@ class ResourceLoader(
                 raise
         return api_spec
 
+    @classmethod
+    def as_str(cls, id: T_ID) -> str:
+        if isinstance(id, str):
+            return to_directory_compatible(id)
+        raise NotImplementedError(f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}.")
 
 class ResourceContainerLoader(
     ResourceLoader[T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList],
