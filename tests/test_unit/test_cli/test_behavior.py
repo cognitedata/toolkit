@@ -282,14 +282,6 @@ def test_dump_datamodel(
                 auto_increment=False,
                 immutable=False,
             ),
-            "prop2": dm.MappedProperty(
-                container=container.as_id(),
-                container_property_identifier="prop2",
-                type=dm.Float64(),
-                nullable=True,
-                auto_increment=False,
-                immutable=False,
-            ),
         },
         last_updated_time=0,
         created_time=0,
@@ -305,7 +297,7 @@ def test_dump_datamodel(
         space="my_space",
         external_id="my_data_model",
         version="1",
-        views=[view, parent_view],
+        views=[view.as_id(), parent_view.as_id()],
         created_time=0,
         last_updated_time=0,
         description=None,
@@ -316,6 +308,7 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.Container, container)
     toolkit_client_approval.append(dm.View, parent_view)
     toolkit_client_approval.append(dm.DataModel, data_model)
+    toolkit_client_approval.append(dm.View, [parent_view, view])
     app = DumpApp()
     app.dump_datamodel_cmd(
         typer_context,

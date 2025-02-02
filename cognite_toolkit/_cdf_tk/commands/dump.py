@@ -96,7 +96,7 @@ class DumpCommand(ToolkitCommand):
             if suffix_version:
                 file_name = f"{file_name.removesuffix('.view.yaml')}_{view.version}.view.yaml"
             view_file = view_folder / file_name
-            view_write = view.as_write()
+            view_write = view.as_write().dump()
             safe_write(view_file, yaml_safe_dump(view_write))
             if verbose:
                 print(f"  [bold green]INFO:[/] Dumped view {view.as_id()} to {view_file!s}.")
