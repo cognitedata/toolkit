@@ -5,7 +5,8 @@ import typer
 from cognite.client.data_classes.data_modeling import DataModelId
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpCommand, DumpTimeSeriesCommand
+from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpResourceCommand, DumpTimeSeriesCommand
+from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 
@@ -69,15 +70,15 @@ class DumpApp(typer.Typer):
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
             selected_data_model = DataModelId(*data_model_id)
+        client = CDFToolConfig.from_context(ctx).toolkit_client
 
-        cmd = DumpCommand()
+        cmd = DumpResourceCommand()
         cmd.run(
-            lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
-                selected_data_model,
-                output_dir,
-                clean,
-                verbose,
+            lambda: cmd.dump_to_yamls(
+                DataModelFinder(client, selected_data_model),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
             )
         )
 

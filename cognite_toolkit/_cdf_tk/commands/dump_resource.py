@@ -1,8 +1,7 @@
 import sys
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Hashable, Iterator
+from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
-from typing import Any
 
 import questionary
 from cognite.client import data_modeling as dm
@@ -29,12 +28,12 @@ from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, safe_write, yaml_saf
 from ._base import ToolkitCommand
 
 if sys.version_info >= (3, 11):
-    from typing import Self
+    pass
 else:
-    from typing_extensions import Self
+    pass
 
 
-class ResourceFinder(Iterator, ABC):
+class ResourceFinder(Iterable, ABC):
     def __init__(self, client: ToolkitClient, identifier: Hashable | None = None):
         self.client = client
         self.identifier = identifier
@@ -42,8 +41,9 @@ class ResourceFinder(Iterator, ABC):
     def _selected(self) -> Hashable:
         return self.identifier or self._interactive_select()
 
-    def __iter__(self) -> Self:
-        return self
+    @abstractmethod
+    def __iter__(self) -> Iterator[tuple[list[Hashable], ResourceLoader, None | str]]:
+        raise NotImplementedError
 
     @abstractmethod
     def _interactive_select(self) -> Hashable:
@@ -51,10 +51,6 @@ class ResourceFinder(Iterator, ABC):
 
     @abstractmethod
     def update(self, resources: CogniteResourceList) -> None:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __next__(self) -> Generator[tuple[list[Hashable], ResourceLoader, None | str], Any, None]:
         raise NotImplementedError
 
 
@@ -118,14 +114,14 @@ class DataModelFinder(ResourceFinder):
             return
         self.space_ids |= {item.space for item in resources}
 
-    def __next__(self) -> Generator[tuple[list[Hashable], ResourceLoader, None | str], Any, None]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], ResourceLoader, None | str]]:
         yield [self._selected()], DataModelLoader.create_loader(self.client), None
         yield list(self.view_ids), ViewLoader.create_loader(self.client), "views"
         yield list(self.container_ids), ContainerLoader.create_loader(self.client), "containers"
-        yield list(self.space_ids), SpaceLoader.create_loader(self.client), "spaces"
+        yield list(self.space_ids), SpaceLoader.create_loader(self.client), None
 
 
-class DumpResource(ToolkitCommand):
+class DumpResourceCommand(ToolkitCommand):
     def dump_to_yamls(
         self,
         finder: ResourceFinder,
