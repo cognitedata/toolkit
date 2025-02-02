@@ -36,7 +36,7 @@ class ResourceFinder(Iterable, ABC):
         return self.identifier or self._interactive_select()
 
     @abstractmethod
-    def __iter__(self) -> Iterator[tuple[list[Hashable], ResourceLoader, None | str]]:
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         raise NotImplementedError
 
     @abstractmethod
@@ -51,6 +51,7 @@ class ResourceFinder(Iterable, ABC):
 class DataModelFinder(ResourceFinder):
     def __init__(self, client: ToolkitClient, identifier: Hashable | None = None):
         super().__init__(client, identifier)
+        self.data_model: dm.DataModel[dm.ViewId] | None = None
         self.view_ids: set[dm.ViewId] = set()
         self.container_ids: set[dm.ContainerId] = set()
         self.space_ids: set[str] = set()
@@ -62,15 +63,15 @@ class DataModelFinder(ResourceFinder):
             "In which space is your data model located?", [space.space for space in spaces]
         ).ask()
 
-        data_models = self.client.data_modeling.data_models.list(
+        data_model_ids = self.client.data_modeling.data_models.list(
             space=selected_space, all_versions=False, limit=-1, include_global=include_global
         ).as_ids()
 
-        if not data_models:
+        if not data_model_ids:
             raise ToolkitMissingResourceError(f"No data models found in space {selected_space}")
 
         selected_data_model: DataModelId = questionary.select(
-            "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_models]
+            "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_model_ids]
         ).ask()
 
         data_models = self.client.data_modeling.data_models.list(
@@ -78,13 +79,16 @@ class DataModelFinder(ResourceFinder):
             all_versions=True,
             limit=-1,
             include_global=include_global,
-        ).as_ids()
+            inline_views=False,
+        )
+        data_model_ids = data_models.as_ids()
         data_model_versions = [
             model.version
-            for model in data_models
+            for model in data_model_ids
             if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
             and model.version is not None
         ]
+
         if (
             len(data_model_versions) == 1
             or not questionary.confirm(
@@ -92,9 +96,14 @@ class DataModelFinder(ResourceFinder):
                 default=False,
             ).ask()
         ):
+            self.data_model = data_models[0]
             return selected_data_model
 
         selected_version = questionary.select("Which version would you like to dump?", data_model_versions).ask()
+        for model in data_models:
+            if model.as_id() == (selected_space, selected_data_model.external_id, selected_version):
+                self.data_model = model
+                break
         return DataModelId(selected_space, selected_data_model.external_id, selected_version)
 
     def update(self, resources: CogniteResourceList) -> None:
@@ -108,11 +117,15 @@ class DataModelFinder(ResourceFinder):
             return
         self.space_ids |= {item.space for item in resources}
 
-    def __iter__(self) -> Iterator[tuple[list[Hashable], ResourceLoader, None | str]]:
-        yield [self._selected()], DataModelLoader.create_loader(self.client), None
-        yield list(self.view_ids), ViewLoader.create_loader(self.client), "views"
-        yield list(self.container_ids), ContainerLoader.create_loader(self.client), "containers"
-        yield list(self.space_ids), SpaceLoader.create_loader(self.client), None
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        selected = self._selected()
+        if self.data_model:
+            yield [], dm.DataModelList([self.data_model]), DataModelLoader.create_loader(self.client), None
+        else:
+            yield [selected], None, DataModelLoader.create_loader(self.client), None
+        yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
+        yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
+        yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
 
 
 class DumpResourceCommand(ToolkitCommand):
@@ -134,18 +147,20 @@ class DumpResourceCommand(ToolkitCommand):
             output_dir.mkdir(exist_ok=True)
 
         first_identifier = ""
-        for identifiers, loader, subfolder in finder:
-            if not identifiers:
+        for identifiers, resources, loader, subfolder in finder:
+            if not identifiers and not resources:
                 # No resources to dump
                 continue
-            try:
-                resources = loader.retrieve(identifiers)
-            except CogniteAPIError as e:
-                raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
-            if len(resources) == 0:
-                raise ToolkitResourceMissingError(
-                    f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
-                )
+            if resources is None:
+                try:
+                    resources = loader.retrieve(identifiers)
+                except CogniteAPIError as e:
+                    raise ResourceRetrievalError(f"Failed to retrieve {humanize_collection(identifiers)}: {e!s}") from e
+                if len(resources) == 0:
+                    raise ToolkitResourceMissingError(
+                        f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
+                    )
+
             if not first_identifier:
                 first_identifier = repr(loader.get_id(resources[0]))
             finder.update(resources)
