@@ -557,7 +557,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 if isinstance(change, AutomaticChange):
                     changed_files = change.do()
                     color = "yellow" if changed_files else "green"
-                    total_changed.update([file.resolve(strict=True) for file in changed_files])
+                    total_changed.update([file.resolve(strict=False) for file in changed_files])
                 elif isinstance(change, ManualChange):
                     changed_files = change.needs_to_change()
                     color = "red" if changed_files else "green"

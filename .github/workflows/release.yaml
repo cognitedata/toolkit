@@ -5,6 +5,8 @@ on:
       - release
 env:
   PYTHON_VERSION: '3.11'
+  POETRY_VERSION: '2.0.1'
+
 jobs:
   release-pypi:
     runs-on: ubuntu-latest
@@ -18,10 +20,10 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
         with:
-          version: 1.6.1
+          version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: false
       - name: Install dependencies
-        run: poetry install
+        run: poetry sync
       - name: Build package
         run: poetry build
       - name: Release to PyPI
