@@ -1,6 +1,6 @@
-- type: eventhub
-  externalId: my_eventhub
-  host: myHost
-  eventHubName: The name of the event hub
-  keyName: The name of the key
-  keyValue: SuperSecretKeyValue
+type: eventhub
+externalId: my_eventhub
+host: myHost
+eventHubName: The name of the event hub
+keyName: The name of the key
+keyValue: SuperSecretKeyValue
