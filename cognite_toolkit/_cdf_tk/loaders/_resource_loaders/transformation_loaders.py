@@ -287,16 +287,6 @@ class TransformationLoader(
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
-    def dump_resource_legacy(
-        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        dumped = resource.dump()
-        query = dumped.pop("query")
-        dumped.pop("dataSetId", None)
-        dumped.pop("sourceOidcCredentials", None)
-        dumped.pop("destinationOidcCredentials", None)
-        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
-
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

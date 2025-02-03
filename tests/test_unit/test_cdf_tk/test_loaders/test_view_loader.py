@@ -64,7 +64,7 @@ class TestViewLoader:
     def test_unchanged_view_int_version(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = ViewLoader.create_loader(cdf_tool_mock, None)
+        loader = ViewLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""

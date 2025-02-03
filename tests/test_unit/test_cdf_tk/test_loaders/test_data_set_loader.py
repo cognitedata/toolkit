@@ -8,7 +8,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestDataSetsLoader:
     def test_upsert_data_set(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
-        loader = DataSetsLoader.create_loader(cdf_tool_mock, None)
+        loader = DataSetsLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool_mock.environment_variables()
         )

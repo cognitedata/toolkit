@@ -515,7 +515,7 @@ class TestPullCommand:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            loader=DataSetsLoader.create_loader(cdf_tool_mock, None),
+            loader=DataSetsLoader.create_loader(cdf_tool_mock.toolkit_client),
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()

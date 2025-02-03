@@ -12,7 +12,7 @@ class TestDeployCommand:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
         path.read_text.return_value = VIEW_SOURCE_NONE
-        worker = ResourceWorker(ViewLoader.create_loader(cdf_tool_mock, None))
+        worker = ResourceWorker(ViewLoader.create_loader(cdf_tool_mock.toolkit_client))
 
         with pytest.raises(TypeError) as e:
             worker.load_resources([path], environment_variables={}, is_dry_run=True, verbose=False)

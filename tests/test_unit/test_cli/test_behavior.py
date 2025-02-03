@@ -317,10 +317,10 @@ def test_dump_datamodel(
         output_dir=build_tmp_path,
     )
 
-    assert len(list(build_tmp_path.glob("**/*.datamodel.yaml"))) == 1
-    assert len(list(build_tmp_path.glob("**/*.container.yaml"))) == 1
-    assert len(list(build_tmp_path.glob("**/*.space.yaml"))) == 1
-    view_files = list(build_tmp_path.glob("**/*.view.yaml"))
+    assert len(list(build_tmp_path.glob("**/*.DataModel.yaml"))) == 1
+    assert len(list(build_tmp_path.glob("**/*.Container.yaml"))) == 1
+    assert len(list(build_tmp_path.glob("**/*.Space.yaml"))) == 1
+    view_files = list(build_tmp_path.glob("**/*.View.yaml"))
     assert len(view_files) == 2
     loaded_views = [dm.ViewApply.load(f.read_text()) for f in view_files]
     child_loaded = next(v for v in loaded_views if v.external_id == "my_view")
