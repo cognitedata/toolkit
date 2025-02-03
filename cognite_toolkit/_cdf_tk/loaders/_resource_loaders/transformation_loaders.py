@@ -280,6 +280,14 @@ class TransformationLoader(
             dumped["authentication"] = local["authentication"]
         return dumped
 
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if query := resource.pop("query", None):
+            yield base_filepath.with_suffix(".sql"), cast(str, query)
+
+        yield base_filepath, resource
+
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:

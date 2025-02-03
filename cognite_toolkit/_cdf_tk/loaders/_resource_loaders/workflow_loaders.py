@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -122,7 +122,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
 
     def dump_resource(self, resource: Workflow, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if data_set_id := dumped.get("dataSetId"):
+        if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
@@ -414,6 +414,17 @@ class WorkflowVersionLoader(
             )
         )
         return spec
+
+    @classmethod
+    def as_str(cls, id: WorkflowVersionId) -> str:
+        if id.version is None:
+            version = ""
+        elif id.version.startswith("v"):
+            version = f"_{id.version}"
+        else:
+            version = f"_v{id.version}"
+
+        return to_directory_compatible(f"{id.workflow_external_id}{version}")
 
 
 @final

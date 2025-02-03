@@ -6,6 +6,7 @@ default_organization_dir = "cognite_toolkit"
 graphql = true
 import-cmd = true
 module-repeat = true
+dump-extended = true
 
 [plugins]
 run = true

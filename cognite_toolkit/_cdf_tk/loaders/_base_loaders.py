@@ -341,6 +341,24 @@ class ResourceLoader(
         """
         return resource.as_write().dump()
 
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        """Splits a resource into multiple files.
+
+        This is used in the dump command. For example, a transformation can be split into the YAML file and
+        the SQL file for the query
+
+        Args:
+            base_filepath (Path): The base filepath to use when creating the new file.
+            resource (dict[str,Any]): The resource to split.
+
+        Returns:
+            Iterable[[dict[str,Any], Path]]: An iterable of the new resources and the filepaths where they should be
+                saved.
+        """
+        return [(base_filepath, resource)]
+
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:

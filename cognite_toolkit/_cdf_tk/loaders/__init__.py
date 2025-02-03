@@ -64,6 +64,7 @@ from ._resource_loaders import (
     TransformationScheduleLoader,
     ViewLoader,
     WorkflowLoader,
+    WorkflowTriggerLoader,
     WorkflowVersionLoader,
 )
 from ._worker import ResourceWorker
@@ -190,6 +191,7 @@ __all__ = [
     "TransformationScheduleLoader",
     "ViewLoader",
     "WorkflowLoader",
+    "WorkflowTriggerLoader",
     "WorkflowVersionLoader",
     "get_loader",
 ]
