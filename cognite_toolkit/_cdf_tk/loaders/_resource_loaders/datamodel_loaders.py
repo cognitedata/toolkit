@@ -944,18 +944,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
+
         if sources:
-            try:
-                cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                    nodes=resource.as_id(), sources=sources
-                ).nodes[0]
-            except CogniteAPIError:
-                # View does not exist
-                dumped = resource.as_write().dump()
-            else:
-                dumped = cdf_resource_with_properties.as_write().dump()
+            res = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
+            dumped = res.nodes[0].as_write().dump() if len(res.nodes) > 0 else resource.as_write().dump()
         else:
-            # No sources, so we can just dump the resource.
             dumped = resource.as_write().dump()
 
         if "existingVersion" not in local:
