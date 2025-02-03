@@ -949,7 +949,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                     nodes=resource.as_id(), sources=sources
                 ).nodes[0]
-            except CogniteAPIError:
+            except Exception as e:
+                print(f"Error retrieving node {resource.as_id()}: {e}")
+                exit(1)
+
                 # View does not exist
                 dumped = resource.as_write().dump()
             else:
