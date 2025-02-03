@@ -264,39 +264,39 @@ deletedTime: -1
     def test_unchanged_group_raw_acl_table_scoped(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         local_group = """name: gp_raw_acl_table_scoped
-        sourceId: 123
-        capabilities:
-        - rawAcl:
-           actions:
-           - READ
-           - WRITE
-           - LIST
-           scope:
-             tableScope:
-               dbsToTables:
-                 'db_name':
-                   labels: []
+sourceId: '123'
+capabilities:
+- rawAcl:
+   actions:
+   - READ
+   - WRITE
+   - LIST
+   scope:
+     tableScope:
+       dbsToTables:
+         'db_name':
+           labels: []
         """
         cdf_group = Group.load("""name: gp_raw_acl_table_scoped
-        sourceId: 123
-        capabilities:
-        - rawAcl:
-            actions:
-            - READ
-            - WRITE
-            - LIST
-            scope:
-              tableScope:
-                dbsToTables:
-                  db_albert:
-                    tables:
-                    - labels
-        metadata: {}
-        id: 3760258445038144
-        isDeleted: false
-        deletedTime: -1
+sourceId: '123'
+capabilities:
+- rawAcl:
+    actions:
+    - READ
+    - WRITE
+    - LIST
+    scope:
+      tableScope:
+        dbsToTables:
+          db_albert:
+            tables:
+            - labels
+metadata: {}
+id: 3760258445038144
+isDeleted: false
+deletedTime: -1
         """)
 
         # Simulate that one group is is already in CDF
