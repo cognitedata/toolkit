@@ -38,6 +38,7 @@ from cognite.client.data_classes.iam import (
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from mypy.checkexpr import defaultdict
 from rich import print
 from rich.console import Console
 from rich.markup import escape
@@ -48,6 +49,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTabl
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
@@ -315,23 +317,16 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
-    def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
+    def create(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
-        old_group_by_names = {g.name: g for g in old_groups.as_write()}
-        to_create = []
-        for item in items:
-            if (old := old_group_by_names.get(item.name)) and old == item:
-                # Skip unchanged groups
-                continue
-            to_create.append(item)
-        if len(to_create) == 0:
-            return GroupList([])
-        created = self.client.iam.groups.create(to_create)
+        created = self.client.iam.groups.create(items)
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
+        if not to_delete:
+            return created
         failed_deletes = []
         error_str = ""
         try:
@@ -358,42 +353,40 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             ).print_warning(include_timestamp=True, console=self.console)
         return created
 
-    def create(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self._upsert(items)
-
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         remote = self.client.iam.groups.list(all=True)
         found = [g for g in remote if g.name in ids]
         return GroupList(found)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        id_list = list(ids)
+        print_fun = self.console.print if self.console else print
         # Let's prevent that we delete groups we belong to
         try:
-            groups = self.client.iam.groups.list()
+            my_groups = self.client.iam.groups.list()
         except CogniteAPIError as e:
-            print(
+            print_fun(
                 f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
             )
             return 0
-        my_source_ids = set()
-        for g in groups:
-            if g.source_id not in my_source_ids:
-                my_source_ids.add(g.source_id)
-        groups = self.retrieve(ids)
-        for g in groups:
-            if g.source_id in my_source_ids:
-                print(
-                    f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
-                )
-                print("     If you want to delete this group, you must do it manually.")
-                if g.name not in id_list:
-                    print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
-                else:
-                    id_list.remove(g.name)
-        found = [g.id for g in groups if g.name in id_list and g.id]
-        self.client.iam.groups.delete(found)
-        return len(found)
+        my_source_ids = {g.source_id for g in my_groups if g.source_id}
+        delete_candidates = self.retrieve(ids)
+        to_delete: list[int] = []
+        counts_by_name: dict[str, int] = defaultdict(int)
+        for group in delete_candidates:
+            if group.source_id in my_source_ids:
+                HighSeverityWarning(
+                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
+                    f"the current service principal. If you want to delete this group, you must do it manually."
+                ).print_warning(console=self.console)
+            else:
+                to_delete.append(group.id)
+                counts_by_name[group.name] += 1
+        if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
+            MediumSeverityWarning(f"Found multiple groups with the same name: {duplicates}").print_warning(
+                console=self.console
+            )
+        self.client.iam.groups.delete(to_delete)
+        return len(to_delete)
 
     def _iterate(
         self,
