@@ -23,7 +23,7 @@ jobs:
           version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: false
       - name: Install dependencies
-        run: poetry install
+        run: poetry sync
       - name: Build package
         run: poetry build
       - name: Release to PyPI

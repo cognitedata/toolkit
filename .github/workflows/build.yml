@@ -17,13 +17,13 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: snok/install-poetry@v1
         with:
-            version: 1.6.1
+            version: ${{ env.POETRY_VERSION }}
             virtualenvs-create: false
       - name: Install dependencies and run lints
         run: |
           # Necessary for running the mypy pre-commit hook
           poetry config virtualenvs.create false
-          poetry install
+          poetry sync
       - name: Linting and static code checks
         continue-on-error: true
         id: pre-commit-first-run
@@ -52,7 +52,7 @@ jobs:
           version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: false
       - name: Install core dependencies
-        run: poetry install
+        run: poetry sync
       - name: Turn off alpha features
         run: python dev.py alpha --off
       - name: Run pytest
@@ -88,7 +88,7 @@ jobs:
           virtualenvs-create: false
       - name: Install core dependencies
         run: |
-          poetry install
+          poetry sync
       - name: Run pytest
         env:
           IS_GITHUB_ACTIONS: "true"
@@ -114,7 +114,7 @@ jobs:
           virtualenvs-create: false
       - name: Install core dependencies
         run: |
-          poetry install
+          poetry sync
       - name: Create test coverage report
         env:
           IS_GITHUB_ACTIONS: "true"
@@ -147,7 +147,7 @@ jobs:
           virtualenvs-create: false
       - name: Install dependencies and build the package
         run: |
-          poetry install
+          poetry sync
           poetry build
       - name: Install Cognite Toolkit
         run: pip install .

@@ -54,7 +54,7 @@ jobs:
 
       - name: Install core dependencies
         run: |
-          poetry install
+          poetry sync
 
       - name: Bump Alpha Version
         if: ${{ github.event.inputs.bump == 'alpha' }}
