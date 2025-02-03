@@ -6,6 +6,7 @@ default_organization_dir = "cognite_toolkit"
 graphql = true
 import-cmd = true
 module-repeat = true
+dump-extended = true
 
 [plugins]
 run = true
@@ -15,4 +16,4 @@ dump = true
 [modules]
 # This is the version of the modules. It should'n be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
-version = "0.4.0"
+version = "0.4.1"

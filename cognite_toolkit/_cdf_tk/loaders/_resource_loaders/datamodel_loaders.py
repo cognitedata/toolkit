@@ -874,6 +874,17 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
 
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        view_id: ViewId | None = None,
+    ) -> None:
+        super().__init__(client, build_dir, console)
+        # View ID is used to retrieve nodes with properties.
+        self.view_id = view_id
+
     @property
     def display_name(self) -> str:
         return "nodes"
@@ -966,7 +977,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
-        return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
+        return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids), sources=self.view_id).nodes
 
     def update(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
@@ -989,7 +1000,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
-        return iter(iterate_instances(self.client, space=space, instance_type="node", console=self.console))
+        return iter(
+            iterate_instances(self.client, space=space, instance_type="node", source=self.view_id, console=self.console)
+        )
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
@@ -1013,6 +1026,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             )
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
+
+    @classmethod
+    def as_str(cls, id: NodeId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
 
 
 class GraphQLLoader(

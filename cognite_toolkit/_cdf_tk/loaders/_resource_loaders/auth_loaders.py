@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import difflib
-from abc import ABC
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -65,7 +64,7 @@ class _ReplaceMethod:
     id_name: str
 
 
-class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
     kind = "Group"

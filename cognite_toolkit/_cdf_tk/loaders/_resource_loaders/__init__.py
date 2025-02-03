@@ -34,7 +34,7 @@ from .robotics_loaders import (
 from .three_d_model_loaders import ThreeDModelLoader
 from .timeseries_loaders import DatapointSubscriptionLoader, TimeSeriesLoader
 from .transformation_loaders import TransformationLoader, TransformationNotificationLoader, TransformationScheduleLoader
-from .workflow_loaders import WorkflowLoader, WorkflowVersionLoader
+from .workflow_loaders import WorkflowLoader, WorkflowTriggerLoader, WorkflowVersionLoader
 
 __all__ = [
     "AssetLoader",
@@ -81,5 +81,6 @@ __all__ = [
     "TransformationScheduleLoader",
     "ViewLoader",
     "WorkflowLoader",
+    "WorkflowTriggerLoader",
     "WorkflowVersionLoader",
 ]
