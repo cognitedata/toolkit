@@ -946,13 +946,14 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         if sources:
             try:
-                cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                    nodes=resource.as_id(), sources=sources
-                ).nodes[0]
+                result = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
+                if len(result.nodes) > 0:
+                    cdf_resource_with_properties = result.nodes[0]
+                else:
+                    raise Exception("No nodes found")
             except Exception as e:
                 print(f"Error retrieving node {resource.as_id()}: {e}")
                 print(f"View: {sources}")
-                exit(1)
 
                 # View does not exist
                 dumped = resource.as_write().dump()
