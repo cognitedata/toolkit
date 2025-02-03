@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- Robustify creation of Groups.
+
 ## [0.4.1] - 2025-02-03
 
 ### Added
