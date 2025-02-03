@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- An IndexError was reported when instances.nodes was an empty list. This is now fixed.
+
 ## [0.4.1] - 2025-02-03
 
 ### Added
