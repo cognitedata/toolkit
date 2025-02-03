@@ -275,7 +275,7 @@ capabilities:
      tableScope:
        dbsToTables:
          'db_name':
-           labels: []
+           - labels
         """
         cdf_group = Group.load("""name: gp_raw_acl_table_scoped
 sourceId: '123'
