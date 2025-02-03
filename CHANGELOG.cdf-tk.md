@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
+
 ## [0.4.1] - 2025-02-03
 
 ### Added
