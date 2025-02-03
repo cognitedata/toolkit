@@ -15,6 +15,10 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.1] - 2025-02-03
+
+No changes to templates.
+
 ## [0.4.0] - 2025-01-31
 
 No changes to templates.
