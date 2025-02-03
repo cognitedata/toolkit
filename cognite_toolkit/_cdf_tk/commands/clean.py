@@ -261,7 +261,7 @@ class CleanCommand(ToolkitCommand):
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals, build_dir)
+            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue

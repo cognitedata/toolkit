@@ -107,7 +107,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return StreamlitWrite._load(resource)
 
-    def dump_resource(self, resource: Streamlit, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Streamlit, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)

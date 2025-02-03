@@ -27,7 +27,7 @@ from tests.test_unit.approval_client import ApprovalToolkitClient
 
 class TestGroupLoader:
     def test_load_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock.environment_variables()
         )
@@ -41,7 +41,7 @@ class TestGroupLoader:
             loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_load_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         with pytest.raises(ToolkitWrongResourceError):
             raw_list = loader.load_resource_file(
                 LOAD_DATA / "auth" / "1.my_group_unscoped.yaml", cdf_tool_mock.environment_variables()
@@ -63,7 +63,7 @@ class TestGroupLoader:
         assert caps["SessionsAcl"].scope._scope_name == "all"
 
     def test_load_group_list_resource_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock.environment_variables()
         )
@@ -73,7 +73,7 @@ class TestGroupLoader:
         assert loaded.name == "scoped_group_name"
 
     def test_load_group_list_all_scoped_only(self, cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_list_combined.yaml", cdf_tool_mock.environment_variables()
         )
@@ -85,7 +85,7 @@ class TestGroupLoader:
     def test_unchanged_new_group(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
         )
@@ -127,7 +127,7 @@ class TestGroupLoader:
     def test_upsert_group(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ):
-        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "auth" / "1.my_group_scoped.yaml", cdf_tool_mock.environment_variables()
         )
@@ -220,7 +220,7 @@ class TestGroupLoader:
     def test_unchanged_new_group_without_metadata(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock, None)
+        loader = GroupAllScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
         local_group = """name: gp_no_metadata
 sourceId: 123
 capabilities:

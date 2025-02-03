@@ -143,7 +143,7 @@ class DeployCommand(ToolkitCommand):
             for loader_cls in reversed(ordered_loaders):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
-                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_dir)
+                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
                 result = self._clean_command.clean_resources(
                     loader,
                     ToolGlobals,
@@ -161,7 +161,7 @@ class DeployCommand(ToolkitCommand):
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
         for loader_cls in ordered_loaders:
-            loader_instance = loader_cls.create_loader(ToolGlobals, build_dir)
+            loader_instance = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
             result = self.deploy_resources(
                 loader_instance,
                 ToolGlobals=ToolGlobals,

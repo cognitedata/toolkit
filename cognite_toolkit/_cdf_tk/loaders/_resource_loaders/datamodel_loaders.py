@@ -95,9 +95,9 @@ from cognite_toolkit._cdf_tk.utils import (
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
-    read_yaml_content,
     safe_read,
     to_diff,
+    to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
@@ -304,8 +304,9 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def dump_resource(self, resource: Container, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Container, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
@@ -471,6 +472,10 @@ class ContainerLoader(
         )
         return output
 
+    @classmethod
+    def as_str(cls, id: ContainerId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
@@ -560,8 +565,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: View, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
             dumped.pop("properties", None)
@@ -709,6 +715,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
+    @classmethod
+    def as_str(cls, id: ViewId) -> str:
+        return to_directory_compatible(id.external_id)
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -775,8 +785,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: DataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if "views" not in dumped:
             return dumped
         # Sorting in the same order as the local file.
@@ -844,6 +855,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we need to add it manually.
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
+
+    @classmethod
+    def as_str(cls, id: DataModelId) -> str:
+        return to_directory_compatible(id.external_id)
 
 
 @final
@@ -914,8 +929,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Node, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         if sources:
             try:
@@ -942,30 +958,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
             dumped.pop("instanceType")
 
         return dumped
-
-    def dump_resource_legacy(
-        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_node = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
-        if not nodes:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_node.dump(), {}
-        node = nodes[0]
-        node_dumped = node.as_write().dump()
-        node_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["nodes"] = [node_dumped]
-
-        return dumped, {}
 
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
@@ -1133,8 +1125,9 @@ class GraphQLLoader(
             item["graphqlFile"] = hash_
         return raw_list
 
-    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["dml", "preserveDml"]:
             # Local values that are not returned from the API
             if key in local:
@@ -1296,8 +1289,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def dump_resource(self, resource: Edge, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Edge, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
@@ -1319,30 +1313,6 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             dumped.pop("instanceType", None)
 
         return dumped
-
-    def dump_resource_legacy(
-        self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_edge = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        edges = self.client.data_modeling.instances.retrieve(edges=local_node.as_id(), sources=list(view_ids)).edges
-        if not edges:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_edge.dump(), {}
-        node = edges[0]
-        edge_dumped = node.as_write().dump()
-        edge_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["edges"] = [edge_dumped]
-
-        return dumped, {}
 
     def create(self, items: EdgeApplyList) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(

@@ -216,8 +216,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return AssetWrite._load(resource)
 
-    def dump_resource(self, resource: Asset, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Asset, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
@@ -290,8 +291,9 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
         return SequenceWrite._load(resource)
 
-    def dump_resource(self, resource: Sequence, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if asset_id := dumped.pop("assetId", None):
@@ -468,9 +470,10 @@ class SequenceRowLoader(
         """
         yield SequenceLoader, item["externalId"]
 
-    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if "id" in dumped and "id" not in local:
+
+        if local is not None and "id" in dumped and "id" not in local:
             dumped.pop("id")
         # Ensure that the rows is the last key in the dumped dictionary,
         # This information is used in the .diff_list method to match the values in the rows to the correct column.
@@ -628,8 +631,9 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
         return EventWrite._load(resource)
 
-    def dump_resource(self, resource: Event, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Event, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if asset_ids := dumped.pop("assetIds", None):

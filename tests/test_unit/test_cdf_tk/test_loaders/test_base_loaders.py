@@ -71,7 +71,7 @@ def test_loader_class(
     data_regression: DataRegressionFixture,
 ):
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool_mock, LOAD_DATA)
+    loader = loader_cls.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
     cmd.deploy_resources(loader, cdf_tool_mock, BuildEnvironment(), dry_run=False)
 
     dump = toolkit_client_approval.dump()
@@ -92,7 +92,10 @@ class TestDeployResources:
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(
-            ViewLoader.create_loader(cdf_tool_mock, BUILD_DIR), cdf_tool_mock, BuildEnvironment(), dry_run=False
+            ViewLoader.create_loader(cdf_tool_mock.toolkit_client, BUILD_DIR),
+            cdf_tool_mock,
+            BuildEnvironment(),
+            dry_run=False,
         )
 
         views = toolkit_client_approval.dump(sort=False)["View"]
@@ -109,7 +112,9 @@ class TestFormatConsistency:
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(cdf_tool_mock, None)
+        loader = Loader.create_loader(
+            cdf_tool_mock.toolkit_client,
+        )
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         assert isinstance(instance, loader.resource_write_cls)
@@ -118,7 +123,7 @@ class TestFormatConsistency:
     def test_loader_takes_dict(
         self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock, tmp_path)
+        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -149,7 +154,7 @@ class TestFormatConsistency:
     def test_loader_takes_list(
         self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock, tmp_path)
+        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -191,7 +196,7 @@ class TestFormatConsistency:
         "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
     def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = Loader.create_loader(cdf_tool_mock, None)
+        loader = Loader.create_loader(cdf_tool_mock.toolkit_client)
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
@@ -312,7 +317,7 @@ class TestResourceLoaders:
 class TestLoaders:
     def test_unique_display_names(self, cdf_tool_mock: CDFToolConfig):
         name_by_count = Counter(
-            [loader_cls.create_loader(cdf_tool_mock, None).display_name for loader_cls in LOADER_LIST]
+            [loader_cls.create_loader(cdf_tool_mock.toolkit_client).display_name for loader_cls in LOADER_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}

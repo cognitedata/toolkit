@@ -109,7 +109,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
-    def dump_resource(self, resource: Source, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
             "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
@@ -199,7 +199,7 @@ class HostedExtractorDestinationLoader(
             resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return DestinationWrite._load(resource)
 
-    def dump_resource(self, resource: Destination, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Destination, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
             "Destinations will always be considered different, and thus will always be redeployed."
         ).print_warning()
@@ -264,8 +264,9 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def dump_resource(self, resource: Job, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Job, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("config") and "config" not in local:
             dumped.pop("config", None)
         return dumped

@@ -150,8 +150,9 @@ class ExtractionPipelineLoader(
             resource["createdBy"] = "unknown"
         return ExtractionPipelineWrite._load(resource)
 
-    def dump_resource(self, resource: ExtractionPipeline, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: ExtractionPipeline, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if dumped.get("createdBy") == "unknown" and "createdBy" not in local:

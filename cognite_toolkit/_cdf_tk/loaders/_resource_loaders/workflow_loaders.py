@@ -120,7 +120,7 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return WorkflowUpsert._load(resource)
 
-    def dump_resource(self, resource: Workflow, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Workflow, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.get("dataSetId"):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
@@ -258,8 +258,11 @@ class WorkflowVersionLoader(
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
 
-    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        if not local:
+            return dumped
+        # Sort to match the order of the local tasks
         local_task_order_by_id = {
             task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
         }
@@ -269,6 +272,8 @@ class WorkflowVersionLoader(
             key=lambda t: local_task_order_by_id.get(t["externalId"], end_of_list),
         )
 
+        # Function tasks with empty data can be an empty dict or missing data field
+        # This ensures that these two are treated as the same
         local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
         for cdf_task in dumped["workflowDefinition"]["tasks"]:
             task_id = cdf_task["externalId"]
@@ -568,8 +573,9 @@ class WorkflowTriggerLoader(
             self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
         return WorkflowTriggerUpsert._load(resource)
 
-    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
         if "authentication" in local:
