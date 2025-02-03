@@ -85,7 +85,6 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             cap.IDScopeLowerCase,
         }
     )
-    support_update = False
     resource_scope_names = frozenset({scope._scope_name for scope in resource_scopes})  # type: ignore[attr-defined]
     _doc_url = "Groups/operation/createGroups"
 
@@ -320,13 +319,58 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
+        return self.client.iam.groups.create(items)
+
+    def update(self, items: Sequence[GroupWrite]) -> GroupList:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
         created = self.client.iam.groups.create(items)
         created_names = {g.name for g in created}
-        to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
-        if not to_delete:
-            return created
+        to_delete = GroupList([group for group in old_groups if group.name in created_names])
+        if to_delete:
+            self._delete(to_delete, check_own_principal=False)
+        return created
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
+        id_set = set(ids)
+        remote = self.client.iam.groups.list(all=True)
+        found = [g for g in remote if g.name in id_set]
+        return GroupList(found)
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        return self._delete(self.retrieve(ids), check_own_principal=True)
+
+    def _delete(self, delete_candidates: GroupList, check_own_principal: bool = True) -> int:
+        if check_own_principal:
+            print_fun = self.console.print if self.console else print
+            try:
+                # Let's prevent that we delete groups we belong to
+                my_groups = self.client.iam.groups.list()
+            except CogniteAPIError as e:
+                print_fun(
+                    f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
+                )
+                return 0
+            my_source_ids = {g.source_id for g in my_groups if g.source_id}
+        else:
+            my_source_ids = set()
+
+        to_delete: list[int] = []
+        counts_by_name: dict[str, int] = defaultdict(int)
+        for group in delete_candidates:
+            if group.source_id in my_source_ids:
+                HighSeverityWarning(
+                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
+                    f"the current service principal. If you want to delete this group, you must do it manually."
+                ).print_warning(console=self.console)
+            else:
+                to_delete.append(group.id)
+                counts_by_name[group.name] += 1
+        if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
+            MediumSeverityWarning(
+                f"The following names are used by multiple groups (all will be deleted): {duplicates}"
+            ).print_warning(console=self.console)
+
         failed_deletes = []
         error_str = ""
         try:
@@ -347,46 +391,11 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             failed_deletes.extend(to_delete)
         if failed_deletes:
             MediumSeverityWarning(
-                f"Failed to cleanup old groups: {humanize_collection(to_delete)}. "
+                f"Failed to delete groups: {humanize_collection(to_delete)}. "
                 "These must be deleted manually in the Fusion UI."
                 f"Error: {escape(error_str)}"
             ).print_warning(include_timestamp=True, console=self.console)
-        return created
-
-    def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
-        remote = self.client.iam.groups.list(all=True)
-        found = [g for g in remote if g.name in ids]
-        return GroupList(found)
-
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        print_fun = self.console.print if self.console else print
-        # Let's prevent that we delete groups we belong to
-        try:
-            my_groups = self.client.iam.groups.list()
-        except CogniteAPIError as e:
-            print_fun(
-                f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
-            )
-            return 0
-        my_source_ids = {g.source_id for g in my_groups if g.source_id}
-        delete_candidates = self.retrieve(ids)
-        to_delete: list[int] = []
-        counts_by_name: dict[str, int] = defaultdict(int)
-        for group in delete_candidates:
-            if group.source_id in my_source_ids:
-                HighSeverityWarning(
-                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
-                    f"the current service principal. If you want to delete this group, you must do it manually."
-                ).print_warning(console=self.console)
-            else:
-                to_delete.append(group.id)
-                counts_by_name[group.name] += 1
-        if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
-            MediumSeverityWarning(f"Found multiple groups with the same name: {duplicates}").print_warning(
-                console=self.console
-            )
-        self.client.iam.groups.delete(to_delete)
-        return len(to_delete)
+        return len(to_delete) - len(failed_deletes)
 
     def _iterate(
         self,
