@@ -37,10 +37,11 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
+from rich.markup import escape
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -50,6 +51,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 
@@ -308,6 +310,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         dumped = resource.as_write().dump()
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
+        if not dumped.get("sourceId") and "sourceId" not in local:
+            dumped.pop("sourceId", None)
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
@@ -317,18 +321,41 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
         old_group_by_names = {g.name: g for g in old_groups.as_write()}
-        changed = []
+        to_create = []
         for item in items:
             if (old := old_group_by_names.get(item.name)) and old == item:
-                # Ship unchanged groups
+                # Skip unchanged groups
                 continue
-            changed.append(item)
-        if len(changed) == 0:
+            to_create.append(item)
+        if len(to_create) == 0:
             return GroupList([])
-        created = self.client.iam.groups.create(changed)
+        created = self.client.iam.groups.create(to_create)
         created_names = {g.name for g in created}
         to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
-        self.client.iam.groups.delete(to_delete)
+        failed_deletes = []
+        error_str = ""
+        try:
+            self.client.iam.groups.delete(to_delete)
+        except CogniteNotFoundError:
+            # Fallback to delete one by one
+            for delete_item_id in to_delete:
+                try:
+                    self.client.iam.groups.delete(delete_item_id)
+                except CogniteNotFoundError:
+                    # If the group is already deleted, we can ignore the error
+                    ...
+                except CogniteAPIError as e:
+                    error_str = str(e)
+                    failed_deletes.append(delete_item_id)
+        except CogniteAPIError as e:
+            error_str = str(e)
+            failed_deletes.extend(to_delete)
+        if failed_deletes:
+            MediumSeverityWarning(
+                f"Failed to cleanup old groups: {humanize_collection(to_delete)}. "
+                "These must be deleted manually in the Fusion UI."
+                f"Error: {escape(error_str)}"
+            ).print_warning(include_timestamp=True, console=self.console)
         return created
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
@@ -409,6 +436,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
         elif json_path[0] == "capabilities":
             # All sublist inside capabilities are hashable
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("members",):
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
 
