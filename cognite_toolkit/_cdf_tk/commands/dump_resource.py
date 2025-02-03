@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Generic
 
 import questionary
+import typer
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Group,
@@ -41,6 +42,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
     GroupLoader,
+    NodeLoader,
     ResourceLoader,
     SpaceLoader,
     TransformationLoader,
@@ -149,11 +151,11 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         self.space_ids |= {item.space for item in resources}
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
-        selected = self._selected()
+        self.identifier = self._selected()
         if self.data_model:
             yield [], dm.DataModelList([self.data_model]), DataModelLoader.create_loader(self.client), None
         else:
-            yield [selected], None, DataModelLoader.create_loader(self.client), None
+            yield [self.identifier], None, DataModelLoader.create_loader(self.client), None
         yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
         yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
         yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
@@ -196,11 +198,11 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         return selected_version
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
-        selected = self._selected()
+        self.identifier = self._selected()
         if self._workflow:
             yield [], WorkflowList([self._workflow]), WorkflowLoader.create_loader(self.client), None
         else:
-            yield [selected.workflow_external_id], None, WorkflowLoader.create_loader(self.client), None
+            yield [self.identifier.workflow_external_id], None, WorkflowLoader.create_loader(self.client), None
         if self._workflow_version:
             yield (
                 [],
@@ -209,9 +211,9 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
                 None,
             )
         else:
-            yield [selected], None, WorkflowVersionLoader.create_loader(self.client), None
+            yield [self.identifier], None, WorkflowVersionLoader.create_loader(self.client), None
         trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
-        trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[selected.workflow_external_id]))
+        trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
         yield [], trigger_list, trigger_loader, None
 
 
@@ -250,17 +252,17 @@ class TransformationFinder(ResourceFinder[str]):
         return selected_transformation_id
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
-        selected = self._selected()
+        self.identifier = self._selected()
         if self.transformation:
             yield [], TransformationList([self.transformation]), TransformationLoader.create_loader(self.client), None
         else:
-            yield [selected], None, TransformationLoader.create_loader(self.client), None
+            yield [self.identifier], None, TransformationLoader.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleLoader.create_loader(self.client)
-        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=[selected]))
+        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=[self.identifier]))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationLoader.create_loader(self.client)
-        notification_list = TransformationNotificationList(notification_loader.iterate(parent_ids=[selected]))
+        notification_list = TransformationNotificationList(notification_loader.iterate(parent_ids=[self.identifier]))
         yield [], notification_list, notification_loader, None
 
 
@@ -285,11 +287,55 @@ class GroupFinder(ResourceFinder[str]):
         return selected_group_name
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
-        selected = self._selected()
+        self.identifier = self._selected()
         if self.group:
             yield [], GroupList([self.group]), GroupLoader.create_loader(self.client), None
         else:
-            yield [selected], None, GroupLoader.create_loader(self.client), None
+            yield [self.identifier], None, GroupLoader.create_loader(self.client), None
+
+
+class NodeFinder(ResourceFinder[dm.ViewId]):
+    def __init__(self, client: ToolkitClient, identifier: dm.ViewId | None = None):
+        super().__init__(client, identifier)
+        self.is_interactive = False
+
+    def _interactive_select(self) -> dm.ViewId:
+        self.is_interactive = True
+        spaces = self.client.data_modeling.spaces.list(limit=-1)
+        if not spaces:
+            raise ToolkitMissingResourceError("No spaces found")
+        selected_space: str = questionary.select(
+            "In which space is your node property view located?", [space.space for space in spaces]
+        ).ask()
+
+        views = self.client.data_modeling.views.list(space=selected_space, limit=-1, all_versions=False)
+        if not views:
+            raise ToolkitMissingResourceError(f"No views found in {selected_space}")
+        if len(views) == 1:
+            return views[0].as_id()
+        selected_view_id: dm.ViewId = questionary.select(
+            "Which node property view would you like to dump?",
+            [Choice(repr(view), value=view) for view in views.as_ids()],
+        ).ask()
+        return selected_view_id
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self._selected()
+        loader = NodeLoader(self.client, None, None, self.identifier)
+        if self.is_interactive:
+            count = self.client.data_modeling.instances.aggregate(
+                self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
+            ).value
+            if count == 0:
+                raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
+            elif count > 50:
+                if not questionary.confirm(
+                    f"Are you sure you want to dump {count} nodes? This may take a while.",
+                    default=False,
+                ).ask():
+                    typer.Exit(0)
+        nodes = dm.NodeList[dm.Node](list(loader.iterate()))
+        yield [], nodes, loader, None
 
 
 class DumpResourceCommand(ToolkitCommand):
@@ -310,7 +356,6 @@ class DumpResourceCommand(ToolkitCommand):
         elif not output_dir.exists():
             output_dir.mkdir(exist_ok=True)
 
-        first_identifier = ""
         for identifiers, resources, loader, subfolder in finder:
             if not identifiers and not resources:
                 # No resources to dump
@@ -325,8 +370,6 @@ class DumpResourceCommand(ToolkitCommand):
                         f"Resource(s) {humanize_collection(identifiers)} not found", str(identifiers)
                     )
 
-            if not first_identifier:
-                first_identifier = repr(loader.get_id(resources[0]))
             finder.update(resources)
             resource_folder = output_dir / loader.folder_name
             if subfolder:
@@ -345,5 +388,4 @@ class DumpResourceCommand(ToolkitCommand):
                     if verbose:
                         self.console(f"Dumped {loader.kind} {name} to {filepath!s}")
 
-        if first_identifier:
-            print(Panel(f"Dumped {first_identifier}", title="Success", style="green", expand=False))
+        print(Panel(f"Dumped {finder.identifier}", title="Success", style="green", expand=False))

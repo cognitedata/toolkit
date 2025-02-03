@@ -3,13 +3,14 @@ from typing import Annotated, Any, Optional, Union
 
 import typer
 from cognite.client.data_classes import WorkflowVersionId
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpResourceCommand, DumpTimeSeriesCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     GroupFinder,
+    NodeFinder,
     TransformationFinder,
     WorkflowFinder,
 )
@@ -30,6 +31,7 @@ class DumpApp(typer.Typer):
             self.command("workflow")(self.dump_workflow)
             self.command("transformation")(self.dump_transformation)
             self.command("group")(self.dump_group)
+            self.command("node")(self.dump_node)
 
     def dump_main(self, ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
@@ -242,6 +244,65 @@ class DumpApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 GroupFinder(client, group_name),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_node(
+        ctx: typer.Context,
+        view_id: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="The view with the node properties you want to dump. Format: space externalId version. Example: 'my_space my_external_id version'. "
+                "If nothing is provided, an interactive prompt will be shown to select the view.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the node files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the node.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected node as yaml to the folder specified, defaults to /tmp.
+        The intended use case is to dump nodes which are used as configuration. It is not intended to dump
+        large amounts of data.
+        """
+        client = CDFToolConfig.from_context(ctx).toolkit_client
+        selected_view_id: Union[None, ViewId] = None
+        if view_id is not None:
+            if len(view_id) <= 2:
+                raise ToolkitRequiredValueError(
+                    "View ID must have at least 2 parts: space, external_id and, optionally, version."
+                )
+            selected_view_id = ViewId(*view_id)
+
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                NodeFinder(client, selected_view_id),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,

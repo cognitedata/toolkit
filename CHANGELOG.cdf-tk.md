@@ -19,7 +19,7 @@ Changes are grouped as follows:
 
 ### Added
 
-- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group` to the
+- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group/node` to the
   `dump` plugin command.
 
 ### Fixed
