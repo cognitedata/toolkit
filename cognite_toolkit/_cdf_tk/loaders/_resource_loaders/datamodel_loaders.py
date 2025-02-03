@@ -96,7 +96,6 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     read_yaml_content,
-    retrieve_view_ancestors,
     safe_read,
     to_diff,
 )
@@ -553,27 +552,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
-    def dump_as_write(self, cdf_resource: View) -> dict[str, Any]:
-        """Views are special in that they include all parent properties. This
-        methods looks up all parent views and removes the properties that are
-        not overridden to get the true write view."""
-        cdf_dumped = cdf_resource.as_write().dump()
-        if not cdf_resource.implements:
-            return cdf_dumped
-        if cdf_resource.properties:
-            # All read version of views have all the properties of their parent views.
-            # We need to remove these properties to compare with the local view.
-            # Unless the local view has overridden the properties.
-            parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
-            cdf_properties = cdf_dumped.get("properties", {})
-            for parent in parents:
-                for prop_name, parent_prop in (parent.as_write().properties or {}).items():
-                    is_overidden = prop_name in cdf_properties and cdf_properties[prop_name] != parent_prop.dump()
-                    if is_overidden:
-                        continue
-                    cdf_properties.pop(prop_name, None)
-        return cdf_dumped
-
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -583,7 +561,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
     def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
-        dumped = self.dump_as_write(resource)
+        dumped = resource.as_write().dump()
         if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
             dumped.pop("properties", None)
@@ -610,7 +588,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return self.client.data_modeling.views.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
-        return self.client.data_modeling.views.retrieve(cast(Sequence, ids))
+        return self.client.data_modeling.views.retrieve(
+            cast(Sequence, ids), include_inherited_properties=False, all_versions=False
+        )
 
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
@@ -628,7 +608,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             sleep(2)
             to_delete = existing
         else:
-            print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
+            msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
+            if self.console:
+                self.console.print(msg)
+            else:
+                print(msg)
         return nr_of_deleted
 
     def _iterate(

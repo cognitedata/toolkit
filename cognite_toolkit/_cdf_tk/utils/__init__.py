@@ -1,5 +1,4 @@
 from .auth import AuthReader, AuthVariables, CDFToolConfig
-from .cdf import retrieve_view_ancestors
 from .cicd import get_cicd_environment
 from .collection import flatten_dict, humanize_collection, in_dict, to_diff
 from .file import (
@@ -48,7 +47,6 @@ __all__ = [
     "read_yaml_content",
     "read_yaml_file",
     "resource_folder_from_path",
-    "retrieve_view_ancestors",
     "safe_read",
     "safe_read",
     "safe_write",
