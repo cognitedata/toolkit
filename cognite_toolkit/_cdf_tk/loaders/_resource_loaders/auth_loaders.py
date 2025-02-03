@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import difflib
+from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -38,7 +39,6 @@ from cognite.client.data_classes.iam import (
 )
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
-from mypy.checkexpr import defaultdict
 from rich import print
 from rich.console import Console
 from rich.markup import escape
