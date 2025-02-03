@@ -28,7 +28,7 @@ from cognite.client.data_classes.hosted_extractors import (
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
@@ -103,11 +103,10 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load the resource into.
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
-        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
+        # parameterspec is highly dependent on type of source, so we accept any parameter
+        return ParameterSpecSet(
+            [ParameterSpec(path=(ANYTHING,), types=frozenset({"dict"}), is_required=True, _is_nullable=False)]
+        )
 
     def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
