@@ -1,15 +1,23 @@
-[tool.poetry]
+[project]
 name = "cognite_toolkit"
-version = "0.4.0"
+version = "0.4.1"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
-authors = ["Cognite AS <support@cognite.com>"]
-license = "Apache-2"
+authors = [
+    {name ="Cognite AS", email="support@cognite.com"}
+]
+license = "Apache-2.0"
 readme = "README.md"
-documentation = "https://developer.cognite.com/sdks/toolkit/"
-homepage = "https://developer.cognite.com/sdks/toolkit/"
-repository = "https://github.com/cognitedata/toolkit"
+requires-python = ">=3.10"
+
+[tool.poetry]
 packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
+
+[project.urls]
+Homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
+Changelog = "https://github.com/cognitedata/toolkit/releases"
+GitHub = "https://github.com/cognitedata/toolkit"
+Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
 [tool.poetry.dependencies]
 python = "^3.10"

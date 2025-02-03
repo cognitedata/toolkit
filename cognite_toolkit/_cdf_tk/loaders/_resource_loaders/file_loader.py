@@ -141,7 +141,7 @@ class FileMetadataLoader(
             resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
         return FileMetadataWrite._load(resource)
 
-    def dump_resource(self, resource: FileMetadata, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: FileMetadata, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if ds_id := dumped.pop("dataSetId"):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
@@ -283,8 +283,9 @@ class CogniteFileLoader(
             ),
         ]
 
-    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump(context="local")
+        local = local or {}
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
             # when we retrieve the node from the server.

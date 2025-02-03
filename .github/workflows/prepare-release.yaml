@@ -19,6 +19,7 @@ on:
 
 env:
   MAIN_PYTHON_VERSION: 3.11
+  POETRY_VERSION: '2.0.1'
 
 jobs:
   create_prepare_branch:
@@ -48,12 +49,12 @@ jobs:
 
       - uses: snok/install-poetry@v1
         with:
-          version: 1.6.1
+          version: ${{ env.POETRY_VERSION }}
           virtualenvs-create: false
 
       - name: Install core dependencies
         run: |
-          poetry install
+          poetry sync
 
       - name: Bump Alpha Version
         if: ${{ github.event.inputs.bump == 'alpha' }}

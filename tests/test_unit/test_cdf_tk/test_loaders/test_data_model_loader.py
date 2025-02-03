@@ -50,7 +50,9 @@ class TestDataModelLoader:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_data_model
 
-        loader = DataModelLoader.create_loader(cdf_tool_mock, None)
+        loader = DataModelLoader.create_loader(
+            cdf_tool_mock.toolkit_client,
+        )
         worker = ResourceWorker(loader)
         to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
 
@@ -82,7 +84,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelLoader.create_loader(cdf_tool_mock, None)
+        loader = DataModelLoader.create_loader(cdf_tool_mock.toolkit_client)
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -97,7 +99,7 @@ class TestGraphQLLoader:
     def test_deployment_order(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -131,7 +133,7 @@ type GeneratingUnit {
     def test_raise_cycle_error(
         self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -168,7 +170,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
 
         items = loader.load_resource_file(file, {})
 

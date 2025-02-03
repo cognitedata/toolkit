@@ -496,7 +496,7 @@ class PullCommand(ToolkitCommand):
         for loader_cls in selected_loaders:
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals, build_dir)
+            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
             resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
                 None,
                 loader.folder_name,  # type: ignore[arg-type]
@@ -781,12 +781,30 @@ class ResourceReplacer:
         # Modified first to maintain original order
         # Then added, and skip removed
         updated: dict[str, Any] = {}
+        variable_keys: set[str] = set()
         for modified_key, current_value in current.items():
             if modified_key not in to_write:
                 # Removed item by skipping
                 continue
-            placeholder_value = placeholder[modified_key]
             cdf_value = to_write[modified_key]
+
+            if modified_key in placeholder:
+                placeholder_value = placeholder[modified_key]
+            elif variable_key := next(
+                (
+                    key
+                    for key, variable in self._value_by_placeholder.items()
+                    if key in placeholder and variable.value == modified_key
+                ),
+                None,
+            ):
+                # The key is a variable
+                variable_keys.add(modified_key)
+                modified_key = variable_key
+                placeholder_value = placeholder[variable_key]
+            else:
+                # Bug in the code if this is reached, using a fallback.
+                placeholder_value = current_value
 
             if isinstance(current_value, dict) and isinstance(cdf_value, dict):
                 updated[modified_key] = self._replace_dict(
@@ -814,7 +832,7 @@ class ResourceReplacer:
                 )
 
         for new_key in to_write:
-            if new_key not in current:
+            if (new_key not in current) and new_key not in variable_keys:
                 # Note there cannot be variables in new items
                 updated[new_key] = to_write[new_key]
         return updated

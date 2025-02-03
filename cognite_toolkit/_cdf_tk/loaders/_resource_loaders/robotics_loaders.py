@@ -421,8 +421,9 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
-    def dump_resource(self, resource: Map, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Map, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dump = resource.as_write().dump()
+        local = local or {}
         if dump.get("scale") == 1.0 and "scale" not in local:
             # Default value set on the server side.
             del dump["scale"]

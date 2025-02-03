@@ -20,6 +20,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
+    DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for dump workflow/transformation/group/node",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

@@ -99,8 +99,9 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
                     resource["metadata"][key] = json.dumps(value)
         return DataSetWrite._load(resource)
 
-    def dump_resource(self, resource: DataSet, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: DataSet, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if "writeProtected" not in local and dumped.get("writeProtected") is False:
             # Default value is False, so we don't need to dump it.
             dumped.pop("writeProtected")
@@ -280,7 +281,7 @@ class LabelLoader(
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return LabelDefinitionWrite._load(resource)
 
-    def dump_resource(self, resource: LabelDefinition, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: LabelDefinition, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)

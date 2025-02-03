@@ -269,8 +269,9 @@ class TransformationLoader(
             ) from e
         return transformation
 
-    def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if "authentication" in local:
@@ -279,22 +280,20 @@ class TransformationLoader(
             dumped["authentication"] = local["authentication"]
         return dumped
 
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if query := resource.pop("query", None):
+            yield base_filepath.with_suffix(".sql"), cast(str, query)
+
+        yield base_filepath, resource
+
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
     ) -> tuple[dict[int, int], list[int]]:
         if json_path[-1] == "scopes":
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
-
-    def dump_resource_legacy(
-        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        dumped = resource.dump()
-        query = dumped.pop("query")
-        dumped.pop("dataSetId", None)
-        dumped.pop("sourceOidcCredentials", None)
-        dumped.pop("destinationOidcCredentials", None)
-        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
         with warnings.catch_warnings():
@@ -520,10 +519,13 @@ class TransformationNotificationLoader(
         # first, so we don't need to check for any capabilities here.
         return []
 
-    def dump_resource(self, resource: TransformationNotification, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(
+        self, resource: TransformationNotification, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        dumped.pop("transformationId")
-        dumped["transformationExternalId"] = local["transformationExternalId"]
+        if local and "transformationExternalId" in local:
+            dumped.pop("transformationId")
+            dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:

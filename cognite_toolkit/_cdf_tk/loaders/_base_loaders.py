@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read
+from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read, to_directory_compatible
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -67,9 +67,12 @@ class Loader(ABC):
 
     @classmethod
     def create_loader(
-        cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None, console: Console | None = None
+        cls: type[T_Loader],
+        client: ToolkitClient,
+        build_dir: Path | None = None,
+        console: Console | None = None,
     ) -> T_Loader:
-        return cls(ToolGlobals.toolkit_client, build_dir, console)
+        return cls(client, build_dir, console)
 
     @property
     def display_name(self) -> str:
@@ -325,7 +328,7 @@ class ResourceLoader(
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
-    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
         This is intended to be overwritten in subclasses that require special dumping logic, for example,
@@ -333,31 +336,28 @@ class ResourceLoader(
 
         Args:
             resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            local (dict[str, Any]): The local resource.
+            local (dict[str, Any] | None): The local resource. When used in a dump/import command, there is no local
+                resource.
         """
         return resource.as_write().dump()
 
-    def dump_resource_legacy(
-        self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        """Dumps the resource to a dictionary that matches the write format.
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        """Splits a resource into multiple files.
 
-        THIS IS DEPRECATED AND SHOULD NOT BE USED. USE dump_resource INSTEAD.
-        It should be removed once the cdf pull plugin is replaced with the cdf modules pull command.
-
-        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
-        Transformations to dump the 'query' key to an .sql file.
+        This is used in the dump command. For example, a transformation can be split into the YAML file and
+        the SQL file for the query
 
         Args:
-            resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            source_file (Path): The source file that the resource was loaded from.
-            local_resource (T_WritableCogniteResource): The local resource.
+            base_filepath (Path): The base filepath to use when creating the new file.
+            resource (dict[str,Any]): The resource to split.
 
         Returns:
-            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
-             content.
+            Iterable[[dict[str,Any], Path]]: An iterable of the new resources and the filepaths where they should be
+                saved.
         """
-        return resource.dump(), {}
+        return [(base_filepath, resource)]
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -405,6 +405,14 @@ class ResourceLoader(
             else:
                 raise
         return api_spec
+
+    @classmethod
+    def as_str(cls, id: T_ID) -> str:
+        if isinstance(id, str):
+            return to_directory_compatible(id)
+        raise NotImplementedError(
+            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+        )
 
 
 class ResourceContainerLoader(

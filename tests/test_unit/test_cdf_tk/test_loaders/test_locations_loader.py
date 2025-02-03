@@ -15,7 +15,7 @@ from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 @pytest.fixture
 def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
-    loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
+    loader = LocationFilterLoader.create_loader(cdf_tool_mock.toolkit_client)
     raw_list = loader.load_resource_file(
         LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock.environment_variables()
     )
@@ -29,7 +29,7 @@ class TestLocationFilterLoader:
         cdf_tool_mock: CDFToolConfig,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = LocationFilterLoader.create_loader(cdf_tool_mock, None)
+        loader = LocationFilterLoader.create_loader(cdf_tool_mock.toolkit_client)
         raw_list = loader.load_resource_file(
             LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool_mock.environment_variables()
         )

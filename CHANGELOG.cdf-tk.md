@@ -15,6 +15,20 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.1] - 2025-02-03
+
+### Added
+
+- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group/node` to the
+  `dump` plugin command.
+
+### Fixed
+
+- The `cdf modules upgrade` no longer raises a `FileNotExists` when renaming files in an upgrade to `0.4.0`.
+- The `cdf modules pull` command no longer raise a `NotImplementedError` for Groups with `members`.
+- The `cdf modules pull` command no longer raise a `KeyError` if a variable is used as a key in a dictionary.
+- Running `cdf deploy` for `Group` with `members` now only deploys the `Group` if it is new or has changed.
+
 ## [0.4.0] - 2025-01-31
 
 ### Added
