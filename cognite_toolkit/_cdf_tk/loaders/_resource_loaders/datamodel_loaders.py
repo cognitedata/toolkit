@@ -951,6 +951,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 ).nodes[0]
             except Exception as e:
                 print(f"Error retrieving node {resource.as_id()}: {e}")
+                print(f"View: {sources}")
                 exit(1)
 
                 # View does not exist
