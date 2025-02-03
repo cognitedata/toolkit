@@ -19,7 +19,9 @@ Changes are grouped as follows:
 
 ### Improved
 
-- Robustify creation of Groups.
+- Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
+  issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
+  deleting the old Group.
 
 ## [0.4.1] - 2025-02-03
 
