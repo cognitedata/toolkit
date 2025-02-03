@@ -312,6 +312,19 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             dumped.pop("metadata", None)
         if not dumped.get("sourceId") and "sourceId" not in local:
             dumped.pop("sourceId", None)
+        if local:
+            # RAWAcls are not returned by the API following the spec.
+            # If you have a table scoped RAW ACL the spec, and thus user will input
+            # tableScope:
+            #   db1:
+            #     - tables1
+            #     - tables2
+            # While the API will return
+            # tableScope:
+            #   db1:
+            #     tables: [tables1, tables2]
+            # Note the extra keyword 'tables' in the API response.
+            raise NotImplementedError("In progress")
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 

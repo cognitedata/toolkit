@@ -271,8 +271,6 @@ capabilities:
 - rawAcl:
    actions:
    - READ
-   - WRITE
-   - LIST
    scope:
      tableScope:
        dbsToTables:
@@ -285,12 +283,10 @@ capabilities:
 - rawAcl:
     actions:
     - READ
-    - WRITE
-    - LIST
     scope:
       tableScope:
         dbsToTables:
-          db_albert:
+          'db_name':
             tables:
             - labels
 metadata: {}
