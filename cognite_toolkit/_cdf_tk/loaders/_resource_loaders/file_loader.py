@@ -64,8 +64,8 @@ class FileMetadataLoader(
     item_name = "file contents"
     folder_name = "files"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem ends with `.CogniteFile`.
-        r"^(?!.*CogniteFile$).*"
+        # Matches all yaml files except file names whose stem ends with `.CogniteFile` or `File`.
+        r"(?i)^(?!.*(?:File|CogniteFile)$).*$"
     )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite

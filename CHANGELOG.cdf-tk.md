@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.3] - 2025-02-04
+
+### Fixed
+
+- Calling `cdf modules upgrade` will no longer raise `AmbiguousResourceFileError` error if you have a file named
+  `my_file.File.yaml`.
+
 ## [0.4.2] - 2025-02-04
 
 ### Fixed
