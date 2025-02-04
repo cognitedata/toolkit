@@ -313,6 +313,32 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             dumped.pop("metadata", None)
         if not dumped.get("sourceId") and "sourceId" not in local:
             dumped.pop("sourceId", None)
+        # RAWAcls are not returned by the API following the spec.
+        # If you have a table scoped RAW ACL the spec, and thus user will input
+        # tableScope:
+        #   dbsToTables
+        #    db1:
+        #    - tables1
+        #    - tables2
+        # While the API will return
+        # tableScope:
+        #   dbsToTables:
+        #   db1:
+        #     tables: [tables1, tables2]
+        # Note the extra keyword 'tables' in the API response.
+        for capability in dumped.get("capabilities", []):
+            for acl, content in capability.items():
+                if acl != cap.RawAcl._capability_name:
+                    continue
+                if scope := content.get("scope", {}):
+                    if table_scope := scope.get(cap.TableScope._scope_name, {}):
+                        db_to_tables = table_scope.get("dbsToTables", {})
+                        if not db_to_tables:
+                            continue
+                        for db_name in list(db_to_tables.keys()):
+                            tables = db_to_tables[db_name]
+                            if isinstance(tables, dict) and "tables" in tables:
+                                db_to_tables[db_name] = tables["tables"]
         # When you dump a CDF Group, all the referenced resources should be available in CDF.
         return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 

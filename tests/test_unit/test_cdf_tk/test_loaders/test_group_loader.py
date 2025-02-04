@@ -260,3 +260,54 @@ deletedTime: -1
             "delete": len(to_delete),
             "unchanged": len(unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+    def test_unchanged_group_raw_acl_table_scoped(
+        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+    ) -> None:
+        loader = GroupResourceScopedLoader.create_loader(cdf_tool_mock.toolkit_client)
+        local_group = """name: gp_raw_acl_table_scoped
+sourceId: '123'
+capabilities:
+- rawAcl:
+   actions:
+   - READ
+   scope:
+     tableScope:
+       dbsToTables:
+         'db_name':
+           - labels
+        """
+        cdf_group = Group.load("""name: gp_raw_acl_table_scoped
+sourceId: '123'
+capabilities:
+- rawAcl:
+    actions:
+    - READ
+    scope:
+      tableScope:
+        dbsToTables:
+          'db_name':
+            tables:
+            - labels
+metadata: {}
+id: 3760258445038144
+isDeleted: false
+deletedTime: -1
+        """)
+
+        # Simulate that one group is is already in CDF
+        toolkit_client_approval.append(
+            Group,
+            [cdf_group],
+        )
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_group
+
+        worker = ResourceWorker(loader)
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

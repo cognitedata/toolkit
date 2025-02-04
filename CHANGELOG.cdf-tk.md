@@ -25,6 +25,7 @@ Changes are grouped as follows:
 - Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
   issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
   deleting the old Group.
+- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
 
 ## [0.4.1] - 2025-02-03
 
