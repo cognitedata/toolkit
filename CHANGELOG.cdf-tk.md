@@ -19,9 +19,13 @@ Changes are grouped as follows:
 
 ### Fixed
 
-- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
+- An IndexError was reported when instances.nodes was an empty list. This is now fixed.
 - Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
   `MissingRequiredParameterWarning`s.
+- Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
+  issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
+  deleting the old Group.
+- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
 
 ## [0.4.1] - 2025-02-03
 
