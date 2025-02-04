@@ -20,6 +20,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - An IndexError was reported when instances.nodes was an empty list. This is now fixed.
+- Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
+  `MissingRequiredParameterWarning`s.
 
 ## [0.4.1] - 2025-02-03
 
