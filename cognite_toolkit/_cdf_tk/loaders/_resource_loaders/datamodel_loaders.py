@@ -948,9 +948,11 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         if sources:
             try:
                 res = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
-                dumped = res.nodes[0].as_write().dump() if len(res.nodes) > 0 else resource.as_write().dump()
             except CogniteAPIError:
+                # View does not exist
                 dumped = resource.as_write().dump()
+            else:
+                dumped = res.nodes[0].as_write().dump() if len(res.nodes) > 0 else resource.as_write().dump()
         else:
             dumped = resource.as_write().dump()
 
