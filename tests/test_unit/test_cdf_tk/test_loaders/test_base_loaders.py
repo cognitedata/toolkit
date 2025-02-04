@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     DatapointsLoader,
     FileMetadataLoader,
     GroupResourceScopedLoader,
+    HostedExtractorSourceLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
@@ -257,7 +258,11 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
 
 
 class TestResourceLoaders:
-    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    # The HostedExtractorSourceLoader does not support parameter spec.
+    @pytest.mark.parametrize(
+        "loader_cls",
+        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if loader_cls is not HostedExtractorSourceLoader],
+    )
     def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]) -> None:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
             loader_cls.resource_write_cls

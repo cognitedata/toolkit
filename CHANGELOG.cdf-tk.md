@@ -20,6 +20,8 @@ Changes are grouped as follows:
 ### Fixed
 
 - Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
+- Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
+  `MissingRequiredParameterWarning`s.
 
 ## [0.4.1] - 2025-02-03
 
