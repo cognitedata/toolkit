@@ -17,8 +17,11 @@ Changes are grouped as follows:
 
 ## TBD
 
-### Improved
+### Fixed
 
+- An IndexError was reported when instances.nodes was an empty list. This is now fixed.
+- Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
+  `MissingRequiredParameterWarning`s.
 - Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
   issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
   deleting the old Group.
