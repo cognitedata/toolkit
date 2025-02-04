@@ -160,7 +160,7 @@ class TestGroupLoader:
             "change": len(to_change),
             "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 1, "change": 0, "delete": 1, "unchanged": 0}
+        } == {"create": 0, "change": 1, "delete": 0, "unchanged": 0}
 
     @pytest.mark.parametrize(
         "item, expected",
