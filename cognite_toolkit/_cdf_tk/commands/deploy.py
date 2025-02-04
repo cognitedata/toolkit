@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
+    GroupLoader,
     Loader,
     RawDatabaseLoader,
     ResourceContainerLoader,
@@ -264,8 +265,12 @@ class DeployCommand(ToolkitCommand):
 
             nr_of_unchanged += len(unchanged)
             nr_of_created += len(to_create)
-            nr_of_changed += len(to_update)
             nr_of_deleted += len(to_delete)
+            if isinstance(loader, GroupLoader):
+                nr_of_deleted += len(to_update)
+                nr_of_created += len(to_update)
+            else:
+                nr_of_changed += len(to_update)
         else:
             environment_variable_warning_by_id = {
                 identifier: warning
@@ -285,7 +290,11 @@ class DeployCommand(ToolkitCommand):
 
             if to_update:
                 updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
-                nr_of_changed += updated
+                if isinstance(loader, GroupLoader):
+                    nr_of_deleted += updated
+                    nr_of_created += updated
+                else:
+                    nr_of_changed += updated
 
         if verbose:
             self._verbose_print(to_create, to_update, unchanged, loader, dry_run)

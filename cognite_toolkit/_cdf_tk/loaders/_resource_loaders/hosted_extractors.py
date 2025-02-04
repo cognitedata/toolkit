@@ -103,11 +103,8 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load the resource into.
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
-        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
+        # parameterspec is highly dependent on type of source, so we accept any parameter
+        return ParameterSpecSet([])
 
     def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
@@ -210,6 +207,12 @@ class HostedExtractorDestinationLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Handled by Toolkit
+
+        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
+        spec.add(
+            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
+        )
+
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
