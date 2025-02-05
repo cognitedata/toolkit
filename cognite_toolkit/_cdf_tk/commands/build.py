@@ -468,7 +468,9 @@ class BuildCommand(ToolkitCommand):
                 self.console(f"Processing file {source_path.name}...")
 
             content = safe_read(source_path)
-            source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+            # We cannot use the content as the basis for hash as this have been encoded.
+            # Instead, we use the source path, which will hash the bytes of the file directly.
+            source = SourceLocationEager(source_path, calculate_str_or_file_hash(source_path, shorten=True))
 
             content = variables.replace(content, source_path.suffix)
 
