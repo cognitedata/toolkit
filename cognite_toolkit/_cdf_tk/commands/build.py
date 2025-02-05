@@ -469,7 +469,8 @@ class BuildCommand(ToolkitCommand):
 
             content = safe_read(source_path)
             # We cannot use the content as the basis for hash as this have been encoded.
-            # Instead, we use the source path, which will hash the bytes of the file directly.
+            # Instead, we use the source path, which will hash the bytes of the file directly,
+            # which is what we do in the deploy step to verify that the source file has not changed.
             source = SourceLocationEager(source_path, calculate_str_or_file_hash(source_path, shorten=True))
 
             content = variables.replace(content, source_path.suffix)
