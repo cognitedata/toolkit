@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Deploying functions containing files that are not `utf-8` encoded no longer raises a `UnicodeDecodeError`.
+
 ## [0.4.3] - 2025-02-04
 
 ### Fixed
