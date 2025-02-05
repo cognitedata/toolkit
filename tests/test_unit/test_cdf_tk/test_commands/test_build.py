@@ -99,6 +99,7 @@ externalId: some_external_id
         source_filepath = MagicMock(spec=Path)
         source_filepath.read_text.return_value = raw_yaml
         source_filepath.suffix = ".yaml"
+        source_filepath.read_bytes.return_value = raw_yaml.encode("utf-8")
 
         source_files = cmd._replace_variables(
             [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False
