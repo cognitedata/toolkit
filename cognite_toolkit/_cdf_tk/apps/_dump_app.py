@@ -389,12 +389,20 @@ class DumpApp(typer.Typer):
     def dump_timeseries_cmd(
         self,
         ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump timeseries from.",
+            ),
+        ] = None,
         data_set: Annotated[
             Optional[list[str]],
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If not provided, the user will be prompted to select which timeseries to dump.",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
             ),
         ] = None,
         format_: Annotated[
@@ -445,7 +453,7 @@ class DumpApp(typer.Typer):
             lambda: cmd.execute(
                 CDFToolConfig.from_context(ctx),
                 data_set,
-                None,
+                hierarchy,
                 output_dir,
                 clean,
                 limit,
