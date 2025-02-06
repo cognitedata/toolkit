@@ -15,6 +15,15 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.5] - 2025-02-06
+
+### Fixed
+
+- Building a Group with a table scoped RAWAcl no longer complains about missing dependency `tables` if the
+  `tables` keyword is used to specify the tables.
+- When authentication with Toolkit, multiple `IDP_Scopes` are assumed to be separated by a comma in the environment
+  variable `IDP_SCOPES`.
+
 ## [0.4.4] - 2025-02-05
 
 ### Fixed
