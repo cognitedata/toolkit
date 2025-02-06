@@ -21,6 +21,8 @@ Changes are grouped as follows:
 
 - Building a Group with a table scoped RAWAcl no longer complains about missing dependency `tables` if the
   `tables` keyword is used to specify the tables.
+- When authentication with Toolkit, multiple `IDP_Scopes` are assumed to be separated by a comma in the environment
+  variable `IDP_SCOPES`.
 
 ## [0.4.4] - 2025-02-05
 
