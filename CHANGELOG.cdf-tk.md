@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- Building a Group with a table scoped RAWAcl no longer complains about missing dependency `tables` if the
+  `tables` keyword is used to specify the tables.
+
 ## [0.4.4] - 2025-02-05
 
 ### Fixed
