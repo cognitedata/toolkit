@@ -605,7 +605,7 @@ class CDFToolConfig:
             self._credentials_provider = OAuthDeviceCode(**self._credentials_args)
         elif auth.login_flow == "interactive":
             if auth.scopes:
-                self._scopes = [auth.scopes]
+                self._scopes = auth.scopes.split(",")
             if not (auth.client_id and auth.authority_url and auth.scopes):
                 raise AuthenticationError(
                     "Login flow=interactive is set but missing required authentication "
@@ -637,7 +637,7 @@ class CDFToolConfig:
                     "Set LOGIN_FLOW to 'client_credentials', 'token', or 'interactive' to avoid this warning."
                 )
             if auth.scopes:
-                self._scopes = [auth.scopes]
+                self._scopes = auth.scopes.split(",")
             if auth.audience:
                 self._audience = auth.audience
 
@@ -786,7 +786,7 @@ class CDFToolConfig:
             token_url=self._auth_vars.token_url,
             client_id=credentials.client_id,
             client_secret=credentials.client_secret,
-            scopes=[self._auth_vars.scopes],
+            scopes=self._auth_vars.scopes.split(",") if self._auth_vars.scopes else [],
         )
 
         return ToolkitClient(
