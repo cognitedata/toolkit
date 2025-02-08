@@ -402,7 +402,7 @@ class PurgeCommand(ToolkitCommand):
         # First find all Node Types
         node_types: set[NodeId] = set()
         for node in loader.iterate(space=selected_space):
-            if node.type:
+            if node.type and (selected_space is None or node.space == selected_space):
                 node_types.add(NodeId(node.type.space, node.type.external_id))
         count = 0
         batch_ids: list[NodeId] = []
