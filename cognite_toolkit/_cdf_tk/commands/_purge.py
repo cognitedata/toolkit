@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 from collections.abc import Hashable
+from dataclasses import dataclass, field
 from graphlib import TopologicalSorter
+from typing import cast
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate, filters
+from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -18,6 +21,7 @@ from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployRe
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
+    AssetLoader,
     CogniteFileLoader,
     DataSetsLoader,
     FunctionLoader,
@@ -242,7 +246,7 @@ class PurgeCommand(ToolkitCommand):
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
                     has_purged_views = True
 
-                if isinstance(loader, NodeLoader) and not dry_run:
+                if not dry_run and isinstance(loader, NodeLoader):
                     # Special handling of nodes as node type must be deleted after regular nodes
                     # In dry-run mode, we are not deleting the nodes, so we can skip this.
                     warnings_before = len(self.warning_list)
@@ -251,6 +255,19 @@ class PurgeCommand(ToolkitCommand):
                         name=loader.display_name,
                         deleted=deleted_nodes,
                         total=deleted_nodes,
+                    )
+                    if len(self.warning_list) > warnings_before and any(
+                        isinstance(warn, HighSeverityWarning) for warn in self.warning_list[warnings_before:]
+                    ):
+                        is_purged = False
+                    continue
+                elif not dry_run and isinstance(loader, AssetLoader):
+                    # Special handling of assets as we must ensure all children are deleted before the parent.
+                    # In dry-run mode, we are not deleting the assets, so we can skip this.
+                    warnings_before = len(self.warning_list)
+                    deleted_assets = self._purge_assets(loader, status, selected_data_set)
+                    results[loader.display_name] = ResourceDeployResult(
+                        loader.display_name, deleted=deleted_assets, total=deleted_assets
                     )
                     if len(self.warning_list) > warnings_before and any(
                         isinstance(warn, HighSeverityWarning) for warn in self.warning_list[warnings_before:]
@@ -364,7 +381,7 @@ class PurgeCommand(ToolkitCommand):
                     raise delete_error
 
         if verbose:
-            prefix = "Would delete" if dry_run else "Deleted"
+            prefix = "Would delete" if dry_run else "Finished purging"
             console.print(f"{prefix} {deleted:,} {loader.display_name}")
         return deleted, batch_size
 
@@ -426,7 +443,7 @@ class PurgeCommand(ToolkitCommand):
         deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
         count += deleted
         if count > 0:
-            status.console.print(f"Deleted {count:,} {loader.display_name}.")
+            status.console.print(f"Finished purging {loader.display_name}.")
         return count
 
     def _delete_node_batch(
@@ -484,3 +501,91 @@ class PurgeCommand(ToolkitCommand):
         if verbose:
             console.print(f"Deleted {deleted:,} {loader.display_name}")
         return deleted, batch_size
+
+    def _purge_assets(
+        self,
+        loader: AssetLoader,
+        status: Status,
+        selected_data_set: str | None = None,
+        batch_size: int = 1000,
+    ) -> int:
+        count = 0
+        children_by_parent: dict[int, AssetChildTracker] = defaultdict(AssetChildTracker)
+        children_ids: set[int] = set()
+        for asset in loader.iterate(data_set_external_id=selected_data_set):
+            if asset.parent_id:
+                children_by_parent[asset.parent_id].ids.add(asset.id)
+            aggregates = cast(AggregateResultItem, asset.aggregates)
+            if aggregates.child_count == 0:
+                # No children, delete immediately
+                children_ids.add(asset.id)
+            else:
+                # Track the number of children
+                children_by_parent[asset.id].count = aggregates.child_count
+
+            if len(children_ids) >= batch_size:
+                count += loader.delete(list(children_ids))
+                status.update(f"Deleted {count:,} {loader.display_name}...")
+                children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
+
+        while children_by_parent or children_ids:
+            if children_ids:
+                count += loader.delete(list(children_ids))
+                status.update(f"Deleted {count:,} {loader.display_name}...")
+
+            children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
+            if not children_ids:
+                break
+        status.console.print(f"Finished purging {loader.display_name}.")
+
+        # If the children.count is None it means that the asset came from a different data set.
+        failed_delete_ids = {
+            asset_id for asset_id, children in children_by_parent.items() if children.count is not None
+        }
+        if not failed_delete_ids:
+            return count
+
+        parent_other_dataset = {
+            asset_id for asset_id in children_by_parent.items() if asset_id not in failed_delete_ids
+        }
+        other_datasets = {asset.data_set_id for asset in loader.retrieve(list(parent_other_dataset))}  # type: ignore[arg-type]
+        extra = ""
+        if None in other_datasets:
+            other_datasets.remove(None)
+            extra = " or is missing a dataset"
+
+        if other_datasets:
+            dataset_ext_ids = {
+                dataset.external_id
+                for dataset in loader.client.data_sets.retrieve_multiple(ids=other_datasets)  # type: ignore[arg-type]
+            }
+            self.warn(
+                HighSeverityWarning(
+                    f"Failed to delete {len(failed_delete_ids)} {loader.display_name}. The assets have parents in a different dataset{extra}. You must delete the following datasets first {humanize_collection(dataset_ext_ids)}."
+                ),
+                console=status.console,
+            )
+
+        return count
+
+    @staticmethod
+    def _update_asset_child_tracking(
+        deleted_children: set[int], children_by_parent: dict[int, AssetChildTracker]
+    ) -> set[int]:
+        new_children: set[int] = set()
+        for parent_id, children in children_by_parent.items():
+            before_count = len(children.ids)
+            children.ids -= deleted_children
+            children.deleted_count += before_count - len(children.ids)
+            if children.deleted_count == children.count:
+                new_children.add(parent_id)
+        for new_child in new_children:
+            del children_by_parent[new_child]
+        return new_children
+
+
+@dataclass
+class AssetChildTracker:
+    count: int | None = None
+    deleted_count: int = 0
+    ids: set[int] = field(default_factory=set)
