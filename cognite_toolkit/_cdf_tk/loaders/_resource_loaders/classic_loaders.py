@@ -120,7 +120,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         internal_ids, external_ids = self._split_ids(ids)
         try:
             self.client.assets.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
+        except CogniteNotFoundError as e:
+            # Do a CogniteNotFoundError instead of passing 'ignore_unknown_ids=True' to the delete method
+            # to obtain an accurate list of deleted assets.
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
                 internal_ids, external_ids = self._split_ids(existing)
