@@ -530,7 +530,7 @@ class PurgeCommand(ToolkitCommand):
                 children_by_parent[asset.id].count = aggregates.child_count
 
             if len(children_ids) >= batch_size:
-                batch_count, remaining = self._purge_asset_batch(list(children_ids), loader, status)
+                batch_count, remaining = self._purge_asset_batch(list(children_ids), loader, status, count)
                 count += batch_count
                 status.update(f"Deleted {count:,} {loader.display_name}...")
                 children_ids = self._update_asset_child_tracking(children_ids - remaining, children_by_parent)
@@ -539,15 +539,15 @@ class PurgeCommand(ToolkitCommand):
         while children_by_parent or children_ids:
             remaining = set()
             if children_ids:
-                batch_count, remaining = self._purge_asset_batch(list(children_ids), loader, status)
+                batch_count, remaining = self._purge_asset_batch(list(children_ids), loader, status, count)
                 count += batch_count
                 status.update(f"Deleted {count:,} {loader.display_name}...")
                 if len(remaining) == len(children_ids) and remaining:
                     # No progress, break the loop
                     raise CDFAPIError(
                         f"Failed to delete {len(remaining)} assets. This could be due to a parent-child "
-                        f"cycle or an eventual consistency issue. Wait a few seconds and try again."
-                        "An alternative use the Python-SDK to delete the asset hierarchy "
+                        f"cycle or an eventual consistency issue. Wait a few seconds and try again. "
+                        "An alternative is to use the Python-SDK to delete the asset hierarchy "
                         "`client.assets.delete(external_id='my_root_asset', recursive=True)`"
                     )
 
@@ -590,18 +590,22 @@ class PurgeCommand(ToolkitCommand):
         return count
 
     @classmethod
-    def _purge_asset_batch(cls, asset_ids: list[int], loader: AssetLoader, status: Status) -> tuple[int, set[int]]:
+    def _purge_asset_batch(
+        cls, asset_ids: list[int], loader: AssetLoader, status: Status, count: int
+    ) -> tuple[int, set[int]]:
         to_delete = asset_ids.copy()
         wait_delete: list[int] = []
         delete_count = 0
-        fail_count = 0
-        while to_delete or wait_delete:
+        has_failed = False
+        while to_delete:
             try:
                 deleted = loader.delete(to_delete)
             except CogniteAPIError as e:
-                fail_count += 1
                 if not cls._is_parent_error(e):
                     raise e
+                if has_failed:
+                    # Try again later
+                    return delete_count, set(wait_delete) | set(to_delete)
                 delete_candidates = to_delete.copy()
                 to_delete.clear()
                 inner_count = 0
@@ -617,18 +621,22 @@ class PurgeCommand(ToolkitCommand):
                         else:
                             wait_delete.append(asset.id)
                     inner_count += len(chunk)
-                    status.update(f"Updating asset.child_count {inner_count}/{len(delete_candidates)}...👷")
-                if not to_delete and fail_count > 1:
+                    status.update(
+                        f"Deleted {count + delete_count:,} {loader.display_name}... "
+                        f"👷Updating asset.child_count {inner_count}/{len(delete_candidates)}..."
+                    )
+                if not to_delete:
                     return delete_count, set(wait_delete)
+                has_failed = True
             else:
                 if to_delete:
                     # Only update the delete count if we actually deleted something
                     # This is necessary to avoid an infinite loop if we are stuck with only parents.
-                    fail_count = 0
+                    has_failed = False
                 delete_count += deleted
                 to_delete = wait_delete
                 wait_delete = []
-        return delete_count, set()
+        return delete_count, set(wait_delete)
 
     @staticmethod
     def _is_parent_error(e: CogniteAPIError) -> bool:
