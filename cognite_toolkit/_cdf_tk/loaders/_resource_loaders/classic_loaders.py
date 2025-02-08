@@ -23,6 +23,7 @@ from cognite.client.data_classes import (
     SequenceWriteList,
     capabilities,
 )
+from cognite.client.data_classes.assets import SortableAssetProperty
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -137,7 +138,14 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Asset]:
-        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+        return iter(
+            self.client.assets(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                # We sort by score to ensure that leaf assets are iterated first,
+                # This is required in the cdf purge command to ensure that the leaf assets are deleted first.
+                sort=SortableAssetProperty.score,
+            )
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
