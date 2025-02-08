@@ -511,6 +511,7 @@ class PurgeCommand(ToolkitCommand):
         children_ids: set[int] = set()
         parent_ids: set[int] = set()
         is_first = True
+        last_failed = False
         count = level = depth = last_parent_count = 0
         total_asset_count: int | None = None
         # Iterate through the asset hierarchy once per depth level. This is to delete all children before the parent.
@@ -540,25 +541,24 @@ class PurgeCommand(ToolkitCommand):
                 status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
                 children_ids = set()
 
-            if len(parent_ids) == last_parent_count:
-                error = CDFAPIError(
-                    f"Failed to delete {len(parent_ids)} assets. This could be due to a parent-child cycle or an "
-                    "eventual consistency issue. Wait a few seconds and try again. An alternative is to use the "
-                    "Python-SDK to delete the asset hierarchy "
-                    "`client.assets.delete(external_id='my_root_asset', recursive=True)`"
-                )
-                if len(parent_ids) < 1_000:
-                    try:
-                        # Just try to delete them all at once
-                        count += loader.delete(list(parent_ids))
-                    except CogniteAPIError as e:
-                        raise error from e
-                    else:
-                        status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
-                        break
+            if len(parent_ids) == last_parent_count and last_failed:
+                try:
+                    # Just try to delete them all at once
+                    count += loader.delete(list(parent_ids))
+                except CogniteAPIError as e:
+                    raise CDFAPIError(
+                        f"Failed to delete {len(parent_ids)} assets. This could be due to a parent-child cycle or an "
+                        "eventual consistency issue. Wait a few seconds and try again. An alternative is to use the "
+                        "Python-SDK to delete the asset hierarchy "
+                        "`client.assets.delete(external_id='my_root_asset', recursive=True)`"
+                    ) from e
                 else:
-                    raise error
-
+                    status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
+                    break
+            elif len(parent_ids) == last_parent_count:
+                last_failed = True
+            else:
+                last_failed = False
             level += 1
             last_parent_count = len(parent_ids)
             parent_ids.clear()
