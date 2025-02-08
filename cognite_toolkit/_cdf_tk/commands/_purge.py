@@ -111,7 +111,7 @@ class PurgeCommand(ToolkitCommand):
             selected_space = questionary.select(
                 "Which space are you going to purge"
                 " (delete all data models, views, containers, nodes and edges in space)?",
-                [space.space for space in spaces],
+                sorted([space.space for space in spaces]),
             ).ask()
         else:
             retrieved = client.data_modeling.spaces.retrieve(space)
@@ -205,7 +205,7 @@ class PurgeCommand(ToolkitCommand):
             datasets = client.data_sets.list(limit=-1)
             selected_dataset: str = questionary.select(
                 "Which space are you going to purge (delete all resources in dataset)?",
-                [dataset.external_id for dataset in datasets if dataset.external_id],
+                sorted([dataset.external_id for dataset in datasets if dataset.external_id]),
             ).ask()
         else:
             retrieved = client.data_sets.retrieve(external_id=external_id)
