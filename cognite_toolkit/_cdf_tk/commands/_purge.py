@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import uuid
 from collections import defaultdict
 from collections.abc import Hashable
@@ -47,6 +46,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 
 from ._base import ToolkitCommand
 
@@ -531,17 +531,19 @@ class PurgeCommand(ToolkitCommand):
                 children_by_parent[asset.id].count = aggregates.child_count
 
             if len(children_ids) >= batch_size:
-                count += self._purge_asset_batch(list(children_ids), loader)
+                count += self._purge_asset_batch(list(children_ids), loader, status)
                 status.update(f"Deleted {count:,} {loader.display_name}...")
                 children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
 
         while children_by_parent or children_ids:
             if children_ids:
-                count += self._purge_asset_batch(list(children_ids), loader)
+                count += self._purge_asset_batch(list(children_ids), loader, status)
 
                 status.update(f"Deleted {count:,} {loader.display_name}...")
 
-            children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
+            children_ids = self._update_asset_child_tracking(
+                children_ids, children_by_parent, move_parent_to_child=True
+            )
             if not children_ids:
                 break
         status.console.print(f"Finished purging {loader.display_name}.")
@@ -576,35 +578,72 @@ class PurgeCommand(ToolkitCommand):
 
         return count
 
+    @classmethod
+    def _purge_asset_batch(cls, asset_ids: list[int], loader: AssetLoader, status: Status) -> int:
+        to_delete = asset_ids.copy()
+        wait_delete: list[int] = []
+        delete_count = 0
+        fail_count = 0
+        while to_delete or wait_delete:
+            try:
+                deleted = loader.delete(to_delete)
+            except CogniteAPIError as e:
+                fail_count += 1
+                if not cls._is_parent_error(e):
+                    raise e
+                delete_candidates = to_delete.copy()
+                to_delete.clear()
+                for chunk_ids in chunker(delete_candidates, 100):
+                    # Looking up the child_count for the assets seems to trigger the recalculation of the child_count
+                    # This is a workaround for the eventual consistency issue. We can only look up 100 assets at a time
+                    chunk = loader.client.assets.list(
+                        advanced_filter=filters.In("id", chunk_ids), limit=-1, aggregated_properties=["child_count"]
+                    )
+                    for asset in chunk:
+                        if cast(AggregateResultItem, asset.aggregates).child_count == 0:
+                            to_delete.append(asset.id)
+                        else:
+                            wait_delete.append(asset.id)
+                if not to_delete and fail_count > 1:
+                    raise CDFAPIError(
+                        f"Failed to delete {len(asset_ids)} {loader.display_name}. This is likely due to eventual consistency. "
+                        "Wait a bit and try again. Alternative use the Python-SDK to delete the asset hierarchy, "
+                        f"`client.assets.delete(external_id='my_root_asset', recursive=True)`. API Error: {escape(str(e))}",
+                    )
+            else:
+                delete_count += deleted
+                to_delete = wait_delete
+                wait_delete = []
+                fail_count = 0
+        return delete_count
+
+        #     # Likely eventual consistency issue, retry
+        #     t0 = time.perf_counter()
+        #     while (elapsed := (time.perf_counter() - t0)) < sleep:
+        #         remaining = sleep - elapsed
+        #         status.update(f"Waiting for server to update assets 'child_count' {remaining:.1f}...😴")
+        #         time.sleep(1)
+        #     sleep *= 2
+        #     final_error = e
+        #     continue
+        # raise CDFAPIError(
+        #     f"Failed to delete {len(asset_ids)} {loader.display_name}. This is likely due to eventual consistency. "
+        #     "Wait a bit and try again. Alternative use the Python-SDK to delete the asset hierarchy, "
+        #     f"`client.assets.delete(external_id='my_root_asset', recursive=True)`. API Error: {escape(str(final_error))}",
+        # )
+
     @staticmethod
-    def _purge_asset_batch(asset_ids: list[int], loader: AssetLoader) -> int:
-        try:
-            return loader.delete(asset_ids)
-        except CogniteAPIError as e:
-            if e.code == 400 and "referenced as a parent for existing assets" in e.message:
-                # Likely eventual consistency issue, retry
-                time.sleep(10)
-                try:
-                    return loader.delete(asset_ids)
-                except CogniteAPIError as e2:
-                    if e2.code == 400 and "referenced as a parent for existing assets" in e2.message:
-                        raise CDFAPIError(
-                            f"Failed to delete {len(asset_ids)} {loader.display_name}. This is likely due to eventual consistency."
-                            "Wait a bit and try again. Alternative use the Python-SDK to delete the asset hierarchy, "
-                            f"`client.assets.delete(external_id='my_root_asset', recursive=True)`. API Error: {escape(str(e2))}",
-                        ) from e
-            raise e
+    def _is_parent_error(e: CogniteAPIError) -> bool:
+        return e.code == 400 and "referenced as a parent for existing assets" in e.message
 
     @staticmethod
     def _update_asset_child_tracking(
-        deleted_children: set[int], children_by_parent: dict[int, AssetChildTracker]
+        deleted_children: set[int], children_by_parent: dict[int, AssetChildTracker], move_parent_to_child: bool = False
     ) -> set[int]:
         new_children: set[int] = set()
         for parent_id, children in children_by_parent.items():
-            before_count = len(children.ids)
-            children.ids -= deleted_children
-            children.deleted_count += before_count - len(children.ids)
-            if children.deleted_count == children.count and children.count is not None:
+            children.deleted_count += len(deleted_children & children.ids)
+            if move_parent_to_child and children.count is not None and children.deleted_count == children.count:
                 new_children.add(parent_id)
         for new_child in new_children:
             del children_by_parent[new_child]
@@ -613,6 +652,8 @@ class PurgeCommand(ToolkitCommand):
 
 @dataclass
 class AssetChildTracker:
+    """Helper class to track the number of children for an asset"""
+
     count: int | None = None
     deleted_count: int = 0
     ids: set[int] = field(default_factory=set)

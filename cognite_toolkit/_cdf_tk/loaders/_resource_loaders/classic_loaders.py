@@ -117,6 +117,8 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        if not ids:
+            return 0
         internal_ids, external_ids = self._split_ids(ids)
         try:
             self.client.assets.delete(id=internal_ids, external_id=external_ids)
