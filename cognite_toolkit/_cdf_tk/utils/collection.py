@@ -1,7 +1,6 @@
 import difflib
-import itertools
 from collections.abc import Collection, Iterable, Iterator
-from typing import Any, TypeVar
+from typing import Any
 
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
@@ -42,12 +41,3 @@ def humanize_collection(collection: Collection[Any], /, *, sort: bool = True, bi
         sequence = list(strings)
 
     return f"{', '.join(sequence[:-1])} {bind_word} {sequence[-1]}"
-
-
-T_Item = TypeVar("T_Item")
-
-
-def chunker(iterable: Iterable[T_Item], size: int) -> Iterator[list[T_Item]]:
-    iterator = iter(iterable)
-    while chunk := list(itertools.islice(iterator, size)):
-        yield chunk
