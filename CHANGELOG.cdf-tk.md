@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Fixed
+
+- The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
+
 ## [0.4.5] - 2025-02-06
 
 ### Fixed
@@ -23,7 +29,6 @@ Changes are grouped as follows:
   `tables` keyword is used to specify the tables.
 - When authentication with Toolkit, multiple `IDP_Scopes` are assumed to be separated by a comma in the environment
   variable `IDP_SCOPES`.
-- The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
 
 ## [0.4.4] - 2025-02-05
 
