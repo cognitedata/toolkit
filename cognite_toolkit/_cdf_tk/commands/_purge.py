@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from collections import defaultdict
 from collections.abc import Hashable
@@ -630,6 +631,7 @@ class PurgeCommand(ToolkitCommand):
                 has_failed = True
                 for i in range(1, 11):
                     status.update(f"Deleted {count + delete_count:,} {loader.display_name}... 😴Resting {10 - i}...")
+                    time.sleep(1.0)
             else:
                 if to_delete:
                     # Only update the delete count if we actually deleted something
