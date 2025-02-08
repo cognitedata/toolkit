@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from collections import defaultdict
 from collections.abc import Hashable
@@ -524,13 +525,14 @@ class PurgeCommand(ToolkitCommand):
                 children_by_parent[asset.id].count = aggregates.child_count
 
             if len(children_ids) >= batch_size:
-                count += loader.delete(list(children_ids))
+                count += self._purge_asset_batch(list(children_ids), loader)
                 status.update(f"Deleted {count:,} {loader.display_name}...")
                 children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
 
         while children_by_parent or children_ids:
             if children_ids:
-                count += loader.delete(list(children_ids))
+                count += self._purge_asset_batch(list(children_ids), loader)
+
                 status.update(f"Deleted {count:,} {loader.display_name}...")
 
             children_ids = self._update_asset_child_tracking(children_ids, children_by_parent)
@@ -569,6 +571,17 @@ class PurgeCommand(ToolkitCommand):
         return count
 
     @staticmethod
+    def _purge_asset_batch(asset_ids: list[int], loader: AssetLoader) -> int:
+        try:
+            return loader.delete(asset_ids)
+        except CogniteAPIError as e:
+            if e.code == 400 and "referenced as a parent for existing assets" in e.message:
+                # Likely eventual consistency issue, retry
+                time.sleep(10)
+                return loader.delete(asset_ids)
+            raise e
+
+    @staticmethod
     def _update_asset_child_tracking(
         deleted_children: set[int], children_by_parent: dict[int, AssetChildTracker]
     ) -> set[int]:
@@ -577,7 +590,7 @@ class PurgeCommand(ToolkitCommand):
             before_count = len(children.ids)
             children.ids -= deleted_children
             children.deleted_count += before_count - len(children.ids)
-            if children.deleted_count == children.count:
+            if children.deleted_count == children.count and children.count is not None:
                 new_children.add(parent_id)
         for new_child in new_children:
             del children_by_parent[new_child]
