@@ -628,6 +628,8 @@ class PurgeCommand(ToolkitCommand):
                 if not to_delete:
                     return delete_count, set(wait_delete)
                 has_failed = True
+                for i in range(1, 11):
+                    status.update(f"Deleted {count + delete_count:,} {loader.display_name}... 😴Resting {10 - i}...")
             else:
                 if to_delete:
                     # Only update the delete count if we actually deleted something
