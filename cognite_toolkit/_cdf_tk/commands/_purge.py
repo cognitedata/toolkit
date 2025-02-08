@@ -452,13 +452,14 @@ class PurgeCommand(ToolkitCommand):
                     except CogniteAPIError:
                         is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
                         instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
-                        self.warn(
-                            HighSeverityWarning(
-                                f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
+                        if instance_spaces:
+                            suffix = (
+                                "It is used as a node type in the following spaces, "
                                 f"which must be purged first: {humanize_collection(instance_spaces)}"
-                            ),
-                            console=console,
-                        )
+                            )
+                        else:
+                            suffix = "It is used as a node type, but failed to find the spaces where it is used."
+                        self.warn(HighSeverityWarning(f"Failed to delete {node_id!r}. {suffix}"), console=console)
             elif (
                 delete_error.code == 408
                 and "timed out" in delete_error.message.casefold()
