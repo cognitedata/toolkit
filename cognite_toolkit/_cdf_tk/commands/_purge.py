@@ -14,12 +14,18 @@ from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    CDFAPIError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     AssetLoader,
@@ -578,7 +584,15 @@ class PurgeCommand(ToolkitCommand):
             if e.code == 400 and "referenced as a parent for existing assets" in e.message:
                 # Likely eventual consistency issue, retry
                 time.sleep(10)
-                return loader.delete(asset_ids)
+                try:
+                    return loader.delete(asset_ids)
+                except CogniteAPIError as e2:
+                    if e2.code == 400 and "referenced as a parent for existing assets" in e2.message:
+                        raise CDFAPIError(
+                            f"Failed to delete {len(asset_ids)} {loader.display_name}. This is likely due to eventual consistency."
+                            "Wait a bit and try again. Alternative use the Python-SDK to delete the asset hierarchy, "
+                            f"`client.assets.delete(external_id='my_root_asset', recursive=True)`. API Error: {escape(str(e2))}",
+                        ) from e
             raise e
 
     @staticmethod
