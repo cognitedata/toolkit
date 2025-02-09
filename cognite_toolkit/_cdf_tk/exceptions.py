@@ -151,6 +151,8 @@ class ToolkitValueError(ValueError, ToolkitError):
 class ToolkitMissingValueError(ToolkitValueError):
     pass
 
+class ToolkitKeyError(KeyError, ToolkitError):
+    ...
 
 class ToolkitTypeError(TypeError, ToolkitError): ...
 

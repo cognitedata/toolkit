@@ -1,8 +1,16 @@
+import os
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Literal, TypeAlias, get_args
 
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMissingValueError
+from cognite.client import ClientConfig
+from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token, \
+    OAuthDeviceCode
+
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMissingValueError, ToolkitKeyError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
@@ -101,8 +109,9 @@ class EnvironmentVariables:
         alternative = ""
         if self.PROVIDER == "entra_id":
             alternative = " or provide IDP_TENANT_ID"
-        raise ToolkitMissingValueError(
-            f"IDP_TOKEN_URL is missing. Please provide it{alternative} in the environment variables."
+        raise ToolkitKeyError(
+            f"IDP_TOKEN_URL is missing. Please provide it{alternative} in the environment variables.",
+            "IDP_TOKEN_URL",
         )
 
     @property
@@ -128,6 +137,88 @@ class EnvironmentVariables:
         alternative = ""
         if self.PROVIDER == "entra_id":
             alternative = " or provide IDP_TENANT_ID"
-        raise ToolkitMissingValueError(
-            f"IDP_AUTHORITY_URL is missing. Please provide it{alternative} in the environment variables."
+        raise ToolkitKeyError(
+            f"IDP_AUTHORITY_URL is missing. Please provide it{alternative} in the environment variables.",
+            "IDP_AUTHORITY_URL",
         )
+
+    @classmethod
+    def create_from_environment(cls) -> "EnvironmentVariables":
+        if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
+            raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
+        args = {key: os.environ[key] for key in cls.__annotations__ if key in os.environ}
+        for int_key in ["CDF_CLIENT_TIMEOUT", "CDF_CLIENT_MAX_WORKERS"]:
+            if int_key in os.environ:
+                args[int_key] = int(os.environ[int_key])
+        return cls(**args)
+
+    def get_credentials(self) -> CredentialProvider:
+        method_by_flow = {
+            "client_credentials": self._get_oauth_client_credentials,
+            "interactive": self._get_oauth_interactive,
+            "device_code": self._get_oauth_device_code,
+            "token": self._get_token,
+        }
+        if self.LOGIN_FLOW in method_by_flow:
+            return method_by_flow[self.LOGIN_FLOW]()
+        key_options: list[tuple[str, ...]] = []
+        for method in method_by_flow.values():
+            try:
+                return method()
+            except KeyError as e:
+                key_options += e.args[1:]
+        raise ToolkitMissingValueError(
+            f"LOGIN_FLOW={self.LOGIN_FLOW} requires one of the following environment set variables to be set.",
+            *key_options,
+        )
+
+    def _get_oauth_client_credentials(self) -> OAuthClientCredentials:
+        if not self.IDP_CLIENT_ID or not self.IDP_CLIENT_SECRET:
+            raise KeyError(
+                "IDP_CLIENT_ID and IDP_CLIENT_SECRET must be set in the environment.",
+                "IDP_CLIENT_ID",
+                "IDP_CLIENT_SECRET",
+            )
+        return OAuthClientCredentials(
+            client_id=self.IDP_CLIENT_ID,
+            client_secret=self.IDP_CLIENT_SECRET,
+            token_url=self.idp_token_url,
+            audience=self.idp_audience,
+            scopes=self.idp_scopes,
+        )
+
+    def _get_oauth_interactive(self) -> OAuthInteractive:
+        if not self.IDP_CLIENT_ID:
+            raise ToolkitKeyError("IDP_CLIENT_ID must be set in the environment.", "IDP_CLIENT_ID")
+        return OAuthInteractive(
+            client_id=self.IDP_CLIENT_ID,
+            authority_url=self.idp_authority_url,
+            scopes=self.idp_scopes,
+        )
+
+    def _get_oauth_device_code(self) -> OAuthDeviceCode:
+        self._credentials_args = dict(
+            tenant_id=auth.tenant_id,
+            client_id=TOOLKIT_CLIENT_ENTRA_ID,
+            cdf_cluster=self._cluster,
+            clear_cache=clear_cache,
+        )
+        self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
+
+    def _get_token(self) -> Token:
+        if not self.CDF_TOKEN:
+            raise ToolkitKeyError("CDF_TOKEN must be set in the environment", "CDF_TOKEN")
+        return Token(self.CDF_TOKEN)
+
+    def get_config(self) -> ToolkitClientConfig:
+        return ToolkitClientConfig(
+            client_name=CLIENT_NAME,
+            project=self.CDF_PROJECT,
+            credentials=self.get_credentials(),
+            base_url=self.cdf_url,
+            timeout=self.CDF_CLIENT_TIMEOUT,
+            max_workers=self.CDF_CLIENT_MAX_WORKERS,
+        )
+
+    def get_client(self) -> ToolkitClient:
+        return ToolkitClient(config=self.get_config())
