@@ -1,15 +1,19 @@
 import os
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, fields
-from typing import Literal, TypeAlias, get_args, Any
+from dataclasses import dataclass, field
+from typing import Any, Literal, TypeAlias, get_args
 
-from cognite.client import ClientConfig
-from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token, \
-    OAuthDeviceCode
+from cognite.client.credentials import (
+    CredentialProvider,
+    OAuthClientCredentials,
+    OAuthDeviceCode,
+    OAuthInteractive,
+    Token,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
-from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMissingValueError, ToolkitKeyError
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyError, ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
@@ -96,6 +100,7 @@ class EnvironmentVariables:
     )
 
     def __post_init__(self) -> None:
+        self.LOGIN_FLOW = self.LOGIN_FLOW.lower()  # type: ignore[assignment]
         if self.LOGIN_FLOW not in VALID_LOGIN_FLOWS:
             raise AuthenticationError(f"Invalid login flow: {self.LOGIN_FLOW}. Valid options are {VALID_LOGIN_FLOWS}")
 
