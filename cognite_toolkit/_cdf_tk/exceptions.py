@@ -148,6 +148,10 @@ class ToolkitValueError(ValueError, ToolkitError):
     pass
 
 
+class ToolkitMissingValueError(ToolkitValueError):
+    pass
+
+
 class ToolkitTypeError(TypeError, ToolkitError): ...
 
 

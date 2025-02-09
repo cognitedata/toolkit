@@ -1,11 +1,13 @@
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Literal, TypeAlias
+from typing import Literal, TypeAlias, get_args
 
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMissingValueError
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 Provider: TypeAlias = Literal["entra_id", "cdf", "other"]
+VALID_LOGIN_FLOWS = get_args(LoginFlow)
 
 CLIENT_NAME = f"CDF-Toolkit:{__version__}"
 LOGIN_FLOW_DESCRIPTION = {
@@ -84,3 +86,48 @@ class EnvironmentVariables:
     CDF_CLIENT_MAX_WORKERS: int = field(
         default=5, metadata=EnvOptions(display_name="CDF client max workers", example="5")
     )
+
+    def __post_init__(self) -> None:
+        if self.LOGIN_FLOW not in VALID_LOGIN_FLOWS:
+            raise AuthenticationError(f"Invalid login flow: {self.LOGIN_FLOW}. Valid options are {VALID_LOGIN_FLOWS}")
+
+    # All derived properties
+    @property
+    def idp_token_url(self) -> str:
+        if self.IDP_TOKEN_URL:
+            return self.IDP_TOKEN_URL
+        if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
+            return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}/oauth2/v2.0/token"
+        alternative = ""
+        if self.PROVIDER == "entra_id":
+            alternative = " or provide IDP_TENANT_ID"
+        raise ToolkitMissingValueError(
+            f"IDP_TOKEN_URL is missing. Please provide it{alternative} in the environment variables."
+        )
+
+    @property
+    def cdf_url(self) -> str:
+        return self.CDF_URL or f"https://{self.CDF_CLUSTER}.cognitedata.com"
+
+    @property
+    def idp_audience(self) -> str:
+        return self.IDP_AUDIENCE or f"https://{self.CDF_CLUSTER}.cognitedata.com"
+
+    @property
+    def idp_scopes(self) -> list[str]:
+        if self.IDP_SCOPES:
+            return self.IDP_SCOPES.split(",")
+        return [f"https://{self.CDF_CLUSTER}.cognitedata.com/.default"]
+
+    @property
+    def idp_authority_url(self) -> str:
+        if self.IDP_AUTHORITY_URL:
+            return self.IDP_AUTHORITY_URL
+        if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
+            return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}"
+        alternative = ""
+        if self.PROVIDER == "entra_id":
+            alternative = " or provide IDP_TENANT_ID"
+        raise ToolkitMissingValueError(
+            f"IDP_AUTHORITY_URL is missing. Please provide it{alternative} in the environment variables."
+        )
