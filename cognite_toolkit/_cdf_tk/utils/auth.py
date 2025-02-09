@@ -19,7 +19,7 @@ import os
 import shutil
 from dataclasses import _MISSING_TYPE, dataclass, field, fields
 from pathlib import Path
-from typing import Any, Literal, TypeAlias, overload
+from typing import Any, Literal, TypeAlias
 
 import questionary
 import typer
@@ -738,44 +738,6 @@ class CDFToolConfig:
         if self._cluster is None:
             raise ValueError("Cluster is not initialized.")
         return self._cluster
-
-    @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[True] = True) -> str: ...
-
-    @overload
-    def environ(self, attr: str, default: str | None = None, fail: Literal[False] = False) -> str | None: ...
-
-    def environ(self, attr: str, default: str | None = None, fail: bool = True) -> str | None:
-        """Helper function to load variables from the environment.
-
-        Use python-dotenv to load environment variables from an .env file before
-        using this function.
-
-        If the environment variable has spaces, it will be split into a list of strings.
-
-        Args:
-            attr: name of environment variable
-            default: default value if environment variable is not set
-            fail: if True, raise ValueError if environment variable is not set
-
-        Yields:
-            Value of the environment variable
-            Raises ValueError if environment variable is not set and fail=True
-        """
-        if value := self._environ.get(attr):
-            return value
-        # If the var was none, we want to re-evaluate from environment.
-        var: str | None = os.environ.get(attr)
-        if var is None and default is None and fail:
-            raise ValueError(f"{attr} property is not available as an environment variable and no default set.")
-        elif var is None and default is None:
-            # Todo: Should this be handled differently?
-            var = None
-        elif var is None:
-            var = default
-
-        self._environ[attr] = var
-        return var
 
     def create_client(self, credentials: ClientCredentials) -> ToolkitClient:
         if self._auth_vars.token_url is None or self._auth_vars.scopes is None:
