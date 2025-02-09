@@ -151,10 +151,12 @@ class EnvironmentVariables:
     def create_from_environment(cls) -> "EnvironmentVariables":
         if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
             raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
-        args = {field_: os.environ[field_.name] for field_ in fields(cls) if field_ in os.environ}
+        args: dict[str, Any] = {
+            field_.name: os.environ[field_.name] for field_ in fields(cls) if field_.name in os.environ
+        }
         for int_key in ["CDF_CLIENT_TIMEOUT", "CDF_CLIENT_MAX_WORKERS"]:
-            if int_key in os.environ:
-                args[int_key] = int(os.environ[int_key])
+            if int_key in args:
+                args[int_key] = int(args[int_key])
         return cls(**args)
 
     def get_credentials(self) -> CredentialProvider:
@@ -169,7 +171,7 @@ class EnvironmentVariables:
                 return method_by_flow[self.LOGIN_FLOW]()
             except KeyError as e:
                 raise ToolkitMissingValueError(
-                    f"LOGIN_FLOW={self.LOGIN_FLOW} requires the following environment variables {humanize_collection(e.args[1:])}.",
+                    f"The login flow '{self.LOGIN_FLOW}' requires the following environment variables: {humanize_collection(e.args[1:])}.",
                 )
         raise AuthenticationError(f"Login flow {self.LOGIN_FLOW} is not supported.")
 
@@ -183,14 +185,14 @@ class EnvironmentVariables:
             raise ToolkitKeyError(f"Missing environment variables: {humanize_collection(missing)}", *missing)
         if self.PROVIDER == "cdf":
             return OAuthClientCredentials(
-                client_id=self.IDP_CLIENT_ID,
-                client_secret=self.IDP_CLIENT_SECRET,
+                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+                client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
                 token_url=self.idp_token_url,
                 scopes=None,  # type: ignore[arg-type]
             )
         return OAuthClientCredentials(
-            client_id=self.IDP_CLIENT_ID,
-            client_secret=self.IDP_CLIENT_SECRET,
+            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            client_secret=self.IDP_CLIENT_SECRET,  # type: ignore[arg-type]
             token_url=self.idp_token_url,
             audience=self.idp_audience,
             scopes=self.idp_scopes,
@@ -232,7 +234,7 @@ class EnvironmentVariables:
                 authority_url=None,
                 cdf_cluster=self.CDF_CLUSTER,
                 oauth_discovery_url=self.IDP_DISCOVERY_URL,
-                client_id=self.IDP_CLIENT_ID,
+                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
                 audience=self.idp_audience,
             )
         else:
