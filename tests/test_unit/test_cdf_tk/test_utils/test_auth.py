@@ -76,9 +76,10 @@ class TestEnvironmentVariables:
     def test_get_valid_config(self, args: dict[str, Any]) -> None:
         env_vars = EnvironmentVariables(**args)
 
-        assert env_vars.is_valid
+        missing_env_vars = env_vars.get_missing_vars()
+        assert not missing_env_vars, f"Missing environment variables: {missing_env_vars}"
 
-    def test_get_invalid_config(self) -> None:
+    def test_get_missing_vars(self) -> None:
         args = {
             **PROJECT_AND_CLUSTER,
             "LOGIN_FLOW": "client_credentials",
@@ -90,8 +91,8 @@ class TestEnvironmentVariables:
             _ = EnvironmentVariables(**args).get_config()
 
         assert (
-            str(error.value)
-            == "The login flow 'client_credentials' requires the following environment variables: IDP_CLIENT_SECRET."
+            str(error.value) == "The login flow 'client_credentials' requires the following environment variables: "
+            "IDP_CLIENT_SECRET and IDP_TENANT_ID."
         )
 
     @mock.patch.dict(
