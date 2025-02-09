@@ -1,12 +1,9 @@
 import os
-from multiprocessing.context import AuthenticationError
 from typing import Any
 from unittest import mock
 
 import pytest
-from requests.exceptions import ConnectionError
 
-from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
 from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 
@@ -79,17 +76,7 @@ class TestEnvironmentVariables:
     def test_get_valid_config(self, args: dict[str, Any]) -> None:
         env_vars = EnvironmentVariables(**args)
 
-        try:
-            config = env_vars.get_config()
-        except (KeyError, AuthenticationError) as e:
-            assert False, f"Failed to get config: {e}"
-        except (ValueError, ConnectionError):
-            # When we try to instantiate config for interactive login, we get an error
-            # because the domain is not valid. In this test we are only interested in
-            # the config object, so we ignore this error.
-            assert True
-        else:
-            assert isinstance(config, ToolkitClientConfig)
+        assert env_vars.is_valid
 
     def test_get_invalid_config(self) -> None:
         args = {

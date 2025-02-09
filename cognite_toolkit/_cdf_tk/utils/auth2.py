@@ -10,6 +10,7 @@ from cognite.client.credentials import (
     OAuthInteractive,
     Token,
 )
+from requests.exceptions import ConnectionError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import TOOLKIT_CLIENT_ENTRA_ID
@@ -63,7 +64,7 @@ class EnvironmentVariables:
         default=None, metadata=EnvOptions(display_name="client id", example="XXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX")
     )
     IDP_CLIENT_SECRET: str | None = field(
-        default=None, metadata=EnvOptions(display_name="client secret", example="***")
+        default=None, metadata=EnvOptions(display_name="client secret", example="***", is_secret=True)
     )
     IDP_TOKEN_URL: str | None = field(
         default=None,
@@ -268,6 +269,20 @@ class EnvironmentVariables:
         # if include_os:
         #     variables.update(os.environ)
         # return variables
+
+    @property
+    def is_valid(self) -> bool:
+        try:
+            self.get_config()
+        except (KeyError, AuthenticationError):
+            return False
+        except (ValueError, ConnectionError):
+            # When we try to instantiate config for interactive or device login, we get an error
+            # because the domain is not valid. In this test we are only interested in
+            # the config object, so we ignore this error.
+            return True
+        else:
+            return True
 
 
 _SINGLETON: EnvironmentVariables | None = None
