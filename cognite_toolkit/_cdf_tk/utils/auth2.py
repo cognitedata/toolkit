@@ -389,7 +389,7 @@ def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: s
     default = value or field_.metadata["example"].format(CDF_CLUSTER=cdf_cluster, IDP_TENANT_ID=idp_tenant_id)
     if isinstance(value, list):
         default = ",".join(value)
-    elif not isinstance(value, str):
+    elif value is not None and not isinstance(value, str):
         default = str(value)
     if is_secret:
         user_value = questionary.password(f"Enter the {display_name}:", default=default).ask()
