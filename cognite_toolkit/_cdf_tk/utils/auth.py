@@ -14,7 +14,6 @@
 from __future__ import annotations
 
 import itertools
-import json
 import os
 import shutil
 from dataclasses import _MISSING_TYPE, dataclass, field, fields
@@ -710,16 +709,6 @@ class CDFToolConfig:
         for e in environment:
             envs += f"  {e}={environment[e]}\n"
         return f"CDF Project {self._project} in cluster {self._cluster}:\n{envs}"
-
-    def __str__(self) -> str:
-        environment = self._environ.copy()
-        if "IDP_CLIENT_SECRET" in environment:
-            environment["IDP_CLIENT_SECRET"] = "***"
-        if "TRANSFORMATIONS_CLIENT_SECRET" in environment:
-            environment["TRANSFORMATIONS_CLIENT_SECRET"] = "***"
-        return f"Cluster {self._cluster} with project {self._project} and config:\n" + json.dumps(
-            environment, indent=2, sort_keys=True
-        )
 
     @property
     def toolkit_client(self) -> ToolkitClient:
