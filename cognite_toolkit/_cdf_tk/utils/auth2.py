@@ -1,6 +1,6 @@
 import os
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Literal, TypeAlias, get_args
 
 from cognite.client.credentials import (
@@ -151,7 +151,7 @@ class EnvironmentVariables:
     def create_from_environment(cls) -> "EnvironmentVariables":
         if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
             raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
-        args = {key: os.environ[key] for key in cls.__annotations__ if key in os.environ}
+        args = {field_: os.environ[field_.name] for field_ in fields(cls) if field_ in os.environ}
         for int_key in ["CDF_CLIENT_TIMEOUT", "CDF_CLIENT_MAX_WORKERS"]:
             if int_key in os.environ:
                 args[int_key] = int(os.environ[int_key])
@@ -165,24 +165,28 @@ class EnvironmentVariables:
             "token": self._get_token,
         }
         if self.LOGIN_FLOW in method_by_flow:
-            return method_by_flow[self.LOGIN_FLOW]()
-        key_options: list[tuple[str, ...]] = []
-        for method in method_by_flow.values():
             try:
-                return method()
+                return method_by_flow[self.LOGIN_FLOW]()
             except KeyError as e:
-                key_options += e.args[1:]
-        raise ToolkitMissingValueError(
-            f"LOGIN_FLOW={self.LOGIN_FLOW} requires one of the following environment set variables to be set.",
-            *key_options,
-        )
+                raise ToolkitMissingValueError(
+                    f"LOGIN_FLOW={self.LOGIN_FLOW} requires the following environment variables {humanize_collection(e.args[1:])}.",
+                )
+        raise AuthenticationError(f"Login flow {self.LOGIN_FLOW} is not supported.")
 
     def _get_oauth_client_credentials(self) -> OAuthClientCredentials:
-        if not self.IDP_CLIENT_ID or not self.IDP_CLIENT_SECRET:
-            raise KeyError(
-                "IDP_CLIENT_ID and IDP_CLIENT_SECRET must be set in the environment.",
-                "IDP_CLIENT_ID",
-                "IDP_CLIENT_SECRET",
+        missing: list[str] = []
+        if not self.IDP_CLIENT_ID:
+            missing.append("IDP_CLIENT_ID")
+        if not self.IDP_CLIENT_SECRET:
+            missing.append("IDP_CLIENT_SECRET")
+        if missing:
+            raise ToolkitKeyError(f"Missing environment variables: {humanize_collection(missing)}", *missing)
+        if self.PROVIDER == "cdf":
+            return OAuthClientCredentials(
+                client_id=self.IDP_CLIENT_ID,
+                client_secret=self.IDP_CLIENT_SECRET,
+                token_url=self.idp_token_url,
+                scopes=None,  # type: ignore[arg-type]
             )
         return OAuthClientCredentials(
             client_id=self.IDP_CLIENT_ID,
@@ -194,7 +198,7 @@ class EnvironmentVariables:
 
     def _get_oauth_interactive(self) -> OAuthInteractive:
         if not self.IDP_CLIENT_ID:
-            raise ToolkitKeyError("IDP_CLIENT_ID must be set in the environment.", "IDP_CLIENT_ID")
+            raise ToolkitKeyError("Missing environment variables: IDP_CLIENT_ID", "IDP_CLIENT_ID")
         return OAuthInteractive(
             client_id=self.IDP_CLIENT_ID,
             authority_url=self.idp_authority_url,
@@ -202,13 +206,37 @@ class EnvironmentVariables:
         )
 
     def _get_oauth_device_code(self) -> OAuthDeviceCode:
-        self._credentials_args = dict(
-            tenant_id=auth.tenant_id,
-            client_id=TOOLKIT_CLIENT_ENTRA_ID,
-            cdf_cluster=self._cluster,
-            clear_cache=clear_cache,
-        )
-        self._credentials_provider = OAuthDeviceCode.default_for_azure_ad(**self._credentials_args)
+        if self.PROVIDER == "entra_id":
+            if not self.IDP_TENANT_ID:
+                raise ToolkitKeyError("Missing environment variables: IDP_TENANT_ID", "IDP_TENANT_ID")
+            # TODO: If the user has submitted the wrong scopes, we may get a valid token that gives 401 on the CDF API.
+            # The user will then have to wait until the token has expired to retry with the correct scopes.
+            # If we add clear_cache=True to the OAuthDeviceCode, the token cache will be cleared.
+            # We could add a cli option to auth verify, e.g. --clear-token-cache, that will clear the cache.
+            return OAuthDeviceCode.default_for_azure_ad(
+                tenant_id=self.IDP_TENANT_ID,
+                client_id=TOOLKIT_CLIENT_ENTRA_ID,
+                cdf_cluster=self.CDF_CLUSTER,
+                clear_cache=False,
+            )
+        elif self.PROVIDER == "other":
+            missing: list[str] = []
+            if not self.IDP_DISCOVERY_URL:
+                missing.append("IDP_DISCOVERY_URL")
+            if not self.IDP_CLIENT_ID:
+                missing.append("IDP_CLIENT_ID")
+            if missing:
+                raise ToolkitKeyError(f"Missing environment variables: {humanize_collection(missing)}", *missing)
+
+            return OAuthDeviceCode(
+                authority_url=None,
+                cdf_cluster=self.CDF_CLUSTER,
+                oauth_discovery_url=self.IDP_DISCOVERY_URL,
+                client_id=self.IDP_CLIENT_ID,
+                audience=self.idp_audience,
+            )
+        else:
+            raise AuthenticationError(f"The provider {self.PROVIDER} is not supported for device code flow.")
 
     def _get_token(self) -> Token:
         if not self.CDF_TOKEN:
