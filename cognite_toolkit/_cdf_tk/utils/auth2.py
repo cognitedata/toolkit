@@ -1,7 +1,7 @@
 import os
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field
-from typing import Literal, TypeAlias, get_args
+from dataclasses import dataclass, field, fields
+from typing import Literal, TypeAlias, get_args, Any
 
 from cognite.client import ClientConfig
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token, \
@@ -222,3 +222,17 @@ class EnvironmentVariables:
 
     def get_client(self) -> ToolkitClient:
         return ToolkitClient(config=self.get_config())
+
+    @classmethod
+    def dump_environment_variables(cls, include_os: bool = True) -> dict[str, Any]:
+        global _SINGLETON
+        if _SINGLETON is None:
+            _SINGLETON = cls.create_from_environment()
+        raise NotImplementedError("include derived properties")
+        # variables = {key:  for key in fields(_SINGLETON) if value := getattr(_SINGLETON, key)}
+        # if include_os:
+        #     variables.update(os.environ)
+        # return variables
+
+
+_SINGLETON: EnvironmentVariables | None = None
