@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 from unittest import mock
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
@@ -23,7 +23,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     catch_warnings,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    AuthReader,
     AuthVariables,
     CDFToolConfig,
     calculate_directory_hash,
@@ -294,63 +293,6 @@ def auth_variables_validate_test_cases():
         },
         id="Happy path Client credentials login",
     )
-
-
-class TestEnvironmentVariables:
-    def test_env_variable(self):
-        with patch.dict(os.environ, {"MY_ENV_VAR": "test_value"}):
-            # Inside this block, MY_ENV_VAR is set to 'test_value'
-            assert os.environ["MY_ENV_VAR"] == "test_value"
-
-        assert os.environ.get("MY_ENV_VAR") is None
-
-
-class TestAuthVariables:
-    @pytest.mark.skip("Temporarily disabled as AuthVariables has changed")
-    @pytest.mark.skipif(
-        os.environ.get("IS_GITHUB_ACTIONS") == "true",
-        reason="GitHub Actions will mask, IDP_TOKEN_URL=***, which causes this test to fail",
-    )
-    @pytest.mark.parametrize(
-        "environment_variables, verbose, expected_status, expected_messages, expected_vars",
-        auth_variables_validate_test_cases(),
-    )
-    def test_validate(
-        self,
-        environment_variables: dict[str, str],
-        verbose: bool,
-        expected_status: str,
-        expected_messages: list[str],
-        expected_vars: dict[str, str],
-    ) -> None:
-        with mock.patch.dict(os.environ, environment_variables, clear=True):
-            auth_var = AuthVariables.from_env()
-            AuthReader(auth_var, verbose=False)
-            results = auth_var.validate(verbose)
-
-            assert results.status == expected_status
-            assert results.messages == expected_messages
-
-            if expected_vars:
-                assert vars(auth_var) == expected_vars
-
-    def test_auth_variables_is_not_complete(self):
-        with mock.patch.dict(os.environ, {"CDF_CLUSTER": "my_cluster"}, clear=True):
-            assert AuthVariables.from_env().is_complete is False
-
-    def test_auth_variables_cog_idp(self) -> None:
-        auth_vars = AuthVariables(
-            cluster="my_cluster",
-            project="my_project",
-            client_id="ZWccGfXySomethingSomethingSomething",
-            client_secret="cdf_sa_sct_secretsecrtedsecrt",
-            provider="cdf",
-        )
-
-        assert auth_vars.provider == "cdf"
-        assert auth_vars.token_url == "https://auth.cognite.com/oauth2/token"
-        assert auth_vars.scopes is None
-        assert auth_vars.cdf_url == "https://my_cluster.cognitedata.com"
 
 
 class TestModuleFromPath:

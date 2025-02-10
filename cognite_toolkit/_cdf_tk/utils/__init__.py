@@ -1,4 +1,4 @@
-from .auth import AuthReader, AuthVariables, CDFToolConfig
+from .auth import AuthVariables, CDFToolConfig
 from .cicd import get_cicd_environment
 from .collection import flatten_dict, humanize_collection, in_dict, to_diff
 from .file import (

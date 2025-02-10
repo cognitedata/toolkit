@@ -13,14 +13,10 @@
 # limitations under the License.
 from __future__ import annotations
 
-import itertools
 import os
-import shutil
 from dataclasses import _MISSING_TYPE, dataclass, field, fields
-from pathlib import Path
 from typing import Any, Literal, TypeAlias
 
-import questionary
 import typer
 from cognite.client.config import global_config
 from cognite.client.credentials import (
@@ -32,9 +28,7 @@ from cognite.client.credentials import (
 )
 from cognite.client.data_classes import ClientCredentials
 from cognite.client.exceptions import CogniteAPIError
-from questionary import Choice
 from rich import print
-from rich.prompt import Prompt
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import (
@@ -45,7 +39,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import IgnoredValueWarning
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
@@ -333,160 +327,6 @@ class AuthVariables:
         if value is None:
             return f"{field_['env_name']}="
         return f"{field_['env_name']}={value}"
-
-
-class AuthReader:
-    """Reads and validate the auth variables
-
-    Args:
-        auth_vars (AuthVariables): The auth variables to validate
-        verbose (bool): If True, print additional information
-        skip_prompt (bool): If True, skip prompting the user for input
-            and only do the validation.
-
-    """
-
-    def __init__(self, auth_vars: AuthVariables, verbose: bool, skip_prompt: bool = False):
-        self.auth_vars = auth_vars
-        self.status: Literal["ok", "warning"] = "ok"
-        self.messages: list[str] = []
-        self.verbose = verbose
-        self.skip_prompt = skip_prompt
-
-    def from_user(self) -> AuthVariables:
-        auth_vars = self.auth_vars
-        login_flow = questionary.select(
-            "Choose the login flow",
-            choices=[
-                Choice(title=f"{flow}: {description}", value=flow)
-                for flow, description in LOGIN_FLOW_DESCRIPTION.items()
-            ],
-        ).ask()
-        auth_vars.login_flow = login_flow
-        print("Default values in parentheses. Press Enter to keep current value")
-        auth_vars.cluster = self.prompt_user("cluster")
-        auth_vars.project = self.prompt_user("project")
-        auth_vars.set_cluster_defaults()
-        if not (auth_vars.cluster and auth_vars.project):
-            missing = [field for field in ["cluster", "project"] if not getattr(self, field)]
-            raise AuthenticationError(f"CDF Cluster and project are required. Missing: {', '.join(missing)}.")
-        if login_flow == "token":
-            auth_vars.token = self.prompt_user("token")
-        elif login_flow == "client_credentials":
-            auth_vars.client_id = self.prompt_user("client_id")
-            if new_secret := self.prompt_user("client_secret", password=True):
-                auth_vars.client_secret = new_secret
-            else:
-                print("  Keeping existing client secret.")
-        elif login_flow == "interactive":
-            auth_vars.client_id = self.prompt_user("client_id")
-        provider = questionary.select(
-            "Choose the provider",
-            choices=[
-                Choice(title=f"{provider}: {description}", value=provider)
-                for provider, description in PROVDER_DESCRIPTION.items()
-            ],
-        ).ask()
-        auth_vars.provider = provider
-
-        if login_flow == "client_credentials" and auth_vars.provider == "cdf":
-            auth_vars.scopes = None
-            auth_vars.set_cdf_provider_defaults(force=True)
-        elif login_flow in ("interactive", "device_code", "client_credentials") and auth_vars.provider == "entra_id":
-            auth_vars.tenant_id = self.prompt_user("tenant_id")
-            auth_vars.set_token_id_defaults()
-        elif login_flow == "device_code" and auth_vars.provider == "other":
-            auth_vars.client_id = self.prompt_user("client_id")
-            auth_vars.oidc_discovery_url = self.prompt_user("oidc_discovery_url")
-
-        default_variables = ["cdf_url"]
-        if login_flow == "client_credentials" and provider != "cdf":
-            default_variables.extend(["scopes", "audience"])
-        elif login_flow == "client_credentials" and provider == "cdf":
-            default_variables.extend(["token_url"])
-        elif login_flow == "interactive":
-            default_variables.extend(["scopes", "authority_url"])
-        print("The below variables are the defaults,")
-        for field_name in default_variables:
-            current_value = getattr(self.auth_vars, field_name)
-            metadata = _auth_field_by_name[field_name].metadata
-            print(f"  {metadata['env_name']}={current_value}")
-        if questionary.confirm("Do you want to change any of these variables?", default=False).ask():
-            for field_name in default_variables:
-                setattr(auth_vars, field_name, self.prompt_user(field_name))
-
-        new_env_file = auth_vars.create_dotenv_file()
-        if Path(".env").exists():
-            existing = Path(".env").read_text(encoding="utf-8")
-            if existing == new_env_file:
-                print("Identical '.env' file already exist.")
-                return auth_vars
-            MediumSeverityWarning("'.env' file already exists").print_warning()
-            filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
-
-            if questionary.confirm(
-                f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
-                default=False,
-            ).ask():
-                shutil.move(".env", filename)
-                Path(".env").write_text(new_env_file, encoding="utf-8")
-        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
-            Path(".env").write_text(new_env_file, encoding="utf-8")
-
-        return auth_vars
-
-    def prompt_user(
-        self,
-        field_name: str,
-        choices: list[str] | None = None,
-        password: bool | None = None,
-        expected: str | None = None,
-    ) -> str | None:
-        try:
-            current_value = getattr(self.auth_vars, field_name)
-            field_ = _auth_field_by_name[field_name]
-            metadata = field_.metadata
-            example = (
-                metadata["example"]
-                .replace("CDF_CLUSTER", self.auth_vars.cluster or "<cluster>")
-                .replace("IDP_TENANT_ID", self.auth_vars.tenant_id or "<tenant_id>")
-            )
-            display_name = metadata["display_name"]
-            default = current_value or (field_.default if isinstance(field_.default, str) else None)
-        except KeyError as e:
-            raise RuntimeError("AuthVariables not created correctly. Contact Support") from e
-
-        extra_args: dict[str, Any] = {}
-        if not password:
-            extra_args["default"] = default
-        else:
-            extra_args["password"] = True
-        if choices:
-            extra_args["choices"] = choices
-
-        if password and current_value:
-            prompt = f"You have set {display_name}, change it?"
-        elif example == default or (not example):
-            prompt = f"{display_name}?"
-        else:
-            prompt = f"{display_name}, e.g., [italic]{example}[/]?"
-
-        response: str | None
-        if self.skip_prompt:
-            response = default
-        else:
-            response = Prompt.ask(prompt, **extra_args)
-        if not expected or response == expected:
-            if isinstance(response, str) and self.verbose:
-                self.messages.append(f"  {display_name}={response} is set correctly.")
-            elif response is None:
-                self.messages.append(f"  {display_name} is not set.")
-            return response
-        self.messages.append(
-            f"[bold yellow]WARNING[/]: {display_name} is set to {response}, are you sure it shouldn't be {expected}?"
-        )
-        self.status = "warning"
-        return response
 
 
 _auth_field_by_name = {field.name: field for field in fields(AuthVariables)}
