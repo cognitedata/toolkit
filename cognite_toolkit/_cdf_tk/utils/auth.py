@@ -322,16 +322,7 @@ class EnvironmentVariables:
         return variables
 
     def as_string(self) -> str:
-        env_lines: list[str] = []
-        for field_, value in self.get_required_with_value():
-            if value is None:
-                continue
-            if isinstance(value, list):
-                value = ",".join(value)
-            if field_.metadata["is_secret"] is True:
-                value = "*" * 5
-            env_lines.append(f"  {field_.name}={value}")
-
+        env_lines: list[str] = [f"CDF_URL={self.CDF_URL}"]
         body = "\n".join(env_lines)
         return f"CDF Project {self.CDF_PROJECT!r} in cluster {self.CDF_CLUSTER!r}:\n{body}"
 
