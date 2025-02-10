@@ -11,6 +11,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
@@ -19,7 +20,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import AuthVariables
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -191,12 +192,12 @@ class CoreApp(typer.Typer):
         ] = False,
     ) -> None:
         """Build configuration files from the modules to the build directory."""
-        ToolGlobals: Union[CDFToolConfig, None] = None
+        client: Union[ToolkitClient, None] = None
         if not offline:
             with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
                 # Remove the Error message from failing to load the config
                 # This is verified in check_auth
-                ToolGlobals = CDFToolConfig()
+                client = ctx.obj.mock_client or EnvironmentVariables.create_from_environment().get_client()
 
         cmd = BuildCommand()
         cmd.run(
@@ -207,7 +208,7 @@ class CoreApp(typer.Typer):
                 selected,  # type: ignore[arg-type]
                 build_env_name,
                 no_clean,
-                ToolGlobals,
+                client,
                 on_error="raise",
             )
         )
@@ -280,10 +281,10 @@ class CoreApp(typer.Typer):
         """Deploys the configuration files in the build directory to the CDF project."""
         cmd = DeployCommand(print_warning=True)
         include = _process_include(include)
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.execute(
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
                 build_dir=build_dir,
                 build_env_name=build_env_name,
                 dry_run=dry_run,
@@ -342,10 +343,10 @@ class CoreApp(typer.Typer):
         # Override cluster and project from the options/env variables
         cmd = CleanCommand(print_warning=True)
         include = _process_include(include)
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.execute(
-                ToolGlobals,
+                env,
                 build_dir,
                 build_env_name,
                 dry_run,

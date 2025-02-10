@@ -289,18 +289,14 @@ class EnvironmentVariables:
     def get_client(self) -> ToolkitClient:
         return ToolkitClient(config=self.get_config())
 
-    @classmethod
-    def dump_environment_variables(cls, include_os: bool = True) -> dict[str, Any]:
-        global _SINGLETON
-        if _SINGLETON is None:
-            _SINGLETON = cls.create_from_environment()
+    def dump_environment_variables(self, include_os: bool = True) -> dict[str, Any]:
         variables: dict[str, Any] = {}
-        for field_ in fields(cls):
+        for field_ in fields(self):
             default_value = field_.name.casefold()
-            if hasattr(_SINGLETON, default_value):
-                value = getattr(_SINGLETON, default_value)
+            if hasattr(self, default_value):
+                value = getattr(self, default_value)
             else:
-                value = getattr(_SINGLETON, field_.name)
+                value = getattr(self, field_.name)
             if isinstance(value, list):
                 value = ",".join(value)
             if value is not None:
@@ -308,6 +304,9 @@ class EnvironmentVariables:
         if include_os:
             variables.update(os.environ)
         return variables
+
+    def as_string(self) -> str:
+        raise NotImplementedError()
 
     def get_missing_vars(self) -> set[str]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
@@ -373,9 +372,6 @@ class EnvironmentVariables:
                 value = ",".join(value)
             lines.append(f"{field_.name}={value}")
         return "\n".join(lines) + "\n"
-
-
-_SINGLETON: EnvironmentVariables | None = None
 
 
 def prompt_user_environment_variables(current: EnvironmentVariables | None = None) -> EnvironmentVariables:

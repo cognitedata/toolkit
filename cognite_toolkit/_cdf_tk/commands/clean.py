@@ -45,10 +45,10 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     humanize_collection,
     read_yaml_file,
 )
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
 
@@ -59,7 +59,7 @@ class CleanCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
         drop: bool = True,
@@ -88,7 +88,7 @@ class CleanCommand(ToolkitCommand):
         existing_resources, duplicated = worker.load_resources(
             filepaths=files,
             return_existing=True,
-            environment_variables=ToolGlobals.environment_variables(),
+            environment_variables=env_vars.dump_environment_variables(include_os=True),
             is_dry_run=True,
             verbose=verbose,
         )
@@ -200,7 +200,7 @@ class CleanCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
@@ -220,10 +220,10 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitCleanResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-
+        client = env_vars.get_client()
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
 
         action = ""
         if dry_run:
@@ -231,7 +231,7 @@ class CleanCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"[bold]Cleaning {action}[/]resource from CDF project {ToolGlobals._project} based "
+                f"[bold]Cleaning {action}[/]resource from CDF project {client.config.project} based "
                 f"on resource files in {build_dir} directory."
                 f"{environment_vars}",
                 expand=False,
@@ -261,13 +261,13 @@ class CleanCommand(ToolkitCommand):
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
+            loader = loader_cls.create_loader(client, build_dir)
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
             result = self.clean_resources(
                 loader,
-                ToolGlobals,
+                env_vars=env_vars,
                 read_modules=clean_state.read_modules,
                 drop=True,
                 dry_run=dry_run,
