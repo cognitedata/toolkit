@@ -188,9 +188,13 @@ class RawFileLoader(DataLoader):
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
                 data = read_csv(io.StringIO(file_content), dtype=str)
                 data.fillna("", inplace=True)
-                if not data.columns.empty and data.columns[0] == "key":
-                    print(f"Setting index to 'key' for {datafile.name}")
-                    data.set_index("key", inplace=True)
+                if not data.columns.empty:
+                    if table.key and table.key in data.columns:
+                        print(f"Setting index to '{table.key}' for {datafile.name}")
+                        data.set_index(table.key, inplace=True)
+                    elif data.columns[0] == "key":
+                        print(f"Setting index to 'key' for {datafile.name}")
+                        data.set_index("key", inplace=True)
             elif datafile.suffix == ".parquet":
                 data = pd.read_parquet(datafile, engine="pyarrow")
             else:

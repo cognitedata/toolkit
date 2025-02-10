@@ -29,15 +29,17 @@ class RawDatabase(WriteableCogniteResource):
 class RawTable(WriteableCogniteResource):
     db_name: str
     table_name: str
+    key: str | None = None
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> RawTable:
-        return cls(db_name=resource["dbName"], table_name=resource["tableName"])
+        return cls(db_name=resource["dbName"], table_name=resource["tableName"], key=resource.get("key"))
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         return {
             "dbName" if camel_case else "db_name": self.db_name,
             "tableName" if camel_case else "table_name": self.table_name,
+            "key": self.key,
         }
 
     def as_write(self) -> RawTable:
