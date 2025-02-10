@@ -1,3 +1,4 @@
+import itertools
 import os
 from collections.abc import Iterable, Mapping
 from dataclasses import Field, dataclass, field, fields
@@ -307,7 +308,7 @@ class EnvironmentVariables:
 
     def as_string(self) -> str:
         env_lines: list[str] = []
-        for field_, value in self.get_required_with_value():
+        for field_, value in itertools.chain(self.get_required_with_value(), self.get_optional_with_value()):
             if value is None:
                 continue
             if isinstance(value, list):
