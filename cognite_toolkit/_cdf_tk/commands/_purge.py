@@ -416,9 +416,13 @@ class PurgeCommand(ToolkitCommand):
         """Special handling of nodes as we must ensure all node types are deleted last."""
         # First find all Node Types
         node_types: set[NodeId] = set()
+        total_count = 0
         for node in loader.iterate(space=selected_space):
-            if node.type:
+            if node.type and (selected_space is None or node.space == selected_space):
                 node_types.add(NodeId(node.type.space, node.type.external_id))
+            total_count += 1
+            status.update(f"Looking up node.type {total_count:,}...")
+
         count = 0
         batch_ids: list[NodeId] = []
         for node in loader.iterate(space=selected_space):
@@ -430,7 +434,7 @@ class PurgeCommand(ToolkitCommand):
             if len(batch_ids) >= batch_size:
                 deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
                 count += deleted
-                status.update(f"Deleted {count:,} {loader.display_name}...")
+                status.update(f"Deleted {count:,}/{total_count} {loader.display_name}...")
                 batch_ids = []
 
         if batch_ids:
