@@ -547,7 +547,7 @@ if __name__ == "__main__":
                 "token_url": f'"{env_vars.idp_token_url}"',
                 "client_id": f'"{authentication.client_id}"',
                 "client_secret": f'os.environ["{secret_env_name}"]',
-                "scopes": "".join(env_vars.idp_scopes),
+                "scopes": str(env_vars.idp_scopes),
             }
             env = {
                 secret_env_name: authentication.client_secret,
@@ -565,7 +565,7 @@ if __name__ == "__main__":
                 credentials_args = {
                     "authority_url": f'"{env_vars.idp_authority_url}"',
                     "client_id": f'"{env_vars.IDP_CLIENT_ID}"',
-                    "scopes": ",".join(env_vars.idp_scopes),
+                    "scopes": str(env_vars.idp_scopes),
                 }
             elif env_vars.LOGIN_FLOW == "client_credentials":
                 credentials_cls = OAuthClientCredentials.__name__
@@ -573,7 +573,7 @@ if __name__ == "__main__":
                     "token_url": f'"{env_vars.idp_token_url}"',
                     "client_id": f'"{env_vars.IDP_CLIENT_ID}"',
                     "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
-                    "scopes": ",".join(env_vars.idp_scopes),
+                    "scopes": str(env_vars.idp_scopes),
                 }
                 env["IDP_CLIENT_SECRET"] = env_vars.IDP_CLIENT_SECRET  # type: ignore[assignment]
             else:

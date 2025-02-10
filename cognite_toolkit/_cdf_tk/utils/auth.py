@@ -299,6 +299,8 @@ class EnvironmentVariables:
 
     def dump(self, include_os: bool = True) -> dict[str, str | None]:
         variables: dict[str, Any] = {}
+        if include_os:
+            variables.update(os.environ)
         for field_ in self._fields(self):
             default_value = field_.name.casefold()
             if hasattr(self, default_value):
@@ -309,8 +311,6 @@ class EnvironmentVariables:
                 value = ",".join(value)
             if value is not None:
                 variables[field_.name] = str(value)
-        if include_os:
-            variables.update(os.environ)
         return variables
 
     def as_string(self) -> str:
