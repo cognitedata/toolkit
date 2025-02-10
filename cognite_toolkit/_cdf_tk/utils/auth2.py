@@ -147,6 +147,7 @@ class EnvironmentVariables:
         default=5,
         metadata=EnvOptions(display_name="CDF client max workers", example="5", optional=frozenset(ALL_CASES)),
     )
+    _client: ToolkitClient | None = field(init=False, default=None)
 
     def __post_init__(self) -> None:
         self.LOGIN_FLOW = self.LOGIN_FLOW.lower()  # type: ignore[assignment]
@@ -199,12 +200,16 @@ class EnvironmentVariables:
         )
 
     @classmethod
+    def _fields(cls, inst: "EnvironmentVariables | None" = None) -> tuple[Field, ...]:
+        return tuple(f for f in fields(inst or cls) if not f.name.startswith("_"))
+
+    @classmethod
     def create_from_environment(cls) -> "EnvironmentVariables":
         if missing := [key for key in ["CDF_CLUSTER", "CDF_PROJECT"] if key not in os.environ]:
             raise ToolkitMissingValueError(f"Missing environment variables: {humanize_collection(missing)}")
         args: dict[str, Any] = {
             field_.name: field_.type(os.environ[field_.name]) if field_.type is int else os.environ[field_.name]  # type: ignore[operator]
-            for field_ in fields(cls)
+            for field_ in cls._fields()
             if field_.name in os.environ
         }
         return cls(**args)
@@ -288,11 +293,13 @@ class EnvironmentVariables:
         )
 
     def get_client(self) -> ToolkitClient:
-        return ToolkitClient(config=self.get_config())
+        if self._client is None:
+            self._client = ToolkitClient(config=self.get_config())
+        return self._client
 
     def dump(self, include_os: bool = True) -> dict[str, Any]:
         variables: dict[str, Any] = {}
-        for field_ in fields(self):
+        for field_ in self._fields(self):
             default_value = field_.name.casefold()
             if hasattr(self, default_value):
                 value = getattr(self, default_value)
@@ -323,7 +330,7 @@ class EnvironmentVariables:
     def get_missing_vars(self) -> set[str]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
         missing: set[str] = set()
-        for field_ in fields(self):
+        for field_ in self._fields(self):
             required = field_.metadata["required"]
             value = getattr(self, field_.name)
             if value is None and required and ((flow, provider) in required or (flow, None) in required):
@@ -338,7 +345,7 @@ class EnvironmentVariables:
     def get_required_with_value(self) -> list[tuple[Field, Any]]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
         values: list[tuple[Field, Any]] = []
-        for field_ in fields(self):
+        for field_ in self._fields(self):
             required = field_.metadata["required"]
             if required and ((flow, provider) in required or (flow, None) in required):
                 if field_.name == "IDP_TOKEN_URL" and provider == "entra_id":
@@ -349,7 +356,7 @@ class EnvironmentVariables:
     def get_optional_with_value(self) -> list[tuple[Field, Any]]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
         values: list[tuple[Field, Any]] = []
-        for field_ in fields(self):
+        for field_ in self._fields(self):
             optional = field_.metadata["optional"]
             if optional and ((flow, provider) in optional or (flow, None) in optional):
                 if (default_name := field_.name.casefold()) and hasattr(self, default_name):
