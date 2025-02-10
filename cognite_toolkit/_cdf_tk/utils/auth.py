@@ -178,7 +178,7 @@ class EnvironmentVariables:
         alternative = ""
         if self.PROVIDER == "entra_id":
             alternative = " or provide IDP_TENANT_ID"
-        raise ToolkitKeyError(
+        raise ToolkitMissingValueError(
             f"IDP_TOKEN_URL is missing. Please provide it{alternative} in the environment variables.",
             "IDP_TOKEN_URL",
         )
@@ -206,7 +206,7 @@ class EnvironmentVariables:
         alternative = ""
         if self.PROVIDER == "entra_id":
             alternative = " or provide IDP_TENANT_ID"
-        raise ToolkitKeyError(
+        raise ToolkitMissingValueError(
             f"IDP_AUTHORITY_URL is missing. Please provide it{alternative} in the environment variables.",
             "IDP_AUTHORITY_URL",
         )
@@ -373,10 +373,11 @@ class EnvironmentVariables:
 
     def _get_value(self, field_: Field) -> Any:
         if (default_name := field_.name.casefold()) and hasattr(self, default_name):
-            value = getattr(self, default_name)
-        else:
-            value = getattr(self, field_.name)
-        return value
+            try:
+                return getattr(self, default_name)
+            except ToolkitMissingValueError:
+                ...
+        return getattr(self, field_.name)
 
     def get_optional_with_value(self) -> list[tuple[Field, Any]]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
