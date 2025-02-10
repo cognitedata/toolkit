@@ -5,33 +5,31 @@ import sys
 import time
 from pathlib import Path
 
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+
 root_folder = rf"{Path(Path(__file__).parent.absolute().parent)}"
 
 sys.path.append(root_folder)
 
 from dotenv import load_dotenv  # noqa: E402
 
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig  # noqa: E402
-
 log = logging.getLogger(__name__)
 
 
 def run() -> None:
     print("Doing post-processing activities for demo project...")
-    ToolGlobals = CDFToolConfig()
+    client = EnvironmentVariables.create_from_environment().get_client()
     try:
         print("Running tr_asset_oid_workmate_asset_hierarchy_example...")
-        ToolGlobals.toolkit_client.transformations.run(
-            transformation_external_id="tr_asset_oid_workmate_asset_hierarchy_example"
-        )
+        client.transformations.run(transformation_external_id="tr_asset_oid_workmate_asset_hierarchy_example")
         print("Running tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities...")
-        ToolGlobals.toolkit_client.transformations.run(
+        client.transformations.run(
             transformation_external_id="tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities"
         )
         # Wait until assets are in the hierarchy
         time.sleep(10.0)
         print("Running tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm...")
-        ToolGlobals.toolkit_client.transformations.run(
+        client.transformations.run(
             transformation_external_id="tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm"
         )
     except Exception as e:

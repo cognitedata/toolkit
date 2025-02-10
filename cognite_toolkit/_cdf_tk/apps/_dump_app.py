@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 
 
 class DumpApp(typer.Typer):
@@ -84,7 +84,7 @@ class DumpApp(typer.Typer):
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
             selected_data_model = DataModelId(*data_model_id)
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -140,7 +140,7 @@ class DumpApp(typer.Typer):
                     "Workflow ID must have at least 1 part: external_id and, optionally, version."
                 )
             selected_workflow = WorkflowVersionId(*workflow_id)
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -189,7 +189,7 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected transformation as yaml to the folder specified, defaults to /tmp."""
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -238,7 +238,7 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected group as yaml to the folder specified, defaults to /tmp."""
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -290,7 +290,7 @@ class DumpApp(typer.Typer):
         The intended use case is to dump nodes which are used as configuration. It is not intended to dump
         large amounts of data.
         """
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
         selected_view_id: Union[None, ViewId] = None
         if view_id is not None:
             if len(view_id) <= 2:
@@ -373,9 +373,10 @@ class DumpApp(typer.Typer):
     ) -> None:
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
         cmd = DumpAssetsCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
+                client,
                 hierarchy,
                 data_set,
                 output_dir,
@@ -449,9 +450,10 @@ class DumpApp(typer.Typer):
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpTimeSeriesCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
+                client,
                 data_set,
                 hierarchy,
                 output_dir,
