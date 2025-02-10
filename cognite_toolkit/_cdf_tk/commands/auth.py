@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingCapabilityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables, prompt_user
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables, prompt_user_environment_variables
 
 from ._base import ToolkitCommand
 
@@ -83,7 +83,7 @@ class AuthCommand(ToolkitCommand):
             ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
 
         if ask_user or not env_vars:
-            env_vars = prompt_user(env_vars)
+            env_vars = prompt_user_environment_variables(env_vars)
             self._store_dotenv(env_vars)
 
         client = env_vars.get_client()

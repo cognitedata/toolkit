@@ -378,7 +378,7 @@ class EnvironmentVariables:
 _SINGLETON: EnvironmentVariables | None = None
 
 
-def prompt_user(current: EnvironmentVariables | None = None) -> EnvironmentVariables:
+def prompt_user_environment_variables(current: EnvironmentVariables | None = None) -> EnvironmentVariables:
     login_flow = questionary.select(
         "Choose the login flow",
         choices=[
@@ -441,5 +441,5 @@ def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: s
 
 if __name__ == "__main__":
     # For easy testing
-    envs = prompt_user()
+    envs = prompt_user_environment_variables()
     print(envs)
