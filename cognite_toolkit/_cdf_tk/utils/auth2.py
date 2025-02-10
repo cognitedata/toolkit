@@ -306,7 +306,18 @@ class EnvironmentVariables:
         return variables
 
     def as_string(self) -> str:
-        raise NotImplementedError()
+        env_lines: list[str] = []
+        for field_, value in self.get_required_with_value():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                value = ",".join(value)
+            if field_.metadata["is_secret"]:
+                value = "*" * 5
+            env_lines.append(f"  {field_.name}={value}")
+
+        body = "\n".join(env_lines)
+        return f"CDF Project {self.CDF_PROJECT} in cluster {self.CDF_CLUSTER}:\n{body}"
 
     def get_missing_vars(self) -> set[str]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
