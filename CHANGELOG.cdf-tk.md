@@ -19,6 +19,7 @@ Changes are grouped as follows:
 
 ### Fixed
 
+- The `cdf purge space` no longer tries to delete nodes in other spaces.
 - The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
 
 ## [0.4.5] - 2025-02-06
