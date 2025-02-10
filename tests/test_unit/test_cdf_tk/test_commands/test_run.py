@@ -69,6 +69,18 @@ class TestRunFunction:
         )
         assert toolkit_client_approval.mock_client.functions.call.called
 
+    @patch.dict(
+        os.environ,
+        {
+            "IDP_WF_CLIENT_ID": "dummy",
+            "IDP_WF_CLIENT_SECRET": "dummy",
+            "IDP_FUN_CLIENT_ID": "dummy",
+            "IDP_FUN_CLIENT_SECRET": "dummy",
+            "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+            "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
+            "NON-SECRET": "this-is-not-a-secret",
+        },
+    )
     def test_run_local_function(self, env_vars_with_client: EnvironmentVariables) -> None:
         cmd = RunFunctionCommand()
 
@@ -81,7 +93,18 @@ class TestRunFunction:
             rebuild_env=False,
         )
 
-    @patch.dict(os.environ, {"IDP_WF_CLIENT_ID": "dummy", "IDP_WF_CLIENT_SECRET": "dummy"})
+    @patch.dict(
+        os.environ,
+        {
+            "IDP_WF_CLIENT_ID": "dummy",
+            "IDP_WF_CLIENT_SECRET": "dummy",
+            "IDP_FUN_CLIENT_ID": "dummy",
+            "IDP_FUN_CLIENT_SECRET": "dummy",
+            "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+            "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
+            "NON-SECRET": "this-is-not-a-secret",
+        },
+    )
     def test_run_local_function_with_workflow(self, env_vars_with_client: EnvironmentVariables) -> None:
         cmd = RunFunctionCommand()
 

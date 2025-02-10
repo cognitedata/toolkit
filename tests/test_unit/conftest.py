@@ -126,17 +126,6 @@ def cdf_tool_mock(
 
 
 @pytest.fixture
-def cdf_tool_real(toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch) -> CDFToolConfig:
-    monkeypatch.setenv("CDF_PROJECT", "pytest-project")
-    monkeypatch.setenv("CDF_CLUSTER", "bluefield")
-    monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
-
-    return CDFToolConfig(cluster="bluefield", project="pytest-project")
-
-
-@pytest.fixture
 def typer_context(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> typer.Context:
     context = MagicMock(spec=typer.Context)
     context.obj = Common(override_env=True)
@@ -144,15 +133,7 @@ def typer_context(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: Approva
 
 
 @pytest.fixture(scope="session")
-def typer_context_without_cdf_tool() -> typer.Context:
-    context = MagicMock(spec=typer.Context)
-    context.obj = Common(override_env=True)
-    return context
-
-
-@pytest.fixture(scope="session")
 def organization_dir(
-    typer_context_without_cdf_tool: typer.Context,
     local_tmp_repo_path: Path,
 ) -> Path:
     organization_folder = "pytest-org"
@@ -168,7 +149,6 @@ def organization_dir(
 
 @pytest.fixture
 def organization_dir_mutable(
-    typer_context_without_cdf_tool: typer.Context,
     local_tmp_repo_path: Path,
 ) -> Path:
     """This is used in tests were the source module files are modified. For example, cdf pull commands."""
