@@ -322,7 +322,7 @@ class EnvironmentVariables:
         return variables
 
     def as_string(self) -> str:
-        env_lines: list[str] = [f"CDF_URL={self.CDF_URL}"]
+        env_lines: list[str] = [f"CDF_URL={self.cdf_url}"]
         body = "\n".join(env_lines)
         return f"CDF Project {self.CDF_PROJECT!r} in cluster {self.CDF_CLUSTER!r}:\n{body}"
 
