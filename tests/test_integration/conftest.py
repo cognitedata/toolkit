@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import CollectCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from tests.constants import REPO_ROOT
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -52,8 +52,11 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
 
 
 @pytest.fixture(scope="session")
-def cdf_tool_config(cognite_client: CogniteClient) -> CDFToolConfig:
-    return CDFToolConfig()
+def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
+    env_vars = EnvironmentVariables.create_from_environment()
+    # Ensure we use the client above that has CLIENT NAME set to the test name
+    env_vars._client = toolkit_client
+    return env_vars
 
 
 @pytest.fixture(scope="session")
