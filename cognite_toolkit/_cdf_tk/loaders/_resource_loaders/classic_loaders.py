@@ -117,10 +117,14 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        if not ids:
+            return 0
         internal_ids, external_ids = self._split_ids(ids)
         try:
             self.client.assets.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
+        except CogniteNotFoundError as e:
+            # Do a CogniteNotFoundError instead of passing 'ignore_unknown_ids=True' to the delete method
+            # to obtain an accurate list of deleted assets.
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
                 internal_ids, external_ids = self._split_ids(existing)
@@ -135,7 +139,13 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Asset]:
-        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+        return iter(
+            self.client.assets(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                # This is used in the purge command to delete the children before the parent.
+                aggregated_properties=["depth", "child_count", "path"],
+            )
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
