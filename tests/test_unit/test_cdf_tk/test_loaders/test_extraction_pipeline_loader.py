@@ -34,7 +34,7 @@ class TestExtractionPipelineDependencies:
     """
 
     def test_load_extraction_pipeline_upsert_update_one(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
@@ -48,7 +48,7 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = ExtractionPipelineConfigLoader.create_loader(toolkit_client_approval.mock_client)
         worker = ResourceWorker(loader)
         to_create, changed, to_delete, unchanged, _ = worker.load_resources([local_file])
         assert {

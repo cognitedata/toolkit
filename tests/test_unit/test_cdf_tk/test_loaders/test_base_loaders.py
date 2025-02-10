@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.utils import (
     CDFToolConfig,
     tmp_build_directory,
 )
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
@@ -68,19 +69,21 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 def test_loader_class(
     loader_cls: type[ResourceLoader],
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     data_regression: DataRegressionFixture,
 ):
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
-    cmd.deploy_resources(loader, cdf_tool_mock, BuildEnvironment(), dry_run=False)
+    loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+    cmd.deploy_resources(loader, env_vars_with_client, BuildEnvironment(), dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestDeployResources:
-    def test_deploy_resource_order(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
+    def test_deploy_resource_order(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ):
         build_env_name = "dev"
         cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
@@ -93,8 +96,8 @@ class TestDeployResources:
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(
-            ViewLoader.create_loader(cdf_tool_mock.toolkit_client, BUILD_DIR),
-            cdf_tool_mock,
+            ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
+            env_vars_with_client,
             BuildEnvironment(),
             dry_run=False,
         )
