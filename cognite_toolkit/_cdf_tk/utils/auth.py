@@ -349,11 +349,7 @@ class EnvironmentVariables:
                 missing.add(field_.name)
 
         # Special cases, if IDP_TENANT_ID is missing.
-        if (
-            (provider, flow) == ("client_crendentials", "entra_id")
-            and "IDP_TENANT_ID" in missing
-            and self.IDP_TOKEN_URL
-        ):
+        if (flow, provider) == ("client_credentials", "entra_id") and "IDP_TENANT_ID" in missing and self.IDP_TOKEN_URL:
             missing -= {"IDP_TENANT_ID"}
         if (flow, provider) == ("interactive", "entra_id") and "IDP_TENANT_ID" in missing and self.IDP_AUTHORITY_URL:
             missing -= {"IDP_TENANT_ID"}
