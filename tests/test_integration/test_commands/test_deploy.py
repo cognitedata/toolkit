@@ -14,7 +14,6 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     RESOURCE_LOADER_LIST,
     FunctionLoader,
     GraphQLLoader,
@@ -60,7 +59,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
             drop=False,
             drop_data=False,
             force_update=False,
-            include=list(LOADER_BY_FOLDER_NAME.keys()),
+            include=None,
             verbose=True,
         )
 
@@ -102,7 +101,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
             drop=False,
             drop_data=False,
             force_update=False,
-            include=list(LOADER_BY_FOLDER_NAME.keys()),
+            include=None,
             verbose=True,
         )
 
