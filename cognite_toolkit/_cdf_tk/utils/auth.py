@@ -1,4 +1,3 @@
-import itertools
 import os
 from collections.abc import Iterable, Mapping
 from dataclasses import Field, dataclass, field, fields
@@ -93,7 +92,7 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="token URL",
             example="https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
-            required=frozenset([("client_credentials", "other"), ("interactive", None)]),
+            required=frozenset([("client_credentials", "other")]),
             optional=frozenset([("client_credentials", "entra_id")]),
         ),
     )
@@ -102,7 +101,9 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="Tenant id for MS Entra",
             example="mytenant.onmicrosoft.com",
-            required=frozenset([("device_code", "entra_id"), ("client_credentials", "entra_id")]),
+            required=frozenset(
+                [("device_code", "entra_id"), ("client_credentials", "entra_id"), ("interactive", "entra_id")]
+            ),
         ),
     )
     IDP_AUDIENCE: str | None = field(
@@ -129,7 +130,8 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="IDP authority URL",
             example="https://login.microsoftonline.com/{IDP_TENANT_ID}",
-            optional=frozenset([("interactive", None)]),
+            required=frozenset([("interactive", "other")]),
+            optional=frozenset([("interactive", "entra_id")]),
         ),
     )
     IDP_DISCOVERY_URL: str | None = field(
@@ -325,17 +327,17 @@ class EnvironmentVariables:
 
     def as_string(self) -> str:
         env_lines: list[str] = []
-        for field_, value in itertools.chain(self.get_required_with_value(), self.get_optional_with_value()):
+        for field_, value in self.get_required_with_value():
             if value is None:
                 continue
             if isinstance(value, list):
                 value = ",".join(value)
-            if field_.metadata["is_secret"]:
+            if field_.metadata["is_secret"] is True:
                 value = "*" * 5
             env_lines.append(f"  {field_.name}={value}")
 
         body = "\n".join(env_lines)
-        return f"CDF Project {self.CDF_PROJECT} in cluster {self.CDF_CLUSTER}:\n{body}"
+        return f"CDF Project {self.CDF_PROJECT!r} in cluster {self.CDF_CLUSTER!r}:\n{body}"
 
     def get_missing_vars(self) -> set[str]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
@@ -346,8 +348,14 @@ class EnvironmentVariables:
             if value is None and required and ((flow, provider) in required or (flow, None) in required):
                 missing.add(field_.name)
 
-        if provider == "entra_id" and "IDP_TENANT_ID" in missing and self.IDP_TOKEN_URL:
-            # Special case, if IDP_TENANT_ID is missing, but IDP_TOKEN_URL is set, we can derive it from there.
+        # Special cases, if IDP_TENANT_ID is missing.
+        if (
+            (provider, flow) == ("client_crendentials", "entra_id")
+            and "IDP_TENANT_ID" in missing
+            and self.IDP_TOKEN_URL
+        ):
+            missing -= {"IDP_TENANT_ID"}
+        if (flow, provider) == ("interactive", "entra_id") and "IDP_TENANT_ID" in missing and self.IDP_AUTHORITY_URL:
             missing -= {"IDP_TENANT_ID"}
         return missing
 
