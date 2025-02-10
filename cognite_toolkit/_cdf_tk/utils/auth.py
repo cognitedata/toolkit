@@ -336,10 +336,9 @@ class EnvironmentVariables:
             if value is None and required and ((flow, provider) in required or (flow, None) in required):
                 missing.add(field_.name)
 
-        if provider == "entra_id" and "IDP_TOKEN_URL" in missing:
-            missing -= {"IDP_TOKEN_URL"}
-            if self.IDP_TENANT_ID is None:
-                missing.add("IDP_TENANT_ID")
+        if provider == "entra_id" and "IDP_TENANT_ID" in missing and self.IDP_TOKEN_URL:
+            # Special case, if IDP_TENANT_ID is missing, but IDP_TOKEN_URL is set, we can derive it from there.
+            missing -= {"IDP_TENANT_ID"}
         return missing
 
     def get_required_with_value(self) -> list[tuple[Field, Any]]:
