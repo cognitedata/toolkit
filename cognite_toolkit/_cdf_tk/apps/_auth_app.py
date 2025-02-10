@@ -93,7 +93,7 @@ class AuthApp(typer.Typer):
     ) -> None:
         """Verify that the current user or service principal has the required capabilities to run the CDF Toolkit commands."""
         cmd = AuthCommand()
-        client = ctx.obj.mock_client or EnvironmentVariables.create_from_environment().get_client()
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd.run(
             lambda: cmd.verify(

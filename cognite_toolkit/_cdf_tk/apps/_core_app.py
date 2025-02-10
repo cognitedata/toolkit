@@ -202,7 +202,7 @@ class CoreApp(typer.Typer):
             with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
                 # Remove the Error message from failing to load the config
                 # This is verified in check_auth
-                client = ctx.obj.mock_client or EnvironmentVariables.create_from_environment().get_client()
+                client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = BuildCommand()
         cmd.run(
