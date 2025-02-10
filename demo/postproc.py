@@ -5,7 +5,7 @@ import sys
 import time
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 root_folder = rf"{Path(Path(__file__).parent.absolute().parent)}"
 

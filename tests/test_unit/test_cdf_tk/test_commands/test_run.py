@@ -13,7 +13,7 @@ from cognite.client.data_classes.workflows import (
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.data_classes import ModuleResources
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

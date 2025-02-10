@@ -4,7 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class AuthApp(typer.Typer):

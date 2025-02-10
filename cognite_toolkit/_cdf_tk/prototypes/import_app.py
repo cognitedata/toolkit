@@ -3,7 +3,7 @@ from pathlib import Path
 import typer
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from .commands.import_ import ImportTransformationCLI
 

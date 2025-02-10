@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
 )
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client.client import ApprovalToolkitClient
 

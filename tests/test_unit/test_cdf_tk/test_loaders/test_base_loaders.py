@@ -45,7 +45,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     get_loader,
 )
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST

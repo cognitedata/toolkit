@@ -49,7 +49,7 @@ from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoad
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import in_dict
-from cognite_toolkit._cdf_tk.utils.auth2 import CLIENT_NAME, EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand

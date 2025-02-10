@@ -51,7 +51,7 @@ from cognite_toolkit._cdf_tk.utils import (
     read_yaml_file,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import (
     is_module_path,

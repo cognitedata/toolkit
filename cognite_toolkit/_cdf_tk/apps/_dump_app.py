@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class DumpApp(typer.Typer):

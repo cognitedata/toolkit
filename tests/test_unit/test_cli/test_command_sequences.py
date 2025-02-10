@@ -18,7 +18,7 @@ from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
 from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file

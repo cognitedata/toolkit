@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCo
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, MODULES
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class CogniteToolkitDemo:

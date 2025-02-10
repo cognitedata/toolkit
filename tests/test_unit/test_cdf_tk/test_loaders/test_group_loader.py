@@ -20,7 +20,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
     SpaceLoader,
 )
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 

@@ -52,7 +52,7 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
     ToolkitDependenciesIncludedWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
 

@@ -58,7 +58,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingCapabilityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables, prompt_user_environment_variables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables, prompt_user_environment_variables
 
 from ._base import ToolkitCommand
 

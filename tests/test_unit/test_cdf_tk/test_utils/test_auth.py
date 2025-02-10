@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingValueError
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 PROJECT_AND_CLUSTER = {
     "CDF_CLUSTER": "toolkit-cluster",

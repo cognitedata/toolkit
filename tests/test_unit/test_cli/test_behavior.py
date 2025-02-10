@@ -14,7 +14,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
     PROJECT_FOR_TEST,

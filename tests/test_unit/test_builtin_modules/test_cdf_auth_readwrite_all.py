@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltModule,
 )
 from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 SKIP_ACLS = frozenset(

@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cognite_toolkit._cdf_tk.loaders import ResourceWorker, ViewLoader
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class TestDeployCommand:

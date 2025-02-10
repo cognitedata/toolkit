@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 CDF_TOML = CDFToml.load(Path.cwd())
 

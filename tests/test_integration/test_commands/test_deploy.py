@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
     StreamlitLoader,
 )
-from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
 
