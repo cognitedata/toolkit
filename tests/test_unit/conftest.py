@@ -4,16 +4,14 @@ import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
-from tests.constants import REPO_ROOT, chdir
+from tests.constants import REPO_ROOT
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
 
@@ -63,64 +61,6 @@ def local_tmp_repo_path() -> Iterator[Path]:
     RepoCommand(silent=True, skip_git_verify=True).init(repo_path, host="GitHub")
     yield repo_path
     shutil.rmtree(repo_path, ignore_errors=True)
-
-
-@pytest.fixture(scope="function")
-def cdf_tool_mock(
-    toolkit_client_approval: ApprovalToolkitClient,
-    monkeypatch: MonkeyPatch,
-) -> Iterator[CDFToolConfig]:
-    environment_variables = {
-        "LOGIN_FLOW": "client_credentials",
-        "CDF_PROJECT": "pytest-project",
-        "CDF_CLUSTER": "bluefield",
-        "IDP_TOKEN_URL": "dummy",
-        "IDP_CLIENT_ID": "dummy",
-        "IDP_CLIENT_SECRET": "dummy",
-        "IDP_TENANT_ID": "dummy",
-        "IDP_AUDIENCE": "https://bluefield.cognitedata.com",
-        "IDP_SCOPES": "https://bluefield.cognitedata.com/.default",
-        "CDF_URL": "https://bluefield.cognitedata.com",
-        "IDP_FUN_CLIENT_ID": "dummy",
-        "IDP_FUN_CLIENT_SECRET": "dummy",
-        "IDP_WF_CLIENT_ID": "dummy",
-        "IDP_WF_CLIENT_SECRET": "dummy",
-        # The secrets in the cdf_ingestion workflow
-        "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
-        "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
-        "NON-SECRET": "this-is-not-a-secret",
-    }
-    existing = {}
-    for key, value in environment_variables.items():
-        existing[key] = os.environ.get(key)
-        os.environ[key] = value
-
-    with chdir(REPO_ROOT):
-        real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
-        # Build must always be executed from root of the project
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-        cdf_tool._login_flow = "client_credentials"
-        cdf_tool._scopes = ["https://bluefield.cognitedata.com/.default"]
-        cdf_tool._credentials_args = {
-            "client_id": "dummy-123",
-            "client_secret": "dummy-secret",
-            "token_url": "dummy-url",
-        }
-        cdf_tool._project = "pytest-project"
-        cdf_tool._client_name = "pytest"
-        cdf_tool._cdf_url = "https://bluefield.cognitedata.com"
-        cdf_tool._token_url = "dummy-url"
-
-        cdf_tool.environment_variables.side_effect = real_config.environment_variables
-
-        yield cdf_tool
-
-    for key, value in existing.items():
-        if value is None:
-            del os.environ[key]
-        else:
-            os.environ[key] = value
 
 
 @pytest.fixture(scope="session")
