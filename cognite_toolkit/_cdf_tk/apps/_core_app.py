@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_cicd_environment
-from cognite_toolkit._cdf_tk.utils.auth import AuthVariables
 from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
 
@@ -118,8 +117,14 @@ class CoreApp(typer.Typer):
             if not (dotenv_file := Path.cwd() / ".env").is_file():
                 if not (dotenv_file := Path.cwd().parent / ".env").is_file():
                     if get_cicd_environment() == "local":
-                        auth_vars = AuthVariables.from_env()
-                        if not auth_vars.is_complete:
+                        warn = False
+                        try:
+                            env_vars = EnvironmentVariables.create_from_environment()
+                        except Exception:
+                            warn = True
+                        else:
+                            warn = bool(env_vars.get_missing_vars())
+                        if warn:
                             print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
 
         if dotenv_file.is_file():
