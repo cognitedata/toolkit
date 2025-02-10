@@ -88,7 +88,7 @@ class CleanCommand(ToolkitCommand):
         existing_resources, duplicated = worker.load_resources(
             filepaths=files,
             return_existing=True,
-            environment_variables=env_vars.dump_environment_variables(include_os=True),
+            environment_variables=env_vars.dump(include_os=True),
             is_dry_run=True,
             verbose=verbose,
         )

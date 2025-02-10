@@ -222,7 +222,7 @@ class DeployCommand(ToolkitCommand):
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
             to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
                 files,
-                environment_variables=env_vars.dump_environment_variables(include_os=True),
+                environment_variables=env_vars.dump(include_os=True),
                 is_dry_run=dry_run,
                 force_update=force_update,
                 verbose=verbose,

@@ -6,7 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -164,7 +164,7 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Pull a module from CDF. This will overwrite the local files with the latest version from CDF."""
         cmd = PullCommand()
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.pull_module(
                 module_name_or_path=module_name_or_path,
@@ -172,7 +172,7 @@ class ModulesApp(typer.Typer):
                 env=build_env,
                 dry_run=dry_run,
                 verbose=verbose,
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
             )
         )
 

@@ -289,7 +289,7 @@ class EnvironmentVariables:
     def get_client(self) -> ToolkitClient:
         return ToolkitClient(config=self.get_config())
 
-    def dump_environment_variables(self, include_os: bool = True) -> dict[str, Any]:
+    def dump(self, include_os: bool = True) -> dict[str, Any]:
         variables: dict[str, Any] = {}
         for field_ in fields(self):
             default_value = field_.name.casefold()
@@ -392,7 +392,7 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
     ).ask()
     cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").ask()
     cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").ask()
-    args = current.dump_environment_variables(include_os=False) if current else {}
+    args = current.dump(include_os=False) if current else {}
     args.update(
         {"LOGIN_FLOW": login_flow, "CDF_CLUSTER": cdf_cluster, "CDF_PROJECT": cdf_project, "PROVIDER": provider}
     )
