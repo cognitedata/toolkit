@@ -37,3 +37,4 @@ Transformation:
   query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
     \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
     \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `ingestion`.`timeseries_metadata`"
+deleted: {}
