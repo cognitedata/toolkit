@@ -20,7 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
-- The `cdf purde dataset` now accounts for the hierarchy when deleting assets.
+- The `cdf purge dataset` now accounts for the hierarchy when deleting assets.
 
 ## [0.4.5] - 2025-02-06
 

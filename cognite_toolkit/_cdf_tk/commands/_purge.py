@@ -116,8 +116,8 @@ class PurgeCommand(ToolkitCommand):
         if space is None:
             spaces = client.data_modeling.spaces.list(limit=-1, include_global=False)
             selected_space = questionary.select(
-                "Which space are you going to purge"
-                " (delete all data models, views, containers, nodes and edges in space)?",
+                "Which space do you want to purge"
+                " (including all data models, views, containers, nodes and edges within that space)?",
                 sorted([space.space for space in spaces]),
             ).ask()
         else:
