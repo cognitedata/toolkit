@@ -3,7 +3,6 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-import typer
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSet, GroupWrite, Transformation, WorkflowTrigger
@@ -72,7 +71,7 @@ def test_inject_custom_environmental_variables(
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) -> None:
+def test_duplicated_modules(build_tmp_path: Path) -> None:
     config = MagicMock(spec=BuildConfigYAML)
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
@@ -230,7 +229,6 @@ def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
-    typer_context: typer.Context,
 ) -> None:
     # Create a datamodel and append it to the approval client
     space = dm.Space("my_space", is_global=False, last_updated_time=0, created_time=0)

@@ -18,6 +18,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -59,7 +60,10 @@ class TestExtractionPipelineDependencies:
         } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
     ) -> None:
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
@@ -75,9 +79,9 @@ class TestExtractionPipelineDependencies:
         local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = ExtractionPipelineConfigLoader.create_loader(env_vars_with_client.get_client())
         with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
-            res = cmd.clean_resources(loader, cdf_tool_mock, [], dry_run=True, drop=True)
+            res = cmd.clean_resources(loader, env_vars_with_client, [], dry_run=True, drop=True)
             assert res is not None
             assert res.deleted == 1
 

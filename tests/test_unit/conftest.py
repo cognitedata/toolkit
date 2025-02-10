@@ -7,10 +7,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.apps._core_app import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
@@ -123,13 +121,6 @@ def cdf_tool_mock(
             del os.environ[key]
         else:
             os.environ[key] = value
-
-
-@pytest.fixture
-def typer_context(cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient) -> typer.Context:
-    context = MagicMock(spec=typer.Context)
-    context.obj = Common(override_env=True)
-    return context
 
 
 @pytest.fixture(scope="session")

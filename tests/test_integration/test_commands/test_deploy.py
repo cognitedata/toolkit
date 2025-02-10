@@ -41,7 +41,7 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
         build_env_name="dev",
         no_clean=False,
         selected=None,
-        ToolGlobals=cdf_tool_config,
+        client=None,
     )
 
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
