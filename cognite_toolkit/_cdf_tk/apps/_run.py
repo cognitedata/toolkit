@@ -109,8 +109,8 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified workflow."""
         cmd = RunWorkflowCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd.run(lambda: cmd.run_workflow(client, organization_dir, env_name, external_id, version, wait))
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
 
 
 class RunFunctionApp(typer.Typer):
@@ -179,10 +179,10 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.run_local(
-                client,
+                env_vars,
                 organization_dir,
                 env_name,
                 external_id,
@@ -244,5 +244,5 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
-        cmd.run(lambda: cmd.run_cdf(client, organization_dir, env_name, external_id, schedule, wait))
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))
