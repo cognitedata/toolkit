@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Hashable
-from graphlib import TopologicalSorter
+from graphlib import CycleError, TopologicalSorter
 from typing import cast
 
 import questionary
@@ -415,11 +415,12 @@ class PurgeCommand(ToolkitCommand):
     ) -> int:
         """Special handling of nodes as we must ensure all node types are deleted last."""
         # First find all Node Types
-        node_types: set[NodeId] = set()
+        node_types: dict[NodeId, set[NodeId]] = {}
         total_count = 0
         for node in loader.iterate(space=selected_space):
             if node.type and (selected_space is None or node.space == selected_space):
-                node_types.add(NodeId(node.type.space, node.type.external_id))
+                node_id = NodeId(node.type.space, node.type.external_id)
+                node_types[node_id] = set()
             total_count += 1
             status.update(f"Looking up node.type {total_count:,}...")
 
@@ -441,8 +442,23 @@ class PurgeCommand(ToolkitCommand):
             deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
             count += deleted
 
-        # Finally delete all node types
-        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
+        # Finally delete all node types, first do a lookup and topological sort to ensure deleting in the right order.
+        # Note this is an edge case, and is a result of some strange usage. But we need to handle it.
+        for node_type in loader.retrieve(list(node_types.keys())):
+            if node_type.type:
+                required = NodeId(node_type.type.space, node_type.type.external_id)
+                if required in node_types:
+                    node_types[required].add(node_type.as_id())
+
+        try:
+            node_type_ids = list(TopologicalSorter(node_types).static_order())
+        except CycleError as e:
+            self.warn(
+                HighSeverityWarning(f"Failed to delete node-types: Cycle detected. {e.args}"), console=status.console
+            )
+            return count
+
+        deleted, batch_size = self._delete_node_batch(node_type_ids, loader, batch_size, status.console, verbose)
         count += deleted
         if count > 0:
             status.console.print(f"Finished purging {loader.display_name}.")
@@ -467,13 +483,14 @@ class PurgeCommand(ToolkitCommand):
                     except CogniteAPIError:
                         is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
                         instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
-                        self.warn(
-                            HighSeverityWarning(
-                                f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
+                        if instance_spaces:
+                            suffix = (
+                                "It is used as a node type in the following spaces, "
                                 f"which must be purged first: {humanize_collection(instance_spaces)}"
-                            ),
-                            console=console,
-                        )
+                            )
+                        else:
+                            suffix = "It is used as a node type, but failed to find the spaces where it is used."
+                        self.warn(HighSeverityWarning(f"Failed to delete {node_id!r}. {suffix}"), console=console)
             elif (
                 delete_error.code == 408
                 and "timed out" in delete_error.message.casefold()

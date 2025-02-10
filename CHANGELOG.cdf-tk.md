@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The `cdf purge space` no longer tries to delete nodes in other spaces.
+- The `cdf purge space` now sorts node types topologically to delete them in the correct order.
 - The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
 - The `cdf purge dataset` now accounts for the hierarchy when deleting assets.
 
