@@ -201,7 +201,7 @@ class EnvironmentVariables:
     def idp_authority_url(self) -> str:
         if self.IDP_AUTHORITY_URL:
             return self.IDP_AUTHORITY_URL
-        if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
+        if self.PROVIDER == "entra_id" and self.idp_tenant_id:
             return f"https://login.microsoftonline.com/{self.idp_tenant_id}"
         alternative = ""
         if self.PROVIDER == "entra_id":
@@ -314,11 +314,7 @@ class EnvironmentVariables:
         if include_os:
             variables.update(os.environ)
         for field_ in self._fields(self):
-            default_value = field_.name.casefold()
-            if hasattr(self, default_value):
-                value = getattr(self, default_value)
-            else:
-                value = getattr(self, field_.name)
+            value = self._get_value(field_)
             if isinstance(value, list):
                 value = ",".join(value)
             if value is not None:
