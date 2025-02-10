@@ -156,6 +156,16 @@ class EnvironmentVariables:
 
     # All derived properties
     @property
+    def idp_tenant_id(self) -> str:
+        if self.IDP_TENANT_ID:
+            return self.IDP_TENANT_ID
+        if self.PROVIDER == "entra_id" and self.IDP_TOKEN_URL:
+            return self.IDP_TOKEN_URL.removeprefix("https://login.microsoftonline.com/").removesuffix(
+                "/oauth2/v2.0/token"
+            )
+        raise ToolkitMissingValueError("IDP_TENANT_ID is missing", "IDP_TENANT_ID")
+
+    @property
     def idp_token_url(self) -> str:
         if self.PROVIDER == "cdf":
             return "https://auth.cognite.com/oauth2/token"
@@ -190,7 +200,7 @@ class EnvironmentVariables:
         if self.IDP_AUTHORITY_URL:
             return self.IDP_AUTHORITY_URL
         if self.PROVIDER == "entra_id" and self.IDP_TENANT_ID:
-            return f"https://login.microsoftonline.com/{self.IDP_TENANT_ID}"
+            return f"https://login.microsoftonline.com/{self.idp_tenant_id}"
         alternative = ""
         if self.PROVIDER == "entra_id":
             alternative = " or provide IDP_TENANT_ID"
@@ -349,8 +359,16 @@ class EnvironmentVariables:
             if required and ((flow, provider) in required or (flow, None) in required):
                 if field_.name == "IDP_TOKEN_URL" and provider == "entra_id":
                     continue
-                values.append((field_, getattr(self, field_.name)))
+                value = self._get_value(field_)
+                values.append((field_, value))
         return values
+
+    def _get_value(self, field_: Field) -> Any:
+        if (default_name := field_.name.casefold()) and hasattr(self, default_name):
+            value = getattr(self, default_name)
+        else:
+            value = getattr(self, field_.name)
+        return value
 
     def get_optional_with_value(self) -> list[tuple[Field, Any]]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
@@ -358,10 +376,7 @@ class EnvironmentVariables:
         for field_ in self._fields(self):
             optional = field_.metadata["optional"]
             if optional and ((flow, provider) in optional or (flow, None) in optional):
-                if (default_name := field_.name.casefold()) and hasattr(self, default_name):
-                    value = getattr(self, default_name)
-                else:
-                    value = getattr(self, field_.name)
+                value = self._get_value(field_)
                 values.append((field_, value))
         return values
 
