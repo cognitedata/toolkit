@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.apps._core_app import Common
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, RepoCommand
 from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 from tests.constants import REPO_ROOT, chdir
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import PrintCapture
@@ -28,6 +29,21 @@ def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     with monkeypatch_toolkit_client() as toolkit_client:
         approval_client = ApprovalToolkitClient(toolkit_client)
         yield approval_client
+
+
+@pytest.fixture(scope="function")
+def env_vars_with_client(toolkit_client_approval: ApprovalToolkitClient) -> EnvironmentVariables:
+    env_vars = EnvironmentVariables(
+        CDF_CLUSTER="bluefield",
+        CDF_PROJECT="pytest-project",
+        LOGIN_FLOW="client_credentials",
+        PROVIDER="entra_id",
+        IDP_CLIENT_ID="dummy-123",
+        IDP_CLIENT_SECRET="dummy-secret",
+        IDP_TENANT_ID="dummy-domain",
+    )
+    env_vars._client = toolkit_client_approval.mock_client
+    return env_vars
 
 
 @pytest.fixture(scope="session")

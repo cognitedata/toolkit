@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
+    ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -51,6 +52,8 @@ from cognite_toolkit._cdf_tk.utils import (
 from cognite_toolkit._cdf_tk.utils.auth2 import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
+
+AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 class CleanCommand(ToolkitCommand):
@@ -204,7 +207,7 @@ class CleanCommand(ToolkitCommand):
         build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
-        include: list[str],
+        include: list[str] | None,
         verbose: bool,
     ) -> None:
         if not build_dir.exists():
@@ -317,3 +320,12 @@ class CleanCommand(ToolkitCommand):
                     )
                 )
         return selected_loaders
+
+    @staticmethod
+    def _process_include(include: list[str] | None) -> list[str]:
+        if include and (invalid_types := set(include).difference(AVAILABLE_DATA_TYPES)):
+            raise ToolkitValidationError(
+                f"Invalid resource types specified: {invalid_types}, available types: {AVAILABLE_DATA_TYPES}"
+            )
+        include = include or list(AVAILABLE_DATA_TYPES)
+        return include

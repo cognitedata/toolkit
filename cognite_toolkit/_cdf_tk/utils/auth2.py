@@ -297,7 +297,7 @@ class EnvironmentVariables:
             self._client = ToolkitClient(config=self.get_config())
         return self._client
 
-    def dump(self, include_os: bool = True) -> dict[str, Any]:
+    def dump(self, include_os: bool = True) -> dict[str, str | None]:
         variables: dict[str, Any] = {}
         for field_ in self._fields(self):
             default_value = field_.name.casefold()
@@ -308,7 +308,7 @@ class EnvironmentVariables:
             if isinstance(value, list):
                 value = ",".join(value)
             if value is not None:
-                variables[field_.name] = value
+                variables[field_.name] = str(value)
         if include_os:
             variables.update(os.environ)
         return variables
@@ -411,7 +411,7 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
     ).ask()
     cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").ask()
     cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").ask()
-    args = current.dump(include_os=False) if current else {}
+    args: dict[str, Any] = current.dump(include_os=False) if current else {}
     args.update(
         {"LOGIN_FLOW": login_flow, "CDF_CLUSTER": cdf_cluster, "CDF_PROJECT": cdf_project, "PROVIDER": provider}
     )

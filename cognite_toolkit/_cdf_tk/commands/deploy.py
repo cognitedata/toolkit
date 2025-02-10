@@ -71,13 +71,14 @@ class DeployCommand(ToolkitCommand):
         drop: bool,
         drop_data: bool,
         force_update: bool,
-        include: list[str],
+        include: list[str] | None,
         verbose: bool,
     ) -> None:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf build` first?"
             )
+        include = self._clean_command._process_include(include)
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         if not build_environment_file_path.is_file():
             raise ToolkitFileNotFoundError(
