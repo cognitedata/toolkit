@@ -1,3 +1,4 @@
+import os
 from collections.abc import Hashable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -112,6 +113,14 @@ class TestExtractionPipelineLoader:
 
         assert list(actual) == expected
 
+    @patch.dict(
+        os.environ,
+        {
+            "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+            "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
+            "NON-SECRET": "this-is-not-a-secret",
+        },
+    )
     def test_omit_environment_variables(
         self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ) -> None:
