@@ -118,7 +118,6 @@ def catch_warnings(warning_type: type[ToolkitWarning] | None = None) -> Iterator
     """Catch warnings and append them to the warning list."""
     warning_list = WarningList[ToolkitWarning]()
     with warnings.catch_warnings(record=True) as warning_logger:
-        warnings.simplefilter("always")
         try:
             yield warning_list
         finally:

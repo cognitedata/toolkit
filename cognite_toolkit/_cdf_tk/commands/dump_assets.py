@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 
@@ -50,7 +50,7 @@ class DumpAssetsCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         hierarchy: list[str] | None,
         data_set: list[str] | None,
         output_dir: Path,
@@ -68,15 +68,13 @@ class DumpAssetsCommand(ToolkitCommand):
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
         is_interactive = hierarchy is None and data_set is None
-        hierarchies, data_sets = self._select_hierarchy_and_data_set(
-            ToolGlobals.toolkit_client, hierarchy, data_set, is_interactive
-        )
+        hierarchies, data_sets = self._select_hierarchy_and_data_set(client, hierarchy, data_set, is_interactive)
         if not hierarchies and not data_sets:
             raise ToolkitValueError("No hierarchy or data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
-                retrieved = ToolGlobals.toolkit_client.data_sets.retrieve_multiple(external_ids=list(missing))
+                retrieved = client.data_sets.retrieve_multiple(external_ids=list(missing))
             except CogniteAPIError as e:
                 raise ToolkitMissingResourceError(f"Failed to retrieve data sets {data_sets}: {e}")
 
@@ -84,7 +82,7 @@ class DumpAssetsCommand(ToolkitCommand):
 
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
-        total_assets = ToolGlobals.toolkit_client.assets.aggregate_count(
+        total_assets = client.assets.aggregate_count(
             filter=AssetFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
@@ -97,15 +95,15 @@ class DumpAssetsCommand(ToolkitCommand):
             retrieved_assets = progress.add_task("Retrieving assets", total=total_assets)
             write_to_file = progress.add_task("Writing assets to file(s)", total=total_assets)
 
-            asset_iterator = ToolGlobals.toolkit_client.assets(
+            asset_iterator = client.assets(
                 chunk_size=1000,
                 asset_subtree_external_ids=hierarchies or None,
                 data_set_external_ids=data_sets or None,
                 limit=limit,
             )
             asset_iterator = self._log_retrieved(asset_iterator, progress, retrieved_assets)
-            grouped_assets = self._group_assets(asset_iterator, ToolGlobals.toolkit_client, hierarchies, data_sets)
-            writeable = self._to_write(grouped_assets, ToolGlobals.toolkit_client, expand_metadata=True)
+            grouped_assets = self._group_assets(asset_iterator, client, hierarchies, data_sets)
+            writeable = self._to_write(grouped_assets, client, expand_metadata=True)
 
             count = 0
             if format_ == "yaml":
@@ -167,18 +165,14 @@ class DumpAssetsCommand(ToolkitCommand):
         print(f"Dumped {count:,} assets to {output_dir}")
 
         if self._used_labels:
-            labels = ToolGlobals.toolkit_client.labels.retrieve(
-                external_id=list(self._used_labels), ignore_unknown_ids=True
-            )
+            labels = client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
             if labels:
                 to_dump_dicts = labels.as_write().dump()
                 for label in to_dump_dicts:
                     if "dataSetId" in label:
                         data_set_id = label.pop("dataSetId")
                         self._used_data_sets.add(data_set_id)
-                        label["dataSetExternalId"] = self._get_data_set_external_id(
-                            ToolGlobals.toolkit_client, data_set_id
-                        )
+                        label["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
 
                 file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
                 file_path.parent.mkdir(parents=True, exist_ok=True)

@@ -67,7 +67,7 @@ def load_yaml_inject_variables(
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
-        environ_variables (dict[str, str | None]): Dictionary with environment variables.
+        environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
         validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.

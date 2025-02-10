@@ -3,19 +3,18 @@ from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
-import typer
 import yaml
 from cognite.client import data_modeling as dm
 from cognite.client.data_classes import DataSet, GroupWrite, Transformation, WorkflowTrigger
 from pytest import MonkeyPatch
-from typer import Context
 
-from cognite_toolkit._cdf_tk.apps import CoreApp, DumpApp
-from cognite_toolkit._cdf_tk.commands import BuildCommand, PullCommand
+from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
+from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
     PROJECT_FOR_TEST,
@@ -30,8 +29,7 @@ def test_inject_custom_environmental_variables(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir: Path,
 ) -> None:
     config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
@@ -47,29 +45,33 @@ def test_inject_custom_environmental_variables(
         monkeypatch,
     )
     monkeypatch.setenv("MY_ENVIRONMENT_VARIABLE", "my_environment_variable_value")
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True).execute(
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
         no_clean=False,
+        client=None,
+        on_error="raise",
+        verbose=False,
     )
-    app.deploy(
-        typer_context,
+    DeployCommand(silent=True).execute(
+        env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,
         include=[],
+        drop_data=False,
+        verbose=False,
+        force_update=False,
     )
 
     transformation = toolkit_client_approval.created_resources_of_type(Transformation)[0]
     assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
 
 
-def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) -> None:
+def test_duplicated_modules(build_tmp_path: Path) -> None:
     config = MagicMock(spec=BuildConfigYAML)
     config.environment = MagicMock(spec=Environment)
     config.environment.name = "dev"
@@ -92,7 +94,7 @@ def test_duplicated_modules(build_tmp_path: Path, typer_context: typer.Context) 
 def test_pull_dataset(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected dataset to be pulled
@@ -108,7 +110,7 @@ def test_pull_dataset(
         env="dev",
         dry_run=False,
         verbose=False,
-        ToolGlobals=cdf_tool_mock,
+        env_vars=env_vars_with_client,
     )
 
     reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
@@ -118,7 +120,7 @@ def test_pull_dataset(
 def test_pull_transformation_sql(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected transformation to be pulled
@@ -132,7 +134,7 @@ def test_pull_transformation_sql(
         / "timeseries.Transformation.yaml"
     )
     source_yaml = transformation_yaml.read_text()
-    transformation = _load_cdf_pi_transformation(transformation_yaml, cdf_tool_mock)
+    transformation = _load_cdf_pi_transformation(transformation_yaml, env_vars_with_client.get_client())
     new_query = """select
   someValue as externalId,
   name as name,
@@ -149,7 +151,7 @@ from `ingestion`.`timeseries_metadata`"""
         env="dev",
         dry_run=False,
         verbose=False,
-        ToolGlobals=cdf_tool_mock,
+        env_vars=env_vars_with_client,
     )
     sql_file = transformation_yaml.with_suffix(".sql")
     assert sql_file.exists()
@@ -164,7 +166,7 @@ from `ingestion`.`timeseries_metadata`"""
     assert target_yaml == source_yaml, "Transformation file should not be updated"
 
 
-def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToolConfig) -> Transformation:
+def _load_cdf_pi_transformation(transformation_yaml: Path, client: ToolkitClient) -> Transformation:
     variables = [
         ("dataset", "ingestion"),
         ("schemaSpace", "sp_enterprise_process_industry"),
@@ -177,7 +179,7 @@ def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToo
     for key, value in variables:
         raw_transformation = raw_transformation.replace(f"{{{{ {key} }}}}", value)
     data = yaml.safe_load(raw_transformation)
-    data["dataSetId"] = cdf_tool_mock.toolkit_client.lookup.data_sets.id(data.pop("dataSetExternalId"))
+    data["dataSetId"] = client.lookup.data_sets.id(data.pop("dataSetExternalId"))
     transformation = Transformation._load(data)
 
     return transformation
@@ -186,7 +188,7 @@ def _load_cdf_pi_transformation(transformation_yaml: Path, cdf_tool_mock: CDFToo
 def test_pull_workflow_trigger_with_environment_variables(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir_mutable: Path,
 ) -> None:
     # Loading a selected workflow trigger to be pulled
@@ -215,7 +217,7 @@ def test_pull_workflow_trigger_with_environment_variables(
         env="dev",
         dry_run=False,
         verbose=False,
-        ToolGlobals=cdf_tool_mock,
+        env_vars=env_vars_with_client,
     )
     reloaded = yaml_filepath.read_text()
     assert "cronExpression: '* 4 * * *'" in reloaded, "Workflow trigger was not updated"
@@ -226,8 +228,7 @@ def test_pull_workflow_trigger_with_environment_variables(
 def test_dump_datamodel(
     build_tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
 ) -> None:
     # Create a datamodel and append it to the approval client
     space = dm.Space("my_space", is_global=False, last_updated_time=0, created_time=0)
@@ -309,12 +310,12 @@ def test_dump_datamodel(
     toolkit_client_approval.append(dm.View, parent_view)
     toolkit_client_approval.append(dm.DataModel, data_model)
     toolkit_client_approval.append(dm.View, [parent_view, view])
-    app = DumpApp()
-    app.dump_datamodel_cmd(
-        typer_context,
-        data_model_id=["my_space", "my_data_model", "1"],
+    cmd = DumpResourceCommand(silent=True)
+    cmd.dump_to_yamls(
+        DataModelFinder(env_vars_with_client.get_client(), dm.DataModelId.load(("my_space", "my_data_model", "1"))),
         clean=True,
         output_dir=build_tmp_path,
+        verbose=False,
     )
 
     assert len(list(build_tmp_path.glob("**/*.DataModel.yaml"))) == 1
@@ -331,7 +332,6 @@ def test_dump_datamodel(
 
 def test_build_custom_project(
     build_tmp_path: Path,
-    typer_context: typer.Context,
 ) -> None:
     expected_resources = {
         "timeseries",
@@ -342,14 +342,15 @@ def test_build_custom_project(
         "transformations",
         "robotics",
     }
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True).execute(
         organization_dir=PROJECT_NO_COGNITE_MODULES,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
         no_clean=False,
+        client=None,
+        on_error="raise",
+        verbose=False,
     )
 
     actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
@@ -363,17 +364,17 @@ def test_build_custom_project(
 
 def test_build_project_selecting_parent_path(
     build_tmp_path: Path,
-    typer_context: Context,
 ) -> None:
     expected_resources = {"auth", "data_models", "files", "transformations", "data_sets"}
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True).execute(
         organization_dir=PROJECT_FOR_TEST,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
         no_clean=False,
+        client=None,
+        on_error="raise",
+        verbose=False,
     )
 
     actual_resources = {path.name for path in build_tmp_path.iterdir() if path.is_dir()}
@@ -386,18 +387,19 @@ def test_build_project_selecting_parent_path(
 
 
 def test_deploy_group_with_unknown_acl(
-    typer_context: Context,
     toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    app = CoreApp()
-    app.deploy(
-        typer_context,
+    DeployCommand(silent=True).execute(
+        env_vars=env_vars_with_client,
         build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
         drop=False,
         dry_run=False,
         include=None,
         verbose=False,
+        drop_data=False,
+        force_update=False,
     )
 
     groups = toolkit_client_approval.created_resources["Group"]
@@ -415,16 +417,16 @@ def test_deploy_group_with_unknown_acl(
 
 def test_build_project_with_only_top_level_variables(
     build_tmp_path: Path,
-    typer_context: typer.Context,
 ) -> None:
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True).execute(
         organization_dir=PROJECT_NO_COGNITE_MODULES,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="top_level_variables",
         no_clean=False,
+        client=None,
+        on_error="raise",
+        verbose=False,
     )
 
     assert build_tmp_path.exists()

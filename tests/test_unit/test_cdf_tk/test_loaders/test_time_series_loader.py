@@ -1,7 +1,6 @@
 import yaml
 
 from cognite_toolkit._cdf_tk.loaders import TimeSeriesLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -22,7 +21,6 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_with_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
@@ -36,7 +34,6 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_no_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)

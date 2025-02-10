@@ -28,7 +28,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, TimeSeriesLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 TIME_SERIES_FOLDER_NAME = TimeSeriesLoader.folder_name
@@ -60,7 +59,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         data_set: list[str] | None,
         hierarchy: list[str] | None,
         output_dir: Path,
@@ -78,13 +77,13 @@ class DumpTimeSeriesCommand(ToolkitCommand):
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
         is_interactive = hierarchy is None and data_set is None
-        hierarchies, data_sets = self._select_data_set(ToolGlobals.toolkit_client, hierarchy, data_set, is_interactive)
+        hierarchies, data_sets = self._select_data_set(client, hierarchy, data_set, is_interactive)
         if not hierarchies and not data_sets:
             raise ToolkitValueError("No hierarchy or data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
-                retrieved = ToolGlobals.toolkit_client.data_sets.retrieve_multiple(external_ids=list(missing))
+                retrieved = client.data_sets.retrieve_multiple(external_ids=list(missing))
             except CogniteAPIError as e:
                 raise ToolkitMissingResourceError(f"Failed to retrieve data sets {data_sets}: {e}")
 
@@ -92,7 +91,7 @@ class DumpTimeSeriesCommand(ToolkitCommand):
 
         (output_dir / TIME_SERIES_FOLDER_NAME).mkdir(parents=True, exist_ok=True)
 
-        total_time_series = ToolGlobals.toolkit_client.time_series.aggregate_count(
+        total_time_series = client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
@@ -105,14 +104,14 @@ class DumpTimeSeriesCommand(ToolkitCommand):
             retrieved_time_series = progress.add_task("Retrieving time_series", total=total_time_series)
             write_to_file = progress.add_task("Writing time_series to file(s)", total=total_time_series)
 
-            time_series_iterator = ToolGlobals.toolkit_client.time_series(
+            time_series_iterator = client.time_series(
                 chunk_size=1000,
                 data_set_external_ids=data_sets or None,
                 asset_subtree_external_ids=hierarchies or None,
                 limit=limit,
             )
             time_series_iterator = self._log_retrieved(time_series_iterator, progress, retrieved_time_series)
-            writeable = self._to_write(time_series_iterator, ToolGlobals.toolkit_client, expand_metadata=True)
+            writeable = self._to_write(time_series_iterator, client, expand_metadata=True)
 
             count = 0
             if format_ == "yaml":

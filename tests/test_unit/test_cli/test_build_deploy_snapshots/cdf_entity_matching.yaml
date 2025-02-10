@@ -192,3 +192,4 @@ WorkflowVersion:
       timeout: null
       type: function
   workflowExternalId: entity_matching
+deleted: {}

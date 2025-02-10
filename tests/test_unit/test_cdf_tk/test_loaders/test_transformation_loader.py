@@ -19,7 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -46,12 +46,12 @@ conflictMode: upsert
     def test_no_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
-        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         assert loaded.destination_oidc_credentials is None
@@ -60,7 +60,7 @@ conflictMode: upsert
     def test_oidc_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -77,7 +77,7 @@ conflictMode: upsert
         }
         filepath = self._create_mock_file(yaml.dump(resource))
 
-        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
 
         assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
@@ -95,7 +95,7 @@ conflictMode: upsert
     def test_oidc_raise_if_invalid(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -109,13 +109,13 @@ conflictMode: upsert
         filepath = self._create_mock_file(yaml.dump(resource))
 
         with pytest.raises(ToolkitTypeError):
-            raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+            raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
             loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -123,7 +123,7 @@ conflictMode: upsert
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        raw_list = loader.load_resource_file(filepath, cdf_tool_real.environment_variables())
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert loaded.query == resource["query"]
 

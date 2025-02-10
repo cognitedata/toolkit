@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -464,7 +464,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
     def _find_data_files(self, directory: Path) -> list[Path]:

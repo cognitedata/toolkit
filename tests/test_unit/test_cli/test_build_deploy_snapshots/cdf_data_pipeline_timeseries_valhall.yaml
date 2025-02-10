@@ -93,9 +93,10 @@ ExtractionPipeline:
     \ microsoft as IdP, to use a different provider,\n          # set implementation:\
     \ Basic, and use token-url instead of tenant.\n          # See the example config\
     \ for the full list of options.\n          idp-authentication:\n             \
-    \ # Directory tenant\n              tenant: dummy <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
-    \ >\n              # Application Id\n              client-id: dummy  <ex: 1f4afa-asfd-3434-bb46-93123s423ds\
-    \ >\n              # Client secret\n              secret: dummy <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
+    \ # Directory tenant\n              tenant: dummy-domain <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
+    \ >\n              # Application Id\n              client-id: dummy-123  <ex:\
+    \ 1f4afa-asfd-3434-bb46-93123s423ds >\n              # Client secret\n       \
+    \       secret: dummy-secret <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
     \ >\n              # List of resource scopes, ex:\n              # scopes:\n \
     \             #   - scopeA\n              #   - scopeB\n              scopes:\n\
     \                  - https://bluefield.cognitedata.com/.default <ex: https://api.cognitedata.com/.default>\n\
@@ -342,3 +343,4 @@ Table:
   name: contextualization_good
 - createdTime: 1
   name: contextualization_manual_input
+deleted: {}

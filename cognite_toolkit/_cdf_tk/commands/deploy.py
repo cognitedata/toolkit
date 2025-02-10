@@ -51,11 +51,8 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    humanize_collection,
-    read_yaml_file,
-)
+from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
 
@@ -67,20 +64,21 @@ class DeployCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         drop: bool,
         drop_data: bool,
         force_update: bool,
-        include: list[str],
+        include: list[str] | None,
         verbose: bool,
     ) -> None:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf build` first?"
             )
+        include = self._clean_command._process_include(include)
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         if not build_environment_file_path.is_file():
             raise ToolkitFileNotFoundError(
@@ -99,9 +97,10 @@ class DeployCommand(ToolkitCommand):
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
+        client = env_vars.get_client()
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
 
         verb = "Checking" if dry_run else "Deploying"
 
@@ -144,10 +143,10 @@ class DeployCommand(ToolkitCommand):
             for loader_cls in reversed(ordered_loaders):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
-                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
+                loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
                 result = self._clean_command.clean_resources(
                     loader,
-                    ToolGlobals,
+                    env_vars=env_vars,
                     read_modules=deploy_state.read_modules,
                     drop=drop,
                     dry_run=dry_run,
@@ -162,10 +161,10 @@ class DeployCommand(ToolkitCommand):
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
         for loader_cls in ordered_loaders:
-            loader_instance = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
+            loader_instance = loader_cls.create_loader(client, build_dir)
             result = self.deploy_resources(
                 loader_instance,
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
                 state=deploy_state,
                 dry_run=dry_run,
                 has_done_drop=drop,
@@ -186,7 +185,7 @@ class DeployCommand(ToolkitCommand):
     def deploy_resources(
         self,
         loader: Loader,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         state: BuildEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
@@ -196,10 +195,10 @@ class DeployCommand(ToolkitCommand):
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(
-                loader, ToolGlobals, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
+                loader, env_vars, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
             )
         elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
+            return self._deploy_data(loader, state, dry_run, verbose)
         else:
             raise ValueError(f"Unsupported loader type {type(loader)}.")
 
@@ -208,7 +207,7 @@ class DeployCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
         has_done_drop: bool = False,
@@ -224,7 +223,7 @@ class DeployCommand(ToolkitCommand):
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
             to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
                 files,
-                environment_variables=ToolGlobals.environment_variables(),
+                environment_variables=env_vars.dump(include_os=True),
                 is_dry_run=dry_run,
                 force_update=force_update,
                 verbose=verbose,
@@ -409,7 +408,6 @@ class DeployCommand(ToolkitCommand):
     def _deploy_data(
         self,
         loader: DataLoader,
-        ToolGlobals: CDFToolConfig,
         state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,
@@ -419,7 +417,7 @@ class DeployCommand(ToolkitCommand):
 
         datapoints = 0
         file_counts = 0
-        for message, file_datapoints in loader.upload(state, ToolGlobals, dry_run):
+        for message, file_datapoints in loader.upload(state, dry_run):
             if verbose:
                 print(message)
             datapoints += file_datapoints

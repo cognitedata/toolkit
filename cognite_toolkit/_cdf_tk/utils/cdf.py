@@ -1,39 +1,13 @@
 from collections.abc import Iterator
 from typing import Any, Literal, overload
 
-from cognite.client.data_classes import CreatedSession
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-
-
-def get_oneshot_session(client: ToolkitClient) -> CreatedSession | None:
-    """Get a oneshot (use once) session for execution in CDF"""
-    # Special case as this utility function may be called with a new client created in code,
-    # it's hard to mock it in tests.
-    if isinstance(client, ToolkitClientMock):
-        bearer = "123"
-    else:
-        (_, bearer) = client.config.credentials.authorization_header()
-    ret = client.post(
-        url=f"/api/v1/projects/{client.config.project}/sessions",
-        json={
-            "items": [
-                {
-                    "oneshotTokenExchange": True,
-                },
-            ],
-        },
-        headers={"Authorization": bearer},
-    )
-    if ret.status_code == 200:
-        return CreatedSession.load(ret.json()["items"][0])
-    return None
 
 
 @overload

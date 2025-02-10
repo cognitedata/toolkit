@@ -7,7 +7,6 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, ResourceWorker, SpaceLoader, ViewLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -61,10 +60,8 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_unchanged_view_int_version(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        loader = ViewLoader.create_loader(cdf_tool_mock.toolkit_client)
+    def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        loader = ViewLoader.create_loader(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
