@@ -201,3 +201,9 @@ class AuthorizationError(ToolkitError):
 
 
 class GraphQLParseError(ToolkitError): ...
+
+
+class CDFAPIError(ToolkitError, RuntimeError):
+    """Error raised when the CDF API returns an error."""
+
+    ...
