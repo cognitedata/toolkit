@@ -400,21 +400,32 @@ class EnvironmentVariables:
 
 
 def prompt_user_environment_variables(current: EnvironmentVariables | None = None) -> EnvironmentVariables:
-    login_flow = questionary.select(
-        "Choose the login flow",
-        choices=[
-            Choice(title=f"{flow}: {description}", value=flow) for flow, description in LOGIN_FLOW_DESCRIPTION.items()
-        ],
-        default=current.LOGIN_FLOW if current else "client_credentials",
-    ).ask()
     provider = questionary.select(
-        "Choose the provider",
+        "Choose the provider (Who authenticates you?)",
         choices=[
             Choice(title=f"{provider}: {description}", value=provider)
             for provider, description in PROVIDER_DESCRIPTION.items()
         ],
         default=current.PROVIDER if current else "entra_id",
     ).ask()
+    exclude = set()
+    if provider == "cdf":
+        exclude = set(VALID_LOGIN_FLOWS) - {"client_credentials"}
+    choices = [
+        Choice(title=f"{flow}: {description}", value=flow)
+        for flow, description in LOGIN_FLOW_DESCRIPTION.items()
+        if flow not in exclude
+    ]
+    if len(choices) == 1:
+        print(f"Only one login flow available: {choices[0].title}")
+        login_flow = choices[0].value
+    else:
+        login_flow = questionary.select(
+            "Choose the login flow (How do you going to authenticate?)",
+            choices=choices,
+            default=current.LOGIN_FLOW if current else "client_credentials",
+        ).ask()
+
     cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").ask()
     cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").ask()
     args: dict[str, Any] = current.dump(include_os=False) if current else {}
