@@ -37,6 +37,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
+from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.hosted_extractors import (
@@ -313,6 +314,12 @@ class FakeCogniteResourceGenerator:
                 # The incremental load cannot be of type `nextUrl`
                 load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
                 keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
+        elif issubclass(resource_cls, ListablePropertyType) and "max_list_size" in keyword_arguments:
+            if keyword_arguments["max_list_size"] <= 1:
+                keyword_arguments.pop("max_list_size")
+            elif keyword_arguments["max_list_size"] > 1:
+                keyword_arguments["max_list_size"] = min(2_000, keyword_arguments["max_list_size"])
+                keyword_arguments["is_list"] = True
 
         return resource_cls(*positional_arguments, **keyword_arguments)
 
