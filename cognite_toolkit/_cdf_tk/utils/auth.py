@@ -342,7 +342,7 @@ class EnvironmentVariables:
             missing -= {"IDP_TENANT_ID"}
         return missing
 
-    def get_required_with_value(self) -> list[tuple[Field, Any]]:
+    def get_required_with_value(self, lookup_default: bool = False) -> list[tuple[Field, Any]]:
         flow, provider = self.LOGIN_FLOW, self.PROVIDER
         values: list[tuple[Field, Any]] = []
         for field_ in self._fields(self):
@@ -350,12 +350,12 @@ class EnvironmentVariables:
             if required and ((flow, provider) in required or (flow, None) in required):
                 if field_.name == "IDP_TOKEN_URL" and provider == "entra_id":
                     continue
-                value = self._get_value(field_)
+                value = self._get_value(field_, lookup_default)
                 values.append((field_, value))
         return values
 
-    def _get_value(self, field_: Field) -> Any:
-        if (default_name := field_.name.casefold()) and hasattr(self, default_name):
+    def _get_value(self, field_: Field, lookup_default: bool = True) -> Any:
+        if lookup_default and (default_name := field_.name.casefold()) and hasattr(self, default_name):
             try:
                 return getattr(self, default_name)
             except ToolkitMissingValueError:
@@ -385,7 +385,7 @@ class EnvironmentVariables:
             ]
         lines.append("")
         lines.append("# Required variables")
-        for field_, value in self.get_required_with_value():
+        for field_, value in self.get_required_with_value(lookup_default=True):
             if value is not None:
                 lines.append(f"{field_.name}={value}")
         lines.append("")
