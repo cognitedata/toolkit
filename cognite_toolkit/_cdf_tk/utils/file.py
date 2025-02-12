@@ -21,6 +21,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
@@ -401,3 +402,20 @@ def safe_rmtree(path: Path) -> None:
         MediumSeverityWarning(
             f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
         ).print_warning()
+
+
+def get_table_columns(table: Path) -> list[str]:
+    """Get the columns of a table
+
+    Args:
+        table (Path): Path to the table
+
+    Returns:
+        list[str]: List of columns
+    """
+    if table.suffix == ".csv":
+        return read_csv(table).columns.tolist()
+    elif table.suffix == ".parquet":
+        return pd.read_parquet(table).columns.tolist()
+    else:
+        raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")
