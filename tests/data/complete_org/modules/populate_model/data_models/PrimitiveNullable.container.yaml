@@ -81,12 +81,12 @@ properties:
       type: enum
       unknownValue: Unknown
       values:
-        - Running:
-            name: Running
-            description: Running
-        - Stopped:
-            name: Stopped
-            description: Stopped
+        Running:
+          name: Running
+          description: Running
+        Stopped:
+          name: Stopped
+          description: Stopped
     autoIncrement: false
     immutable: false
     name: enum
