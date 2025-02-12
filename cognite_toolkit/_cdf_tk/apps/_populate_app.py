@@ -15,9 +15,9 @@ class PopulateApp(typer.Typer):
         self.command("view")(self.populate_view)
 
     def main(self, ctx: typer.Context) -> None:
-        """Commands purge functionality"""
+        """Commands populate functionality"""
         if ctx.invoked_subcommand is None:
-            print("Use [bold yellow]cdf purge --help[/] for more information.")
+            print("Use [bold yellow]cdf populate --help[/] for more information.")
 
     def populate_view(
         self,
@@ -65,7 +65,7 @@ class PopulateApp(typer.Typer):
             ),
         ] = False,
     ) -> None:
-        """This command will delete the contents of the specified dataset"""
+        """This command will populate a given view with data from a local table."""
         cmd = PopulateCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
