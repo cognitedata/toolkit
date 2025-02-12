@@ -87,9 +87,11 @@ properties:
         Stopped:
           name: Stopped
           description: Stopped
+        Unknown:
+          name: Unknown
+          description: Unknown
     autoIncrement: false
     immutable: false
-    name: enum
   direct:
     type:
       list: false
