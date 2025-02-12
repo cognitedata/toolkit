@@ -1,4 +1,5 @@
 import json
+import math
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -276,7 +277,10 @@ class PopulateCommand(ToolkitCommand):
             case (Json(), dict() | list() | str()):
                 return value
             case (Float32() | Float64(), _):
-                return float(value)
+                float_value = float(value)
+                if math.isinf(float_value) or math.isnan(float_value):
+                    return None
+                return float_value
             case (Int32() | Int64(), _):
                 try:
                     return int(value)
