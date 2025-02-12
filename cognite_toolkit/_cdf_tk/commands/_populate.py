@@ -125,7 +125,8 @@ class PopulateCommand(ToolkitCommand):
     def _get_view_from_user(client: ToolkitClient) -> View:
         data_models = client.data_modeling.data_models.list(inline_views=False, limit=-1, all_versions=False)
         data_model_choices = [
-            Choice(repr(dm), value=dm) for dm in sorted(data_models, key=lambda dm: (dm.space, dm.external_id))
+            Choice(f"{dm.as_id().as_tuple()}", value=dm)
+            for dm in sorted(data_models, key=lambda dm: (dm.space, dm.external_id))
         ]
         selected_data_model: DataModel[ViewId] | None = questionary.select(
             "Select the data model containing the view to populate",
@@ -151,7 +152,7 @@ class PopulateCommand(ToolkitCommand):
         return view[0]
 
     def _get_table_from_user(self) -> Path:
-        selected_table = questionary.text("Enter the path to the table to populate the view with").ask()
+        selected_table: str | None = questionary.path("Enter the path to the table to populate the view with").ask()
         if selected_table is None:
             print("No table path provided. Exiting.")
             raise typer.Exit(0)
@@ -167,7 +168,7 @@ class PopulateCommand(ToolkitCommand):
     @staticmethod
     def _get_instance_space_from_user(client: ToolkitClient) -> str:
         spaces = client.data_modeling.spaces.list(limit=-1)
-        space_choices = [Choice(space.external_id, value=space) for space in sorted(spaces, key=lambda s: s.space)]
+        space_choices = [Choice(space.space, value=space) for space in sorted(spaces, key=lambda s: s.space)]
         selected_space: Space | None = questionary.select(
             "Select the instance space to write the nodes to", choices=space_choices
         ).ask()
