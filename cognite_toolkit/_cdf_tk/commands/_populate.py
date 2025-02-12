@@ -96,6 +96,7 @@ class PopulateCommand(ToolkitCommand):
                                         value, property_types_by_column[col], config.instance_space
                                     )
                                     for col, value in row.items()
+                                    if col in properties_by_column and col in property_types_by_column
                                 },
                             )
                         ],
@@ -258,28 +259,34 @@ class PopulateCommand(ToolkitCommand):
         elif isinstance(property_type, ListablePropertyType) and property_type.is_list and isinstance(value, list):
             return [cls._serialize_value(v, property_type, instance_space) for v in value]
 
-        match property_type:
-            case Text() | CDFExternalIdReference():
+        if value is None:
+            return None
+
+        match (property_type, value):
+            case (Text() | CDFExternalIdReference(), _):
                 return str(value)
-            case Boolean():
-                if isinstance(value, str):
-                    return value.lower() in ("true", "1")
+            case (Boolean(), str()):
+                return value.lower() in ("true", "1")
+            case (Boolean(), _):
                 return bool(value)
-            case Timestamp():
+            case (Timestamp(), _):
                 return pd.Timestamp(value).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
-            case Date():
+            case (Date(), _):
                 return pd.Timestamp(value).strftime("%Y-%m-%d")
-            case Json():
+            case (Json(), dict() | list() | str()):
                 return value
-            case Float32() | Float64():
+            case (Float32() | Float64(), _):
                 return float(value)
-            case Int32() | Int64():
-                return int(value)
-            case DirectRelation():
-                if isinstance(value, str):
-                    return {"space": instance_space, "externalId": value}
+            case (Int32() | Int64(), _):
+                try:
+                    return int(value)
+                except ValueError:
+                    return None
+            case (DirectRelation(), _str):
+                return {"space": instance_space, "externalId": value}
+            case (DirectRelation(), _):
                 return value
-            case Enum():
+            case (Enum(), _):
                 return next(
                     (opt for opt in property_type.values.keys() if opt.casefold() == str(value).casefold()),
                     property_type.unknown_value,
