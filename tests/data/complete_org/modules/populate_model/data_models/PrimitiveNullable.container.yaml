@@ -86,3 +86,6 @@ properties:
       - Stopped:
           name: Stopped
           description: Stopped
+  direct:
+    type: direct
+    list: false

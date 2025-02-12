@@ -73,3 +73,10 @@ properties:
       type: container
     containerPropertyIdentifier: enum
     name: enum
+  direct:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: direct
+    name: direct
