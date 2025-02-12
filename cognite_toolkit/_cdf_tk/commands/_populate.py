@@ -4,11 +4,15 @@ from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
+import questionary
+import typer
 from cognite.client.data_classes.data_modeling import (
+    DataModel,
     MappedProperty,
     NodeApply,
     NodeOrEdgeData,
     PropertyType,
+    Space,
     View,
     ViewId,
 )
@@ -28,6 +32,8 @@ from cognite.client.data_classes.data_modeling.data_types import (
     Timestamp,
 )
 from cognite.client.exceptions import CogniteAPIError
+from questionary import Choice
+from rich import print
 from rich.markup import escape
 from rich.progress import Progress
 
@@ -105,7 +111,83 @@ class PopulateCommand(ToolkitCommand):
                     progress.update(task, advance=len(created.nodes))
 
     def _get_config_from_user(self, client: ToolkitClient) -> PopulateConfig:
-        raise NotImplementedError()
+        view = self._get_view_from_user(client)
+        table = self._get_table_from_user()
+        instance_space = self._get_instance_space_from_user(client)
+        external_id_column = self._get_external_id_column_from_user(table)
+        return PopulateConfig(
+            view=view,
+            table=table,
+            instance_space=instance_space,
+            external_id_column=external_id_column,
+        )
+
+    @staticmethod
+    def _get_view_from_user(client: ToolkitClient) -> View:
+        data_models = client.data_modeling.data_models.list(inline_views=False, limit=-1, all_versions=False)
+        data_model_choices = [
+            Choice(repr(dm), value=dm) for dm in sorted(data_models, key=lambda dm: (dm.space, dm.external_id))
+        ]
+        selected_data_model: DataModel[ViewId] | None = questionary.select(
+            "Select the data model containing the view to populate",
+            choices=data_model_choices,
+        ).ask()
+
+        if selected_data_model is None:
+            print("No data model selected. Exiting.")
+            raise typer.Exit(0)
+
+        view_options = [
+            Choice(view.external_id, value=view)
+            for view in sorted(selected_data_model.views, key=lambda v: v.external_id, reverse=True)
+        ]
+        selected_view: ViewId | None = questionary.select(
+            "Select the view to populate",
+            choices=view_options,
+        ).ask()
+        if selected_view is None:
+            print("No view selected. Exiting.")
+            raise typer.Exit(0)
+        view = client.data_modeling.views.retrieve(selected_view)
+        return view[0]
+
+    def _get_table_from_user(self) -> Path:
+        selected_table = questionary.text("Enter the path to the table to populate the view with").ask()
+        if selected_table is None:
+            print("No table path provided. Exiting.")
+            raise typer.Exit(0)
+        table_path = Path(selected_table)
+        if not table_path.exists():
+            print("Table path does not exist.")
+            return self._get_table_from_user()
+        if table_path.suffix not in (".csv", ".parquet"):
+            print("Only CSV and Parquet files are supported. Please provide a valid file.")
+            return self._get_table_from_user()
+        return table_path
+
+    @staticmethod
+    def _get_instance_space_from_user(client: ToolkitClient) -> str:
+        spaces = client.data_modeling.spaces.list(limit=-1)
+        space_choices = [Choice(space.external_id, value=space) for space in sorted(spaces, key=lambda s: s.space)]
+        selected_space: Space | None = questionary.select(
+            "Select the instance space to write the nodes to", choices=space_choices
+        ).ask()
+        if selected_space is None:
+            print("No instance space selected. Exiting.")
+            raise typer.Exit(0)
+        return selected_space.space
+
+    @staticmethod
+    def _get_external_id_column_from_user(table: Path) -> str:
+        columns = get_table_columns(table)
+        selected_column: str | None = questionary.select(
+            "Select the column in the table that contains the external IDs of the nodes",
+            choices=[Choice(col, value=col) for col in columns],
+        ).ask()
+        if selected_column is None:
+            print("No external ID column selected. Exiting.")
+            raise typer.Exit(0)
+        return selected_column
 
     @staticmethod
     def _validate_config(
