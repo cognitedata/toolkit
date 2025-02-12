@@ -1,6 +1,6 @@
 space: population_model
 externalId: PopulationTestModel
-version: 'v1'
+version: v1
 views:
 - space: population_model
   externalId: PrimitiveNullable
