@@ -6,7 +6,6 @@ from typing import Any, cast
 import pandas as pd
 import questionary
 import typer
-from build.functions.contextualization_connection_writer.handler import chunker
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     MappedProperty,
@@ -45,7 +44,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitResourceMissingError,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.collection import chunker, humanize_collection
 from cognite_toolkit._cdf_tk.utils.file import get_table_columns, read_csv
 
 from ._base import ToolkitCommand
