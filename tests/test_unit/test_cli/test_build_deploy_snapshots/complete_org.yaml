@@ -75,6 +75,7 @@ Container:
     enum:
       autoIncrement: false
       immutable: false
+      nullable: true
       type:
         type: enum
         unknownValue: Unknown
