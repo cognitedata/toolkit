@@ -1,9 +1,32 @@
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 import pandas as pd
-from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, PropertyType, View, ViewId
+from cognite.client.data_classes.data_modeling import (
+    MappedProperty,
+    NodeApply,
+    NodeOrEdgeData,
+    PropertyType,
+    View,
+    ViewId,
+)
+from cognite.client.data_classes.data_modeling.data_types import (
+    Boolean,
+    CDFExternalIdReference,
+    Date,
+    DirectRelation,
+    Enum,
+    Float32,
+    Float64,
+    Int32,
+    Int64,
+    Json,
+    ListablePropertyType,
+    Text,
+    Timestamp,
+)
 from cognite.client.exceptions import CogniteAPIError
 from rich.markup import escape
 from rich.progress import Progress
@@ -51,8 +74,7 @@ class PopulateCommand(ToolkitCommand):
             # Parquet - already validated
             data = pd.read_parquet(config.table)
 
-        properties_by_column = self._properties_by_column(list(data.columns), config.view)
-        property_types_by_column = self._property_types_by_column(list(data.columns), config.view)
+        properties_by_column, property_types_by_column = self._properties_by_column(list(data.columns), config.view)
 
         with Progress() as progress:
             task = progress.add_task("Populating view", total=len(data))
@@ -66,7 +88,7 @@ class PopulateCommand(ToolkitCommand):
                                 source=config.view.as_id(),
                                 properties={
                                     properties_by_column[col]: self._serialize_value(
-                                        value, property_types_by_column[col]
+                                        value, property_types_by_column[col], config.instance_space
                                     )
                                     for col, value in row.items()
                                 },
@@ -85,8 +107,8 @@ class PopulateCommand(ToolkitCommand):
     def _get_config_from_user(self, client: ToolkitClient) -> PopulateConfig:
         raise NotImplementedError()
 
+    @staticmethod
     def _validate_config(
-        self,
         user_view_id: list[str],
         table: Path | None,
         instance_space: str | None,
@@ -127,11 +149,58 @@ class PopulateCommand(ToolkitCommand):
             view=view, table=table, instance_space=instance_space, external_id_column=external_id_column
         )
 
-    def _properties_by_column(self, columns: list[str], view: View) -> dict[str, str]:
-        raise NotImplementedError()
+    @staticmethod
+    def _properties_by_column(columns: list[str], view: View) -> tuple[dict[str, str], dict[str, PropertyType]]:
+        properties_by_column: dict[str, str] = {}
+        property_types_by_column: dict[str, PropertyType] = {}
+        container_property_by_id = {
+            prop_id.casefold(): (prop_id, prop)
+            for prop_id, prop in view.properties.items()
+            if isinstance(prop, MappedProperty)
+        }
+        for col in columns:
+            if col.casefold() not in container_property_by_id:
+                continue
+            prop_id, prop = container_property_by_id[col.casefold()]
+            properties_by_column[col] = prop_id
+            property_types_by_column[col] = prop.type
+        return properties_by_column, property_types_by_column
 
-    def _property_types_by_column(self, columns: list[str], view: View) -> dict[str, PropertyType]:
-        raise NotImplementedError()
+    @classmethod
+    def _serialize_value(cls, value: Any, property_type: PropertyType, instance_space: str) -> Any:
+        if isinstance(value, str):
+            try:
+                return cls._serialize_value(json.loads(value), property_type, instance_space)
+            except json.JSONDecodeError:
+                ...
+        elif isinstance(property_type, ListablePropertyType) and property_type.is_list and isinstance(value, list):
+            return [cls._serialize_value(v, property_type, instance_space) for v in value]
 
-    def _serialize_value(self, value: Any, property_type: PropertyType) -> Any:
-        raise NotImplementedError()
+        match property_type:
+            case Text() | CDFExternalIdReference():
+                return str(value)
+            case Boolean():
+                if isinstance(value, str):
+                    return value.lower() in ("true", "1")
+                return bool(value)
+            case Timestamp():
+                return pd.Timestamp(value).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+            case Date():
+                return pd.Timestamp(value).strftime("%Y-%m-%d")
+            case Json():
+                return value
+            case Float32() | Float64():
+                return float(value)
+            case Int32() | Int64():
+                return int(value)
+            case DirectRelation():
+                if isinstance(value, str):
+                    return {"space": instance_space, "externalId": value}
+                return value
+            case Enum():
+                return next(
+                    (opt for opt in property_type.values.keys() if opt.casefold() == str(value).casefold()),
+                    property_type.unknown_value,
+                )
+            case _:
+                return value
