@@ -91,6 +91,7 @@ properties:
           name: Unknown
           description: Unknown
     autoIncrement: false
+    nullable: true
     immutable: false
   direct:
     type:
