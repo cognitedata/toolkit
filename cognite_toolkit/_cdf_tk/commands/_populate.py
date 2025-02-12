@@ -6,6 +6,7 @@ from typing import Any, cast
 import pandas as pd
 import questionary
 import typer
+from build.functions.contextualization_connection_writer.handler import chunker
 from cognite.client.data_classes.data_modeling import (
     DataModel,
     MappedProperty,
@@ -37,7 +38,6 @@ from rich import print
 from rich.markup import escape
 from rich.progress import Progress
 
-from build.functions.contextualization_connection_writer.handler import chunker
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     CDFAPIError,
