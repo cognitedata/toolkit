@@ -259,6 +259,8 @@ class PopulateCommand(ToolkitCommand):
                 ...
         elif isinstance(property_type, ListablePropertyType) and property_type.is_list and isinstance(value, list):
             return [cls._serialize_value(v, property_type, instance_space) for v in value]
+        elif isinstance(property_type, ListablePropertyType) and property_type.is_list and not isinstance(value, list):
+            return [cls._serialize_value(value, property_type, instance_space)]
 
         if value is None:
             return None
@@ -271,7 +273,7 @@ class PopulateCommand(ToolkitCommand):
             case (Boolean(), _):
                 return bool(value)
             case (Timestamp(), _):
-                return pd.Timestamp(value).strftime("%Y-%m-%dT%H:%M:%S.%f%z")
+                return pd.Timestamp(value).to_pydatetime().isoformat(timespec="milliseconds")
             case (Date(), _):
                 return pd.Timestamp(value).strftime("%Y-%m-%d")
             case (Json(), dict() | list() | str()):
@@ -292,8 +294,13 @@ class PopulateCommand(ToolkitCommand):
                 return value
             case (Enum(), _):
                 return next(
-                    (opt for opt in property_type.values.keys() if opt.casefold() == str(value).casefold()),
-                    property_type.unknown_value,
+                    (
+                        opt
+                        for opt in property_type.values.keys()
+                        if opt.casefold() == str(value).casefold()
+                        and str(value).casefold() != (property_type.unknown_value or "").casefold()
+                    ),
+                    None,
                 )
             case _:
                 return value
