@@ -100,7 +100,7 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="Tenant id for MS Entra",
-            example="mytenant.onmicrosoft.com",
+            example="00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com",
             required=frozenset(
                 [("device_code", "entra_id"), ("client_credentials", "entra_id"), ("interactive", "entra_id")]
             ),
