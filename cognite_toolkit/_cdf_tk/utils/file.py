@@ -84,7 +84,7 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", value)
+        content = content.replace(f"${{{key}}}", str(value))
     if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
         if isinstance(filepath, Path):
             source = filepath
