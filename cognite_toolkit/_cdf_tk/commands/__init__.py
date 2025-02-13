@@ -1,3 +1,4 @@
+from ._populate import PopulateCommand
 from ._purge import PurgeCommand
 from .auth import AuthCommand
 from .build import BuildCommand
@@ -26,6 +27,7 @@ __all__ = [
     "FeatureFlagCommand",
     "InitCommand",
     "ModulesCommand",
+    "PopulateCommand",
     "PullCommand",
     "PurgeCommand",
     "RepoCommand",
