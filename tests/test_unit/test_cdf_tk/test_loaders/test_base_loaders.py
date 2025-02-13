@@ -44,10 +44,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
     get_loader,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    tmp_build_directory,
-)
+from cognite_toolkit._cdf_tk.utils import tmp_build_directory
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
@@ -68,19 +66,21 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 def test_loader_class(
     loader_cls: type[ResourceLoader],
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     data_regression: DataRegressionFixture,
 ):
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
-    cmd.deploy_resources(loader, cdf_tool_mock, BuildEnvironment(), dry_run=False)
+    loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+    cmd.deploy_resources(loader, env_vars_with_client, BuildEnvironment(), dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestDeployResources:
-    def test_deploy_resource_order(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
+    def test_deploy_resource_order(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ):
         build_env_name = "dev"
         cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
@@ -93,8 +93,8 @@ class TestDeployResources:
 
         cmd = DeployCommand(print_warning=False)
         cmd.deploy_resources(
-            ViewLoader.create_loader(cdf_tool_mock.toolkit_client, BUILD_DIR),
-            cdf_tool_mock,
+            ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
+            env_vars_with_client,
             BuildEnvironment(),
             dry_run=False,
         )
@@ -109,22 +109,24 @@ class TestDeployResources:
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(
-            cdf_tool_mock.toolkit_client,
-        )
+        loader = Loader.create_loader(env_vars_with_client.get_client())
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
+        self,
+        Loader: type[ResourceLoader],
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
+        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -147,15 +149,19 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
+        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
+        self,
+        Loader: type[ResourceLoader],
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
+        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -182,7 +188,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
+        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
         assert isinstance(loaded, list)
 
     @staticmethod
@@ -196,8 +202,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize(
         "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client)
+    def test_loader_has_doc_url(
+        self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(env_vars_with_client.get_client())
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
@@ -300,7 +308,7 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_empty_required_capabilities_when_no_items(
-        self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig
+        self, loader_cls: type[ResourceLoader], env_vars_with_client: EnvironmentVariables
     ):
         actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
 
@@ -320,9 +328,9 @@ class TestResourceLoaders:
 
 
 class TestLoaders:
-    def test_unique_display_names(self, cdf_tool_mock: CDFToolConfig):
+    def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(cdf_tool_mock.toolkit_client).display_name for loader_cls in LOADER_LIST]
+            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in LOADER_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}

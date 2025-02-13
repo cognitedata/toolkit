@@ -4,7 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import PurgeCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class PurgeApp(typer.Typer):
@@ -63,9 +63,10 @@ class PurgeApp(typer.Typer):
     ) -> None:
         """This command will delete the contents of the specified dataset"""
         cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.dataset(
-                CDFToolConfig.from_context(ctx),
+                client,
                 external_id,
                 include_dataset,
                 dry_run,
@@ -119,10 +120,10 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified space."""
 
         cmd = PurgeCommand()
-
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.space(
-                CDFToolConfig.from_context(ctx),
+                client,
                 space,
                 include_space,
                 dry_run,

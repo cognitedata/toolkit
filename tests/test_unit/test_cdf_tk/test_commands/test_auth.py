@@ -15,7 +15,6 @@ from cognite.client.data_classes.capabilities import (
     ProjectCapabilityList,
 )
 from cognite.client.data_classes.iam import Group, GroupList, ProjectSpec, TokenInspection
-from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthorizationError
@@ -26,27 +25,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
     WarningList,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.data import AUTH_DATA
 from tests.test_unit.conftest import ApprovalToolkitClient
-
-
-@pytest.fixture
-def cdf_tool_config(
-    monkeypatch: MonkeyPatch,
-) -> CDFToolConfig:
-    monkeypatch.setenv("CDF_PROJECT", "pytest-project")
-    monkeypatch.setenv("CDF_CLUSTER", "bluefield")
-    monkeypatch.setenv("IDP_TOKEN_URL", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_ID", "dummy")
-    monkeypatch.setenv("IDP_CLIENT_SECRET", "dummy")
-    monkeypatch.setenv("IDP_TENANT_ID", "dummy")
-
-    real_config = CDFToolConfig(cluster="bluefield", project="pytest-project")
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.failed = False
-    cdf_tool.environment_variables.side_effect = real_config.environment_variables
-    return cdf_tool
 
 
 @pytest.fixture
@@ -89,7 +69,6 @@ def auth_cognite_approval_client(
 class TestAuthCommand:
     def test_auth_verify_happy_path(
         self,
-        cdf_tool_config: CDFToolConfig,
         auth_cognite_approval_client: ApprovalToolkitClient,
         cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
     ):
@@ -98,16 +77,14 @@ class TestAuthCommand:
             auth_cognite_approval_client.append(resource, data)
         # Then make sure that the CogniteClient used is the one mocked by
         # the approval_client
-        cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
 
-        cmd.verify(cdf_tool_config, False, no_prompt=True)
+        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
 
         assert list(cmd.warning_list) == []
 
     def test_auth_verify_wrong_capabilities(
         self,
-        cdf_tool_config: CDFToolConfig,
         auth_cognite_approval_client: ApprovalToolkitClient,
         cdf_resources: dict[type[CogniteResource], CogniteResource | CogniteResourceList],
     ):
@@ -123,17 +100,15 @@ class TestAuthCommand:
             auth_cognite_approval_client.append(resource, data)
         # Then make sure that the CogniteClient used is the one mocked by
         # the approval_client
-        cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
 
-        cmd.verify(cdf_tool_config, False, no_prompt=True)
+        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
 
         assert len(cmd.warning_list) == len(expected_warnings)
         assert set(cmd.warning_list) == set(expected_warnings)
 
     def test_auth_verify_two_groups(
         self,
-        cdf_tool_config: CDFToolConfig,
         auth_cognite_approval_client: ApprovalToolkitClient,
         cdf_resources: dict[CogniteResource, Union[CogniteResource, CogniteResourceList]],
     ):
@@ -146,9 +121,8 @@ class TestAuthCommand:
             auth_cognite_approval_client.append(resource, data)
         # Then make sure that the CogniteClient used is the one mocked by
         # the approval_client
-        cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
         cmd = AuthCommand(print_warning=False)
-        cmd.verify(cdf_tool_config, False, no_prompt=True)
+        cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
 
         assert len(cmd.warning_list) == 1
         assert set(cmd.warning_list) == {
@@ -163,24 +137,19 @@ class TestAuthCommand:
 
     def test_auth_verify_no_capabilities(
         self,
-        cdf_tool_config: CDFToolConfig,
         auth_cognite_approval_client: ApprovalToolkitClient,
         cdf_resources: dict[type[CogniteResource], Union[CogniteResource, CogniteResourceList]],
     ):
         # Add the pre-loaded data to the approval_client
         for resource, data in cdf_resources.items():
             auth_cognite_approval_client.append(resource, data)
-        # Then make sure that the CogniteClient used is the one mocked by
-        # the approval_client
-        cdf_tool_config.toolkit_client = auth_cognite_approval_client.mock_client
 
         def mock_verify_client(*args, **kwargs):
             raise Exception("No capabilities")
 
-        cdf_tool_config.toolkit_client.verify.authorization.side_effect = mock_verify_client
         cmd = AuthCommand(print_warning=False)
         with pytest.raises(AuthorizationError) as e:
-            cmd.verify(cdf_tool_config, False, no_prompt=True)
+            cmd.verify(auth_cognite_approval_client.mock_client, False, no_prompt=True)
 
         assert len(cmd.warning_list) == 1
         assert set(cmd.warning_list) == {

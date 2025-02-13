@@ -112,7 +112,7 @@ def test_build_packages_without_warnings(
         organization_dir=organization_dir,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=None,
     )
 
@@ -174,7 +174,7 @@ def test_build_individual_module(
         organization_dir=organization_dir,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=None,
     )
 
@@ -209,7 +209,7 @@ def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> 
         build_dir=build_tmp_path,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=[
             modules / "cdf_ingestion",
             modules / "common",

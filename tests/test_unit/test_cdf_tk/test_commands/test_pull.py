@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltResourceFull,
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 def load_update_diffs_use_cases():
@@ -506,7 +506,7 @@ class TestPullCommand:
         to_write: dict[str, [dict[str, Any]]],
         resources: BuiltFullResourceList,
         expected: str,
-        cdf_tool_mock: CDFToolConfig,
+        toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
         cmd = PullCommand(silent=True, skip_tracking=True)
 
@@ -515,7 +515,7 @@ class TestPullCommand:
             to_write=to_write,
             resources=resources,
             environment_variables={},
-            loader=DataSetsLoader.create_loader(cdf_tool_mock.toolkit_client),
+            loader=DataSetsLoader.create_loader(toolkit_client_approval.mock_client),
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()

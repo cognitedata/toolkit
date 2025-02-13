@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- Improved flow for the `cdf auth init` command.
+
 ## [0.4.6] - 2025-02-10
 
 ### Fixed

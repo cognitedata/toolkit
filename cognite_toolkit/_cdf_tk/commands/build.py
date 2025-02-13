@@ -75,7 +75,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     calculate_str_or_file_hash,
     humanize_collection,
     quote_int_value_by_key_in_yaml,
@@ -118,7 +117,7 @@ class BuildCommand(ToolkitCommand):
         selected: list[str | Path] | None,
         build_env_name: str | None,
         no_clean: bool,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
@@ -160,7 +159,7 @@ class BuildCommand(ToolkitCommand):
             packages=cdf_toml.modules.packages,
             clean=not no_clean,
             verbose=verbose,
-            ToolGlobals=ToolGlobals,
+            client=client,
             on_error=on_error,
         )
 
@@ -172,7 +171,7 @@ class BuildCommand(ToolkitCommand):
         packages: dict[str, list[str]],
         clean: bool = False,
         verbose: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         progress_bar: bool = False,
         on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
@@ -237,7 +236,7 @@ class BuildCommand(ToolkitCommand):
 
         built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar, on_error)
 
-        self._check_missing_dependencies(organization_dir, ToolGlobals)
+        self._check_missing_dependencies(organization_dir, client)
 
         build_environment = config.create_build_environment(built_modules, modules.selected)
         build_environment.dump_to_file(build_dir)
@@ -543,7 +542,7 @@ class BuildCommand(ToolkitCommand):
             print(str(warning_list))
         return warning_list
 
-    def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
+    def _check_missing_dependencies(self, project_config_dir: Path, client: ToolkitClient | None = None) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(self._dependencies_by_required.keys()) - existing
         for loader_cls, id_ in missing_dependencies:
@@ -552,7 +551,7 @@ class BuildCommand(ToolkitCommand):
             elif loader_cls is DataSetsLoader and id_ == "":
                 # Special case used by the location filter to indicate filter out all classical resources.
                 continue
-            elif ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+            elif client and self._check_resource_exists_in_cdf(client, loader_cls, id_):
                 continue
             elif loader_cls.resource_cls is RawDatabase:
                 # Raw Databases are automatically created when a Raw Table is created.
