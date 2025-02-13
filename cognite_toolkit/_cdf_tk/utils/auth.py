@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-Provider: TypeAlias = Literal["entra_id", "cdf", "other"]
+Provider: TypeAlias = Literal["entra_id", "other"]
 VALID_LOGIN_FLOWS = get_args(LoginFlow)
 VALID_PROVIDERS = get_args(Provider)
 
@@ -34,7 +34,7 @@ LOGIN_FLOW_DESCRIPTION = {
 }
 PROVIDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
-    "cdf": "Use Cognite IDP to authenticate",
+    # "cdf": "Use Cognite IDP to authenticate",
     "other": "Use other IDP to authenticate",
 }
 
