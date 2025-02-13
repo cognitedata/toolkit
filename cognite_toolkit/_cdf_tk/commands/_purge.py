@@ -42,7 +42,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import ToolkitCommand
 
@@ -50,7 +50,7 @@ from ._base import ToolkitCommand
 class PurgeCommand(ToolkitCommand):
     def space(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         space: str | None = None,
         include_space: bool = False,
         dry_run: bool = False,
@@ -58,7 +58,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a space and all its content"""
-        selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
+        selected_space = self._get_selected_space(space, client)
         if space is None:
             # Interactive mode
             include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
@@ -82,9 +82,9 @@ class PurgeCommand(ToolkitCommand):
                 CogniteFileLoader,
             },
         )
-        is_purged = self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
+        is_purged = self._purge(client, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space and is_purged:
-            space_loader = SpaceLoader.create_loader(ToolGlobals.toolkit_client)
+            space_loader = SpaceLoader.create_loader(client)
             if dry_run:
                 print(f"Would delete space {selected_space}")
             else:
@@ -132,7 +132,7 @@ class PurgeCommand(ToolkitCommand):
 
     def dataset(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         external_id: str | None = None,
         include_dataset: bool = False,
         dry_run: bool = False,
@@ -140,7 +140,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a dataset and all its content"""
-        selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
+        selected_dataset = self._get_selected_dataset(external_id, client)
         if external_id is None:
             # Interactive mode
             include_dataset = questionary.confirm(
@@ -168,9 +168,7 @@ class PurgeCommand(ToolkitCommand):
                 LocationFilterLoader,
             },
         )
-        is_purged = self._purge(
-            ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose
-        )
+        is_purged = self._purge(client, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
         if include_dataset and is_purged:
             if dry_run:
                 print(f"Would have archived {selected_dataset}")
@@ -181,7 +179,7 @@ class PurgeCommand(ToolkitCommand):
                     .metadata.add({"archived": "true"})
                     .write_protected.set(True)
                 )
-                ToolGlobals.toolkit_client.data_sets.update(archived)
+                client.data_sets.update(archived)
                 print(f"DataSet {selected_dataset} archived")
         elif include_dataset:
             self.warn(
@@ -226,7 +224,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _purge(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         loaders: dict[type[ResourceLoader], frozenset[type[ResourceLoader]]],
         selected_space: str | None = None,
         selected_data_set: str | None = None,
@@ -243,7 +241,7 @@ class PurgeCommand(ToolkitCommand):
                 if loader_cls not in loaders:
                     # Dependency that is included
                     continue
-                loader = loader_cls.create_loader(ToolGlobals.toolkit_client, console=status.console)
+                loader = loader_cls.create_loader(client, console=status.console)
                 status_prefix = "Would have deleted" if dry_run else "Deleted"
                 if isinstance(loader, ViewLoader) and not dry_run:
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
@@ -278,7 +276,7 @@ class PurgeCommand(ToolkitCommand):
                 # Exclude loaders that we are already iterating over
                 child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
                 child_loaders = [
-                    child_loader.create_loader(ToolGlobals.toolkit_client)
+                    child_loader.create_loader(client)
                     for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
                     # Necessary as the topological sort includes dependencies that are not in the loaders
                     if child_loader in child_loader_classes

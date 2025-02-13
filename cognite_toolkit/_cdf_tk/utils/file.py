@@ -21,6 +21,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
@@ -67,7 +68,7 @@ def load_yaml_inject_variables(
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
-        environ_variables (dict[str, str | None]): Dictionary with environment variables.
+        environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
         validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
@@ -84,7 +85,7 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", value)
+        content = content.replace(f"${{{key}}}", str(value))
     if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
         if isinstance(filepath, Path):
             source = filepath
@@ -401,3 +402,20 @@ def safe_rmtree(path: Path) -> None:
         MediumSeverityWarning(
             f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
         ).print_warning()
+
+
+def get_table_columns(table: Path) -> list[str]:
+    """Get the columns of a table
+
+    Args:
+        table (Path): Path to the table
+
+    Returns:
+        list[str]: List of columns
+    """
+    if table.suffix == ".csv":
+        return read_csv(table).columns.tolist()
+    elif table.suffix == ".parquet":
+        return pd.read_parquet(table).columns.tolist()
+    else:
+        raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")

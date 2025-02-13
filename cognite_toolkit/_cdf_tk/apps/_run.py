@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -52,7 +52,8 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         cmd = RunTransformationCommand()
-        cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(lambda: cmd.run_transformation(client, external_id))
 
     @staticmethod
     def run_workflow(
@@ -108,11 +109,8 @@ class RunApp(typer.Typer):
     ) -> None:
         """This command will run the specified workflow."""
         cmd = RunWorkflowCommand()
-        cmd.run(
-            lambda: cmd.run_workflow(
-                CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, version, wait
-            )
-        )
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
 
 
 class RunFunctionApp(typer.Typer):
@@ -181,9 +179,10 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.run_local(
-                CDFToolConfig.from_context(ctx),
+                env_vars,
                 organization_dir,
                 env_name,
                 external_id,
@@ -245,8 +244,5 @@ class RunFunctionApp(typer.Typer):
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        cmd.run(
-            lambda: cmd.run_cdf(
-                CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, schedule, wait
-            )
-        )
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))

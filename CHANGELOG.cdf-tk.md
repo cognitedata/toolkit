@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.7] - 2025-02-13
+
+### Added
+
+- [alpha feature] New alpha command `cdf populate view`. You can populate a view with data from a local table
+  using this command. To enable this feature, you need to set `populate = true` in the `alpha_flags` section of
+  your `cdf.toml` file.
+
+### Improved
+
+- Improved flow for the `cdf auth init` command.
+
 ## [0.4.6] - 2025-02-10
 
 ### Fixed

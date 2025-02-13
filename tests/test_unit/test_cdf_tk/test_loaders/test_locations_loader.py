@@ -8,16 +8,16 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
 )
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client.client import ApprovalToolkitClient
 
 
 @pytest.fixture
-def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
-    loader = LocationFilterLoader.create_loader(cdf_tool_mock.toolkit_client)
+def exhaustive_filter(env_vars_with_client: EnvironmentVariables) -> LocationFilterWrite:
+    loader = LocationFilterLoader.create_loader(env_vars_with_client.get_client())
     raw_list = loader.load_resource_file(
-        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", cdf_tool_mock.environment_variables()
+        LOAD_DATA / "locations" / "exhaustive.LocationFilter.yaml", env_vars_with_client.dump()
     )
     loaded = loader.load_resource(raw_list[0], is_dry_run=False)
     return loaded
@@ -26,12 +26,12 @@ def exhaustive_filter(cdf_tool_mock: CDFToolConfig) -> LocationFilterWrite:
 class TestLocationFilterLoader:
     def test_load_minimum_location_filter(
         self,
-        cdf_tool_mock: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         toolkit_client_approval: ApprovalToolkitClient,
     ) -> None:
-        loader = LocationFilterLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = LocationFilterLoader.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
-            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", cdf_tool_mock.environment_variables()
+            LOAD_DATA / "locations" / "minimum.LocationFilter.yaml", env_vars_with_client.dump()
         )
         loaded = loader.load_resource(raw_list[0], is_dry_run=False)
         assert isinstance(loaded, LocationFilterWrite)
