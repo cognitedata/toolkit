@@ -98,7 +98,7 @@ class CogniteToolkitDemo:
             if cluster is None:
                 raise ValueError("CDF_CLUSTER is not set in the environment.")
             self._env_vars = EnvironmentVariables(
-                PROVIDER="cdf",
+                PROVIDER="cdf",  # type: ignore[arg-type]
                 LOGIN_FLOW="client_credentials",
                 CDF_CLUSTER=cluster,
                 CDF_PROJECT=self._client.config.project,
