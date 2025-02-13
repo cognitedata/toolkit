@@ -20,7 +20,7 @@ Changes are grouped as follows:
 ### Added
 
 - [alpha feature] New alpha command `cdf populate view`. You can populate a view with data from a local table
-  using this command. To enable this feature, you need to set `popualte = true` in the `alpha_flags` section of
+  using this command. To enable this feature, you need to set `populate = true` in the `alpha_flags` section of
   your `cdf.toml` file.
 
 ### Improved
