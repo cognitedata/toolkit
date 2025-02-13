@@ -1,0 +1,82 @@
+space: population_model
+externalId: PrimitiveNullable
+name: PrimitiveNullable
+version: v1
+properties:
+  text:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: text
+    name: text
+  boolean:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: boolean
+    name: text
+  float32:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: float32
+    name: float32
+  float64:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: float64
+    name: float64
+  int32:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: int32
+    name: int32
+  int64:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: int64
+    name: int64
+  timestamp:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: timestamp
+    name: timestamp
+  date:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: date
+    name: date
+  json:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: json
+    name: json
+  enum:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: enum
+    name: enum
+  direct:
+    container:
+      space: population_model
+      externalId: PrimitiveNullable
+      type: container
+    containerPropertyIdentifier: direct
+    name: direct
