@@ -318,7 +318,10 @@ class EnvironmentVariables:
             if isinstance(value, list):
                 value = ",".join(value)
             if value is not None:
-                variables[field_.name] = str(value)
+                if field_.type is int:
+                    variables[field_.name] = value
+                else:
+                    variables[field_.name] = str(value)
         return variables
 
     def as_string(self) -> str:
