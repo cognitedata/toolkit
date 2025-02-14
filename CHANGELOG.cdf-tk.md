@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Added
+
+- Support for `auth0` as the provider when running `cdf auth init`.
+
 ## [0.4.8] - 2025-02-14
 
 ### Fixed
