@@ -179,6 +179,8 @@ class EnvironmentVariables:
         self.LOGIN_FLOW = self.LOGIN_FLOW.lower()  # type: ignore[assignment]
         if self.LOGIN_FLOW not in VALID_LOGIN_FLOWS:
             raise AuthenticationError(f"Invalid login flow: {self.LOGIN_FLOW}. Valid options are {VALID_LOGIN_FLOWS}")
+        if self.PROVIDER not in VALID_PROVIDERS:
+            raise AuthenticationError(f"Invalid provider: {self.PROVIDER}. Valid options are {VALID_PROVIDERS}")
 
     # All derived properties
     @property
@@ -389,9 +391,10 @@ class EnvironmentVariables:
         return values
 
     def _get_value(self, field_: Field, lookup_default: bool = True) -> Any:
-        if lookup_default and (default_name := field_.name.casefold()) and hasattr(self, default_name):
+        if lookup_default and (default_name := field_.name.casefold()):
             try:
-                return getattr(self, default_name)
+                if hasattr(self, default_name):
+                    return getattr(self, default_name)
             except ToolkitMissingValueError:
                 ...
         return getattr(self, field_.name)
@@ -537,6 +540,5 @@ def _is_unchanged(
 
 if __name__ == "__main__":
     # For easy testing
-    EnvironmentVariables("blue", "albert").get_required_with_value()
     envs = prompt_user_environment_variables()
     print(envs)
