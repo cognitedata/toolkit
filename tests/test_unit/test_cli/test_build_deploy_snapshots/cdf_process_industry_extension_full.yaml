@@ -25,6 +25,7 @@ Container:
         list: false
         type: text
   space: sp_enterprise_process_industry_full
+  usedFor: edge
 - constraints: {}
   externalId: ToolkitIDM360ImageCollection
   indexes: {}
@@ -142,6 +143,7 @@ Container:
         list: false
         type: text
   space: sp_enterprise_process_industry_full
+  usedFor: edge
 - constraints: {}
   externalId: ToolkitIDMAsset
   indexes: {}
@@ -259,6 +261,7 @@ Container:
         list: false
         type: text
   space: sp_enterprise_process_industry_full
+  usedFor: edge
 - constraints: {}
   externalId: ToolkitIDMEquipment
   indexes: {}
