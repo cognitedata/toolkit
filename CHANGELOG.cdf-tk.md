@@ -20,6 +20,7 @@ Changes are grouped as follows:
 ### Fixed
 
 - The Toolkit no longer tries to update a data modeling container that does not have the `usedFor` field set.
+- The Toolkit no longer hides `409` errors when failing to create a resource behind a low severity warning.
 
 ## Improved
 
