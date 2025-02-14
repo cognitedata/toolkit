@@ -11,3 +11,4 @@ properties:
     autoIncrement: false
 constraints: {}
 indexes: {}
+usedFor: edge
