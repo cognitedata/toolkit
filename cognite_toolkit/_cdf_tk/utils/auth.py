@@ -444,7 +444,6 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
         {"LOGIN_FLOW": login_flow, "CDF_CLUSTER": cdf_cluster, "CDF_PROJECT": cdf_project, "PROVIDER": provider}
     )
     env_vars = EnvironmentVariables(**args)
-    print(env_vars)
     idp_tenant_id = env_vars.IDP_TENANT_ID or "IDP_TENANT_ID"
     for field_, value in env_vars.get_required_with_value():
         user_value = get_user_value(field_, value, cdf_cluster, idp_tenant_id)
