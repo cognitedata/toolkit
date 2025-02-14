@@ -72,6 +72,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
@@ -88,7 +89,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_str_or_file_hash,
@@ -595,18 +596,21 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def create(self, items: Sequence[ViewApply]) -> ViewList:
         try:
             return self.client.data_modeling.views.apply(items)
-        except CogniteAPIError as e:
-            if not (isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]):
+        except CogniteAPIError as e1:
+            if not (isinstance(e1.extra, dict) and "isAutoRetryable" in e1.extra and e1.extra["isAutoRetryable"]):
                 raise
-            # Fallback to creating one by one if the error is not auto-retryable.
+            # Fallback to creating one by one if the error is auto-retryable.
+            MediumSeverityWarning(
+                f"Failed to create {len(items)} views error:\n{Panel(escape(str(e1)))}\nTrying to create one by one."
+            ).print_warning(include_timestamp=True, console=self.console)
             created_list = ViewList([])
             for no, item in enumerate(items):
                 try:
                     created = self.client.data_modeling.views.apply(item)
-                except CogniteAPIError as e:
-                    e.failed.extend(items[no + 1 :])
-                    e.successful.extend(created_list)
-                    raise e
+                except CogniteAPIError as e2:
+                    e2.failed.extend(items[no + 1 :])
+                    e2.successful.extend(created_list)
+                    raise e2 from e1
                 else:
                     created_list.append(created)
             return created_list
