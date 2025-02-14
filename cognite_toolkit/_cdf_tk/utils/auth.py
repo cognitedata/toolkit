@@ -129,8 +129,8 @@ class EnvironmentVariables:
             display_name="IDP audience",
             example={
                 "entra_id": "https://{CDF_CLUSTER}.cognitedata.com",
+                "auth0": "https: //{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
                 "other": "https://{CDF_CLUSTER}.cognitedata.com",
-                "auth0": "https://{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
             },
             required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0"}),
             optional=frozenset([("entra_id", "client_credentials"), ("auth0", "client_credentials")]),
@@ -213,14 +213,19 @@ class EnvironmentVariables:
 
     @property
     def idp_audience(self) -> str:
-        return self.IDP_AUDIENCE or f"https://{self.CDF_CLUSTER}.cognitedata.com"
+        if self.IDP_AUDIENCE:
+            return self.IDP_AUDIENCE
+        if self.PROVIDER == "auth0":
+            return f"https://{self.CDF_PROJECT}.fusion.cognite.com/{self.CDF_PROJECT}"
+        else:
+            return f"https://{self.CDF_CLUSTER}.cognitedata.com"
 
     @property
     def idp_scopes(self) -> list[str]:
         if self.IDP_SCOPES:
             return self.IDP_SCOPES.split(",")
         if self.PROVIDER == "auth0":
-            return ["IDENTITY", "ADMIN", "user_impersonation"]
+            return ["IDENTITY", "user_impersonation"]
         return [f"https://{self.CDF_CLUSTER}.cognitedata.com/.default"]
 
     @property
