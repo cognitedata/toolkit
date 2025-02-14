@@ -4,6 +4,7 @@ from dataclasses import Field, dataclass, field, fields
 from typing import Any, Literal, TypeAlias, get_args
 
 import questionary
+import typer
 from cognite.client.credentials import (
     CredentialProvider,
     OAuthClientCredentials,
@@ -434,11 +435,16 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
 
     cdf_cluster = questionary.text("Enter the CDF cluster", default=current.CDF_CLUSTER if current else "").ask()
     cdf_project = questionary.text("Enter the CDF project", default=current.CDF_PROJECT if current else "").ask()
-    args: dict[str, Any] = current.dump(include_os=False) if current else {}
+    args: dict[str, Any] = (
+        current.dump(include_os=False)
+        if current and _is_unchanged(current, provider, login_flow, cdf_project, cdf_cluster)  # type: ignore[arg-type]
+        else {}
+    )
     args.update(
         {"LOGIN_FLOW": login_flow, "CDF_CLUSTER": cdf_cluster, "CDF_PROJECT": cdf_project, "PROVIDER": provider}
     )
     env_vars = EnvironmentVariables(**args)
+    print(env_vars)
     idp_tenant_id = env_vars.IDP_TENANT_ID or "IDP_TENANT_ID"
     for field_, value in env_vars.get_required_with_value():
         user_value = get_user_value(field_, value, cdf_cluster, idp_tenant_id)
@@ -468,6 +474,8 @@ def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: s
         user_value = questionary.password(f"Enter the {display_name}:", default=default).ask()
     else:
         user_value = questionary.text(f"Enter the {display_name}:", default=default).ask()
+    if user_value is None:
+        raise typer.Exit(0)
     if field_.type is int:
         try:
             user_value = int(user_value)
@@ -475,6 +483,17 @@ def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: s
             print(f"Invalid value: {user_value}. Please enter an integer.")
             return get_user_value(field_, value, cdf_cluster, idp_tenant_id)
     return user_value
+
+
+def _is_unchanged(
+    current: EnvironmentVariables, provider: Provider, login_flow: LoginFlow, cdf_project: str, cdf_cluster: str
+) -> bool:
+    return (
+        current.PROVIDER == provider
+        and current.LOGIN_FLOW == login_flow
+        and current.CDF_PROJECT == cdf_project
+        and current.CDF_CLUSTER == cdf_cluster
+    )
 
 
 if __name__ == "__main__":
