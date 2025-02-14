@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+## Improved
+
+- If the `cdf deploy` command fails to deploy multiple `Group`s due to `Failed to buffer the request body` error, the Toolkit
+  now retries to create the `Group`s one by one.
+
 ## [0.4.7] - 2025-02-13
 
 ### Added
