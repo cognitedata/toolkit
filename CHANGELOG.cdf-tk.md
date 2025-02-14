@@ -17,6 +17,10 @@ Changes are grouped as follows:
 
 ## TBD
 
+### Fixed
+
+- The Toolkit no longer tries to update a data modeling container that does not have the `usedFor` field set.
+
 ## Improved
 
 - If the `cdf deploy` command fails to deploy multiple `Group`s due to `Failed to buffer the request body` error, the Toolkit
