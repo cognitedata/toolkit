@@ -324,6 +324,8 @@ class ContainerLoader(
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
+        if "usedFor" not in local:
+            dumped.pop("usedFor", None)
         return dumped
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
