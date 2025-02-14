@@ -601,7 +601,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 raise
             # Fallback to creating one by one if the error is auto-retryable.
             MediumSeverityWarning(
-                f"Failed to create {len(items)} views error:\n{Panel(escape(str(e1)))}\nTrying to create one by one."
+                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
             ).print_warning(include_timestamp=True, console=self.console)
             created_list = ViewList([])
             for no, item in enumerate(items):
