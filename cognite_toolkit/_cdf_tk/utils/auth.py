@@ -44,7 +44,8 @@ LOGIN_FLOW_DESCRIPTION = {
 @dataclass
 class EnvOptions(Mapping):
     display_name: str
-    example: str
+    default_example: str = ""
+    example: dict[Provider, str] = field(default_factory=dict)
     is_secret: bool = False
     required: frozenset[tuple[Provider | None, LoginFlow]] = frozenset()
     optional: frozenset[tuple[Provider | None, LoginFlow]] = frozenset()
@@ -80,30 +81,34 @@ class EnvironmentVariables:
     LOGIN_FLOW: LoginFlow = field(default="client_credentials", metadata=EnvOptions("Login flow", "client_credentials"))
     CDF_URL: str | None = field(
         default=None,
-        metadata=EnvOptions("CDF URL", "https://{CDF_CLUSTER}.cognitedata.com", optional=frozenset(ALL_CASES)),
+        metadata=EnvOptions(
+            "CDF URL", default_example="https://{CDF_CLUSTER}.cognitedata.com", optional=frozenset(ALL_CASES)
+        ),
     )
     CDF_TOKEN: str | None = field(
-        default=None, metadata=EnvOptions("OAuth2 token", example="", required=frozenset([(None, "token")]))
+        default=None, metadata=EnvOptions("OAuth2 token", required=frozenset([(None, "token")]))
     )
     IDP_CLIENT_ID: str | None = field(
         default=None,
         metadata=EnvOptions(
             display_name="client id",
-            example="",
             required=frozenset([(None, "client_credentials"), (None, "interactive"), ("other", "device_code")]),
         ),
     )
     IDP_CLIENT_SECRET: str | None = field(
         default=None,
         metadata=EnvOptions(
-            display_name="client secret", example="", is_secret=True, required=frozenset([(None, "client_credentials")])
+            display_name="client secret", is_secret=True, required=frozenset({(None, "client_credentials")})
         ),
     )
     IDP_TOKEN_URL: str | None = field(
         default=None,
         metadata=EnvOptions(
             display_name="token URL",
-            example="https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
+            example={
+                "entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
+                "auth0": "https://<my_auth_url>/oauth/token",
+            },
             required=all_providers(flow="client_credentials", exclude="entra_id"),
             optional=frozenset([("entra_id", "client_credentials")]),
         ),
@@ -112,7 +117,7 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="Tenant id for MS Entra",
-            example="00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com",
+            example={"entra_id": "00000000-0000-0000-0000-000000000000 or mytenant.onmicrosoft.com"},
             required=frozenset(
                 [("entra_id", "device_code"), ("entra_id", "client_credentials"), ("entra_id", "interactive")]
             ),
@@ -122,9 +127,13 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="IDP audience",
-            example="https://{CDF_CLUSTER}.cognitedata.com",
-            required=all_providers(flow="client_credentials", exclude="entra_id"),
-            optional=frozenset([("entra_id", "client_credentials")]),
+            example={
+                "entra_id": "https://{CDF_CLUSTER}.cognitedata.com",
+                "other": "https://{CDF_CLUSTER}.cognitedata.com",
+                "auth0": "https://{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
+            },
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0"}),
+            optional=frozenset([("entra_id", "client_credentials"), ("auth0", "client_credentials")]),
         ),
     )
 
@@ -132,7 +141,10 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="IDP scopes",
-            example="https://{CDF_CLUSTER}.cognitedata.com/.default",
+            example={
+                "entra_id": "https://{CDF_CLUSTER}.cognitedata.com/.default",
+                "auth0": "IDENTITY,user_impersonation",
+            },
             optional=frozenset([*all_providers("client_credentials"), (None, "interactive")]),
         ),
     )
@@ -140,7 +152,7 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="IDP authority URL",
-            example="https://login.microsoftonline.com/{IDP_TENANT_ID}",
+            example={"entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}"},
             required=all_providers("interactive", exclude="entra_id"),
             optional=frozenset([("entra_id", "interactive")]),
         ),
@@ -149,16 +161,17 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="IDP OIDC discovery URL (root URL excl. /.well-known/...)",
-            example="https://<auth0-tenant>.auth0.com/oauth",
+            default_example="https://<auth0-tenant>.auth0.com/oauth",
             required=all_providers("device_code", exclude="entra_id"),
         ),
     )
     CDF_CLIENT_TIMEOUT: int = field(
-        default=30, metadata=EnvOptions(display_name="CDF client timeout", example="30", optional=frozenset(ALL_CASES))
+        default=30,
+        metadata=EnvOptions(display_name="CDF client timeout", default_example="30", optional=frozenset(ALL_CASES)),
     )
     CDF_CLIENT_MAX_WORKERS: int = field(
         default=5,
-        metadata=EnvOptions(display_name="CDF client max workers", example="5", optional=frozenset(ALL_CASES)),
+        metadata=EnvOptions(display_name="CDF client max workers", default_example="5", optional=frozenset(ALL_CASES)),
     )
     _client: ToolkitClient | None = field(init=False, default=None)
 
@@ -457,7 +470,7 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
     env_vars = EnvironmentVariables(**args)
     idp_tenant_id = env_vars.IDP_TENANT_ID or "IDP_TENANT_ID"
     for field_, value in env_vars.get_required_with_value():
-        user_value = get_user_value(field_, value, cdf_cluster, idp_tenant_id)
+        user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
         setattr(env_vars, field_.name, user_value)
         if field_.name == "IDP_TENANT_ID":
             idp_tenant_id = user_value
@@ -467,15 +480,26 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
         print(f"  {field_.name}={value}")
     if questionary.confirm("Do you want to change any of these variables?", default=False).ask():
         for field_, value in optional_values:
-            user_value = get_user_value(field_, value, cdf_cluster, idp_tenant_id)
+            user_value = get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
             setattr(env_vars, field_.name, user_value)
     return env_vars
 
 
-def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: str) -> Any:
+def get_user_value(
+    field_: Field, value: Any, provider: Provider, cdf_cluster: str, cdf_project: str, idp_tenant_id: str
+) -> Any:
     is_secret = field_.metadata["is_secret"]
     display_name = field_.metadata["display_name"]
-    default = value or field_.metadata["example"].format(CDF_CLUSTER=cdf_cluster, IDP_TENANT_ID=idp_tenant_id)
+    if value:
+        default = value
+    else:
+        default_example = field_.metadata["default_example"]
+        default = (
+            field_.metadata["example"]
+            .get(provider, default_example)
+            .format(CDF_CLUSTER=cdf_cluster, CDF_PROJECT=cdf_project, IDP_TENANT_ID=idp_tenant_id)
+        )
+
     if isinstance(value, list):
         default = ",".join(value)
     elif value is not None and not isinstance(value, str):
@@ -491,7 +515,7 @@ def get_user_value(field_: Field, value: Any, cdf_cluster: str, idp_tenant_id: s
             user_value = int(user_value)
         except ValueError:
             print(f"Invalid value: {user_value}. Please enter an integer.")
-            return get_user_value(field_, value, cdf_cluster, idp_tenant_id)
+            return get_user_value(field_, value, provider, cdf_cluster, cdf_project, idp_tenant_id)
     return user_value
 
 
