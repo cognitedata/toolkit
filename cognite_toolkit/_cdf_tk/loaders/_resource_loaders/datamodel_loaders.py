@@ -593,7 +593,23 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
-        return self.client.data_modeling.views.apply(items)
+        try:
+            return self.client.data_modeling.views.apply(items)
+        except CogniteAPIError as e:
+            if not (isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]):
+                raise
+            # Fallback to creating one by one if the error is not auto-retryable.
+            created_list = ViewList([])
+            for no, item in enumerate(items):
+                try:
+                    created = self.client.data_modeling.views.apply(item)
+                except CogniteAPIError as e:
+                    e.failed.extend(items[no + 1 :])
+                    e.successful.extend(created_list)
+                    raise e
+                else:
+                    created_list.append(created)
+            return created_list
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
         return self.client.data_modeling.views.retrieve(
