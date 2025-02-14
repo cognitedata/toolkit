@@ -15,6 +15,18 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The Toolkit no longer tries to update a data modeling container that does not have the `usedFor` field set.
+- The Toolkit no longer hides `409` errors when failing to create a resource behind a low severity warning.
+
+## Improved
+
+- If the `cdf deploy` command fails to deploy multiple `Group`s due to `Failed to buffer the request body` error, the Toolkit
+  now retries to create the `Group`s one by one.
+
 ## [0.4.7] - 2025-02-13
 
 ### Added

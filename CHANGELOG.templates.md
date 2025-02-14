@@ -15,6 +15,13 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The annotation containers in the `models/cdf_cdm_extension_full` and `models/cdf_process_industry_extension_full`
+  modules have now correctly set the `usedFor` to `edge`. This caused a 409 error when deploying these modules.
+
 ## [0.4.7] - 2025-02-13
 
 No changes to templates.

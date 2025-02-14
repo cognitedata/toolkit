@@ -353,15 +353,10 @@ class DeployCommand(ToolkitCommand):
         try:
             created = loader.create(resources)
         except CogniteAPIError as e:
-            if e.code == 409:
-                self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
-            else:
-                message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
-                if hint := self._environment_variable_hint(
-                    loader.get_ids(resources), environment_variable_warning_by_id
-                ):
-                    message += hint
-                raise ResourceCreationError(message) from e
+            message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
+            if hint := self._environment_variable_hint(loader.get_ids(resources), environment_variable_warning_by_id):
+                message += hint
+            raise ResourceCreationError(message) from e
         except CogniteDuplicatedError as e:
             self.warn(
                 LowSeverityWarning(
