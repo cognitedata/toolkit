@@ -20,22 +20,23 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyEr
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
+Provider: TypeAlias = Literal["entra_id", "auth0", "other"]
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
-Provider: TypeAlias = Literal["entra_id", "other"]
-VALID_LOGIN_FLOWS = get_args(LoginFlow)
 VALID_PROVIDERS = get_args(Provider)
+VALID_LOGIN_FLOWS = get_args(LoginFlow)
 
 CLIENT_NAME = f"CDF-Toolkit:{__version__}"
+PROVIDER_DESCRIPTION = {
+    "entra_id": "Use Microsoft Entra ID to authenticate",
+    "auth0": "Use Auth0 to authenticate",
+    # "cdf": "Use Cognite IDP to authenticate",
+    "other": "Use other IDP to authenticate",
+}
 LOGIN_FLOW_DESCRIPTION = {
     "client_credentials": "Setup a service principal with client credentials",
     "interactive": "Login using the browser with your user credentials",
     "device_code": "Login using the browser with your user credentials using device code flow",
     "token": "Use a Token directly to authenticate",
-}
-PROVIDER_DESCRIPTION = {
-    "entra_id": "Use Microsoft Entra ID to authenticate",
-    # "cdf": "Use Cognite IDP to authenticate",
-    "other": "Use other IDP to authenticate",
 }
 
 
@@ -64,8 +65,8 @@ ALL_CASES = [(flow, None) for flow in VALID_LOGIN_FLOWS]
 class EnvironmentVariables:
     CDF_CLUSTER: str = field(metadata=EnvOptions("CDF cluster", "westeurope-1"))
     CDF_PROJECT: str = field(metadata=EnvOptions("CDF project", "publicdata"))
-    LOGIN_FLOW: LoginFlow = field(default="client_credentials", metadata=EnvOptions("Login flow", "client_credentials"))
     PROVIDER: Provider = field(default="entra_id", metadata=EnvOptions("Provider", "entra_id"))
+    LOGIN_FLOW: LoginFlow = field(default="client_credentials", metadata=EnvOptions("Login flow", "client_credentials"))
     CDF_URL: str | None = field(
         default=None,
         metadata=EnvOptions("CDF URL", "https://{CDF_CLUSTER}.cognitedata.com", optional=frozenset(ALL_CASES)),
@@ -195,6 +196,8 @@ class EnvironmentVariables:
     def idp_scopes(self) -> list[str]:
         if self.IDP_SCOPES:
             return self.IDP_SCOPES.split(",")
+        if self.PROVIDER == "auth0":
+            return ["IDENTITY", "ADMIN", "user_impersonation"]
         return [f"https://{self.CDF_CLUSTER}.cognitedata.com/.default"]
 
     @property
