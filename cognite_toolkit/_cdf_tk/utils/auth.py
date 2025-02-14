@@ -62,6 +62,16 @@ class EnvOptions(Mapping):
 ALL_CASES = [(None, flow) for flow in VALID_LOGIN_FLOWS]
 
 
+def all_providers(
+    flow: LoginFlow, exclude: Provider | Iterable[Provider] | None = None
+) -> frozenset[tuple[Provider | None, LoginFlow]]:
+    if isinstance(exclude, str):
+        exclude = {exclude}
+    elif exclude is not None:
+        exclude = set(exclude)
+    return frozenset((prov, flow) for prov in VALID_PROVIDERS if exclude is None or prov not in exclude)
+
+
 @dataclass
 class EnvironmentVariables:
     CDF_CLUSTER: str = field(metadata=EnvOptions("CDF cluster", "westeurope-1"))
@@ -94,7 +104,7 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="token URL",
             example="https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
-            required=frozenset([("other", "client_credentials")]),
+            required=all_providers(flow="client_credentials", exclude="entra_id"),
             optional=frozenset([("entra_id", "client_credentials")]),
         ),
     )
@@ -113,7 +123,8 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="IDP audience",
             example="https://{CDF_CLUSTER}.cognitedata.com",
-            optional=frozenset([("entra_id", "client_credentials"), ("other", "client_credentials")]),
+            required=all_providers(flow="client_credentials", exclude="entra_id"),
+            optional=frozenset([("entra_id", "client_credentials")]),
         ),
     )
 
@@ -122,9 +133,7 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="IDP scopes",
             example="https://{CDF_CLUSTER}.cognitedata.com/.default",
-            optional=frozenset(
-                [("entra_id", "client_credentials"), ("other", "client_credentials"), (None, "interactive")]
-            ),
+            optional=frozenset([*all_providers("client_credentials"), (None, "interactive")]),
         ),
     )
     IDP_AUTHORITY_URL: str | None = field(
@@ -132,7 +141,7 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="IDP authority URL",
             example="https://login.microsoftonline.com/{IDP_TENANT_ID}",
-            required=frozenset([("other", "interactive")]),
+            required=all_providers("interactive", exclude="entra_id"),
             optional=frozenset([("entra_id", "interactive")]),
         ),
     )
@@ -141,7 +150,7 @@ class EnvironmentVariables:
         metadata=EnvOptions(
             display_name="IDP OIDC discovery URL (root URL excl. /.well-known/...)",
             example="https://<auth0-tenant>.auth0.com/oauth",
-            required=frozenset([("other", "device_code")]),
+            required=all_providers("device_code", exclude="entra_id"),
         ),
     )
     CDF_CLIENT_TIMEOUT: int = field(
