@@ -347,17 +347,36 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
         if len(items) == 0:
             return GroupList([])
-        return self.client.iam.groups.create(items)
+        return self._create_with_fallback(items, action="create")
 
     def update(self, items: Sequence[GroupWrite]) -> GroupList:
         # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
         old_groups = self.client.iam.groups.list(all=True)
-        created = self.client.iam.groups.create(items)
+        created = self._create_with_fallback(items, action="update")
         created_names = {g.name for g in created}
         to_delete = GroupList([group for group in old_groups if group.name in created_names])
         if to_delete:
             self._delete(to_delete, check_own_principal=False)
         return created
+
+    def _create_with_fallback(self, items: Sequence[GroupWrite], action: Literal["create", "update"]) -> GroupList:
+        try:
+            return self.client.iam.groups.create(items)
+        except CogniteAPIError as e:
+            if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
+                raise e
+            # Fallback to create one by one
+            created_list = GroupList([])
+            for item in items:
+                try:
+                    created = self.client.iam.groups.create(item)
+                except CogniteAPIError as e:
+                    HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
+                        include_timestamp=True, console=self.console
+                    )
+                else:
+                    created_list.append(created)
+            return created_list
 
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
         id_set = set(ids)
