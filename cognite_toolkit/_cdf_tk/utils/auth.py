@@ -381,7 +381,7 @@ class EnvironmentVariables:
         values: list[tuple[Field, Any]] = []
         for field_ in self._fields(self):
             required = field_.metadata["required"]
-            if required and ((provider, flow) in required or (None, provider) in required):
+            if required and ((provider, flow) in required or (None, flow) in required):
                 if field_.name == "IDP_TOKEN_URL" and provider == "entra_id":
                     continue
                 value = self._get_value(field_, lookup_default)
@@ -537,5 +537,6 @@ def _is_unchanged(
 
 if __name__ == "__main__":
     # For easy testing
+    EnvironmentVariables("blue", "albert").get_required_with_value()
     envs = prompt_user_environment_variables()
     print(envs)
