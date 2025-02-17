@@ -92,7 +92,9 @@ class EnvironmentVariables:
         default=None,
         metadata=EnvOptions(
             display_name="client id",
-            required=frozenset([(None, "client_credentials"), (None, "interactive"), ("other", "device_code")]),
+            required=frozenset(
+                [(None, "client_credentials"), (None, "interactive"), *all_providers("device_code", exclude="entra_id")]
+            ),
         ),
     )
     IDP_CLIENT_SECRET: str | None = field(
