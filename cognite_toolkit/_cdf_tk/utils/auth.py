@@ -156,7 +156,7 @@ class EnvironmentVariables:
             display_name="IDP authority URL",
             example={"entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}"},
             required=all_providers("interactive", exclude="entra_id"),
-            optional=frozenset([("entra_id", "interactive")]),
+            optional=frozenset([("entra_id", "interactive"), ("auth0", "device_code")]),
         ),
     )
     IDP_DISCOVERY_URL: str | None = field(
@@ -313,16 +313,13 @@ class EnvironmentVariables:
                 cdf_cluster=self.CDF_CLUSTER,
                 clear_cache=False,
             )
-        elif self.PROVIDER == "other":
-            return OAuthDeviceCode(
-                authority_url=None,
-                cdf_cluster=self.CDF_CLUSTER,
-                oauth_discovery_url=self.IDP_DISCOVERY_URL,
-                client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
-                audience=self.idp_audience,
-            )
-        else:
-            raise AuthenticationError(f"The provider {self.PROVIDER} is not supported for device code flow.")
+        return OAuthDeviceCode(
+            authority_url=self.IDP_AUTHORITY_URL,
+            cdf_cluster=self.CDF_CLUSTER,
+            oauth_discovery_url=self.IDP_DISCOVERY_URL,
+            client_id=self.IDP_CLIENT_ID,  # type: ignore[arg-type]
+            audience=self.idp_audience,
+        )
 
     def _get_token(self) -> Token:
         if not self.CDF_TOKEN:
