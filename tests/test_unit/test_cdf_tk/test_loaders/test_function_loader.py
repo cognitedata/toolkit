@@ -8,6 +8,7 @@ from cognite.client.data_classes import Function, FunctionScheduleWrite, Functio
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -121,6 +122,9 @@ secrets:
 
 
 class TestFunctionScheduleLoader:
+    @pytest.mark.skipif(
+        not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
+    )
     def test_credentials_missing_raise(self) -> None:
         schedule = dict(
             name="daily-8am-utc",
@@ -136,12 +140,12 @@ class TestFunctionScheduleLoader:
             scopes=["USER_IMPERSONATION"],
         )
         with monkeypatch_toolkit_client() as client:
-            client.config.return_value = config
+            client.config = config
             loader = FunctionScheduleLoader.create_loader(client)
 
         with pytest.raises(ToolkitRequiredValueError):
             loader.load_resource(schedule, is_dry_run=False)
-        client.config.return_value.is_strict_validation = False
+        client.config.is_strict_validation = False
         loaded = loader.load_resource(schedule, is_dry_run=False)
         assert isinstance(loaded, FunctionScheduleWrite)
         credentials = loader.authentication_by_id[loader.get_id(loaded)]

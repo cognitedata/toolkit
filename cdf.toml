@@ -8,6 +8,7 @@ import-cmd = true
 module-repeat = true
 dump-extended = true
 populate = true
+strict-validation = true
 
 [plugins]
 run = true
