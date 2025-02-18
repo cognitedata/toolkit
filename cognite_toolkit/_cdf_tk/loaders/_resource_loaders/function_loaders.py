@@ -474,7 +474,9 @@ class FunctionScheduleLoader(
         created_list = FunctionSchedulesList([], cognite_client=self.client)
         for item in items:
             id_ = self.get_id(item)
-            client_credentials = self.authentication_by_id.get(id_)
+            if id_ not in self.authentication_by_id:
+                raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
+            client_credentials = self.authentication_by_id[id_]
             created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
             # The PySDK mutates the input object, such that function_id is set and function_external_id is None.
             # If we call .get_id on the returned object, it will raise an error we require the function_external_id
