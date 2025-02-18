@@ -16,7 +16,7 @@ class TestWorkflowTriggerLoader:
         not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
     )
     def test_credentials_missing_raise(self) -> None:
-        schedule = dict(
+        trigger = dict(
             externalId="daily-8am-utc",
             triggerRule=dict(
                 triggerType="schedule",
@@ -38,9 +38,9 @@ class TestWorkflowTriggerLoader:
             loader = WorkflowTriggerLoader.create_loader(client)
 
         with pytest.raises(ToolkitRequiredValueError):
-            loader.load_resource(schedule, is_dry_run=False)
+            loader.load_resource(trigger, is_dry_run=False)
         client.config.is_strict_validation = False
-        loaded = loader.load_resource(schedule, is_dry_run=False)
+        loaded = loader.load_resource(trigger, is_dry_run=False)
         assert isinstance(loaded, WorkflowTriggerUpsert)
         credentials = loader._authentication_by_id[loader.get_id(loaded)]
         assert credentials.client_id == "toolkit-client-id"
