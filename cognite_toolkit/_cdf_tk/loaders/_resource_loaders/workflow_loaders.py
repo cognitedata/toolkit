@@ -594,19 +594,19 @@ class WorkflowTriggerLoader(
             if (self.client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
                 self.client.config.credentials, OAuthClientCredentials
             ):
-                raise ToolkitRequiredValueError(f"Authentication is missing for schedule {identifier!r}.")
+                raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {identifier!r}.")
             else:
                 HighSeverityWarning(
-                    f"Authentication is missing for trigger {identifier!r}. Falling back to the Toolkit credentials"
+                    f"Authentication is missing for workflow trigger {identifier!r}. Falling back to the Toolkit credentials"
                 ).print_warning(console=self.console)
             credentials = ClientCredentials(
                 self.client.config.credentials.client_id, self.client.config.credentials.client_secret
             )
         elif not isinstance(auth, dict):
-            raise ToolkitTypeError(f"Authentication must be a dictionary for trigger {identifier!r}")
+            raise ToolkitTypeError(f"Authentication must be a dictionary for workflow trigger {identifier!r}")
         elif "clientId" not in auth or "clientSecret" not in auth:
             raise ToolkitRequiredValueError(
-                f"Authentication must contain clientId and clientSecret for trigger {identifier!r}"
+                f"Authentication must contain clientId and clientSecret for workflow trigger {identifier!r}"
             )
         else:
             credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
