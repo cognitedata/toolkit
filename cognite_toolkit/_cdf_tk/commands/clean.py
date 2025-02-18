@@ -223,7 +223,7 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitCleanResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-        client = env_vars.get_client()
+        client = env_vars.get_client(clean_state.is_strict_validation)
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
             environment_vars = f"\n\nConnected to {env_vars.as_string()}"
