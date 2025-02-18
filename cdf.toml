@@ -9,6 +9,7 @@ module-repeat = true
 dump-extended = true
 populate = true
 strict-validation = true
+credentials-hash = true
 
 [plugins]
 run = true
