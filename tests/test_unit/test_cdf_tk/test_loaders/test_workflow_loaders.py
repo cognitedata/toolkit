@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import WorkflowTrigger, WorkflowTriggerUpsert
+from cognite.client.data_classes import WorkflowTrigger
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
@@ -19,15 +19,16 @@ class TestWorkflowTriggerLoader:
         not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
     )
     def test_credentials_missing_raise(self) -> None:
-        trigger = dict(
-            externalId="daily-8am-utc",
-            triggerRule=dict(
-                triggerType="schedule",
-                cronExpression="0 8 * * *",
-            ),
-            workflowExternalId="wf_example_repeater",
-            workflowVersion="v1",
-        )
+        trigger_content = """externalId: daily-8am-utc
+triggerRule:
+    triggerType: schedule
+    cronExpression: 0 8 * * *
+workflowExternalId: wf_example_repeater
+workflowVersion: v1
+        """
+        trigger_file = MagicMock(spec=Path)
+        trigger_file.read_text.return_value = trigger_content
+
         config = MagicMock(spec=ToolkitClientConfig)
         config.is_strict_validation = True
         config.credentials = OAuthClientCredentials(
@@ -41,18 +42,17 @@ class TestWorkflowTriggerLoader:
             loader = WorkflowTriggerLoader.create_loader(client)
 
         with pytest.raises(ToolkitRequiredValueError):
-            loader.load_resource(trigger, is_dry_run=False)
+            loader.load_resource_file(trigger_file, {})
         client.config.is_strict_validation = False
-        loaded = loader.load_resource(trigger, is_dry_run=False)
-        assert isinstance(loaded, WorkflowTriggerUpsert)
-        credentials = loader._authentication_by_id[loader.get_id(loaded)]
+        local_dict = loader.load_resource_file(trigger_file, {})[0]
+        credentials = loader._authentication_by_id[loader.get_id(local_dict)]
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
 
     @pytest.mark.skipif(
         not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
     )
-    def test_credentials_unchanged(self) -> None:
+    def test_credentials_changed(self) -> None:
         local_content = """externalId: daily-8am-utc
 triggerRule:
   triggerType: schedule
@@ -71,7 +71,7 @@ authentication:
             workflow_version="v1",
             metadata={
                 WorkflowTriggerLoader._MetadataKey.secret_hash: calculate_secure_hash(
-                    {"clientId": "my-client-id", "clientSecret": "my-client-secret"}
+                    {"clientId": "my-client-id", "clientSecret": "my-new-client-secret"}
                 )
             },
         )
@@ -83,4 +83,4 @@ authentication:
         local_dumped = loader.load_resource_file(filepath, {})[0]
         cdf_dumped = loader.dump_resource(cdf_trigger, local_dumped)
 
-        assert cdf_dumped == local_dumped
+        assert cdf_dumped != local_dumped
