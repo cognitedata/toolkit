@@ -1,14 +1,17 @@
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import WorkflowTriggerUpsert
+from cognite.client.data_classes import WorkflowTrigger, WorkflowTriggerUpsert
+from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerLoader
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
 
 class TestWorkflowTriggerLoader:
@@ -45,3 +48,39 @@ class TestWorkflowTriggerLoader:
         credentials = loader._authentication_by_id[loader.get_id(loaded)]
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
+
+    @pytest.mark.skipif(
+        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
+    )
+    def test_credentials_unchanged(self) -> None:
+        local_content = """externalId: daily-8am-utc
+triggerRule:
+  triggerType: schedule
+  cronExpression: 0 8 * * *
+workflowExternalId: wf_example_repeater
+workflowVersion: v1
+authentication:
+  clientId: my-client-id
+  clientSecret: my-client-secret
+"""
+
+        cdf_trigger = WorkflowTrigger(
+            "daily-8am-utc",
+            trigger_rule=WorkflowScheduledTriggerRule(cron_expression="0 8 * * *"),
+            workflow_external_id="wf_example_repeater",
+            workflow_version="v1",
+            metadata={
+                WorkflowTriggerLoader._MetadataKey.secret_hash: calculate_secure_hash(
+                    {"clientId": "my-client-id", "clientSecret": "my-client-secret"}
+                )
+            },
+        )
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowTriggerLoader(client, None, None)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_content
+        local_dumped = loader.load_resource_file(filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_trigger, local_dumped)
+
+        assert cdf_dumped == local_dumped

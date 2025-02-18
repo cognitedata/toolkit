@@ -19,7 +19,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
-from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
     Workflow,
@@ -49,17 +48,16 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, Para
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
-    ToolkitTypeError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
-    HighSeverityWarning,
     LowSeverityWarning,
     MissingReferencedWarning,
     ToolkitWarning,
 )
-from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -451,6 +449,9 @@ class WorkflowTriggerLoader(
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
+    class _MetadataKey:
+        secret_hash = "cognite-toolkit-auth-hash"
+
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
@@ -584,34 +585,28 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        item_list = super().load_resource_file(filepath, environment_variables)
+        for resource in item_list:
+            # The credentials must be read in the load_resource_file and not load_resource as the output
+            # of this function is used to compare against the CDF resource. Thus, the modification of the metadata
+            # must be done before the comparison.
+            identifier = self.get_id(resource)
+            credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
+            self._authentication_by_id[self.get_id(resource)] = credentials
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                if "metadata" not in resource:
+                    resource["metadata"] = {}
+                resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                    credentials.dump(camel_case=True)
+                )
+        return item_list
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-
-        identifier = self.get_id(resource)
-        auth = resource.pop("authentication", None)
-        if auth is None:
-            if (self.client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
-                self.client.config.credentials, OAuthClientCredentials
-            ):
-                raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {identifier!r}.")
-            else:
-                HighSeverityWarning(
-                    f"Authentication is missing for workflow trigger {identifier!r}. Falling back to the Toolkit credentials"
-                ).print_warning(console=self.console)
-            credentials = ClientCredentials(
-                self.client.config.credentials.client_id, self.client.config.credentials.client_secret
-            )
-        elif not isinstance(auth, dict):
-            raise ToolkitTypeError(f"Authentication must be a dictionary for workflow trigger {identifier!r}")
-        elif "clientId" not in auth or "clientSecret" not in auth:
-            raise ToolkitRequiredValueError(
-                f"Authentication must contain clientId and clientSecret for workflow trigger {identifier!r}"
-            )
-        else:
-            credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
-
-        self._authentication_by_id[self.get_id(resource)] = credentials
         return WorkflowTriggerUpsert._load(resource)
 
     def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -619,7 +614,9 @@ class WorkflowTriggerLoader(
         local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
-        if "authentication" in local:
+
+        if not Flags.CREDENTIALS_HASH.is_enabled() and "authentication" in local:
+            # Before we started to hash the credentials:
             # Note that change in the authentication will not be detected, and thus,
             # will require a forced redeployment.
             dumped["authentication"] = local["authentication"]

@@ -1,13 +1,25 @@
-from collections.abc import Iterator
+from collections.abc import Hashable, Iterator
 from typing import Any, Literal, overload
 
+from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import (
+    ClientCredentials,
+)
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
+from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitRequiredValueError,
+    ToolkitTypeError,
+)
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
+    MediumSeverityWarning,
+)
 
 
 @overload
@@ -76,3 +88,32 @@ def iterate_instances(
         if next_cursor is None:
             break
         body["cursor"] = next_cursor
+
+
+def read_auth(
+    identifier: Hashable,
+    resource: dict[str, Any],
+    client: ToolkitClient,
+    resource_name: str,
+    console: Console | None = None,
+) -> ClientCredentials:
+    auth = resource.pop("authentication", None)
+    if auth is None:
+        if (client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
+            client.config.credentials, OAuthClientCredentials
+        ):
+            raise ToolkitRequiredValueError(f"Authentication is missing for {resource_name} {identifier!r}.")
+        else:
+            HighSeverityWarning(
+                f"Authentication is missing for {resource_name} {identifier!r}. Falling back to the Toolkit credentials"
+            ).print_warning(console=console)
+        credentials = ClientCredentials(client.config.credentials.client_id, client.config.credentials.client_secret)
+    elif not isinstance(auth, dict):
+        raise ToolkitTypeError(f"Authentication must be a dictionary for {resource_name} {identifier!r}")
+    elif "clientId" not in auth or "clientSecret" not in auth:
+        raise ToolkitRequiredValueError(
+            f"Authentication must contain clientId and clientSecret for {resource_name} {identifier!r}"
+        )
+    else:
+        credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
+    return credentials
