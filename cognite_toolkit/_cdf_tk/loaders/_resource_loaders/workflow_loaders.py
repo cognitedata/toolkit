@@ -19,6 +19,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, final
 
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
     Workflow,
@@ -48,9 +49,16 @@ from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, Para
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
+    ToolkitTypeError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
+    LowSeverityWarning,
+    MissingReferencedWarning,
+    ToolkitWarning,
+)
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
@@ -579,9 +587,31 @@ class WorkflowTriggerLoader(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-        if "authentication" in resource:
-            raw_auth = resource.pop("authentication")
-            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
+
+        identifier = self.get_id(resource)
+        auth = resource.pop("authentication", None)
+        if auth is None:
+            if (self.client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
+                self.client.config.credentials, OAuthClientCredentials
+            ):
+                raise ToolkitRequiredValueError(f"Authentication is missing for workflow trigger {identifier!r}.")
+            else:
+                HighSeverityWarning(
+                    f"Authentication is missing for workflow trigger {identifier!r}. Falling back to the Toolkit credentials"
+                ).print_warning(console=self.console)
+            credentials = ClientCredentials(
+                self.client.config.credentials.client_id, self.client.config.credentials.client_secret
+            )
+        elif not isinstance(auth, dict):
+            raise ToolkitTypeError(f"Authentication must be a dictionary for workflow trigger {identifier!r}")
+        elif "clientId" not in auth or "clientSecret" not in auth:
+            raise ToolkitRequiredValueError(
+                f"Authentication must contain clientId and clientSecret for workflow trigger {identifier!r}"
+            )
+        else:
+            credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
+
+        self._authentication_by_id[self.get_id(resource)] = credentials
         return WorkflowTriggerUpsert._load(resource)
 
     def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
