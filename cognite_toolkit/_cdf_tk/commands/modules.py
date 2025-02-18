@@ -225,7 +225,7 @@ class ModulesCommand(ToolkitCommand):
                     Environment(
                         name=environment,
                         project=f"<my-project-{environment}>",
-                        build_type=environment,
+                        validation_type=environment,
                         selected=[f"{MODULES}/"],
                     )
                 ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)

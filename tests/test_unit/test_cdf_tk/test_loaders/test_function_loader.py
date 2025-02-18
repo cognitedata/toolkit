@@ -1,9 +1,15 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cognite.client.data_classes import Function, FunctionWrite
+import pytest
+from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import Function, FunctionScheduleWrite, FunctionWrite
 
-from cognite_toolkit._cdf_tk.loaders import FunctionLoader, ResourceWorker
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -113,3 +119,35 @@ secrets:
 
         assert "indexUrl" in dumped
         assert dumped["indexUrl"] == "http://my-index-url"
+
+
+class TestFunctionScheduleLoader:
+    @pytest.mark.skipif(
+        not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
+    )
+    def test_credentials_missing_raise(self) -> None:
+        schedule = dict(
+            name="daily-8am-utc",
+            functionExternalId="fn_example_repeater",
+            cronExpression="0 8 * * *",
+        )
+        config = MagicMock(spec=ToolkitClientConfig)
+        config.is_strict_validation = True
+        config.credentials = OAuthClientCredentials(
+            client_id="toolkit-client-id",
+            client_secret="toolkit-client-secret",
+            token_url="https://cognite.com/token",
+            scopes=["USER_IMPERSONATION"],
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.config = config
+            loader = FunctionScheduleLoader.create_loader(client)
+
+        with pytest.raises(ToolkitRequiredValueError):
+            loader.load_resource(schedule, is_dry_run=False)
+        client.config.is_strict_validation = False
+        loaded = loader.load_resource(schedule, is_dry_run=False)
+        assert isinstance(loaded, FunctionScheduleWrite)
+        credentials = loader.authentication_by_id[loader.get_id(loaded)]
+        assert credentials.client_id == "toolkit-client-id"
+        assert credentials.client_secret == "toolkit-client-secret"

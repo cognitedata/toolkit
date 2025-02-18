@@ -20,6 +20,20 @@ Changes are grouped as follows:
 ### Added
 
 - Support for `auth0` as the provider when running `cdf auth init`.
+- [alpha feature] When the flag `strict-validation` is set to `true` in the `cdf.toml` file, the Toolkit will
+  no longer use its own authentication as a fallback when deploying WorkflowTriggers and FunctionSchedules in projects
+  where `validation-type` is set to anything other than `dev`. This will be the default behavior from version `0.5.0`.
+
+### Improved
+
+- You will get a warning if a WorkflowTrigger or a FunctionSchedule is missing authentication, and the Toolkit
+  authentication is used.
+
+### Changed
+
+- In the `config.[env].yaml` file, the `type` key is renamed to `validation-type` in the `environment` section. This is
+  to make it more clear that this key is used for validation. The `type` key is still supported for backward
+  compatibility.
 
 ## [0.4.8] - 2025-02-14
 

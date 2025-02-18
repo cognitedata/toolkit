@@ -38,6 +38,8 @@ def toolkit_client_config() -> ToolkitClientConfig:
         base_url=f"https://{cdf_cluster}.cognitedata.com",
         project=os.environ["CDF_PROJECT"],
         credentials=credentials,
+        # We cannot commit auth to WorkflowTrigger and FunctionSchedules.
+        is_strict_validation=False,
     )
 
 
