@@ -13,6 +13,7 @@ import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     Database,
     DataSet,
@@ -59,12 +60,14 @@ from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
 from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -135,7 +138,12 @@ class ApprovalToolkitClient:
     def __init__(self, mock_client: ToolkitClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
-        self.mock_client._config = "config"
+        self.mock_client.config = ToolkitClientConfig(
+            client_name=CLIENT_NAME,
+            project="pytest-project",
+            credentials=MagicMock(spec=OAuthClientCredentials),
+            is_strict_validation=False,
+        )
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
         # This is used to log all delete operations
