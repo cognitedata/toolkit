@@ -147,6 +147,11 @@ authentication:
         cdf_dumped = loader.dump_resource(cdf_transformation, local_dumped)
         assert cdf_dumped == local_dumped
 
+        new_filepath = self._create_mock_file(local_content.replace("my-client-secret", "my-new-client-secret"))
+        new_local_dumped = loader.load_resource_file(new_filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_transformation, new_local_dumped)
+        assert cdf_dumped != new_local_dumped
+
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
