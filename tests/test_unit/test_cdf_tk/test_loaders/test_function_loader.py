@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
-from cognite.client.data_classes import Function, FunctionSchedule, FunctionScheduleWrite, FunctionWrite
+from cognite.client.data_classes import Function, FunctionSchedule, FunctionWrite
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -144,12 +144,14 @@ class TestFunctionScheduleLoader:
             client.config = config
             loader = FunctionScheduleLoader.create_loader(client)
 
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = yaml.dump(schedule)
         with pytest.raises(ToolkitRequiredValueError):
-            loader.load_resource(schedule, is_dry_run=False)
+            loader.load_resource_file(filepath, {})
         client.config.is_strict_validation = False
-        loaded = loader.load_resource(schedule, is_dry_run=False)
-        assert isinstance(loaded, FunctionScheduleWrite)
-        credentials = loader.authentication_by_id[loader.get_id(loaded)]
+        filepath.read_text.return_value = yaml.dump(schedule)
+        local = loader.load_resource_file(filepath, {})[0]
+        credentials = loader.authentication_by_id[loader.get_id(local)]
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
 
