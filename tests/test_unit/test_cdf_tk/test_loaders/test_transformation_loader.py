@@ -64,16 +64,14 @@ conflictMode: upsert
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
-
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
-
         resource["authentication"] = {
-            "clientId": "{{cicd_clientId}}",
-            "clientSecret": "{{cicd_clientSecret}}",
-            "tokenUri": "{{cicd_tokenUri}}",
-            "cdfProjectName": "{{cdfProjectName}}",
-            "scopes": "{{cicd_scopes}}",
-            "audience": "{{cicd_audience}}",
+            "clientId": "my-client-id",
+            "clientSecret": "my-client-secret",
+            "tokenUri": "https://cognite.com/token",
+            "cdfProjectName": "my-project",
+            "scopes": "USER_IMPERSONATION",
+            "audience": "https://cognite.com",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
 
@@ -103,8 +101,8 @@ conflictMode: upsert
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
         resource["authentication"] = {
-            "clientId": "{{cicd_clientId}}",
-            "clientSecret": "{{cicd_clientSecret}}",
+            "clientId": "my-client-id",
+            "clientSecret": "my-client-secret",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
 

@@ -239,7 +239,7 @@ class TransformationLoader(
                     "destinationNonce",
                 ]:
                     if key in item:
-                        auth_dict[key] = item.pop(key)
+                        auth_dict[key] = item[key]
                 if auth_dict:
                     auth_hash = calculate_secure_hash(auth_dict, shorten=True)
                     if "query" in item:
