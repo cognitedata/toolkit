@@ -9,7 +9,9 @@ module-repeat = true
 dump-extended = true
 populate = true
 strict-validation = true
-credentials-hash = true
+# Setting this to true wil change all snapshots for WorkflowTriggers/FunctionSchedules.
+# For simplicitly, (avoid keeping track of two sets of snapshots), we keep this to fals in development.
+credentials-hash = false
 
 [plugins]
 run = true
