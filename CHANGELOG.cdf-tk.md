@@ -23,6 +23,9 @@ Changes are grouped as follows:
 - [alpha feature] When the flag `strict-validation` is set to `true` in the `cdf.toml` file, the Toolkit will
   no longer use its own authentication as a fallback when deploying WorkflowTriggers and FunctionSchedules in projects
   where `validation-type` is set to anything other than `dev`. This will be the default behavior from version `0.5.0`.
+- [alpha feature] When the flag `credentials-hash` is set to `true` in the `cdf.toml` file, the Toolkit will hash
+  the credentials of Transformations (if present), FunctionSchedules, and WorkflowTriggers before deploying them. This
+  will be used to detect if the credentials have been changed when running `cdf deploy`.
 
 ### Improved
 
