@@ -10,7 +10,7 @@ dump-extended = true
 populate = true
 strict-validation = true
 # Setting this to true wil change all snapshots for WorkflowTriggers/FunctionSchedules.
-# For simplicitly, (avoid keeping track of two sets of snapshots), we keep this to fals in development.
+# For simplicity, (avoid keeping track of two sets of snapshots), we keep this to false in development.
 credentials-hash = false
 
 [plugins]
