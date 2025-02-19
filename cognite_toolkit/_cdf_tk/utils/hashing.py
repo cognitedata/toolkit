@@ -34,11 +34,14 @@ def calculate_directory_hash(
     return calculated
 
 
-def calculate_secure_hash(item: dict[str, Any]) -> str:
+def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
     """Calculate a secure hash of a dictionary"""
     sha256_hash = hashlib.sha512(usedforsecurity=True)
     sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
-    return sha256_hash.hexdigest()
+    calculated_hash = sha256_hash.hexdigest()
+    if shorten:
+        return calculated_hash[:8]
+    return calculated_hash
 
 
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:

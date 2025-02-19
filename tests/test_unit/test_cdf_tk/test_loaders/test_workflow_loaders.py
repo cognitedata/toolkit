@@ -52,7 +52,7 @@ workflowVersion: v1
     @pytest.mark.skipif(
         not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
     )
-    def test_credentials_changed(self) -> None:
+    def test_credentials_unchanged(self) -> None:
         local_content = """externalId: daily-8am-utc
 triggerRule:
   triggerType: schedule
@@ -71,7 +71,7 @@ authentication:
             workflow_version="v1",
             metadata={
                 WorkflowTriggerLoader._MetadataKey.secret_hash: calculate_secure_hash(
-                    {"clientId": "my-client-id", "clientSecret": "my-new-client-secret"}
+                    {"clientId": "my-client-id", "clientSecret": "my-client-secret"}, shorten=True
                 )
             },
         )
@@ -83,4 +83,4 @@ authentication:
         local_dumped = loader.load_resource_file(filepath, {})[0]
         cdf_dumped = loader.dump_resource(cdf_trigger, local_dumped)
 
-        assert cdf_dumped != local_dumped
+        assert cdf_dumped == local_dumped

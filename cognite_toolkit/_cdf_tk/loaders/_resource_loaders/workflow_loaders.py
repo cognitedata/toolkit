@@ -588,21 +588,21 @@ class WorkflowTriggerLoader(
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
     ) -> list[dict[str, Any]]:
-        item_list = super().load_resource_file(filepath, environment_variables)
-        for resource in item_list:
-            # The credentials must be read in the load_resource_file and not load_resource as the output
-            # of this function is used to compare against the CDF resource. Thus, the modification of the metadata
-            # must be done before the comparison.
+        resources = super().load_resource_file(filepath, environment_variables)
+
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
             identifier = self.get_id(resource)
             credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
-            self._authentication_by_id[self.get_id(resource)] = credentials
+            self._authentication_by_id[identifier] = credentials
             if Flags.CREDENTIALS_HASH.is_enabled():
                 if "metadata" not in resource:
                     resource["metadata"] = {}
                 resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
-                    credentials.dump(camel_case=True)
+                    credentials.dump(camel_case=True), shorten=True
                 )
-        return item_list
+        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
@@ -615,9 +615,8 @@ class WorkflowTriggerLoader(
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
 
-        if not Flags.CREDENTIALS_HASH.is_enabled() and "authentication" in local:
-            # Before we started to hash the credentials:
-            # Note that change in the authentication will not be detected, and thus,
-            # will require a forced redeployment.
+        if "authentication" in local:
+            # Changes in auth will be detected by the hash. We need to do this to ensure
+            # that the pull command works.
             dumped["authentication"] = local["authentication"]
         return dumped

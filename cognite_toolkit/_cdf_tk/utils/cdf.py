@@ -97,7 +97,7 @@ def read_auth(
     resource_name: str,
     console: Console | None = None,
 ) -> ClientCredentials:
-    auth = resource.pop("authentication", None)
+    auth = resource.get("authentication")
     if auth is None:
         if (client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
             client.config.credentials, OAuthClientCredentials
