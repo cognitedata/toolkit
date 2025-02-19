@@ -351,6 +351,8 @@ class FunctionScheduleLoader(
     parent_resource = frozenset({FunctionLoader})
     support_update = False
 
+    _hash_key = "cdf-auth"
+
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
         self.authentication_by_id: dict[FunctionScheduleID, ClientCredentials] = {}
