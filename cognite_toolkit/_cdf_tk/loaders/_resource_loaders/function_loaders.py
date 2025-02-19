@@ -5,7 +5,6 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast, final
 
-from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
     Function,
@@ -34,7 +33,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionSchedu
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
-    ToolkitTypeError,
 )
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
@@ -431,31 +429,8 @@ class FunctionScheduleLoader(
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
-        identifier = self.get_id(resource)
-        auth = resource.pop("authentication", None)
-        if auth is None:
-            if (self.client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
-                self.client.config.credentials, OAuthClientCredentials
-            ):
-                raise ToolkitRequiredValueError(f"Authentication is missing for schedule {identifier!r}.")
-            else:
-                HighSeverityWarning(
-                    f"Authentication is missing for schedule {identifier!r}. Falling back to the Toolkit credentials"
-                ).print_warning(console=self.console)
-            credentials = ClientCredentials(
-                self.client.config.credentials.client_id, self.client.config.credentials.client_secret
-            )
-        elif not isinstance(auth, dict):
-            raise ToolkitTypeError(f"Authentication must be a dictionary for schedule {identifier!r}")
-        elif "clientId" not in auth or "clientSecret" not in auth:
-            raise ToolkitRequiredValueError(
-                f"Authentication must contain clientId and clientSecret for schedule {identifier!r}"
-            )
-        else:
-            credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
-        self.authentication_by_id[identifier] = credentials
-
         if "functionId" in resource:
+            identifier = self.get_id(resource)
             LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
                 console=self.console
             )
