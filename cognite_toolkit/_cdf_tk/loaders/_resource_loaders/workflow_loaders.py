@@ -599,9 +599,9 @@ class WorkflowTriggerLoader(
             if Flags.CREDENTIALS_HASH.is_enabled():
                 if "metadata" not in resource:
                     resource["metadata"] = {}
-                resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
-                    credentials.dump(camel_case=True), shorten=True
-                )
+                    resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                        credentials.dump(camel_case=True), shorten=True
+                    )
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:

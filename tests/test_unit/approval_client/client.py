@@ -138,10 +138,15 @@ class ApprovalToolkitClient:
     def __init__(self, mock_client: ToolkitClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
+        credentials = MagicMock(spec=OAuthClientCredentials)
+        credentials.client_id = "toolkit-client-id"
+        credentials.client_secret = "toolkit-client-secret"
+        credentials.token_url = "https://toolkit.auth.com/oauth/token"
+        credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
         self.mock_client.config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project="pytest-project",
-            credentials=MagicMock(spec=OAuthClientCredentials),
+            credentials=credentials,
             is_strict_validation=False,
         )
         # This is used to simulate the existing resources in CDF
