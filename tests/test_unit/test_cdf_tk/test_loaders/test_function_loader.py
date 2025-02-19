@@ -162,8 +162,8 @@ functionExternalId: fn_example_repeater
 cronExpression: 0 8 * * *
 description: Run the function every day at 8am UTC
 authentication:
-clientId: my-client-id
-clientSecret: my-client-secret
+  clientId: my-client-id
+  clientSecret: my-client-secret
 """
         auth_dict = yaml.CSafeLoader(local_content).get_data()["authentication"]
         auth_hash = calculate_secure_hash(auth_dict, shorten=True)

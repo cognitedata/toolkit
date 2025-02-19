@@ -44,6 +44,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     calculate_str_or_file_hash,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -352,6 +353,7 @@ class FunctionScheduleLoader(
     support_update = False
 
     _hash_key = "cdf-auth"
+    _description_character_limit = 500
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
@@ -402,6 +404,31 @@ class FunctionScheduleLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(identifier, resource, self.client, "function schedule", self.console)
+            self.authentication_by_id[identifier] = credentials
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
+                extra_str = f" {self._hash_key}: {auth_hash}"
+                if "description" not in resource:
+                    resource["description"] = extra_str[1:]
+                elif len(resource["description"]) + len(extra_str) < self._description_character_limit:
+                    resource["description"] += f"{extra_str}"
+                else:
+                    LowSeverityWarning(
+                        f"Description is too long for schedule {identifier!r}. Truncating..."
+                    ).print_warning(console=self.console)
+                    truncation = self._description_character_limit - len(extra_str) - 3
+                    resource["description"] = f"{resource['description'][:truncation]}...{extra_str}"
+        return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
         identifier = self.get_id(resource)
