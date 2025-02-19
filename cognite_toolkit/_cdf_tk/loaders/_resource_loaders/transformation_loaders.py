@@ -116,7 +116,7 @@ class TransformationLoader(
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
-    _hash_key = "cdf-auth"
+    _hash_key = "-- cdf-auth"
 
     @property
     def display_name(self) -> str:
@@ -243,7 +243,7 @@ class TransformationLoader(
                 if auth_dict:
                     auth_hash = calculate_secure_hash(auth_dict, shorten=True)
                     if "query" in item:
-                        item["query"] = f"{self._hash_key}: auth={auth_hash}\n{item['query']}"
+                        item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
@@ -293,9 +293,11 @@ class TransformationLoader(
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if "isPublic" in dumped and "isPublic" not in local:
+            # Default set from server side.
+            dumped.pop("isPublic")
         if "authentication" in local:
-            # Todo: Need a way to detect changes in credentials instead of just assuming
-            #    that the credentials are always the same.
+            # The hash added to the beginning of the query detects the change in the authentication
             dumped["authentication"] = local["authentication"]
         return dumped
 
