@@ -603,7 +603,7 @@ class PullCommand(ToolkitCommand):
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
         environment_variables: dict[str, str | None],
-        allow_invalid_files: bool,
+        allow_invalid_files: bool = False,
     ) -> dict[T_ID, dict[str, Any]]:
         unique_destinations = {r.destination for r in resources if r.destination}
         local_resource_by_id: dict[T_ID, dict[str, Any]] = {}
