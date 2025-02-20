@@ -28,6 +28,15 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for the populate command",
     }
+    STRICT_VALIDATION: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "For Workflow/Transformations/Function do not fallback to Toolkit credentials when validation-type != 'dev'",
+    }
+    CREDENTIALS_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Stores a hash of the credentials of Workflow/Transformation/Function in the resources such that"
+        " the resource is updated when the credentials change",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

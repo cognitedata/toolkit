@@ -8,6 +8,10 @@ import-cmd = true
 module-repeat = true
 dump-extended = true
 populate = true
+strict-validation = true
+# Setting this to true wil change all snapshots for WorkflowTriggers/FunctionSchedules.
+# For simplicity, (avoid keeping track of two sets of snapshots), we keep this to false in development.
+credentials-hash = false
 
 [plugins]
 run = true
@@ -17,4 +21,4 @@ dump = true
 [modules]
 # This is the version of the modules. It should'n be changed manually.
 # It will be updated by the 'cdf module upgrade' command.
-version = "0.4.8"
+version = "0.4.9"

@@ -33,8 +33,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionSchedu
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
-    ToolkitTypeError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
@@ -42,6 +42,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     calculate_str_or_file_hash,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -349,6 +350,9 @@ class FunctionScheduleLoader(
     parent_resource = frozenset({FunctionLoader})
     support_update = False
 
+    _hash_key = "cdf-auth"
+    _description_character_limit = 500
+
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
         self.authentication_by_id: dict[FunctionScheduleID, ClientCredentials] = {}
@@ -399,15 +403,37 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(identifier, resource, self.client, "function schedule", self.console)
+            self.authentication_by_id[identifier] = credentials
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
+                extra_str = f" {self._hash_key}: {auth_hash}"
+                if "description" not in resource:
+                    resource["description"] = extra_str[1:]
+                elif len(resource["description"]) + len(extra_str) < self._description_character_limit:
+                    resource["description"] += f"{extra_str}"
+                else:
+                    LowSeverityWarning(
+                        f"Description is too long for schedule {identifier!r}. Truncating..."
+                    ).print_warning(console=self.console)
+                    truncation = self._description_character_limit - len(extra_str) - 3
+                    resource["description"] = f"{resource['description'][:truncation]}...{extra_str}"
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
-        identifier = self.get_id(resource)
-        if auth := resource.pop("authentication", None):
-            if not isinstance(auth, dict):
-                raise ToolkitTypeError(f"Authentication must be a dictionary for schedule {identifier!r}")
-            if "clientId" in auth and "clientSecret" in auth:
-                self.authentication_by_id[identifier] = ClientCredentials(auth["clientId"], auth["clientSecret"])
         if "functionId" in resource:
-            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning()
+            identifier = self.get_id(resource)
+            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
+                console=self.console
+            )
             resource.pop("functionId", None)
 
         return FunctionScheduleWrite._load(resource)
@@ -452,7 +478,9 @@ class FunctionScheduleLoader(
         created_list = FunctionSchedulesList([], cognite_client=self.client)
         for item in items:
             id_ = self.get_id(item)
-            client_credentials = self.authentication_by_id.get(id_)
+            if id_ not in self.authentication_by_id:
+                raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
+            client_credentials = self.authentication_by_id[id_]
             created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
             # The PySDK mutates the input object, such that function_id is set and function_external_id is None.
             # If we call .get_id on the returned object, it will raise an error we require the function_external_id

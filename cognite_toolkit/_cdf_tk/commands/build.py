@@ -143,7 +143,7 @@ class BuildCommand(ToolkitCommand):
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - Environment name {build_env_name!r}, type {config.environment.build_type!r}.\n"
+                f"  - Environment name {build_env_name!r}, validation-type {config.environment.validation_type!r}.\n"
                 f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
@@ -441,7 +441,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         dev_modules = modules.available_names & DEV_ONLY_MODULES
-        if dev_modules and config.environment.build_type != "dev":
+        if dev_modules and config.environment.validation_type != "dev":
             self.warn(
                 MediumSeverityWarning(
                     "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "

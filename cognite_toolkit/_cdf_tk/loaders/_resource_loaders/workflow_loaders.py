@@ -49,9 +49,15 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    LowSeverityWarning,
+    MissingReferencedWarning,
+    ToolkitWarning,
+)
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -443,6 +449,9 @@ class WorkflowTriggerLoader(
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
+    class _MetadataKey:
+        secret_hash = "cognite-toolkit-auth-hash"
+
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
@@ -576,12 +585,28 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
+            self._authentication_by_id[identifier] = credentials
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                if "metadata" not in resource:
+                    resource["metadata"] = {}
+                    resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                        credentials.dump(camel_case=True), shorten=True
+                    )
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-        if "authentication" in resource:
-            raw_auth = resource.pop("authentication")
-            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
         return WorkflowTriggerUpsert._load(resource)
 
     def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -589,8 +614,9 @@ class WorkflowTriggerLoader(
         local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
+
         if "authentication" in local:
-            # Note that change in the authentication will not be detected, and thus,
-            # will require a forced redeployment.
+            # Changes in auth will be detected by the hash. We need to do this to ensure
+            # that the pull command works.
             dumped["authentication"] = local["authentication"]
         return dumped

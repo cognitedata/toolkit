@@ -1,9 +1,16 @@
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from cognite.client.data_classes import Function, FunctionWrite
+import pytest
+import yaml
+from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import Function, FunctionSchedule, FunctionWrite
 
-from cognite_toolkit._cdf_tk.loaders import FunctionLoader, ResourceWorker
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
+from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, ResourceWorker
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, calculate_secure_hash
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
@@ -113,3 +120,79 @@ secrets:
 
         assert "indexUrl" in dumped
         assert dumped["indexUrl"] == "http://my-index-url"
+
+
+class TestFunctionScheduleLoader:
+    @pytest.mark.skipif(
+        not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
+    )
+    def test_credentials_missing_raise(self) -> None:
+        schedule = dict(
+            name="daily-8am-utc",
+            functionExternalId="fn_example_repeater",
+            cronExpression="0 8 * * *",
+        )
+        config = MagicMock(spec=ToolkitClientConfig)
+        config.is_strict_validation = True
+        config.credentials = OAuthClientCredentials(
+            client_id="toolkit-client-id",
+            client_secret="toolkit-client-secret",
+            token_url="https://cognite.com/token",
+            scopes=["USER_IMPERSONATION"],
+        )
+        with monkeypatch_toolkit_client() as client:
+            client.config = config
+            loader = FunctionScheduleLoader.create_loader(client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = yaml.dump(schedule)
+        with pytest.raises(ToolkitRequiredValueError):
+            loader.load_resource_file(filepath, {})
+        client.config.is_strict_validation = False
+        filepath.read_text.return_value = yaml.dump(schedule)
+        local = loader.load_resource_file(filepath, {})[0]
+        credentials = loader.authentication_by_id[loader.get_id(local)]
+        assert credentials.client_id == "toolkit-client-id"
+        assert credentials.client_secret == "toolkit-client-secret"
+
+    @pytest.mark.skipif(
+        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
+    )
+    def test_credentials_unchanged_changed(self) -> None:
+        local_content = """name: daily-8am-utc
+functionExternalId: fn_example_repeater
+cronExpression: 0 8 * * *
+description: Run the function every day at 8am UTC
+authentication:
+  clientId: my-client-id
+  clientSecret: my-client-secret
+"""
+        auth_dict = yaml.CSafeLoader(local_content).get_data()["authentication"]
+        auth_hash = calculate_secure_hash(auth_dict, shorten=True)
+
+        with monkeypatch_toolkit_client() as client:
+            cdf_schedule = FunctionSchedule(
+                id=123,
+                name="daily-8am-utc",
+                function_external_id="fn_example_repeater",
+                cron_expression="0 8 * * *",
+                description=f"Run the function every day at 8am UTC {FunctionScheduleLoader._hash_key}: {auth_hash}",
+                cognite_client=client,
+            )
+            # The as_write method looks up the input data.
+            client.functions.schedules.get_input_data.return_value = None
+            loader = FunctionScheduleLoader(client, None, None)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_content
+        local_dumped = loader.load_resource_file(filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_schedule, local_dumped)
+
+        assert cdf_dumped == local_dumped
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = local_content.replace("my-client-secret", "my-client-secret-changed")
+        local_dumped = loader.load_resource_file(filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_schedule, local_dumped)
+
+        assert cdf_dumped != local_dumped
