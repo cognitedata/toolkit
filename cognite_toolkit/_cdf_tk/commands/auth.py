@@ -278,7 +278,7 @@ class AuthCommand(ToolkitCommand):
                 f"\n{HINT_LEAD_TEXT}Run this command without --no-prompt to get assistance to create the group."
             )
         if not questionary.confirm(
-            "Do you want to create a it?",
+            "Do you want to create it?",
             default=True,
         ).ask():
             return None
