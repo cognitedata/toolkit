@@ -10,14 +10,17 @@ class TestTryFindError:
         [
             pytest.param(
                 ClientCredentials("${ENVIRONMENT_VAR}", "1234"),
-                "The environment variable 'ENVIRONMENT_VAR' is not set.",
+                "The environment variable is not set: ENVIRONMENT_VAR.",
                 id="Missing environment variable",
             ),
             pytest.param(
-                OidcCredentials(
-                    "my-client-id", "123", [["https://cognite.com"]], "https://cognite.com/token", "my-project"
-                ),
-                "The scopes is expected to be a list of strings, but got a list of lists.",
+                ClientCredentials("${ENV1}", "${ENV2}"),
+                "The environment variables are not set: ENV1 and ENV2.",
+                id="Missing environment variable",
+            ),
+            pytest.param(
+                OidcCredentials("my-client-id", "123", ["https://cognite.com"], "not-valid-uri", "my-project"),
+                "The tokenUri 'not-valid-uri' is not a valid URI.",
             ),
             pytest.param(None, None, id="empty"),
         ],
