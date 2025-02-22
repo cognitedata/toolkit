@@ -137,7 +137,7 @@ properties:
       space: {{ schemaSpace }}
       externalId: SceneConfiguration.images360Collections
     source:
-      space: {{ schemaSpace }}
+      space: cdf_3d_schema
       externalId: Cdf3dModel
       version: '1'
       type: view
