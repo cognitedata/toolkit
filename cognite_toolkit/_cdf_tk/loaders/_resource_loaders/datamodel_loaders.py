@@ -597,23 +597,30 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         try:
             return self.client.data_modeling.views.apply(items)
         except CogniteAPIError as e1:
-            if not (isinstance(e1.extra, dict) and "isAutoRetryable" in e1.extra and e1.extra["isAutoRetryable"]):
-                raise
-            # Fallback to creating one by one if the error is auto-retryable.
-            MediumSeverityWarning(
-                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
-            ).print_warning(include_timestamp=True, console=self.console)
-            created_list = ViewList([])
-            for no, item in enumerate(items):
-                try:
-                    created = self.client.data_modeling.views.apply(item)
-                except CogniteAPIError as e2:
-                    e2.failed.extend(items[no + 1 :])
-                    e2.successful.extend(created_list)
-                    raise e2 from e1
-                else:
-                    created_list.append(created)
-            return created_list
+            if self._is_auto_retryable(e1):
+                # Fallback to creating one by one if the error is auto-retryable.
+                return self._fallback_create_one_by_one(items, e1)
+            raise
+
+    @staticmethod
+    def _is_auto_retryable(e: CogniteAPIError) -> bool:
+        return isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]
+
+    def _fallback_create_one_by_one(self, items: Sequence[ViewApply], e1: CogniteAPIError) -> ViewList:
+        MediumSeverityWarning(
+            f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
+        ).print_warning(include_timestamp=True, console=self.console)
+        created_list = ViewList([])
+        for no, item in enumerate(items):
+            try:
+                created = self.client.data_modeling.views.apply(item)
+            except CogniteAPIError as e2:
+                e2.failed.extend(items[no + 1 :])
+                e2.successful.extend(created_list)
+                raise e2 from e1
+            else:
+                created_list.append(created)
+        return created_list
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
         return self.client.data_modeling.views.retrieve(
