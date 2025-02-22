@@ -120,8 +120,9 @@ class LocationFilterLoader(
 
         return LocationFilterWrite._load(resource)
 
-    def dump_resource(self, resource: LocationFilter, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: LocationFilter, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if parent_id := dumped.pop("parentId", None):
             dumped["parentExternalId"] = self.client.lookup.location_filters.external_id(parent_id)
         if "dataModelingType" in dumped and "dataModelingType" not in local:

@@ -70,8 +70,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitTypeError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
+    calculate_secure_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -114,7 +116,7 @@ class TransformationLoader(
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
-    do_environment_variable_injection = True
+    _hash_key = "-- cdf-auth"
 
     @property
     def display_name(self) -> str:
@@ -195,7 +197,7 @@ class TransformationLoader(
     ) -> list[dict[str, Any]]:
         resources = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
 
@@ -226,6 +228,22 @@ class TransformationLoader(
                 )
             elif query_file:
                 item["query"] = safe_read(query_file)
+
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                auth_dict: dict[str, Any] = {}
+                for key in [
+                    "authentication",
+                    "sourceOidcCredentials",
+                    "destinationOidcCredentials",
+                    "sourceNonce",
+                    "destinationNonce",
+                ]:
+                    if key in item:
+                        auth_dict[key] = item[key]
+                if auth_dict:
+                    auth_hash = calculate_secure_hash(auth_dict, shorten=True)
+                    if "query" in item:
+                        item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
@@ -270,15 +288,26 @@ class TransformationLoader(
             ) from e
         return transformation
 
-    def dump_resource(self, resource: Transformation, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if "isPublic" in dumped and "isPublic" not in local:
+            # Default set from server side.
+            dumped.pop("isPublic")
         if "authentication" in local:
-            # Todo: Need a way to detect changes in credentials instead of just assuming
-            #    that the credentials are always the same.
+            # The hash added to the beginning of the query detects the change in the authentication
             dumped["authentication"] = local["authentication"]
         return dumped
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if query := resource.pop("query", None):
+            yield base_filepath.with_suffix(".sql"), cast(str, query)
+
+        yield base_filepath, resource
 
     def diff_list(
         self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
@@ -286,16 +315,6 @@ class TransformationLoader(
         if json_path[-1] == "scopes":
             return diff_list_hashable(local, cdf)
         return super().diff_list(local, cdf, json_path)
-
-    def dump_resource_legacy(
-        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        dumped = resource.dump()
-        query = dumped.pop("query")
-        dumped.pop("dataSetId", None)
-        dumped.pop("sourceOidcCredentials", None)
-        dumped.pop("destinationOidcCredentials", None)
-        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
         with warnings.catch_warnings():
@@ -521,10 +540,13 @@ class TransformationNotificationLoader(
         # first, so we don't need to check for any capabilities here.
         return []
 
-    def dump_resource(self, resource: TransformationNotification, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(
+        self, resource: TransformationNotification, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        dumped.pop("transformationId")
-        dumped["transformationExternalId"] = local["transformationExternalId"]
+        if local and "transformationExternalId" in local:
+            dumped.pop("transformationId")
+            dumped["transformationExternalId"] = local["transformationExternalId"]
         return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:

@@ -11,9 +11,8 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
-from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
+from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
+from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from ._base_loaders import T_ID, DataLoader, ResourceLoader, T_WritableCogniteResourceList
 from ._resource_loaders import CogniteFileLoader, FileMetadataLoader, RawTableLoader, TimeSeriesLoader
@@ -35,7 +34,7 @@ class DatapointsLoader(DataLoader):
     def display_name(self) -> str:
         return "timeseries datapoints"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -46,7 +45,7 @@ class DatapointsLoader(DataLoader):
                 if datafile.suffix == ".csv":
                     # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                     file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                    data = read_any_csv_dialect(io.StringIO(file_content), parse_dates=True, index_col=0)
+                    data = read_csv(io.StringIO(file_content), parse_dates=True, index_col=0)
                     data.index = pd.DatetimeIndex(data.index)
                 elif datafile.suffix == ".parquet":
                     data = pd.read_parquet(datafile, engine="pyarrow")
@@ -87,14 +86,11 @@ class FileLoader(DataLoader):
     folder_name = "files"
     kind = "File"
     filetypes = frozenset()
-    if Flags.REQUIRE_KIND.is_enabled():
-        exclude_filetype: frozenset[str] = frozenset({})
-        filename_pattern = (
-            # Exclude FileMetadata and CogniteFile
-            r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
-        )
-    else:
-        exclude_filetypes = frozenset({"yml", "yaml"})
+    exclude_filetype: frozenset[str] = frozenset({})
+    filename_pattern = (
+        # Exclude FileMetadata and CogniteFile
+        r"(?i)^(?!.*(?:FileMetadata|CogniteFile)$).*$"
+    )
     dependencies = frozenset({FileMetadataLoader, CogniteFileLoader})
     _doc_url = "Files/operation/initFileUpload"
 
@@ -102,7 +98,7 @@ class FileLoader(DataLoader):
     def display_name(self) -> str:
         return "file content"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -167,7 +163,7 @@ class RawFileLoader(DataLoader):
     def display_name(self) -> str:
         return "raw rows"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -190,7 +186,7 @@ class RawFileLoader(DataLoader):
             if datafile.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = read_any_csv_dialect(io.StringIO(file_content), dtype=str)
+                data = read_csv(io.StringIO(file_content), dtype=str)
                 data.fillna("", inplace=True)
                 if not data.columns.empty and data.columns[0] == "key":
                     print(f"Setting index to 'key' for {datafile.name}")

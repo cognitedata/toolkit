@@ -15,6 +15,68 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.9] - 2025-02-20
+
+No changes to templates.
+
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The annotation containers in the `models/cdf_cdm_extension_full` and `models/cdf_process_industry_extension_full`
+  modules have now correctly set the `usedFor` to `edge`. This caused a 409 error when deploying these modules.
+
+## [0.4.7] - 2025-02-13
+
+No changes to templates.
+
+## [0.4.6] - 2025-02-10
+
+No changes to templates.
+
+## [0.4.5] - 2025-02-06
+
+No changes to templates.
+
+## [0.4.4] - 2025-02-05
+
+No changes to templates.
+
+## [0.4.3] - 2025-02-04
+
+No changes to templates.
+
+## [0.4.2] - 2025-02-04
+
+No changes to templates.
+
+## [0.4.1] - 2025-02-03
+
+No changes to templates.
+
+## [0.4.0] - 2025-01-31
+
+No changes to templates.
+
+## [0.3.30] - 2025-01-31
+
+No changes to templates.
+
+## [0.3.29] - 2025-01-27
+
+No changes to templates.
+
+## [0.3.28] - 2025-01-21
+
+No changes to templates.
+
+## [0.3.27] - 2025-01-20
+
+### Fixed
+
+- The `inrobot` module no longer raises a `ResourceUpdateError/ResourceCreateError` when running
+  `cdf deploy`.
+
 ## [0.3.26] - 2025-01-16
 
 No changes to templates.

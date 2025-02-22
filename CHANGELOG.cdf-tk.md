@@ -15,6 +15,184 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## [0.4.9] - 2025-02-20
+
+### Added
+
+- Support for `auth0` as the provider when running `cdf auth init`.
+- [alpha feature] When the flag `strict-validation` is set to `true` in the `cdf.toml` file, the Toolkit will
+  no longer use its own authentication as a fallback when deploying WorkflowTriggers and FunctionSchedules in projects
+  where `validation-type` is set to anything other than `dev`. This will be the default behavior from version `0.5.0`.
+- [alpha feature] When the flag `credentials-hash` is set to `true` in the `cdf.toml` file, the Toolkit will hash
+  the credentials of Transformations (if present), FunctionSchedules, and WorkflowTriggers before deploying them. This
+  will be used to detect if the credentials have been changed when running `cdf deploy`.
+
+### Improved
+
+- You will get a warning if a WorkflowTrigger or a FunctionSchedule is missing authentication, and the Toolkit
+  authentication is used.
+
+### Changed
+
+- In the `config.[env].yaml` file, the `type` key is renamed to `validation-type` in the `environment` section. This is
+  to make it more clear that this key is used for validation. The `type` key is still supported for backward
+  compatibility.
+
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The Toolkit no longer tries to update a data modeling container that does not have the `usedFor` field set.
+- The Toolkit no longer hides `409` errors when failing to create a resource behind a low severity warning.
+
+## Improved
+
+- If the `cdf deploy` command fails to deploy multiple `Group`s due to `Failed to buffer the request body` error, the Toolkit
+  now retries to create the `Group`s one by one.
+
+## [0.4.7] - 2025-02-13
+
+### Added
+
+- [alpha feature] New alpha command `cdf populate view`. You can populate a view with data from a local table
+  using this command. To enable this feature, you need to set `populate = true` in the `alpha_flags` section of
+  your `cdf.toml` file.
+
+### Improved
+
+- Improved flow for the `cdf auth init` command.
+
+## [0.4.6] - 2025-02-10
+
+### Fixed
+
+- The `cdf purge space` no longer tries to delete nodes in other spaces.
+- The `cdf purge space` now sorts node types topologically to delete them in the correct order.
+- The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
+- The `cdf purge dataset` now accounts for the hierarchy when deleting assets.
+
+## [0.4.5] - 2025-02-06
+
+### Fixed
+
+- Building a Group with a table scoped RAWAcl no longer complains about missing dependency `tables` if the
+  `tables` keyword is used to specify the tables.
+- When authentication with Toolkit, multiple `IDP_Scopes` are assumed to be separated by a comma in the environment
+  variable `IDP_SCOPES`.
+
+## [0.4.4] - 2025-02-05
+
+### Fixed
+
+- Deploying functions containing files that are not `utf-8` encoded no longer raises a `UnicodeDecodeError`.
+
+## [0.4.3] - 2025-02-04
+
+### Fixed
+
+- Calling `cdf modules upgrade` will no longer raise `AmbiguousResourceFileError` error if you have a file named
+  `my_file.File.yaml`.
+
+## [0.4.2] - 2025-02-04
+
+### Fixed
+
+- An IndexError was reported when instances.nodes was an empty list. This is now fixed.
+- Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
+  `MissingRequiredParameterWarning`s.
+- Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
+  issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
+  deleting the old Group.
+- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
+
+## [0.4.1] - 2025-02-03
+
+### Added
+
+- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group/node` to the
+  `dump` plugin command.
+
+### Fixed
+
+- The `cdf modules upgrade` no longer raises a `FileNotExists` when renaming files in an upgrade to `0.4.0`.
+- The `cdf modules pull` command no longer raise a `NotImplementedError` for Groups with `members`.
+- The `cdf modules pull` command no longer raise a `KeyError` if a variable is used as a key in a dictionary.
+- Running `cdf deploy` for `Group` with `members` now only deploys the `Group` if it is new or has changed.
+
+## [0.4.0] - 2025-01-31
+
+### Added
+
+- The `ado-pipeline` feature is no longer an alpha feature.
+- The `cdf run workflow` feature is no longer an alpha feature.
+- The resources `streamlit`, `edges`, `relationships`, `sequences rows` are no longer alpha features.
+- The `cdf deploy --force-update` flag is no longer an alpha feature.
+- The `cdf build --offline` flag is no longer an alpha feature.
+- The `cdf modules pull` feature is no longer an alpha feature.
+
+### Changed
+
+- All `YAML` files now requires a `kind` in the files name to identify the resource type.
+- Toolkit now hashes individual files in functions to check if they have changed. This is to get a better
+  granularity when checking if a function has changed.
+
+### Removed
+
+- The plugin `cdf pull` has been removed and is now replaced by `cdf modules pull`.
+
+### Fixed
+
+- The `cdf purge dataset` now correctly falls back to internal IDs if external IDs are not found.
+- Upserting nodes without a `source` does not raise an IndexError anymore.
+
+## [0.3.30] - 2025-01-31
+
+### Improved
+
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when listing the nodes/edges to
+  delete when getting a 408 timeout error.
+- [alpha feature] The `cdf purge` now shows a spinner and updates the progress when deleting resources.
+
+### Fixed
+
+- Reverting the fix from `0.3.24` to read any csv dialect when uploading a `csv` file
+  (RAW table, Datapoints, or Assets). Now, only the comma-separated dialect is supported. This is because the dialect
+  inference performed too poorly and failed to read the data correctly in many cases.
+
+## [0.3.29] - 2025-01-27
+
+### Added
+
+- Interactive selection mode if you don't provide a path or module name as argument to `cdf modules pull`.
+
+### Improved
+
+- Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not
+  support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when deleting nodes when getting a
+  408 timeout error.
+- [alpha feature] The `cdf purge space` now tells which spaces needs to be purged first if the current space has
+  dependencies. This happens when a node in one space is used as a node type in another space.
+
+## [0.3.28] - 2025-01-21
+
+### Fixed
+
+- Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
+  environment variables has been restored except Extraction Pipeline Configs.
+- Supporting non-ascii characters like æ,ø, å, ç, ã in built files  
+
+## [0.3.27] - 2025-01-20
+
+### Improved
+
+- The `cdf dump asset` and `cdf dump timeseries` commands now always dump tables with
+  the same columns in the same order.
+
+### Fixed
+
+- The `cdf build` no longer raises a `ToolkitFileNotFoundError` when building without a `config.[env].yaml` file.
+
 ## [0.3.26] - 2025-01-16
 
 ### Added

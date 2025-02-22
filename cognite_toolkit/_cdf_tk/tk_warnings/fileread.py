@@ -27,6 +27,18 @@ class FileReadWarning(ToolkitWarning, ABC):
 
 
 @dataclass(frozen=True)
+class FileExistsWarning(FileReadWarning):
+    severity = SeverityLevel.MEDIUM
+    extra_message: str = ""
+
+    def get_message(self) -> str:
+        msg = f"{type(self).__name__}: The file {self.filepath} already exists."
+        if self.extra_message:
+            msg += f" {self.extra_message}"
+        return msg
+
+
+@dataclass(frozen=True)
 class IdentifiedResourceFileReadWarning(FileReadWarning, ABC):
     id_value: str
     id_name: str

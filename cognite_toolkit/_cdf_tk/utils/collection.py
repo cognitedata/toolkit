@@ -1,8 +1,9 @@
 import difflib
 from collections.abc import Collection, Iterable, Iterator
+from itertools import islice
 from typing import Any
 
-import yaml
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
@@ -18,8 +19,8 @@ def flatten_dict(dct: dict[str, Any]) -> dict[tuple[str, ...], Any]:
 
 
 def to_diff(a: dict[str, Any], b: dict[str, Any]) -> Iterator[str]:
-    a_str = yaml.safe_dump(a, sort_keys=True)
-    b_str = yaml.safe_dump(b, sort_keys=True)
+    a_str = yaml_safe_dump(a, sort_keys=True)
+    b_str = yaml_safe_dump(b, sort_keys=True)
 
     return difflib.unified_diff(a_str.splitlines(), b_str.splitlines())
 
@@ -41,3 +42,9 @@ def humanize_collection(collection: Collection[Any], /, *, sort: bool = True, bi
         sequence = list(strings)
 
     return f"{', '.join(sequence[:-1])} {bind_word} {sequence[-1]}"
+
+
+def chunker(iterable: Iterable[Any], size: int) -> Iterator[list[Any]]:
+    iterator = iter(iterable)
+    while chunk := list(islice(iterator, size)):
+        yield chunk

@@ -5,6 +5,7 @@ from collections.abc import Callable
 from typing import Any
 
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitWarning,
@@ -56,10 +57,10 @@ class ToolkitCommand:
             self._track_command("success")
         return result
 
-    def warn(self, warning: ToolkitWarning) -> None:
+    def warn(self, warning: ToolkitWarning, include_timestamp: bool = False, console: Console | None = None) -> None:
         self.warning_list.append(warning)
         if self.print_warning:
-            warning.print_warning()
+            warning.print_warning(include_timestamp, console)
 
     def console(self, message: str, prefix: str = "[bold green]INFO:[/] ") -> None:
         if not self.silent:

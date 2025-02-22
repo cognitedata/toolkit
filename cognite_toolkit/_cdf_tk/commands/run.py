@@ -22,7 +22,6 @@ from cognite.client.data_classes.transformations.common import NonceCredentials
 from cognite.client.data_classes.workflows import (
     FunctionTaskParameters,
     WorkflowExecutionDetailed,
-    WorkflowVersion,
     WorkflowVersionId,
     WorkflowVersionUpsert,
 )
@@ -32,6 +31,7 @@ from rich import print
 from rich.progress import Progress
 from rich.table import Table
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionScheduleID
 from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes import BuiltResourceFull, ModuleResources
@@ -44,12 +44,12 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitNotSupported,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import FunctionLoader, FunctionScheduleLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.workflow_loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, in_dict
+from cognite_toolkit._cdf_tk.utils import in_dict
+from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME, EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
 
 from ._base import ToolkitCommand
@@ -132,7 +132,7 @@ if __name__ == "__main__":
 
     def run_cdf(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         organization_dir: Path,
         build_env_name: str | None,
         external_id: str | None = None,
@@ -146,11 +146,8 @@ if __name__ == "__main__":
         resources = ModuleResources(organization_dir, build_env_name)
         is_interactive = external_id is None
         external_id = self._get_function(external_id, resources).identifier
-        call_args = self._get_call_args(
-            data_source, external_id, resources, ToolGlobals.environment_variables(), is_interactive
-        )
-
-        client = ToolGlobals.toolkit_client
+        call_args = self._get_call_args(data_source, external_id, resources, env_vars.dump(), is_interactive)
+        client = env_vars.get_client()
         function = client.functions.retrieve(external_id=external_id)
         if function is None:
             raise ToolkitMissingResourceError(
@@ -162,9 +159,7 @@ if __name__ == "__main__":
 
         # Todo: Get one shot token using the call_args.authentication
         session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-        result = ToolGlobals.toolkit_client.functions.call(
-            external_id=external_id, data=call_args.data, wait=False, nonce=session.nonce
-        )
+        result = client.functions.call(external_id=external_id, data=call_args.data, wait=False, nonce=session.nonce)
 
         table = Table(title=f"Function {external_id!r}, id {function.id!r}")
         table.add_column("Info", justify="left")
@@ -207,7 +202,7 @@ if __name__ == "__main__":
             table.add_row("Error trace", str(result.error.get("trace", "Empty trace")))
         response = client.functions.calls.get_response(call_id=result.id or 0, function_id=function.id)
         table.add_row("Result", str(json.dumps(response, indent=2, sort_keys=True)))
-        logs = ToolGlobals.toolkit_client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
+        logs = client.functions.calls.get_logs(call_id=result.id or 0, function_id=function.id)
         table.add_row("Logs", str(logs))
         print(table)
         return True
@@ -295,34 +290,32 @@ if __name__ == "__main__":
             for schedule in schedules
             if schedule.identifier.function_external_id == function_external_id
         }
-        if Flags.RUN_WORKFLOW.is_enabled():
-            workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
-            raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
-            for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
-                raw_trigger = trigger.load_resource_dict({}, validate=False)
-                loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
-                raw_trigger_by_workflow_id[
-                    WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
-                ] = raw_trigger
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        raw_trigger_by_workflow_id: dict[WorkflowVersionId, dict[str, Any]] = {}
+        for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
+            raw_trigger = trigger.load_resource_dict({}, validate=False)
+            loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
+            raw_trigger_by_workflow_id[
+                WorkflowVersionId(loaded_trigger.workflow_external_id, loaded_trigger.workflow_version)
+            ] = raw_trigger
 
-            for workflow in workflows:
-                raw_workflow = workflow.load_resource_dict({}, validate=False)
-                loaded = WorkflowVersionUpsert.load(raw_workflow)
-                for task in loaded.workflow_definition.tasks:
-                    if (
-                        isinstance(task.parameters, FunctionTaskParameters)
-                        and task.parameters.external_id == function_external_id
-                    ):
-                        data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
-                        raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
-                        options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
-                            data,
-                            raw_trigger.get("authentication"),
-                        )
+        for workflow in workflows:
+            raw_workflow = workflow.load_resource_dict({}, validate=False)
+            loaded = WorkflowVersionUpsert.load(raw_workflow)
+            for task in loaded.workflow_definition.tasks:
+                if (
+                    isinstance(task.parameters, FunctionTaskParameters)
+                    and task.parameters.external_id == function_external_id
+                ):
+                    data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
+                    raw_trigger = raw_trigger_by_workflow_id.get(workflow.identifier, {})
+                    options[f"Workflow: {workflow.identifier.workflow_external_id}"] = (
+                        data,
+                        raw_trigger.get("authentication"),
+                    )
 
         if len(options) == 0:
-            items = "schedules or workflows" if Flags.RUN_WORKFLOW.is_enabled() else "schedules"
-            print(f"No {items} found for this {function_external_id} function.")
+            print(f"No schedules or workflows found for this {function_external_id} function.")
             return {}, None
         selected_name: str = questionary.select("Select schedule to run", choices=options).ask()  # type: ignore[arg-type]
         selected = options[selected_name]
@@ -350,23 +343,22 @@ if __name__ == "__main__":
     ) -> tuple[dict[str, Any], ClientCredentials | None]:
         data: dict[str, Any] | None = None
         credentials: ClientCredentials | None = None
-        if Flags.RUN_WORKFLOW.is_enabled():
-            workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
-            found = False
-            for workflow in workflows:
-                if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
-                    isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
-                ):
-                    raw_workflow = workflow.load_resource_dict({}, validate=False)
-                    loaded = WorkflowVersionUpsert.load(raw_workflow)
-                    for task in loaded.workflow_definition.tasks:
-                        if (
-                            isinstance(task.parameters, FunctionTaskParameters)
-                            and task.parameters.external_id == function_external_id
-                        ):
-                            data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
-                            found = True
-                            break
+        workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
+        found = False
+        for workflow in workflows:
+            if (isinstance(data_source, str) and workflow.identifier.workflow_external_id == data_source) or (
+                isinstance(data_source, WorkflowVersionId) and workflow.identifier == data_source
+            ):
+                raw_workflow = workflow.load_resource_dict({}, validate=False)
+                loaded = WorkflowVersionUpsert.load(raw_workflow)
+                for task in loaded.workflow_definition.tasks:
+                    if (
+                        isinstance(task.parameters, FunctionTaskParameters)
+                        and task.parameters.external_id == function_external_id
+                    ):
+                        data = task.parameters.data if isinstance(task.parameters.data, dict) else {}
+                        found = True
+                        break
             for trigger in resources.list_resources(str, "workflows", WorkflowTriggerLoader.kind):
                 raw_trigger = trigger.load_resource_dict({}, validate=False)
                 loaded_trigger = WorkflowTriggerUpsert.load(raw_trigger)
@@ -402,7 +394,7 @@ if __name__ == "__main__":
 
     def run_local(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         organization_dir: Path,
         build_env_name: str | None,
         external_id: str | None = None,
@@ -471,7 +463,7 @@ if __name__ == "__main__":
             # We need a __init__ to avoid import errors when running the function code.
             init_py.touch()
 
-        function_dict = function_build.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
+        function_dict = function_build.load_resource_dict(env_vars.dump(), validate=False)
         handler_file = function_dict.get("functionPath", "handler.py")
         handler_path = function_destination_code / handler_file
         if not handler_path.exists():
@@ -503,12 +495,12 @@ if __name__ == "__main__":
             data_source,
             function_build.identifier,
             resources,
-            ToolGlobals.environment_variables(),
+            env_vars.dump(),
             is_interactive,
         )
 
         run_check_py, env = self._create_run_check_file_with_env(
-            ToolGlobals,
+            env_vars,
             args,
             function_dict,
             function_external_id,
@@ -532,7 +524,7 @@ if __name__ == "__main__":
 
     def _create_run_check_file_with_env(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         args: set[str],
         function_dict: dict[str, Any],
         function_external_id: str,
@@ -552,10 +544,10 @@ if __name__ == "__main__":
             print(f"Using schedule authentication to run {function_external_id!r}.")
             secret_env_name = call_args.client_secret_env_name or "IDP_CLIENT_SECRET"
             credentials_args = {
-                "token_url": f'"{ToolGlobals._token_url}"',
+                "token_url": f'"{env_vars.idp_token_url}"',
                 "client_id": f'"{authentication.client_id}"',
                 "client_secret": f'os.environ["{secret_env_name}"]',
-                "scopes": str(ToolGlobals._scopes),
+                "scopes": str(env_vars.idp_scopes),
             }
             env = {
                 secret_env_name: authentication.client_secret,
@@ -564,28 +556,28 @@ if __name__ == "__main__":
         else:
             print(f"Using Toolkit authentication to run {function_external_id!r}.")
             env = {}
-            if ToolGlobals._login_flow == "token":
+            if env_vars.LOGIN_FLOW == "token":
                 credentials_cls = Token.__name__
                 credentials_args = {"token": 'os.environ["CDF_TOKEN"]'}
-                env["CDF_TOKEN"] = ToolGlobals._credentials_args["token"]
-            elif ToolGlobals._login_flow == "interactive":
+                env["CDF_TOKEN"] = env_vars.CDF_TOKEN  # type: ignore[assignment]
+            elif env_vars.LOGIN_FLOW == "interactive":
                 credentials_cls = OAuthInteractive.__name__
                 credentials_args = {
-                    "authority_url": '"{}"'.format(ToolGlobals._credentials_args["authority_url"]),
-                    "client_id": '"{}"'.format(ToolGlobals._credentials_args["client_id"]),
-                    "scopes": str(ToolGlobals._scopes),
+                    "authority_url": f'"{env_vars.idp_authority_url}"',
+                    "client_id": f'"{env_vars.IDP_CLIENT_ID}"',
+                    "scopes": str(env_vars.idp_scopes),
                 }
-            elif ToolGlobals._login_flow == "client_credentials":
+            elif env_vars.LOGIN_FLOW == "client_credentials":
                 credentials_cls = OAuthClientCredentials.__name__
                 credentials_args = {
-                    "token_url": '"{}"'.format(ToolGlobals._credentials_args["token_url"]),
-                    "client_id": '"{}"'.format(ToolGlobals._credentials_args["client_id"]),
+                    "token_url": f'"{env_vars.idp_token_url}"',
+                    "client_id": f'"{env_vars.IDP_CLIENT_ID}"',
                     "client_secret": 'os.environ["IDP_CLIENT_SECRET"]',
-                    "scopes": str(ToolGlobals._scopes),
+                    "scopes": str(env_vars.idp_scopes),
                 }
-                env["IDP_CLIENT_SECRET"] = ToolGlobals._credentials_args["client_secret"]
+                env["IDP_CLIENT_SECRET"] = env_vars.IDP_CLIENT_SECRET  # type: ignore[assignment]
             else:
-                raise ToolkitNotSupported(f"Login flow {ToolGlobals._login_flow} is not supported .")
+                raise ToolkitNotSupported(f"Login flow {env_vars.LOGIN_FLOW} is not supported .")
 
         handler_args: dict[str, Any] = {}
         if "client" in args:
@@ -599,14 +591,13 @@ if __name__ == "__main__":
 
         load_dotenv = ""
         if (Path.cwd() / ".env").is_file():
-            levels = len(function_venv_dir.parts)
-            load_dotenv = textwrap.dedent(f"""
+            load_dotenv = textwrap.dedent("""
                 try:
                     from dotenv import load_dotenv
 
-                    ROOT = Path(__file__).resolve().parents[{levels}]
-
-                    load_dotenv(ROOT / '.env')
+                    for parent in Path(__file__).resolve().parents:
+                        if (parent / ".env").exists():
+                            load_dotenv(parent / '.env')
                 except ImportError:
                     ...
             """)
@@ -616,9 +607,9 @@ if __name__ == "__main__":
         run_check_py = self.run_check_py.format(
             credentials_cls=credentials_cls,
             handler_import=handler_import,
-            client_name=ToolGlobals._client_name,
-            project=ToolGlobals._project,
-            base_url=ToolGlobals._cdf_url,
+            client_name=CLIENT_NAME,
+            project=env_vars.CDF_PROJECT,
+            base_url=env_vars.cdf_url,
             credentials_args="\n        ".join(f"{k}={v}," for k, v in credentials_args.items()),
             handler_args="\n        ".join(f"{k}={v}," for k, v in handler_args.items()),
             function_external_id=function_external_id,
@@ -642,18 +633,12 @@ if __name__ == "__main__":
 
 
 class RunTransformationCommand(ToolkitCommand):
-    def run_transformation(self, ToolGlobals: CDFToolConfig, external_ids: str | list[str]) -> bool:
+    def run_transformation(self, client: ToolkitClient, external_ids: str | list[str]) -> bool:
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
-        session = ToolGlobals.toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-        if session is None:
-            print("[bold red]ERROR:[/] Could not get a oneshot session.")
-            return False
         try:
-            transformations: TransformationList = ToolGlobals.toolkit_client.transformations.retrieve_multiple(
-                external_ids=external_ids
-            )
+            transformations: TransformationList = client.transformations.retrieve_multiple(external_ids=external_ids)
         except CogniteAPIError as e:
             print("[bold red]ERROR:[/] Could not retrieve transformations.")
             print(e)
@@ -661,21 +646,23 @@ class RunTransformationCommand(ToolkitCommand):
         if transformations is None or len(transformations) == 0:
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
-        nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=ToolGlobals.project)
         for transformation in transformations:
+            session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+            if session is None:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                return False
+            nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
             transformation.source_nonce = nonce
             transformation.destination_nonce = nonce
         try:
-            ToolGlobals.toolkit_client.transformations.update(transformations)
+            client.transformations.update(transformations)
         except CogniteAPIError as e:
             print("[bold red]ERROR:[/] Could not update transformations with oneshot session.")
             print(e)
             return False
         for transformation in transformations:
             try:
-                job = ToolGlobals.toolkit_client.transformations.run(
-                    transformation_external_id=transformation.external_id, wait=False
-                )
+                job = client.transformations.run(transformation_external_id=transformation.external_id, wait=False)
                 print(f"Running transformation {transformation.external_id}, status {job.status}...")
             except CogniteAPIError as e:
                 print(f"[bold red]ERROR:[/] Could not run transformation {transformation.external_id}.")
@@ -686,7 +673,7 @@ class RunTransformationCommand(ToolkitCommand):
 class RunWorkflowCommand(ToolkitCommand):
     def run_workflow(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         organization_dir: Path,
         build_env_name: str | None,
         external_id: str | None,
@@ -695,6 +682,7 @@ class RunWorkflowCommand(ToolkitCommand):
     ) -> bool:
         """Run a workflow in CDF"""
         resources = ModuleResources(organization_dir, build_env_name)
+        client = env_vars.get_client()
         is_interactive = external_id is None
         workflows = resources.list_resources(WorkflowVersionId, "workflows", WorkflowVersionLoader.kind)
         if len(workflows) == 0:
@@ -722,7 +710,7 @@ class RunWorkflowCommand(ToolkitCommand):
         credentials: ClientCredentials | None = None
         input_: dict | None = None
         for trigger in triggers:
-            trigger_dict = trigger.load_resource_dict(ToolGlobals.environment_variables(), validate=False)
+            trigger_dict = trigger.load_resource_dict(env_vars.dump(), validate=False)
             if (
                 trigger_dict["workflowExternalId"] == id_.workflow_external_id
                 and trigger_dict["workflowVersion"] == id_.version
@@ -743,10 +731,22 @@ class RunWorkflowCommand(ToolkitCommand):
 
         try:
             if credentials:
-                client = ToolGlobals.create_client(credentials)
+                client = ToolkitClient(
+                    config=ToolkitClientConfig(
+                        client_name=CLIENT_NAME,
+                        project=env_vars.CDF_PROJECT,
+                        base_url=env_vars.cdf_url,
+                        credentials=OAuthClientCredentials(
+                            token_url=env_vars.idp_token_url,
+                            client_id=credentials.client_id,
+                            client_secret=credentials.client_secret,
+                            scopes=env_vars.idp_scopes,
+                        ),
+                    )
+                )
                 nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
             else:
-                nonce = ToolGlobals.toolkit_client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
+                nonce = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE").nonce
         except CogniteAPIError as e:
             raise AuthorizationError(f"Could not create oneshot session for workflow {id_!r}: {e!s}") from e
 
@@ -754,7 +754,7 @@ class RunWorkflowCommand(ToolkitCommand):
             wait = questionary.confirm("Do you want to wait for the workflow to complete?").ask()
         if id_.version is None:
             raise ToolkitValueError("Version is required for workflow.")
-        execution = ToolGlobals.toolkit_client.workflows.executions.run(
+        execution = client.workflows.executions.run(
             workflow_external_id=id_.workflow_external_id,
             version=id_.version,
             input=input_,
@@ -771,16 +771,13 @@ class RunWorkflowCommand(ToolkitCommand):
         if not wait:
             return True
 
-        # Bug in SDK, missing overload method for retrieve.
-        workflow = cast(WorkflowVersion | None, ToolGlobals.toolkit_client.workflows.versions.retrieve(id_))
+        workflow = client.workflows.versions.retrieve(id_)
         if workflow is None:
             raise ToolkitMissingResourceError(f"Could not find workflow {id_!r}")
 
         total = len(workflow.workflow_definition.tasks)
         max_time = sum((task.timeout or 3600) * (task.retries or 3) for task in workflow.workflow_definition.tasks)
-        result = cast(
-            WorkflowExecutionDetailed, ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id)
-        )
+        result = cast(WorkflowExecutionDetailed, client.workflows.executions.retrieve_detailed(execution.id))
         with Progress() as progress:
             call_task = progress.add_task("Waiting for workflow execution to complete...", total=total)
             start_time = time.time()
@@ -791,7 +788,7 @@ class RunWorkflowCommand(ToolkitCommand):
                 sleep_time = min(sleep_time * 2, 15)
                 result = cast(
                     WorkflowExecutionDetailed,
-                    ToolGlobals.toolkit_client.workflows.executions.retrieve_detailed(execution.id),
+                    client.workflows.executions.retrieve_detailed(execution.id),
                 )
                 duration = time.time() - start_time
                 completed_count = sum(

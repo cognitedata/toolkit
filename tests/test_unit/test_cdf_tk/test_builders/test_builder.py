@@ -5,21 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.builders import TransformationBuilder, get_loader
-from cognite_toolkit._cdf_tk.exceptions import AmbiguousResourceFileError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader, ResourceLoader
-
-if not Flags.REQUIRE_KIND.is_enabled():
-
-    def test_get_loader_raises_ambiguous_error():
-        builder = TransformationBuilder(Path("build"))
-
-        with pytest.raises(AmbiguousResourceFileError) as e:
-            builder._get_loader(
-                source_path=Path("my_module") / "transformations" / "notification.yaml",
-            )
-        assert "Ambiguous resource file" in str(e.value)
+from cognite_toolkit._cdf_tk.builders import get_loader
+from cognite_toolkit._cdf_tk.loaders import FileLoader, RawDatabaseLoader, RawTableLoader, ResourceLoader
 
 
 @pytest.mark.parametrize(
@@ -40,3 +27,10 @@ def test_get_loader_raw_loaders(content: str, expected_loader_cls: type[Resource
 
     assert warn is None
     assert loader is expected_loader_cls
+
+
+def test_get_loader_file() -> None:
+    loader_cls, warning = get_loader(Path("SHOP_model_borgund.File.yaml"), "files", force_pattern=True)
+
+    assert warning is None
+    assert loader_cls is FileLoader

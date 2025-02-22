@@ -122,10 +122,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_asset_oid_workmate_asset_hierarchy
   ignoreNullFields: true
   isPublic: true
@@ -143,11 +143,12 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_asset_hierarchy
   interval: 7 * * * *
   isPaused: true
+deleted: {}

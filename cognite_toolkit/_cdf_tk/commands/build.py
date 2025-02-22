@@ -47,7 +47,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition, verify_module_directory
 from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
@@ -76,7 +75,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     calculate_str_or_file_hash,
     humanize_collection,
     quote_int_value_by_key_in_yaml,
@@ -119,7 +117,7 @@ class BuildCommand(ToolkitCommand):
         selected: list[str | Path] | None,
         build_env_name: str | None,
         no_clean: bool,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
@@ -128,7 +126,7 @@ class BuildCommand(ToolkitCommand):
 
         cdf_toml = CDFToml.load()
 
-        if build_env_name:
+        if (organization_dir / BuildConfigYAML.get_filename(build_env_name or "dev")).exists():
             config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
         else:
             # Loads the default environment
@@ -145,7 +143,7 @@ class BuildCommand(ToolkitCommand):
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - Environment name {build_env_name!r}, type {config.environment.build_type!r}.\n"
+                f"  - Environment name {build_env_name!r}, validation-type {config.environment.validation_type!r}.\n"
                 f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
@@ -161,7 +159,7 @@ class BuildCommand(ToolkitCommand):
             packages=cdf_toml.modules.packages,
             clean=not no_clean,
             verbose=verbose,
-            ToolGlobals=ToolGlobals,
+            client=client,
             on_error=on_error,
         )
 
@@ -173,7 +171,7 @@ class BuildCommand(ToolkitCommand):
         packages: dict[str, list[str]],
         clean: bool = False,
         verbose: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         progress_bar: bool = False,
         on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
@@ -238,7 +236,7 @@ class BuildCommand(ToolkitCommand):
 
         built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar, on_error)
 
-        self._check_missing_dependencies(organization_dir, ToolGlobals)
+        self._check_missing_dependencies(organization_dir, client)
 
         build_environment = config.create_build_environment(built_modules, modules.selected)
         build_environment.dump_to_file(build_dir)
@@ -348,7 +346,7 @@ class BuildCommand(ToolkitCommand):
                     for warning in destination:
                         self.warn(warning)
                     continue
-                if Flags.REQUIRE_KIND.is_enabled() and destination.loader is FileLoader:
+                if destination.loader is FileLoader:
                     # This is a content file that we should not copy to the build directory.
                     continue
 
@@ -443,7 +441,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         dev_modules = modules.available_names & DEV_ONLY_MODULES
-        if dev_modules and config.environment.build_type != "dev":
+        if dev_modules and config.environment.validation_type != "dev":
             self.warn(
                 MediumSeverityWarning(
                     "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
@@ -469,7 +467,10 @@ class BuildCommand(ToolkitCommand):
                 self.console(f"Processing file {source_path.name}...")
 
             content = safe_read(source_path)
-            source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+            # We cannot use the content as the basis for hash as this have been encoded.
+            # Instead, we use the source path, which will hash the bytes of the file directly,
+            # which is what we do in the deploy step to verify that the source file has not changed.
+            source = SourceLocationEager(source_path, calculate_str_or_file_hash(source_path, shorten=True))
 
             content = variables.replace(content, source_path.suffix)
 
@@ -541,7 +542,7 @@ class BuildCommand(ToolkitCommand):
             print(str(warning_list))
         return warning_list
 
-    def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
+    def _check_missing_dependencies(self, project_config_dir: Path, client: ToolkitClient | None = None) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(self._dependencies_by_required.keys()) - existing
         for loader_cls, id_ in missing_dependencies:
@@ -550,7 +551,7 @@ class BuildCommand(ToolkitCommand):
             elif loader_cls is DataSetsLoader and id_ == "":
                 # Special case used by the location filter to indicate filter out all classical resources.
                 continue
-            elif ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+            elif client and self._check_resource_exists_in_cdf(client, loader_cls, id_):
                 continue
             elif loader_cls.resource_cls is RawDatabase:
                 # Raw Databases are automatically created when a Raw Table is created.

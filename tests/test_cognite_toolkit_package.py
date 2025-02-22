@@ -20,7 +20,7 @@ else:
 
 
 def test_pyproj_version_matches() -> None:
-    version_in_pyproject = toml.loads((REPO_ROOT / "pyproject.toml").read_text())["tool"]["poetry"]["version"]
+    version_in_pyproject = toml.loads((REPO_ROOT / "pyproject.toml").read_text())["project"]["version"]
 
     assert __version__ == version_in_pyproject, (
         f"Version in 'pyproject.toml' ({version_in_pyproject}) does not match the version in "

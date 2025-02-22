@@ -1,11 +1,10 @@
 # Description
 
-Prefix the PR title with the Jira issue number on the form `[CDF-12345]`.
-
 Please describe the change you have made.
 
 ## Checklist
 
+- [ ] Prefixed the PR title with the Jira issue number on the form `[CDF-12345]`.
 - [ ] Tests added/updated.
 - [ ] Run Demo Job Locally.
 - [ ] Documentation updated.

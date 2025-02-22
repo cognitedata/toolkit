@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
+    GroupLoader,
     Loader,
     RawDatabaseLoader,
     ResourceContainerLoader,
@@ -50,11 +51,8 @@ from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    humanize_collection,
-    read_yaml_file,
-)
+from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
 
@@ -66,20 +64,21 @@ class DeployCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
         drop: bool,
         drop_data: bool,
         force_update: bool,
-        include: list[str],
+        include: list[str] | None,
         verbose: bool,
     ) -> None:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf build` first?"
             )
+        include = self._clean_command._process_include(include)
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         if not build_environment_file_path.is_file():
             raise ToolkitFileNotFoundError(
@@ -98,9 +97,10 @@ class DeployCommand(ToolkitCommand):
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
+        client = env_vars.get_client(deploy_state.is_strict_validation)
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
 
         verb = "Checking" if dry_run else "Deploying"
 
@@ -143,10 +143,10 @@ class DeployCommand(ToolkitCommand):
             for loader_cls in reversed(ordered_loaders):
                 if not issubclass(loader_cls, ResourceLoader):
                     continue
-                loader: ResourceLoader = loader_cls.create_loader(ToolGlobals, build_dir)
+                loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
                 result = self._clean_command.clean_resources(
                     loader,
-                    ToolGlobals,
+                    env_vars=env_vars,
                     read_modules=deploy_state.read_modules,
                     drop=drop,
                     dry_run=dry_run,
@@ -161,10 +161,10 @@ class DeployCommand(ToolkitCommand):
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
         for loader_cls in ordered_loaders:
-            loader_instance = loader_cls.create_loader(ToolGlobals, build_dir)
+            loader_instance = loader_cls.create_loader(client, build_dir)
             result = self.deploy_resources(
                 loader_instance,
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
                 state=deploy_state,
                 dry_run=dry_run,
                 has_done_drop=drop,
@@ -185,7 +185,7 @@ class DeployCommand(ToolkitCommand):
     def deploy_resources(
         self,
         loader: Loader,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         state: BuildEnvironment,
         dry_run: bool = False,
         has_done_drop: bool = False,
@@ -195,10 +195,10 @@ class DeployCommand(ToolkitCommand):
     ) -> DeployResult | None:
         if isinstance(loader, ResourceLoader):
             return self._deploy_resources(
-                loader, ToolGlobals, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
+                loader, env_vars, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
             )
         elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, ToolGlobals, state, dry_run, verbose)
+            return self._deploy_data(loader, state, dry_run, verbose)
         else:
             raise ValueError(f"Unsupported loader type {type(loader)}.")
 
@@ -207,7 +207,7 @@ class DeployCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
         has_done_drop: bool = False,
@@ -221,13 +221,19 @@ class DeployCommand(ToolkitCommand):
             return None
 
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-            to_create, to_update, unchanged, duplicated = worker.load_resources(
-                files, environment_variables=ToolGlobals.environment_variables(), is_dry_run=dry_run, verbose=verbose
+            to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
+                files,
+                environment_variables=env_vars.dump(include_os=True),
+                is_dry_run=dry_run,
+                force_update=force_update,
+                verbose=verbose,
             )
         if warning_list:
             print(str(warning_list))
             self.warning_list.extend(warning_list)
 
+        # We are not counting to_delete as these are captured by to_create.
+        # (to_delete is used for resources that does not support update and instead needs to be deleted and recreated)
         nr_of_items = len(to_create) + len(to_update) + len(unchanged)
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
@@ -239,11 +245,7 @@ class DeployCommand(ToolkitCommand):
             for duplicate in duplicated:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
-        nr_of_created = nr_of_changed = nr_of_unchanged = 0
-
-        if force_update:
-            to_update.extend(unchanged)
-            unchanged.clear()
+        nr_of_created = nr_of_changed = nr_of_unchanged = nr_of_deleted = 0
 
         if dry_run:
             if (
@@ -262,7 +264,12 @@ class DeployCommand(ToolkitCommand):
 
             nr_of_unchanged += len(unchanged)
             nr_of_created += len(to_create)
-            nr_of_changed += len(to_update)
+            nr_of_deleted += len(to_delete)
+            if isinstance(loader, GroupLoader):
+                nr_of_deleted += len(to_update)
+                nr_of_created += len(to_update)
+            else:
+                nr_of_changed += len(to_update)
         else:
             environment_variable_warning_by_id = {
                 identifier: warning
@@ -272,13 +279,21 @@ class DeployCommand(ToolkitCommand):
             }
             nr_of_unchanged += len(unchanged)
 
+            if to_delete:
+                deleted = loader.delete(to_delete)
+                nr_of_deleted += deleted
+
             if to_create:
                 created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
                 nr_of_created += created
 
             if to_update:
                 updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
-                nr_of_changed += updated
+                if isinstance(loader, GroupLoader):
+                    nr_of_deleted += updated
+                    nr_of_created += updated
+                else:
+                    nr_of_changed += updated
 
         if verbose:
             self._verbose_print(to_create, to_update, unchanged, loader, dry_run)
@@ -288,6 +303,7 @@ class DeployCommand(ToolkitCommand):
                 name=loader.display_name,
                 created=nr_of_created,
                 changed=nr_of_changed,
+                deleted=nr_of_deleted,
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
                 item_name=loader.item_name,
@@ -297,6 +313,7 @@ class DeployCommand(ToolkitCommand):
                 name=loader.display_name,
                 created=nr_of_created,
                 changed=nr_of_changed,
+                deleted=nr_of_deleted,
                 unchanged=nr_of_unchanged,
                 total=nr_of_items,
             )
@@ -336,15 +353,10 @@ class DeployCommand(ToolkitCommand):
         try:
             created = loader.create(resources)
         except CogniteAPIError as e:
-            if e.code == 409:
-                self.warn(LowSeverityWarning("Resource(s) already exist(s), skipping creation."))
-            else:
-                message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
-                if hint := self._environment_variable_hint(
-                    loader.get_ids(resources), environment_variable_warning_by_id
-                ):
-                    message += hint
-                raise ResourceCreationError(message) from e
+            message = f"Failed to create resource(s). Error: {escape(str(e))!s}."
+            if hint := self._environment_variable_hint(loader.get_ids(resources), environment_variable_warning_by_id):
+                message += hint
+            raise ResourceCreationError(message) from e
         except CogniteDuplicatedError as e:
             self.warn(
                 LowSeverityWarning(
@@ -391,7 +403,6 @@ class DeployCommand(ToolkitCommand):
     def _deploy_data(
         self,
         loader: DataLoader,
-        ToolGlobals: CDFToolConfig,
         state: BuildEnvironment,
         dry_run: bool = False,
         verbose: bool = False,
@@ -401,7 +412,7 @@ class DeployCommand(ToolkitCommand):
 
         datapoints = 0
         file_counts = 0
-        for message, file_datapoints in loader.upload(state, ToolGlobals, dry_run):
+        for message, file_datapoints in loader.upload(state, dry_run):
             if verbose:
                 print(message)
             datapoints += file_datapoints

@@ -13,10 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
+import itertools
+import shutil
 import time
 import warnings
 from collections import defaultdict
 from dataclasses import dataclass
+from pathlib import Path
 from time import sleep
 
 import questionary
@@ -46,6 +49,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     AuthorizationError,
     ResourceCreationError,
     ResourceDeleteError,
+    ToolkitMissingValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
@@ -53,7 +57,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
     MissingCapabilityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import AuthReader, AuthVariables, CDFToolConfig, humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables, prompt_user_environment_variables
 
 from ._base import ToolkitCommand
 
@@ -66,42 +71,61 @@ class VerifyAuthResult:
 
 class AuthCommand(ToolkitCommand):
     def init(self, no_verify: bool = False, dry_run: bool = False) -> None:
-        auth_vars = AuthVariables.from_env()
-
-        prompt_user = True
-        if auth_vars.is_complete:
-            print("Auth variables are already set.")
-            prompt_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
-
-        if prompt_user:
-            reader = AuthReader(auth_vars, False)
-
-            auth_vars = reader.from_user()
-            if reader.messages:
-                for message in reader.messages:
-                    self.warn(MediumSeverityWarning(message))
-
-        ToolGlobals = CDFToolConfig(skip_initialization=True)
-        ToolGlobals.initialize_from_auth_variables(auth_vars, clear_cache=prompt_user)
+        env_vars: EnvironmentVariables | None = None
         try:
-            ToolGlobals.toolkit_client.iam.token.inspect()
+            env_vars = EnvironmentVariables.create_from_environment()
+        except ToolkitMissingValueError:
+            ...
+
+        ask_user = True
+        if env_vars and not env_vars.get_missing_vars():
+            print("Auth variables are already set.")
+            ask_user = questionary.confirm("Do you want to reconfigure the auth variables?", default=False).ask()
+
+        if ask_user or not env_vars:
+            env_vars = prompt_user_environment_variables(env_vars)
+            self._store_dotenv(env_vars)
+
+        client = env_vars.get_client()
+        try:
+            client.iam.token.inspect()
         except CogniteAPIError as e:
             raise AuthenticationError(f"Unable to verify the credentials.\n{e}")
 
         print("[green]The credentials are valid.[/green]")
-        if not no_verify:
-            print(
-                Panel(
-                    "Running verification, 'cdf auth verify'...",
-                    title="",
-                    expand=False,
-                )
+        if no_verify:
+            return
+        print(
+            Panel(
+                "Running verification, 'cdf auth verify'...",
+                title="",
+                expand=False,
             )
-            self.verify(ToolGlobals, dry_run)
+        )
+        self.verify(client, dry_run)
+
+    def _store_dotenv(self, env_vars: EnvironmentVariables) -> None:
+        new_env_file = env_vars.create_dotenv_file()
+        if Path(".env").exists():
+            existing = Path(".env").read_text(encoding="utf-8")
+            if existing == new_env_file:
+                print("Identical '.env' file already exist.")
+                return None
+            self.warn(MediumSeverityWarning("'.env' file already exists"))
+            filename = next(f"backup_{no}.env" for no in itertools.count() if not Path(f"backup_{no}.env").exists())
+
+            if questionary.confirm(
+                f"Do you want to overwrite the existing '.env' file? The existing will be renamed to {filename}",
+                default=False,
+            ).ask():
+                shutil.move(".env", filename)
+                Path(".env").write_text(new_env_file, encoding="utf-8")
+        elif questionary.confirm("Do you want to save these to .env file for next time?", default=True).ask():
+            Path(".env").write_text(new_env_file, encoding="utf-8")
 
     def verify(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         dry_run: bool,
         no_prompt: bool = False,
         demo_principal: str | None = None,
@@ -109,7 +133,7 @@ class AuthCommand(ToolkitCommand):
         """Authorization verification for the Toolkit.
 
         Args:
-            ToolGlobals: The Toolkit configuration.
+            client: The Toolkit client.
             dry_run: If the verification should be run in dry-run mode.
             no_prompt: If the verification should be run without any prompts.
             demo_principal: This is used for demo purposes. If passed, a different group name will be used
@@ -121,28 +145,28 @@ class AuthCommand(ToolkitCommand):
 
         is_interactive = not no_prompt
         is_demo = demo_principal is not None
-        if ToolGlobals.project is None:
+        if client.config.project is None:
             raise AuthorizationError("CDF_PROJECT is not set.")
-        cdf_project = ToolGlobals.project
-        token_inspection = self.check_has_any_access(ToolGlobals)
+        cdf_project = client.config.project
+        token_inspection = self.check_has_any_access(client)
 
         self.check_has_project_access(token_inspection, cdf_project)
 
         print(f"[italic]Focusing on current project {cdf_project} only from here on.[/]")
 
-        self.check_has_group_access(ToolGlobals.toolkit_client)
+        self.check_has_group_access(client)
 
-        self.check_identity_provider(ToolGlobals, cdf_project)
+        self.check_identity_provider(client, cdf_project)
 
         try:
-            user_groups = ToolGlobals.toolkit_client.iam.groups.list()
+            user_groups = client.iam.groups.list()
         except CogniteAPIError as e:
             raise AuthorizationError(f"Unable to retrieve CDF groups.\n{e}")
 
         if not user_groups:
             raise AuthorizationError("The current user is not member of any groups in the CDF project.")
 
-        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(ToolGlobals)
+        loader_capabilities, loaders_by_capability_tuple = self._get_capabilities_by_loader(client)
         toolkit_group = self._create_toolkit_group(loader_capabilities, demo_principal)
 
         if not is_demo:
@@ -162,7 +186,7 @@ class AuthCommand(ToolkitCommand):
             if is_interactive:
                 Prompt.ask("Press enter key to continue...")
 
-        all_groups = ToolGlobals.toolkit_client.iam.groups.list(all=True)
+        all_groups = client.iam.groups.list(all=True)
 
         is_user_in_toolkit_group = any(group.name == toolkit_group.name for group in user_groups)
         is_toolkit_group_existing = any(group.name == toolkit_group.name for group in all_groups)
@@ -174,7 +198,7 @@ class AuthCommand(ToolkitCommand):
             print(f"  [bold green]OK[/] - The current client is member of the {toolkit_group.name!r} group.")
             cdf_toolkit_group = next(group for group in user_groups if group.name == toolkit_group.name)
             missing_capabilities = self._check_missing_capabilities(
-                ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                client, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
             if (
                 is_interactive
@@ -182,7 +206,7 @@ class AuthCommand(ToolkitCommand):
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
             ) or is_demo:
                 has_added_capabilities = self._update_missing_capabilities(
-                    ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run
+                    client, cdf_toolkit_group, missing_capabilities, dry_run
                 )
         elif is_toolkit_group_existing:  # and not is_user_in_toolkit_group
             self.warn(MediumSeverityWarning(f"The current client is not member of the {toolkit_group.name!r} group."))
@@ -190,21 +214,21 @@ class AuthCommand(ToolkitCommand):
             # Update the group with the missing capabilities
             cdf_toolkit_group = next(group for group in all_groups if group.name == toolkit_group.name)
             missing_capabilities = self._check_missing_capabilities(
-                ToolGlobals, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
+                client, cdf_toolkit_group, toolkit_group, loaders_by_capability_tuple, is_interactive
             )
             if (
                 is_interactive
                 and missing_capabilities
                 and questionary.confirm("Do you want to update the group with the missing capabilities?").ask()
             ):
-                self._update_missing_capabilities(ToolGlobals, cdf_toolkit_group, missing_capabilities, dry_run)
+                self._update_missing_capabilities(client, cdf_toolkit_group, missing_capabilities, dry_run)
         elif is_demo:
             # We create the group for the demo user
-            cdf_toolkit_group = self._create_toolkit_group_in_cdf(ToolGlobals, toolkit_group)
+            cdf_toolkit_group = self._create_toolkit_group_in_cdf(client, toolkit_group)
         else:
             print(f"Group {toolkit_group.name!r} does not exist in the CDF project.")
             cdf_toolkit_group = self._create_toolkit_group_in_cdf_interactive(
-                ToolGlobals, toolkit_group, all_groups, is_interactive, dry_run
+                client, toolkit_group, all_groups, is_interactive, dry_run
             )
         if cdf_toolkit_group is None:
             return VerifyAuthResult()
@@ -222,29 +246,26 @@ class AuthCommand(ToolkitCommand):
 
         if not is_demo:
             self.check_count_group_memberships(user_groups)
-            if cdf_toolkit_group.source_id:
-                self.check_source_id_usage(all_groups, cdf_toolkit_group)
-            elif cdf_toolkit_group.members:
-                self.check_members_usage(all_groups, cdf_toolkit_group)
+
+            self.check_source_id_usage(all_groups, cdf_toolkit_group)
+
             if extra := self.check_duplicated_names(all_groups, cdf_toolkit_group):
                 if (
                     is_interactive
                     and questionary.confirm("Do you want to delete the extra groups?", default=True).ask()
                 ):
                     try:
-                        ToolGlobals.toolkit_client.iam.groups.delete(extra.as_ids())
+                        client.iam.groups.delete(extra.as_ids())
                     except CogniteAPIError as e:
                         raise ResourceDeleteError(f"Unable to delete the extra groups.\n{e}")
                     print(f"  [bold green]OK[/] - Deleted {len(extra)} duplicated groups.")
 
-        function_status = self.check_function_service_status(
-            ToolGlobals.toolkit_client, dry_run, has_added_capabilities
-        )
+        function_status = self.check_function_service_status(client, dry_run, has_added_capabilities)
         return VerifyAuthResult(cdf_toolkit_group.id, function_status)
 
     def _create_toolkit_group_in_cdf_interactive(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         toolkit_group: GroupWrite,
         all_groups: GroupList,
         is_interactive: bool,
@@ -267,35 +288,33 @@ class AuthCommand(ToolkitCommand):
                 f"Would have created group {toolkit_group.name!r} with {len(toolkit_group.capabilities or [])} capabilities."
             )
             return None
-        auth_vars = AuthVariables.from_env()
-        if auth_vars.provider != "cdf":
-            while True:
-                source_id = questionary.text(
-                    "What is the source id for the new group (typically a group id in the identity provider)?"
-                ).ask()
-                if source_id:
-                    break
-                print("Source id cannot be empty.")
-            toolkit_group.source_id = source_id
-            if already_used := [group.name for group in all_groups if group.source_id == source_id]:
-                self.warn(
-                    HighSeverityWarning(
-                        f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
-                    )
+
+        while True:
+            source_id = questionary.text(
+                "What is the source id for the new group (typically a group id in the identity provider)?"
+            ).ask()
+            if source_id:
+                break
+            print("Source id cannot be empty.")
+
+        toolkit_group.source_id = source_id
+        if already_used := [group.name for group in all_groups if group.source_id == source_id]:
+            self.warn(
+                HighSeverityWarning(
+                    f"The source id {source_id!r} is already used by the groups: {humanize_collection(already_used)!r}."
                 )
-                if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
-                    return None
-        else:  # authentication through cog idp (cdf)
-            if auth_vars.client_id:
-                toolkit_group.members = [auth_vars.client_id]
-        return self._create_toolkit_group_in_cdf(ToolGlobals, toolkit_group)
+            )
+            if not questionary.confirm("This is NOT recommended. Do you want to continue?", default=False).ask():
+                return None
+
+        return self._create_toolkit_group_in_cdf(client, toolkit_group)
 
     @staticmethod
     def _create_toolkit_group_in_cdf(
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         toolkit_group: GroupWrite,
     ) -> Group:
-        created = ToolGlobals.toolkit_client.iam.groups.create(toolkit_group)
+        created = client.iam.groups.create(toolkit_group)
         print(
             f"  [bold green]OK[/] - Created new group {created.name}. It now has {len(created.capabilities or [])} capabilities."
         )
@@ -303,7 +322,7 @@ class AuthCommand(ToolkitCommand):
 
     def _check_missing_capabilities(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         existing_group: Group,
         toolkit_group: GroupWrite,
         loaders_by_capability_id: dict[tuple, list[str]],
@@ -316,10 +335,10 @@ class AuthCommand(ToolkitCommand):
             # This is irrelevant for the user as we are only checking the capabilities below
             # (triggered by the verify_authorization calls)
             warnings.simplefilter("ignore")
-            missing_capabilities = ToolGlobals.toolkit_client.iam.compare_capabilities(
+            missing_capabilities = client.iam.compare_capabilities(
                 existing_group.capabilities or [],
                 toolkit_group.capabilities or [],
-                project=ToolGlobals.project,
+                project=client.config.project,
             )
         if not missing_capabilities:
             print(f"  [bold green]OK[/] - The {existing_group.name} has all the required capabilities.")
@@ -346,7 +365,7 @@ class AuthCommand(ToolkitCommand):
 
     def _update_missing_capabilities(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         existing_group: Group,
         missing_capabilities: list[Capability],
         dry_run: bool,
@@ -364,10 +383,10 @@ class AuthCommand(ToolkitCommand):
             # This is irrelevant for the user as we are only checking the capabilities below
             # (triggered by the verify_authorization calls)
             warnings.simplefilter("ignore")
-            adding = ToolGlobals.toolkit_client.iam.compare_capabilities(
+            adding = client.iam.compare_capabilities(
                 existing_group.capabilities or [],
                 updated_toolkit_group.capabilities or [],
-                project=ToolGlobals.project,
+                project=client.config.project,
             )
         adding = self._merge_capabilities(adding)
         capability_str = "capabilities" if len(adding) > 1 else "capability"
@@ -376,11 +395,11 @@ class AuthCommand(ToolkitCommand):
             return False
 
         try:
-            created = ToolGlobals.toolkit_client.iam.groups.create(updated_toolkit_group)
+            created = client.iam.groups.create(updated_toolkit_group)
         except CogniteAPIError as e:
             raise ResourceCreationError(f"Unable to create group {updated_toolkit_group.name}.\n{e}")
         try:
-            ToolGlobals.toolkit_client.iam.groups.delete(existing_group.id)
+            client.iam.groups.delete(existing_group.id)
         except CogniteAPIError as e:
             raise ResourceDeleteError(
                 f"Failed to cleanup old version of the {existing_group.name}.\n{e}\n"
@@ -414,12 +433,12 @@ class AuthCommand(ToolkitCommand):
 
     @staticmethod
     def _get_capabilities_by_loader(
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
     ) -> tuple[list[Capability], dict[tuple, list[str]]]:
         loaders_by_capability_tuple: dict[tuple, list[str]] = defaultdict(list)
         capability_by_id: dict[frozenset[tuple], Capability] = {}
         for loader_cls in loaders.RESOURCE_LOADER_LIST:
-            loader = loader_cls.create_loader(ToolGlobals, None)
+            loader = loader_cls.create_loader(client)
             capability = loader_cls.get_required_capability(None, read_only=False)
             capabilities = capability if isinstance(capability, list) else [capability]
             for cap in capabilities:
@@ -430,13 +449,13 @@ class AuthCommand(ToolkitCommand):
                     loaders_by_capability_tuple[cap_tuple].append(loader.display_name)
         return list(capability_by_id.values()), loaders_by_capability_tuple
 
-    def check_has_any_access(self, ToolGlobals: CDFToolConfig) -> TokenInspection:
+    def check_has_any_access(self, client: ToolkitClient) -> TokenInspection:
         print("Checking basic project configuration...")
         try:
             # Using the token/inspect endpoint to check if the client has access to the project.
             # The response also includes access rights, which can be used to check if the client has the
             # correct access for what you want to do.
-            token_inspection = ToolGlobals.toolkit_client.iam.token.inspect()
+            token_inspection = client.iam.token.inspect()
             if token_inspection is None or len(token_inspection.capabilities) == 0:
                 raise AuthorizationError(
                     "Valid authentication token, but it does not give any access rights."
@@ -508,9 +527,9 @@ class AuthCommand(ToolkitCommand):
             " have the basic read group access rights."
         )
 
-    def check_identity_provider(self, ToolGlobals: CDFToolConfig, cdf_project: str) -> None:
+    def check_identity_provider(self, client: ToolkitClient, cdf_project: str) -> None:
         print("Checking identity provider settings...")
-        project_info = ToolGlobals.toolkit_client.get(f"/api/v1/projects/{cdf_project}").json()
+        project_info = client.get(f"/api/v1/projects/{cdf_project}").json()
         oidc = project_info.get("oidcConfiguration", {})
         if "https://login.windows.net" in oidc.get("tokenUrl"):
             tenant_id = oidc.get("tokenUrl").split("/")[-3]
@@ -527,29 +546,17 @@ class AuthCommand(ToolkitCommand):
 
     def check_count_group_memberships(self, user_group: GroupList) -> None:
         print("Checking CDF group memberships for the current client configured...")
-        has_source_id = any(group.source_id for group in user_group)
-        if has_source_id:
-            table = Table(title="CDF Group ids, Names, and Source Ids")
-            table.add_column("Id", justify="left")
-            table.add_column("Name", justify="left")
-    if has_source_id:
+
+        table = Table(title="CDF Group ids, Names, and Source Ids")
+        table.add_column("Id", justify="left")
+        table.add_column("Name", justify="left")
         table.add_column("Source Id", justify="left")
-            for group in user_group:
-                name = group.name
-                if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
-                    name = f"[bold]{group.name}[/]"
-                table.add_row(str(group.id), name, group.source_id)
-            print(table)
-        else:
-            table = Table(title="CDF Group ids and Names")
-            table.add_column("Id", justify="left")
-            table.add_column("Name", justify="left")
-            for group in user_group:
-                name = group.name
-                if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
-                    name = f"[bold]{group.name}[/]"
-                table.add_row(str(group.id), name)
-            print(table)
+        for group in user_group:
+            name = group.name
+            if group.name == TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME:
+                name = f"[bold]{group.name}[/]"
+            table.add_row(str(group.id), name, group.source_id)
+        print(table)
 
         if len(user_group) > 1:
             self.warn(
@@ -575,22 +582,6 @@ class AuthCommand(ToolkitCommand):
                     f"The following groups have the same source id, {cdf_toolkit_group.source_id},\n"
                     f"as the {cdf_toolkit_group.name!r} group: \n    {group_names_str!r}.\n"
                     f"It is recommended that only the {cdf_toolkit_group.name!r} group has this source id."
-                )
-            )
-
-    def check_members_usage(self, all_groups: GroupList, cdf_toolkit_group: Group) -> None:
-        reuse_members = [
-            group.name
-            for group in all_groups
-            if group.source_id == cdf_toolkit_group.source_id and group.id != cdf_toolkit_group.id
-        ]
-        if reuse_members:
-            group_names_str = humanize_collection(reuse_members)
-            self.warn(
-                MediumSeverityWarning(
-                    f"The following groups have the same membership, {cdf_toolkit_group.members},\n"
-                    f"as the {cdf_toolkit_group.name!r} group: \n    {group_names_str!r}.\n"
-                    f"It is recommended that only the {cdf_toolkit_group.name!r} group has this membership."
                 )
             )
 

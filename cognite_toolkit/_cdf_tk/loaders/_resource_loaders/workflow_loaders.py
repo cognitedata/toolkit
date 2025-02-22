@@ -42,15 +42,22 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    LowSeverityWarning,
+    MissingReferencedWarning,
+    ToolkitWarning,
+)
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -119,9 +126,9 @@ class WorkflowLoader(ResourceLoader[str, WorkflowUpsert, Workflow, WorkflowUpser
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return WorkflowUpsert._load(resource)
 
-    def dump_resource(self, resource: Workflow, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Workflow, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if data_set_id := dumped.get("dataSetId"):
+        if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         return dumped
 
@@ -257,8 +264,11 @@ class WorkflowVersionLoader(
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
 
-    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        if not local:
+            return dumped
+        # Sort to match the order of the local tasks
         local_task_order_by_id = {
             task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
         }
@@ -268,6 +278,8 @@ class WorkflowVersionLoader(
             key=lambda t: local_task_order_by_id.get(t["externalId"], end_of_list),
         )
 
+        # Function tasks with empty data can be an empty dict or missing data field
+        # This ensures that these two are treated as the same
         local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
         for cdf_task in dumped["workflowDefinition"]["tasks"]:
             task_id = cdf_task["externalId"]
@@ -409,6 +421,17 @@ class WorkflowVersionLoader(
         )
         return spec
 
+    @classmethod
+    def as_str(cls, id: WorkflowVersionId) -> str:
+        if id.version is None:
+            version = ""
+        elif id.version.startswith("v"):
+            version = f"_{id.version}"
+        else:
+            version = f"_v{id.version}"
+
+        return to_directory_compatible(f"{id.workflow_external_id}{version}")
+
 
 @final
 class WorkflowTriggerLoader(
@@ -425,10 +448,12 @@ class WorkflowTriggerLoader(
     parent_resource = frozenset({WorkflowLoader})
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
-    do_environment_variable_injection = True
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    class _MetadataKey:
+        secret_hash = "cognite-toolkit-auth-hash"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
     @property
@@ -560,20 +585,38 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
+            self._authentication_by_id[identifier] = credentials
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                if "metadata" not in resource:
+                    resource["metadata"] = {}
+                    resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                        credentials.dump(camel_case=True), shorten=True
+                    )
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-        if "authentication" in resource:
-            raw_auth = resource.pop("authentication")
-            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
         return WorkflowTriggerUpsert._load(resource)
 
-    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
+
         if "authentication" in local:
-            # Note that change in the authentication will not be detected, and thus,
-            # will require a forced redeployment.
+            # Changes in auth will be detected by the hash. We need to do this to ensure
+            # that the pull command works.
             dumped["authentication"] = local["authentication"]
         return dumped

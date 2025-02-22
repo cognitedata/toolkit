@@ -71,6 +71,8 @@ from cognite.client.data_classes.data_modeling.ids import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
@@ -87,18 +89,18 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
     calculate_str_or_file_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
-    read_yaml_content,
-    retrieve_view_ancestors,
     safe_read,
     to_diff,
+    to_directory_compatible,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
@@ -118,8 +120,8 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         self._deleted_time_by_id: dict[str, float] = {}
 
     @property
@@ -303,8 +305,9 @@ class ContainerLoader(
                             ContainerId(space=container["space"], external_id=container["externalId"]),
                         )
 
-    def dump_resource(self, resource: Container, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Container, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["constraints", "indexes"]:
             if not dumped.get(key) and key not in local:
                 # Set to empty dict by server.
@@ -322,6 +325,8 @@ class ContainerLoader(
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
+        if "usedFor" not in local:
+            dumped.pop("usedFor", None)
         return dumped
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
@@ -470,6 +475,10 @@ class ContainerLoader(
         )
         return output
 
+    @classmethod
+    def as_str(cls, id: ContainerId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
+
 
 class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList]):
     folder_name = "data_models"
@@ -482,8 +491,8 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         # Caching to avoid multiple lookups on the same interfaces.
         self._interfaces_by_id: dict[ViewId, View] = {}
 
@@ -551,27 +560,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                     elif source.get("type") == "container" and in_dict(("space", "externalId"), source):
                         yield ContainerLoader, ContainerId(source["space"], source["externalId"])
 
-    def dump_as_write(self, cdf_resource: View) -> dict[str, Any]:
-        """Views are special in that they include all parent properties. This
-        methods looks up all parent views and removes the properties that are
-        not overridden to get the true write view."""
-        cdf_dumped = cdf_resource.as_write().dump()
-        if not cdf_resource.implements:
-            return cdf_dumped
-        if cdf_resource.properties:
-            # All read version of views have all the properties of their parent views.
-            # We need to remove these properties to compare with the local view.
-            # Unless the local view has overridden the properties.
-            parents = retrieve_view_ancestors(self.client, cdf_resource.implements or [], self._interfaces_by_id)
-            cdf_properties = cdf_dumped.get("properties", {})
-            for parent in parents:
-                for prop_name, parent_prop in (parent.as_write().properties or {}).items():
-                    is_overidden = prop_name in cdf_properties and cdf_properties[prop_name] != parent_prop.dump()
-                    if is_overidden:
-                        continue
-                    cdf_properties.pop(prop_name, None)
-        return cdf_dumped
-
     def safe_read(self, filepath: Path | str) -> str:
         # The version is a string, but the user often writes it as an int.
         # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
@@ -580,8 +568,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: View, local: dict[str, Any]) -> dict[str, Any]:
-        dumped = self.dump_as_write(resource)
+    def dump_resource(self, resource: View, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
             # All properties were removed, so we remove the properties key.
             dumped.pop("properties", None)
@@ -605,10 +594,31 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
-        return self.client.data_modeling.views.apply(items)
+        try:
+            return self.client.data_modeling.views.apply(items)
+        except CogniteAPIError as e1:
+            if not (isinstance(e1.extra, dict) and "isAutoRetryable" in e1.extra and e1.extra["isAutoRetryable"]):
+                raise
+            # Fallback to creating one by one if the error is auto-retryable.
+            MediumSeverityWarning(
+                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
+            ).print_warning(include_timestamp=True, console=self.console)
+            created_list = ViewList([])
+            for no, item in enumerate(items):
+                try:
+                    created = self.client.data_modeling.views.apply(item)
+                except CogniteAPIError as e2:
+                    e2.failed.extend(items[no + 1 :])
+                    e2.successful.extend(created_list)
+                    raise e2 from e1
+                else:
+                    created_list.append(created)
+            return created_list
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
-        return self.client.data_modeling.views.retrieve(cast(Sequence, ids))
+        return self.client.data_modeling.views.retrieve(
+            cast(Sequence, ids), include_inherited_properties=False, all_versions=False
+        )
 
     def update(self, items: Sequence[ViewApply]) -> ViewList:
         return self.create(items)
@@ -626,7 +636,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             sleep(2)
             to_delete = existing
         else:
-            print(f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts.")
+            msg = f"  [bold yellow]WARNING:[/] Could not delete views {to_delete} after {attempt_count} attempts."
+            if self.console:
+                self.console.print(msg)
+            else:
+                print(msg)
         return nr_of_deleted
 
     def _iterate(
@@ -723,6 +737,10 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         )
         return spec
 
+    @classmethod
+    def as_str(cls, id: ViewId) -> str:
+        return to_directory_compatible(id.external_id)
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -789,8 +807,9 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # so we fix it here.
         return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-    def dump_resource(self, resource: DataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: DataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if "views" not in dumped:
             return dumped
         # Sorting in the same order as the local file.
@@ -859,6 +878,10 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         spec.add(ParameterSpec(("views", ANY_INT, "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
         return spec
 
+    @classmethod
+    def as_str(cls, id: DataModelId) -> str:
+        return to_directory_compatible(id.external_id)
+
 
 @final
 class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList, NodeList]):
@@ -872,6 +895,17 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
     kind = "Node"
     dependencies = frozenset({SpaceLoader, ViewLoader, ContainerLoader})
     _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None = None,
+        view_id: ViewId | None = None,
+    ) -> None:
+        super().__init__(client, build_dir, console)
+        # View ID is used to retrieve nodes with properties.
+        self.view_id = view_id
 
     @property
     def display_name(self) -> str:
@@ -928,18 +962,21 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
                 elif identifier.get("type") == "container" and in_dict(("space", "externalId"), identifier):
                     yield ContainerLoader, ContainerId(identifier["space"], identifier["externalId"])
 
-    def dump_resource(self, resource: Node, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Node, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
-        try:
-            cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
-                nodes=resource.as_id(), sources=sources
-            ).nodes[0]
-        except CogniteAPIError:
-            # View does not exist
-            dumped = resource.as_write().dump()
+
+        if sources:
+            try:
+                res = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
+            except CogniteAPIError:
+                # View does not exist
+                dumped = resource.as_write().dump()
+            else:
+                dumped = res.nodes[0].as_write().dump() if len(res.nodes) > 0 else resource.as_write().dump()
         else:
-            dumped = cdf_resource_with_properties.as_write().dump()
+            dumped = resource.as_write().dump()
 
         if "existingVersion" not in local:
             # Existing version is typically not set when creating nodes, but we get it back
@@ -953,30 +990,6 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
         return dumped
 
-    def dump_resource_legacy(
-        self, resource: NodeApply, source_file: Path, local_resource: NodeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_node = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        nodes = self.client.data_modeling.instances.retrieve(nodes=local_node.as_id(), sources=list(view_ids)).nodes
-        if not nodes:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_node.dump(), {}
-        node = nodes[0]
-        node_dumped = node.as_write().dump()
-        node_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["nodes"] = [node_dumped]
-
-        return dumped, {}
-
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items, auto_create_direct_relations=True, replace=False
@@ -984,7 +997,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[NodeId]) -> NodeList:
-        return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids)).nodes
+        return self.client.data_modeling.instances.retrieve(nodes=cast(Sequence, ids), sources=self.view_id).nodes
 
     def update(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
@@ -1007,7 +1020,9 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Node]:
-        return iter(self.client.data_modeling.instances(space=space))
+        return iter(
+            iterate_instances(self.client, space=space, instance_type="node", source=self.view_id, console=self.console)
+        )
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return len(ids)
@@ -1032,6 +1047,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         )
         return ParameterSpecSet(node_spec, spec_name=cls.__name__)
 
+    @classmethod
+    def as_str(cls, id: NodeId) -> str:
+        return to_directory_compatible(f"{id.space}_{id.external_id}")
+
 
 class GraphQLLoader(
     ResourceContainerLoader[
@@ -1050,8 +1069,8 @@ class GraphQLLoader(
     _doc_url = "Data-models/operation/createDataModels"
     _hash_name = "CDFToolkitHash:"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path) -> None:
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+        super().__init__(client, build_dir, console)
         self._graphql_filepath_cache: dict[DataModelId, Path] = {}
         self._datamodels_by_view_id: dict[ViewId, set[DataModelId]] = defaultdict(set)
         self._dependencies_by_datamodel_id: dict[DataModelId, set[ViewId | DataModelId]] = {}
@@ -1105,7 +1124,7 @@ class GraphQLLoader(
     ) -> list[dict[str, Any]]:
         raw_yaml = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
@@ -1143,8 +1162,9 @@ class GraphQLLoader(
             item["graphqlFile"] = hash_
         return raw_list
 
-    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: GraphQLDataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         for key in ["dml", "preserveDml"]:
             # Local values that are not returned from the API
             if key in local:
@@ -1306,8 +1326,9 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
                 if isinstance(node_ref, dict) and in_dict(("space", "externalId"), node_ref):
                     yield NodeLoader, NodeId(node_ref["space"], node_ref["externalId"])
 
-    def dump_resource(self, resource: Edge, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Edge, local: dict[str, Any] | None = None) -> dict[str, Any]:
         # CDF resource does not have properties set, so we need to do a lookup
+        local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
         try:
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
@@ -1329,30 +1350,6 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             dumped.pop("instanceType", None)
 
         return dumped
-
-    def dump_resource_legacy(
-        self, resource: EdgeApply, source_file: Path, local_resource: EdgeApply
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        resource_edge = resource
-        local_node = local_resource
-        # Retrieve node again to get properties.
-        view_ids = {source.source for source in local_node.sources or [] if isinstance(source.source, ViewId)}
-        edges = self.client.data_modeling.instances.retrieve(edges=local_node.as_id(), sources=list(view_ids)).edges
-        if not edges:
-            print(
-                f"  [bold yellow]WARNING:[/] Node {local_resource.as_id()} does not exist. Failed to fetch properties."
-            )
-            return resource_edge.dump(), {}
-        node = edges[0]
-        edge_dumped = node.as_write().dump()
-        edge_dumped.pop("existingVersion", None)
-
-        # Node files have configuration in the first 3 lines, we need to include this in the dumped file.
-        dumped = cast(dict, read_yaml_content("\n".join(safe_read(source_file).splitlines()[:3])))
-
-        dumped["edges"] = [edge_dumped]
-
-        return dumped, {}
 
     def create(self, items: EdgeApplyList) -> EdgeApplyResultList:
         result = self.client.data_modeling.instances.apply(
@@ -1384,7 +1381,7 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Edge]:
-        return iter(self.client.data_modeling.instances(chunk_size=None, instance_type="edge", space=space))
+        return iter(iterate_instances(self.client, space=space, instance_type="edge"))
 
     def count(self, ids: SequenceNotStr[EdgeId]) -> int:
         return len(ids)

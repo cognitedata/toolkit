@@ -3,9 +3,11 @@ from asyncio import sleep
 import pytest
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     AssetWrite,
     AssetWriteList,
+    ClientCredentials,
     DataPointSubscriptionWrite,
     Function,
     FunctionSchedule,
@@ -23,7 +25,7 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 from cognite.client.exceptions import CogniteAPIError
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import (
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
@@ -101,9 +103,13 @@ class TestFunctionScheduleLoader:
     # The function schedule service is fairly unstable, so we need to rerun the tests if they fail.
     @pytest.mark.flaky(reruns=3, reruns_delay=10, only_rerun=["AssertionError"])
     def test_update_function_schedule(
-        self, toolkit_client: ToolkitClient, dummy_function: Function, dummy_schedule: FunctionSchedule
+        self,
+        toolkit_client: ToolkitClient,
+        toolkit_client_config: ToolkitClientConfig,
+        dummy_function: Function,
+        dummy_schedule: FunctionSchedule,
     ) -> None:
-        loader = FunctionScheduleLoader(toolkit_client, None)
+        loader = FunctionScheduleLoader(toolkit_client, None, None)
         function_schedule = dummy_schedule.as_write()
 
         function_schedule.description = (
@@ -112,8 +118,14 @@ class TestFunctionScheduleLoader:
             else "Original description."
         )
         identifier = loader.get_id(function_schedule)
+        assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
+        loader.authentication_by_id[identifier] = ClientCredentials(
+            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        )
 
-        loader.update(FunctionScheduleWriteList([function_schedule]))
+        # Function schedules cannot be updated, they must be deleted and recreated.
+        loader.delete([identifier])
+        loader.create(FunctionScheduleWriteList([function_schedule]))
 
         retrieved = loader.retrieve([identifier])
         if not retrieved or retrieved[0].description != function_schedule.description:
@@ -125,14 +137,20 @@ class TestFunctionScheduleLoader:
         assert retrieved, "Function schedule not found after update."
         assert retrieved[0].description == function_schedule.description
 
-    def test_creating_schedule_then_print_ids(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
+    def test_creating_schedule_then_print_ids(
+        self, toolkit_client: ToolkitClient, toolkit_client_config: ToolkitClientConfig, dummy_function: Function
+    ) -> None:
         local = FunctionScheduleWrite(
             name="test_creating_schedule_then_print_ids",
             cron_expression="0 7 * * TUE",
             function_external_id=dummy_function.external_id,
             description="This schedule should be ignored as it does not have a function_external_id",
         )
-        loader = FunctionScheduleLoader(toolkit_client, None)
+        loader = FunctionScheduleLoader(toolkit_client, None, None)
+        assert isinstance(toolkit_client_config.credentials, OAuthClientCredentials)
+        loader.authentication_by_id[loader.get_id(local)] = ClientCredentials(
+            toolkit_client_config.credentials.client_id, toolkit_client_config.credentials.client_secret
+        )
 
         created: FunctionSchedulesList | None = None
         try:

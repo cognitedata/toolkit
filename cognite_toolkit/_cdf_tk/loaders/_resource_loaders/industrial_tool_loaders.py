@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -48,8 +49,8 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     def display_name(self) -> str:
         return "Streamlit apps"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._source_file_by_external_id: dict[str, Path] = {}
 
     @classmethod
@@ -90,7 +91,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     ) -> list[dict[str, Any]]:
         raw_yaml = load_yaml_inject_variables(
             self.safe_read(filepath),
-            environment_variables or {} if self.do_environment_variable_injection else {},
+            environment_variables or {},
             original_filepath=filepath,
         )
         raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
@@ -106,7 +107,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return StreamlitWrite._load(resource)
 
-    def dump_resource(self, resource: Streamlit, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Streamlit, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)

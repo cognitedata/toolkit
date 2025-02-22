@@ -26,6 +26,7 @@ from cognite.client.data_classes.hosted_extractors import (
     SourceWriteList,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -45,7 +46,6 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     kind = "Source"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
-    do_environment_variable_injection = True
 
     @property
     def display_name(self) -> str:
@@ -103,13 +103,10 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load the resource into.
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
-        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
+        # parameterspec is highly dependent on type of source, so we accept any parameter
+        return ParameterSpecSet([])
 
-    def dump_resource(self, resource: Source, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
             "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
@@ -129,10 +126,9 @@ class HostedExtractorDestinationLoader(
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
-    do_environment_variable_injection = True
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
     @property
@@ -200,7 +196,7 @@ class HostedExtractorDestinationLoader(
             resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return DestinationWrite._load(resource)
 
-    def dump_resource(self, resource: Destination, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Destination, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
             "Destinations will always be considered different, and thus will always be redeployed."
         ).print_warning()
@@ -211,6 +207,12 @@ class HostedExtractorDestinationLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Handled by Toolkit
+
+        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
+        spec.add(
+            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
+        )
+
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
@@ -265,8 +267,9 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             HostedExtractorsAcl.Scope.All(),
         )
 
-    def dump_resource(self, resource: Job, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Job, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if not dumped.get("config") and "config" not in local:
             dumped.pop("config", None)
         return dumped

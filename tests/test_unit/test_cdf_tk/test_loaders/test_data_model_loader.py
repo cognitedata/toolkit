@@ -10,13 +10,13 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import Grap
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader, ResourceWorker
 from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestDataModelLoader:
     def test_update_data_model_random_view_order(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
         cdf_data_model = dm.DataModel(
             space="sp_space",
@@ -50,17 +50,20 @@ class TestDataModelLoader:
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_data_model
 
-        loader = DataModelLoader.create_loader(cdf_tool_mock, None)
+        loader = DataModelLoader.create_loader(
+            env_vars_with_client.get_client(),
+        )
         worker = ResourceWorker(loader)
-        to_create, to_change, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
 
         assert {
             "create": len(to_create),
             "change": len(to_change),
+            "delete": len(to_delete),
             "unchanged": len(unchanged),
-        } == {"create": 0, "change": 0, "unchanged": 1}
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
-    def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
+    def test_are_equal_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:
         local_yaml = """space: sp_space
 externalId: my_model
 version: 1
@@ -81,7 +84,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelLoader.create_loader(cdf_tool_mock, None)
+        loader = DataModelLoader.create_loader(env_vars_with_client.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -94,9 +97,9 @@ views:
 
 class TestGraphQLLoader:
     def test_deployment_order(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -128,9 +131,9 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -159,7 +162,7 @@ name: String}""",
             "WindTurbineModel",
         ]
 
-    def test_load_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
+    def test_load_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:
         file = self._create_mock_file(
             """type WindTurbine{
             name: String}""",
@@ -167,7 +170,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLLoader.create_loader(cdf_tool_mock, None)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
 
         items = loader.load_resource_file(file, {})
 

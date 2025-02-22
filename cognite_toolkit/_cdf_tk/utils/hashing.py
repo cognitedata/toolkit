@@ -3,8 +3,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .file import safe_read
-
 
 def calculate_directory_hash(
     directory: Path,
@@ -36,23 +34,22 @@ def calculate_directory_hash(
     return calculated
 
 
-def calculate_secure_hash(item: dict[str, Any]) -> str:
+def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
     """Calculate a secure hash of a dictionary"""
     sha256_hash = hashlib.sha512(usedforsecurity=True)
     sha256_hash.update(json.dumps(item, sort_keys=True).encode("utf-8"))
-    return sha256_hash.hexdigest()
+    calculated_hash = sha256_hash.hexdigest()
+    if shorten:
+        return calculated_hash[:8]
+    return calculated_hash
 
 
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
-    sha256_hash = hashlib.sha256()
-    if isinstance(content, Path):
-        content = safe_read(content)
-    # Get rid of Windows line endings to make the hash consistent across platforms.
-    sha256_hash.update(content.encode("utf-8").replace(b"\r\n", b"\n"))
-    calculated = sha256_hash.hexdigest()
-    if shorten:
-        return calculated[:8]
-    return calculated
+    if isinstance(content, str):
+        byte_content = content.encode("utf-8")
+    else:
+        byte_content = content.read_bytes()
+    return calculate_bytes_or_file_hash(byte_content, shorten)
 
 
 def calculate_bytes_or_file_hash(content: bytes | Path, shorten: bool = False) -> str:

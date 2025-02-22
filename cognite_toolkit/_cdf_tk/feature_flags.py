@@ -16,54 +16,26 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
-    ADO_PIPELINES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables creation of Azure DevOps pipelines in repo init command",
-    }
-    REQUIRE_KIND: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Require kind in all config file names. For example, `my.FileMetadata.yaml`",
-    }
-    RUN_WORKFLOW: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for running workflows",
-    }
-    STREAMLIT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables the support for deploying Streamlit apps",
-    }
-    FORCE_UPDATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": False,
-        "description": "Adding the --force-update flag to the deploy command",
-    }
     MODULE_REPEAT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
-    EDGES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+    DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables the support for creating edges between nodes",
+        "description": "Enables support for dump workflow/transformation/group/node",
     }
-    CLASSIC: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+    POPULATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables the support for events and relationships",
+        "description": "Enables support for the populate command",
     }
-    MODULE_PULL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+    STRICT_VALIDATION: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables the support for pulling modules from the CDF",
+        "description": "For Workflow/Transformations/Function do not fallback to Toolkit credentials when validation-type != 'dev'",
     }
-    PURGE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+    CREDENTIALS_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables the support for purging datasets and spaces",
-    }
-    BUILD_OFFLINE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables builds without comparing against CDF project for missing dependencies.",
-    }
-    FUNCTION_MULTI_FILE_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Toolkit will has each individual file in a multi-file function. This is useful when"
-        "you want to inspect why a function needs to redeploy.",
+        "description": "Stores a hash of the credentials of Workflow/Transformation/Function in the resources such that"
+        " the resource is updated when the credentials change",
     }
 
     def is_enabled(self) -> bool:

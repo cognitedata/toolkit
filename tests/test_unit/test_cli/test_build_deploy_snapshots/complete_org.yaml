@@ -1,5 +1,13 @@
 Asset:
 - dataSetId: 7982613576047462211
+  externalId: MyAsset
+  name: MyAsset
+  source: doctrino
+- dataSetId: 7982613576047462211
+  externalId: MyAsset2
+  name: MyAsset2
+  source: doctrino
+- dataSetId: 7982613576047462211
   description: The root asset in the SAP hierarchy
   externalId: my_root_asset
   metadata:
@@ -35,6 +43,123 @@ Container:
         type: text
   space: sp_schema
   usedFor: node
+- constraints: {}
+  externalId: PrimitiveNullable
+  indexes: {}
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        list: false
+        type: boolean
+    date:
+      autoIncrement: false
+      immutable: false
+      name: date
+      nullable: true
+      type:
+        list: false
+        type: date
+    direct:
+      autoIncrement: false
+      immutable: false
+      name: direct
+      nullable: true
+      type:
+        list: false
+        type: direct
+    enum:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        type: enum
+        unknownValue: Unknown
+        values:
+          Running:
+            description: Running
+            name: Running
+          Stopped:
+            description: Stopped
+            name: Stopped
+          Unknown:
+            description: Unknown
+            name: Unknown
+    float32:
+      autoIncrement: false
+      immutable: false
+      name: float32
+      nullable: true
+      type:
+        list: false
+        type: float32
+    float64:
+      autoIncrement: false
+      immutable: false
+      name: float64
+      nullable: true
+      type:
+        list: false
+        type: float64
+    int32:
+      autoIncrement: false
+      immutable: false
+      name: int32
+      nullable: true
+      type:
+        list: false
+        type: int32
+    int64:
+      autoIncrement: false
+      immutable: false
+      name: int64
+      nullable: true
+      type:
+        list: false
+        type: int64
+    json:
+      autoIncrement: false
+      immutable: false
+      name: json
+      nullable: true
+      type:
+        list: false
+        type: json
+    text:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    timestamp:
+      autoIncrement: false
+      immutable: false
+      name: timestamp
+      nullable: true
+      type:
+        list: false
+        type: timestamp
+  space: population_model
+  usedFor: node
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
 DataModel:
 - externalId: DataModelLocation
   space: DataModelSpace
@@ -42,6 +167,14 @@ DataModel:
   views:
   - externalId: CogniteFile
     space: cdf_cdm
+    type: view
+    version: v1
+- externalId: PopulationTestModel
+  space: population_model
+  version: v1
+  views:
+  - externalId: PrimitiveNullable
+    space: population_model
     type: view
     version: v1
 DataPostProcessing:
@@ -121,6 +254,41 @@ Destination:
     nonce: '123'
   externalId: EventHubTarget
   targetDataSetId: 7982613576047462211
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
+Event:
+- assetIds:
+  - 13458544937205513867
+  - 221232397997127486
+  dataSetId: 7982613576047462211
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
 ExtractionPipeline:
 - createdBy: unknown
   dataSetId: 7982613576047462211
@@ -149,6 +317,8 @@ FileLoader:
 - externalId: filecontent.txt
   filehash: e0b202a1
   space: sp_complete_org_files
+- external_id: myapp
+  filehash: c59dc2b6
 FileMetadata:
 - dataSetId: 7982613576047462211
   directory: /files
@@ -158,6 +328,19 @@ FileMetadata:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
+- dataSetId: 7982613576047462211
+  directory: /streamlit-apps/
+  externalId: myapp
+  metadata:
+    cdf-toolkit-app-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: true
+    theme: Light
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 Frame:
 - externalId: rootCoordinateFrame
   name: Root coordinate frame
@@ -173,8 +356,8 @@ Function:
   indexUrl: https://pypi.org/simple
   memory: 0.6
   metadata:
-    cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
     cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
+    cognite-toolkit-hash: /=a6372056;arbitrary.yaml=a66557f5;handler.py=c2bdf618;requirements.txt=f6da09a3;src/__init__.py=e3b0c442;src/handler.py=28ebbc99
     version: '1'
   name: first:example:function
   owner: Anonymous
@@ -295,6 +478,9 @@ Mapping:
       }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
+- externalId: AnEdgeType
+  instanceType: node
+  space: sp_schema
 - externalId: MyNodeType
   instanceType: node
   space: sp_schema
@@ -328,6 +514,9 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
 - externalId: filecontent.txt
   instanceType: node
   sources:
@@ -355,6 +544,17 @@ Node:
       type: view
       version: v1
   space: sp_complete_org_files
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
+Relationship:
+- confidence: 0.42
+  dataSetId: 7982613576047462211
+  externalId: MyRelationship
+  sourceExternalId: MyAsset
+  sourceType: asset
+  targetExternalId: MyEvent
+  targetType: event
 RobotCapability:
 - dataHandlingSchema:
     $schema: http://json-schema.org/draft-07/schema#
@@ -443,6 +643,19 @@ SecurityCategory:
 - name: sc_demo_category
 Sequence:
 - columns:
+  - description: The wind speed
+    externalId: wind_speed
+    name: Wind Speed
+    valueType: DOUBLE
+  - description: The power production
+    externalId: power
+    name: Power
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
+  description: A power curve sequence
+  externalId: SequenceWithRows
+  name: SequenceWithRows
+- columns:
   - description: Epoch time
     externalId: mySequenceTime
     name: Time
@@ -455,6 +668,38 @@ Sequence:
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
+SequenceRows:
+- columns:
+  - externalId: wind_speed
+    valueType: Double
+  - externalId: power
+    valueType: Double
+  externalId: SequenceWithRows
+  rows:
+  - rowNumber: 1
+    values:
+    - 0.0
+    - 0.0
+  - rowNumber: 2
+    values:
+    - 5.0
+    - 309000.0
+  - rowNumber: 3
+    values:
+    - 10.0
+    - 2693000.0
+  - rowNumber: 4
+    values:
+    - 15.0
+    - 3450000.0
+  - rowNumber: 5
+    values:
+    - 20.0
+    - 3450000.0
+  - rowNumber: 6
+    values:
+    - 25.0
+    - 3450000.0
 Source:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
@@ -464,6 +709,8 @@ Source:
   type: eventhub
 Space:
 - space: DataModelSpace
+- space: population_instance_space
+- space: population_model
 - space: sp_complete_org_files
 - space: sp_nodes
 - space: sp_schema
@@ -511,10 +758,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_first_transformation
   ignoreNullFields: true
   isPublic: true
@@ -524,10 +771,10 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationNotification:
 - destination: jane.smith@example.com
   transformationExternalId: tr_first_transformation
@@ -558,6 +805,100 @@ View:
         type: container
       containerPropertyIdentifier: status
   space: sp_schema
+  version: v1
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1
+- externalId: PrimitiveNullable
+  implements: []
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: boolean
+      name: text
+    date:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: date
+      name: date
+    direct:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: direct
+      name: direct
+    enum:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: enum
+      name: enum
+    float32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float32
+      name: float32
+    float64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float64
+      name: float64
+    int32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int32
+      name: int32
+    int64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int64
+      name: int64
+    json:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: json
+      name: json
+    text:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: text
+      name: text
+    timestamp:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: timestamp
+      name: timestamp
+  space: population_model
   version: v1
 Workflow:
 - description: A workflow for processing data
@@ -595,7 +936,9 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_first_transformation
+          useTransformationCredentials: false
       retries: 3
       timeout: 3600
       type: transformation
   workflowExternalId: baz
+deleted: {}

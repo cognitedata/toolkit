@@ -100,7 +100,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 92f9657d1b6bc85b07302d3f2a694feccaf5b88fa0ad1116e9faf07f2499408a
+    cognite-toolkit-hash: /=92f9657d;__init__.py=e3b0c442;config.py=2447d985;constants.py=7ebbd02c;get_resources.py=bc495f92;handler.py=bee13fa0;pipeline.py=f517c6ad;requirements.txt=c35ab502;write_resources.py=8f795dfb
     version: 0.0.1
   name: context:3d:oid:fileshare:asset
   owner: Anonymous
@@ -287,3 +287,4 @@ ThreeDModel:
 - createdTime: 1
   dataSetId: 1111003405993120033
   name: Valhall
+deleted: {}

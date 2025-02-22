@@ -47,7 +47,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: bd8fe6e3123879e2cb360f43fbd60c47f23006263ca621dadc45a160adceb001
+    cognite-toolkit-hash: /=bd8fe6e3;handler.py=3c550663;requirements.txt=1d4815ec
   name: Entity Matching Function
   owner: Anonymous
 Group:
@@ -192,3 +192,4 @@ WorkflowVersion:
       timeout: null
       type: function
   workflowExternalId: entity_matching
+deleted: {}

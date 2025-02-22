@@ -86,7 +86,7 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: d7107f17192e7e79ed7919cbf70c628e18e0d966da9a99d85f05eae8dc164af0
+    cognite-toolkit-hash: /=d7107f17;__init__.py=e3b0c442;config.py=f8bc25c0;constants.py=0b7ca6c0;handler.py=f77bd6e4;pipeline.py=577e53f0;requirements.txt=8d59ed94
     version: 0.0.1
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
@@ -100,15 +100,15 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: c59aa6c790b492bdf98483455c9774921ff7e3b1167e0b96c7951c6d13140f14
-    cdf-toolkit-secret-hash: 3c751aaf4bd17e8ea97201022e5a416a2ac6cd4ab4e5cadfb560bc8a66aba388a0167391a65934653ec1908a610fe609abbde319378e4e517bc0ad49daeff311
+    cdf-toolkit-secret-hash: 713508150112ea25b1d8587dab587e20a3cd564511918a24c3e59e48dd81d3193b27abe3f74fff394dae118da13a162908b93c77232301a1bb3d81366d963b25
+    cognite-toolkit-hash: /=c59aa6c7;__init__.py=e3b0c442;config.py=fb0a951c;handler.py=959ae0cd;pipeline.py=c1ab43e9;requirements.txt=ea7478ac
     version: 0.0.1
   name: workflow:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
   secrets:
-    client-id: dummy
-    client-secret: dummy
+    client-id: dummy-123
+    client-secret: dummy-secret
 FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:
@@ -276,10 +276,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_files_oid_fileshare_file_metadata
   ignoreNullFields: true
   isPublic: true
@@ -298,10 +298,10 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationSchedule:
 - externalId: tr_files_oid_fileshare_file_metadata
   interval: 7 * * * *
@@ -322,6 +322,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_files_oid_fileshare_file_metadata
+          useTransformationCredentials: false
       retries: 3
       timeout: null
       type: transformation
@@ -340,3 +341,4 @@ WorkflowVersion:
       timeout: null
       type: function
   workflowExternalId: wf_oid_files_annotation
+deleted: {}

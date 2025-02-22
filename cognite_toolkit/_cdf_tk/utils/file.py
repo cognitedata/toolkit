@@ -1,4 +1,3 @@
-import csv
 import errno
 import os
 import re
@@ -22,6 +21,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
@@ -68,7 +68,7 @@ def load_yaml_inject_variables(
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
-        environ_variables (dict[str, str | None]): Dictionary with environment variables.
+        environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
         validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
@@ -85,7 +85,7 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", value)
+        content = content.replace(f"${{{key}}}", str(value))
     if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
         if isinstance(filepath, Path):
             source = filepath
@@ -200,13 +200,17 @@ def safe_read(file: Path | str) -> str:
             raise
 
 
-def safe_write(file: Path, content: str) -> None:
+def safe_write(file: Path, content: str, encoding: str | None = None) -> None:
     """Falls back on explicit using utf-8 if the default .write_text()"""
     try:
-        file.write_text(content)
+        file.write_text(content, encoding=encoding)
     except UnicodeEncodeError:
         # On Windows, we may have issues as the encoding is not always utf-8
         file.write_text(content, encoding="utf-8")
+
+
+def yaml_safe_dump(data: Any, sort_keys: bool = False, indent: int | None = None) -> str:
+    return yaml.safe_dump(data, sort_keys=sort_keys, allow_unicode=True, indent=indent)
 
 
 def quote_int_value_by_key_in_yaml(content: str, key: str) -> str:
@@ -354,20 +358,16 @@ def remove_trailing_newline(content: str) -> str:
     return content
 
 
-def read_any_csv_dialect(
+def read_csv(
     path: Path | typing.TextIO,
-    sniff_lines: int = 5,
-    error: Literal["continue", "raise"] = "continue",
     parse_dates: bool | None = None,
     index_col: Hashable | None = None,
     dtype: Any | None = None,
 ) -> pd.DataFrame:
-    """Reads any CSV dialect
+    """Reads CSV
 
     Args:
         path (Path): Path to the CSV file.
-        sniff_lines (int, optional): Number of lines to sniff. Defaults to 5.
-        error (Literal["continue", "raise"], optional): Whether to raise an error if the CSV dialect cannot be sniffed. Defaults to "continue".
         parse_dates (bool, optional): Whether to parse dates. Defaults to None.
         index_col (Hashable, optional): Index column. Defaults to None.
         dtype (Any, optional): Data types. Defaults to None
@@ -375,39 +375,7 @@ def read_any_csv_dialect(
     Returns:
         pd.DataFrame: DataFrame with the CSV data.
     """
-    if isinstance(path, Path):
-        with path.open(mode="r") as buffer:
-            return _read_any_csv_dialect(buffer, sniff_lines, error, parse_dates, index_col, dtype)
-    return _read_any_csv_dialect(path, sniff_lines, error, parse_dates, index_col, dtype)
-
-
-def _read_any_csv_dialect(
-    buffer: typing.TextIO,
-    sniff_lines: int = 20,
-    error: Literal["continue", "raise"] = "continue",
-    parse_dates: bool | None = None,
-    index_col: Hashable | None = None,
-    dtype: Any | None = None,
-) -> pd.DataFrame:
-    to_sniff = ""
-    for _ in range(sniff_lines):
-        to_sniff += buffer.readline()
-    if to_sniff == "":
-        return pd.DataFrame()
-    try:
-        dialect: type[csv.Dialect] | None = csv.Sniffer().sniff(to_sniff)
-    except csv.Error:
-        if error == "raise":
-            raise
-        dialect = None
-    buffer.seek(0)
-    try:
-        return pd.read_csv(
-            buffer, dialect=dialect() if dialect else None, parse_dates=parse_dates, index_col=index_col, dtype=dtype
-        )
-    except pd.errors.ParserError:
-        buffer.seek(0)
-        return pd.read_csv(buffer, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
+    return pd.read_csv(path, parse_dates=parse_dates, index_col=index_col, dtype=dtype)
 
 
 def _handle_remove_readonly(func: Any, path: Any, exc: Any) -> None:
@@ -434,3 +402,20 @@ def safe_rmtree(path: Path) -> None:
         MediumSeverityWarning(
             f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
         ).print_warning()
+
+
+def get_table_columns(table: Path) -> list[str]:
+    """Get the columns of a table
+
+    Args:
+        table (Path): Path to the table
+
+    Returns:
+        list[str]: List of columns
+    """
+    if table.suffix == ".csv":
+        return read_csv(table).columns.tolist()
+    elif table.suffix == ".parquet":
+        return pd.read_parquet(table).columns.tolist()
+    else:
+        raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")

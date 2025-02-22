@@ -3,7 +3,6 @@ from typing import Any
 
 import pyperclip
 import pytest
-import yaml
 from cognite.client._api.iam import IAMAPI
 from cognite.client.data_classes import GroupWrite, capabilities
 
@@ -13,7 +12,8 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltModule,
 )
 from cognite_toolkit._cdf_tk.loaders import GroupAllScopedLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 SKIP_ACLS = frozenset(
     {
@@ -53,24 +53,24 @@ def built_module(tmp_path_factory: Any, organization_dir: Path) -> BuiltModule:
 
 
 @pytest.fixture
-def read_write_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) -> GroupWrite:
+def read_write_group(built_module: BuiltModule, env_vars_with_client: EnvironmentVariables) -> GroupWrite:
     auth = built_module.resources["auth"]
     read_write_resource = next((resource for resource in auth if resource.identifier == "gp_admin_read_write"), None)
     assert read_write_resource is not None
 
-    loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None)
-    items = loader.load_resource_file(read_write_resource.destination, cdf_tool_mock.environment_variables())
+    loader = GroupAllScopedLoader(env_vars_with_client.get_client(), None, None)
+    items = loader.load_resource_file(read_write_resource.destination, env_vars_with_client.dump())
     return loader.load_resource(items[0], is_dry_run=True)
 
 
 @pytest.fixture
-def readonly_group(built_module: BuiltModule, cdf_tool_mock: CDFToolConfig) -> GroupWrite:
+def readonly_group(built_module: BuiltModule, env_vars_with_client: EnvironmentVariables) -> GroupWrite:
     auth = built_module.resources["auth"]
     readonly_resource = next((resource for resource in auth if resource.identifier == "gp_admin_readonly"), None)
     assert readonly_resource is not None
 
-    loader = GroupAllScopedLoader(cdf_tool_mock.toolkit_client, None)
-    items = loader.load_resource_file(readonly_resource.destination, cdf_tool_mock.environment_variables())
+    loader = GroupAllScopedLoader(env_vars_with_client.get_client(), None, None)
+    items = loader.load_resource_file(readonly_resource.destination, env_vars_with_client.dump())
     return loader.load_resource(items[0], is_dry_run=True)
 
 
@@ -99,7 +99,7 @@ class TestCDFAuthReadWriteAll:
         )
         if missing_capabilities:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
-            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
         # This test will fail typically after you have updated the cognite-sdk-python package.
@@ -118,7 +118,7 @@ class TestCDFAuthReadWriteAll:
         )
         if missing_capabilities:
             merged = AuthCommand._merge_capabilities(missing_capabilities)
-            missing_yaml = yaml.safe_dump([item.dump() for item in merged], indent=2)
+            missing_yaml = yaml_safe_dump([item.dump() for item in merged], indent=2)
             pyperclip.copy(missing_yaml)
 
         # Similar to the previous test, this test will fail typically after you have updated the

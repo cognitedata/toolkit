@@ -49,10 +49,11 @@ Function:
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: 5b1a09e8a63f1e0177365f8718a70e102dcd46bd0747f68b193d65c4bec6f9f8
+    cognite-toolkit-hash: /=5b1a09e8;handler.py=fb006a62;requirements.txt=1d4815ec
   name: Annotation to Direct Relations Writer
   owner: Anonymous
 Space:
 - description: This space contains data
   name: Instance space
   space: springfield_instances
+deleted: {}

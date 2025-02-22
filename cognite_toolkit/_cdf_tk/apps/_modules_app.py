@@ -6,8 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -19,8 +18,7 @@ class ModulesApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command()(self.init)
         self.command()(self.upgrade)
-        if Flags.MODULE_PULL.is_enabled():
-            self.command()(self.pull)
+        self.command()(self.pull)
         self.command()(self.list)
         self.command()(self.add)
 
@@ -124,13 +122,13 @@ class ModulesApp(typer.Typer):
     def pull(
         self,
         ctx: typer.Context,
-        module: Annotated[
-            str,
+        module_name_or_path: Annotated[
+            Optional[str],
             typer.Argument(
-                help="The module or path to module to pull from CDF.",
+                help="The module or path to module to pull from CDF. If not provided, interactive mode will be used.",
                 allow_dash=True,
             ),
-        ],
+        ] = None,
         organization_dir: Annotated[
             Path,
             typer.Option(
@@ -166,15 +164,15 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Pull a module from CDF. This will overwrite the local files with the latest version from CDF."""
         cmd = PullCommand()
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.pull_module(
-                module=module,
+                module_name_or_path=module_name_or_path,
                 organization_dir=organization_dir,
                 env=build_env,
                 dry_run=dry_run,
                 verbose=verbose,
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
             )
         )
 

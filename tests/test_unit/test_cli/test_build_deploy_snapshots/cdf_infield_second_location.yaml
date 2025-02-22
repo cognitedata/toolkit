@@ -402,10 +402,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_asset_oid2_workmate_infield_sync_assets_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
@@ -428,10 +428,10 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 - conflictMode: upsert
   dataSetId: 11743928659384212067
   destination:
@@ -445,10 +445,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_workorder_oid2_workmate_infield_sync_workorders_to_apm_activities
   ignoreNullFields: true
   isPublic: true
@@ -465,10 +465,10 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationSchedule:
 - externalId: tr_asset_oid2_workmate_infield_sync_assets_from_hierarchy_to_apm
   interval: 0 * * * *

@@ -26,6 +26,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -39,7 +40,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
-from cognite_toolkit._cdf_tk.utils.file import read_any_csv_dialect
+from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from .data_organization_loaders import DataSetsLoader, LabelLoader
 
@@ -116,10 +117,14 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        if not ids:
+            return 0
         internal_ids, external_ids = self._split_ids(ids)
         try:
             self.client.assets.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
+        except CogniteNotFoundError as e:
+            # Do a CogniteNotFoundError instead of passing 'ignore_unknown_ids=True' to the delete method
+            # to obtain an accurate list of deleted assets.
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
                 internal_ids, external_ids = self._split_ids(existing)
@@ -134,7 +139,13 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Asset]:
-        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+        return iter(
+            self.client.assets(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                # This is used in the purge command to delete the children before the parent.
+                aggregated_properties=["depth", "child_count", "path"],
+            )
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -177,7 +188,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         if filepath.suffix in {".yaml", ".yml"}:
             raw_yaml = load_yaml_inject_variables(
                 self.safe_read(filepath),
-                environment_variables or {} if self.do_environment_variable_injection else {},
+                environment_variables or {},
                 original_filepath=filepath,
             )
             resources = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
@@ -185,7 +196,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             if filepath.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = filepath.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = read_any_csv_dialect(io.StringIO(file_content))
+                data = read_csv(io.StringIO(file_content))
             else:
                 data = pd.read_parquet(filepath)
             data.replace(pd.NA, None, inplace=True)
@@ -215,8 +226,9 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return AssetWrite._load(resource)
 
-    def dump_resource(self, resource: Asset, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Asset, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
@@ -289,8 +301,9 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
             resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
         return SequenceWrite._load(resource)
 
-    def dump_resource(self, resource: Sequence, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if asset_id := dumped.pop("assetId", None):
@@ -383,9 +396,10 @@ class SequenceRowLoader(
     dependencies = frozenset({SequenceLoader})
     parent_resource = frozenset({SequenceLoader})
     _doc_url = "Sequences/operation/postSequenceData"
+    support_update = False
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console)
         # Used in the .diff_list method to keep track of the last column in the local list
         # such that the values in the rows can be matched to the correct column.
         self._last_column: tuple[dict[int, int], list[int]] = {}, []
@@ -431,10 +445,6 @@ class SequenceRowLoader(
         retrieved = self.client.sequences.rows.retrieve(external_id=ids)
         return ToolkitSequenceRowsList([ToolkitSequenceRows._load(row.dump(camel_case=True)) for row in retrieved])
 
-    def update(self, items: ToolkitSequenceRowsWriteList) -> ToolkitSequenceRowsWriteList:
-        self.delete(items.as_external_ids())
-        return self.create(items)
-
     def delete(self, ids: SequenceNotStr[str]) -> int:
         for id_ in ids:
             self.client.sequences.rows.delete_range(start=0, end=None, external_id=id_)
@@ -470,9 +480,10 @@ class SequenceRowLoader(
         """
         yield SequenceLoader, item["externalId"]
 
-    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: ToolkitSequenceRows, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if "id" in dumped and "id" not in local:
+
+        if local is not None and "id" in dumped and "id" not in local:
             dumped.pop("id")
         # Ensure that the rows is the last key in the dumped dictionary,
         # This information is used in the .diff_list method to match the values in the rows to the correct column.
@@ -630,8 +641,9 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
             resource["assetIds"] = self.client.lookup.assets.id(asset_external_ids, is_dry_run)
         return EventWrite._load(resource)
 
-    def dump_resource(self, resource: Event, local: dict[str, Any]) -> dict[str, Any]:
+    def dump_resource(self, resource: Event, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if asset_ids := dumped.pop("assetIds", None):

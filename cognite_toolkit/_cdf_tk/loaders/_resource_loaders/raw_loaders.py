@@ -17,7 +17,7 @@ import itertools
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, NoReturn, cast, final
+from typing import Any, cast, final
 
 from cognite.client.data_classes.capabilities import (
     Capability,
@@ -26,6 +26,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
@@ -47,10 +48,11 @@ class RawDatabaseLoader(
     list_write_cls = RawDatabaseList
     kind = "Database"
     dependencies = frozenset({GroupAllScopedLoader})
+    support_update = False
     _doc_url = "Raw/operation/createDBs"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
+        super().__init__(client, build_dir, console)
         self._loaded_db_names: set[str] = set()
 
     @property
@@ -98,9 +100,6 @@ class RawDatabaseLoader(
         database_list = self.client.raw.databases.list(limit=-1)
         target_dbs = {db.db_name for db in ids}
         return RawDatabaseList([RawDatabase(db_name=db.name) for db in database_list if db.name in target_dbs])
-
-    def update(self, items: Sequence[RawDatabase]) -> NoReturn:
-        raise NotImplementedError("Raw tables do not support update.")
 
     def delete(self, ids: SequenceNotStr[RawDatabase]) -> int:
         db_names = [table.db_name for table in ids]
@@ -161,12 +160,13 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
     list_cls = RawTableList
     list_write_cls = RawTableList
     kind = "Table"
+    support_update = False
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
     parent_resource = frozenset({RawDatabaseLoader})
 
-    def __init__(self, client: ToolkitClient, build_dir: Path):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None):
+        super().__init__(client, build_dir, console)
         self._printed_warning = False
 
     @property
@@ -236,9 +236,6 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
                 [RawTable(db_name=db_name, table_name=table.name) for table in tables if table.name in expected_tables]
             )
         return retrieved
-
-    def update(self, items: Sequence[RawTable]) -> RawTableList:
-        raise NotImplementedError("Raw tables do not support update.")
 
     def delete(self, ids: SequenceNotStr[RawTable]) -> int:
         count = 0
