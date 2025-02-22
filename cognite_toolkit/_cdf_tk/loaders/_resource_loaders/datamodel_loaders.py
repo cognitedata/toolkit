@@ -68,6 +68,7 @@ from cognite.client.data_classes.data_modeling.ids import (
     NodeId,
     ViewId,
 )
+from cognite.client.data_classes.data_modeling.views import ReverseDirectRelationApply
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -600,7 +601,35 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if self._is_auto_retryable(e1):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
+            elif self._is_deployment_order(e1, set(self.get_ids(items))):
+                return self._fallback_create_one_by_one(self._topological_sort(items), e1)
             raise
+
+    @staticmethod
+    def _is_deployment_order(e: CogniteAPIError, ids: set[ViewId]) -> bool:
+        if match := re.match(
+            r"One or more views do not exist: '([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e.message
+        ):
+            return ViewId(*match.groups()) in ids
+        return False
+
+    def _topological_sort(self, items: Sequence[ViewApply]) -> Sequence[ViewApply]:
+        views_by_id = {self.get_id(item): item for item in items}
+        dependencies_by_id: dict[ViewId, set[ViewId]] = {}
+        for item in items:
+            view_id = self.get_id(item)
+            dependencies_by_id[view_id] = set()
+            for prop in (item.properties or {}).values():
+                if isinstance(prop, ReverseDirectRelationApply):
+                    if isinstance(prop.through.source, ViewId) and prop.through.source in views_by_id:
+                        dependencies_by_id[view_id].add(prop.through.source)
+        try:
+            sorted_items = TopologicalSorter(dependencies_by_id).static_order()
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Cycle detected in views: {e.args[0]}. Please fix the cycle before deploying."
+            ) from e
+        return [views_by_id[view_id] for view_id in sorted_items]
 
     @staticmethod
     def _is_auto_retryable(e: CogniteAPIError) -> bool:
