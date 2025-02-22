@@ -121,7 +121,7 @@ properties:
       space: {{ schemaSpace }}
       externalId: SceneConfiguration.model3ds
     source:
-      space: {{ schemaSpace }}
+      space: cdf_3d_schema
       externalId: Cdf3dModel
       version: '1'
       type: view
