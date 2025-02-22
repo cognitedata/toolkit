@@ -4,6 +4,7 @@ from typing import Any, Literal, overload
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
+    OidcCredentials,
 )
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
@@ -20,6 +21,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
 )
+
+
+def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> str | None:
+    if credentials is None:
+        return None
+    raise NotImplementedError("This function is not implemented yet.")
 
 
 @overload
