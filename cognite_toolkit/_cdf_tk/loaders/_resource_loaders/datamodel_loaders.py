@@ -621,15 +621,18 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             dependencies_by_id[view_id] = set()
             for prop in (item.properties or {}).values():
                 if isinstance(prop, ReverseDirectRelationApply):
-                    if isinstance(prop.through.source, ViewId) and prop.through.source in views_by_id:
+                    if (
+                        isinstance(prop.through.source, ViewId)
+                        and prop.through.source in views_by_id
+                        and prop.through.source != view_id
+                    ):
                         dependencies_by_id[view_id].add(prop.through.source)
         try:
-            sorted_items = TopologicalSorter(dependencies_by_id).static_order()
+            return [views_by_id[view_id] for view_id in TopologicalSorter(dependencies_by_id).static_order()]
         except CycleError as e:
             raise ToolkitCycleError(
                 f"Cycle detected in views: {e.args[0]}. Please fix the cycle before deploying."
             ) from e
-        return [views_by_id[view_id] for view_id in sorted_items]
 
     @staticmethod
     def _is_auto_retryable(e: CogniteAPIError) -> bool:
