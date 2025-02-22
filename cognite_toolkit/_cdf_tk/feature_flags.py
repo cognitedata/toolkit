@@ -9,23 +9,33 @@ from cognite_toolkit._cdf_tk.constants import clean_name
 
 
 class Flags(Enum):
-    INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}
-    IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}
-    GRAPHQL: ClassVar[dict[str, Any]] = {
+    # Ruff requires annotations while mypy requires no annotations
+    INTERNAL: ClassVar[dict[str, Any]] = {"visible": False, "description": "Does nothing"}  # type: ignore[misc]
+    IMPORT_CMD: ClassVar[dict[str, Any]] = {"visible": True, "description": "Enables the import sub application"}  # type: ignore[misc]
+    GRAPHQL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables the support for deploying data models as GraphQL schemas",
     }
-    ADO_PIPELINES: ClassVar[dict[str, Any]] = {
+    MODULE_REPEAT: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables creation of Azure DevOps pipelines in repo init command",
+        "description": "Enables the support for repeating modules in the config file",
     }
-    REQUIRE_KIND: ClassVar[dict[str, Any]] = {
+    DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Require kind in all config file names. For example, `my.FileMetadata.yaml`",
+        "description": "Enables support for dump workflow/transformation/group/node",
     }
-    RUN_WORKFLOW: ClassVar[dict[str, Any]] = {
+    POPULATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables the support for running workflows",
+        "description": "Enables support for the populate command",
+    }
+    STRICT_VALIDATION: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "For Workflow/Transformations/Function do not fallback to Toolkit credentials when validation-type != 'dev'",
+    }
+    CREDENTIALS_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Stores a hash of the credentials of Workflow/Transformation/Function in the resources such that"
+        " the resource is updated when the credentials change",
     }
 
     def is_enabled(self) -> bool:
@@ -36,4 +46,4 @@ class FeatureFlag:
     @staticmethod
     @lru_cache(typed=True)
     def is_enabled(flag: Flags) -> bool:
-        return CDFToml.load().feature_flags.get(clean_name(flag.name), False)
+        return CDFToml.load().alpha_flags.get(clean_name(flag.name), False)

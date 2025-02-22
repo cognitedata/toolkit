@@ -2,8 +2,6 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 
-import yaml
-
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -16,6 +14,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
 class RawBuilder(Builder):
@@ -51,13 +50,13 @@ class RawBuilder(Builder):
             for loader, entries in entry_by_loader.items():
                 if not entries:
                     continue
-                destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+                destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
                 if loader is RawDatabaseLoader and has_split_table_and_database:
                     # We have inferred the database from a Table file, so we need to recalculate the hash
                     # in case we also inferred the database from another Table file
                     new_hash = calculate_str_or_file_hash(
-                        yaml.safe_dump(sorted(entries, key=lambda entry: entry["dbName"])),
+                        yaml_safe_dump(sorted(entries, key=lambda entry: entry["dbName"])),
                         shorten=True,
                     )
                     source: SourceLocation = SourceLocationEager(path=source_file.source.path, _hash=new_hash)

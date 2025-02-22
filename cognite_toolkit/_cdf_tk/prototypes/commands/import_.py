@@ -6,7 +6,6 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-import yaml
 from rich import print
 from rich.table import Table
 
@@ -15,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitValueError
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import read_yaml_file, safe_write
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 
 class ImportTransformationCLI(ToolkitCommand):
@@ -36,6 +36,7 @@ class ImportTransformationCLI(ToolkitCommand):
         destination: Path,
         overwrite: bool,
         flatten: bool,
+        clean: bool,
         verbose: bool = False,
     ) -> None:
         # Manifest files are documented at
@@ -82,17 +83,17 @@ class ImportTransformationCLI(ToolkitCommand):
             if not overwrite and destination_transformation.exists():
                 self.warn(LowSeverityWarning(f"File already exists at {destination_transformation}. Skipping."))
                 continue
-            safe_write(destination_transformation, yaml.safe_dump(transformation))
+            safe_write(destination_transformation, yaml_safe_dump(transformation))
             if source_query_path is not None:
                 destination_query_path = destination_folder / f"{destination_transformation.stem}.sql"
                 shutil.copyfile(source_query_path, destination_query_path)
 
             if schedule is not None:
                 destination_schedule = destination_folder / f"{yaml_file.stem}.Schedule.yaml"
-                safe_write(destination_schedule, yaml.safe_dump(schedule))
+                safe_write(destination_schedule, yaml_safe_dump(schedule))
             if notifications:
                 destination_notification = destination_folder / f"{yaml_file.stem}.Notification.yaml"
-                safe_write(destination_notification, yaml.safe_dump(notifications))
+                safe_write(destination_notification, yaml_safe_dump(notifications))
             if verbose:
                 print(f"Imported {yaml_file} to {destination_folder}.")
             count_by_resource_type["transformation"] += 1
@@ -106,6 +107,14 @@ class ImportTransformationCLI(ToolkitCommand):
         for resource_type, count in count_by_resource_type.items():
             table.add_row(resource_type, str(count))
         print(table)
+
+        if clean:
+            if source.is_dir():
+                print(f"Cleaning up source directory {source}.")
+                safe_rmtree(source)
+            else:
+                print(f"Cleaning up source file {source}.")
+                source.unlink()
 
     def _load_file(self, yaml_file: Path) -> dict[str, Any] | None:
         content = read_yaml_file(yaml_file, expected_output="dict")

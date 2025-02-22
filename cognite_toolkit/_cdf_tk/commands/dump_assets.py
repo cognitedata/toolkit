@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import shutil
+import warnings
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from functools import lru_cache
@@ -10,11 +10,10 @@ from typing import Any, Literal, cast
 
 import pandas as pd
 import questionary
-import yaml
 from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSetWrite, DataSetWriteList
 from cognite.client.data_classes.filters import Equals
 from cognite.client.exceptions import CogniteAPIError
-from rich.progress import Progress, TaskID
+from rich.progress import Progress, TaskID, track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -26,7 +25,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, LabelLoader
 from cognite_toolkit._cdf_tk.loaders._resource_loaders.classic_loaders import AssetLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 
 class DumpAssetsCommand(ToolkitCommand):
@@ -45,10 +45,12 @@ class DumpAssetsCommand(ToolkitCommand):
         self._used_data_sets: set[int] = set()
         self._available_data_sets: dict[int, DataSetWrite] | None = None
         self._available_hierarchies: dict[int, Asset] | None = None
+        self._written_files: list[Path] = []
+        self._used_columns: set[str] = set()
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         hierarchy: list[str] | None,
         data_set: list[str] | None,
         output_dir: Path,
@@ -60,21 +62,19 @@ class DumpAssetsCommand(ToolkitCommand):
         if format_ not in {"yaml", "csv", "parquet"}:
             raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet.")
         if output_dir.exists() and clean:
-            shutil.rmtree(output_dir)
+            safe_rmtree(output_dir)
         elif output_dir.exists():
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
         is_interactive = hierarchy is None and data_set is None
-        hierarchies, data_sets = self._select_hierarchy_and_data_set(
-            ToolGlobals.toolkit_client, hierarchy, data_set, is_interactive
-        )
+        hierarchies, data_sets = self._select_hierarchy_and_data_set(client, hierarchy, data_set, is_interactive)
         if not hierarchies and not data_sets:
             raise ToolkitValueError("No hierarchy or data set provided")
 
         if missing := set(data_sets) - {item.external_id for item in self.data_set_by_id.values() if item.external_id}:
             try:
-                retrieved = ToolGlobals.toolkit_client.data_sets.retrieve_multiple(external_ids=list(missing))
+                retrieved = client.data_sets.retrieve_multiple(external_ids=list(missing))
             except CogniteAPIError as e:
                 raise ToolkitMissingResourceError(f"Failed to retrieve data sets {data_sets}: {e}")
 
@@ -82,7 +82,7 @@ class DumpAssetsCommand(ToolkitCommand):
 
         (output_dir / AssetLoader.folder_name).mkdir(parents=True, exist_ok=True)
 
-        total_assets = ToolGlobals.toolkit_client.assets.aggregate_count(
+        total_assets = client.assets.aggregate_count(
             filter=AssetFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
@@ -95,15 +95,15 @@ class DumpAssetsCommand(ToolkitCommand):
             retrieved_assets = progress.add_task("Retrieving assets", total=total_assets)
             write_to_file = progress.add_task("Writing assets to file(s)", total=total_assets)
 
-            asset_iterator = ToolGlobals.toolkit_client.assets(
+            asset_iterator = client.assets(
                 chunk_size=1000,
                 asset_subtree_external_ids=hierarchies or None,
                 data_set_external_ids=data_sets or None,
                 limit=limit,
             )
             asset_iterator = self._log_retrieved(asset_iterator, progress, retrieved_assets)
-            grouped_assets = self._group_assets(asset_iterator, ToolGlobals.toolkit_client, hierarchies, data_sets)
-            writeable = self._to_write(grouped_assets, ToolGlobals.toolkit_client, expand_metadata=True)
+            grouped_assets = self._group_assets(asset_iterator, client, hierarchies, data_sets)
+            writeable = self._to_write(grouped_assets, client, expand_metadata=True)
 
             count = 0
             if format_ == "yaml":
@@ -113,10 +113,10 @@ class DumpAssetsCommand(ToolkitCommand):
                     if file_path.exists():
                         with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                             f.write("\n")
-                            f.write(yaml.safe_dump(assets, sort_keys=False))
+                            f.write(yaml_safe_dump(assets))
                     else:
                         with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                            f.write(yaml.safe_dump(assets, sort_keys=False))
+                            f.write(yaml_safe_dump(assets))
                     count += len(assets)
                     progress.advance(write_to_file, advance=len(assets))
             elif format_ in {"csv", "parquet"}:
@@ -126,6 +126,9 @@ class DumpAssetsCommand(ToolkitCommand):
                     folder_path.mkdir(parents=True, exist_ok=True)
                     file_count = file_count_by_hierarchy[group]
                     file_path = folder_path / f"part-{file_count:04}.Asset.{format_}"
+                    self._used_columns.update(df.columns)
+                    # Standardize column order
+                    df.sort_index(axis=1, inplace=True)
                     if format_ == "csv":
                         df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
                     elif format_ == "parquet":
@@ -134,35 +137,52 @@ class DumpAssetsCommand(ToolkitCommand):
                     if verbose:
                         print(f"Dumped {len(df):,} assets in {group} to {file_path}")
                     count += len(df)
+                    self._written_files.append(file_path)
                     progress.advance(write_to_file, advance=len(df))
             else:
                 raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
 
+        if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
+            # Standardize columns across all files
+            for file_path in track(
+                self._written_files, total=len(self._written_files), description="Standardizing columns"
+            ):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    if format_ == "csv":
+                        df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
+                    else:
+                        df = pd.read_parquet(file_path)
+                for missing_column in self._used_columns - set(df.columns):
+                    df[missing_column] = None
+                # Standardize column order
+                df.sort_index(axis=1, inplace=True)
+                if format_ == "csv":
+                    df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
+                elif format_ == "parquet":
+                    df.to_parquet(file_path, index=False)
+
         print(f"Dumped {count:,} assets to {output_dir}")
 
         if self._used_labels:
-            labels = ToolGlobals.toolkit_client.labels.retrieve(
-                external_id=list(self._used_labels), ignore_unknown_ids=True
-            )
+            labels = client.labels.retrieve(external_id=list(self._used_labels), ignore_unknown_ids=True)
             if labels:
                 to_dump_dicts = labels.as_write().dump()
                 for label in to_dump_dicts:
                     if "dataSetId" in label:
                         data_set_id = label.pop("dataSetId")
                         self._used_data_sets.add(data_set_id)
-                        label["dataSetExternalId"] = self._get_data_set_external_id(
-                            ToolGlobals.toolkit_client, data_set_id
-                        )
+                        label["dataSetExternalId"] = self._get_data_set_external_id(client, data_set_id)
 
                 file_path = output_dir / LabelLoader.folder_name / "asset.Label.yaml"
                 file_path.parent.mkdir(parents=True, exist_ok=True)
                 if file_path.exists():
                     with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
                         f.write("\n")
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+                        f.write(yaml_safe_dump(to_dump_dicts))
                 else:
                     with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                        f.write(yaml.safe_dump(to_dump_dicts, sort_keys=False))
+                        f.write(yaml_safe_dump(to_dump_dicts))
 
                 print(f"Dumped {len(labels):,} labels to {file_path}")
 

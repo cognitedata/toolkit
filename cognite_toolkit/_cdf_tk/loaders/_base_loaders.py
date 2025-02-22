@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Sequence, Set, Sized
 from functools import lru_cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
@@ -15,12 +15,13 @@ from cognite.client.data_classes._base import (
 )
 from cognite.client.data_classes.capabilities import Capability
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
+from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -55,18 +56,23 @@ class Loader(ABC):
     _doc_base_url: str = "https://api-docs.cognite.com/20230101/tag/"
     _doc_url: str = ""
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
         self.client = client
         self.resource_build_path: Path | None = None
         if build_dir is not None and build_dir.name == self.folder_name:
             raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
         elif build_dir is not None:
             self.resource_build_path = build_dir / self.folder_name
-        self.extra_configs: dict[Hashable, Any] = {}
+        self.console = console
 
     @classmethod
-    def create_loader(cls: type[T_Loader], ToolGlobals: CDFToolConfig, build_dir: Path | None) -> T_Loader:
-        return cls(ToolGlobals.toolkit_client, build_dir)
+    def create_loader(
+        cls: type[T_Loader],
+        client: ToolkitClient,
+        build_dir: Path | None = None,
+        console: Console | None = None,
+    ) -> T_Loader:
+        return cls(client, build_dir, console)
 
     @property
     def display_name(self) -> str:
@@ -110,12 +116,24 @@ class Loader(ABC):
         return any(cls.is_supported_file(file) for file in directory.glob("**/*"))
 
     @classmethod
-    def is_supported_file(cls, file: Path) -> bool:
+    def is_supported_file(cls, file: Path, force_pattern: bool = False) -> bool:
+        """Check if hte file is supported by this loader.
+
+        Args:
+            file: The filepath to check.
+            force_pattern: If True, the filename pattern is used to determine if the file is supported. If False, the
+                file extension is used to determine if the file is supported (given that the
+                RequireKind flag is enabled).
+
+        Returns:
+            bool: True if the file is supported, False otherwise.
+
+        """
         if cls.filetypes and file.suffix[1:] not in cls.filetypes:
             return False
         if cls.exclude_filetypes and file.suffix[1:] in cls.exclude_filetypes:
             return False
-        if Flags.REQUIRE_KIND.is_enabled() and not issubclass(cls, DataLoader):
+        if force_pattern is False and not issubclass(cls, DataLoader):
             return file.stem.casefold().endswith(cls.kind.casefold())
         else:
             if cls.filename_pattern:
@@ -160,9 +178,13 @@ class ResourceLoader(
     list_write_cls: type[T_CogniteResourceList]
     # Optional to set in the subclass
     support_drop = True
+    support_update = True
     filetypes = frozenset({"yaml", "yml"})
     dependencies: frozenset[type[ResourceLoader]] = frozenset()
-    do_environment_variable_injection = False
+    # For example, TransformationNotification and Schedule has Transformation as the parent resource
+    # This is used in the iterate method to ensure that nothing is returned if
+    # the resource type does not have a parent resource.
+    parent_resource: frozenset[type[ResourceLoader]] = frozenset()
 
     # The methods that must be implemented in the subclass
     @classmethod
@@ -178,7 +200,7 @@ class ResourceLoader(
     @classmethod
     @abstractmethod
     def get_required_capability(
-        cls, items: T_CogniteResourceList | None, read_only: bool
+        cls, items: Sequence[T_WriteClass] | None, read_only: bool
     ) -> Capability | list[Capability]:
         raise NotImplementedError(f"get_required_capability must be implemented for {cls.__name__}.")
 
@@ -190,16 +212,42 @@ class ResourceLoader(
     def retrieve(self, ids: SequenceNotStr[T_ID]) -> T_WritableCogniteResourceList:
         raise NotImplementedError
 
-    @abstractmethod
     def update(self, items: T_CogniteResourceList) -> Sized:
-        raise NotImplementedError
+        raise NotImplementedError(f"Update is not supported for {type(self).__name__}.")
 
     @abstractmethod
     def delete(self, ids: SequenceNotStr[T_ID]) -> int:
         raise NotImplementedError
 
+    def iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
+        if sum([1 for x in [data_set_external_id, space, parent_ids] if x is not None]) > 1:
+            raise ValueError("At most one of data_set_external_id, space, or parent_ids must be set.")
+        if parent_ids is not None and not self.parent_resource:
+            return []
+        if space is not None:
+            from ._resource_loaders.datamodel_loaders import SpaceLoader
+
+            if SpaceLoader not in self.dependencies:
+                return []
+        if data_set_external_id is not None:
+            from ._resource_loaders.data_organization_loaders import DataSetsLoader
+
+            if DataSetsLoader not in self.dependencies:
+                return []
+        return self._iterate(data_set_external_id, space, parent_ids)
+
     @abstractmethod
-    def iterate(self) -> Iterable[T_WritableCogniteResource]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[T_WritableCogniteResource]:
         raise NotImplementedError
 
     # The methods below have default implementations that can be overwritten in subclasses
@@ -218,74 +266,123 @@ class ResourceLoader(
         return
         yield
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> T_WriteClass | T_CogniteResourceList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+    @classmethod
+    def check_item(cls, item: dict, filepath: Path, element_no: int | None) -> list[ToolkitWarning]:
+        """Check the item for any issues.
+
+        This is intended to be overwritten in subclasses that require special checking of the item.
+
+        Example, it is used in the WorkflowVersionLoader to check that all tasks dependsOn tasks that are in the same
+        workflow.
+
+        Args:
+            item (dict): The item to check.
+            filepath (Path): The path to the file where the item is located.
+            element_no (int): The element number in the file. This is used to provide better error messages.
+                None if the item is an object and not a list.
+
+        Returns:
+            list[ToolkitWarning]: A list of warnings.
+        """
+        return []
+
+    @classmethod
+    def get_internal_id(cls, item: T_WritableCogniteResource | dict) -> int:
+        raise NotImplementedError(f"{cls.__name__} does not have an internal id.")
+
+    @classmethod
+    def _split_ids(cls, ids: T_ID | int | SequenceNotStr[T_ID | int] | None) -> tuple[list[int], list[str]]:
+        # Used by subclasses to split the ids into external and internal ids
+        if ids is None:
+            return [], []
+        if isinstance(ids, int):
+            return [ids], []
+        if isinstance(ids, str):
+            return [], [ids]
+        if isinstance(ids, Sequence):
+            return [id for id in ids if isinstance(id, int)], [id for id in ids if isinstance(id, str)]
+        raise ValueError(f"Invalid ids: {ids}")
+
+    def safe_read(self, filepath: Path | str) -> str:
+        """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
+        handling of the files content. For example, Data Models need to quote the value on the version key to ensure
+        it is parsed as a string."""
+        return safe_read(filepath)
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        """Loads the resource(s) from a file. Can be overwritten in subclasses.
+
+        Examples, is the TransformationLoader that loads the query from a file. Another example, is the View and
+        DataModel loaders that nees special handling of the yaml to ensure version key is parsed as a string.
+        """
+        raw_yaml = load_yaml_inject_variables(
+            self.safe_read(filepath),
+            environment_variables or {},
+            original_filepath=filepath,
         )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+        return raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
 
-        if isinstance(raw_yaml, list):
-            return self.list_write_cls.load(raw_yaml)
-        else:
-            return self.list_write_cls([self.resource_write_cls.load(raw_yaml)])
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> T_WriteClass:
+        """Loads the resource from a dictionary. Can be overwritten in subclasses."""
+        return self.resource_write_cls._load(resource)
 
-    def dump_resource(
-        self, resource: T_WriteClass, source_file: Path, local_resource: T_WriteClass
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
+    def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
-        In addition, it can return a dictionary with extra files and their content. This is, for example, used by
-        Transformations to dump the 'query' key to an .sql file.
+        This is intended to be overwritten in subclasses that require special dumping logic, for example,
+        replacing dataSetId with dataSetExternalId.
 
         Args:
             resource (T_WritableCogniteResource): The resource to dump (typically comes from CDF).
-            source_file (Path): The source file that the resource was loaded from.
-            local_resource (T_WritableCogniteResource): The local resource.
+            local (dict[str, Any] | None): The local resource. When used in a dump/import command, there is no local
+                resource.
+        """
+        return resource.as_write().dump()
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        """Splits a resource into multiple files.
+
+        This is used in the dump command. For example, a transformation can be split into the YAML file and
+        the SQL file for the query
+
+        Args:
+            base_filepath (Path): The base filepath to use when creating the new file.
+            resource (dict[str,Any]): The resource to split.
 
         Returns:
-            tuple[dict[str, Any], dict[Path, str]]: The dumped resource and a dictionary with extra files and their
-             content.
+            Iterable[[dict[str,Any], Path]]: An iterable of the new resources and the filepaths where they should be
+                saved.
         """
-        return resource.dump(), {}
+        return [(base_filepath, resource)]
 
-    @overload
-    def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[False] = False
-    ) -> bool: ...
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        """Diff two lists and return the indices that needs to be compared and the indices that have been added.
+        The lists are subfields of the local and CDF resources.
 
-    @overload
-    def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: Literal[True]
-    ) -> tuple[bool, dict[str, Any], dict[str, Any]]: ...
+        This is used by the pull command to determine changes to the local resources compared to the CDF resources. For
+        example, a Sequence has a list of columns. This method is used to determine which columns to compare
+        and which has been added.
 
-    def are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        return self._are_equal(local, cdf_resource, return_dumped)
+        Args:
+            local (list[Any]): The local list.
+            cdf (list[Any]): The CDF list.
+            json_path (tuple[str | int, ...]): The json path to the list in the resource. For example, 'columns'
+                in the case of a sequence.
 
-    # Private to avoid having to overload in all subclasses
-    def _are_equal(
-        self, local: T_WriteClass, cdf_resource: T_WritableCogniteResource, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """This can be overwritten in subclasses that require special comparison logic.
-
-        For example, TransformationWrite has OIDC credentials that will not be returned
-        by the retrieve method, and thus needs special handling.
+        Returns:
+            tuple[dict[int, int], list[int]]: A dictionary with the indices that needs to be compared and a list of
+                indices that have been added. The dictionary has local index as key and CDF index as value. The
+                list of indices that have been added are cdf indices.
         """
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    @staticmethod
-    def _return_are_equal(
-        local_dumped: dict[str, Any], cdf_dumped: dict[str, Any], return_dumped: bool
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        if return_dumped:
-            return local_dumped == cdf_dumped, local_dumped, cdf_dumped
-        else:
-            return local_dumped == cdf_dumped
+        raise NotImplementedError(
+            f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
+        )
 
     # Helper methods
     @classmethod
@@ -308,6 +405,14 @@ class ResourceLoader(
             else:
                 raise
         return api_spec
+
+    @classmethod
+    def as_str(cls, id: T_ID) -> str:
+        if isinstance(id, str):
+            return to_directory_compatible(id)
+        raise NotImplementedError(
+            f"Bug in CogniteToolkit 'as_str' is not implemented for {cls.__name__.removesuffix('Loader')}."
+        )
 
 
 class ResourceContainerLoader(
@@ -359,7 +464,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
     def _find_data_files(self, directory: Path) -> list[Path]:

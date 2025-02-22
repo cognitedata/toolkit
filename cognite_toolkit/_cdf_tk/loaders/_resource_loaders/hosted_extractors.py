@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -26,12 +26,12 @@ from cognite.client.data_classes.hosted_extractors import (
     SourceWriteList,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -46,11 +46,10 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     kind = "Source"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
-    do_environment_variable_injection = True
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Source"
+        return "hosted extractor sources"
 
     @classmethod
     def get_id(cls, item: SourceWrite | Source | dict) -> str:
@@ -63,7 +62,9 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: SourceWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[SourceWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -91,30 +92,25 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
         self.client.hosted_extractors.sources.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Source]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Source]:
         return iter(self.client.hosted_extractors.sources)
 
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load the resource into.
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
-        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
+        # parameterspec is highly dependent on type of source, so we accept any parameter
+        return ParameterSpecSet([])
 
-    def _are_equal(
-        self, local: SourceWrite, cdf_resource: Source, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
+    def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
+            "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
-        local_dumped = local.dump()
-        # Source does not have .as_write method as there are secrets in the write object
-        # which are not returned by the API.
-        cdf_dumped = cdf_resource.dump()
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+        return self.dump_id(resource.external_id)
 
 
 class HostedExtractorDestinationLoader(
@@ -130,15 +126,14 @@ class HostedExtractorDestinationLoader(
     kind = "Destination"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Destinations/operation/create_destinations"
-    do_environment_variable_injection = True
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir)
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Destination"
+        return "hosted extractor destinations"
 
     @classmethod
     def get_id(cls, item: DestinationWrite | Destination | dict) -> str:
@@ -152,7 +147,7 @@ class HostedExtractorDestinationLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: DestinationWriteList | None, read_only: bool
+        cls, items: Sequence[DestinationWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -181,59 +176,46 @@ class HostedExtractorDestinationLoader(
         self.client.hosted_extractors.destinations.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Destination]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Destination]:
         return iter(self.client.hosted_extractors.destinations)
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DestinationWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DestinationWrite:
+        if raw_auth := resource.pop("credentials", None):
+            credentials = ClientCredentials._load(raw_auth)
+            if is_dry_run:
+                resource["credentials"] = {"nonce": "dummy_nonce"}
+            else:
+                session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
+                resource["credentials"] = {"nonce": session.nonce}
+        if ds_external_id := resource.pop("targetDataSetExternalId", None):
+            resource["targetDataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return DestinationWrite._load(resource)
 
-        raw_list = raw_yaml if isinstance(raw_yaml, list) else [raw_yaml]
-        loaded = DestinationWriteList([])
-        for item in raw_list:
-            if "credentials" in item:
-                raw_auth = item.pop("credentials")
-                credentials = ClientCredentials._load(raw_auth)
-                if skip_validation:
-                    item["credentials"] = {"nonce": "dummy_nonce"}
-                else:
-                    session = self.client.iam.sessions.create(credentials, "CLIENT_CREDENTIALS")
-                    item["credentials"] = {"nonce": session.nonce}
-            if item.get("targetDataSetExternalId") is not None:
-                ds_external_id = item.pop("targetDataSetExternalId")
-                item["targetDataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation,
-                    action="replace targetDataSetExternalId with targetDataSetId in hosted extractor destination",
-                )
-            loaded.append(DestinationWrite.load(item))
-        return loaded
+    def dump_resource(self, resource: Destination, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        HighSeverityWarning(
+            "Destinations will always be considered different, and thus will always be redeployed."
+        ).print_warning()
+        return self.dump_id(resource.external_id)
 
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Handled by Toolkit
+
+        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
+        spec.add(
+            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
+        )
+
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
-
-    def _are_equal(
-        self, local: DestinationWrite, cdf_resource: Destination, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        """This can be overwritten in subclasses that require special comparison logic.
-
-        For example, TransformationWrite has OIDC credentials that will not be returned
-        by the retrieve method, and thus needs special handling.
-        """
-        HighSeverityWarning(
-            "Destinations will always be considered different, and thus will always be redeployed."
-        ).print_warning()
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.dump()
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
@@ -255,7 +237,7 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Job"
+        return "hosted extractor jobs"
 
     @classmethod
     def get_id(cls, item: JobWrite | Job | dict) -> str:
@@ -268,7 +250,9 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: JobWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[JobWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -283,6 +267,13 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
             HostedExtractorsAcl.Scope.All(),
         )
 
+    def dump_resource(self, resource: Job, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if not dumped.get("config") and "config" not in local:
+            dumped.pop("config", None)
+        return dumped
+
     def create(self, items: JobWriteList) -> JobList:
         return self.client.hosted_extractors.jobs.create(items)
 
@@ -296,7 +287,12 @@ class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, 
         self.client.hosted_extractors.jobs.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Job]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Job]:
         return iter(self.client.hosted_extractors.jobs)
 
     @classmethod
@@ -349,7 +345,7 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
 
     @property
     def display_name(self) -> str:
-        return "Hosted Extractor Mapping"
+        return "hosted extractor mappings"
 
     @classmethod
     def get_id(cls, item: MappingWrite | Mapping | dict) -> str:
@@ -362,7 +358,9 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MappingWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[MappingWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -390,7 +388,12 @@ class HostedExtractorMappingLoader(ResourceLoader[str, MappingWrite, Mapping, Ma
         self.client.hosted_extractors.mappings.delete(ids, ignore_unknown_ids=True)
         return len(ids)
 
-    def iterate(self) -> Iterable[Mapping]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Mapping]:
         return iter(self.client.hosted_extractors.mappings)
 
     @classmethod

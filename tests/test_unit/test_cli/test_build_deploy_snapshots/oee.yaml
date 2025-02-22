@@ -4,7 +4,7 @@ Function:
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: e26aae2b9d026334795ed77920803c7e48e9156836836b21025ee060b0692551
+    cognite-toolkit-hash: /=e26aae2b;handler.py=4a195830;requirements.txt=56ff45fc
     version: '1.0'
   name: OEE TimeSeries
   owner: CDF Bootcamp Team

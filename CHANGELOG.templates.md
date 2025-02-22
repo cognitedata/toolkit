@@ -15,7 +15,167 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.4.9] - 2025-02-20
+
+No changes to templates.
+
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The annotation containers in the `models/cdf_cdm_extension_full` and `models/cdf_process_industry_extension_full`
+  modules have now correctly set the `usedFor` to `edge`. This caused a 409 error when deploying these modules.
+
+## [0.4.7] - 2025-02-13
+
+No changes to templates.
+
+## [0.4.6] - 2025-02-10
+
+No changes to templates.
+
+## [0.4.5] - 2025-02-06
+
+No changes to templates.
+
+## [0.4.4] - 2025-02-05
+
+No changes to templates.
+
+## [0.4.3] - 2025-02-04
+
+No changes to templates.
+
+## [0.4.2] - 2025-02-04
+
+No changes to templates.
+
+## [0.4.1] - 2025-02-03
+
+No changes to templates.
+
+## [0.4.0] - 2025-01-31
+
+No changes to templates.
+
+## [0.3.30] - 2025-01-31
+
+No changes to templates.
+
+## [0.3.29] - 2025-01-27
+
+No changes to templates.
+
+## [0.3.28] - 2025-01-21
+
+No changes to templates.
+
+## [0.3.27] - 2025-01-20
+
+### Fixed
+
+- The `inrobot` module no longer raises a `ResourceUpdateError/ResourceCreateError` when running
+  `cdf deploy`.
+
+## [0.3.26] - 2025-01-16
+
+No changes to templates.
+
+## [0.3.25] - 2025-01-10
+
+No changes to templates.
+
+## [0.3.24] - 2025-01-06
+
+### Fixed
+
+- Renamed non-toolkit Function config files for `bootcamp` module.
+
+## [0.3.23] - 2024-12-13
+
+No changes to templates.
+
+## [0.3.22] - 2024-12-12
+
+No changes to templates.
+
+## [0.3.21] - 2024-12-11
+
+No changes to templates.
+
+## [0.3.20] - 2024-12-10
+
+No changes to templates.
+
+## [0.3.19] - 2024-12-09
+
+No changes to templates.
+
+## [0.3.18] - 2024-12-03
+
+No changes to templates.
+
+## [0.3.17] - 2024-12-02
+
+### Fixed
+
+- The user group in the `QuickStart` package now has capabilities to inspect the RAW tables and
+  extraction pipelines.
+- Missing table `diagramParsing` in the `QuickStart` is now created.
+- Bug in the SQL transformation of the `cdf_sharepoint` modules.
+
+## [0.3.16] - 2024-11-28
+
+### Fixed
+
+- Bug in the `QuickStart` packages causing the P&ID contextualization to fail.
+
+## [0.3.15] - 2024-11-28
+
+No changes to templates.
+
+## [0.3.14] - 2024-11-27
+
+No changes to templates.
+
+## [0.3.13] - 2024-11-26
+
+## Changed
+
+- The modules `cdf_idm_extension` and `cdf_idm_extension_full` are renamed to `cdf_process_industry_extension` and
+  `cdf_process_industry_extension_full` respectively.
+- The Source System data pipelines now requires `cdf_process_industry_extension` and writes to the extension model
+  instead of the Core model.
+- The modules in Source System, Contextualization, and Industrial Tool packages now use shared resources
+  in `cdf_common`.
+
+## [0.3.12] - 2024-11-21
+
+### Added
+
+- Added new modules `cdf_entity_matching` in the `contextualization` package. This contains a pipeline for
+  doing entity matching based on the Cognite Core model.
+
+### Fixed
+
+- Bug in extension models in the `models` package. The `through` field was not correctly set. In addition,
+  simplified the `CogniteCore` and `CogniteProcessIndustries` minimum extension models further. Finally, all
+  containers were duplicated. This has been fixed.
+- Bug in `cdf_sap_assets` causing the asset transformation to fail to a READ access error.
+
+## [0.3.11] - 2024-11-19
+
+No changes to templates.
+
+## [0.3.10] - 2024-11-14
+
+No changes to templates.
+
+## [0.3.9] - 2024-11-12
+
+No changes to templates.
+
+## [0.3.8] - 2024-11-11
 
 ### Added
 

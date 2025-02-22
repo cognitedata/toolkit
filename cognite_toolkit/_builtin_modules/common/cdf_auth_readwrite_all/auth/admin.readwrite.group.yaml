@@ -56,6 +56,12 @@ capabilities:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+        - WRITE
+        - READ
+      scope:
+        all: { }
   - digitalTwinAcl:
       actions:
       - WRITE
@@ -205,6 +211,18 @@ capabilities:
       - UPDATE
       - READ
       - DELETE
+      scope:
+        all: {}
+  - sapWritebackAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - WRITE
+      - LIST
       scope:
         all: {}
   - scheduledCalculationsAcl:

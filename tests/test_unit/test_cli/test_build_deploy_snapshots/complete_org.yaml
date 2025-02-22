@@ -1,12 +1,20 @@
 Asset:
-- dataSetId: 42
+- dataSetId: 7982613576047462211
+  externalId: MyAsset
+  name: MyAsset
+  source: doctrino
+- dataSetId: 7982613576047462211
+  externalId: MyAsset2
+  name: MyAsset2
+  source: doctrino
+- dataSetId: 7982613576047462211
   description: The root asset in the SAP hierarchy
   externalId: my_root_asset
   metadata:
     origin: cdf-toolkit
   name: SAP hierarchy
   source: SAP
-- dataSetId: 42
+- dataSetId: 7982613576047462211
   description: This is the root asset
   externalId: root
   metadata:
@@ -20,7 +28,6 @@ Container:
   indexes: {}
   properties:
     fileCategory:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -28,7 +35,6 @@ Container:
         list: false
         type: text
     status:
-      autoIncrement: false
       immutable: false
       nullable: true
       type:
@@ -37,13 +43,138 @@ Container:
         type: text
   space: sp_schema
   usedFor: node
+- constraints: {}
+  externalId: PrimitiveNullable
+  indexes: {}
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        list: false
+        type: boolean
+    date:
+      autoIncrement: false
+      immutable: false
+      name: date
+      nullable: true
+      type:
+        list: false
+        type: date
+    direct:
+      autoIncrement: false
+      immutable: false
+      name: direct
+      nullable: true
+      type:
+        list: false
+        type: direct
+    enum:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        type: enum
+        unknownValue: Unknown
+        values:
+          Running:
+            description: Running
+            name: Running
+          Stopped:
+            description: Stopped
+            name: Stopped
+          Unknown:
+            description: Unknown
+            name: Unknown
+    float32:
+      autoIncrement: false
+      immutable: false
+      name: float32
+      nullable: true
+      type:
+        list: false
+        type: float32
+    float64:
+      autoIncrement: false
+      immutable: false
+      name: float64
+      nullable: true
+      type:
+        list: false
+        type: float64
+    int32:
+      autoIncrement: false
+      immutable: false
+      name: int32
+      nullable: true
+      type:
+        list: false
+        type: int32
+    int64:
+      autoIncrement: false
+      immutable: false
+      name: int64
+      nullable: true
+      type:
+        list: false
+        type: int64
+    json:
+      autoIncrement: false
+      immutable: false
+      name: json
+      nullable: true
+      type:
+        list: false
+        type: json
+    text:
+      autoIncrement: false
+      immutable: false
+      name: text
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    timestamp:
+      autoIncrement: false
+      immutable: false
+      name: timestamp
+      nullable: true
+      type:
+        list: false
+        type: timestamp
+  space: population_model
+  usedFor: node
+- constraints: {}
+  externalId: myContainer
+  indexes: {}
+  properties:
+    myContainerProperty:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: edge
 DataModel:
 - externalId: DataModelLocation
   space: DataModelSpace
-  version: v1
+  version: '1_0_0'
   views:
   - externalId: CogniteFile
     space: cdf_cdm
+    type: view
+    version: v1
+- externalId: PopulationTestModel
+  space: population_model
+  version: v1
+  views:
+  - externalId: PrimitiveNullable
+    space: population_model
     type: view
     version: v1
 DataPostProcessing:
@@ -85,15 +216,11 @@ DataPostProcessing:
 DataSet:
 - description: This dataset is used for all the resources in the complete_org.
   externalId: ds_complete_org
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 - description: This is an example dataset used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: ds_timeseries_foo
-  metadata: {}
   name: Example dataset.
-  writeProtected: false
 Database:
 - name: db_complete_org
 DatapointSubscription:
@@ -126,10 +253,45 @@ Destination:
 - credentials:
     nonce: '123'
   externalId: EventHubTarget
-  targetDataSetId: 42
+  targetDataSetId: 7982613576047462211
+Edge:
+- endNode:
+    externalId: endNode
+    space: sp_instance
+  externalId: MyEdge
+  instanceType: edge
+  sources:
+  - properties:
+      myProperty: myValue
+    source:
+      externalId: MyView
+      space: sp_schema
+      type: view
+      version: v1
+  space: sp_instance
+  startNode:
+    externalId: startNode
+    space: sp_instance
+  type:
+    externalId: AnEdgeType
+    space: sp_schema
+Event:
+- assetIds:
+  - 13458544937205513867
+  - 221232397997127486
+  dataSetId: 7982613576047462211
+  description: My event description
+  endTime: 1732959346052
+  externalId: MyEvent
+  metadata:
+    key: value
+  source: my_source
+  startTime: 1732959346052
+  subtype: info
+  type: success
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 7982613576047462211
   description: Asset source extraction pipeline with configuration for a DB extractor
     reading data from Hamburg SAP
   documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location
@@ -141,24 +303,24 @@ ExtractionPipeline:
   source: doctrino
 ExtractionPipelineConfig:
 - config: "logger:\n  console:\n    level: INFO\n  file:\n    level: INFO\n    path:\
-    \ 'file.log'\n# List of databases\ndatabases:\n  - type: odbc\n    name: postgres\n\
-    \    connection-string: 'DSN={MyPostgresDsn}'\n# List of queries\nqueries:\n \
-    \ - name: test-postgres\n    database: postgres\n    query: >\n      SELECT\n"
+    \ file.log\n    user: domain\\\\user\n# List of databases\ndatabases:\n- type:\
+    \ odbc\n  name: postgres\n  connection-string: DSN={MyPostgresDsn}\n# List of\
+    \ queries\nqueries:\n- name: test-postgres\n  database: postgres\n  query: SELECT\n"
   description: DB extractor config reading data from Hamburg SAP
   externalId: ep_src_asset_hamburg_sap
 FileLoader:
-- externalId: MyExtendedFile
-  filehash: 5e6be7b4
-  space: sp_nodes
 - externalId: MyVanillaFile
   filehash: adc874a9
   space: sp_nodes
 - external_id: classicFileMetadata
   filehash: c646656c
-- external_id: shopConfigFile
-  filehash: 09d16fb3
+- externalId: filecontent.txt
+  filehash: e0b202a1
+  space: sp_complete_org_files
+- external_id: myapp
+  filehash: c59dc2b6
 FileMetadata:
-- dataSetId: 42
+- dataSetId: 7982613576047462211
   directory: /files
   externalId: classicFileMetadata
   metadata:
@@ -166,28 +328,36 @@ FileMetadata:
   mimeType: text/plain
   name: classicfile.txt
   source: doctrino
-- dataSetId: 42
-  directory: /files
-  externalId: shopConfigFile
+- dataSetId: 7982613576047462211
+  directory: /streamlit-apps/
+  externalId: myapp
   metadata:
-    origin: cognite-toolkit
-  mimeType: application/yaml
-  name: config_shop.yaml
-  source: doctrino
+    cdf-toolkit-app-hash: c59dc2b6
+    creator: doctrino@github.com
+    description: This is a super app
+    entrypoint: main.py
+    name: MySuperApp
+    published: true
+    theme: Light
+    thumbnail: data:image/webp;base64,....
+  name: MySuperApp-source.json
 Frame:
 - externalId: rootCoordinateFrame
   name: Root coordinate frame
 Function:
-- description: Returns the input data, secrets, and function info.
+- cpu: 0.6
+  description: Returns the input data, secrets, and function info.
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_first_function
   fileId: -1
   functionPath: ./src/handler.py
+  indexUrl: https://pypi.org/simple
+  memory: 0.6
   metadata:
-    cdf-toolkit-function-hash: a63720560f48030aaf994e92b02b1de1932514aa79b3115ced9d65fba8440aff
     cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
+    cognite-toolkit-hash: /=a6372056;arbitrary.yaml=a66557f5;handler.py=c2bdf618;requirements.txt=f6da09a3;src/__init__.py=e3b0c442;src/handler.py=28ebbc99
     version: '1'
   name: first:example:function
   owner: Anonymous
@@ -203,24 +373,6 @@ FunctionSchedule:
   description: Run every day at 8am UTC
   functionExternalId: fn_first_function
   name: daily-8am-utc
-GraphQLDataModel:
-- description: The Enterprise Data Model. CDFToolkitHash:9e20f6cf
-  dml: "### Asset Hierarchy Data Model\ntype ProcessType {\n  name: String\n  description:\
-    \ String\n  code: String\n}\n\ntype GeoRegion {\n  name: String!\n  description:\
-    \ String\n}\n\n\ntype Country {\n  name: String!\n  iso3166Alpha2: String!\n \
-    \ iso3166Alpha3: String!\n  iso3166Numeric: String!\n  parent: GeoRegion\n  flag:\
-    \ String\n}\n\n\ntype Product {\n  name: String!\n  description: String\n}\n\n\
-    \ntype TimeZone {\n  name: String!\n  description: String\n}\n\ntype SiteType\
-    \ {\n  name: String!\n  description: String\n}\n\ntype Language {\n  name: String!\n\
-    \  description: String\n  LanCode: String\n  sapCode: String\n  enablonCode: String\n\
-    }\n\ntype CoordinateReferenceSystem {\n  id: String!\n  name: String!\n}\n\ntype\
-    \ Company {\n    name: String!\n    description: String\n    code: String\n}\n\
-    \ninterface Hierarchical {\n  code: String\n  active: Boolean\n  parent: Hierarchical\n\
-    \  path: [String]\n  level: Int\n}\n"
-  externalId: AssetHierarchy
-  name: Asset Hierarchy
-  space: sp_schema
-  version: '3_0_2'
 Group:
 - capabilities:
   - projectsAcl:
@@ -241,7 +393,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 7982613576047462211
   - securityCategoriesAcl:
       actions:
       - LIST
@@ -249,21 +401,21 @@ Group:
       scope:
         idscope:
           ids:
-          - 1
+          - 12263997670725665908
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         idscope:
           ids:
-          - 1
+          - 8000473161398881718
   - locationFiltersAcl:
       actions:
       - READ
       scope:
         idScope:
           ids:
-          - 1
+          - 2013659761282392869
   metadata:
     origin: cognite-toolkit
   name: gp_resource_scoped_complete_org
@@ -277,11 +429,11 @@ Job:
     type: value
   sourceId: my_eventhub
 LabelDefinition:
-- dataSetId: 42
+- dataSetId: 7982613576047462211
   description: Labels used for relationships that represent flows
   externalId: label_flow
   name: Flows
-- dataSetId: 42
+- dataSetId: 7982613576047462211
   description: Pump label
   externalId: label_pump
   name: Pump
@@ -290,10 +442,13 @@ Location:
   externalId: waterTreatmentPlant1_Windows_3_11_8
   name: Water treatment plant
 LocationFilter:
-- dataModels:
+- assetCentric:
+    dataSetIds:
+    - 0
+  dataModels:
   - externalId: DataModelLocation
     space: DataModelSpace
-    version: v1
+    version: '1_0_0'
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
@@ -323,33 +478,9 @@ Mapping:
       }].filter(datapoint => datapoint.value is not null)'
   published: true
 Node:
-- externalId: MyExtendedFile
+- externalId: AnEdgeType
   instanceType: node
-  sources:
-  - properties:
-      aliases: null
-      assets: null
-      category: null
-      description: null
-      directory: null
-      fileCategory: Document
-      mimeType: text/plain
-      name: anotherfile.txt
-      source: null
-      sourceContext: null
-      sourceCreatedTime: '2023-01-01T00:00:00.000+00:00'
-      sourceCreatedUser: I
-      sourceId: null
-      sourceUpdatedTime: '2024-01-01T00:00:00.000+00:00'
-      sourceUpdatedUser: Myself
-      status: Active
-      tags: null
-    source:
-      externalId: MyFileExtension
-      space: sp_schema
-      type: view
-      version: v1
-  space: sp_nodes
+  space: sp_schema
 - externalId: MyNodeType
   instanceType: node
   space: sp_schema
@@ -383,6 +514,47 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+- externalId: endNode
+  instanceType: node
+  space: sp_instance
+- externalId: filecontent.txt
+  instanceType: node
+  sources:
+  - properties:
+      aliases: null
+      assets: null
+      category: null
+      description: null
+      directory: null
+      mimeType: text/plain
+      name: filecontent.txt
+      source: null
+      sourceContext: null
+      sourceCreatedTime: null
+      sourceCreatedUser: null
+      sourceId: null
+      sourceUpdatedTime: null
+      sourceUpdatedUser: null
+      tags:
+      - tag1
+      - tag2
+    source:
+      externalId: CogniteFile
+      space: cdf_cdm
+      type: view
+      version: v1
+  space: sp_complete_org_files
+- externalId: startNode
+  instanceType: node
+  space: sp_instance
+Relationship:
+- confidence: 0.42
+  dataSetId: 7982613576047462211
+  externalId: MyRelationship
+  sourceExternalId: MyAsset
+  sourceType: asset
+  targetExternalId: MyEvent
+  targetType: event
 RobotCapability:
 - dataHandlingSchema:
     $schema: http://json-schema.org/draft-07/schema#
@@ -471,17 +643,63 @@ SecurityCategory:
 - name: sc_demo_category
 Sequence:
 - columns:
+  - description: The wind speed
+    externalId: wind_speed
+    name: Wind Speed
+    valueType: DOUBLE
+  - description: The power production
+    externalId: power
+    name: Power
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
+  description: A power curve sequence
+  externalId: SequenceWithRows
+  name: SequenceWithRows
+- columns:
   - description: Epoch time
     externalId: mySequenceTime
     name: Time
-    valueType: Double
+    valueType: DOUBLE
   - description: The value of the sequence
     externalId: mySequenceValue
     name: value
-    valueType: Double
+    valueType: DOUBLE
+  dataSetId: 7982613576047462211
   description: A sequence of numbers
   externalId: mySequence
   name: mySequence
+SequenceRows:
+- columns:
+  - externalId: wind_speed
+    valueType: Double
+  - externalId: power
+    valueType: Double
+  externalId: SequenceWithRows
+  rows:
+  - rowNumber: 1
+    values:
+    - 0.0
+    - 0.0
+  - rowNumber: 2
+    values:
+    - 5.0
+    - 309000.0
+  - rowNumber: 3
+    values:
+    - 10.0
+    - 2693000.0
+  - rowNumber: 4
+    values:
+    - 15.0
+    - 3450000.0
+  - rowNumber: 5
+    values:
+    - 20.0
+    - 3450000.0
+  - rowNumber: 6
+    values:
+    - 25.0
+    - 3450000.0
 Source:
 - eventHubName: The name of the event hub
   externalId: my_eventhub
@@ -491,6 +709,9 @@ Source:
   type: eventhub
 Space:
 - space: DataModelSpace
+- space: population_instance_space
+- space: population_model
+- space: sp_complete_org_files
 - space: sp_nodes
 - space: sp_schema
 Table:
@@ -498,12 +719,12 @@ Table:
   name: asset
 ThreeDModel:
 - createdTime: 1
-  dataSetId: 42
+  dataSetId: 7982613576047462211
   metadata:
     origin: cognite-toolkit
   name: my_3Dmodel
 TimeSeries:
-- dataSetId: 42
+- dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries
@@ -512,8 +733,7 @@ TimeSeries:
   metadata:
     foo: bar
   name: CDF Toolkit Example Timeseries
-  securityCategories: []
-- dataSetId: 42
+- dataSetId: 13045366179566211942
   description: This is an example timeseries used to demonstrate how to create a custom
     module in the Cognite Data Fusion Toolkit.
   externalId: cdf_tooklit:example_timeseries:2
@@ -522,30 +742,39 @@ TimeSeries:
   metadata:
     bar: foo
   name: CDF Toolkit Example Timeseries 2
-  securityCategories: []
 Transformation:
+- conflictMode: upsert
+  destination:
+    type: assets
+  externalId: inlined_transformation
+  ignoreNullFields: true
+  isPublic: true
+  name: Example of an inlined transformation
+  query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
+    where UNY is not null
 - conflictMode: upsert
   destination:
     type: assets
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_first_transformation
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
-  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n"
+  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n\
+    -- this is a comment with an ← Unicode character"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationNotification:
 - destination: jane.smith@example.com
   transformationExternalId: tr_first_transformation
@@ -576,6 +805,100 @@ View:
         type: container
       containerPropertyIdentifier: status
   space: sp_schema
+  version: v1
+- externalId: MyView
+  implements: []
+  properties:
+    myProperty:
+      container:
+        externalId: myContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1
+- externalId: PrimitiveNullable
+  implements: []
+  name: PrimitiveNullable
+  properties:
+    boolean:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: boolean
+      name: text
+    date:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: date
+      name: date
+    direct:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: direct
+      name: direct
+    enum:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: enum
+      name: enum
+    float32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float32
+      name: float32
+    float64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: float64
+      name: float64
+    int32:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int32
+      name: int32
+    int64:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: int64
+      name: int64
+    json:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: json
+      name: json
+    text:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: text
+      name: text
+    timestamp:
+      container:
+        externalId: PrimitiveNullable
+        space: population_model
+        type: container
+      containerPropertyIdentifier: timestamp
+      name: timestamp
+  space: population_model
   version: v1
 Workflow:
 - description: A workflow for processing data
@@ -613,7 +936,9 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_first_transformation
+          useTransformationCredentials: false
       retries: 3
       timeout: 3600
       type: transformation
   workflowExternalId: baz
+deleted: {}

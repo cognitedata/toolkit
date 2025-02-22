@@ -11,13 +11,12 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
-from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitFileNotFoundError,
-    ToolkitValidationError,
-)
-from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_cicd_environment
+from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.utils import get_cicd_environment
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
 
 
@@ -25,11 +24,9 @@ from cognite_toolkit._version import __version__ as current_version
 @dataclass
 class Common:
     override_env: bool
-    mockToolGlobals: Optional[CDFToolConfig]
 
 
 CDF_TOML = CDFToml.load(Path.cwd())
-_AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 def _version_callback(value: bool) -> None:
@@ -114,17 +111,22 @@ class CoreApp(typer.Typer):
             if not (dotenv_file := Path.cwd() / ".env").is_file():
                 if not (dotenv_file := Path.cwd().parent / ".env").is_file():
                     if get_cicd_environment() == "local":
-                        print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
+                        warn = False
+                        try:
+                            env_vars = EnvironmentVariables.create_from_environment()
+                        except Exception:
+                            warn = True
+                        else:
+                            warn = bool(env_vars.get_missing_vars())
+                        if warn:
+                            print("[bold yellow]WARNING:[/] No .env file found in current or parent directory.")
 
         if dotenv_file.is_file():
             has_loaded = load_dotenv(dotenv_file, override=override_env)
             if not has_loaded:
                 print("  [bold yellow]WARNING:[/] No environment variables found in .env file.")
 
-        ctx.obj = Common(
-            override_env=override_env,
-            mockToolGlobals=None,
-        )
+        ctx.obj = Common(override_env=override_env)
 
     def build(
         self,
@@ -177,13 +179,21 @@ class CoreApp(typer.Typer):
                 help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
+        offline: Annotated[
+            bool,
+            typer.Option(
+                "--offline",
+                help="Do not check CDF for missing dependencies.",
+            ),
+        ] = False,
     ) -> None:
         """Build configuration files from the modules to the build directory."""
-        ToolGlobals: Union[CDFToolConfig, None] = None
-        with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
-            # Remove the Error message from failing to load the config
-            # This is verified in check_auth
-            ToolGlobals = CDFToolConfig()
+        client: Union[ToolkitClient, None] = None
+        if not offline:
+            with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+                # Remove the Error message from failing to load the config
+                # This is verified in check_auth
+                client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = BuildCommand()
         cmd.run(
@@ -191,10 +201,10 @@ class CoreApp(typer.Typer):
                 verbose,
                 organization_dir,
                 build_dir,
-                selected,
+                selected,  # type: ignore[arg-type]
                 build_env_name,
                 no_clean,
-                ToolGlobals,
+                client,
                 on_error="raise",
             )
         )
@@ -245,9 +255,16 @@ class CoreApp(typer.Typer):
             Optional[list[str]],
             typer.Option(
                 "--include",
-                help=f"Specify which resources to deploy, available options: {_AVAILABLE_DATA_TYPES}.",
+                help=f"Specify which resources to deploy, available options: {AVAILABLE_DATA_TYPES}.",
             ),
         ] = None,
+        force_update: Annotated[
+            bool,
+            typer.Option(
+                "--force-update",
+                help="Whether to force update the resources in the CDF project even if they are considered unchanged.",
+            ),
+        ] = False,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -259,18 +276,18 @@ class CoreApp(typer.Typer):
     ) -> None:
         """Deploys the configuration files in the build directory to the CDF project."""
         cmd = DeployCommand(print_warning=True)
-        include = _process_include(include)
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.execute(
-                ToolGlobals,
-                build_dir,
-                build_env_name,
-                dry_run,
-                drop,
-                drop_data,
-                include,
-                verbose,
+                env_vars=env_vars,
+                build_dir=build_dir,
+                build_env_name=build_env_name,
+                dry_run=dry_run,
+                drop=drop,
+                drop_data=drop_data,
+                force_update=force_update,
+                include=include,
+                verbose=verbose,
             )
         )
 
@@ -305,7 +322,7 @@ class CoreApp(typer.Typer):
             Optional[list[str]],
             typer.Option(
                 "--include",
-                help=f"Specify which resource types to deploy, supported types: {_AVAILABLE_DATA_TYPES}",
+                help=f"Specify which resource types to deploy, supported types: {AVAILABLE_DATA_TYPES}",
             ),
         ] = None,
         verbose: Annotated[
@@ -320,11 +337,10 @@ class CoreApp(typer.Typer):
         """Cleans the resources in the build directory from the CDF project."""
         # Override cluster and project from the options/env variables
         cmd = CleanCommand(print_warning=True)
-        include = _process_include(include)
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.execute(
-                ToolGlobals,
+                env,
                 build_dir,
                 build_env_name,
                 dry_run,
@@ -332,12 +348,3 @@ class CoreApp(typer.Typer):
                 verbose,
             )
         )
-
-
-def _process_include(include: Optional[list[str]]) -> list[str]:
-    if include and (invalid_types := set(include).difference(_AVAILABLE_DATA_TYPES)):
-        raise ToolkitValidationError(
-            f"Invalid resource types specified: {invalid_types}, available types: {_AVAILABLE_DATA_TYPES}"
-        )
-    include = include or list(_AVAILABLE_DATA_TYPES)
-    return include

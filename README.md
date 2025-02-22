@@ -5,6 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/cognite-toolkit?style=for-the-badge)](https://pypi.org/project/cognite-toolkit/)
 [![Downloads](https://img.shields.io/pypi/dm/cognite-toolkit?style=for-the-badge)](https://pypistats.org/packages/cognite-toolkit)
 [![GitHub](https://img.shields.io/github/license/cognitedata/toolkit?style=for-the-badge)](https://github.com/cognitedata/toolkit/blob/master/LICENSE)
+[![Docker Pulls](https://img.shields.io/docker/pulls/cognite/toolkit?style=for-the-badge)](https://hub.docker.com/r/cognite/toolkit)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&style=for-the-badge)](https://github.com/astral-sh/ruff)
 [![mypy](https://img.shields.io/badge/mypy-checked-000000.svg?style=for-the-badge&color=blue)](http://mypy-lang.org)
 
@@ -40,7 +41,7 @@ More details about the tool can be found at
 [docs.cognite.com](https://docs.cognite.com/cdf/deploy/cdf_toolkit/).
 
 You can find an overview of the modules and packages in the
-[module and package documentation](https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/module_reference).
+[module and package documentation](https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library).
 
 See [./CONTRIBUTING.md](./CONTRIBUTING.md) for information about how to contribute to the `cdf-tk` tool or
 templates.

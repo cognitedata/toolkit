@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.utils import safe_write
 
 
 class TransformationBuilder(Builder):
@@ -37,11 +38,11 @@ class TransformationBuilder(Builder):
                     yield [warning]
                 continue
 
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
+
             extra_sources: list[SourceLocation] | None = None
             if loader is TransformationLoader:
-                extra_sources = self._add_query(loaded, source_file, query_files)
-
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+                extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
 
             destination = BuildDestinationFile(
                 path=destination_path,
@@ -52,11 +53,15 @@ class TransformationBuilder(Builder):
             )
             yield destination
 
+    def load_extra_field(self, extra: str) -> tuple[str, Any]:
+        return "query", extra
+
     def _add_query(
         self,
         loaded: dict[str, Any] | list[dict[str, Any]],
         source_file: BuildSourceFile,
         query_files: dict[Path, BuildSourceFile],
+        transformation_destination_path: Path,
     ) -> list[SourceLocation]:
         loaded_list = loaded if isinstance(loaded, list) else [loaded]
         extra_sources: list[SourceLocation] = []
@@ -80,7 +85,10 @@ class TransformationBuilder(Builder):
                     filepath,
                 )
             elif query_file is not None:
-                entry["query"] = query_file.content
+                destination_path = self._create_destination_path(query_file.source.path, "Query")
+                safe_write(destination_path, query_file.content)
+                relative = destination_path.relative_to(transformation_destination_path.parent)
+                entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)
 
         return extra_sources

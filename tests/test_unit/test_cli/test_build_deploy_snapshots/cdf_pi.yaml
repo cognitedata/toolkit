@@ -1,14 +1,8 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 316416785021717804
   description: Extractor configuration and monitoring for Springfield AVEVA PI
   documentation: '# Writing TimeSeries metadata from Springfield AVEVA PI into ingestion.timeseries_metadata
     so that the Transformation can populate CogniteTimeSeries instances.
@@ -23,22 +17,18 @@ ExtractionPipeline:
 ExtractionPipelineConfig:
 - config: "data:\n  debug: True\n"
   externalId: springfield_aveva_pi_extractors
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: timeseries_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 316416785021717804
   destination:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteTimeSeries
-      space: cdf_cdm
+      externalId: YourOrgTimeSeries
+      space: sp_enterprise_process_industry
       version: v1
   externalId: pi_timeseries_springfield_aveva_pi
   ignoreNullFields: true
@@ -47,3 +37,4 @@ Transformation:
   query: "select \n  externalId as externalId,\n  name as name,\n  'numeric' as type,\n\
     \  false as isStep,\n  if(try_get_unit(`unit`) IS NOT NULL, node_reference('cdf_cdm_units',\
     \ try_get_unit(`unit`)), NULL) as unit,\n  `unit` as sourceUnit\n  \nfrom `ingestion`.`timeseries_metadata`"
+deleted: {}

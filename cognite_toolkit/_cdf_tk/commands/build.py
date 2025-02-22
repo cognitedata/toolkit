@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import contextlib
 import re
-import shutil
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
@@ -21,6 +20,7 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
     DEV_ONLY_MODULES,
+    HINT_LEAD_TEXT,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     YAML_SUFFIX,
@@ -52,7 +52,10 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataLoader,
     DataModelLoader,
+    DataSetsLoader,
     ExtractionPipelineConfigLoader,
+    FileLoader,
+    LocationFilterLoader,
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
@@ -72,7 +75,6 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     calculate_str_or_file_hash,
     humanize_collection,
     quote_int_value_by_key_in_yaml,
@@ -81,6 +83,8 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     stringify_value_by_key_in_yaml,
 )
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._cdf_tk.validation import (
     validate_data_set_is_set,
     validate_modules_variables,
@@ -103,32 +107,33 @@ class BuildCommand(ToolkitCommand):
             defaultdict(list)
         )
         self._has_built = False
+        self._printed_variable_tree_structure_hint = False
 
     def execute(
         self,
         verbose: bool,
         organization_dir: Path,
         build_dir: Path,
-        selected: list[str] | None,
+        selected: list[str | Path] | None,
         build_env_name: str | None,
         no_clean: bool,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         on_error: Literal["continue", "raise"] = "continue",
-    ) -> None:
+    ) -> BuiltModuleList:
         if organization_dir in {Path("."), Path("./")}:
             organization_dir = Path.cwd()
         verify_module_directory(organization_dir, build_env_name)
 
         cdf_toml = CDFToml.load()
 
-        if build_env_name:
+        if (organization_dir / BuildConfigYAML.get_filename(build_env_name or "dev")).exists():
             config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
         else:
             # Loads the default environment
             config = BuildConfigYAML.load_default(organization_dir)
 
         if selected:
-            config.environment.selected = config.environment.load_selected(selected, organization_dir)
+            config.environment.selected = parse_user_selected_modules(selected, organization_dir)
 
         directory_name = "current directory" if organization_dir == Path(".") else f"project '{organization_dir!s}'"
         root_modules = [
@@ -138,7 +143,7 @@ class BuildCommand(ToolkitCommand):
         print(
             Panel(
                 f"Building {directory_name}:\n  - Toolkit Version '{__version__!s}'\n"
-                f"  - Environment name {build_env_name!r}, type {config.environment.build_type!r}.\n"
+                f"  - Environment name {build_env_name!r}, validation-type {config.environment.validation_type!r}.\n"
                 f"  - Config '{config.filepath!s}'"
                 f"\n{module_locations}",
                 expand=False,
@@ -147,14 +152,14 @@ class BuildCommand(ToolkitCommand):
 
         config.set_environment_variables()
 
-        self.build_config(
+        return self.build_config(
             build_dir=build_dir,
             organization_dir=organization_dir,
             config=config,
             packages=cdf_toml.modules.packages,
             clean=not no_clean,
             verbose=verbose,
-            ToolGlobals=ToolGlobals,
+            client=client,
             on_error=on_error,
         )
 
@@ -166,13 +171,13 @@ class BuildCommand(ToolkitCommand):
         packages: dict[str, list[str]],
         clean: bool = False,
         verbose: bool = False,
-        ToolGlobals: CDFToolConfig | None = None,
+        client: ToolkitClient | None = None,
         progress_bar: bool = False,
         on_error: Literal["continue", "raise"] = "continue",
     ) -> BuiltModuleList:
         is_populated = build_dir.exists() and any(build_dir.iterdir())
         if is_populated and clean:
-            shutil.rmtree(build_dir)
+            safe_rmtree(build_dir)
             build_dir.mkdir()
             if not _RUNNING_IN_BROWSER:
                 self.console(f"Cleaned existing build directory {build_dir!s}.")
@@ -203,7 +208,9 @@ class BuildCommand(ToolkitCommand):
             for module in [module.name for module in modules.selected]:
                 self.console(f"    {module}", prefix="")
 
-        variables = BuildVariables.load_raw(config.variables, modules.available_paths, modules.selected.available_paths)
+        variables = BuildVariables.load_raw(
+            config.variables, modules.available_paths, modules.selected.available_paths, config.filepath
+        )
         warnings = validate_modules_variables(variables.selected, config.filepath)
         if warnings:
             self.console(
@@ -229,7 +236,7 @@ class BuildCommand(ToolkitCommand):
 
         built_modules = self.build_modules(modules.selected, build_dir, variables, verbose, progress_bar, on_error)
 
-        self._check_missing_dependencies(organization_dir, ToolGlobals)
+        self._check_missing_dependencies(organization_dir, client)
 
         build_environment = config.create_build_environment(built_modules, modules.selected)
         build_environment.dump_to_file(build_dir)
@@ -257,35 +264,60 @@ class BuildCommand(ToolkitCommand):
         for module in modules_iter:
             if verbose:
                 self.console(f"Processing module {module.name}")
-            module_variables = variables.get_module_variables(module)
-            try:
-                built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
-            except ToolkitError as err:
-                if on_error == "raise":
-                    raise
-                print(f"  [bold red]Failed Building:([/][red]: {module.name}")
-                print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
-                built_status = type(err).__name__
-                built_module_resources = {}
-            else:
-                built_status = "Success"
+            module_variable_sets = variables.get_module_variables(module)
+            last_identifiers: set[tuple[Hashable, Path]] = set()
+            for iteration, module_variables in enumerate(module_variable_sets, 1):
+                try:
+                    built_module_resources = self._build_module_resources(module, build_dir, module_variables, verbose)
+                except ToolkitError as err:
+                    if on_error == "raise":
+                        raise
 
-            module_warnings = len(self.warning_list) - warning_count
-            warning_count = len(self.warning_list)
+                    suffix = "" if len(module_variable_sets) == 1 else f" ({iteration} of {len(module_variable_sets)})"
 
-            built_module = BuiltModule(
-                name=module.name,
-                location=SourceLocationLazy(
-                    path=module.relative_path,
-                    absolute_path=module.dir,
-                ),
-                build_variables=module_variables,
-                resources=built_module_resources,
-                warning_count=module_warnings,
-                status=built_status,
-            )
-            build.append(built_module)
-            self.tracker.track_module_build(built_module)
+                    print(f"  [bold red]Failed Building:([/][red]: {module.name}{suffix}")
+                    print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
+                    built_status = type(err).__name__
+                    built_module_resources = {}
+                else:
+                    built_status = "Success"
+
+                # Check for duplicates
+                identifiers = {
+                    (resource.identifier, resource.source.path)
+                    for resources in built_module_resources.values()
+                    for resource in resources
+                }
+                if duplicates := (identifiers & last_identifiers):
+                    duplicate_warnings = WarningList[FileReadWarning]()
+                    for identifier, path in duplicates:
+                        duplicate_warnings.append(DuplicatedItemWarning(path, identifier, path))
+                    self.warning_list.extend(duplicate_warnings)
+                    print(str(duplicate_warnings))
+                    print(
+                        f"    {HINT_LEAD_TEXT}This is likely due to missing variable in the "
+                        f"identifier when using the module {module.name!r} as a template."
+                    )
+                last_identifiers = identifiers
+
+                module_warnings = len(self.warning_list) - warning_count
+                warning_count = len(self.warning_list)
+
+                name = module.name if len(module_variable_sets) == 1 else f"{module.name} (iteration {iteration})"
+                built_module = BuiltModule(
+                    name=name,
+                    location=SourceLocationLazy(
+                        path=module.relative_path,
+                        absolute_path=module.dir,
+                    ),
+                    build_variables=module_variables,
+                    resources=built_module_resources,
+                    warning_count=module_warnings,
+                    status=built_status,
+                    iteration=iteration,
+                )
+                build.append(built_module)
+                self.tracker.track_module_build(built_module)
         return build
 
     def _build_module_resources(
@@ -311,9 +343,13 @@ class BuildCommand(ToolkitCommand):
             built_resources = BuiltResourceList[Hashable]()
             for destination in builder.build(source_files, module):
                 if not isinstance(destination, BuildDestinationFile):
-                    # is warnings
-                    self.warning_list.extend(destination)
+                    for warning in destination:
+                        self.warn(warning)
                     continue
+                if destination.loader is FileLoader:
+                    # This is a content file that we should not copy to the build directory.
+                    continue
+
                 safe_write(destination.path, destination.content)
                 if issubclass(destination.loader, DataLoader):
                     continue
@@ -405,7 +441,7 @@ class BuildCommand(ToolkitCommand):
             )
 
         dev_modules = modules.available_names & DEV_ONLY_MODULES
-        if dev_modules and config.environment.build_type != "dev":
+        if dev_modules and config.environment.validation_type != "dev":
             self.warn(
                 MediumSeverityWarning(
                     "The following modules should [bold]only[/bold] be used a in CDF Projects designated as dev (development): "
@@ -431,17 +467,24 @@ class BuildCommand(ToolkitCommand):
                 self.console(f"Processing file {source_path.name}...")
 
             content = safe_read(source_path)
-            source = SourceLocationEager(source_path, calculate_str_or_file_hash(content, shorten=True))
+            # We cannot use the content as the basis for hash as this have been encoded.
+            # Instead, we use the source path, which will hash the bytes of the file directly,
+            # which is what we do in the deploy step to verify that the source file has not changed.
+            source = SourceLocationEager(source_path, calculate_str_or_file_hash(source_path, shorten=True))
 
             content = variables.replace(content, source_path.suffix)
 
-            self._check_variables_replaced(content, module_dir, source_path)
+            replace_warnings = self._check_variables_replaced(content, module_dir, source_path)
 
             if source_path.suffix not in YAML_SUFFIX:
                 source_files.append(BuildSourceFile(source, content, None))
                 continue
 
-            if resource_name in {TransformationLoader.folder_name, DataModelLoader.folder_name}:
+            if resource_name in {
+                TransformationLoader.folder_name,
+                DataModelLoader.folder_name,
+                LocationFilterLoader.folder_name,
+            }:
                 # Ensure that all keys that are version gets read as strings.
                 # This is required by DataModels, Views, and Transformations that reference DataModels and Views.
                 content = quote_int_value_by_key_in_yaml(content, key="version")
@@ -453,15 +496,26 @@ class BuildCommand(ToolkitCommand):
             try:
                 loaded = read_yaml_content(content)
             except yaml.YAMLError as e:
-                raise ToolkitYAMLFormatError(
-                    f"YAML validation error for {source_path.name} after substituting config variables: {e}"
+                message = (
+                    f"YAML validation error for {source_path.as_posix()!r} after substituting config variables:\n{e}"
                 )
+                if unresolved_variables := [
+                    w.variable.removesuffix("}}").removeprefix("{{").strip()
+                    for w in replace_warnings
+                    if isinstance(w, UnresolvedVariableWarning)
+                ]:
+                    variable_str = humanize_collection(unresolved_variables)
+                    source_str = variables.source_path.as_posix() if variables.source_path else "config.[ENV].yaml"
+                    suffix = "s" if len(unresolved_variables) > 1 else ""
+                    message += f"\n{HINT_LEAD_TEXT}Add the following variable{suffix} to the {source_str!r} file: {variable_str!r}"
+
+                raise ToolkitYAMLFormatError(message)
 
             source_files.append(BuildSourceFile(source, content, loaded))
 
         return source_files
 
-    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> None:
+    def _check_variables_replaced(self, content: str, module: Path, source_path: Path) -> WarningList[FileReadWarning]:
         all_unmatched = re.findall(pattern=r"\{\{.*?\}\}", string=content)
         warning_list = WarningList[FileReadWarning]()
         for unmatched in all_unmatched:
@@ -473,27 +527,33 @@ class BuildCommand(ToolkitCommand):
                     if len(module_names) == 1
                     else (", ".join(module_names[:-1]) + f" or {module_names[-1]}")
                 )
-                self.console(
-                    f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
-                    f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
-                    f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
-                    f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} "
-                    f"the location of {module.as_posix()}.",
-                    prefix="    [bold green]Hint:[/] ",
-                )
+                if not self._printed_variable_tree_structure_hint:
+                    self._printed_variable_tree_structure_hint = True
+                    self.console(
+                        f"The variables in 'config.[ENV].yaml' need to be organised in a tree structure following"
+                        f"\n    the folder structure of the modules, but can also be moved up the config hierarchy to be shared between modules."
+                        f"\n    The variable {variable!r} is defined in the variable section{'s' if len(module_names) > 1 else ''} {module_str}."
+                        f"\n    Check that {'these paths reflect' if len(module_names) > 1 else 'this path reflects'} "
+                        f"the location of {module.as_posix()}.",
+                        prefix="    [bold green]Hint:[/] ",
+                    )
         self.warning_list.extend(warning_list)
         if self.print_warning and warning_list:
             print(str(warning_list))
+        return warning_list
 
-    def _check_missing_dependencies(self, project_config_dir: Path, ToolGlobals: CDFToolConfig | None = None) -> None:
+    def _check_missing_dependencies(self, project_config_dir: Path, client: ToolkitClient | None = None) -> None:
         existing = {(resource_cls, id_) for resource_cls, ids in self._ids_by_resource_type.items() for id_ in ids}
         missing_dependencies = set(self._dependencies_by_required.keys()) - existing
         for loader_cls, id_ in missing_dependencies:
             if self._is_system_resource(loader_cls, id_):
                 continue
-            if ToolGlobals and self._check_resource_exists_in_cdf(ToolGlobals.toolkit_client, loader_cls, id_):
+            elif loader_cls is DataSetsLoader and id_ == "":
+                # Special case used by the location filter to indicate filter out all classical resources.
                 continue
-            if loader_cls.resource_cls is RawDatabase:
+            elif client and self._check_resource_exists_in_cdf(client, loader_cls, id_):
+                continue
+            elif loader_cls.resource_cls is RawDatabase:
                 # Raw Databases are automatically created when a Raw Table is created.
                 continue
             required_by = {
@@ -553,6 +613,11 @@ class BuildCommand(ToolkitCommand):
             if identifier:
                 identifier_kind_pairs.append((identifier, item_loader.kind))
                 if first_seen := self._ids_by_resource_type[item_loader].get(identifier):
+                    if isinstance(identifier, RawDatabase):
+                        # RawDatabases are picked up from both RawTables and RawDatabases files. Note it is not possible
+                        # to define a raw table without also defining the raw database. Thus, it is impossible to
+                        # avoid duplicated RawDatabase warnings if you have multiple RawTables files.
+                        continue
                     if first_seen.hash != source.hash:
                         warning_list.append(DuplicatedItemWarning(source.path, identifier, first_seen.path))
                 else:
@@ -579,6 +644,9 @@ class BuildCommand(ToolkitCommand):
 
             data_set_warnings = validate_data_set_is_set(items, loader.resource_cls, source.path)
             warning_list.extend(data_set_warnings)
+
+            item_warnings = item_loader.check_item(item, filepath=source.path, element_no=element_no)
+            warning_list.extend(item_warnings)
 
         return warning_list, identifier_kind_pairs
 

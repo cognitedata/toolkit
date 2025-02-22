@@ -23,7 +23,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 316416785021717804
   - functionsAcl:
       actions:
       - READ
@@ -56,9 +56,17 @@ Group:
       scope:
         spaceIdScope:
           spaceIds:
+          - sp_enterprise_process_industry
           - cdf_cdm
           - cdf_idm
           - cdf_cdm_units
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
   - annotationsAcl:
       actions:
       - READ
@@ -79,7 +87,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 316416785021717804
   - extractionRunsAcl:
       actions:
       - READ
@@ -87,7 +95,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 316416785021717804
+  - extractionPipelinesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
   - assetsAcl:
       actions:
       - READ
@@ -97,8 +112,132 @@ Group:
     origin: cognite-toolkit
   name: gp_ingestion
   sourceId: <not set>
+- capabilities:
+  - projectsAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+      - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+      - CREATE
+      scope:
+        all: {}
+  - transformationsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
+  - functionsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - rawAcl:
+      actions:
+      - READ
+      - LIST
+      scope:
+        tableScope:
+          dbsToTables:
+            contextualizationState:
+              tables: []
+            ingestion:
+              tables: []
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      - WRITE
+      - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - springfield_instances
+          - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - sp_enterprise_process_industry
+          - cdf_cdm
+          - cdf_idm
+          - cdf_cdm_units
+  - dataModelInstancesAcl:
+      actions:
+      - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+          - cdf_cdm
+  - annotationsAcl:
+      actions:
+      - READ
+      - WRITE
+      - SUGGEST
+      - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
+  - extractionRunsAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
+  - workflowOrchestrationAcl:
+      actions:
+      - READ
+      - WRITE
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
+  - extractionPipelinesAcl:
+      actions:
+      - READ
+      scope:
+        datasetScope:
+          ids:
+          - 316416785021717804
+  - assetsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  members:
+  - <your user id>
+  metadata:
+    origin: cognite-toolkit
+  name: gp_user_ingestion
 Workflow:
-- description: This runs the full ingestion with population and contextualization
+- dataSetId: 316416785021717804
+  description: This runs the full ingestion with population and contextualization
   externalId: ingestion
 WorkflowTrigger:
 - externalId: ingestion
@@ -117,6 +256,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: pi_timeseries_springfield_aveva_pi
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -126,6 +266,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_assets_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -135,17 +276,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_equipment_springfield_s4hana
-      retries: null
-      timeout: null
-      type: transformation
-    - dependsOn:
-      - externalId: sap_assets_springfield_s4hana
-      externalId: sap_asset_to_asset_springfield_s4hana
-      onFailure: abortWorkflow
-      parameters:
-        transformation:
-          concurrencyPolicy: fail
-          externalId: sap_asset_to_asset_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -158,6 +289,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_equipment_to_asset_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -167,6 +299,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_maintenance_orders_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -176,6 +309,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_operations_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -188,6 +322,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: sap_operation_to_maintenance_order_springfield_s4hana
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -197,6 +332,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: files_metadata_springfield
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -204,7 +340,6 @@ WorkflowVersion:
       - externalId: sap_assets_springfield_s4hana
       - externalId: sap_maintenance_orders_springfield_s4hana
       - externalId: sap_operations_springfield_s4hana
-      - externalId: sap_asset_to_asset_springfield_s4hana
       - externalId: sap_operation_to_maintenance_order_springfield_s4hana
       externalId: activity_to_asset
       onFailure: abortWorkflow
@@ -212,6 +347,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: activity_to_asset
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -227,6 +363,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: activity_to_equipment
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -241,19 +378,20 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: activity_to_timeseries
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
     - dependsOn:
       - externalId: pi_timeseries_springfield_aveva_pi
       - externalId: sap_assets_springfield_s4hana
-      - externalId: sap_asset_to_asset_springfield_s4hana
       externalId: timeseries_to_asset
       onFailure: abortWorkflow
       parameters:
         transformation:
           concurrencyPolicy: fail
           externalId: timeseries_to_asset
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation
@@ -267,6 +405,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: timeseries_to_equipment
+          useTransformationCredentials: false
       retries: null
       timeout: null
       type: transformation

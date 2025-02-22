@@ -1,13 +1,13 @@
-from __future__ import annotations
+from typing import TYPE_CHECKING
 
-from cognite.client import ClientConfig, CogniteClient
+from cognite.client import ClientConfig
+from cognite.client._api_client import APIClient
 
-from .api.location_filters import LocationFiltersAPI
-from .api.robotics import RoboticsAPI
+if TYPE_CHECKING:
+    from ._toolkit_client import ToolkitClient
 
 
-class ToolkitClient(CogniteClient):
-    def __init__(self, config: ClientConfig | None = None) -> None:
-        super().__init__(config=config)
-        self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
-        self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
+class ToolkitAPI(APIClient):
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: "ToolkitClient") -> None:
+        super().__init__(config, api_version, cognite_client)
+        self._toolkit_client = cognite_client

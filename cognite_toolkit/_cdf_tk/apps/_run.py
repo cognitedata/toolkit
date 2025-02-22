@@ -10,8 +10,7 @@ from cognite_toolkit._cdf_tk.commands import (
     RunTransformationCommand,
     RunWorkflowCommand,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 CDF_TOML = CDFToml.load(Path.cwd())
 
@@ -21,8 +20,7 @@ class RunApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("transformation")(self.run_transformation)
-        if Flags.RUN_WORKFLOW.is_enabled():
-            self.command("workflow")(self.run_workflow)
+        self.command("workflow")(self.run_workflow)
         self.add_typer(RunFunctionApp(*args, **kwargs), name="function")
 
     @staticmethod
@@ -43,64 +41,76 @@ class RunApp(typer.Typer):
                 help="External id of the transformation to run.",
             ),
         ],
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will run the specified transformation using a one-time session."""
         cmd = RunTransformationCommand()
-        cmd.run(lambda: cmd.run_transformation(CDFToolConfig.from_context(ctx), external_id))
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(lambda: cmd.run_transformation(client, external_id))
 
-    if Flags.RUN_WORKFLOW.is_enabled():
-
-        @staticmethod
-        def run_workflow(
-            ctx: typer.Context,
-            external_id: Annotated[
-                Optional[str],
-                typer.Option(
-                    "--external-id",
-                    "-e",
-                    help="External id of the workflow to run. If not provided, you will be prompted to select one.",
-                ),
-            ] = None,
-            version: Annotated[
-                Optional[str],
-                typer.Option(
-                    "--version",
-                    "-v",
-                    help="Version of the workflow to run. If not provided, the first found version will be used.",
-                ),
-            ] = None,
-            organization_dir: Annotated[
-                Path,
-                typer.Option(
-                    "--organization-dir",
-                    "-o",
-                    help="Path to project directory with the modules. This is used to search for available functions.",
-                ),
-            ] = CDF_TOML.cdf.default_organization_dir,
-            env_name: Annotated[
-                Optional[str],
-                typer.Option(
-                    "--env",
-                    "-e",
-                    help="Name of the build environment to use. If not provided, the default environment will be used.",
-                ),
-            ] = CDF_TOML.cdf.default_env,
-            wait: Annotated[
-                bool,
-                typer.Option(
-                    "--wait",
-                    "-w",
-                    help="Whether to wait for the workflow to complete.",
-                ),
-            ] = False,
-        ) -> None:
-            """This command will run the specified workflow."""
-            cmd = RunWorkflowCommand()
-            cmd.run(
-                lambda: cmd.run_workflow(
-                    CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, version, wait
-                )
-            )
+    @staticmethod
+    def run_workflow(
+        ctx: typer.Context,
+        external_id: Annotated[
+            Optional[str],
+            typer.Option(
+                "--external-id",
+                "-e",
+                help="External id of the workflow to run. If not provided, you will be prompted to select one.",
+            ),
+        ] = None,
+        version: Annotated[
+            Optional[str],
+            typer.Option(
+                "--version",
+                "-v",
+                help="Version of the workflow to run. If not provided, the first found version will be used.",
+            ),
+        ] = None,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Path to project directory with the modules. This is used to search for available functions.",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+        env_name: Annotated[
+            Optional[str],
+            typer.Option(
+                "--env",
+                "-e",
+                help="Name of the build environment to use. If not provided, the default environment will be used.",
+            ),
+        ] = CDF_TOML.cdf.default_env,
+        wait: Annotated[
+            bool,
+            typer.Option(
+                "--wait",
+                "-w",
+                help="Whether to wait for the workflow to complete.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will run the specified workflow."""
+        cmd = RunWorkflowCommand()
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_workflow(env_vars, organization_dir, env_name, external_id, version, wait))
 
 
 class RunFunctionApp(typer.Typer):
@@ -158,12 +168,21 @@ class RunFunctionApp(typer.Typer):
                 help="Whether to rebuild the environment before running the function.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will run the specified function locally."""
         cmd = RunFunctionCommand()
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.run_local(
-                CDFToolConfig.from_context(ctx),
+                env_vars,
                 organization_dir,
                 env_name,
                 external_id,
@@ -214,11 +233,16 @@ class RunFunctionApp(typer.Typer):
                 help="Whether to wait for the function to complete.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """This command will run the specified function (assuming it is deployed) in CDF."""
         cmd = RunFunctionCommand()
-        cmd.run(
-            lambda: cmd.run_cdf(
-                CDFToolConfig.from_context(ctx), organization_dir, env_name, external_id, schedule, wait
-            )
-        )
+        env_vars = EnvironmentVariables.create_from_environment()
+        cmd.run(lambda: cmd.run_cdf(env_vars, organization_dir, env_name, external_id, schedule, wait))

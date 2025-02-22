@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from collections import defaultdict
 from collections.abc import Collection, Iterator, MutableSequence
 from dataclasses import dataclass
 from functools import cached_property
@@ -156,7 +157,12 @@ class BuiltResourceFull(BuiltResource[T_ID]):
     ) -> dict[str, Any]:
         content = self.build_variables.replace(safe_read(self.source.path))
         loader = cast(ResourceLoader, get_loader(self.resource_dir, self.kind))
-        raw = load_yaml_inject_variables(content, environment_variables, validate=validate)
+        raw = load_yaml_inject_variables(
+            content,
+            environment_variables,
+            validate=validate,
+            original_filepath=self.source.path,
+        )
         if isinstance(raw, dict):
             return raw
         elif isinstance(raw, list):
@@ -226,3 +232,9 @@ class BuiltFullResourceList(BuiltResourceList[T_ID]):
         if isinstance(index, slice):
             return BuiltFullResourceList[T_ID](super().__getitem__(index))
         return cast(BuiltResourceFull[T_ID], super().__getitem__(index))
+
+    def by_file(self) -> dict[Path, BuiltFullResourceList[T_ID]]:
+        resources_by_file: dict[Path, BuiltFullResourceList[T_ID]] = defaultdict(lambda: BuiltFullResourceList())
+        for resource in self:
+            resources_by_file[resource.source.path].append(resource)
+        return resources_by_file

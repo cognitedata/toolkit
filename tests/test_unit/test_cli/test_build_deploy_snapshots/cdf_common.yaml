@@ -1,0 +1,59 @@
+DataSet:
+- description: This dataset contains Transformations, Functions, and Workflows for
+    ingesting data into Cognite Data Fusion.
+  externalId: ingestion
+  name: Ingestion
+Database:
+- name: contextualizationState
+- name: ingestion
+ExtractionPipeline:
+- createdBy: unknown
+  dataSetId: 316416785021717804
+  description: Writes direct relations based on annotations.
+  documentation: "# Direct Relation Writer\nThis extraction pipeline is responsible\
+    \ for writing the direct relations into  a data model based on annotations.\n\
+    ## Annotations Annotations are found based on three criteria:\n1. It has to have\
+    \ data in the (`cdf_cdm\", \"CogniteAnnotation`, `v1`) view. 2. It is stored in\
+    \ the space configured in the `annotationSpace`. 3. It has to have a `sourceContext`\
+    \ that contains the views of the start and end nodes of the relations.\n```json\
+    \ {\"start\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\": \"CogniteFile\"\
+    ,\n  \"version\": \"v1\"\n}, \"end\" : {\n  \"space\": \"cdf_cdm\",\n  \"externalId\"\
+    : \"CogniteAsset\",\n  \"version\": \"v1\"\n}} ```\n## Configuration\nThe configuration\
+    \ of the direct relation writer:\n```yaml state: # The Annotation writer uses\
+    \ the instances/sync endpoint to fetch annotations. \n  # The state stores the\
+    \ last cursor.\n  rawDatabase: <>\n  rawTable: <>\ndata:\n  annotationSpace: <>\
+    \ # The space the edges for the annotations are stored.\n  directRelationMapping:\
+    \ # How to go from Annotation to DirectRelation\n    - startNodeView: # The view\
+    \ of the start node.\n       space: <> .\n       externalId: <>\n       version:\
+    \ <> \n       directRelationProperty: <> # The property that contains the direct\
+    \ relation.\n        # Must be set either on the start or end node.\n      endNodeView:\
+    \ # The view of the end node.\n        space: <>\n        externalId: <>\n   \
+    \     version: <>\n        # directRelationProperty: <> # Must be set either on\
+    \ the start or end node.\n```\n"
+  externalId: ctx_files_direct_relation_write
+  name: Direct Relation Writer
+ExtractionPipelineConfig:
+- config: "state:\n  rawDatabase: contextualizationState\n  rawTable: diagramParsing\n\
+    data:\n  annotationSpace: 'springfield_instances'\n  directRelationMappings:\n\
+    \    - startNodeView:\n        space: cdf_cdm\n        externalId: CogniteFile\n\
+    \        version: v1\n        directRelationProperty: assets\n      endNodeView:\n\
+    \        space: cdf_cdm\n        externalId: CogniteAsset\n        version: v1\n\
+    \    - startNodeView:\n        type: view\n        space: cdf_cdm\n        externalId:\
+    \ CogniteFile\n        version: v1\n      endNodeView:\n        type: viewProperty\n\
+    \        space: cdf_cdm\n        externalId: CogniteEquipment\n        version:\
+    \ v1\n        directRelationProperty: files\n"
+  externalId: ctx_files_direct_relation_write
+Function:
+- description: Writes all approved Annotations as direct relations connections.
+  externalId: contextualization_connection_writer
+  fileId: -1
+  functionPath: handler.py
+  metadata:
+    cognite-toolkit-hash: /=5b1a09e8;handler.py=fb006a62;requirements.txt=1d4815ec
+  name: Annotation to Direct Relations Writer
+  owner: Anonymous
+Space:
+- description: This space contains data
+  name: Instance space
+  space: springfield_instances
+deleted: {}

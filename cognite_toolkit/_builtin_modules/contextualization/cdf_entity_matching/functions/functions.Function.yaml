@@ -1,0 +1,7 @@
+- name: Entity Matching Function
+  externalId: contextualization_entity_matcher
+  owner: 'Anonymous'
+  description: Matches entities based on their properties
+  functionPath: 'handler.py'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: {{ dataset }}

@@ -26,6 +26,8 @@ from ._resource_loaders import (
     DataModelLoader,
     DatapointSubscriptionLoader,
     DataSetsLoader,
+    EdgeLoader,
+    EventLoader,
     ExtractionPipelineConfigLoader,
     ExtractionPipelineLoader,
     FileMetadataLoader,
@@ -44,6 +46,7 @@ from ._resource_loaders import (
     NodeLoader,
     RawDatabaseLoader,
     RawTableLoader,
+    RelationshipLoader,
     RobotCapabilityLoader,
     RoboticFrameLoader,
     RoboticLocationLoader,
@@ -51,7 +54,9 @@ from ._resource_loaders import (
     RoboticsDataPostProcessingLoader,
     SecurityCategoryLoader,
     SequenceLoader,
+    SequenceRowLoader,
     SpaceLoader,
+    StreamlitLoader,
     ThreeDModelLoader,
     TimeSeriesLoader,
     TransformationLoader,
@@ -59,8 +64,10 @@ from ._resource_loaders import (
     TransformationScheduleLoader,
     ViewLoader,
     WorkflowLoader,
+    WorkflowTriggerLoader,
     WorkflowVersionLoader,
 )
+from ._worker import ResourceWorker
 
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
@@ -70,6 +77,7 @@ else:
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
+
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -91,8 +99,14 @@ LOADER_LIST = list(itertools.chain(*LOADER_BY_FOLDER_NAME.values()))
 RESOURCE_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceLoader)]
 RESOURCE_CONTAINER_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, ResourceContainerLoader)]
 RESOURCE_DATA_LOADER_LIST = [loader for loader in LOADER_LIST if issubclass(loader, DataLoader)]
+KINDS_BY_FOLDER_NAME: dict[str, set[str]] = {}
+for loader in LOADER_LIST:
+    if loader.folder_name not in KINDS_BY_FOLDER_NAME:
+        KINDS_BY_FOLDER_NAME[loader.folder_name] = set()
+    KINDS_BY_FOLDER_NAME[loader.folder_name].add(loader.kind)
+del loader  # cleanup module namespace
 
-ResourceTypes: TypeAlias = Literal[
+ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "3dmodels",
     "auth",
     "classic",
@@ -107,6 +121,7 @@ ResourceTypes: TypeAlias = Literal[
     "functions",
     "raw",
     "robotics",
+    "streamlit",
     "workflows",
 ]
 
@@ -119,56 +134,64 @@ def get_loader(resource_dir: str, kind: str) -> type[Loader]:
 
 
 __all__ = [
-    "GroupLoader",
-    "GroupAllScopedLoader",
-    "GroupResourceScopedLoader",
-    "NodeLoader",
-    "SequenceLoader",
+    "KINDS_BY_FOLDER_NAME",
+    "LOADER_BY_FOLDER_NAME",
+    "LOADER_LIST",
+    "RESOURCE_CONTAINER_LOADER_LIST",
+    "RESOURCE_DATA_LOADER_LIST",
+    "RESOURCE_LOADER_LIST",
+    "AssetLoader",
+    "CogniteFileLoader",
+    "ContainerLoader",
+    "DataLoader",
     "DataModelLoader",
     "DataSetsLoader",
-    "SpaceLoader",
-    "ContainerLoader",
-    "FileMetadataLoader",
+    "DatapointSubscriptionLoader",
+    "DatapointsLoader",
+    "EdgeLoader",
+    "EventLoader",
+    "ExtractionPipelineConfigLoader",
+    "ExtractionPipelineLoader",
     "FileLoader",
+    "FileMetadataLoader",
     "FunctionLoader",
     "FunctionScheduleLoader",
-    "TimeSeriesLoader",
-    "RawDatabaseLoader",
-    "RawTableLoader",
-    "RawFileLoader",
-    "TransformationLoader",
-    "TransformationScheduleLoader",
-    "ExtractionPipelineLoader",
-    "ExtractionPipelineConfigLoader",
+    "GroupAllScopedLoader",
+    "GroupLoader",
+    "GroupResourceScopedLoader",
+    "HostedExtractorDestinationLoader",
+    "HostedExtractorJobLoader",
+    "HostedExtractorMappingLoader",
+    "HostedExtractorSourceLoader",
     "LabelLoader",
     "LocationFilterLoader",
-    "ViewLoader",
-    "DatapointsLoader",
-    "ResourceLoader",
+    "NodeLoader",
+    "RawDatabaseLoader",
+    "RawFileLoader",
+    "RawTableLoader",
+    "RelationshipLoader",
     "ResourceContainerLoader",
-    "DataLoader",
+    "ResourceLoader",
     "ResourceTypes",
-    "WorkflowLoader",
-    "WorkflowVersionLoader",
-    "ThreeDModelLoader",
+    "ResourceWorker",
     "RobotCapabilityLoader",
     "RoboticFrameLoader",
     "RoboticLocationLoader",
     "RoboticMapLoader",
     "RoboticsDataPostProcessingLoader",
-    "TransformationNotificationLoader",
     "SecurityCategoryLoader",
-    "AssetLoader",
-    "CogniteFileLoader",
-    "DatapointSubscriptionLoader",
-    "HostedExtractorJobLoader",
-    "HostedExtractorDestinationLoader",
-    "HostedExtractorSourceLoader",
-    "HostedExtractorMappingLoader",
+    "SequenceLoader",
+    "SequenceRowLoader",
+    "SpaceLoader",
+    "StreamlitLoader",
+    "ThreeDModelLoader",
+    "TimeSeriesLoader",
+    "TransformationLoader",
+    "TransformationNotificationLoader",
+    "TransformationScheduleLoader",
+    "ViewLoader",
+    "WorkflowLoader",
+    "WorkflowTriggerLoader",
+    "WorkflowVersionLoader",
     "get_loader",
-    "LOADER_BY_FOLDER_NAME",
-    "LOADER_LIST",
-    "RESOURCE_LOADER_LIST",
-    "RESOURCE_CONTAINER_LOADER_LIST",
-    "RESOURCE_DATA_LOADER_LIST",
 ]

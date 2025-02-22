@@ -31,6 +31,37 @@ variables:
     # Daily at 1:35 AM
     scheduleDaily: 35 1 * * *
 
+
+    dataset: ingestion
+    instanceSpace: springfield_instances
+    rawSourceDatabase: ingestion
+    rawStateDatabase: contextualizationState
+    schemaSpace: cdf_cdm
+    annotationSpace: springfield_instances
+    assetTransformationExternalId: sap_assets_springfield_s4hana
+    equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+    equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+    timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+    maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+    operationTransformationExternalId: sap_operations_springfield_s4hana
+    operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+    fileTransformationExternalId: files_metadata_springfield
+    activityToAssetTransformationExternalId: activity_to_asset
+    activityToEquipmentTransformationExternalId: activity_to_equipment
+    activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+    timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+    timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+    ingestionClientId: ${INGESTION_CLIENT_ID}
+    ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+    pandidContextualizationFunction: contextualization_p_and_id_annotater
+    contextualization_connection_writer: contextualization_connection_writer
+    schemaSpace2: cdf_cdm
+    schemaSpace3: cdf_idm
+    organization: YourOrg
+    cdf_common:
+      directRelationJob: ctx_files_direct_relation_write
+      rawStateTable: diagramParsing
+
     cdf_ingestion:
       workflow: ingestion
       groupSourceId: 684237e9-c1fd-4d3c-8c50-de9ea30ac16f
@@ -60,7 +91,8 @@ variables:
       instanceSpaces:
         - springfield_instances
         - cdf_cdm_units
-
+      runWorkflowUserIds:
+        - <your user id>
 
     bootcamp:
       CDF_PROJECT: <YOUR CDF PROJECT> # ex. cdf-bootcamp-01-test
@@ -110,6 +142,23 @@ variables:
         instanceSpace: springfield_instances
         schemaSpace: cdf_cdm
         groupSourceId: <not set>
+
+      cdf_entity_matching:
+        contextualizationId: entity_matcher
+        contextualizationName: Entity Matcher
+        annotatorJob: ctx_entity_matching
+        directRelationJob: ctx_files_direct_relation_write
+        dataset: ingestion
+        rawStateDatabase: contextualizationState
+        rawStateTable: entityMatching
+        schemaSpace: cdf_cdm
+        annotationSpace: springfield_instances
+        instanceSpaces:
+        - springfield_instances
+        groupSourceId: <not set>
+        workflow: entity_matching
+        workflowClientId: ${IDP_WF_CLIENT_ID}
+        workflowClientSecret: ${IDP_WF_CLIENT_SECRET}
 
       cdf_p_and_id_parser:
         contextualizationId: p_and_id_parser
@@ -353,19 +402,19 @@ variables:
     models:
       cdf_cdm_extension:
         organization: ToolkitMinimum
-        schema_space: sp_enterprise_min_schema
+        schemaSpace: sp_enterprise_min_schema
 
       cdf_cdm_extension_full:
         organization: Toolkit
-        schema_space: sp_enterprise_schema
+        schemaSpace: sp_enterprise_schema
 
-      cdf_idm_extension:
+      cdf_process_industry:
         organization: YourOrg
-        schema_space: sp_enterprise_min_schema_idm
+        schemaSpace: sp_enterprise_min_schema_idm
 
-      cdf_idm_extension_full:
+      cdf_process_industry_full:
         organization: ToolkitIDM
-        schema_space: sp_enterprise_idm_schema
+        schemaSpace: sp_enterprise_idm_schema
 
     sourcesystem:
       cdf_pi:

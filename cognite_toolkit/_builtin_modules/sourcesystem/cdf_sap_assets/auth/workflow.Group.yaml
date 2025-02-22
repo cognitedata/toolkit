@@ -44,3 +44,11 @@ capabilities:
         spaceIdScope:
           spaceIds:
             - {{ schemaSpace }}
+  # Needed to write CogniteAsset.parent
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm

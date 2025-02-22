@@ -148,6 +148,13 @@ class ToolkitValueError(ValueError, ToolkitError):
     pass
 
 
+class ToolkitMissingValueError(ToolkitValueError):
+    pass
+
+
+class ToolkitKeyError(KeyError, ToolkitError): ...
+
+
 class ToolkitTypeError(TypeError, ToolkitError): ...
 
 
@@ -162,6 +169,12 @@ class ToolkitResourceMissingError(ToolkitError):
 
     def __str__(self) -> str:
         return f"{super().__str__()}\nResource {self.resource!r} is missing"
+
+
+class ToolkitWrongResourceError(RuntimeError):
+    """Special exception used by a loader to signal that the resource is not the expected type."""
+
+    ...
 
 
 class UploadFileError(ToolkitError):
@@ -195,3 +208,9 @@ class AuthorizationError(ToolkitError):
 
 
 class GraphQLParseError(ToolkitError): ...
+
+
+class CDFAPIError(ToolkitError, RuntimeError):
+    """Error raised when the CDF API returns an error."""
+
+    ...

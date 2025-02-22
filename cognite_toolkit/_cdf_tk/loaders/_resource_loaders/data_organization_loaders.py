@@ -16,7 +16,6 @@ from __future__ import annotations
 import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
@@ -43,10 +42,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    load_yaml_inject_variables,
-)
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -63,8 +58,14 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
 
+    @property
+    def display_name(self) -> str:
+        return "data sets"
+
     @classmethod
-    def get_required_capability(cls, items: DataSetWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[DataSetWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -91,23 +92,33 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> DataSetWriteList:
-        resource = load_yaml_inject_variables(filepath, {})
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataSetWrite:
+        if resource.get("metadata"):
+            for key, value in list(resource["metadata"].items()):
+                if isinstance(value, dict | list):
+                    resource["metadata"][key] = json.dumps(value)
+        return DataSetWrite._load(resource)
 
-        data_sets = [resource] if isinstance(resource, dict) else resource
+    def dump_resource(self, resource: DataSet, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if "writeProtected" not in local and dumped.get("writeProtected") is False:
+            # Default value is False, so we don't need to dump it.
+            dumped.pop("writeProtected")
+        if "metadata" not in local and not dumped.get("metadata"):
+            # Default value is empty dict, so we don't need to dump it.
+            dumped.pop("metadata", None)
+        if "metadata" in dumped and "metadata" in local:
+            meta_local = local["metadata"]
+            for key, value in list(dumped["metadata"].items()):
+                if isinstance(meta_local.get(key), dict | list):
+                    try:
+                        converted = json.loads(value)
+                    except json.JSONDecodeError:
+                        continue
+                    dumped["metadata"][key] = converted
 
-        for data_set in data_sets:
-            if data_set.get("metadata"):
-                for key, value in data_set["metadata"].items():
-                    data_set["metadata"][key] = json.dumps(value)
-            if data_set.get("writeProtected") is None:
-                # Todo: Setting missing default value, bug in SDK.
-                data_set["writeProtected"] = False
-            if data_set.get("metadata") is None:
-                # Todo: Wrongly set to empty dict, bug in SDK.
-                data_set["metadata"] = {}
-
-        return DataSetWriteList.load(data_sets)
+        return dumped
 
     def create(self, items: Sequence[DataSetWrite]) -> DataSetList:
         items = list(items)
@@ -140,7 +151,12 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     def delete(self, ids: SequenceNotStr[str]) -> int:
         raise NotImplementedError("CDF does not support deleting data sets.")
 
-    def iterate(self) -> Iterable[DataSet]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataSet]:
         return iter(self.client.data_sets)
 
     @classmethod
@@ -172,7 +188,7 @@ class LabelLoader(
 
     @property
     def display_name(self) -> str:
-        return self.kind
+        return "labels"
 
     @classmethod
     def get_id(cls, item: LabelDefinition | LabelDefinitionWrite | dict) -> str:
@@ -188,7 +204,7 @@ class LabelLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: LabelDefinitionWriteList | None, read_only: bool
+        cls, items: Sequence[LabelDefinitionWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -234,8 +250,13 @@ class LabelLoader(
             # All deleted successfully
             return len(ids)
 
-    def iterate(self) -> Iterable[LabelDefinition]:
-        return iter(self.client.labels)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[LabelDefinition]:
+        return iter(self.client.labels(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -255,31 +276,13 @@ class LabelLoader(
         if "dataSetExternalId" in item:
             yield DataSetsLoader, item["dataSetExternalId"]
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> LabelDefinitionWrite | LabelDefinitionWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-        items: list[dict[str, Any]] = [raw_yaml] if isinstance(raw_yaml, dict) else raw_yaml
-        for item in items:
-            if "dataSetExternalId" in item:
-                ds_external_id = item.pop("dataSetExternalId")
-                item["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id,
-                    skip_validation=skip_validation,
-                    action="replace dataSetExternalId with dataSetId in label",
-                )
-        loaded = LabelDefinitionWriteList.load(items)
-        return loaded[0] if isinstance(raw_yaml, dict) else loaded
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LabelDefinitionWrite:
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        return LabelDefinitionWrite._load(resource)
 
-    def _are_equal(
-        self, local: LabelDefinitionWrite, cdf_resource: LabelDefinition, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: LabelDefinition, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        return dumped

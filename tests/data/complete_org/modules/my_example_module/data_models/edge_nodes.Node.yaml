@@ -1,0 +1,6 @@
+- space: sp_instance
+  externalId: startNode
+- space: sp_instance
+  externalId: endNode
+- space: sp_schema
+  externalId: AnEdgeType

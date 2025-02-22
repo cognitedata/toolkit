@@ -60,7 +60,16 @@ capabilities:
           spaceIds:
             - {{ schemaSpace }}
             - {{ schemaSpace2 }}
+            - {{ schemaSpace3 }}
             - cdf_cdm_units
+  # Needed to write CogniteAsset.parent
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm
   - annotationsAcl:
       actions:
         - READ
@@ -90,6 +99,13 @@ capabilities:
         datasetScope:
           ids:
             - {{ dataset }}
+  - extractionPipelinesAcl:
+        actions:
+          - READ
+        scope:
+          datasetScope:
+            ids:
+              - {{ dataset }}
 # Bug in /context/diagram/detect/ endpoint that requires this
   - assetsAcl:
       actions:

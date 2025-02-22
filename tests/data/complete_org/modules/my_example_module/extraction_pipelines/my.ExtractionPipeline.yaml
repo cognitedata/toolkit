@@ -1,9 +1,10 @@
 externalId: ep_src_asset_hamburg_sap
 name: src:asset:hamburg:sap
 dataSetExternalId: ds_complete_org
-description: 'Asset source extraction pipeline with configuration for a DB extractor reading data from Hamburg SAP'
+description: Asset source extraction pipeline with configuration for a DB extractor
+  reading data from Hamburg SAP
 rawTables:
-  - dbName: db_complete_org
-    tableName: asset
+- dbName: db_complete_org
+  tableName: asset
 source: doctrino
 documentation: Extracts data from SAP for the asset hierarchy in Hamburg Location

@@ -53,6 +53,12 @@ Group:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
   - digitalTwinAcl:
       actions:
       - WRITE
@@ -202,6 +208,18 @@ Group:
       - UPDATE
       - READ
       - DELETE
+      scope:
+        all: {}
+  - sapWritebackAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - WRITE
+      - LIST
       scope:
         all: {}
   - scheduledCalculationsAcl:
@@ -347,6 +365,11 @@ Group:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - digitalTwinAcl:
       actions:
       - READ
@@ -467,6 +490,16 @@ Group:
   - roboticsAcl:
       actions:
       - READ
+      scope:
+        all: {}
+  - sapWritebackAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - LIST
       scope:
         all: {}
   - scheduledCalculationsAcl:

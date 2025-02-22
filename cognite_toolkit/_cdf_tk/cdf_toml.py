@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitTOMLFormatError,
     ToolkitVersionError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -30,15 +31,18 @@ class CLIConfig:
     default_organization_dir: Path
     default_env: str = "dev"
     has_user_set_default_org: bool = False
+    has_user_set_default_env: bool = False
 
     @classmethod
     def load(cls, raw: dict[str, Any], cwd: Path) -> CLIConfig:
         has_user_set_default_org = "default_organization_dir" in raw
+        has_user_set_default_env = "default_env" in raw
         default_organization_dir = cwd / raw["default_organization_dir"] if has_user_set_default_org else Path.cwd()
         return cls(
             default_organization_dir=default_organization_dir,
             default_env=raw.get("default_env", "dev"),
             has_user_set_default_org=has_user_set_default_org,
+            has_user_set_default_env=has_user_set_default_env,
         )
 
 
@@ -68,7 +72,7 @@ class CDFToml:
 
     cdf: CLIConfig
     modules: ModulesConfig
-    feature_flags: dict[str, bool] = field(default_factory=dict)
+    alpha_flags: dict[str, bool] = field(default_factory=dict)
     plugins: dict[str, bool] = field(default_factory=dict)
 
     is_loaded_from_file: bool = False
@@ -91,16 +95,20 @@ class CDFToml:
                 modules = ModulesConfig.load(raw["modules"])
             except KeyError as e:
                 raise ToolkitRequiredValueError(f"Missing required value in {cls.file_name}: {e.args}")
-            feature_flags = {}
-            if "feature_flags" in raw:
-                feature_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+            alpha_flags = {}
+            if "alpha_flags" in raw:
+                alpha_flags = {clean_name(k): v for k, v in raw["alpha_flags"].items()}
+            if not alpha_flags and "feature_flags" in raw:
+                MediumSeverityWarning(
+                    "The 'feature_flags' section has been renamed to 'alpha_flags'. Please update your cdf.toml file."
+                ).print_warning()
+                alpha_flags = {clean_name(k): v for k, v in raw["feature_flags"].items()}
+
             plugins = {}
             if "plugins" in raw:
                 plugins = {clean_name(k): v for k, v in raw["plugins"].items()}
 
-            instance = cls(
-                cdf=cdf, modules=modules, feature_flags=feature_flags, plugins=plugins, is_loaded_from_file=True
-            )
+            instance = cls(cdf=cdf, modules=modules, alpha_flags=alpha_flags, plugins=plugins, is_loaded_from_file=True)
             if use_singleton:
                 _CDF_TOML = instance
             return instance
@@ -108,7 +116,7 @@ class CDFToml:
             return cls(
                 cdf=CLIConfig(cwd),
                 modules=ModulesConfig.load({"version": _version.__version__}),
-                feature_flags={},
+                alpha_flags={},
                 plugins={},
                 is_loaded_from_file=False,
             )

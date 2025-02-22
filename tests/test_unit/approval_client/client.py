@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import itertools
 import json as JSON
 from collections import defaultdict
@@ -12,6 +13,7 @@ import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     Database,
     DataSet,
@@ -32,13 +34,16 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
+    Edge,
     EdgeApply,
+    EdgeApplyResult,
     EdgeApplyResultList,
     EdgeId,
     EdgeList,
     InstancesApplyResult,
     InstancesDeleteResult,
     InstancesResult,
+    Node,
     NodeApply,
     NodeApplyResult,
     NodeApplyResultList,
@@ -52,14 +57,17 @@ from cognite.client.data_classes.data_modeling.ids import InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
+from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
-from cognite_toolkit._cdf_tk.client.testing import CogniteClientMock
+from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
-from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -76,6 +84,48 @@ for cap, (scopes, names) in capabilities._VALID_SCOPES_BY_CAPABILITY.items():
 del cap, scopes, names, action, scope
 
 
+class LookUpAPIMock:
+    def __init__(self):
+        self._reverse_cache: dict[int, str] = {}
+
+    @staticmethod
+    def _create_id(string: str, allow_empty: bool = False) -> int:
+        if allow_empty and string == "":
+            return 0
+        # This simulates CDF setting the internal ID.
+        # By using hashing, we will always get the same ID for the same string.
+        # Thus, the ID will be consistent between runs and can be used in snapshots.
+        hash_object = hashlib.sha256(string.encode())
+        hex_dig = hash_object.hexdigest()
+        hash_int = int(hex_dig[:16], 16)
+        return hash_int
+
+    def id(
+        self, external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+    ) -> int | list[int]:
+        if isinstance(external_id, str):
+            id_ = self._create_id(external_id, allow_empty)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = external_id
+            return id_
+        output: list[int] = []
+        for ext_id in external_id:
+            id_ = self._create_id(ext_id, allow_empty)
+            if id_ not in self._reverse_cache:
+                self._reverse_cache[id_] = ext_id
+            output.append(id_)
+        return output
+
+    def external_id(
+        self,
+        id: int | Sequence[int],
+    ) -> str | list[str]:
+        try:
+            return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
+        except KeyError:
+            raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
+
+
 class ApprovalToolkitClient:
     """A mock CogniteClient that is used for testing the clean, deploy commands
     of the cognite-toolkit.
@@ -85,10 +135,20 @@ class ApprovalToolkitClient:
 
     """
 
-    def __init__(self, mock_client: CogniteClientMock):
+    def __init__(self, mock_client: ToolkitClientMock):
         self._return_verify_resources = False
         self.mock_client = mock_client
-        self.mock_client._config = "config"
+        credentials = MagicMock(spec=OAuthClientCredentials)
+        credentials.client_id = "toolkit-client-id"
+        credentials.client_secret = "toolkit-client-secret"
+        credentials.token_url = "https://toolkit.auth.com/oauth/token"
+        credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
+        self.mock_client.config = ToolkitClientConfig(
+            client_name=CLIENT_NAME,
+            project="pytest-project",
+            credentials=credentials,
+            is_strict_validation=False,
+        )
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
         # This is used to log all delete operations
@@ -116,6 +176,14 @@ class ApprovalToolkitClient:
         # Set project
         self.mock_client.config.project = "test_project"
         self.mock_client.config.base_url = "https://bluefield.cognitedata.com"
+        # Setup mock for all lookup methods
+        for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
+            if method_name.startswith("_") or method_name == "method_calls":
+                continue
+            mock_lookup = LookUpAPIMock()
+            lookup_api.id.side_effect = mock_lookup.id
+            lookup_api.external_id.side_effect = mock_lookup.external_id
+        self.mock_client.verify.authorization.return_value = []
 
         # Setup all mock methods
         for resource in API_RESOURCES:
@@ -187,6 +255,15 @@ class ApprovalToolkitClient:
             self._existing_resources[resource_cls.__name__].extend(items)
         else:
             self._existing_resources[resource_cls.__name__].append(items)
+
+    def clear_cdf_resources(self, resource_cls: type[CogniteResource]) -> None:
+        """Clears the existing resources in CDF.
+
+        Args:
+            resource_cls: The type of resource to clear.
+
+        """
+        self._existing_resources[resource_cls.__name__].clear()
 
     def _create_delete_method(self, resource: APIResource, mock_method: str, client: CogniteClient) -> Callable:
         deleted_resources = self._deleted_resources
@@ -361,6 +438,9 @@ class ApprovalToolkitClient:
         def create_single(*args, **kwargs) -> Sequence:
             return _create(*args, **kwargs)[0]
 
+        def create_filemetadata(*args, **kwargs) -> tuple[FileMetadata, str]:
+            return create_single(*args, **kwargs), "upload link"
+
         def create_raw_table(db_name: str, name: str | list[str]) -> Table | TableList:
             if isinstance(name, str):
                 created = Table(name=name, created_time=1)
@@ -476,14 +556,37 @@ class ApprovalToolkitClient:
             edges: EdgeApply | Sequence[EdgeApply] | None = None,
             **kwargs,
         ) -> InstancesApplyResult:
-            created = []
+            created_nodes = []
             if isinstance(nodes, NodeApply):
-                created.append(nodes)
+                created_nodes.append(nodes)
             elif isinstance(nodes, Sequence) and all(isinstance(v, NodeApply) for v in nodes):
-                created.extend(nodes)
-            if edges is not None:
-                raise NotImplementedError("Edges not supported yet")
-            created_resources[resource_cls.__name__].extend(created)
+                created_nodes.extend(nodes)
+
+            created_edges = []
+            if isinstance(edges, EdgeApply):
+                created_edges.append(edges)
+            elif isinstance(edges, Sequence) and all(isinstance(v, EdgeApply) for v in edges):
+                created_edges.extend(edges)
+
+            if created_nodes and created_edges:
+                raise ValueError(
+                    "Cannot create both nodes and edges at the same time. Toolikt should call one at a time"
+                )
+            created_resources[Node.__name__].extend(created_nodes)
+            created_resources[Edge.__name__].extend(created_edges)
+
+            node_list = []
+            if isinstance(nodes, Sequence):
+                node_list.extend(nodes)
+            elif isinstance(nodes, NodeApply):
+                node_list.append(nodes)
+
+            edge_list = []
+            if isinstance(edges, Sequence):
+                edge_list.extend(edges)
+            elif isinstance(edges, EdgeApply):
+                edge_list.append(edges)
+
             return InstancesApplyResult(
                 nodes=NodeApplyResultList(
                     [
@@ -495,10 +598,22 @@ class ApprovalToolkitClient:
                             last_updated_time=1,
                             created_time=1,
                         )
-                        for node in (nodes if isinstance(nodes, Sequence) else [nodes])
+                        for node in node_list
                     ]
                 ),
-                edges=EdgeApplyResultList([]),
+                edges=EdgeApplyResultList(
+                    [
+                        EdgeApplyResult(
+                            space=edge.space,
+                            external_id=edge.external_id,
+                            version=edge.existing_version or 1,
+                            was_modified=True,
+                            last_updated_time=1,
+                            created_time=1,
+                        )
+                        for edge in edge_list
+                    ]
+                ),
             )
 
         def create_extraction_pipeline_config(config: ExtractionPipelineConfigWrite) -> ExtractionPipelineConfig:
@@ -516,8 +631,26 @@ class ApprovalToolkitClient:
             )
             return FileMetadata.load({to_camel_case(k): v for k, v in kwargs.items()})
 
-        def upload_file_content_files_api(
+        def upload_file_content_path_files_api(
             path: str,
+            external_id: str | None = None,
+            instance_id: NodeId | None = None,
+        ) -> FileMetadata:
+            return _upload_file_content_files_api(
+                calculate_bytes_or_file_hash(Path(path), shorten=True), external_id=external_id, instance_id=instance_id
+            )
+
+        def upload_file_content_bytes_files_api(
+            content: str,
+            external_id: str | None = None,
+            instance_id: NodeId | None = None,
+        ) -> FileMetadata:
+            return _upload_file_content_files_api(
+                calculate_str_or_file_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
+            )
+
+        def _upload_file_content_files_api(
+            filehash: str,
             external_id: str | None = None,
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
@@ -528,7 +661,7 @@ class ApprovalToolkitClient:
                 entry = {"external_id": external_id}
             else:
                 entry = instance_id.dump(include_instance_type=False)
-            entry["filehash"] = calculate_bytes_or_file_hash(Path(path), shorten=True)
+            entry["filehash"] = filehash
 
             created_resources[FileLoader.__name__].append(entry)
 
@@ -547,6 +680,7 @@ class ApprovalToolkitClient:
             name: str | None = None,
             description: str | None = None,
             previous_version: str | None = None,
+            preserve_dml: bool | None = None,
         ) -> DMLApplyResult:
             created = GraphQLDataModelWrite(
                 space=id.space,
@@ -556,6 +690,7 @@ class ApprovalToolkitClient:
                 name=name,
                 description=description,
                 previous_version=previous_version,
+                preserve_dml=preserve_dml,
             )
             created_resources[resource_cls.__name__].append(created)
             return DMLApplyResult(
@@ -573,13 +708,15 @@ class ApprovalToolkitClient:
             for fn in [
                 create_multiple,
                 create_single,
+                create_filemetadata,
                 insert_dataframe,
                 upload,
                 upsert,
                 create_instances,
                 create_extraction_pipeline_config,
                 upload_bytes_files_api,
-                upload_file_content_files_api,
+                upload_file_content_path_files_api,
+                upload_file_content_bytes_files_api,
                 create_3dmodel,
                 apply_dml,
                 create_raw_table,
@@ -677,6 +814,8 @@ class ApprovalToolkitClient:
         def files_retrieve(id: int | None = None, external_id: str | None = None) -> FileMetadata:
             if id is not None:
                 return FileMetadata(id=id, uploaded=True)
+            elif external_id is not None:
+                return FileMetadata(external_id=external_id, uploaded=True)
             else:
                 return return_value(external_id=external_id)
 
@@ -937,6 +1076,12 @@ class ApprovalToolkitClient:
             else:
                 raise ValueError(f"Invalid api name {r.api_name}")
             mocked_apis[api_name] |= {sub_api} if sub_api else set()
+        # These are mocked in the __init__ method
+        for name, method in self.mock_client.lookup.__dict__.items():
+            if not isinstance(method, MagicMock) or name.startswith("_") or name.startswith("assert_"):
+                continue
+            mocked_apis["lookup"].add(name)
+        mocked_apis["verify"] = {"authorization"}
 
         not_mocked: dict[str, int] = defaultdict(int)
         for api_name, api in vars(self.mock_client).items():

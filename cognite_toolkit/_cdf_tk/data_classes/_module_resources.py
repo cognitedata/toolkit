@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.utils import (
     safe_write,
     tmp_build_directory,
 )
+from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 from ._base import ConfigCore
 from ._build_variables import BuildVariables
@@ -127,7 +128,7 @@ class BuildInfo(ConfigCore):
         dumped = self.dump()
         # Avoid dumping pointer references: https://stackoverflow.com/questions/51272814/python-yaml-dumping-pointer-references
         yaml.Dumper.ignore_aliases = lambda *args: True  # type: ignore[method-assign]
-        content = yaml.safe_dump(dumped, sort_keys=False)
+        content = yaml_safe_dump(dumped)
         content = f"{self.top_warning}\n{content}"
         safe_write(self.filepath, content)
 
@@ -138,7 +139,9 @@ class BuildInfo(ConfigCore):
         resource_dirs: set[str] | None = None,
     ) -> set[Path]:
         current_module_by_path = {module.relative_path: module for module in current_modules}
-        cached_module_by_path = {module.location.path: module for module in self.modules.modules}
+        cached_module_by_path_and_iteration = {
+            (module.location.path, module.iteration): module for module in self.modules.modules
+        }
         needs_rebuild = set()
         for path, current_module in current_module_by_path.items():
             if resource_dirs is not None and all(
@@ -147,15 +150,19 @@ class BuildInfo(ConfigCore):
                 # The module does not contain any of the specified resources, so it does not need to be rebuilt.
                 continue
 
-            if path not in cached_module_by_path:
+            if (path, None) not in cached_module_by_path_and_iteration and (
+                path,
+                1,
+            ) not in cached_module_by_path_and_iteration:
                 needs_rebuild.add(path)
                 continue
-            cached_module = cached_module_by_path[path]
-            if current_module.hash != cached_module.location.hash:
-                needs_rebuild.add(path)
-            current_module_variables = current_variables.get_module_variables(current_module)
-            if set(current_module_variables) != set(cached_module.build_variables):
-                needs_rebuild.add(path)
+            for no, current_module_variables in enumerate(current_variables.get_module_variables(current_module), 1):
+                cached_module = cached_module_by_path_and_iteration[(path, no)]
+                if current_module.hash != cached_module.location.hash:
+                    needs_rebuild.add(path)
+                    continue
+                if set(current_module_variables) != set(cached_module.build_variables):
+                    needs_rebuild.add(path)
         return needs_rebuild
 
 

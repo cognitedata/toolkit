@@ -8,7 +8,7 @@ from collections import UserDict, defaultdict
 from collections.abc import Hashable, Iterable, Sequence, Set
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal, get_args
+from typing import Any, ClassVar, Literal, cast, get_args
 
 import yaml
 from rich import print
@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.constants import (
     BUILTIN_MODULES,
     DEFAULT_CONFIG_FILE,
     DEFAULT_ENV,
-    MODULE_PATH_SEP,
     MODULES,
     ROOT_MODULES,
     SEARCH_VARIABLES_SUFFIX,
@@ -41,8 +40,10 @@ from cognite_toolkit._cdf_tk.utils import (
     YAMLWithComments,
     calculate_str_or_file_hash,
     flatten_dict,
+    read_yaml_content,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.modules import parse_user_selected_modules
 from cognite_toolkit._version import __version__
 
 from . import BuiltModuleList
@@ -57,59 +58,35 @@ _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 class Environment:
     name: str = "dev"
     project: str = field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
-    build_type: EnvType = DEFAULT_ENV  # type: ignore[assignment]
+    validation_type: str = "dev"
     selected: list[str | Path] = field(default_factory=lambda: [Path(MODULES)])
 
-    def __post_init__(self) -> None:
-        if self.build_type not in _AVAILABLE_ENV_TYPES:
-            raise ToolkitEnvError(
-                f"Invalid type {self.build_type} in {self.name!s}. " f"Must be one of {_AVAILABLE_ENV_TYPES}"
-            )
+    @property
+    def is_strict_validation(self) -> bool:
+        return self.validation_type.casefold() != "dev"
 
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
         if "name" not in data:
             data["name"] = build_name
-
-        if missing := {"name", "project", "type", "selected"} - set(data.keys()):
+        _deprecate_type(data, build_name)
+        if missing := {"name", "project", "validation-type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
                 f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML.get_filename(build_name)!s}"
             )
-        build_type = data["type"]
-        if build_type not in _AVAILABLE_ENV_TYPES:
-            raise ToolkitEnvError(
-                f"Invalid type {build_type} in {BuildConfigYAML.get_filename(build_name)!s}. "
-                f"Must be one of {_AVAILABLE_ENV_TYPES}"
-            )
-
         return Environment(
             name=build_name,
             project=data["project"],
-            build_type=build_type,
-            selected=cls.load_selected(data.get("selected")),
+            validation_type=data["validation-type"],
+            selected=parse_user_selected_modules(data.get("selected")),
         )
-
-    @classmethod
-    def load_selected(cls, raw: list[str] | None, organization_dir: Path | None = None) -> list[str | Path]:
-        cleaned = (selected.replace("\\", "/") for selected in raw or [])
-        all_selected: Iterable[str | Path] = (
-            Path(selected) if MODULE_PATH_SEP in selected else selected for selected in cleaned
-        )
-        if organization_dir:
-            all_selected = (
-                selected.relative_to(organization_dir)
-                if isinstance(selected, Path) and selected.is_relative_to(organization_dir)
-                else selected
-                for selected in all_selected
-            )
-        return list(all_selected)
 
     def dump(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "project": self.project,
-            "type": self.build_type,
+            "validation-type": self.validation_type,
             "selected": [
                 selected.as_posix() + "/" if isinstance(selected, Path) else selected for selected in self.selected
             ],
@@ -139,7 +116,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
-        os.environ["CDF_BUILD_TYPE"] = self.environment.build_type
+        os.environ["CDF_BUILD_TYPE"] = self.environment.validation_type
 
     def validate_environment(self) -> ToolkitWarning | None:
         if _RUNNING_IN_BROWSER:
@@ -149,7 +126,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         if project_env == project:
             return None
 
-        build_type = self.environment.build_type
+        is_strict_validation = self.environment.is_strict_validation
         env_name = self.environment.name
         file_name = self.get_filename(env_name)
         missing_message = (
@@ -164,11 +141,11 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             "building configurations for staging and prod environments to ensure that you do not "
             "accidentally deploy to the wrong project."
         )
-        if build_type != "dev" and project_env is None:
+        if is_strict_validation and project_env is None:
             raise ToolkitEnvError(missing_message)
-        elif build_type != "dev":
+        elif is_strict_validation:
             raise ToolkitEnvError(mismatch_message)
-        elif build_type == "dev" and project_env is None:
+        elif not is_strict_validation and project_env is None:
             return MediumSeverityWarning(missing_message)
         else:
             return MediumSeverityWarning(mismatch_message)
@@ -195,7 +172,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
-            build_type=self.environment.build_type,
+            validation_type=self.environment.validation_type,
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
             built_resources=built_modules.as_resources_by_folder(),
@@ -256,6 +233,10 @@ class BuildEnvironment(Environment):
     built_resources: dict[str, BuiltResourceList] = field(default_factory=dict)
     read_modules: list[ReadModule] = field(default_factory=list)
 
+    @property
+    def read_resource_folders(self) -> set[str]:
+        return {resource_folder for module in self.read_modules for resource_folder in module.resource_directories}
+
     def dump(self) -> dict[str, Any]:
         output = super().dump()
         output["cdf_toolkit_version"] = self.cdf_toolkit_version
@@ -275,7 +256,7 @@ class BuildEnvironment(Environment):
 
     @classmethod
     def load(
-        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean"] = "build"
+        cls, data: dict[str, Any], build_name: str | None, action: Literal["build", "deploy", "clean", "pull"] = "build"
     ) -> BuildEnvironment:
         if "name" in data and build_name is not None and data["name"] != build_name:
             raise ToolkitEnvError(
@@ -296,12 +277,12 @@ class BuildEnvironment(Environment):
         read_modules: list[ReadModule] = []
         if "read_modules" in data:
             read_modules = [ReadModule.load(module_data) for module_data in data["read_modules"]]
-
+        _deprecate_type(data, build_name or "dev")
         try:
             return cls(
                 name=data["name"],
                 project=data["project"],
-                build_type=data["type"],
+                validation_type=data["validation-type"],
                 selected=data["selected"],
                 cdf_toolkit_version=version,
                 built_resources=built_resources,
@@ -309,13 +290,13 @@ class BuildEnvironment(Environment):
             )
         except KeyError:
             raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'type', "
+                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'validation-type', "
                 f"or 'selected' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
-        os.environ["CDF_BUILD_TYPE"] = self.build_type
+        os.environ["CDF_BUILD_TYPE"] = self.validation_type
 
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
@@ -348,6 +329,14 @@ def _deprecation_selected(data: dict[str, Any]) -> None:
             "is deprecated, use 'selected' instead."
         )
         data["selected"] = data.pop("selected_modules_and_packages")
+
+
+def _deprecate_type(data: dict[str, Any], build_name: str) -> None:
+    if "type" in data and "validation-type" not in data:
+        MediumSeverityWarning(
+            f"In environment section of {BuildConfigYAML.get_filename(build_name)!s}: 'type' is deprecated, use 'validation-type' instead."
+        ).print_warning()
+        data["validation-type"] = data.pop("type")
 
 
 @dataclass
@@ -514,7 +503,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
             parts = default_config.parent.relative_to(cognite_root_module).parts
             raw_file = safe_read(default_config)
             file_comments = self._extract_comments(raw_file, key_prefix=tuple(parts))
-            file_data = yaml.safe_load(raw_file)
+            file_data = cast(dict, read_yaml_content(raw_file))
             for key, value in file_data.items():
                 if len(parts) >= 1 and parts[0] in ROOT_MODULES:
                     key_path = (self._variables, *parts, key)
@@ -551,7 +540,7 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
         """
         raw_file = existing_config_yaml
         comments = cls._extract_comments(raw_file)
-        config = yaml.safe_load(raw_file)
+        config = cast(dict, read_yaml_content(raw_file))
         if cls._environment in config:
             environment = Environment.load(config[cls._environment], build_env_name)
         else:
@@ -635,15 +624,19 @@ class InitConfigYAML(YAMLWithComments[tuple[str, ...], ConfigEntry], ConfigYAMLC
 
     def lift(self) -> None:
         """Lift variables that are used in multiple modules to the highest shared level"""
-        variable_by_key_value: dict[
+        variables_by_key_value: dict[
             tuple[str, float | int | str | bool | tuple[Hashable] | None], list[ConfigEntry]
         ] = defaultdict(list)
+        count_by_variable_keys: dict[str, set[float | int | str | bool | tuple[Hashable] | None]] = defaultdict(set)
         for key, entry in self.items():
             value = tuple(entry.value) if isinstance(entry.value, list) else entry.value  # type: ignore[arg-type]
-            variable_by_key_value[(key[-1], value)].append(entry)
+            variables_by_key_value[(key[-1], value)].append(entry)
+            count_by_variable_keys[key[-1]].add(value)
 
-        for entries in variable_by_key_value.values():
+        for (variable_name, _), entries in variables_by_key_value.items():
             if len(entries) == 1:
+                continue
+            if len(count_by_variable_keys[variable_name]) > 1:
                 continue
             shared_parent = self._find_common_parent([entry.key_path for entry in entries])
             new_key = (*shared_parent, entries[0].key_path[-1])

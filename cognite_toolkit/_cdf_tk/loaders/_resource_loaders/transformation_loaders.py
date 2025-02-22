@@ -26,6 +26,7 @@
 # limitations under the License.
 from __future__ import annotations
 
+import warnings
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
 from pathlib import Path
@@ -63,22 +64,27 @@ from rich import print
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
+    ToolkitTypeError,
     ToolkitYAMLFormatError,
 )
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
+    calculate_secure_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
 from .datamodel_loaders import DataModelLoader, SpaceLoader, ViewLoader
+from .group_scoped_loader import GroupResourceScopedLoader
 from .raw_loaders import RawDatabaseLoader, RawTableLoader
 
 
@@ -106,14 +112,19 @@ class TransformationLoader(
             DataModelLoader,
             RawTableLoader,
             RawDatabaseLoader,
+            GroupResourceScopedLoader,
         }
     )
     _doc_url = "Transformations/operation/createTransformations"
-    do_environment_variable_injection = True
+    _hash_key = "-- cdf-auth"
+
+    @property
+    def display_name(self) -> str:
+        return "transformations"
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -140,6 +151,14 @@ class TransformationLoader(
         if item.external_id is None:
             raise ToolkitRequiredValueError("Transformation must have external_id set.")
         return item.external_id
+
+    @classmethod
+    def get_internal_id(cls, item: Transformation | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        if item.id is None:
+            raise ToolkitRequiredValueError("Transformation must have id set.")
+        return item.id
 
     @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
@@ -169,144 +188,169 @@ class TransformationLoader(
                         data_model["version"] = str(data_model["version"])
                         yield DataModelLoader, DataModelId.load(data_model)
 
-    def _are_equal(
-        self, local: TransformationWrite, cdf_resource: Transformation, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        local_dumped.pop("destinationOidcCredentials", None)
-        local_dumped.pop("sourceOidcCredentials", None)
-        cdf_dumped = cdf_resource.as_write().dump()
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            # Dry run
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    @staticmethod
-    def _get_query_file(filepath: Path, transformation_external_id: str | None) -> Path | None:
-        query_file = filepath.parent / f"{filepath.stem}.sql"
-        if not query_file.exists() and transformation_external_id:
-            found_query_file = next(
-                (
-                    f
-                    for f in filepath.parent.iterdir()
-                    if f.is_file() and f.name.endswith(f"{transformation_external_id}.sql")
-                ),
-                None,
-            )
-            if found_query_file is None:
-                return None
-            query_file = found_query_file
-        return query_file
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationWrite | TransformationWriteList:
+    def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
-        raw_str = quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
 
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = load_yaml_inject_variables(
+            self.safe_read(filepath),
+            environment_variables or {},
+            original_filepath=filepath,
         )
-        resources = load_yaml_inject_variables(raw_str, use_environment_variables)
 
-        # The `authentication` key is custom for this template:
+        raw_list = resources if isinstance(resources, list) else [resources]
+        for item in raw_list:
+            query_file: Path | None = None
+            if "queryFile" in item:
+                if filepath is None:
+                    raise ValueError("filepath must be set if queryFile is set")
+                query_file = filepath.parent / Path(item.pop("queryFile"))
 
-        if isinstance(resources, dict):
-            resources = [resources]
-
-        transformations = TransformationWriteList([])
-
-        for resource in resources:
-            invalid_parameters: dict[str, str] = {}
-            if "action" in resource and "conflictMode" not in resource:
-                invalid_parameters["action"] = "conflictMode"
-            if "shared" in resource and "isPublic" not in resource:
-                invalid_parameters["shared"] = "isPublic"
-            if invalid_parameters:
-                raise ToolkitInvalidParameterNameError(
-                    "Parameters invalid. These are specific for the "
-                    "'transformation-cli' and not supported by cognite-toolkit",
-                    resource.get("externalId", "<Missing>"),
-                    invalid_parameters,
+            external_id = self.get_id(item)
+            if query_file is None and "query" not in item:
+                if filepath is None:
+                    raise ValueError("filepath must be set if query is not set")
+                raise ToolkitYAMLFormatError(
+                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    filepath,
                 )
-
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in transformation"
-                )
-            if resource.get("conflictMode") is None:
-                # Todo; Bug SDK missing default value
-                resource["conflictMode"] = "upsert"
-
-            source_oidc_credentials = (
-                resource.get("authentication", {}).get("read") or resource.get("authentication") or None
-            )
-            destination_oidc_credentials = (
-                resource.get("authentication", {}).get("write") or resource.get("authentication") or None
-            )
-            transformation = TransformationWrite.load(resource)
-            try:
-                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                    source_oidc_credentials
-                )
-
-                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                    destination_oidc_credentials
-                )
-            except KeyError as e:
-                raise ToolkitYAMLFormatError("authentication property is missing required fields", filepath, e)
-
-            query_file = self._get_query_file(filepath, transformation.external_id)
-
-            if transformation.query is None:
-                if query_file is None:
-                    raise ToolkitYAMLFormatError(
-                        f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {transformation.external_id}.sql",
-                        filepath,
-                    )
-                transformation.query = safe_read(query_file)
-            elif transformation.query is not None and query_file is not None:
+            elif query_file and not query_file.exists():
+                # We checked above that filepath is not None
+                raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
+            elif query_file and "query" in item:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
                     f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
+                    filepath,
                 )
+            elif query_file:
+                item["query"] = safe_read(query_file)
 
-            transformations.append(transformation)
+            if Flags.CREDENTIALS_HASH.is_enabled():
+                auth_dict: dict[str, Any] = {}
+                for key in [
+                    "authentication",
+                    "sourceOidcCredentials",
+                    "destinationOidcCredentials",
+                    "sourceNonce",
+                    "destinationNonce",
+                ]:
+                    if key in item:
+                        auth_dict[key] = item[key]
+                if auth_dict:
+                    auth_hash = calculate_secure_hash(auth_dict, shorten=True)
+                    if "query" in item:
+                        item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
+        return raw_list
 
-        if len(transformations) == 1:
-            return transformations[0]
-        else:
-            return transformations
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
+        invalid_parameters: dict[str, str] = {}
+        if "action" in resource and "conflictMode" not in resource:
+            invalid_parameters["action"] = "conflictMode"
+        if "shared" in resource and "isPublic" not in resource:
+            invalid_parameters["shared"] = "isPublic"
+        if invalid_parameters:
+            raise ToolkitInvalidParameterNameError(
+                "Parameters invalid. These are specific for the "
+                "'transformation-cli' and not supported by cognite-toolkit",
+                resource.get("externalId", "<Missing>"),
+                invalid_parameters,
+            )
 
-    def dump_resource(
-        self, resource: TransformationWrite, source_file: Path, local_resource: TransformationWrite
-    ) -> tuple[dict[str, Any], dict[Path, str]]:
-        dumped = resource.dump()
-        query = dumped.pop("query")
-        dumped.pop("dataSetId", None)
-        dumped.pop("sourceOidcCredentials", None)
-        dumped.pop("destinationOidcCredentials", None)
-        return dumped, {source_file.parent / f"{source_file.stem}.sql": query}
+        if ds_external_id := resource.pop("dataSetExternalId", None):
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if "conflictMode" not in resource:
+            # Todo; Bug SDK missing default value
+            resource["conflictMode"] = "upsert"
+
+        source_oidc_credentials = (
+            resource.get("authentication", {}).get("read") or resource.get("authentication") or None
+        )
+        destination_oidc_credentials = (
+            resource.get("authentication", {}).get("write") or resource.get("authentication") or None
+        )
+        transformation = TransformationWrite._load(resource)
+        try:
+            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                source_oidc_credentials
+            )
+
+            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                destination_oidc_credentials
+            )
+        except KeyError as e:
+            item_id = self.get_id(resource)
+            raise ToolkitTypeError(
+                f"Ill-formed Transformation {item_id}: Authentication property is missing required fields"
+            ) from e
+        return transformation
+
+    def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if data_set_id := dumped.pop("dataSetId", None):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if "isPublic" in dumped and "isPublic" not in local:
+            # Default set from server side.
+            dumped.pop("isPublic")
+        if "authentication" in local:
+            # The hash added to the beginning of the query detects the change in the authentication
+            dumped["authentication"] = local["authentication"]
+        return dumped
+
+    def split_resource(
+        self, base_filepath: Path, resource: dict[str, Any]
+    ) -> Iterable[tuple[Path, dict[str, Any] | str]]:
+        if query := resource.pop("query", None):
+            yield base_filepath.with_suffix(".sql"), cast(str, query)
+
+        yield base_filepath, resource
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[-1] == "scopes":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[TransformationWrite]) -> TransformationList:
-        return self.client.transformations.create(items)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.create(items)
 
-    def retrieve(self, ids: SequenceNotStr[str]) -> TransformationList:
-        return self.client.transformations.retrieve_multiple(external_ids=ids, ignore_unknown_ids=True)
+    def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
+        internal_ids, external_ids = self._split_ids(ids)
+        return self.client.transformations.retrieve_multiple(
+            ids=internal_ids, external_ids=external_ids, ignore_unknown_ids=True
+        )
 
     def update(self, items: TransformationWriteList) -> TransformationList:
-        return self.client.transformations.update(items, mode="replace")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
+            # handle first a group that authorizes the session and then the transformation.
+            return self.client.transformations.update(items, mode="replace")
 
-    def delete(self, ids: SequenceNotStr[str]) -> int:
-        existing = self.retrieve(ids).as_external_ids()
+    def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        existing = self.retrieve(ids).as_ids()
         if existing:
-            self.client.transformations.delete(external_id=existing, ignore_unknown_ids=True)
+            self.client.transformations.delete(id=existing, ignore_unknown_ids=True)
         return len(existing)
 
-    def iterate(self) -> Iterable[Transformation]:
-        return iter(self.client.transformations)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Transformation]:
+        return iter(
+            self.client.transformations(data_set_external_ids=[data_set_external_id] if data_set_external_id else None)
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -339,6 +383,7 @@ class TransformationLoader(
                     ParameterSpec(
                         ("authentication", "audience"), frozenset({"str"}), is_required=False, _is_nullable=False
                     ),
+                    ParameterSpec(("queryFile",), frozenset({"str"}), is_required=False, _is_nullable=False),
                 }
             )
         )
@@ -365,14 +410,15 @@ class TransformationScheduleLoader(
     kind = "Schedule"
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:
-        return "transformation.schedules"
+        return "transformation schedules"
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationScheduleWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationScheduleWrite] | None, read_only: bool
     ) -> list[Capability]:
         # Access for transformations schedules is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
@@ -394,19 +440,6 @@ class TransformationScheduleLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "externalId" in item:
             yield TransformationLoader, item["externalId"]
-
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> TransformationScheduleWrite | TransformationScheduleWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
-
-        if isinstance(raw_yaml, dict):
-            return TransformationScheduleWrite.load(raw_yaml)
-        else:
-            return TransformationScheduleWriteList.load(raw_yaml)
 
     def create(self, items: Sequence[TransformationScheduleWrite]) -> TransformationScheduleList:
         try:
@@ -434,8 +467,24 @@ class TransformationScheduleLoader(
         except CogniteNotFoundError as e:
             return len(cast(SequenceNotStr[str], ids)) - len(e.not_found)
 
-    def iterate(self) -> Iterable[TransformationSchedule]:
-        return iter(self.client.transformations.schedules)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TransformationSchedule]:
+        if parent_ids is None:
+            yield from iter(self.client.transformations.schedules)
+        else:
+            for transformation_id in parent_ids:
+                if isinstance(transformation_id, str):
+                    res = self.client.transformations.schedules.retrieve(external_id=transformation_id)
+                    if res:
+                        yield res
+                elif isinstance(transformation_id, int):
+                    res = self.client.transformations.schedules.retrieve(id=transformation_id)
+                    if res:
+                        yield res
 
 
 @final
@@ -459,10 +508,11 @@ class TransformationNotificationLoader(
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Notifications/operation/createTransformationNotifications"
     _split_character = "@@@"
+    parent_resource = frozenset({TransformationLoader})
 
     @property
     def display_name(self) -> str:
-        return "transformation.notifications"
+        return "transformation notifications"
 
     @classmethod
     def get_id(cls, item: TransformationNotification | TransformationNotificationWrite | dict) -> str:
@@ -484,11 +534,20 @@ class TransformationNotificationLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: TransformationNotificationWriteList | None, read_only: bool
+        cls, items: Sequence[TransformationNotificationWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         # Access for transformation notification is checked by the transformation that is deployed
         # first, so we don't need to check for any capabilities here.
         return []
+
+    def dump_resource(
+        self, resource: TransformationNotification, local: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if local and "transformationExternalId" in local:
+            dumped.pop("transformationId")
+            dumped["transformationExternalId"] = local["transformationExternalId"]
+        return dumped
 
     def create(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
         return self.client.transformations.notifications.create(items)  # type: ignore[return-value]
@@ -508,11 +567,17 @@ class TransformationNotificationLoader(
                 result = self.client.transformations.notifications.list(
                     transformation_external_id=transformation_external_id, destination=destination, limit=-1
                 )
+                # list() does not return the transformation_external_id on items
+                for notification in result:
+                    notification.transformation_external_id = transformation_external_id
+
             except CogniteAPIError:
                 # The notification endpoint gives a 500 if the notification does not exist.
                 # The issue has been reported to the service team.
                 continue
+
             retrieved.extend(result)
+
         return retrieved
 
     def update(self, items: TransformationNotificationWriteList) -> TransformationNotificationList:
@@ -524,12 +589,13 @@ class TransformationNotificationLoader(
         create: list[TransformationNotificationWrite] = []
         unchanged: list[str] = []
         delete: list[int] = []
-        for id_, item in item_by_id.items():
+        for id_, local_item in item_by_id.items():
             existing_item = exiting_by_id.get(id_)
-            if existing_item and self._are_equal(item, existing_item):
+            local_dict = local_item.dump()
+            if existing_item and local_item == self.dump_resource(existing_item, local_dict):
                 unchanged.append(self.get_id(existing_item))
             else:
-                create.append(item)
+                create.append(local_item)
             if existing_item:
                 delete.append(cast(int, existing_item.id))
         if delete:
@@ -552,8 +618,20 @@ class TransformationNotificationLoader(
             self.client.transformations.notifications.delete([item.id for item in existing])  # type: ignore[misc]
         return len(existing)
 
-    def iterate(self) -> Iterable[TransformationNotification]:
-        return iter(self.client.transformations.notifications)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[TransformationNotification]:
+        if parent_ids is None:
+            yield from iter(self.client.transformations.notifications)
+        else:
+            for transformation_id in parent_ids:
+                if isinstance(transformation_id, str):
+                    yield from self.client.transformations.notifications(transformation_external_id=transformation_id)
+                elif isinstance(transformation_id, int):
+                    yield from self.client.transformations.notifications(transformation_id=transformation_id)
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:

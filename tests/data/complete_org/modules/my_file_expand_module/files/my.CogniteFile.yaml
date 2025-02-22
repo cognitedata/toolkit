@@ -1,0 +1,7 @@
+- space: {{ space_files }}
+  externalId: $FILENAME
+  name: $FILENAME
+  mimeType: text/plain
+  tags:
+  - tag1
+  - tag2

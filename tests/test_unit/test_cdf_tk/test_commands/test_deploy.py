@@ -3,20 +3,19 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands import DeployCommand
-from cognite_toolkit._cdf_tk.loaders import ViewLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.loaders import ResourceWorker, ViewLoader
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class TestDeployCommand:
-    def test_load_files(self, cdf_tool_mock: CDFToolConfig) -> None:
+    def test_load_files(self, env_vars_with_client: EnvironmentVariables) -> None:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
         path.read_text.return_value = VIEW_SOURCE_NONE
-        cmd = DeployCommand(print_warning=False, skip_tracking=True)
+        worker = ResourceWorker(ViewLoader.create_loader(env_vars_with_client.get_client()))
 
         with pytest.raises(TypeError) as e:
-            cmd._load_files(ViewLoader.create_loader(cdf_tool_mock, None), [path], cdf_tool_mock, skip_validation=True)
+            worker.load_resources([path], environment_variables={}, is_dry_run=True, verbose=False)
 
         assert e.value
 

@@ -1,0 +1,942 @@
+Container:
+- constraints: {}
+  externalId: YourOrgActivity
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgAsset
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgEquipment
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgFile
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgMaintenanceOrder
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgNotification
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgOperation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+- constraints: {}
+  externalId: YourOrgTimeSeries
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry
+DataModel:
+- description: YourOrg enterprise model
+  externalId: YourOrgProcessIndustries
+  name: YourOrg enterprise model
+  space: sp_enterprise_process_industry
+  version: v1
+  views:
+  - externalId: YourOrgMaintenanceOrder
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: YourOrgOperation
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: YourOrgNotification
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: CogniteSourceSystem
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: CogniteSourceable
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: YourOrgAsset
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: CogniteAssetClass
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: CogniteAssetType
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: YourOrgEquipment
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: CogniteEquipmentType
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: YourOrgFile
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: CogniteFileCategory
+    space: cdf_cdm
+    type: view
+    version: v1
+  - externalId: YourOrgActivity
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: YourOrgTimeSeries
+    space: sp_enterprise_process_industry
+    type: view
+    version: v1
+  - externalId: CogniteUnit
+    space: cdf_cdm
+    type: view
+    version: v1
+Space:
+- space: sp_enterprise_process_industry
+View:
+- description: Represents activities. Activities typically happen over a period and
+    have a start and end time.
+  externalId: YourOrgActivity
+  implements:
+  - externalId: CogniteActivity
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Activity
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgActivity
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: Assets represent systems that support industrial functions or processes.
+    Assets are often called 'functional location'.
+  externalId: YourOrgAsset
+  implements:
+  - externalId: CogniteAsset
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Asset
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities related to the asset.
+      name: Activities
+      source:
+        externalId: YourOrgActivity
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: YourOrgActivity
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    assetClass:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetClass
+      description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
+      name: Asset class
+      source:
+        externalId: CogniteAssetClass
+        space: cdf_cdm
+        type: view
+        version: v1
+    children:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of assets with this asset as their
+        parent.
+      name: Children
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: parent
+        source:
+          externalId: YourOrgAsset
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    equipment:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of equipment related to the asset.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: asset
+        source:
+          externalId: YourOrgEquipment
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    files:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of files related to the asset.
+      name: Files
+      source:
+        externalId: YourOrgFile
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: YourOrgFile
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    object3D:
+      container:
+        externalId: CogniteVisualizable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: object3D
+      description: Direct relation to an Object3D instance representing the 3D resource
+    parent:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_parent
+      description: The parent of the asset.
+      name: Parent
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    path:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_path
+      description: An automatically updated ordered list of this asset's ancestors,
+        starting with the root asset. Enables subtree filtering to find all assets
+        under a parent.
+      name: Path
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    root:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_root
+      description: An automatically updated reference to the top-level asset of the
+        hierarchy.
+      name: Root
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    timeSeries:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of time series related to the asset.
+      name: Time series
+      source:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: YourOrgTimeSeries
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    type:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: type
+      description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
+      name: Asset type
+      source:
+        externalId: CogniteAssetType
+        space: cdf_cdm
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: Equipment represents physical supplies or devices.
+  externalId: YourOrgEquipment
+  implements:
+  - externalId: CogniteEquipment
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Equipment
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities related to the equipment.
+      name: Activities
+      source:
+        externalId: YourOrgActivity
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: equipment
+        source:
+          externalId: YourOrgActivity
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    asset:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: asset
+      description: The asset the equipment is related to.
+      name: Asset
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    equipmentType:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipmentType
+      description: Specifies the type of the equipment. It's a direct relation to
+        CogniteEquipmentType.
+      name: Equipment type
+      source:
+        externalId: CogniteEquipmentType
+        space: cdf_cdm
+        type: view
+        version: v1
+    files:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: files
+      description: A list of files the equipment relates to.
+      name: Files
+      source:
+        externalId: YourOrgFile
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    timeSeries:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of time series related to the equipment.
+      name: Time series
+      source:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: equipment
+        source:
+          externalId: YourOrgTimeSeries
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: Represents files.
+  externalId: YourOrgFile
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: File
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgFile
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets this file is related to.
+      name: Assets
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    category:
+      container:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: category
+      description: Specifies the detected category the file belongs to. It's a direct
+        relation to an instance of CogniteFileCategory.
+      name: Category
+      source:
+        externalId: CogniteFileCategory
+        space: cdf_cdm
+        type: view
+        version: v1
+    equipment:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of equipment this file is related
+        to.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: files
+        source:
+          externalId: YourOrgEquipment
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: A formal request or directive to perform maintenance tasks such as
+    repair, inspection, or servicing of equipment or assets. It's often called a 'work
+    order'.
+  externalId: YourOrgMaintenanceOrder
+  implements:
+  - externalId: CogniteMaintenanceOrder
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Maintenance order
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgMaintenanceOrder
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    mainAsset:
+      container:
+        externalId: CogniteMaintenanceOrder
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: mainAsset
+      description: The primary asset (functional location) the maintenance order refers
+        to.
+      name: Main asset
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    operations:
+      connectionType: multi_reverse_direct_relation
+      description: Lists the individual work items on the maintenance order. An automatically
+        populated list of operations related to the maintenance order.
+      name: Operations
+      source:
+        externalId: YourOrgOperation
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: maintenanceOrder
+        source:
+          externalId: YourOrgOperation
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: A formal record to report maintenance issues, defects, or requests,
+    starting the process for planning and running maintenance activities.
+  externalId: YourOrgNotification
+  implements:
+  - externalId: CogniteNotification
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Notification```
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgNotification
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    asset:
+      container:
+        externalId: CogniteNotification
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: asset
+      description: The asset (functional location) the notification is related to.
+      name: Asset
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    maintenanceOrder:
+      container:
+        externalId: CogniteNotification
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: maintenanceOrder
+      description: The maintenance order that was created from the notification.
+      name: Maintenance order
+      source:
+        externalId: YourOrgMaintenanceOrder
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: Operations represent a specific part of the work included in a maintenance
+    order. Often called a 'work order item'.
+  externalId: YourOrgOperation
+  implements:
+  - externalId: CogniteOperation
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Operation
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgOperation
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    mainAsset:
+      container:
+        externalId: CogniteOperation
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: mainAsset
+      description: The primary asset (functional location) the operation is related
+        to.
+      name: Main asset
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    maintenanceOrder:
+      container:
+        externalId: CogniteOperation
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: maintenanceOrder
+      description: The maintenance order the operation is related to.
+      name: Maintenance order
+      source:
+        externalId: YourOrgMaintenanceOrder
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1
+- description: Represents a series of data points in time order."
+  externalId: YourOrgTimeSeries
+  implements:
+  - externalId: CogniteTimeSeries
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Time series
+  properties:
+    UUID:
+      container:
+        externalId: YourOrgTimeSeries
+        space: sp_enterprise_process_industry
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities the time series is
+        related to.
+      name: Activities
+      source:
+        externalId: YourOrgActivity
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+      through:
+        identifier: timeSeries
+        source:
+          externalId: YourOrgActivity
+          space: sp_enterprise_process_industry
+          type: view
+          version: v1
+    assets:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the time series is related to.
+      name: Assets
+      source:
+        externalId: YourOrgAsset
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the time series is related to.
+      name: Equipment
+      source:
+        externalId: YourOrgEquipment
+        space: sp_enterprise_process_industry
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: CogniteSourceSystem
+        space: cdf_cdm
+        type: view
+        version: v1
+    unit:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: unit
+      description: The unit of the time series.
+      name: Unit
+      source:
+        externalId: CogniteUnit
+        space: cdf_cdm
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry
+  version: v1

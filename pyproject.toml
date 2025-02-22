@@ -1,31 +1,40 @@
-[tool.poetry]
+[project]
 name = "cognite_toolkit"
-version = "0.3.7"
+version = "0.4.9"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
-authors = ["Cognite AS <support@cognite.com>"]
-license = "Apache-2"
+authors = [
+    {name ="Cognite AS", email="support@cognite.com"}
+]
+license = "Apache-2.0"
 readme = "README.md"
-documentation = "https://developer.cognite.com/sdks/toolkit/"
-homepage = "https://developer.cognite.com/sdks/toolkit/"
-repository = "https://github.com/cognitedata/toolkit"
+requires-python = ">=3.10"
+
+[tool.poetry]
 packages = [{include = "cognite_toolkit", from = "."}]
 include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
+
+[project.urls]
+Homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
+Changelog = "https://github.com/cognitedata/toolkit/releases"
+GitHub = "https://github.com/cognitedata/toolkit"
+Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.63.5", extras = ["pandas"]}
+cognite-sdk = {version = "^7.73.1", extras = ["pandas"]}
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
-typer = {version = ">=0.12.0, <1.0", extras = ["all"]}
-sentry-sdk = "^2.1.0"
+typer = ">=0.12.0, <1.0"
+rich = "^13.9.4"
 questionary = "^2.0.1"
-mixpanel = "^4.10.1"
 tomli = { version = "^2.0.1", python = "<3.11" }
 # 22.0 was when explicit support for 3.11 was added.
 packaging = ">=22.0,<25.0"
 typing-extensions = "^4.0"
 toml = "^0.10.2"
+sentry-sdk = "^2.1.0"
+mixpanel = "^4.10.1"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.8.0"
@@ -37,7 +46,7 @@ pytest-xdist = "^3.6.1"
 pytest-rerunfailures = "^14.0"
 types-PyYAML = "^6"
 types-toml = "^0.10.8.20240310"
-twine = "^5.0.0"
+twine = "^6.0.0"
 toml = { version = "^0.10.2", python = ">=3.11" }
 pytest-freezegun = "^0.4.2"
 pytest-cov = "^6.0.0"
@@ -45,6 +54,7 @@ setuptools = "^75.0.0"
 fastparquet = "^2024.5.0"
 pyperclip = "^1.9.0"
 pydantic = "^2.9.0"
+types-requests = "^2.32.0.20241016"
 
 [tool.poetry.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"

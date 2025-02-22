@@ -37,6 +37,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
+from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.hosted_extractors import (
@@ -47,8 +48,13 @@ from cognite.client.data_classes.hosted_extractors import (
     RestConfig,
 )
 from cognite.client.data_classes.transformations.notifications import TransformationNotificationWrite
-from cognite.client.data_classes.workflows import WorkflowTaskOutput, WorkflowTaskParameters
+from cognite.client.data_classes.workflows import (
+    WorkflowTaskOutput,
+    WorkflowTaskParameters,
+    WorkflowTriggerDataModelingQuery,
+)
 from cognite.client.testing import CogniteClientMock
+from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
@@ -73,18 +79,26 @@ def mock_read_yaml_file(
 
     def fake_load_yaml_inject_variables(
         filepath: Path | str,
-        variables: dict[str, str | None],
+        environment_variables: dict[str, str | None],
         required_return_type: Literal["any", "list", "dict"] = "any",
+        validate: bool = True,
+        original_filepath: Path | None = None,
     ) -> dict[str, Any] | list[dict[str, Any]]:
         if isinstance(filepath, str):
-            return load_yaml_inject_variables(filepath, variables, required_return_type)
+            return load_yaml_inject_variables(
+                filepath, environment_variables, required_return_type, validate, original_filepath
+            )
         if file_content := file_content_by_name.get(filepath.name):
             if modify:
-                source = load_yaml_inject_variables(filepath, variables, required_return_type)
+                source = load_yaml_inject_variables(
+                    filepath, environment_variables, required_return_type, validate, original_filepath
+                )
                 source.update(file_content)
                 file_content = source
             return file_content
-        return load_yaml_inject_variables(filepath, variables, required_return_type)
+        return load_yaml_inject_variables(
+            filepath, environment_variables, required_return_type, validate, original_filepath
+        )
 
     monkeypatch.setattr("cognite_toolkit._cdf_tk.utils.read_yaml_file", fake_read_yaml_file)
     monkeypatch.setattr("cognite_toolkit._cdf_tk.data_classes._base.read_yaml_file", fake_read_yaml_file)
@@ -96,17 +110,9 @@ def mock_read_yaml_file(
     )
     for module in [
         "classic_loaders",
-        "auth_loaders",
-        "data_organization_loaders",
         "datamodel_loaders",
-        "extraction_pipeline_loaders",
-        "file_loader",
-        "function_loaders",
-        "timeseries_loaders",
+        "industrial_tool_loaders",
         "transformation_loaders",
-        "three_d_model_loaders",
-        "location_loaders",
-        "workflow_loaders",
     ]:
         monkeypatch.setattr(
             f"cognite_toolkit._cdf_tk.loaders._resource_loaders.{module}.load_yaml_inject_variables",
@@ -229,7 +235,7 @@ class FakeCogniteResourceGenerator:
             else:
                 keyword_arguments.pop("filter", None)
 
-        if resource_cls is Query:
+        if resource_cls is Query or resource_cls is WorkflowTriggerDataModelingQuery:
             # The fake generator makes all dicts from 1-3 values, we need to make sure that the query is valid
             # by making sure that the list of equal length, so we make both to length 1.
             with_key, with_value = next(iter(keyword_arguments["with_"].items()))
@@ -308,6 +314,12 @@ class FakeCogniteResourceGenerator:
                 # The incremental load cannot be of type `nextUrl`
                 load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
                 keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
+        elif issubclass(resource_cls, ListablePropertyType) and "max_list_size" in keyword_arguments:
+            if keyword_arguments["max_list_size"] <= 1:
+                keyword_arguments.pop("max_list_size")
+            elif keyword_arguments["max_list_size"] > 1:
+                keyword_arguments["max_list_size"] = min(2_000, keyword_arguments["max_list_size"])
+                keyword_arguments["is_list"] = True
 
         return resource_cls(*positional_arguments, **keyword_arguments)
 
@@ -346,6 +358,7 @@ class FakeCogniteResourceGenerator:
             typing.Sequence,
             collections.abc.Sequence,
             collections.abc.Collection,
+            SequenceNotStr,
         ]:
             return [self.create_value(first_not_none) for _ in range(3)]
         elif container_type in [dict, collections.abc.MutableMapping, collections.abc.Mapping]:

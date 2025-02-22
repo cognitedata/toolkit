@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Hashable, Iterable, Sequence
 from contextlib import suppress
 from typing import Any
 
@@ -34,6 +34,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 
 class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, FrameList]):
@@ -48,7 +49,7 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
 
     @property
     def display_name(self) -> str:
-        return "robotics.frame"
+        return "robotics frames"
 
     @classmethod
     def get_id(cls, item: Frame | FrameWrite | dict) -> str:
@@ -63,7 +64,9 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: FrameWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[FrameWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         return capabilities.RoboticsAcl(
@@ -93,7 +96,12 @@ class RoboticFrameLoader(ResourceLoader[str, FrameWrite, Frame, FrameWriteList, 
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Frame]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Frame]:
         return iter(self.client.robotics.frames)
 
 
@@ -109,7 +117,7 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
 
     @property
     def display_name(self) -> str:
-        return "robotics.location"
+        return "robotics locations"
 
     @classmethod
     def get_id(cls, item: Location | LocationWrite | dict) -> str:
@@ -124,7 +132,9 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: LocationWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[LocationWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
         actions = (
@@ -159,7 +169,12 @@ class RoboticLocationLoader(ResourceLoader[str, LocationWrite, Location, Locatio
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Location]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Location]:
         return iter(self.client.robotics.locations)
 
 
@@ -179,7 +194,7 @@ class RoboticsDataPostProcessingLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.data_postprocessing"
+        return "robotics data postprocessing"
 
     @classmethod
     def get_id(cls, item: DataPostProcessing | DataPostProcessingWrite | dict) -> str:
@@ -195,7 +210,7 @@ class RoboticsDataPostProcessingLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: DataPostProcessingWriteList | None, read_only: bool
+        cls, items: Sequence[DataPostProcessingWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -243,8 +258,20 @@ class RoboticsDataPostProcessingLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[DataPostProcessing]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[DataPostProcessing]:
         return iter(self.client.robotics.data_postprocessing)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] == "inputSchema":
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
 
 class RobotCapabilityLoader(
@@ -261,7 +288,7 @@ class RobotCapabilityLoader(
 
     @property
     def display_name(self) -> str:
-        return "robotics.robot_capability"
+        return "robotics robot capabilities"
 
     @classmethod
     def get_id(cls, item: RobotCapability | RobotCapabilityWrite | dict) -> str:
@@ -277,7 +304,7 @@ class RobotCapabilityLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: RobotCapabilityWriteList | None, read_only: bool
+        cls, items: Sequence[RobotCapabilityWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -328,8 +355,20 @@ class RobotCapabilityLoader(
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[RobotCapability]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[RobotCapability]:
         return iter(self.client.robotics.capabilities)
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path[0] in {"inputSchema", "dataHandlingSchema"}:
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
 
 
 class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]):
@@ -345,7 +384,7 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
 
     @property
     def display_name(self) -> str:
-        return "robotics.map"
+        return "robotics maps"
 
     @classmethod
     def get_id(cls, item: Map | MapWrite | dict) -> str:
@@ -360,7 +399,9 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
         return {"externalId": id}
 
     @classmethod
-    def get_required_capability(cls, items: MapWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[MapWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -380,6 +421,14 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
 
         return capabilities.RoboticsAcl(actions, capabilities.RoboticsAcl.Scope.All())
 
+    def dump_resource(self, resource: Map, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dump = resource.as_write().dump()
+        local = local or {}
+        if dump.get("scale") == 1.0 and "scale" not in local:
+            # Default value set on the server side.
+            del dump["scale"]
+        return dump
+
     def create(self, items: MapWriteList) -> MapList:
         return self.client.robotics.maps.create(items)
 
@@ -396,7 +445,12 @@ class RoboticMapLoader(ResourceLoader[str, MapWrite, Map, MapWriteList, MapList]
             return len(e.successful)
         return len(ids)
 
-    def iterate(self) -> Iterable[Map]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Map]:
         return iter(self.client.robotics.maps)
 
 

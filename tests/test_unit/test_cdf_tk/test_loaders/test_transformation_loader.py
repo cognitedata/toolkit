@@ -1,15 +1,17 @@
-import pathlib
 from collections.abc import Hashable
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from cognite.client.data_classes import Transformation
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
+from cognite_toolkit._cdf_tk.exceptions import ToolkitTypeError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     DataSetsLoader,
@@ -20,7 +22,8 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     ViewLoader,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -41,45 +44,43 @@ ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
 """
-
     trafo_sql = "FILE"
 
     def test_no_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
-        monkeypatch: MonkeyPatch,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
         filepath = self._create_mock_file(self.trafo_yaml)
 
-        loader._get_query_file = _return_none
-        loaded = loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+
         assert loaded.destination_oidc_credentials is None
         assert loaded.source_oidc_credentials is None
 
     def test_oidc_auth_load(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
-
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
-
         resource["authentication"] = {
-            "clientId": "{{cicd_clientId}}",
-            "clientSecret": "{{cicd_clientSecret}}",
-            "tokenUri": "{{cicd_tokenUri}}",
-            "cdfProjectName": "{{cdfProjectName}}",
-            "scopes": "{{cicd_scopes}}",
-            "audience": "{{cicd_audience}}",
+            "clientId": "my-client-id",
+            "clientSecret": "my-client-secret",
+            "tokenUri": "https://cognite.com/token",
+            "cdfProjectName": "my-project",
+            "scopes": "USER_IMPERSONATION",
+            "audience": "https://cognite.com",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
 
-        loader._get_query_file = _return_none
-        loaded = loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+
         assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
         assert loaded.destination is not None
 
@@ -89,12 +90,13 @@ conflictMode: upsert
         filepath.read_text.return_value = content
         filepath.name = "transformation.yaml"
         filepath.stem = "transformation"
+        filepath.parent = Path("path")
         return filepath
 
     def test_oidc_raise_if_invalid(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -102,36 +104,58 @@ conflictMode: upsert
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
         resource["authentication"] = {
-            "clientId": "{{cicd_clientId}}",
-            "clientSecret": "{{cicd_clientSecret}}",
+            "clientId": "my-client-id",
+            "clientSecret": "my-client-secret",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
-        loader._get_query_file = _return_none
 
-        with pytest.raises(ToolkitYAMLFormatError):
-            loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
+        with pytest.raises(ToolkitTypeError):
+            raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+            loader.load_resource(raw_list[0], is_dry_run=False)
 
-    def test_sql_file(
+    @pytest.mark.skipif(
+        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
+    )
+    def test_auth_unchanged_changed(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
-        monkeypatch: MonkeyPatch,
     ) -> None:
-        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
+        local_content = """name: my-transformation
+externalId: my_transformation
+ignoreNullFields: true
+query: SELECT * FROM my_table
+authentication:
+  clientId: my-client-id
+  clientSecret: my-client-secret
+  scopes: USER_IMPERSONATION
+  tokenUri: https://cognite.com/token
+  cdfProjectName: my-project
+        """
+        auth_dict = {"authentication": yaml.CSafeLoader(local_content).get_data()["authentication"]}
+        auth_hash = calculate_secure_hash(auth_dict, shorten=True)
+        cdf_transformation = Transformation(
+            name="my-transformation",
+            external_id="my_transformation",
+            query=f"{TransformationLoader._hash_key}: {auth_hash}\nSELECT * FROM my_table",
+            ignore_null_fields=True,
+        )
+        with monkeypatch_toolkit_client() as client:
+            loader = TransformationLoader(client, None, None)
 
-        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
-        resource.pop("query")
-        filepath = self._create_mock_file(yaml.dump(resource))
+        filepath = self._create_mock_file(local_content)
+        local_dumped = loader.load_resource_file(filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_transformation, local_dumped)
+        assert cdf_dumped == local_dumped
 
-        with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
-            with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
-                loaded = loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
-                assert loaded.query == self.trafo_sql
+        new_filepath = self._create_mock_file(local_content.replace("my-client-secret", "my-new-client-secret"))
+        new_local_dumped = loader.load_resource_file(new_filepath, {})[0]
+        cdf_dumped = loader.dump_resource(cdf_transformation, new_local_dumped)
+        assert cdf_dumped != new_local_dumped
 
     def test_sql_inline(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
+        env_vars_with_client: EnvironmentVariables,
         monkeypatch: MonkeyPatch,
     ) -> None:
         loader = TransformationLoader(toolkit_client_approval.mock_client, None)
@@ -139,24 +163,9 @@ conflictMode: upsert
         filepath = self._create_mock_file(self.trafo_yaml)
         resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
 
-        with patch.object(TransformationLoader, "_get_query_file", return_value=None):
-            loaded = loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
-            assert loaded.query == resource["query"]
-
-    def test_if_ambiguous(
-        self,
-        toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
-        monkeypatch: MonkeyPatch,
-    ) -> None:
-        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
-
-        filepath = self._create_mock_file(self.trafo_yaml)
-
-        with pytest.raises(ToolkitYAMLFormatError):
-            with patch.object(TransformationLoader, "_get_query_file", return_value=Path("transformation.sql")):
-                with patch.object(pathlib.Path, "read_text", return_value=self.trafo_sql):
-                    loader.load_resource(filepath, cdf_tool_real, skip_validation=False)
+        raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
+        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+        assert loaded.query == resource["query"]
 
     @pytest.mark.parametrize(
         "item, expected",

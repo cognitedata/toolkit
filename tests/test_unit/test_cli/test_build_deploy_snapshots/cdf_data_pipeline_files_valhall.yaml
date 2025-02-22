@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_fileshare_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 - description: File data for oid
   externalId: ds_files_oid
   metadata:
@@ -16,12 +15,11 @@ DataSet:
     transformations: '[{"externalId": "tr_files_oid_fileshare_file_metadata", "type":
       "Transformations"}]'
   name: files:oid
-  writeProtected: false
 Database:
 - name: files_oid_fileshare
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 8524431518038195316
   description: Annotation of P&ID documents from file source  oid:fileshare
   documentation: "# Contextualization / Annotation of P&ID Documents\n\nThe P&ID Annotation\
     \ runs as a process in CDF Functions. Process triggers on new and updated documents\
@@ -34,8 +32,8 @@ ExtractionPipeline:
     \ documents, if False only run on document not updated since last  annotation\n\
     \ runAll: False\n # Number of document from each asset to annotate -1 = All, else\
     \ number is used\n docLimit: -1\n # Data set to read documents / P&ID from + update\
-    \ with annotated timestamp when done\n docDataSetExtId: ds_files_oid\n # In document\
-    \ metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
+    \ with annotated timestamp when done\n docDataSetExtId: \"ds_files_oid\"\n # In\
+    \ document metadata, where is location of property for P&ID type documents\n docTypeMetaCol:\
     \ \"doc_type\"\n # Document type for P&ID type documents\n pAndIdDocType: \"PNID\"\
     \n # List of externalId for root assets to be used for annotation of documents.\
     \ Documents are also extracted based on the root asset ID\n assetRootExtIds: [WMT:VAL]\n\
@@ -45,7 +43,7 @@ ExtractionPipeline:
   name: ctx:files:oid:fileshare:pandid_annotation
   source: fileshare
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 8524431518038195316
   description: File source extraction pipeline with configuration for File extractor
     reading data from oid:fileshare
   documentation: "The Cognite File Extractor is a generic file extractor that can\
@@ -65,8 +63,8 @@ ExtractionPipeline:
   source: fileshare
 ExtractionPipelineConfig:
 - config: "data:\n  debug: False\n  runAll: False\n  docLimit: -1\n  docDataSetExtId:\
-    \ ds_files_oid\n  docTypeMetaCol: \"doc_type\"\n  pAndIdDocType: \"PNID\"\n  assetRootExtIds:\
-    \ [WMT:VAL]\n  matchThreshold: 0.85\n \n"
+    \ \"ds_files_oid\"\n  docTypeMetaCol: \"doc_type\"\n  pAndIdDocType: \"PNID\"\n\
+    \  assetRootExtIds: [WMT:VAL]\n  matchThreshold: 0.85\n \n"
   externalId: ep_ctx_files_oid_fileshare_pandid_annotation
 - config: "logger:\n  # Logging to console/terminal. Remove or comment out to disable\
     \ terminal\n  # logging\n  console:\n    level: INFO\n\n  # Logging to file. Include\
@@ -82,13 +80,13 @@ Function:
 - cpu: 0.6
   description: Contextualization of P&ID files creating annotations
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_context_files_oid_fileshare_annotation
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: d7107f17192e7e79ed7919cbf70c628e18e0d966da9a99d85f05eae8dc164af0
+    cognite-toolkit-hash: /=d7107f17;__init__.py=e3b0c442;config.py=f8bc25c0;constants.py=0b7ca6c0;handler.py=f77bd6e4;pipeline.py=577e53f0;requirements.txt=8d59ed94
     version: 0.0.1
   name: context:files:oid:fileshare:annotation
   owner: Anonymous
@@ -96,21 +94,21 @@ Function:
 - cpu: 0.6
   description: Workflow scheduler for Contextualization of P&ID files creating annotations
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_workflow_files_oid_fileshare_annotation
   fileId: -1
   functionPath: handler.py
   metadata:
-    cdf-toolkit-function-hash: c59aa6c790b492bdf98483455c9774921ff7e3b1167e0b96c7951c6d13140f14
-    cdf-toolkit-secret-hash: 862e372bd68632da6bebf14471055fac3b54bf02887871899c98c68518c47b8a75885f5b191d399f48d7bdb1571d139d248a4affd9e1fef67cad07a6378ae1ff
+    cdf-toolkit-secret-hash: 713508150112ea25b1d8587dab587e20a3cd564511918a24c3e59e48dd81d3193b27abe3f74fff394dae118da13a162908b93c77232301a1bb3d81366d963b25
+    cognite-toolkit-hash: /=c59aa6c7;__init__.py=e3b0c442;config.py=fb0a951c;handler.py=959ae0cd;pipeline.py=c1ab43e9;requirements.txt=ea7478ac
     version: 0.0.1
   name: workflow:files:oid:fileshare:annotation
   owner: Anonymous
   runtime: py311
   secrets:
-    client-id: ${IDP_CLIENT_ID}
-    client-secret: ${IDP_CLIENT_SECRET}
+    client-id: dummy-123
+    client-secret: dummy-secret
 FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:
@@ -137,14 +135,14 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   - extractionConfigsAcl:
       actions:
       - READ
       scope:
         extractionPipelineScope:
           ids:
-          - 1
+          - 13081016686738274100
   - extractionRunsAcl:
       actions:
       - READ
@@ -152,7 +150,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_extractor
@@ -181,7 +179,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
@@ -189,7 +187,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   - extractionConfigsAcl:
       actions:
       - READ
@@ -197,7 +195,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   - extractionRunsAcl:
       actions:
       - READ
@@ -205,7 +203,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   - annotationsAcl:
       actions:
       - READ
@@ -239,7 +237,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_processing
@@ -262,7 +260,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 8524431518038195316
   metadata:
     origin: cdf-project-templates
   name: gp_files_oid_read
@@ -272,16 +270,16 @@ Table:
   name: files_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 8524431518038195316
   destination:
     type: files
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_files_oid_fileshare_file_metadata
   ignoreNullFields: true
   isPublic: true
@@ -300,16 +298,17 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationSchedule:
 - externalId: tr_files_oid_fileshare_file_metadata
   interval: 7 * * * *
   isPaused: true
 Workflow:
-- description: Annotation process on files
+- dataSetId: 8524431518038195316
+  description: Annotation process on files
   externalId: wf_oid_files_annotation
 WorkflowVersion:
 - version: '1'
@@ -323,6 +322,7 @@ WorkflowVersion:
         transformation:
           concurrencyPolicy: fail
           externalId: tr_files_oid_fileshare_file_metadata
+          useTransformationCredentials: false
       retries: 3
       timeout: null
       type: transformation
@@ -341,3 +341,4 @@ WorkflowVersion:
       timeout: null
       type: function
   workflowExternalId: wf_oid_files_annotation
+deleted: {}

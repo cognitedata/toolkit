@@ -1,22 +1,22 @@
-conflictMode: upsert
-dataSetExternalId: uc_002
+externalId: cdf_copy_assets_upsert_so_route_sync
+name: cdf_copy_assets_upsert_so_route_sync
 destination:
   type: assets
-destinationOidcCredentials:
-  cdfProjectName: ${COGNITE_TEST_PROJECT}
-  clientId: ${COGNITE_TEST_ALLPROJECTS_CLIENT_ID}
-  clientSecret: ${COGNITE_TEST_ALLPROJECTS_CLIENT_SECRET}
-  scopes:
-  - ${SCOPES}
-  tokenUri: ${TOKEN_URL}
-externalId: cdf_copy_assets_upsert_so_route_sync
 ignoreNullFields: true
+dataSetExternalId: uc_002
 isPublic: true
-name: cdf_copy_assets_upsert_so_route_sync
+conflictMode: upsert
 sourceOidcCredentials:
   cdfProjectName: ${COGNITE_DEV_PROJECT}
   clientId: ${COGNITE_DEV_ALLPROJECTS_CLIENT_ID}
   clientSecret: ${COGNITE_DEV_ALLPROJECTS_CLIENT_SECRET}
+  scopes:
+  - ${SCOPES}
+  tokenUri: ${TOKEN_URL}
+destinationOidcCredentials:
+  cdfProjectName: ${COGNITE_TEST_PROJECT}
+  clientId: ${COGNITE_TEST_ALLPROJECTS_CLIENT_ID}
+  clientSecret: ${COGNITE_TEST_ALLPROJECTS_CLIENT_SECRET}
   scopes:
   - ${SCOPES}
   tokenUri: ${TOKEN_URL}

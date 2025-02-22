@@ -1,3 +1,4 @@
+import os
 from collections.abc import Hashable
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -7,7 +8,7 @@ from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes import ExtractionPipelineConfig
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
-from cognite_toolkit._cdf_tk.commands import CleanCommand, DeployCommand
+from cognite_toolkit._cdf_tk.commands import CleanCommand
 from cognite_toolkit._cdf_tk.loaders import (
     DataSetsLoader,
     ExtractionPipelineConfigLoader,
@@ -15,8 +16,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     RawDatabaseLoader,
     RawTableLoader,
     ResourceLoader,
+    ResourceWorker,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -32,29 +34,9 @@ class TestExtractionPipelineDependencies:
         description: 'DB extractor config reading data from Springfield SAP'
     """
 
-    def test_load_extraction_pipeline_upsert_create_one(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
-    ):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-
-        toolkit_client_approval.append(
-            ExtractionPipelineConfig,
-            ExtractionPipelineConfig(
-                external_id="ep_src_asset",
-                description="DB extractor config reading data from Springfield SAP",
-            ),
-        )
-
     def test_load_extraction_pipeline_upsert_update_one(
         self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
@@ -67,22 +49,22 @@ class TestExtractionPipelineDependencies:
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
 
-        cmd = DeployCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
-        resources = loader.load_resource(local_file, cdf_tool, skip_validation=False)
-        to_create, changed, unchanged = cmd.to_create_changed_unchanged_triple([resources], loader)
-        assert len(to_create) == 0
-        assert len(changed) == 1
-        assert len(unchanged) == 0
+        loader = ExtractionPipelineConfigLoader.create_loader(toolkit_client_approval.mock_client)
+        worker = ResourceWorker(loader)
+        to_create, changed, to_delete, unchanged, _ = worker.load_resources([local_file])
+        assert {
+            "create": len(to_create),
+            "changed": len(changed),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
 
     def test_load_extraction_pipeline_delete_one(
-        self, toolkit_client_approval: ApprovalToolkitClient, monkeypatch: MonkeyPatch
+        self,
+        toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
     ) -> None:
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-        cdf_tool.client = toolkit_client_approval.mock_client
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-
         toolkit_client_approval.append(
             ExtractionPipelineConfig,
             ExtractionPipelineConfig(
@@ -94,11 +76,13 @@ class TestExtractionPipelineDependencies:
 
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = self.config_yaml
+        local_file.stem = "ep_src_asset"
 
         cmd = CleanCommand(print_warning=False)
-        loader = ExtractionPipelineConfigLoader.create_loader(cdf_tool, None)
+        loader = ExtractionPipelineConfigLoader.create_loader(env_vars_with_client.get_client())
         with patch.object(ExtractionPipelineConfigLoader, "find_files", return_value=[local_file]):
-            res = cmd.clean_resources(loader, cdf_tool, dry_run=True, drop=True)
+            res = cmd.clean_resources(loader, env_vars_with_client, [], dry_run=True, drop=True)
+            assert res is not None
             assert res.deleted == 1
 
 
@@ -128,3 +112,31 @@ class TestExtractionPipelineLoader:
         actual = ExtractionPipelineLoader.get_dependent_items(item)
 
         assert list(actual) == expected
+
+    @patch.dict(
+        os.environ,
+        {
+            "INGESTION_CLIENT_ID": "this-is-the-ingestion-client-id",
+            "INGESTION_CLIENT_SECRET": "this-is-the-ingestion-client-secret",
+            "NON-SECRET": "this-is-not-a-secret",
+        },
+    )
+    def test_omit_environment_variables(
+        self, env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+    ) -> None:
+        local_file = MagicMock(spec=Path)
+        local_file.read_text.return_value = """
+            - externalId: 'ep_src_asset'
+              name: 'Hamburg SAP'
+              config: 'secret: ${INGESTION_CLIENT_SECRET}'
+            - externalId: 'ep_src_asset_2'
+              name: '${NON-SECRET}'
+              config: 'secret: ${INGESTION_CLIENT_SECRET}'
+        """
+        local_file.stem = "ep_src_asset"
+
+        loader = ExtractionPipelineConfigLoader.create_loader(env_vars_with_client.get_client())
+        res = loader.load_resource_file(filepath=local_file, environment_variables=env_vars_with_client.dump())
+        # Assert that env vars are skipped for this loader
+        assert res[0]["config"] == "secret: ${INGESTION_CLIENT_SECRET}"
+        assert res[1]["name"] == "this-is-not-a-secret"

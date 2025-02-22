@@ -3,14 +3,14 @@ import shutil
 from pathlib import Path
 
 import pytest
-from cognite.client import ClientConfig, CogniteClient, global_config
+from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.commands import CollectCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
 
 THIS_FOLDER = Path(__file__).resolve().parent
@@ -18,7 +18,7 @@ TMP_FOLDER = THIS_FOLDER / "tmp"
 
 
 @pytest.fixture(scope="session")
-def cognite_client() -> CogniteClient:
+def toolkit_client_config() -> ToolkitClientConfig:
     load_dotenv(REPO_ROOT / ".env", override=True)
     # Ensure that we do not collect data during tests
     cmd = CollectCommand()
@@ -33,24 +33,32 @@ def cognite_client() -> CogniteClient:
         audience=f"https://{cdf_cluster}.cognitedata.com",
     )
     global_config.disable_pypi_version_check = True
-    return CogniteClient(
-        ClientConfig(
-            client_name="cdf-toolkit-integration-tests",
-            base_url=f"https://{cdf_cluster}.cognitedata.com",
-            project=os.environ["CDF_PROJECT"],
-            credentials=credentials,
-        )
+    return ToolkitClientConfig(
+        client_name="cdf-toolkit-integration-tests",
+        base_url=f"https://{cdf_cluster}.cognitedata.com",
+        project=os.environ["CDF_PROJECT"],
+        credentials=credentials,
+        # We cannot commit auth to WorkflowTrigger and FunctionSchedules.
+        is_strict_validation=False,
     )
 
 
 @pytest.fixture(scope="session")
-def toolkit_client(cognite_client: CogniteClient) -> ToolkitClient:
-    return ToolkitClient(cognite_client._config)
+def cognite_client(toolkit_client_config: ToolkitClientConfig) -> CogniteClient:
+    return CogniteClient(toolkit_client_config)
 
 
 @pytest.fixture(scope="session")
-def cdf_tool_config(cognite_client: CogniteClient) -> CDFToolConfig:
-    return CDFToolConfig()
+def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
+    return ToolkitClient(toolkit_client_config)
+
+
+@pytest.fixture(scope="session")
+def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
+    env_vars = EnvironmentVariables.create_from_environment()
+    # Ensure we use the client above that has CLIENT NAME set to the test name
+    env_vars._client = toolkit_client
+    return env_vars
 
 
 @pytest.fixture(scope="session")

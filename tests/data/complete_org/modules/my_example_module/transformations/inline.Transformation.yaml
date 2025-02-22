@@ -1,0 +1,9 @@
+externalId: inlined_transformation
+name: Example of an inlined transformation
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
+  where UNY is not null

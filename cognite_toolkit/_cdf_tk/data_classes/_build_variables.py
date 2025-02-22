@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 import re
+import uuid
+from collections import defaultdict
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, SupportsIndex, overload
+from typing import Any, Literal, SupportsIndex, overload
+
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 
 from ._module_directories import ModuleLocation
 
@@ -26,6 +31,7 @@ class BuildVariable:
     value: str | int | float | bool | tuple[str | int | float | bool]
     is_selected: bool
     location: Path
+    iteration: int | None = None
 
     @property
     def value_variable(self) -> str | int | float | bool | list[str | int | float | bool]:
@@ -62,12 +68,14 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
 
     # Subclassing tuple to make the class immutable. BuildVariables is expected to be initialized and
     # then used as a read-only object.
-    def __new__(cls, collection: Collection[BuildVariable]) -> BuildVariables:
+    def __new__(cls, collection: Collection[BuildVariable], source_path: Path | None = None) -> BuildVariables:
         # Need to override __new__ to as we are subclassing a tuple:
         #   https://stackoverflow.com/questions/1565374/subclassing-tuple-with-multiple-init-arguments
         return super().__new__(cls, tuple(collection))
 
-    def __init__(self, collection: Collection[BuildVariable]) -> None: ...
+    def __init__(self, collection: Collection[BuildVariable], source_path: Path | None = None) -> None:
+        super().__init__()
+        self.source_path = source_path
 
     @cached_property
     def selected(self) -> BuildVariables:
@@ -79,56 +87,110 @@ class BuildVariables(tuple, Sequence[BuildVariable]):
         raw_variable: dict[str, Any],
         available_modules: set[Path],
         selected_modules: set[Path] | None = None,
+        source_path: Path | None = None,
     ) -> BuildVariables:
         """Loads the variables from the user input."""
         variables = []
-        to_check: list[tuple[Path, dict[str, Any]]] = [(Path(""), raw_variable)]
+        to_check: list[tuple[Path, int | None, dict[str, Any]]] = [(Path(""), None, raw_variable)]
         while to_check:
-            path, subdict = to_check.pop()
+            path, iteration, subdict = to_check.pop()
             for key, value in subdict.items():
                 subpath = path / key
                 if subpath in available_modules and isinstance(value, dict):
-                    to_check.append((subpath, value))
+                    to_check.append((subpath, None, value))
+                elif subpath in available_modules and isinstance(value, list):
+                    if Flags.MODULE_REPEAT.is_enabled():
+                        for no, module_variables in enumerate(value, 1):
+                            if not isinstance(module_variables, dict):
+                                raise ToolkitValueError(f"Variables under a module must be a dictionary: {subpath}.")
+                            to_check.append((subpath, no, module_variables))
+                    else:
+                        raise ToolkitValueError(
+                            f"Variables under a module cannot be a list: {subpath}. Please use a dictionary/mapping."
+                        )
                 elif isinstance(value, dict):
                     # Remove this check to support variables with dictionary values.
                     continue
                 else:
                     hashable_values = tuple(value) if isinstance(value, list) else value
                     is_selected = selected_modules is None or path in selected_modules
-                    variables.append(BuildVariable(key, hashable_values, is_selected, path))
+                    variables.append(BuildVariable(key, hashable_values, is_selected, path, iteration))
 
-        return cls(variables)
+        return cls(variables, source_path=source_path)
 
     @classmethod
     def load(cls, data: list[dict[str, Any]]) -> BuildVariables:
         """Loads the variables from a dictionary."""
         return cls([BuildVariable.load(variable) for variable in data])
 
-    def get_module_variables(self, module: ModuleLocation) -> BuildVariables:
+    def get_module_variables(self, module: ModuleLocation) -> list[BuildVariables]:
         """Gets the variables for a specific module."""
-        return BuildVariables(
-            [
-                variable
-                for variable in self
-                if variable.location == module.relative_path or variable.location in module.parent_relative_paths
-            ]
+        variables_by_key_by_iteration: dict[int | None, dict[str, list[BuildVariable]]] = defaultdict(
+            lambda: defaultdict(list)
         )
-
-    def replace(self, content: str, file_suffix: str = ".yaml") -> str:
         for variable in self:
-            replace = variable.value_variable
-            _core_patter = rf"{{{{\s*{variable.key}\s*}}}}"
+            if variable.location == module.relative_path or variable.location in module.parent_relative_paths:
+                variables_by_key_by_iteration[variable.iteration][variable.key].append(variable)
+
+        base_variables: dict[str, list[BuildVariable]] = variables_by_key_by_iteration.pop(None, {})
+        variable_sets: list[dict[str, list[BuildVariable]]]
+        if variables_by_key_by_iteration:
+            # Combine each with the base variables
+            variable_sets = []
+            for _, variables_by_key in sorted(variables_by_key_by_iteration.items(), key=lambda x: x[0] or 0):
+                for key, build_variable in base_variables.items():
+                    variables_by_key[key].extend(build_variable)
+                variable_sets.append(variables_by_key)
+        else:
+            variable_sets = [base_variables]
+
+        return [
+            BuildVariables(
+                [
+                    # We select the variable with the longest path to ensure that the most specific variable is selected
+                    max(variables, key=lambda v: len(v.location.parts))
+                    for variables in variable_set.values()
+                ],
+                source_path=self.source_path,
+            )
+            for variable_set in variable_sets
+        ]
+
+    @overload
+    def replace(self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[False] = False) -> str: ...
+
+    @overload
+    def replace(
+        self, content: str, file_suffix: str = ".yaml", use_placeholder: Literal[True] = True
+    ) -> tuple[str, dict[str, BuildVariable]]: ...
+
+    def replace(
+        self, content: str, file_suffix: str = ".yaml", use_placeholder: bool = False
+    ) -> str | tuple[str, dict[str, BuildVariable]]:
+        variable_by_placeholder: dict[str, BuildVariable] = {}
+        for variable in self:
+            if not use_placeholder:
+                replace = variable.value_variable
+            else:
+                replace = f"VARIABLE_{uuid.uuid4().hex[:8]}"
+                variable_by_placeholder[replace] = variable
+
+            _core_pattern = rf"{{{{\s*{variable.key}\s*}}}}"
             if file_suffix in {".yaml", ".yml", ".json"}:
                 # Preserve data types
+                pattern = _core_pattern
                 if isinstance(replace, str) and (replace.isdigit() or replace.endswith(":")):
                     replace = f'"{replace}"'
+                    pattern = rf"'{_core_pattern}'|{_core_pattern}|" + rf'"{_core_pattern}"'
                 elif replace is None:
                     replace = "null"
-                content = re.sub(rf"'{_core_patter}'|{_core_patter}|" + rf'"{_core_patter}"', str(replace), content)
+                content = re.sub(pattern, str(replace), content)
             else:
-                content = re.sub(_core_patter, str(replace), content)
-
-        return content
+                content = re.sub(_core_pattern, str(replace), content)
+        if use_placeholder:
+            return content, variable_by_placeholder
+        else:
+            return content
 
     # Implemented to get correct type hints
     def __iter__(self) -> Iterator[BuildVariable]:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # The Typer parameters get mixed up if we use the __future__ import annotations in the main file.
 # ruff: noqa: E402
+import re
 import sys
 import traceback
 from datetime import datetime, timezone
@@ -9,7 +10,10 @@ from typing import NoReturn
 
 import typer
 from cognite.client.config import global_config
+from rich.markup import escape
 from rich.panel import Panel
+
+from cognite_toolkit._cdf_tk.hints import Hint
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
@@ -17,12 +21,22 @@ global_config.silence_feature_preview_warnings = True
 
 from rich import print
 
-from cognite_toolkit._cdf_tk.apps import AuthApp, CoreApp, DumpApp, LandingApp, ModulesApp, PullApp, RepoApp, RunApp
+from cognite_toolkit._cdf_tk.apps import (
+    AuthApp,
+    CoreApp,
+    DumpApp,
+    LandingApp,
+    ModulesApp,
+    PopulateApp,
+    PurgeApp,
+    RepoApp,
+    RunApp,
+)
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import (
     CollectCommand,
 )
-from cognite_toolkit._cdf_tk.constants import USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, URL, USE_SENTRY
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
 )
@@ -77,11 +91,14 @@ if Plugins.run.value.is_enabled():
     _app.add_typer(RunApp(**default_typer_kws), name="run")
 _app.add_typer(RepoApp(**default_typer_kws), name="repo")
 
-if Plugins.pull.value.is_enabled():
-    _app.add_typer(PullApp(**default_typer_kws), name="pull")
-
 if Plugins.dump.value.is_enabled():
     _app.add_typer(DumpApp(**default_typer_kws), name="dump")
+
+if Plugins.purge.value.is_enabled():
+    _app.add_typer(PurgeApp(**default_typer_kws), name="purge")
+
+if Flags.POPULATE.is_enabled():
+    _app.add_typer(PopulateApp(**default_typer_kws), name="populate")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
@@ -141,6 +158,18 @@ def app() -> NoReturn:
 
         print(f"  [bold red]ERROR ([/][red]{type(err).__name__}[/][bold red]):[/] {err}")
         raise SystemExit(1)
+    except SystemExit:
+        if result := re.search(r"click.exceptions.UsageError: No such command '(\w+)'.", traceback.format_exc()):
+            cmd = result.group(1)
+            if cmd in Plugins.list():
+                plugin = r"[plugins]"
+                print(
+                    f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
+                    f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
+                    f"[bold]{escape(plugin)}[/bold] section."
+                    f"\nDocs to lean more: {Hint._link(URL.plugins, URL.plugins)}"
+                )
+        raise
 
     raise SystemExit(0)
 

@@ -142,6 +142,7 @@ Container:
         list: false
         type: text
   space: sp_enterprise_schema
+  usedFor: edge
 - constraints: {}
   externalId: ToolkitAsset
   indexes: {}
@@ -793,8 +794,8 @@ View:
       through:
         identifier: model3D
         source:
-          externalId: Cognite3DRevision
-          space: cdf_cdm
+          externalId: Toolkit3DRevision
+          space: sp_enterprise_schema
           type: view
           version: v1
     thumbnail:
@@ -895,8 +896,8 @@ View:
       through:
         identifier: object3D
         source:
-          externalId: CogniteAsset
-          space: cdf_cdm
+          externalId: ToolkitAsset
+          space: sp_enterprise_schema
           type: view
           version: v1
     cadNodes:
@@ -910,8 +911,8 @@ View:
       through:
         identifier: object3D
         source:
-          externalId: CogniteCADNode
-          space: cdf_cdm
+          externalId: ToolkitCADNode
+          space: sp_enterprise_schema
           type: view
           version: v1
     images360:
@@ -944,8 +945,8 @@ View:
       through:
         identifier: object3D
         source:
-          externalId: CognitePointCloudVolume
-          space: cdf_cdm
+          externalId: ToolkitPointCloudVolume
+          space: sp_enterprise_schema
           type: view
           version: v1
   space: sp_enterprise_schema
@@ -1129,8 +1130,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitActivity
+          space: sp_enterprise_schema
           type: view
           version: v1
     assetClass:
@@ -1159,8 +1160,8 @@ View:
       through:
         identifier: parent
         source:
-          externalId: CogniteAsset
-          space: cdf_cdm
+          externalId: ToolkitAsset
+          space: sp_enterprise_schema
           type: view
           version: v1
     equipment:
@@ -1175,8 +1176,8 @@ View:
       through:
         identifier: asset
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: ToolkitEquipment
+          space: sp_enterprise_schema
           type: view
           version: v1
     files:
@@ -1191,8 +1192,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteFile
-          space: cdf_cdm
+          externalId: ToolkitFile
+          space: sp_enterprise_schema
           type: view
           version: v1
     object3D:
@@ -1273,8 +1274,8 @@ View:
       through:
         identifier: assets
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: ToolkitTimeSeries
+          space: sp_enterprise_schema
           type: view
           version: v1
     type:
@@ -1377,8 +1378,8 @@ View:
       through:
         identifier: model3D
         source:
-          externalId: Cognite3DRevision
-          space: cdf_cdm
+          externalId: Toolkit3DRevision
+          space: sp_enterprise_schema
           type: view
           version: v1
     thumbnail:
@@ -1658,8 +1659,8 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitActivity
+          space: sp_enterprise_schema
           type: view
           version: v1
     asset:
@@ -1726,8 +1727,8 @@ View:
       through:
         identifier: equipment
         source:
-          externalId: CogniteTimeSeries
-          space: cdf_cdm
+          externalId: ToolkitTimeSeries
+          space: sp_enterprise_schema
           type: view
           version: v1
   space: sp_enterprise_schema
@@ -1804,8 +1805,8 @@ View:
       through:
         identifier: files
         source:
-          externalId: CogniteEquipment
-          space: cdf_cdm
+          externalId: ToolkitEquipment
+          space: sp_enterprise_schema
           type: view
           version: v1
     source:
@@ -1877,8 +1878,8 @@ View:
       through:
         identifier: model3D
         source:
-          externalId: Cognite3DRevision
-          space: cdf_cdm
+          externalId: Toolkit3DRevision
+          space: sp_enterprise_schema
           type: view
           version: v1
     thumbnail:
@@ -2075,8 +2076,8 @@ View:
       through:
         identifier: timeSeries
         source:
-          externalId: CogniteActivity
-          space: cdf_cdm
+          externalId: ToolkitActivity
+          space: sp_enterprise_schema
           type: view
           version: v1
     assets:

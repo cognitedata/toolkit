@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import difflib
-from abc import ABC
+from collections import defaultdict
 from collections.abc import Callable, Hashable, Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
@@ -37,21 +37,23 @@ from cognite.client.data_classes.iam import (
     SecurityCategoryWrite,
     SecurityCategoryWriteList,
 )
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
+from rich.markup import escape
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
+    HighSeverityWarning,
     MediumSeverityWarning,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    load_yaml_inject_variables,
-)
+from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 
 @dataclass
@@ -59,12 +61,12 @@ class _ReplaceMethod:
     """This is a small helper class used in the
     lookup and replace in the ACL scoped ids"""
 
-    verify_method: Callable[[str, bool, str], int]
-    operation: str
+    lookup_method: Callable[[str, bool], int]
+    reverse_lookup_method: Callable[[int], str]
     id_name: str
 
 
-class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList], ABC):
+class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupList]):
     folder_name = "auth"
     filename_pattern = r"^(?!.*SecurityCategory$).*"
     kind = "Group"
@@ -90,28 +92,23 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         self,
         client: ToolkitClient,
         build_dir: Path | None,
+        console: Console | None,
         target_scopes: Literal[
             "all_scoped_only",
             "resource_scoped_only",
         ] = "all_scoped_only",
     ):
-        super().__init__(client, build_dir)
+        super().__init__(client, build_dir, console)
         self.target_scopes = target_scopes
 
     @property
     def display_name(self) -> str:
-        return f"iam.groups({self.target_scopes.removesuffix('_only')})"
+        return f"groups({self.target_scopes.removesuffix('_only')})"
 
     @classmethod
-    def create_loader(
-        cls,
-        ToolGlobals: CDFToolConfig,
-        build_dir: Path | None,
-    ) -> GroupLoader:
-        return cls(ToolGlobals.toolkit_client, build_dir)
-
-    @classmethod
-    def get_required_capability(cls, items: GroupWriteList | None, read_only: bool) -> Capability | list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[GroupWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
 
@@ -169,8 +166,10 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     if table_ids := scope.get(cap.TableScope._scope_name, []):
                         for db_name, tables in table_ids.get("dbsToTables", {}).items():
                             yield RawDatabaseLoader, RawDatabase(db_name)
-                            if isinstance(tables, Iterable):
-                                for table in tables:
+                            if isinstance(tables, list):
+                                yield from ((RawTableLoader, RawTable(db_name, table)) for table in tables)
+                            elif isinstance(tables, dict) and "tables" in tables:
+                                for table in tables["tables"]:
                                     yield RawTableLoader, RawTable(db_name, table)
                     if extraction_pipeline_ids := scope.get(cap.ExtractionPipelineScope._scope_name, []):
                         if isinstance(extraction_pipeline_ids, dict) and "ids" in extraction_pipeline_ids:
@@ -198,9 +197,8 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                             for id_ in ids["ids"]:
                                 yield loader, id_
 
-    @classmethod
-    def _substitute_scope_ids(cls, group: dict, ToolGlobals: CDFToolConfig, skip_validation: bool) -> dict:
-        replace_method_by_acl = cls._create_replace_method_by_acl_and_scope(ToolGlobals)
+    def _substitute_scope_ids(self, group: dict[str, Any], is_dry_run: bool, reverse: bool = False) -> dict[str, Any]:
+        replace_method_by_acl = self._create_replace_method_by_acl_and_scope()
 
         for capability in group.get("capabilities", []):
             for acl, values in capability.items():
@@ -217,57 +215,58 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                 else:
                     continue
                 if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
-                    values["scope"][scope_name][replace_method.id_name] = [
-                        replace_method.verify_method(ext_id, skip_validation, replace_method.operation)
-                        if isinstance(ext_id, str)
-                        else ext_id
-                        for ext_id in ids
-                    ]
+                    if reverse:
+                        values["scope"][scope_name][replace_method.id_name] = [
+                            replace_method.reverse_lookup_method(int_id) if isinstance(int_id, int) else int_id
+                            for int_id in ids
+                        ]
+                    else:
+                        values["scope"][scope_name][replace_method.id_name] = [
+                            replace_method.lookup_method(ext_id, is_dry_run) if isinstance(ext_id, str) else ext_id
+                            for ext_id in ids
+                        ]
         return group
 
-    @classmethod
-    def _create_replace_method_by_acl_and_scope(
-        cls, ToolGlobals: CDFToolConfig
-    ) -> dict[tuple[str, str] | str, _ReplaceMethod]:
+    def _create_replace_method_by_acl_and_scope(self) -> dict[tuple[str, str] | str, _ReplaceMethod]:
         source = {
             (cap.DataSetsAcl, cap.DataSetsAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace datasetExternalId with dataSetId in group",
+                self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
             (cap.ExtractionPipelinesAcl, cap.ExtractionPipelinesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_extraction_pipeline,
-                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
             (cap.LocationFiltersAcl, cap.LocationFiltersAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_locationfilter,
-                operation="replace locationFilterExternalId with locationFilterId in group",
+                self.client.lookup.location_filters.id,
+                self.client.lookup.location_filters.external_id,
                 id_name="ids",
             ),
             (cap.SecurityCategoriesAcl, cap.SecurityCategoriesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_security_categories,
-                operation="replace securityCategoryExternalId with securityCategoryId in group",
+                self.client.lookup.security_categories.id,
+                self.client.lookup.security_categories.external_id,
                 id_name="ids",
             ),
             (cap.TimeSeriesAcl, cap.TimeSeriesAcl.Scope.ID): _ReplaceMethod(
-                ToolGlobals.verify_timeseries,
-                operation="replace timeSeriesExternalId with timeSeriesId in group",
+                self.client.lookup.time_series.id,
+                self.client.lookup.time_series.external_id,
                 id_name="ids",
             ),
             cap.DataSetScope: _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace datasetExternalId with dataSetId in group",
+                self.client.lookup.data_sets.id,
+                self.client.lookup.data_sets.external_id,
                 id_name="ids",
             ),
             cap.ExtractionPipelineScope: _ReplaceMethod(
-                ToolGlobals.verify_extraction_pipeline,
-                operation="replace extractionPipelineExternalId with extractionPipelineId in group",
+                self.client.lookup.extraction_pipelines.id,
+                self.client.lookup.extraction_pipelines.external_id,
                 id_name="ids",
             ),
             cap.AssetRootIDScope: _ReplaceMethod(
-                ToolGlobals.verify_dataset,
-                operation="replace rootAssetExternalId with rootAssetId in group",
+                self.client.lookup.assets.id,
+                self.client.lookup.assets.external_id,
                 id_name="rootIds",
             ),
         }
@@ -277,168 +276,180 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             for key, method in source.items()
         }
 
-    def load_resource(
-        self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool
-    ) -> GroupWrite | GroupWriteList | None:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> GroupWrite:
+        is_resource_scoped = any(
+            any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
+            for capability in resource.get("capabilities", [])
+            for acl in capability
         )
-        raw_yaml = load_yaml_inject_variables(filepath, use_environment_variables)
 
-        group_write_list = GroupWriteList([])
+        if self.target_scopes == "all_scoped_only" and is_resource_scoped:
+            raise ToolkitWrongResourceError()
 
-        if isinstance(raw_yaml, dict):
-            raw_yaml = [raw_yaml]
+        if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
+            raise ToolkitWrongResourceError()
 
-        for raw_group in raw_yaml:
-            is_resource_scoped = any(
-                any(scope_name in capability.get(acl, {}).get("scope", {}) for scope_name in self.resource_scope_names)
-                for capability in raw_group.get("capabilities", [])
-                for acl in capability
-            )
+        substituted = self._substitute_scope_ids(resource, is_dry_run)
+        try:
+            loaded = GroupWrite.load(substituted)
+        except ValueError:
+            # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
+            loaded = GroupWrite._load(substituted, allow_unknown=True)
+            for capability in loaded.capabilities or []:
+                if isinstance(capability, cap.UnknownAcl):
+                    msg = (
+                        f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
+                        "Will proceed with group creation and let the API validate the capability."
+                    )
+                    if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
+                        msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
+                    prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
+                    print(prefix, warning_msg)
 
-            if self.target_scopes == "all_scoped_only" and is_resource_scoped:
-                continue
+        return loaded
 
-            if self.target_scopes == "resource_scoped_only" and not is_resource_scoped:
-                continue
-
-            substituted = self._substitute_scope_ids(raw_group, ToolGlobals, skip_validation)
-            try:
-                loaded = GroupWrite.load(substituted)
-            except ValueError:
-                # The GroupWrite class in the SDK will raise a ValueError if the ACI or scope is not valid or unknown.
-                loaded = GroupWrite._load(substituted, allow_unknown=True)
-                for capability in loaded.capabilities or []:
-                    if isinstance(capability, cap.UnknownAcl):
-                        msg = (
-                            f"In group {loaded.name!r}, unknown capability found: {capability.capability_name!r}.\n"
-                            "Will proceed with group creation and let the API validate the capability."
-                        )
-                        if matches := difflib.get_close_matches(capability.capability_name, cap.ALL_CAPABILITIES):
-                            msg += f"\nIf the API rejects the capability, could it be that you meant on of: {matches}?"
-                        prefix, warning_msg = MediumSeverityWarning(msg).print_prepare()
-                        print(prefix, warning_msg)
-
-            group_write_list.append(loaded)
-
-        if len(group_write_list) == 0:
-            return None
-        if len(group_write_list) == 1:
-            return group_write_list[0]
-        return group_write_list
-
-    def _are_equal(
-        self, local: GroupWrite, cdf_resource: Group, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-
-        # Remove metadata if it is empty to avoid false negatives
-        # as a result of cdf_resource.metadata = {} != local.metadata = None
-        if not local_dumped.get("metadata"):
-            local_dumped.pop("metadata", None)
-        if not cdf_dumped.get("metadata"):
-            cdf_dumped.pop("metadata", None)
-
-        scope_names = ["datasetScope", "idScope", "extractionPipelineScope"]
-
-        ids_by_acl_by_actions_by_scope: dict[str, dict[frozenset[str], dict[str, list[str]]]] = {}
-        for capability in cdf_dumped.get("capabilities", []):
-            for acl, values in capability.items():
-                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope.setdefault(acl, {})
-                actions = values.get("actions", [])
-                ids_by_scope = ids_by_actions_by_scope.setdefault(frozenset(actions), {})
-                scope = values.get("scope", {})
-                for scope_name in scope_names:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        if scope_name in ids_by_scope:
-                            # Duplicated
-                            ids_by_scope[scope_name].extend(ids)
-                        else:
-                            ids_by_scope[scope_name] = ids
-
-        for capability in local_dumped.get("capabilities", []):
-            for acl, values in capability.items():
-                if acl not in ids_by_acl_by_actions_by_scope:
+    def dump_resource(self, resource: Group, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if not dumped.get("metadata") and "metadata" not in local:
+            dumped.pop("metadata", None)
+        if not dumped.get("sourceId") and "sourceId" not in local:
+            dumped.pop("sourceId", None)
+        # RAWAcls are not returned by the API following the spec.
+        # If you have a table scoped RAW ACL the spec, and thus user will input
+        # tableScope:
+        #   dbsToTables
+        #    db1:
+        #    - tables1
+        #    - tables2
+        # While the API will return
+        # tableScope:
+        #   dbsToTables:
+        #   db1:
+        #     tables: [tables1, tables2]
+        # Note the extra keyword 'tables' in the API response.
+        for capability in dumped.get("capabilities", []):
+            for acl, content in capability.items():
+                if acl != cap.RawAcl._capability_name:
                     continue
-                ids_by_actions_by_scope = ids_by_acl_by_actions_by_scope[acl]
-                actions = frozenset(values.get("actions", []))
-                if actions not in ids_by_actions_by_scope:
-                    continue
-                ids_by_scope = ids_by_actions_by_scope[actions]
-                scope = values.get("scope", {})
-                for scope_name in scope_names:
-                    if ids := scope.get(scope_name, {}).get("ids", []):
-                        is_dry_run = all(id_ == -1 for id_ in ids)
-                        cdf_ids = ids_by_scope.get(scope_name, [])
-                        are_equal_length = len(ids) == len(cdf_ids)
-                        if is_dry_run and are_equal_length:
-                            values["scope"][scope_name]["ids"] = list(cdf_ids)
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
-
-    def _upsert(self, items: Sequence[GroupWrite]) -> GroupList:
-        if len(items) == 0:
-            return GroupList([])
-        # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
-        old_groups = self.client.iam.groups.list(all=True)
-        old_group_by_names = {g.name: g for g in old_groups.as_write()}
-        changed = []
-        for item in items:
-            if (old := old_group_by_names.get(item.name)) and old == item:
-                # Ship unchanged groups
-                continue
-            changed.append(item)
-        if len(changed) == 0:
-            return GroupList([])
-        created = self.client.iam.groups.create(changed)
-        created_names = {g.name for g in created}
-        to_delete = [g.id for g in old_groups if g.name in created_names and g.id]
-        self.client.iam.groups.delete(to_delete)
-        return created
-
-    def update(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self._upsert(items)
+                if scope := content.get("scope", {}):
+                    if table_scope := scope.get(cap.TableScope._scope_name, {}):
+                        db_to_tables = table_scope.get("dbsToTables", {})
+                        if not db_to_tables:
+                            continue
+                        for db_name in list(db_to_tables.keys()):
+                            tables = db_to_tables[db_name]
+                            if isinstance(tables, dict) and "tables" in tables:
+                                db_to_tables[db_name] = tables["tables"]
+        # When you dump a CDF Group, all the referenced resources should be available in CDF.
+        return self._substitute_scope_ids(dumped, is_dry_run=False, reverse=True)
 
     def create(self, items: Sequence[GroupWrite]) -> GroupList:
-        return self._upsert(items)
+        if len(items) == 0:
+            return GroupList([])
+        return self._create_with_fallback(items, action="create")
+
+    def update(self, items: Sequence[GroupWrite]) -> GroupList:
+        # We MUST retrieve all the old groups BEFORE we add the new, if not the new will be deleted
+        old_groups = self.client.iam.groups.list(all=True)
+        created = self._create_with_fallback(items, action="update")
+        created_names = {g.name for g in created}
+        to_delete = GroupList([group for group in old_groups if group.name in created_names])
+        if to_delete:
+            self._delete(to_delete, check_own_principal=False)
+        return created
+
+    def _create_with_fallback(self, items: Sequence[GroupWrite], action: Literal["create", "update"]) -> GroupList:
+        try:
+            return self.client.iam.groups.create(items)
+        except CogniteAPIError as e:
+            if not (e.code == 400 and "buffer" in e.message.lower() and len(items) > 1):
+                raise e
+            # Fallback to create one by one
+            created_list = GroupList([])
+            for item in items:
+                try:
+                    created = self.client.iam.groups.create(item)
+                except CogniteAPIError as e:
+                    HighSeverityWarning(f"Failed to {action} group {item.name}. Error: {escape(str(e))}").print_warning(
+                        include_timestamp=True, console=self.console
+                    )
+                else:
+                    created_list.append(created)
+            return created_list
 
     def retrieve(self, ids: SequenceNotStr[str]) -> GroupList:
+        id_set = set(ids)
         remote = self.client.iam.groups.list(all=True)
-        found = [g for g in remote if g.name in ids]
+        found = [g for g in remote if g.name in id_set]
         return GroupList(found)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        id_list = list(ids)
-        # Let's prevent that we delete groups we belong to
-        try:
-            groups = self.client.iam.groups.list()
-        except CogniteAPIError as e:
-            print(
-                f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
-            )
-            return 0
-        my_source_ids = set()
-        for g in groups:
-            if g.source_id not in my_source_ids:
-                my_source_ids.add(g.source_id)
-        groups = self.retrieve(ids)
-        for g in groups:
-            if g.source_id in my_source_ids:
-                print(
-                    f"  [bold yellow]WARNING:[/] Not deleting group {g.name} with sourceId {g.source_id} as it is used by the current service principal."
-                )
-                print("     If you want to delete this group, you must do it manually.")
-                if g.name not in id_list:
-                    print(f"    [bold red]ERROR[/] You seem to have duplicate groups of name {g.name}.")
-                else:
-                    id_list.remove(g.name)
-        found = [g.id for g in groups if g.name in id_list and g.id]
-        self.client.iam.groups.delete(found)
-        return len(found)
+        return self._delete(self.retrieve(ids), check_own_principal=True)
 
-    def iterate(self) -> Iterable[Group]:
+    def _delete(self, delete_candidates: GroupList, check_own_principal: bool = True) -> int:
+        if check_own_principal:
+            print_fun = self.console.print if self.console else print
+            try:
+                # Let's prevent that we delete groups we belong to
+                my_groups = self.client.iam.groups.list()
+            except CogniteAPIError as e:
+                print_fun(
+                    f"[bold red]ERROR:[/] Failed to retrieve the current service principal's groups. Aborting group deletion.\n{e}"
+                )
+                return 0
+            my_source_ids = {g.source_id for g in my_groups if g.source_id}
+        else:
+            my_source_ids = set()
+
+        to_delete: list[int] = []
+        counts_by_name: dict[str, int] = defaultdict(int)
+        for group in delete_candidates:
+            if group.source_id in my_source_ids:
+                HighSeverityWarning(
+                    f"Not deleting group {group.name} with sourceId {group.source_id} as it is used by"
+                    f"the current service principal. If you want to delete this group, you must do it manually."
+                ).print_warning(console=self.console)
+            else:
+                to_delete.append(group.id)
+                counts_by_name[group.name] += 1
+        if duplicates := {name for name, count in counts_by_name.items() if count > 1}:
+            MediumSeverityWarning(
+                f"The following names are used by multiple groups (all will be deleted): {duplicates}"
+            ).print_warning(console=self.console)
+
+        failed_deletes = []
+        error_str = ""
+        try:
+            self.client.iam.groups.delete(to_delete)
+        except CogniteNotFoundError:
+            # Fallback to delete one by one
+            for delete_item_id in to_delete:
+                try:
+                    self.client.iam.groups.delete(delete_item_id)
+                except CogniteNotFoundError:
+                    # If the group is already deleted, we can ignore the error
+                    ...
+                except CogniteAPIError as e:
+                    error_str = str(e)
+                    failed_deletes.append(delete_item_id)
+        except CogniteAPIError as e:
+            error_str = str(e)
+            failed_deletes.extend(to_delete)
+        if failed_deletes:
+            MediumSeverityWarning(
+                f"Failed to delete groups: {humanize_collection(to_delete)}. "
+                "These must be deleted manually in the Fusion UI."
+                f"Error: {escape(error_str)}"
+            ).print_warning(include_timestamp=True, console=self.console)
+        return len(to_delete) - len(failed_deletes)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[Group]:
         return self.client.iam.groups.list(all=True)
 
     @classmethod
@@ -467,11 +478,27 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
         )
         return spec
 
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("capabilities",):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif json_path[0] == "capabilities":
+            # All sublist inside capabilities are hashable
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("members",):
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
 
 @final
 class GroupAllScopedLoader(GroupLoader):
-    def __init__(self, client: ToolkitClient, build_dir: Path | None):
-        super().__init__(client, build_dir, "all_scoped_only")
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None):
+        super().__init__(client, build_dir, console, "all_scoped_only")
+
+    @property
+    def display_name(self) -> str:
+        return "all-scoped groups"
 
 
 @final
@@ -490,7 +517,7 @@ class SecurityCategoryLoader(
 
     @property
     def display_name(self) -> str:
-        return "security.categories"
+        return "security categories"
 
     @classmethod
     def get_id(cls, item: SecurityCategoryWrite | SecurityCategory | dict) -> str:
@@ -504,7 +531,7 @@ class SecurityCategoryLoader(
 
     @classmethod
     def get_required_capability(
-        cls, items: SecurityCategoryWriteList | None, read_only: bool
+        cls, items: Sequence[SecurityCategoryWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -553,5 +580,10 @@ class SecurityCategoryLoader(
             self.client.iam.security_categories.delete([item.id for item in retrieved if item.id])
         return len(retrieved)
 
-    def iterate(self) -> Iterable[SecurityCategory]:
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[SecurityCategory]:
         return self.client.iam.security_categories.list(limit=-1)

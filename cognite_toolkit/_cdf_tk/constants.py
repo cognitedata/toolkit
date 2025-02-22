@@ -13,6 +13,7 @@ except ModuleNotFoundError:
 # The environment file:
 
 TOOLKIT_SERVICE_PRINCIPAL_GROUP_NAME = "cognite_toolkit_service_principal"
+TOOLKIT_DEMO_GROUP_NAME = "cognite_toolkit_demo"
 
 # This is the default Cognite app registration for Entra with device code enabled
 # to be used with the Toolkit.
@@ -61,10 +62,15 @@ SUPPORT_MODULE_UPGRADE_FROM_VERSION = "0.2.0"
 # This is used in the build directory to keep track of order and flatten the
 # module directory structure with accounting for duplicated names.
 INDEX_PATTERN = re.compile("^[0-9]+\\.")
+# This is used in the lookup of for example datasets to indicate that is a dry run.
+DRY_RUN_ID = -1
 
 # This is a regular expression that matches any non-word character or underscore
 # It is used to clean the feature flag names.
 _CLEAN_PATTERN = re.compile(r"[\W_]+")
+
+# This is used to detect environment variables in a string.
+ENV_VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
 HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
@@ -82,3 +88,5 @@ class URL:
     auth_toolkit = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/configure_deploy_modules#configure-the-cdf-toolkit-authentication"
     docs = "https://docs.cognite.com/"
     configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/configs"
+    plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
+    libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"

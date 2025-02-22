@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileLoader, FileMetadataLoader
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
 
 class FileBuilder(Builder):
@@ -32,7 +32,7 @@ class FileBuilder(Builder):
                 continue
             if loader in {FileMetadataLoader, CogniteFileLoader}:
                 loaded = self._expand_file_metadata(loaded, module, console)
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             yield BuildDestinationFile(
                 path=destination_path,
@@ -55,6 +55,16 @@ class FileBuilder(Builder):
             and cls.template_pattern in raw_list[0].get("externalId", "")
         )
         if not is_file_template:
+            if (isinstance(raw_list, dict) and cls.template_pattern in raw_list.get("externalId", "")) or (
+                isinstance(raw_list, list)
+                and any(cls.template_pattern in entry.get("externalId", "") for entry in raw_list)
+            ):
+                raw_type = "dictionary" if isinstance(raw_list, dict) else "list with multiple entries"
+                LowSeverityWarning(
+                    f"Invalid file template {cls.template_pattern!r} usage detected in {module.relative_path.as_posix()!r}.\n"
+                    f"The file template is expected in a list with a single entry, but got {raw_type}."
+                ).print_warning()
+
             return raw_list
         if not (isinstance(raw_list, list) and raw_list and isinstance(raw_list[0], dict)):
             raise ToolkitYAMLFormatError(

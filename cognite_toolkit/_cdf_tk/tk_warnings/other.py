@@ -156,3 +156,14 @@ class HTTPWarning(ToolkitWarning):
 
     def get_message(self) -> str:
         return f"Failed to {self.action}. HTTP status code {self.status_code}: {self.message}"
+
+
+@dataclass(frozen=True)
+class IgnoredValueWarning(ToolkitWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.LOW
+    name: str
+    value: str
+    reason: str
+
+    def get_message(self) -> str:
+        return f"Ignoring value {self.value!r} for {self.name!r}: {self.reason!r}"

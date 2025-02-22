@@ -10,7 +10,7 @@ jobs:
     environment: dev
     name: Deploy Dry Run
     container:
-      image: cognite/toolkit:0.3.7
+      image: cognite/toolkit:0.4.9
       env:
         CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
         CDF_PROJECT: ${{ vars.CDF_PROJECT }}

@@ -1,39 +1,25 @@
 DataSet:
 - description: This dataset contains 3D data for the oid location.
   externalId: ds_3d_oid
-  metadata: {}
   name: 3d:oid
-  writeProtected: false
 - description: This dataset contains asset data for the oid location.
   externalId: ds_asset_oid
-  metadata: {}
   name: asset:oid
-  writeProtected: false
 - description: This dataset contains files for the oid location.
   externalId: ds_files_oid
-  metadata: {}
   name: files:oid
-  writeProtected: false
 - description: This dataset is for writing data from Infield for the location oid.
   externalId: ds_infield_oid_app_data
-  metadata: {}
   name: infield:oid:app_data
-  writeProtected: false
 - description: This dataset contains relationships data for the oid location.
   externalId: ds_relationships_oid
-  metadata: {}
   name: relationships:oid
-  writeProtected: false
 - description: This dataset contains timeseries for the oid location.
   externalId: ds_timeseries_oid
-  metadata: {}
   name: timeseries:oid
-  writeProtected: false
 - description: This dataset contains transformations data for the oid location.
   externalId: ds_transformations_oid
-  metadata: {}
   name: transformations:oid
-  writeProtected: false
 Group:
 - capabilities:
   - groupsAcl:
@@ -48,51 +34,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -142,51 +128,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -236,51 +222,51 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 8524431518038195316
+          - 10573129128259478071
   - filesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 10875617807794485048
+          - 10573129128259478071
   - timeSeriesAcl:
       actions:
       - WRITE
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -330,37 +316,37 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 1111003405993120033
   - assetsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - filesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 8524431518038195316
+          - 10573129128259478071
   - relationshipsAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
+          - 15333577578485374004
   - timeSeriesAcl:
       actions:
       - READ
       scope:
         datasetScope:
           ids:
-          - 42
-          - 42
+          - 10875617807794485048
+          - 10573129128259478071
   - dataModelsAcl:
       actions:
       - READ
@@ -405,7 +391,7 @@ Space:
   space: sp_infield_oid_app_data
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 17668258978621355368
   destination:
     instanceSpace: sp_asset_oid_source
     type: nodes
@@ -416,10 +402,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
@@ -442,12 +428,12 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 17668258978621355368
   destination:
     dataModel:
       destinationType: APM_Activity
@@ -459,10 +445,10 @@ Transformation:
   destinationOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
   externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
   ignoreNullFields: true
   isPublic: true
@@ -479,10 +465,10 @@ Transformation:
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
-    clientId: dummy
-    clientSecret: dummy
+    clientId: dummy-123
+    clientSecret: dummy-secret
     scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: dummy
+    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   interval: 0 * * * *

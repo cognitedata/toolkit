@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
+from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
+
 from .base import SeverityLevel, ToolkitWarning
 
 
@@ -18,10 +20,22 @@ class FileReadWarning(ToolkitWarning, ABC):
         return (self.filepath,)
 
     def group_header(self) -> str:
-        return f"    In File {str(self.filepath)!r}"
+        return f"    In File {self.filepath.as_posix()!r}"
 
     def __str__(self) -> str:
         return self.get_message()
+
+
+@dataclass(frozen=True)
+class FileExistsWarning(FileReadWarning):
+    severity = SeverityLevel.MEDIUM
+    extra_message: str = ""
+
+    def get_message(self) -> str:
+        msg = f"{type(self).__name__}: The file {self.filepath} already exists."
+        if self.extra_message:
+            msg += f" {self.extra_message}"
+        return msg
 
 
 @dataclass(frozen=True)
@@ -64,7 +78,7 @@ class DuplicatedItemWarning(YAMLFileWarning):
     def get_message(self) -> str:
         return (
             f"{type(self).__name__}: Duplicated item with identifier "
-            f"{self.identifier!r} first seen in {self.first_location.name}."
+            f"{self.identifier!r} first seen in {self.first_location.name!r}."
         )
 
 
@@ -87,7 +101,10 @@ class UnusedParameterWarning(YAMLFileWithElementWarning):
     actual: str
 
     def get_message(self) -> str:
-        return f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+        message = f"{type(self).__name__}: Parameter {self.actual!r} is not used{self._location}."
+        if self.actual == "dataSetId" or self.actual == "data_set_id":
+            message += f" {HINT_LEAD_TEXT}The parameter 'dataSetExternalId' should be used instead."
+        return message
 
 
 @dataclass(frozen=True)
@@ -176,6 +193,14 @@ class MissingRequiredIdentifierWarning(YAMLFileWithElementWarning):
 
 
 @dataclass(frozen=True)
+class MissingReferencedWarning(YAMLFileWithElementWarning):
+    message: str
+
+    def get_message(self) -> str:
+        return f"{type(self).__name__}: {self.message}."
+
+
+@dataclass(frozen=True)
 class TemplateVariableWarning(IdentifiedResourceFileReadWarning):
     path: str
 
@@ -218,3 +243,17 @@ class MissingFileWarning(FileReadWarning):
     def get_message(self) -> str:
         message = f"{type(self).__name__}: The file {self.filepath} is missing. Cannot verify {self.attempted_check}."
         return message
+
+
+@dataclass(frozen=True)
+class EnvironmentVariableMissingWarning(FileReadWarning):
+    severity = SeverityLevel.HIGH
+    variables: frozenset[str]
+    identifiers: frozenset[Hashable] | None = None
+
+    def get_message(self) -> str:
+        from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+        suffix = "s are" if len(self.variables) > 1 else " is"
+        variables = humanize_collection(self.variables, sort=True, bind_word="and")
+        return f"The environment variable{suffix} missing: {variables}"

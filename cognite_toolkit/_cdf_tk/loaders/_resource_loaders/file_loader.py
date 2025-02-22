@@ -13,9 +13,9 @@
 # limitations under the License.
 from __future__ import annotations
 
-from collections.abc import Hashable, Iterable
+from collections.abc import Hashable, Iterable, Sequence
+from datetime import date, datetime
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
@@ -31,6 +31,7 @@ from cognite.client.data_classes.capabilities import (
 )
 from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId, ViewId
 from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 
@@ -46,10 +47,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     in_dict,
-    load_yaml_inject_variables,
 )
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
@@ -64,8 +64,8 @@ class FileMetadataLoader(
     item_name = "file contents"
     folder_name = "files"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem ends with `.CogniteFile`.
-        r"^(?!.*CogniteFile$).*"
+        # Matches all yaml files except file names whose stem ends with `.CogniteFile` or `File`.
+        r"(?i)^(?!.*(?:File|CogniteFile)$).*$"
     )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
@@ -78,11 +78,11 @@ class FileMetadataLoader(
 
     @property
     def display_name(self) -> str:
-        return "file_metadata"
+        return "file metadata"
 
     @classmethod
     def get_required_capability(
-        cls, items: FileMetadataWriteList | None, read_only: bool
+        cls, items: Sequence[FileMetadataWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         if not items and items is not None:
             return []
@@ -105,6 +105,12 @@ class FileMetadataLoader(
         return item.external_id
 
     @classmethod
+    def get_internal_id(cls, item: FileMetadata | dict) -> int:
+        if isinstance(item, dict):
+            return item["id"]
+        return item.id
+
+    @classmethod
     def dump_id(cls, id: str) -> dict[str, Any]:
         return {"externalId": id}
 
@@ -124,58 +130,26 @@ class FileMetadataLoader(
         for asset_external_id in item.get("assetExternalIds", []):
             yield AssetLoader, asset_external_id
 
-    def load_resource(self, filepath: Path, ToolGlobals: CDFToolConfig, skip_validation: bool) -> FileMetadataWriteList:
-        use_environment_variables = (
-            ToolGlobals.environment_variables() if self.do_environment_variable_injection else {}
-        )
-        loaded = load_yaml_inject_variables(filepath, use_environment_variables)
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FileMetadataWrite:
+        if resource.get("dataSetExternalId") is not None:
+            ds_external_id = resource.pop("dataSetExternalId")
+            resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+        if security_categories_names := resource.pop("securityCategoryNames", []):
+            security_categories = self.client.lookup.security_categories.id(security_categories_names, is_dry_run)
+            resource["securityCategories"] = security_categories
+        if "assetExternalIds" in resource:
+            resource["assetIds"] = self.client.lookup.assets.id(resource["assetExternalIds"], is_dry_run)
+        return FileMetadataWrite._load(resource)
 
-        loaded_list = [loaded] if isinstance(loaded, dict) else loaded
-
-        for resource in loaded_list:
-            if resource.get("dataSetExternalId") is not None:
-                ds_external_id = resource.pop("dataSetExternalId")
-                resource["dataSetId"] = ToolGlobals.verify_dataset(
-                    ds_external_id, skip_validation, action="replace dataSetExternalId with dataSetId in file metadata"
-                )
-            if security_categories_names := resource.pop("securityCategoryNames", []):
-                security_categories = ToolGlobals.verify_security_categories(
-                    security_categories_names,
-                    skip_validation,
-                    action="replace securityCategoryNames with securityCategoriesIDs in file metadata",
-                )
-                resource["securityCategories"] = security_categories
-            if "assetExternalIds" in resource:
-                resource["assetIds"] = ToolGlobals.verify_asset(
-                    resource["assetExternalIds"],
-                    skip_validation,
-                    action="replace assetExternalIds with assetIds in file metadata",
-                )
-
-        return FileMetadataWriteList._load(loaded_list)
-
-    def _are_equal(
-        self, local: FileMetadataWrite, cdf_resource: FileMetadata, return_dumped: bool = False
-    ) -> bool | tuple[bool, dict[str, Any], dict[str, Any]]:
-        local_dumped = local.dump()
-        cdf_dumped = cdf_resource.as_write().dump()
-        # Dry run mode
-        if local_dumped.get("dataSetId") == -1 and "dataSetId" in cdf_dumped:
-            local_dumped["dataSetId"] = cdf_dumped["dataSetId"]
-        if (
-            all(s == -1 for s in local_dumped.get("securityCategories", []))
-            and "securityCategories" in cdf_dumped
-            and len(cdf_dumped["securityCategories"]) == len(local_dumped.get("securityCategories", []))
-        ):
-            local_dumped["securityCategories"] = cdf_dumped["securityCategories"]
-        if (
-            all(a == -1 for a in local_dumped.get("assetIds", []))
-            and "assetIds" in cdf_dumped
-            and len(cdf_dumped["assetIds"]) == len(local_dumped.get("assetIds", []))
-        ):
-            local_dumped["assetIds"] = cdf_dumped["assetIds"]
-
-        return self._return_are_equal(local_dumped, cdf_dumped, return_dumped)
+    def dump_resource(self, resource: FileMetadata, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        if ds_id := dumped.pop("dataSetId"):
+            dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
+        if security_categories := dumped.pop("securityCategories", []):
+            dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)
+        if asset_ids := dumped.pop("assetIds", []):
+            dumped["assetExternalIds"] = self.client.lookup.assets.external_id(asset_ids)
+        return dumped
 
     def create(self, items: FileMetadataWriteList) -> FileMetadataList:
         created = FileMetadataList([])
@@ -193,12 +167,18 @@ class FileMetadataLoader(
     def update(self, items: FileMetadataWriteList) -> FileMetadataList:
         return self.client.files.update(items, mode="replace")
 
-    def delete(self, ids: str | SequenceNotStr[str] | None) -> int:
-        self.client.files.delete(external_id=cast(SequenceNotStr[str], ids))
+    def delete(self, ids: str | int | SequenceNotStr[str | int] | None) -> int:
+        internal_ids, external_ids = self._split_ids(ids)
+        self.client.files.delete(id=internal_ids, external_id=external_ids)
         return len(cast(SequenceNotStr[str], ids))
 
-    def iterate(self) -> Iterable[FileMetadata]:
-        return iter(self.client.files)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[FileMetadata]:
+        return iter(self.client.files(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
 
     def count(self, ids: SequenceNotStr[str]) -> int:
         return sum(
@@ -221,6 +201,7 @@ class FileMetadataLoader(
         spec = super().get_write_cls_parameter_spec()
         # Added by toolkit
         spec.add(ParameterSpec(("dataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=False))
+        spec.discard(ParameterSpec(("dataSetId",), frozenset({"int"}), is_required=False, _is_nullable=False))
         spec.add(ParameterSpec(("securityCategoryNames",), frozenset({"list"}), is_required=False, _is_nullable=False))
 
         spec.add(
@@ -261,7 +242,7 @@ class CogniteFileLoader(
 
     @property
     def display_name(self) -> str:
-        return "cognite_file"
+        return "cognite files"
 
     @classmethod
     def get_id(cls, item: ExtendableCogniteFile | ExtendableCogniteFileApply | dict) -> NodeId:
@@ -277,7 +258,9 @@ class CogniteFileLoader(
         return id.dump(include_instance_type=False)
 
     @classmethod
-    def get_required_capability(cls, items: ExtendableCogniteFileApplyList | None, read_only: bool) -> list[Capability]:
+    def get_required_capability(
+        cls, items: Sequence[ExtendableCogniteFileApply] | None, read_only: bool
+    ) -> list[Capability]:
         if not items and items is not None:
             return []
 
@@ -299,6 +282,40 @@ class CogniteFileLoader(
                 scope,  # type: ignore[arg-type]
             ),
         ]
+
+    def dump_resource(self, resource: ExtendableCogniteFile, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump(context="local")
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+        for key in list(dumped.keys()):
+            value = dumped[key]
+            if key not in local:
+                if value is None:
+                    dumped.pop(key)
+                continue
+            local_value = local[key]
+            if isinstance(local_value, datetime) and isinstance(value, str):
+                dumped[key] = convert_data_modelling_timestamp(value)
+            elif isinstance(local_value, date) and isinstance(value, str):
+                dumped[key] = date.fromisoformat(value)
+
+        if "nodeSource" in local:
+            dumped["nodeSource"] = local["nodeSource"]
+        if dumped.get("instanceType") == "node" and "instanceType" not in local:
+            dumped.pop("instanceType")
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("tags",):
+            return diff_list_hashable(local, cdf)
+        elif json_path[0] in ("assets", "category"):
+            return diff_list_identifiable(local, cdf, get_identifier=dm_identifier)
+        return super().diff_list(local, cdf, json_path)
 
     def create(self, items: ExtendableCogniteFileApplyList) -> NodeApplyResultList:
         created = self.client.data_modeling.instances.apply(
@@ -329,9 +346,14 @@ class CogniteFileLoader(
             raise e
         return len(deleted.nodes)
 
-    def iterate(self) -> Iterable[ExtendableCogniteFile]:
-        raise NotImplementedError("")
-        # return iter(self.client.data_modeling.instances)
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[ExtendableCogniteFile]:
+        # We do not have a way to know the source of the file, so we cannot filter on that.
+        return []
 
     def count(self, ids: SequenceNotStr[NodeId]) -> int:
         return sum(

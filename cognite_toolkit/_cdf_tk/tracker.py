@@ -12,9 +12,10 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any
 
-from mixpanel import Consumer, Mixpanel
+from mixpanel import Consumer, Mixpanel, MixpanelException
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
+from cognite_toolkit._cdf_tk.constants import IN_BROWSER
 from cognite_toolkit._cdf_tk.data_classes._built_modules import BuiltModule
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning, WarningList
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
@@ -66,7 +67,7 @@ class Tracker:
             "error": str(result) if isinstance(result, Exception) else "",
             **positional_args,
             **optional_args,
-            **{f"featureFlag-{name}": value for name, value in self._cdf_toml.feature_flags.items()},
+            **{f"alphaFlag-{name}": value for name, value in self._cdf_toml.alpha_flags.items()},
             **{f"plugin-{name}": value for name, value in self._cdf_toml.plugins.items()},
         }
 
@@ -90,18 +91,23 @@ class Tracker:
 
         def track() -> None:
             # If we are unable to connect to Mixpanel, we don't want to crash the program
-            with suppress(ConnectionError):
+            with suppress(ConnectionError, MixpanelException):
                 self.mp.track(
                     distinct_id,
                     event_name,
                     event_information,
                 )
 
-        thread = threading.Thread(
-            target=track,
-            daemon=False,
-        )
-        thread.start()
+        if IN_BROWSER:
+            # Pyodide does not support threading
+            track()
+        else:
+            thread = threading.Thread(
+                target=track,
+                daemon=False,
+            )
+            thread.start()
+
         return True
 
     def get_distinct_id(self) -> str:
@@ -112,7 +118,7 @@ class Tracker:
 
         distinct_id = f"{cicd}-{platform.system()}-{platform.python_version()}-{uuid.uuid4()!s}"
         cache.write_text(distinct_id)
-        with suppress(ConnectionError):
+        with suppress(ConnectionError, MixpanelException):
             self.mp.people_set(
                 distinct_id,
                 {

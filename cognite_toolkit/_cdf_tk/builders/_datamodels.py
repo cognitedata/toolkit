@@ -39,7 +39,7 @@ class DataModelBuilder(Builder):
                     yield [warning]
                 continue
 
-            destination_path = self._create_destination_path(source_file.source.path, module.dir, loader.kind)
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             extra_sources: list[SourceLocation] | None = None
             if loader is GraphQLLoader:
@@ -71,7 +71,7 @@ class DataModelBuilder(Builder):
             if "dml" in entry:
                 expected_filename = entry["dml"]
             else:
-                expected_filename = f'{INDEX_PATTERN.sub("", source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix("."))}.graphql'
+                expected_filename = f"{INDEX_PATTERN.sub('', source_file.source.path.stem.removesuffix(GraphQLLoader.kind).removesuffix('.'))}.graphql"
             expected_path = source_file.source.path.parent / Path(expected_filename)
 
             if expected_path in graphql_files:
@@ -82,3 +82,6 @@ class DataModelBuilder(Builder):
                     f"Failed to find GraphQL file. Expected {expected_filename} adjacent to {source_file.source.path.as_posix()}"
                 )
         return extra_sources
+
+    def load_extra_field(self, extra: str) -> tuple[str, Any]:
+        return "dml", extra

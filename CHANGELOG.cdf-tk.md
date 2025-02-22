@@ -15,7 +15,407 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
-## TBD
+## [0.4.9] - 2025-02-20
+
+### Added
+
+- Support for `auth0` as the provider when running `cdf auth init`.
+- [alpha feature] When the flag `strict-validation` is set to `true` in the `cdf.toml` file, the Toolkit will
+  no longer use its own authentication as a fallback when deploying WorkflowTriggers and FunctionSchedules in projects
+  where `validation-type` is set to anything other than `dev`. This will be the default behavior from version `0.5.0`.
+- [alpha feature] When the flag `credentials-hash` is set to `true` in the `cdf.toml` file, the Toolkit will hash
+  the credentials of Transformations (if present), FunctionSchedules, and WorkflowTriggers before deploying them. This
+  will be used to detect if the credentials have been changed when running `cdf deploy`.
+
+### Improved
+
+- You will get a warning if a WorkflowTrigger or a FunctionSchedule is missing authentication, and the Toolkit
+  authentication is used.
+
+### Changed
+
+- In the `config.[env].yaml` file, the `type` key is renamed to `validation-type` in the `environment` section. This is
+  to make it more clear that this key is used for validation. The `type` key is still supported for backward
+  compatibility.
+
+## [0.4.8] - 2025-02-14
+
+### Fixed
+
+- The Toolkit no longer tries to update a data modeling container that does not have the `usedFor` field set.
+- The Toolkit no longer hides `409` errors when failing to create a resource behind a low severity warning.
+
+## Improved
+
+- If the `cdf deploy` command fails to deploy multiple `Group`s due to `Failed to buffer the request body` error, the Toolkit
+  now retries to create the `Group`s one by one.
+
+## [0.4.7] - 2025-02-13
+
+### Added
+
+- [alpha feature] New alpha command `cdf populate view`. You can populate a view with data from a local table
+  using this command. To enable this feature, you need to set `populate = true` in the `alpha_flags` section of
+  your `cdf.toml` file.
+
+### Improved
+
+- Improved flow for the `cdf auth init` command.
+
+## [0.4.6] - 2025-02-10
+
+### Fixed
+
+- The `cdf purge space` no longer tries to delete nodes in other spaces.
+- The `cdf purge space` now sorts node types topologically to delete them in the correct order.
+- The `--hierarchy/-h` flag was missing from the `cdf dump timeseries` command. This is now fixed.
+- The `cdf purge dataset` now accounts for the hierarchy when deleting assets.
+
+## [0.4.5] - 2025-02-06
+
+### Fixed
+
+- Building a Group with a table scoped RAWAcl no longer complains about missing dependency `tables` if the
+  `tables` keyword is used to specify the tables.
+- When authentication with Toolkit, multiple `IDP_Scopes` are assumed to be separated by a comma in the environment
+  variable `IDP_SCOPES`.
+
+## [0.4.4] - 2025-02-05
+
+### Fixed
+
+- Deploying functions containing files that are not `utf-8` encoded no longer raises a `UnicodeDecodeError`.
+
+## [0.4.3] - 2025-02-04
+
+### Fixed
+
+- Calling `cdf modules upgrade` will no longer raise `AmbiguousResourceFileError` error if you have a file named
+  `my_file.File.yaml`.
+
+## [0.4.2] - 2025-02-04
+
+### Fixed
+
+- An IndexError was reported when instances.nodes was an empty list. This is now fixed.
+- Calling `cdf build` on a hosted extractor `Source` resource no longer produces unrelated
+  `MissingRequiredParameterWarning`s.
+- Reverting change from `0.3.29` that made the Toolkit update Groups by deleting then recreating. This was causing
+  issues when sometimes the Group was not recreated. The Toolkit now updates by first creating the new Group and then
+  deleting the old Group.
+- Groups with a `rawAcl` that is table scoped no longer getr redeployed when they are not changed.
+
+## [0.4.1] - 2025-02-03
+
+### Added
+
+- [alpha feature] The alpha flag `dump-extended` adds support for `cdf dump workflow/transformation/group/node` to the
+  `dump` plugin command.
+
+### Fixed
+
+- The `cdf modules upgrade` no longer raises a `FileNotExists` when renaming files in an upgrade to `0.4.0`.
+- The `cdf modules pull` command no longer raise a `NotImplementedError` for Groups with `members`.
+- The `cdf modules pull` command no longer raise a `KeyError` if a variable is used as a key in a dictionary.
+- Running `cdf deploy` for `Group` with `members` now only deploys the `Group` if it is new or has changed.
+
+## [0.4.0] - 2025-01-31
+
+### Added
+
+- The `ado-pipeline` feature is no longer an alpha feature.
+- The `cdf run workflow` feature is no longer an alpha feature.
+- The resources `streamlit`, `edges`, `relationships`, `sequences rows` are no longer alpha features.
+- The `cdf deploy --force-update` flag is no longer an alpha feature.
+- The `cdf build --offline` flag is no longer an alpha feature.
+- The `cdf modules pull` feature is no longer an alpha feature.
+
+### Changed
+
+- All `YAML` files now requires a `kind` in the files name to identify the resource type.
+- Toolkit now hashes individual files in functions to check if they have changed. This is to get a better
+  granularity when checking if a function has changed.
+
+### Removed
+
+- The plugin `cdf pull` has been removed and is now replaced by `cdf modules pull`.
+
+### Fixed
+
+- The `cdf purge dataset` now correctly falls back to internal IDs if external IDs are not found.
+- Upserting nodes without a `source` does not raise an IndexError anymore.
+
+## [0.3.30] - 2025-01-31
+
+### Improved
+
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when listing the nodes/edges to
+  delete when getting a 408 timeout error.
+- [alpha feature] The `cdf purge` now shows a spinner and updates the progress when deleting resources.
+
+### Fixed
+
+- Reverting the fix from `0.3.24` to read any csv dialect when uploading a `csv` file
+  (RAW table, Datapoints, or Assets). Now, only the comma-separated dialect is supported. This is because the dialect
+  inference performed too poorly and failed to read the data correctly in many cases.
+
+## [0.3.29] - 2025-01-27
+
+### Added
+
+- Interactive selection mode if you don't provide a path or module name as argument to `cdf modules pull`.
+
+### Improved
+
+- Running `cdf deploy` and `cdf deploy --dry-run` now reports correctly delete + create for resources that do not
+  support update. This is `Function`, `FunctionSchedule`, `Group`, and `SequenceRows`.
+- [alpha feature] The `cdf purge space` now automatically reduces the batch size when deleting nodes when getting a
+  408 timeout error.
+- [alpha feature] The `cdf purge space` now tells which spaces needs to be purged first if the current space has
+  dependencies. This happens when a node in one space is used as a node type in another space.
+
+## [0.3.28] - 2025-01-21
+
+### Fixed
+
+- Variable replacement was too restrictive for environment variables. Previous behaviour to replace all
+  environment variables has been restored except Extraction Pipeline Configs.
+- Supporting non-ascii characters like æ,ø, å, ç, ã in built files  
+
+## [0.3.27] - 2025-01-20
+
+### Improved
+
+- The `cdf dump asset` and `cdf dump timeseries` commands now always dump tables with
+  the same columns in the same order.
+
+### Fixed
+
+- The `cdf build` no longer raises a `ToolkitFileNotFoundError` when building without a `config.[env].yaml` file.
+
+## [0.3.26] - 2025-01-16
+
+### Added
+
+- [alpha feature] `cdf import transformation-cli` now has a new flag `--clean` to remove the
+  source files after importing.
+
+### Fixed
+
+- All groups are now correctly deployed before resources that has authentication to them (`Transformation`,
+  `'FunctionSchedule`, `WorkflowTrigger`).
+
+### Changed
+
+- Running `cdf auth init/verify` no longer automatically activates Cognite Functions on private link environments
+  projects.
+
+### Improved
+
+- You now get a warning if you use the `$FILENAME` template incorrectly in the `CogniteFile`/`FileMetadata` resource.
+- If a `{{ variable }}` replacement causes a `YAMLFormatError`, the Toolkit now gives you a hint on how to fix it.
+- If you use a `dataSetId`, the Toolkit now gives you a hint to use `dataSetExternalId` instead.
+- The Toolkit fallback to read any file as `utf-8` if it fails to read.
+- The Toolkit no longer gives `UnusedParamterWarning` for `WorkflowVersion` using a `subworkflow` task.
+- If a `Transformation`/`FunctionSchedule`/`WorkflowTrigger` fails to deploy due to environment variables missing,
+  the Toolkit now gives a hint on how to fix it.
+- [alpha feature] If you get a duplicated item due to using the `repeated-module` feature. The Toolkit now gives
+  you a hint on how to fix it.
+
+## [0.3.25] - 2025-01-10
+
+### Added
+
+- [alpha feature] Support for `SequenceRows` resources in the `classic` directory. Alpha flag `classic=True`.
+
+### Fixed
+
+- Deploying raw tables or datapoints from csv should no longer raise a `pandas.errors.ParserError`.
+
+### Improved
+
+- On Windows, commands such as `cdf modules list` were Toolkit needs to delete a temporary directory no longer
+  raise an `PermissionError`, but instead has a gracefully fallback, and gives a warning if the fallback fails.
+
+## [0.3.24] - 2025-01-06
+
+### Added
+
+- [alpha feature] Support for running `cdf build` without comparing against CDF project for missing dependencies
+  with the flag `--offline`.
+- [alpha feature] New subcommand `cdf modules pull` which pulls the configuration from the CDF project to the local
+  modules directory.
+- Support for property `dataModelingType` in `LocationFilter` resources.
+
+### Fixed
+
+- No more warning about missing `.env` file when running in `Google Cloud Build`.
+- No more warning about missing `.env` file if all variables are set in the environment.
+- When deploying a `Sequence` resource, Cognite Toolkit now replaces `dataSetExternalId` with `dataSetId`.
+- Cognite Toolkit has improved resources that have server set default values that can lead to redeploy even when
+  unchanged. This includes `Sequences`, `Containers`, `DataSets`, `Views`, `Nodes`, `Edges`, `ExtractionPipelines`,
+  `CogniteFiles`, `HostedExtractorJobs`, `Relationships`, `RobotMaps`, and `WorkflowVersions`.
+- When uploading a `csv` file (RAW table, Datapoints, or Assets) any CSV dialect is now supported.
+- `LocationFilters` now parses the `version` key of `View` and `DataModel` correctly as a string.
+- `LocationFilters` now converts an empty string of `dataSetExternalId` to `0` instead of ignoring it.
+- On CDF deployed on Azure and AWS clouds, setting the `CPU` and `memory` of a CogniteFiles to lower than
+  the required value no longer triggers a redeploy.
+- Toolkit now looks up the `assetExternalId` in the `Sequence` resource when deploying.
+
+## [0.3.23] - 2024-12-13
+
+### Fixed
+
+- Running `cdf auth init` now works for `CDF` as the `IDP` provider.
+
+### Improved
+
+- You can now set the `CDF_CLIENT_TIMEOUT` and `CDF_CLIENT_MAX_WORKERS` to control the timeout and the number of
+  workers used by Toolkit when communicating with CDF.
+
+## [0.3.22] - 2024-12-12
+
+### Fixed
+
+- Deploying `GraphQL` is no longer sensitive to the newlines inside of directives.
+- Functions are no longer always redeployed if `indexUrl` or `extraIndexUrls` are set in the `Function` resource.
+
+## [0.3.21] - 2024-12-11
+
+### Fixed
+
+- [alpha feature] Deploying `GraphQL` now correctly ignores end-of-line comments in the `.graphql` file.
+
+## [0.3.20] - 2024-12-10
+
+### Fixed
+
+- `cdf deploy` no longer raises a `OSError` when deploying a `Transformation` with the SQL query in the `YAML` file.
+
+## [0.3.19] - 2024-12-09
+
+### Added
+
+- [alpha feature] `cdf purge dataset` now supports purging resources with internal IDs.
+
+### Fixed
+
+- Replacing variables in an inline SQL query no longer removes the quotes around the variable.
+- Running `cdf build` on an older module will no longer raise an `KeyError` if the `module.toml` does
+  not have a `package` key.
+- [alpha feature] `cdf purge dataset` no longer deletes `LocationFilters`
+- [alpha feature] `GraphQL` resources with views that specify a `rawFilter` no longer raise an error when
+  running `cdf deploy`.
+- In the `cdf dump datamodel` command, properties that are overridden in a view are now correctly dumped.
+
+### Changed
+
+- [alpha feature] `cdf purge` now requires a confirmation before deleting resources.
+- Building a `Transformation` will store the `.sql` file in the build directory instead of inlined in the
+  resource YAML file.
+
+### Improved
+
+- Consistent display names of resources in output table of `cdf deploy` and `cdf clean`.
+
+## [0.3.18] - 2024-12-03
+
+### Fixed
+
+- The `toolkit.demo` no longer fails du to wrong authentication variables.
+
+## [0.3.17] - 2024-12-02
+
+### Improved
+
+- Toolkit will no longer give the warning `UserWarning: Unknown capability` in irrelevant cases.
+
+### Added
+
+- [alpha feature] Support `Edges` resources in the `data_models` directory.
+- [alpha feature] Support `Event` resources in the `classic` directory.
+- [alpha feature] Support `Relpationship` resources in the `classic` directory.
+- [alpha feature] New command `cdf purge` this enables you to delete a `dataset` or `space` and all resources
+  connected to it. This is useful if you want to clean up your CDF project.
+
+### Fixed
+
+- Using cdf for the identity provider no longer makes assumption about `IDP_CLIENT_SECRET` format.
+- [alpha feature] Using `GraphQL` with an empty `@view` directive no longer raises
+  an `Failed to parse GraphQL schema` error.
+
+## [0.3.16] - 2024-11-28
+
+No changes to cdf CLI.
+
+## [0.3.15] - 2024-11-28
+
+### Improved
+
+- Better hint on activating plugins.
+
+### Fixed
+
+- Error message in Auth process shows correct variable names IDP_CLIENT_ID and IDP_CLIENT_SECRET.
+
+## [0.3.14] - 2024-11-27
+
+### Added
+
+- Support for authentication with `CogIDP`
+
+## [0.3.13] - 2024-11-26
+
+### Fixed
+
+- When using the commands `cdf deploy/clean`, the Toolkit no longer warns about unrelated resources
+  that are not part of the deployment.
+- When using `cdf deploy/clean/build, the Toolkit no longer warns about duplicated RAW databases.
+- Changes to Streamlit app code were not deployed. This is now fixed.
+
+## [0.3.12] - 2024-11-21
+
+### Added
+
+- [Alpha feature] Support for specifying list of variables under modules in `config.[env].yaml` file.
+  This allows you to reuse the same module with different variables.
+- [Alpha feature] GraphQL now supports the `preserveDml` parameter.
+
+## [0.3.11] - 2024-11-19
+
+### Fixed
+
+- [Alpha feature] `cdf deploy` will no longer deploy `GraphQL` resources if they are not changed.
+- In `cdf build` when loading `config.[env].yaml` the Toolkit now correctly prefers variables deeper, more
+  specific, in the hierarchy over more general variables.
+- [Alpha feature] `cdf build` will no longer copy content `YAML` files to the build directory.
+- A bug caused the comparison with existing Tranformation Notifications to fail. This is now fixed.
+
+### Improved
+
+- The `cdf auth verify` no longer gives UserWarning is the user has unknown capabilities.
+
+## [0.3.10] - 2024-11-14
+
+### Fixed
+
+- `cdf auth verify` no longer asks to update missing capabilities if there are no missing capabilities.
+- `run function local` now works with functions that are importing adjacent modules.
+- Environment variables were not replaced in Functions. This is now fixed.
+
+### Improved
+
+- `run function local` give a more informative error message if the function code cannot be imported.
+- `run function local` now automatically loads environment variables from `.env` file. This is useful if you want to
+  run the `run_check.py` script manually, for example, in debug mode with your IDE.
+
+## [0.3.9] - 2024-11-12
+
+### Added
+
+- [alpha-feature] `--force-update` flag to `cdf deploy` to force update of all resources even if they are not changed.
+
+## [0.3.8] - 2024-11-11
 
 ### Fixed
 

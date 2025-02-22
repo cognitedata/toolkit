@@ -17,6 +17,10 @@ from cognite.client.data_classes import (
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    Event,
+    EventList,
+    EventWrite,
+    EventWriteList,
     ExtractionPipeline,
     ExtractionPipelineConfig,
     ExtractionPipelineConfigWrite,
@@ -43,6 +47,10 @@ from cognite.client.data_classes import (
     LabelDefinition,
     LabelDefinitionList,
     LabelDefinitionWrite,
+    Relationship,
+    RelationshipList,
+    RelationshipWrite,
+    RelationshipWriteList,
     Row,
     RowList,
     RowWrite,
@@ -53,6 +61,8 @@ from cognite.client.data_classes import (
     SecurityCategoryWriteList,
     Sequence,
     SequenceList,
+    SequenceRows,
+    SequenceRowsList,
     SequenceWrite,
     SequenceWriteList,
     Table,
@@ -425,10 +435,13 @@ API_RESOURCES = [
         methods={
             "create": [
                 Method(api_class_method="upload", mock_class_method="upload"),
-                Method(api_class_method="create", mock_class_method="create_single"),
+                Method(api_class_method="create", mock_class_method="create_filemetadata"),
                 # This is used by functions to upload the file used for deployment.
                 Method(api_class_method="upload_bytes", mock_class_method="upload_bytes_files_api"),
-                Method(api_class_method="upload_content", mock_class_method="upload_file_content_files_api"),
+                Method(
+                    api_class_method="upload_content_bytes", mock_class_method="upload_file_content_bytes_files_api"
+                ),
+                Method(api_class_method="upload_content", mock_class_method="upload_file_content_path_files_api"),
             ],
             "delete": [Method(api_class_method="delete", mock_class_method="delete_id_external_id")],
             "retrieve": [
@@ -635,7 +648,7 @@ API_RESOURCES = [
         },
     ),
     APIResource(
-        api_name="data_modeling.graphql",
+        api_name="dml",
         resource_cls=GraphQLDataModel,
         list_cls=GraphQLDataModelList,
         _write_cls=GraphQLDataModelWrite,
@@ -658,6 +671,19 @@ API_RESOURCES = [
         },
     ),
     APIResource(
+        api_name="sequences.rows",
+        resource_cls=SequenceRows,
+        list_cls=SequenceRowsList,
+        _write_cls=SequenceRows,
+        _write_list_cls=SequenceRowsList,
+        methods={
+            "create": [Method(api_class_method="insert", mock_class_method="create_single")],
+            "retrieve": [
+                Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
         api_name="workflows.triggers",
         resource_cls=WorkflowTrigger,
         list_cls=WorkflowTriggerList,
@@ -666,7 +692,7 @@ API_RESOURCES = [
         methods={
             "create": [Method(api_class_method="upsert", mock_class_method="create_multiple")],
             "retrieve": [
-                Method(api_class_method="get_triggers", mock_class_method="return_values"),
+                Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
     ),
@@ -719,6 +745,32 @@ API_RESOURCES = [
             "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="events",
+        resource_cls=Event,
+        list_cls=EventList,
+        _write_cls=EventWrite,
+        _write_list_cls=EventWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
+            ],
+        },
+    ),
+    APIResource(
+        api_name="relationships",
+        resource_cls=Relationship,
+        list_cls=RelationshipList,
+        _write_cls=RelationshipWrite,
+        _write_list_cls=RelationshipWriteList,
+        methods={
+            "create": [Method(api_class_method="create", mock_class_method="create_multiple")],
+            "retrieve": [
+                Method(api_class_method="retrieve_multiple", mock_class_method="return_values"),
             ],
         },
     ),

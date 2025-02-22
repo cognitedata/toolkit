@@ -1,0 +1,2486 @@
+Container:
+- constraints: {}
+  externalId: ToolkitIDM360Image
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM360ImageAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+  usedFor: edge
+- constraints: {}
+  externalId: ToolkitIDM360ImageCollection
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM360ImageModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM360ImageStation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM3DModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM3DObject
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM3DRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDM3DTransformation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMActivity
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+  usedFor: edge
+- constraints: {}
+  externalId: ToolkitIDMAsset
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMAssetClass
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMAssetType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMCADModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMCADNode
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMCADRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMCubeMap
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMDescribable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMDiagramAnnotation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+  usedFor: edge
+- constraints: {}
+  externalId: ToolkitIDMEquipment
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMEquipmentType
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMFile
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMFileCategory
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMMaintenanceOrder
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMNotification
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMOperation
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMPointCloudModel
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMPointCloudRevision
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMPointCloudVolume
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMSchedulable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMSourceSystem
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMSourceable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMTimeSeries
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMUnit
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+- constraints: {}
+  externalId: ToolkitIDMVisualizable
+  indexes: {}
+  properties:
+    UUID:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_enterprise_process_industry_full
+DataModel:
+- description: ToolkitIDM enterprise model
+  externalId: ToolkitIDMProcessIndustries
+  name: ToolkitIDM enterprise model
+  space: sp_enterprise_process_industry_full
+  version: v1
+  views:
+  - externalId: ToolkitIDMMaintenanceOrder
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMOperation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMNotification
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMDescribable
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMSourceable
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMSourceSystem
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMSchedulable
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMVisualizable
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM3DTransformation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMCubeMap
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM3DObject
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM3DModel
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMCADModel
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM3DRevision
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMPointCloudModel
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM360ImageModel
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMCADRevision
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMPointCloudRevision
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM360ImageCollection
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMCADNode
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMPointCloudVolume
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM360Image
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM360ImageStation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDM360ImageAnnotation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMAsset
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMAssetClass
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMAssetType
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMEquipment
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMEquipmentType
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMFile
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMFileCategory
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMActivity
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMTimeSeries
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMAnnotation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMDiagramAnnotation
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+  - externalId: ToolkitIDMUnit
+    space: sp_enterprise_process_industry_full
+    type: view
+    version: v1
+Space:
+- space: sp_enterprise_process_industry_full
+View:
+- description: ''
+  externalId: ToolkitIDM360Image
+  implements:
+  - externalId: Cognite360Image
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM360Image
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    back:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: back
+      description: Direct relation to a file holding the back projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    bottom:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: bottom
+      description: Direct relation to a file holding the bottom projection of the
+        cube map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    collection360:
+      container:
+        externalId: Cognite360Image
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: collection360
+      description: Direct relation to Cognite360ImageCollection
+      source:
+        externalId: ToolkitIDM360ImageCollection
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    front:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: front
+      description: Direct relation to a file holding the front projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    left:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: left
+      description: Direct relation to a file holding the left projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    right:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: right
+      description: Direct relation to a file holding the right projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    station360:
+      container:
+        externalId: Cognite360Image
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: group3d
+      description: Direct relation to Cognite3DGroup instance that groups different
+        Cognite360Image instances to the same station
+      source:
+        externalId: ToolkitIDM360ImageStation
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    top:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: top
+      description: Direct relation to a file holding the top projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: ''
+  externalId: ToolkitIDM360ImageAnnotation
+  implements:
+  - externalId: Cognite360ImageAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM360ImageAnnotation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents a logical collection of Cognite360Image instances
+  externalId: ToolkitIDM360ImageCollection
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: Image360
+  implements:
+  - externalId: Cognite360ImageCollection
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM360ImageCollection
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      source:
+        externalId: ToolkitIDM3DModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Navigational aid for traversing Cognite360ImageModel instances
+  externalId: ToolkitIDM360ImageModel
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: Image360
+  implements:
+  - externalId: Cognite360ImageModel
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM360ImageModel
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    collections:
+      connectionType: multi_reverse_direct_relation
+      description: List Cognite360Image collections for this instance
+      source:
+        externalId: ToolkitIDM360ImageCollection
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: model3D
+        source:
+          externalId: ToolkitIDM3DRevision
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    thumbnail:
+      container:
+        externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: thumbnail
+      description: Thumbnail of the 3D model
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: A way to group images across collections. Used for creating visual
+    scan history
+  externalId: ToolkitIDM360ImageStation
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DGroup
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DGroup
+        - groupType
+        value: Station360
+  implements:
+  - externalId: Cognite360ImageStation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM360ImageStation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
+    Image360)
+  externalId: ToolkitIDM3DModel
+  implements:
+  - externalId: Cognite3DModel
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM3DModel
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    thumbnail:
+      container:
+        externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: thumbnail
+      description: Thumbnail of the 3D model
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: This is the virtual position representation of an object in the physical
+    world, connecting an asset to one or more 3D resources
+  externalId: ToolkitIDM3DObject
+  implements:
+  - externalId: Cognite3DObject
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM3DObject
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    asset:
+      connectionType: single_reverse_direct_relation
+      description: Asset that is tied to this 3D object
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: object3D
+        source:
+          externalId: ToolkitIDMAsset
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    cadNodes:
+      connectionType: multi_reverse_direct_relation
+      description: List of up to 1000 CADNodes that represents the connected CogniteAsset
+      source:
+        externalId: ToolkitIDMCADNode
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: object3D
+        source:
+          externalId: ToolkitIDMCADNode
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    images360:
+      connectionType: multi_edge_connection
+      description: Edge connection to Cognite360Image annotations that represents
+        the connected CogniteAsset
+      direction: outwards
+      edgeSource:
+        externalId: Cognite360ImageAnnotation
+        space: cdf_cdm
+        type: view
+        version: v1
+      source:
+        externalId: ToolkitIDM360Image
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      type:
+        externalId: image-360-annotation
+        space: cdf_cdm
+    pointCloudVolumes:
+      connectionType: multi_reverse_direct_relation
+      description: List of up to 1000 PointCloudVolumes that represents the connected
+        CogniteAsset
+      source:
+        externalId: ToolkitIDMPointCloudVolume
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: object3D
+        source:
+          externalId: ToolkitIDMPointCloudVolume
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: 'Shared revision information for various 3D data types. Normally not
+    used directly, but through CognitePointCloudRevision, Image360Collection or CogniteCADRevision
+
+    '
+  externalId: ToolkitIDM3DRevision
+  implements:
+  - externalId: Cognite3DRevision
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM3DRevision
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      source:
+        externalId: ToolkitIDM3DModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
+    enabling precise adjustments to an object''s position, orientation, and size in
+    the 3D coordinate system. It allows for the translation of objects along the three
+    spatial axes, rotation around these axes using Euler angles, and scaling along
+    each axis to modify the object''s dimensions. The object''s transformation is
+    defined in "CDF space", a coordinate system where the positive Z axis is the up
+    direction
+
+    '
+  externalId: ToolkitIDM3DTransformation
+  implements:
+  - externalId: Cognite3DTransformation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDM3DTransformation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents activities. Activities typically happen over a period and
+    have a start and end time.
+  externalId: ToolkitIDMActivity
+  implements:
+  - externalId: CogniteActivity
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Activity
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMActivity
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Annotation represents contextualization results or links
+  externalId: ToolkitIDMAnnotation
+  implements:
+  - externalId: CogniteAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMAnnotation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Assets represent systems that support industrial functions or processes.
+    Assets are often called 'functional location'.
+  externalId: ToolkitIDMAsset
+  implements:
+  - externalId: CogniteAsset
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Asset
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities related to the asset.
+      name: Activities
+      source:
+        externalId: ToolkitIDMActivity
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: ToolkitIDMActivity
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    assetClass:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetClass
+      description: Specifies the class of the asset. It's a direct relation to CogniteAssetClass.
+      name: Asset class
+      source:
+        externalId: ToolkitIDMAssetClass
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    children:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of assets with this asset as their
+        parent.
+      name: Children
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: parent
+        source:
+          externalId: ToolkitIDMAsset
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    equipment:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of equipment related to the asset.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: asset
+        source:
+          externalId: ToolkitIDMEquipment
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    files:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of files related to the asset.
+      name: Files
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: ToolkitIDMFile
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    object3D:
+      container:
+        externalId: CogniteVisualizable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: object3D
+      description: Direct relation to an Object3D instance representing the 3D resource
+      source:
+        externalId: ToolkitIDM3DObject
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    parent:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_parent
+      description: The parent of the asset.
+      name: Parent
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    path:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_path
+      description: An automatically updated ordered list of this asset's ancestors,
+        starting with the root asset. Enables subtree filtering to find all assets
+        under a parent.
+      name: Path
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    root:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetHierarchy_root
+      description: An automatically updated reference to the top-level asset of the
+        hierarchy.
+      name: Root
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    timeSeries:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of time series related to the asset.
+      name: Time series
+      source:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: assets
+        source:
+          externalId: ToolkitIDMTimeSeries
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    type:
+      container:
+        externalId: CogniteAsset
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: type
+      description: Specifies the type of the asset. It's a direct relation to CogniteAssetType.
+      name: Asset type
+      source:
+        externalId: ToolkitIDMAssetType
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents the class of an asset.
+  externalId: ToolkitIDMAssetClass
+  implements:
+  - externalId: CogniteAssetClass
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Asset class
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMAssetClass
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents the type of an asset.
+  externalId: ToolkitIDMAssetType
+  implements:
+  - externalId: CogniteAssetType
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Asset type
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMAssetType
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    assetClass:
+      container:
+        externalId: CogniteAssetType
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assetClass
+      description: Specifies the class the type belongs to. It's a direct relation
+        to CogniteAssetClass.
+      name: Asset class
+      source:
+        externalId: ToolkitIDMAssetClass
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Navigational aid for traversing CogniteCADModel instances
+  externalId: ToolkitIDMCADModel
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: CAD
+  implements:
+  - externalId: CogniteCADModel
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMCADModel
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    revisions:
+      connectionType: multi_reverse_direct_relation
+      description: List of revisions for this CAD model
+      source:
+        externalId: ToolkitIDMCADRevision
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: model3D
+        source:
+          externalId: ToolkitIDM3DRevision
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    thumbnail:
+      container:
+        externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: thumbnail
+      description: Thumbnail of the 3D model
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents nodes from the 3D model that have been contextualized
+  externalId: ToolkitIDMCADNode
+  implements:
+  - externalId: CogniteCADNode
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMCADNode
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: CogniteCADNode
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      description: Direct relation to Cognite3DModel
+      source:
+        externalId: ToolkitIDMCADModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    object3D:
+      container:
+        externalId: CogniteCADNode
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: object3D
+      description: Direct relation to object3D grouping for this node
+      source:
+        externalId: ToolkitIDM3DObject
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    revisions:
+      container:
+        externalId: CogniteCADNode
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: revisions
+      description: List of direct relations to instances of Cognite3DRevision which
+        this CogniteCADNode exists in.
+      source:
+        externalId: ToolkitIDMCADRevision
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: ''
+  externalId: ToolkitIDMCADRevision
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: CAD
+  implements:
+  - externalId: CogniteCADRevision
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMCADRevision
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      source:
+        externalId: ToolkitIDM3DModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: 'The cube map holds references to 6 images in used to visually represent
+    the surrounding environment
+
+    '
+  externalId: ToolkitIDMCubeMap
+  implements:
+  - externalId: CogniteCubeMap
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMCubeMap
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    back:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: back
+      description: Direct relation to a file holding the back projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    bottom:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: bottom
+      description: Direct relation to a file holding the bottom projection of the
+        cube map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    front:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: front
+      description: Direct relation to a file holding the front projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    left:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: left
+      description: Direct relation to a file holding the left projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    right:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: right
+      description: Direct relation to a file holding the right projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    top:
+      container:
+        externalId: CogniteCubeMap
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: top
+      description: Direct relation to a file holding the top projection of the cube
+        map
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: 'The describable core concept is used as a standard way of holding
+    the bare minimum of information about the instance
+
+    '
+  externalId: ToolkitIDMDescribable
+  implements:
+  - externalId: CogniteDescribable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMDescribable
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Annotation for diagrams
+  externalId: ToolkitIDMDiagramAnnotation
+  implements:
+  - externalId: CogniteDiagramAnnotation
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMDiagramAnnotation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Equipment represents physical supplies or devices.
+  externalId: ToolkitIDMEquipment
+  implements:
+  - externalId: CogniteEquipment
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Equipment
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities related to the equipment.
+      name: Activities
+      source:
+        externalId: ToolkitIDMActivity
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: equipment
+        source:
+          externalId: ToolkitIDMActivity
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    asset:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: asset
+      description: The asset the equipment is related to.
+      name: Asset
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipmentType:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipmentType
+      description: Specifies the type of the equipment. It's a direct relation to
+        CogniteEquipmentType.
+      name: Equipment type
+      source:
+        externalId: ToolkitIDMEquipmentType
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    files:
+      container:
+        externalId: CogniteEquipment
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: files
+      description: A list of files the equipment relates to.
+      name: Files
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    timeSeries:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of time series related to the equipment.
+      name: Time series
+      source:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: equipment
+        source:
+          externalId: ToolkitIDMTimeSeries
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents the type of equipment.
+  externalId: ToolkitIDMEquipmentType
+  implements:
+  - externalId: CogniteEquipmentType
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Equipment type
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMEquipmentType
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents files.
+  externalId: ToolkitIDMFile
+  implements:
+  - externalId: CogniteFile
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: File
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets this file is related to.
+      name: Assets
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    category:
+      container:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: category
+      description: Specifies the detected category the file belongs to. It's a direct
+        relation to an instance of CogniteFileCategory.
+      name: Category
+      source:
+        externalId: ToolkitIDMFileCategory
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipment:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of equipment this file is related
+        to.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: files
+        source:
+          externalId: ToolkitIDMEquipment
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents the categories of files as determined by contextualization
+    or categorization.
+  externalId: ToolkitIDMFileCategory
+  implements:
+  - externalId: CogniteFileCategory
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: File category
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMFileCategory
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: A formal request or directive to perform maintenance tasks such as
+    repair, inspection, or servicing of equipment or assets. It's often called a 'work
+    order'.
+  externalId: ToolkitIDMMaintenanceOrder
+  implements:
+  - externalId: CogniteMaintenanceOrder
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Maintenance order
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMMaintenanceOrder
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    mainAsset:
+      container:
+        externalId: CogniteMaintenanceOrder
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: mainAsset
+      description: The primary asset (functional location) the maintenance order refers
+        to.
+      name: Main asset
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    operations:
+      connectionType: multi_reverse_direct_relation
+      description: Lists the individual work items on the maintenance order. An automatically
+        populated list of operations related to the maintenance order.
+      name: Operations
+      source:
+        externalId: ToolkitIDMOperation
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: maintenanceOrder
+        source:
+          externalId: ToolkitIDMOperation
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: A formal record to report maintenance issues, defects, or requests,
+    starting the process for planning and running maintenance activities.
+  externalId: ToolkitIDMNotification
+  implements:
+  - externalId: CogniteNotification
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Notification```
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMNotification
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    asset:
+      container:
+        externalId: CogniteNotification
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: asset
+      description: The asset (functional location) the notification is related to.
+      name: Asset
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    maintenanceOrder:
+      container:
+        externalId: CogniteNotification
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: maintenanceOrder
+      description: The maintenance order that was created from the notification.
+      name: Maintenance order
+      source:
+        externalId: ToolkitIDMMaintenanceOrder
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Operations represent a specific part of the work included in a maintenance
+    order. Often called a 'work order item'.
+  externalId: ToolkitIDMOperation
+  implements:
+  - externalId: CogniteOperation
+    space: cdf_idm
+    type: view
+    version: v1
+  name: Operation
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMOperation
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    assets:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the activity is related to.
+      name: Assets
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the activity is related to.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    mainAsset:
+      container:
+        externalId: CogniteOperation
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: mainAsset
+      description: The primary asset (functional location) the operation is related
+        to.
+      name: Main asset
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    maintenanceOrder:
+      container:
+        externalId: CogniteOperation
+        space: cdf_idm
+        type: container
+      containerPropertyIdentifier: maintenanceOrder
+      description: The maintenance order the operation is related to.
+      name: Maintenance order
+      source:
+        externalId: ToolkitIDMMaintenanceOrder
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    timeSeries:
+      container:
+        externalId: CogniteActivity
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: timeSeries
+      description: A list of time series the activity is related to.
+      name: Time series
+      source:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Navigational aid for traversing CognitePointCloudModel instances
+  externalId: ToolkitIDMPointCloudModel
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: PointCloud
+  implements:
+  - externalId: CognitePointCloudModel
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMPointCloudModel
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    revisions:
+      connectionType: multi_reverse_direct_relation
+      description: List of revisions for this PointCloud model
+      source:
+        externalId: ToolkitIDMPointCloudRevision
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: model3D
+        source:
+          externalId: ToolkitIDM3DRevision
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    thumbnail:
+      container:
+        externalId: Cognite3DModel
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: thumbnail
+      description: Thumbnail of the 3D model
+      source:
+        externalId: ToolkitIDMFile
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Navigational aid for traversing CognitePointCloudRevision instances
+  externalId: ToolkitIDMPointCloudRevision
+  filter:
+    and:
+    - hasData:
+      - externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+    - equals:
+        property:
+        - cdf_cdm_3d
+        - Cognite3DModel
+        - type
+        value: PointCloud
+  implements:
+  - externalId: CognitePointCloudRevision
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMPointCloudRevision
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: Cognite3DRevision
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      source:
+        externalId: ToolkitIDM3DModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: PointCloud volume definition
+  externalId: ToolkitIDMPointCloudVolume
+  implements:
+  - externalId: CognitePointCloudVolume
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMPointCloudVolume
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    model3D:
+      container:
+        externalId: CognitePointCloudVolume
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: model3D
+      description: Direct relation to Cognite3DModel instance
+      source:
+        externalId: ToolkitIDMCADModel
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    object3D:
+      container:
+        externalId: CognitePointCloudVolume
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: object3D
+      description: Direct relation to object3D grouping for this node
+      source:
+        externalId: ToolkitIDM3DObject
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    revisions:
+      container:
+        externalId: CognitePointCloudVolume
+        space: cdf_cdm_3d
+        type: container
+      containerPropertyIdentifier: revisions
+      description: List of direct relations to revision information
+      source:
+        externalId: ToolkitIDMCADRevision
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: CogniteSchedulable represents the metadata about when an activity (or
+    similar) starts and ends.
+  externalId: ToolkitIDMSchedulable
+  implements:
+  - externalId: CogniteSchedulable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMSchedulable
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: The CogniteSourceSystem core concept is used to standardize the way
+    source system is stored.
+  externalId: ToolkitIDMSourceSystem
+  implements:
+  - externalId: CogniteSourceSystem
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- externalId: ToolkitIDMSourceable
+  implements:
+  - externalId: CogniteSourceable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMSourceable
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents a series of data points in time order."
+  externalId: ToolkitIDMTimeSeries
+  implements:
+  - externalId: CogniteTimeSeries
+    space: cdf_cdm
+    type: view
+    version: v1
+  name: Time series
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMTimeSeries
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    activities:
+      connectionType: multi_reverse_direct_relation
+      description: An automatically updated list of activities the time series is
+        related to.
+      name: Activities
+      source:
+        externalId: ToolkitIDMActivity
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+      through:
+        identifier: timeSeries
+        source:
+          externalId: ToolkitIDMActivity
+          space: sp_enterprise_process_industry_full
+          type: view
+          version: v1
+    assets:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: assets
+      description: A list of assets the time series is related to.
+      name: Assets
+      source:
+        externalId: ToolkitIDMAsset
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    equipment:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: equipment
+      description: A list of equipment the time series is related to.
+      name: Equipment
+      source:
+        externalId: ToolkitIDMEquipment
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    source:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: source
+      description: Direct relation to a source system
+      source:
+        externalId: ToolkitIDMSourceSystem
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+    unit:
+      container:
+        externalId: CogniteTimeSeries
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: unit
+      description: The unit of the time series.
+      name: Unit
+      source:
+        externalId: ToolkitIDMUnit
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: Represents a single unit of measurement
+  externalId: ToolkitIDMUnit
+  implements:
+  - externalId: CogniteUnit
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMUnit
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+  space: sp_enterprise_process_industry_full
+  version: v1
+- description: CogniteVisualizable defines the standard way to reference a related
+    3D resource
+  externalId: ToolkitIDMVisualizable
+  implements:
+  - externalId: CogniteVisualizable
+    space: cdf_cdm
+    type: view
+    version: v1
+  properties:
+    UUID:
+      container:
+        externalId: ToolkitIDMVisualizable
+        space: sp_enterprise_process_industry_full
+        type: container
+      containerPropertyIdentifier: UUID
+    object3D:
+      container:
+        externalId: CogniteVisualizable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: object3D
+      description: Direct relation to an Object3D instance representing the 3D resource
+      source:
+        externalId: ToolkitIDM3DObject
+        space: sp_enterprise_process_industry_full
+        type: view
+        version: v1
+  space: sp_enterprise_process_industry_full
+  version: v1

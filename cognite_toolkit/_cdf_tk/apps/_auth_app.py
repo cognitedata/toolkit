@@ -4,7 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import AuthCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class AuthApp(typer.Typer):
@@ -35,6 +35,14 @@ class AuthApp(typer.Typer):
                 "--dry-run",
                 "-r",
                 help="If you verify, and you pass this flag no changes to CDF will be made.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
             ),
         ] = False,
     ) -> None:
@@ -74,13 +82,22 @@ class AuthApp(typer.Typer):
                 "If you include this flag, the execution will stop if the user or service principal does not have the required capabilities.",
             ),
         ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
     ) -> None:
         """Verify that the current user or service principal has the required capabilities to run the CDF Toolkit commands."""
         cmd = AuthCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd.run(
             lambda: cmd.verify(
-                CDFToolConfig.from_context(ctx),
+                client,
                 dry_run=dry_run,
                 no_prompt=no_prompt,
             )

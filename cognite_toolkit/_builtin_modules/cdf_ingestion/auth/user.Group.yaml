@@ -1,0 +1,124 @@
+name: gp_user_{{ workflow }}
+members:
+  {{ runWorkflowUserIds }}
+metadata:
+  origin: cognite-toolkit
+capabilities:
+  # minimum runtime capabilities
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
+  - transformationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - functionsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+          all: {}
+  - rawAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        tableScope:
+          dbsToTables:
+            {{ rawSourceDatabase }}: {}
+            {{ rawStateDatabase  }}: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+            {{ instanceSpaces }}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
+            - {{ schemaSpace2 }}
+            - {{ schemaSpace3 }}
+            - cdf_cdm_units
+  # Needed to write CogniteAsset.parent
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm
+  - annotationsAcl:
+      actions:
+        - READ
+        - WRITE
+        - SUGGEST
+        - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+          - READ
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - extractionRunsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - workflowOrchestrationAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - extractionPipelinesAcl:
+        actions:
+          - READ
+        scope:
+          datasetScope:
+            ids:
+              - {{ dataset }}
+# Bug in /context/diagram/detect/ endpoint that requires this
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

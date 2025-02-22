@@ -1,15 +1,5 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: workitem
@@ -21,13 +11,13 @@ Table:
   name: worktask
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 316416785021717804
   destination:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteMaintenanceOrder
-      space: cdf_idm
+      externalId: YourOrgMaintenanceOrder
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_maintenance_orders_springfield_s4hana
   ignoreNullFields: true
@@ -63,13 +53,13 @@ Transformation:
     \ as STRING) as priorityDescription\nfrom\n  `ingestion`.`workorder`\nwhere\n\
     \  isnotnull(`sourceId`)\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 316416785021717804
   destination:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteOperation
-      space: cdf_idm
+      externalId: YourOrgOperation
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_operation_to_maintenance_order_springfield_s4hana
   ignoreNullFields: true
@@ -88,13 +78,13 @@ Transformation:
     \  isnotnull(worder.`WORKORDER_NUMBER`) AND\n  isnotnull(worder.`sourceId`) AND\n\
     \  worder.rn = 1 AND\n  task.rn = 1\n"
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 316416785021717804
   destination:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteOperation
-      space: cdf_idm
+      externalId: YourOrgOperation
+      space: sp_enterprise_process_industry
       version: v1
   externalId: sap_operations_springfield_s4hana
   ignoreNullFields: true
@@ -107,3 +97,4 @@ Transformation:
     \  cast(`WORKORDER_STATUS` as STRING) as status,\n  array(cast(`WORKORDER_ITEMNAME`\
     \ as STRING)) as tags\nfrom\n  unique_workitem\nwhere\n  isnotnull(`sourceId`)\
     \ and\n  rn = 1"
+deleted: {}

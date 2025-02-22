@@ -1,8 +1,19 @@
+from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.pull import ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
+from cognite_toolkit._cdf_tk.data_classes import (
+    BuildVariable,
+    BuildVariables,
+    BuiltFullResourceList,
+    BuiltResourceFull,
+)
+from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 def load_update_diffs_use_cases():
@@ -412,3 +423,99 @@ class TestTextFileDifference:
         assert cannot_change == expected["cannot_change"]
 
         assert text_file.dump() == dumped
+
+
+def to_write_content_use_cases() -> Iterable:
+    source = """name: Ingestion
+externalId: {{ dataset }}
+description: This dataset contains Transformations, Functions, and Workflows for ingesting data into Cognite Data Fusion.
+"""
+    to_write = {"ingestion": {"name": "Ingestion", "externalId": "ingestion", "description": "New description"}}
+    variable = BuildVariable(
+        key="dataset",
+        value="ingestion",
+        is_selected=True,
+        location=Path("whatever"),
+    )
+    ingestion = MagicMock(spec=BuiltResourceFull)
+    ingestion.build_variables = BuildVariables([variable])
+    ingestion.identifier = "ingestion"
+    ingestion.extra_sources = []
+
+    resources = BuiltFullResourceList([ingestion])
+
+    expected = """name: Ingestion
+externalId: {{ dataset }}
+description: New description
+"""
+
+    yield pytest.param(source, to_write, resources, expected, id="One resource changed")
+
+    source = """name: Ingestion
+externalId: {{ dataset }} # This is a comment
+# This is another comment
+description: Original description
+"""
+
+    expected = """name: Ingestion
+externalId: {{ dataset }} # This is a comment
+# This is another comment
+description: New description
+"""
+
+    yield pytest.param(source, to_write, resources, expected, id="One resource changed with comments")
+
+    source = """- name: Ingestion
+  externalId: {{ dataset }} # This is a comment
+  # This is another comment
+  description: Original description
+- name: Another
+  externalId: unique_dataset
+  description: with its own description
+"""
+
+    expected = """- name: Ingestion
+  externalId: {{ dataset }} # This is a comment
+  # This is another comment
+  description: New description
+- name: Another
+  externalId: unique_dataset
+  description: also new description
+"""
+    to_write_multi = {
+        **to_write,
+        "unique_dataset": {"name": "Another", "externalId": "unique_dataset", "description": "also new description"},
+    }
+    unique_dataset = MagicMock(spec=BuiltResourceFull)
+    unique_dataset.build_variables = BuildVariables([])
+    unique_dataset.identifier = "unique_dataset"
+    unique_dataset.extra_sources = []
+    resources = BuiltFullResourceList([ingestion, unique_dataset])
+
+    yield pytest.param(source, to_write_multi, resources, expected, id="Multiple resources changed")
+
+
+class TestPullCommand:
+    @pytest.mark.parametrize(
+        "source, to_write, resources, expected",
+        list(to_write_content_use_cases()),
+    )
+    def test_to_write_content(
+        self,
+        source: str,
+        to_write: dict[str, [dict[str, Any]]],
+        resources: BuiltFullResourceList,
+        expected: str,
+        toolkit_client_approval: ApprovalToolkitClient,
+    ) -> None:
+        cmd = PullCommand(silent=True, skip_tracking=True)
+
+        actual, extra_files = cmd._to_write_content(
+            source=source,
+            to_write=to_write,
+            resources=resources,
+            environment_variables={},
+            loader=DataSetsLoader.create_loader(toolkit_client_approval.mock_client),
+        )
+        assert not extra_files, "This tests does not support testing extra files"
+        assert actual.splitlines() == expected.splitlines()

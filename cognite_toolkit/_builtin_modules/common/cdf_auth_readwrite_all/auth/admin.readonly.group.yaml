@@ -45,6 +45,11 @@ capabilities:
       - READ
       scope:
         all: {}
+  - diagramParsingAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - digitalTwinAcl:
       actions:
       - READ
@@ -165,6 +170,16 @@ capabilities:
   - roboticsAcl:
       actions:
       - READ
+      scope:
+        all: {}
+  - sapWritebackAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - sapWritebackRequestsAcl:
+      actions:
+      - LIST
       scope:
         all: {}
   - scheduledCalculationsAcl:

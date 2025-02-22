@@ -1,5 +1,6 @@
+import os
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 from cognite.client.data_classes import ClientCredentials
@@ -12,27 +13,13 @@ from cognite.client.data_classes.workflows import (
 from cognite_toolkit._cdf_tk.commands import RunFunctionCommand, RunTransformationCommand, RunWorkflowCommand
 from cognite_toolkit._cdf_tk.commands.run import FunctionCallArgs
 from cognite_toolkit._cdf_tk.data_classes import ModuleResources
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, get_oneshot_session
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import RUN_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
-def test_get_oneshot_session(toolkit_client_approval: ApprovalToolkitClient):
-    cdf_tool = MagicMock(spec=CDFToolConfig)
-    cdf_tool.client = toolkit_client_approval.mock_client
-    cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
-    session = get_oneshot_session(cdf_tool.client)
-    assert session.id == 5192234284402249
-    assert session.nonce == "QhlCnImCBwBNc72N"
-    assert session.status == "READY"
-    assert session.type == "ONESHOT_TOKEN_EXCHANGE"
-
-
 class TestRunTransformation:
-    def test_run_transformation(self, toolkit_client_approval: ApprovalToolkitClient):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+    def test_run_transformation(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
         transformation = Transformation(
             name="Test transformation",
             external_id="test",
@@ -40,7 +27,7 @@ class TestRunTransformation:
         )
         toolkit_client_approval.append(Transformation, transformation)
 
-        assert RunTransformationCommand().run_transformation(cdf_tool, "test") is True
+        assert RunTransformationCommand().run_transformation(toolkit_client_approval.mock_client, "test") is True
 
 
 @pytest.fixture(scope="session")
@@ -50,7 +37,7 @@ def functon_module_resources() -> ModuleResources:
 
 class TestRunFunction:
     def test_run_function_live(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
     ) -> None:
         function = Function(
             id=1234567890,
@@ -73,7 +60,7 @@ class TestRunFunction:
         cmd = RunFunctionCommand()
 
         cmd.run_cdf(
-            cdf_tool_mock,
+            env_vars_with_client,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -82,11 +69,18 @@ class TestRunFunction:
         )
         assert toolkit_client_approval.mock_client.functions.call.called
 
-    def test_run_local_function(self, cdf_tool_mock: CDFToolConfig) -> None:
+    @patch.dict(
+        os.environ,
+        {
+            "IDP_FUN_CLIENT_ID": "dummy",
+            "IDP_FUN_CLIENT_SECRET": "dummy",
+        },
+    )
+    def test_run_local_function(self, env_vars_with_client: EnvironmentVariables) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            ToolGlobals=cdf_tool_mock,
+            env_vars=env_vars_with_client,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -94,11 +88,18 @@ class TestRunFunction:
             rebuild_env=False,
         )
 
-    def test_run_local_function_with_workflow(self, cdf_tool_mock: CDFToolConfig) -> None:
+    @patch.dict(
+        os.environ,
+        {
+            "IDP_WF_CLIENT_ID": "dummy",
+            "IDP_WF_CLIENT_SECRET": "dummy",
+        },
+    )
+    def test_run_local_function_with_workflow(self, env_vars_with_client: EnvironmentVariables) -> None:
         cmd = RunFunctionCommand()
 
         cmd.run_local(
-            ToolGlobals=cdf_tool_mock,
+            env_vars=env_vars_with_client,
             organization_dir=RUN_DATA,
             build_env_name="dev",
             external_id="fn_test3",
@@ -160,10 +161,9 @@ class TestRunFunction:
 
 
 class TestRunWorkflow:
-    def test_run_workflow(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
-        cdf_tool = MagicMock(spec=CDFToolConfig)
-        cdf_tool.toolkit_client = toolkit_client_approval.mock_client
-        cdf_tool.verify_authorization.return_value = toolkit_client_approval.mock_client
+    def test_run_workflow(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ):
         toolkit_client_approval.mock_client.workflows.executions.run.return_value = WorkflowExecution(
             id="1234567890",
             workflow_external_id="workflow",
@@ -174,7 +174,7 @@ class TestRunWorkflow:
 
         assert (
             RunWorkflowCommand().run_workflow(
-                cdf_tool_mock,
+                env_vars_with_client,
                 organization_dir=RUN_DATA,
                 build_env_name="dev",
                 external_id="workflow",

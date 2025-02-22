@@ -1,31 +1,23 @@
-DataSet:
-- description: Transformations for populating data
-  externalId: ingestion
-  metadata: {}
-  name: Population Transformations
-  writeProtected: false
 Database:
 - name: ingestion
-Space:
-- description: This space contains data
-  name: Instance space
-  space: springfield_instances
 Table:
 - createdTime: 1
   name: files_metadata
 Transformation:
 - conflictMode: upsert
-  dataSetId: 42
+  dataSetId: 316416785021717804
   destination:
     instanceSpace: springfield_instances
     type: nodes
     view:
-      externalId: CogniteFile
-      space: cdf_cdm
+      externalId: YourOrgFile
+      space: sp_enterprise_process_industry
       version: v1
   externalId: files_metadata_springfield
   ignoreNullFields: true
   isPublic: true
   name: File Transformations for Springfield Sharepoint
-  query: "select \n\tname as externalId,\n \tname, \n\tsource as sourceId,\n\tmime_type\
-    \ as mimeType\nfrom `ingestion`.`files_metadata`"
+  query: "select\n\tconcat('VAL_', name) as externalId,\n \tname,\n\tsource as sourceId,\n\
+    \tmime_type as mimeType\nfrom `ingestion`.`files_metadata`\nwhere\n\tisnotnull(mime_type)\
+    \ and\n\tmime_type = 'application/pdf'\n"
+deleted: {}

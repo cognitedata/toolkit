@@ -7,7 +7,6 @@ DataSet:
     transformations: '[{"externalId": "tr_asset_oid_opcua_asset_hierarchy", "type":
       "Transformations"}]'
   name: asset:oid
-  writeProtected: false
 - description: Time series data for oid extracted live from OPC-UA simulator and static
     examples from PI (OID data)
   externalId: ds_timeseries_oid
@@ -17,12 +16,11 @@ DataSet:
       {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_bad"},
       {"databaseName": "timeseries_oid_opcua", "tableName": "contextualization_manual_input"}]'
   name: timeseries:oid
-  writeProtected: false
 Database:
 - name: timeseries_oid_opcua
 ExtractionPipeline:
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 10875617807794485048
   description: Contextualization of time series and assets for  oid:opcua
   documentation: "# Time series and assets Contextualization\nThe Time series and\
     \ assets Contextualization runs as a process in CDF Functions. Process triggers\
@@ -61,7 +59,7 @@ ExtractionPipeline:
     tableName: contextualization_manual_input
   source: opcua
 - createdBy: unknown
-  dataSetId: 42
+  dataSetId: 10875617807794485048
   description: Time Series source extraction pipeline with configuration for OPC-UA
     reading data from and OPC-UA simulator
   documentation: "# OPC UA Test simulator extraction pipeline\n\n  OPC Unified Architecture\
@@ -88,23 +86,23 @@ ExtractionPipeline:
     \ name - other names can also be used) and contain the following parameters:\n\
     \n    ``` yaml\n      # Version of the config schema\n      version: 1\n\n   \
     \   type: remote\n      cognite:\n          # The project to connect to in the\
-    \ API, uses the environment variable COGNITE_PROJECT.\n          project: ${CDF_PROJECT}\
-    \ <ex: my_project>\n          host: ${CDF_URL} <ex: https://api.cognitedata.com>\n\
+    \ API, uses the environment variable COGNITE_PROJECT.\n          project: pytest-project\
+    \ <ex: my_project>\n          host: https://bluefield.cognitedata.com <ex: https://api.cognitedata.com>\n\
     \n          # If this is set to true, credentials can be left out, and the extractor\n\
     \          # will read data without pushing it to CDF.\n          # This is for\
     \ microsoft as IdP, to use a different provider,\n          # set implementation:\
     \ Basic, and use token-url instead of tenant.\n          # See the example config\
     \ for the full list of options.\n          idp-authentication:\n             \
-    \ # Directory tenant\n              tenant: ${IDP_TENANT_ID} <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
-    \ >\n              # Application Id\n              client-id: ${IDP_CLIENT_ID}\
-    \  <ex: 1f4afa-asfd-3434-bb46-93123s423ds >\n              # Client secret\n \
-    \             secret: ${IDP_CLIENT_SECRET} <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
+    \ # Directory tenant\n              tenant: dummy-domain <ex:  1f4afa-asfd-3434-bb46-93123s423ds\
+    \ >\n              # Application Id\n              client-id: dummy-123  <ex:\
+    \ 1f4afa-asfd-3434-bb46-93123s423ds >\n              # Client secret\n       \
+    \       secret: dummy-secret <ex: 1f4afa-asfd-3434-bb46-93123s423ds-asdasd-asdasd-asdasd\
     \ >\n              # List of resource scopes, ex:\n              # scopes:\n \
     \             #   - scopeA\n              #   - scopeB\n              scopes:\n\
-    \                  - ${IDP_SCOPES} <ex: https://api.cognitedata.com/.default>\n\
+    \                  - https://bluefield.cognitedata.com/.default <ex: https://api.cognitedata.com/.default>\n\
     \          extraction-pipeline:\n              # ExternalId of extraction pipeline\n\
     \              pipeline-id: ep_src_timeseries_oid_opcua\n\n    ```\n\n    All\
-    \ parameters in the config file that are environment variables ex: `${CDF_PROJECT}`\
+    \ parameters in the config file that are environment variables ex: `pytest-project`\
     \ that should be set on the host running the extractor.\n"
   externalId: ep_src_timeseries_oid_opcua
   name: src:timeseries:oid:opcua
@@ -117,7 +115,7 @@ ExtractionPipelineConfig:
     \  matchThreshold: 0.75\n"
   externalId: ep_ctx_timeseries_oid_opcua_asset
 - config: "# Version of the config schema\nversion: 1\n\nsource:\n    # The URL of\
-    \ the OPC-UA server to connect to\n    endpoint-url: opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer\n\
+    \ the OPC-UA server to connect to\n    endpoint-url: 'opc.tcp://DESKTOP-18JE0L8:53530/OPCUA/SimulationServer'\n\
     \    force-restart: true\n    browse-nodes-chunk: 100\n    subscription-chunk:\
     \ 1000\n    keep-alive-interval: 50000\n    sampling-interval: 0\n    queue-length:\
     \ 10\n    browse-throttling:\n        max-node-parallelism: 1000\n    retries:\n\
@@ -133,9 +131,9 @@ ExtractionPipelineConfig:
     \ \"opc-ua:\"\n\n    # Source node in the OPC-UA server. Leave empty to use the\
     \ top level Objects node.\n    # If root-nodes is set, this is added to the list\
     \ of root nodes.\n    root-node:\n        # Full name of the namespace of the\
-    \ root node.\n        namespace-uri: http://www.prosysopc.com/OPCUA/SimulationNodes/\n\
+    \ root node.\n        namespace-uri: 'http://www.prosysopc.com/OPCUA/SimulationNodes/'\n\
     \        # Id of the root node, on the form \"i=123\" or \"s=stringid\" etc.\n\
-    \        node-id: s=85/0:Simulation\n\n    # Time in minutes between each call\
+    \        node-id: 's=85/0:Simulation'\n\n    # Time in minutes between each call\
     \ to browse the OPC-UA directory, then push new nodes to destinations.\n    #\
     \ Note that this is a heavy operation, so this number should not be set too low.\n\
     \    # Alternatively, use N[timeunit] where timeunit is w, d, h, m, s or ms.\n\
@@ -152,13 +150,13 @@ Function:
 - cpu: 0.6
   description: Contextualization of timeseries and asset data for oid:opcua
   envVars:
-    CDF_ENV: ${CDF_ENVIRON}
-    ENV_TYPE: ${CDF_BUILD_TYPE}
+    CDF_ENV: dev
+    ENV_TYPE: dev
   externalId: fn_context_timeseries_oid_opcua_asset
   fileId: -1
   functionPath: ./handler.py
   metadata:
-    cdf-toolkit-function-hash: 751c0304548641f6407bfaecbd52b3f1f589a87a17e9799c28a6f77d8cd410b6
+    cognite-toolkit-hash: /=751c0304;__init__.py=e3b0c442;config.py=ffce348e;constants.py=e9168055;get_resources.py=f6d32a5f;handler.py=3e480382;pipeline.py=16d2615e;requirements.txt=c35ab502;write_resources.py=11ee0a81
     version: 0.0.1
   name: context:timeseries:oid:opcua:asset
   owner: Anonymous
@@ -188,21 +186,21 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   - datasetsAcl:
       actions:
       - READ
       scope:
         idScope:
           ids:
-          - 42
+          - 10875617807794485048
   - extractionConfigsAcl:
       actions:
       - READ
       scope:
         extractionPipelineScope:
           ids:
-          - 1
+          - 15360909663466695708
   - extractionRunsAcl:
       actions:
       - READ
@@ -210,7 +208,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   metadata:
     origin: cdf-project-templates
   name: gp_timeseries_oid_extractor
@@ -239,7 +237,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 5942118280324318086
   - timeSeriesAcl:
       actions:
       - READ
@@ -247,7 +245,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   - extractionConfigsAcl:
       actions:
       - READ
@@ -255,7 +253,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   - extractionRunsAcl:
       actions:
       - READ
@@ -263,7 +261,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   - entitymatchingAcl:
       actions:
       - READ
@@ -289,7 +287,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   metadata:
     origin: cdf-project-templates
   name: gp_timeseries_oid_processing
@@ -312,7 +310,7 @@ Group:
       scope:
         datasetScope:
           ids:
-          - 42
+          - 10875617807794485048
   metadata:
     origin: cdf-project-templates
   name: gp_timeseries_oid_read
@@ -345,3 +343,4 @@ Table:
   name: contextualization_good
 - createdTime: 1
   name: contextualization_manual_input
+deleted: {}

@@ -1,0 +1,22 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    - externalId: {{ workflow}}_task1
+      type: function
+      parameters:
+        function:
+          externalId: {{ annotatorJob }}
+          data:
+            logLevel: INFO
+      onFailure: skipTask
+    - externalId: {{ workflow}}_task2
+      type: function
+      parameters:
+        function:
+          externalId: contextualization_connection_writer
+          data:
+            logLevel: INFO
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ workflow }}_task1

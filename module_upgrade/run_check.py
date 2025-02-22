@@ -14,6 +14,9 @@ from unittest.mock import patch
 
 from cognite.client.config import global_config
 
+from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from tests.auth_utils import EnvironmentVariables
+
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
 global_config.silence_feature_preview_warnings = True
@@ -36,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._changes import ManualChange
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
+from cognite_toolkit._cdf_tk.utils import module_from_path
 from cognite_toolkit._version import __version__
 
 TEST_DIR_ROOT = Path(__file__).resolve().parent
@@ -91,8 +94,12 @@ def run() -> None:
         )
     )
     for version in versions:
-        with local_tmp_project_path() as project_path, local_build_path() as build_path, tool_globals() as cdf_tool_config:
-            run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
+        with (
+            local_tmp_project_path() as project_path,
+            local_build_path() as build_path,
+            get_env_vars() as env_vars,
+        ):
+            run_modules_upgrade(version, project_path, build_path, env_vars)
 
 
 def get_versions_since(support_upgrade_from_version: str) -> list[Version]:
@@ -197,11 +204,11 @@ def create_project_init(version: str) -> None:
 
     print(f"Project init for version {version} created.")
     with chdir(TEST_DIR_ROOT):
-        shutil.rmtree(environment_directory)
+        safe_rmtree(environment_directory)
 
 
 def run_modules_upgrade(
-    previous_version: Version, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
+    previous_version: Version, project_path: Path, build_path: Path, env_vars: EnvironmentVariables
 ) -> None:
     if (TEST_DIR_ROOT / CDFToml.file_name).exists():
         # Cleanup after previous run
@@ -243,12 +250,13 @@ def run_modules_upgrade(
 
         deploy = DeployCommand(print_warning=False)
         deploy.execute(
-            cdf_tool_config,
+            env_vars,
             build_path,
             build_env_name="dev",
             dry_run=True,
             drop=False,
             drop_data=False,
+            force_update=False,
             include=list(LOADER_BY_FOLDER_NAME),
             verbose=False,
         )
@@ -269,7 +277,7 @@ def delete_modules_requiring_manual_changes(changes):
             continue
         for file in change.needs_to_change():
             if file.is_dir():
-                shutil.rmtree(file)
+                safe_rmtree(file)
             else:
                 module = module_from_path(file)
                 for part in reversed(file.parts):
@@ -277,7 +285,7 @@ def delete_modules_requiring_manual_changes(changes):
                         break
                     file = file.parent
                 if file.exists():
-                    shutil.rmtree(file)
+                    safe_rmtree(file)
 
 
 def update_config_yaml_to_select_all_modules(project_path):
@@ -313,11 +321,11 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 @contextmanager
-def tool_globals() -> Iterator[CDFToolConfig]:
+def get_env_vars() -> Iterator[EnvironmentVariables]:
     load_dotenv(TEST_DIR_ROOT.parent / ".env")
 
     try:
-        yield CDFToolConfig()
+        yield EnvironmentVariables.create_from_environ()
     finally:
         ...
 
@@ -326,7 +334,7 @@ def tool_globals() -> Iterator[CDFToolConfig]:
 def local_tmp_project_path() -> Path:
     project_path = TEST_DIR_ROOT / "tmp-project"
     if project_path.exists():
-        shutil.rmtree(project_path)
+        safe_rmtree(project_path)
     project_path.mkdir(exist_ok=True)
     try:
         yield project_path
@@ -338,7 +346,7 @@ def local_tmp_project_path() -> Path:
 def local_build_path() -> Path:
     build_path = TEST_DIR_ROOT / "build"
     if build_path.exists():
-        shutil.rmtree(build_path)
+        safe_rmtree(build_path)
 
     build_path.mkdir(exist_ok=True)
     # This is a small hack to get 0.1.0b1-4 working
