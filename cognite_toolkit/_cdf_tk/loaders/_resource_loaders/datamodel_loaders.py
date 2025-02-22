@@ -602,7 +602,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
             elif self._is_deployment_order(e1, set(self.get_ids(items))):
-                return self._fallback_create_one_by_one(self._topological_sort(items), e1)
+                return self._fallback_create_one_by_one(self._topological_sort(items), e1, warn=False)
             raise
 
     @staticmethod
@@ -638,10 +638,13 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def _is_auto_retryable(e: CogniteAPIError) -> bool:
         return isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]
 
-    def _fallback_create_one_by_one(self, items: Sequence[ViewApply], e1: CogniteAPIError) -> ViewList:
-        MediumSeverityWarning(
-            f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
-        ).print_warning(include_timestamp=True, console=self.console)
+    def _fallback_create_one_by_one(
+        self, items: Sequence[ViewApply], e1: CogniteAPIError, warn: bool = True
+    ) -> ViewList:
+        if warn:
+            MediumSeverityWarning(
+                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
+            ).print_warning(include_timestamp=True, console=self.console)
         created_list = ViewList([])
         for no, item in enumerate(items):
             try:
