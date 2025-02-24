@@ -5,14 +5,18 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
     BuildVariables,
     BuiltFullResourceList,
+    BuiltModuleList,
     BuiltResourceFull,
 )
+from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
+from tests.data import PLACEHOLDERS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -519,3 +523,32 @@ class TestPullCommand:
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()
+
+    @pytest.fixture(scope="session")
+    def built_modules(self, build_tmp_path: Path) -> BuiltModuleList:
+        input_modules = ModuleDirectories.load(PLACEHOLDERS, None)
+        cmd = BuildCommand(silent=True, skip_tracking=True, print_warning=False)
+
+        return cmd.build_modules(
+            modules=input_modules,
+            build_dir=build_tmp_path,
+            on_error="raise",
+            validation="identifier",
+            variables=BuildVariables([]),
+        )
+
+    def input_resource_files(path: Path):
+        return {
+            p.name: [f.name for f in p.iterdir() if f.is_file() and f.suffix in {".yaml", ".yml"}]
+            for p in path.iterdir()
+            if p.is_dir()
+        }
+
+    resource_input = input_resource_files(PLACEHOLDERS / "modules" / "my_example_module")
+
+    @pytest.mark.parametrize("resource, files", list(resource_input.items()))
+    def test_build_for_pull(self, built_modules: BuiltModuleList, resource, files) -> None:
+        # test code here
+
+        built = built_modules.as_resources_by_folder()[resource]
+        assert len(built) == len(files)

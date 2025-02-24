@@ -42,13 +42,23 @@ class TransformationBuilder(Builder):
                 continue
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
-
             extra_sources: list[SourceLocation] | None = None
-            if loader is TransformationLoader:
+
+            if validation == "identifier":
                 try:
-                    extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
-                except ToolkitYAMLFormatError as e:
-                    raise e
+                    if source_file.loaded is None:
+                        continue
+                    items = source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]
+                    for item in items:
+                        loader.get_id(item)
+                except KeyError:
+                    raise ToolkitYAMLFormatError("Identifier is missing", source_file.source.path)
+            else:
+                if loader is TransformationLoader:
+                    try:
+                        extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
+                    except ToolkitYAMLFormatError as e:
+                        raise e
 
             destination = BuildDestinationFile(
                 path=destination_path,

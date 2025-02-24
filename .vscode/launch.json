@@ -155,6 +155,18 @@
       "justMyCode": false
     },
     {
+      "name": "cdf auth init",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "auth",
+        "init",
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: clean",
       "type": "debugpy",
       "request": "launch",
