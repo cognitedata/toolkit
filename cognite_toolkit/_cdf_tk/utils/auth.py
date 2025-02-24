@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyEr
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
-Provider: TypeAlias = Literal["entra_id", "auth0", "other"]
+Provider: TypeAlias = Literal["entra_id", "auth0", "other", "cdf"]
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 VALID_PROVIDERS = get_args(Provider)
 VALID_LOGIN_FLOWS = get_args(LoginFlow)
@@ -30,7 +30,7 @@ CLIENT_NAME = f"CDF-Toolkit:{__version__}"
 PROVIDER_DESCRIPTION = {
     "entra_id": "Use Microsoft Entra ID to authenticate",
     "auth0": "Use Auth0 to authenticate",
-    # "cdf": "Use Cognite IDP to authenticate",
+    "cdf": "Use Cognite IDP to authenticate",
     "other": "Use other IDP to authenticate",
 }
 LOGIN_FLOW_DESCRIPTION = {

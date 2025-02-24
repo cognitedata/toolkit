@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -23,7 +23,7 @@ class TransformationBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        accept_invalid_files: bool = False,
+        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         query_files = {
             source_file.source.path: source_file
@@ -34,10 +34,7 @@ class TransformationBuilder(Builder):
         for source_file in source_files:
             loaded = source_file.loaded
             if loaded is None:
-                if accept_invalid_files and source_file.source.path.suffix == ".yaml":
-                    loaded = {}
-                else:
-                    continue
+                continue
             loader, warning = self._get_loader(source_file.source.path)
             if loader is None:
                 if warning is not None:
@@ -49,9 +46,7 @@ class TransformationBuilder(Builder):
             extra_sources: list[SourceLocation] | None = None
             if loader is TransformationLoader:
                 try:
-                    extra_sources = self._add_query(
-                        loaded, source_file, query_files, destination_path, accept_invalid_files
-                    )
+                    extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
                 except ToolkitYAMLFormatError as e:
                     raise e
 
@@ -73,7 +68,6 @@ class TransformationBuilder(Builder):
         source_file: BuildSourceFile,
         query_files: dict[Path, BuildSourceFile],
         transformation_destination_path: Path,
-        accept_invalid_files: bool,
     ) -> list[SourceLocation]:
         loaded_list = loaded if isinstance(loaded, list) else [loaded]
         extra_sources: list[SourceLocation] = []
@@ -86,12 +80,12 @@ class TransformationBuilder(Builder):
             filepath = source_file.source.path
             query_file = self._get_query_file(filepath, external_id, query_files)
 
-            if "query" in entry and query_file is not None and not accept_invalid_files:
+            if "query" in entry and query_file is not None:
                 raise ToolkitYAMLFormatError(
                     f"query property is ambiguously defined in both the yaml file and a separate file named {query_file}\n"
                     f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                 )
-            elif "query" not in entry and query_file is None and not accept_invalid_files:
+            elif "query" not in entry and query_file is None:
                 raise ToolkitYAMLFormatError(
                     f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                     filepath,

@@ -2,7 +2,7 @@ import difflib
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, Literal, cast
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -64,7 +64,7 @@ class Builder(ABC):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        accept_invalid_files: bool = False,
+        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         raise NotImplementedError()
 
@@ -175,7 +175,7 @@ class DefaultBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        accept_invalid_files: bool = False,
+        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         for source_file in source_files:
             if source_file.loaded is None:

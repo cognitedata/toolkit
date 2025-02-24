@@ -1,6 +1,6 @@
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
@@ -25,7 +25,7 @@ class RawBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        accept_invalid_files: bool = False,
+        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             loaded = source_file.loaded

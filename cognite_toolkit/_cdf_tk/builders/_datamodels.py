@@ -1,7 +1,7 @@
 import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
@@ -24,7 +24,7 @@ class DataModelBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        accept_invalid_files: bool = False,
+        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         graphql_files = {
             source_file.source.path: source_file

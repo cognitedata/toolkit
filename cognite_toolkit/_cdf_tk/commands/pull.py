@@ -461,7 +461,7 @@ class PullCommand(ToolkitCommand):
                 no_clean=False,
                 client=client,
                 on_error="raise",
-                accept_invalid_files=True,
+                validation="identifier",
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e
@@ -537,7 +537,7 @@ class PullCommand(ToolkitCommand):
         resources: BuiltFullResourceList[T_ID],
         dry_run: bool,
         environment_variables: dict[str, str | None],
-        accept_invalid_files: bool = True,
+        validate: bool = True,
     ) -> ResourceDeployResult:
         cdf_resources = loader.retrieve(resources.identifiers)  # type: ignore[arg-type]
         cdf_resource_by_id: dict[T_ID, T_WritableCogniteResource] = {loader.get_id(r): r for r in cdf_resources}
@@ -547,7 +547,7 @@ class PullCommand(ToolkitCommand):
         environment_variables = environment_variables or {}
         for source_file, resources in resources_by_file.items():
             local_resource_by_id = self._get_local_resource_dict_by_id(
-                resources, loader, environment_variables, accept_invalid_files
+                resources, loader, environment_variables, validate
             )
             has_changes, to_write = self._get_to_write(local_resource_by_id, cdf_resource_by_id, file_results, loader)
 
