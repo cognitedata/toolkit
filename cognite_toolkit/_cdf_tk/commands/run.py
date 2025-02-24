@@ -637,10 +637,6 @@ class RunTransformationCommand(ToolkitCommand):
         """Run a transformation in CDF"""
         if isinstance(external_ids, str):
             external_ids = [external_ids]
-        session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
-        if session is None:
-            print("[bold red]ERROR:[/] Could not get a oneshot session.")
-            return False
         try:
             transformations: TransformationList = client.transformations.retrieve_multiple(external_ids=external_ids)
         except CogniteAPIError as e:
@@ -650,8 +646,12 @@ class RunTransformationCommand(ToolkitCommand):
         if transformations is None or len(transformations) == 0:
             print(f"[bold red]ERROR:[/] Could not find transformation with external_id {external_ids}")
             return False
-        nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
         for transformation in transformations:
+            session = client.iam.sessions.create(session_type="ONESHOT_TOKEN_EXCHANGE")
+            if session is None:
+                print("[bold red]ERROR:[/] Could not get a oneshot session.")
+                return False
+            nonce = NonceCredentials(session_id=session.id, nonce=session.nonce, cdf_project_name=client.config.project)
             transformation.source_nonce = nonce
             transformation.destination_nonce = nonce
         try:
