@@ -21,6 +21,11 @@ Changes are grouped as follows:
 
 - Deploying multiple views with reverse direct relation dependencies no longer raises a `ResourceCreationError`.
 
+### Improved
+
+- Error message when you have invalid credentials for workflow trigger, transformations, or function schedules.
+- The `GitHub` action template for the dry-run action now writes the toolkit output to a comment on the PR.
+
 ## [0.4.9] - 2025-02-20
 
 ### Added
