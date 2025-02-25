@@ -32,7 +32,7 @@ class DumpApp(typer.Typer):
         self.command("datamodel")(self.dump_datamodel_cmd)
         self.command("asset")(self.dump_asset_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
-        self.command("files")(self.dump_filemetadata_cmd)
+        self.command("file")(self.dump_filemetadata_cmd)
         self.command("event")(self.dump_event_cmd)
 
         if Flags.DUMP_EXTENDED.is_enabled():
