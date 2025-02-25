@@ -13,6 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
+    ToolkitIdentifierMissingError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -186,8 +187,16 @@ class DefaultBuilder(Builder):
                 if warning is not None:
                     yield [warning]
                 continue
-            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
+            if validation == "identifier":
+                items = source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]
+                try:
+                    for item in items:
+                        loader.get_id(item)
+                except KeyError as e:
+                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
+
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
             destination = BuildDestinationFile(
                 path=destination_path,
                 loaded=source_file.loaded,

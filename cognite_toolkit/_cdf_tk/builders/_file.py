@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildSourceFile,
     ModuleLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitIdentifierMissingError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileLoader, FileMetadataLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
@@ -34,10 +34,18 @@ class FileBuilder(Builder):
                 if warning is not None:
                     yield [warning]
                 continue
-            if loader in {FileMetadataLoader, CogniteFileLoader}:
-                loaded = self._expand_file_metadata(loaded, module, console)
-            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
+            if validation == "identifier":
+                items = loaded if isinstance(loaded, list) else [loaded]
+                try:
+                    for item in items:
+                        loader.get_id(item)
+                except KeyError as e:
+                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
+            elif loader in {FileMetadataLoader, CogniteFileLoader}:
+                loaded = self._expand_file_metadata(loaded, module, console)
+
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
             yield BuildDestinationFile(
                 path=destination_path,
                 loaded=loaded,
