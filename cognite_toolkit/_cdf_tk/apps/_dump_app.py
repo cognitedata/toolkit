@@ -8,6 +8,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.commands import (
     DumpAssetsCommand,
+    DumpEventCommand,
     DumpFileMetadataCommand,
     DumpResourceCommand,
     DumpTimeSeriesCommand,
@@ -32,6 +33,7 @@ class DumpApp(typer.Typer):
         self.command("asset")(self.dump_asset_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
         self.command("files")(self.dump_filemetadata_cmd)
+        self.command("event")(self.dump_event_cmd)
 
         if Flags.DUMP_EXTENDED.is_enabled():
             self.command("workflow")(self.dump_workflow)
@@ -456,6 +458,83 @@ class DumpApp(typer.Typer):
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpTimeSeriesCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(
+            lambda: cmd.execute(
+                client,
+                data_set,
+                hierarchy,
+                output_dir,
+                clean,
+                limit,
+                format_,  # type: ignore [arg-type]
+                verbose,
+            )
+        )
+
+    def dump_event_cmd(
+        self,
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump events from.",
+            ),
+        ] = None,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+            ),
+        ] = None,
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the events in. Supported formats: yaml, csv, and parquet.",
+            ),
+        ] = "csv",
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of events to dump.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the events files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the events.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DumpEventCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.execute(
