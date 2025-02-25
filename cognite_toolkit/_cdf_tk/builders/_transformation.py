@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
     SourceLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitIdentifierMissingError, ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import safe_write
@@ -51,8 +51,8 @@ class TransformationBuilder(Builder):
                     items = source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]
                     for item in items:
                         loader.get_id(item)
-                except KeyError:
-                    raise ToolkitYAMLFormatError("Identifier is missing", source_file.source.path)
+                except KeyError as e:
+                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path)
             else:
                 if loader is TransformationLoader:
                     try:
