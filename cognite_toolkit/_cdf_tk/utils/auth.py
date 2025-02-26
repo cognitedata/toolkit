@@ -111,7 +111,7 @@ class EnvironmentVariables:
                 "entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
                 "auth0": "https://<my_auth_url>/oauth/token",
             },
-            required=all_providers(flow="client_credentials", exclude="entra_id"),
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "cdf"}),
             optional=frozenset([("entra_id", "client_credentials")]),
         ),
     )
@@ -134,7 +134,7 @@ class EnvironmentVariables:
                 "auth0": "https: //{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
                 "other": "https://{CDF_CLUSTER}.cognitedata.com",
             },
-            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0"}),
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0", "cdf"}),
             optional=frozenset([("entra_id", "client_credentials"), ("auth0", "client_credentials")]),
         ),
     )
