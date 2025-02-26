@@ -15,6 +15,12 @@ Changes are grouped as follows:
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+## TBD
+
+### Improved
+
+- Less strict validation of yaml files when they are used as empty placeholders for the modules pull command
+
 ## [0.4.10] - 2025-02-24
 
 ### Fixed
