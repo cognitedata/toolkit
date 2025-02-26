@@ -527,10 +527,11 @@ class TestPullCommand:
         input_modules = ModuleDirectories.load(PLACEHOLDERS, None)
         cmd = BuildCommand(silent=True, skip_tracking=True, print_warning=False)
 
-        return cmd.build_modules(
+        res = cmd.build_modules(
             modules=input_modules,
             build_dir=build_tmp_path,
             on_error="raise",
             validation="identifier",
             variables=BuildVariables([]),
         )
+        assert res is not None

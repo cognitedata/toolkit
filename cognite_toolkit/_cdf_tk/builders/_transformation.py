@@ -32,37 +32,37 @@ class TransformationBuilder(Builder):
         }
 
         for source_file in source_files:
-            for source_file in source_files:
-                loaded = source_file.loaded
-                if not loaded:
-                    continue
+            loaded = source_file.loaded
+            if loaded is None:
+                # Not a YAML file
+                continue
+            loader, warning = self._get_loader(source_file.source.path)
+            if loader is None:
+                if warning is not None:
+                    yield [warning]
+                continue
 
-                loader, warning = self._get_loader(source_file.source.path)
-                if not loader:
-                    if warning:
-                        yield [warning]
-                    continue
+            destination_path = self._create_destination_path(source_file.source.path, loader.kind)
+            extra_sources: list[SourceLocation] | None = None
 
-                destination_path = self._create_destination_path(source_file.source.path, loader.kind)
-                extra_sources: list[SourceLocation] | None = None
+            if validation == "identifier":
+                try:
+                    items = [loaded] if isinstance(loaded, dict) else loaded
+                    for item in items:
+                        loader.get_id(item)  # check that it has an id
+                except KeyError as e:
+                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
 
-                if validation == "identifier":
-                    try:
-                        items = [loaded] if not isinstance(loaded, list) else loaded
-                        for item in items:
-                            loader.get_id(item)
-                    except KeyError as e:
-                        raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
-                elif loader is TransformationLoader:
-                    extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
+            if loader is TransformationLoader:
+                extra_sources = self._add_query(loaded, source_file, query_files, destination_path)
 
-                yield BuildDestinationFile(
-                    path=destination_path,
-                    loaded=loaded,
-                    loader=loader,
-                    source=source_file.source,
-                    extra_sources=extra_sources,
-                )
+            yield BuildDestinationFile(
+                path=destination_path,
+                loaded=loaded,
+                loader=loader,
+                source=source_file.source,
+                extra_sources=extra_sources,
+            )
 
     def load_extra_field(self, extra: str) -> tuple[str, Any]:
         return "query", extra
@@ -92,7 +92,7 @@ class TransformationBuilder(Builder):
                 )
             elif "query" not in entry and query_file is None:
                 raise ToolkitYAMLFormatError(
-                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
+                    f"query property or file is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                     filepath,
                 )
             elif query_file is not None:

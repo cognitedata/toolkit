@@ -596,9 +596,6 @@ class BuildCommand(ToolkitCommand):
     ) -> tuple[WarningList[FileReadWarning], list[tuple[Hashable, str]]]:
         warning_list = WarningList[FileReadWarning]()
 
-        if not parsed:
-            parsed = {}
-
         is_dict_item = isinstance(parsed, dict)
         items = [parsed] if isinstance(parsed, dict) else parsed
 

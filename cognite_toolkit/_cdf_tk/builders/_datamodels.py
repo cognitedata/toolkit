@@ -34,7 +34,7 @@ class DataModelBuilder(Builder):
 
         for source_file in source_files:
             loaded = source_file.loaded
-            if not loaded:  # Skip non-YAML files
+            if not loaded:
                 continue
 
             loader, warning = self._get_loader(source_file.source.path)
