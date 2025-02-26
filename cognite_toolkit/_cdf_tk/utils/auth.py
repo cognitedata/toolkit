@@ -147,7 +147,7 @@ class EnvironmentVariables:
                 "entra_id": "https://{CDF_CLUSTER}.cognitedata.com/.default",
                 "auth0": "IDENTITY,user_impersonation",
             },
-            optional=frozenset([*all_providers("client_credentials"), (None, "interactive")]),
+            optional=frozenset([*all_providers("client_credentials", exclude="cdf"), (None, "interactive")]),
         ),
     )
     IDP_AUTHORITY_URL: str | None = field(
