@@ -328,10 +328,6 @@ class ResourceLoader(
         """Loads the resource from a dictionary. Can be overwritten in subclasses."""
         return self.resource_write_cls._load(resource)
 
-    def load_minimum_resource(self, resource: dict[str, Any]) -> T_ID:
-        """Loads the minimum resource from a dictionary. Can be overwritten in subclasses."""
-        return self.get_id(self.load_resource(resource))
-
     def dump_resource(self, resource: T_WritableCogniteResource, local: dict[str, Any] | None = None) -> dict[str, Any]:
         """Dumps the resource to a dictionary that matches the write format.
 
