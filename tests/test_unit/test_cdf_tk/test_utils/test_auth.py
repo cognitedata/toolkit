@@ -71,6 +71,16 @@ class TestEnvironmentVariables:
                 },
                 id="device other",
             ),
+            pytest.param(
+                {
+                    **PROJECT_AND_CLUSTER,
+                    "LOGIN_FLOW": "client_credentials",
+                    "PROVIDER": "cdf",
+                    "IDP_CLIENT_ID": "my-identifier",
+                    "IDP_CLIENT_SECRET": "my-secret",
+                },
+                id="client-credentials cdf",
+            ),
         ],
     )
     def test_get_valid_config(self, args: dict[str, Any]) -> None:
