@@ -64,3 +64,5 @@ jobs:
         run: cat last_git_message.txt
       - name: Validate Changelog section in PR description
         run: python dev.py changelog
+      - name: Inspect Changelog
+        run: cat last_changelog_entry.md

@@ -10,4 +10,5 @@ version = "0.0.0"
 [plugins]
 run = true
 pull = false
-dump = false
+dump = true
+

@@ -14,4 +14,4 @@ Please describe the change you have made.
 
 ## templates
 
-No changes to templates.
+No changes.
