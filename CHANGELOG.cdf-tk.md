@@ -17,9 +17,9 @@ Changes are grouped as follows:
 
 ## TBD
 
-### Improved
+### Fixed
 
-- Less strict validation of yaml files when they are used as empty placeholders for the modules pull command
+- Kind in Query files broke pull command. This is now fixed.
 
 ## [0.4.10] - 2025-02-24
 
