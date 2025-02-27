@@ -20,8 +20,6 @@ ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
 
 COPY poetry.lock pyproject.toml README.md ./
 COPY cognite_toolkit/. ./cognite_toolkit/
-# This is only used for development
-RUN rm -rf /app/dev.py
 # Ensure we get the exact version of the dependencies
 RUN poetry sync --without dev
 
@@ -30,7 +28,8 @@ FROM python:3.11-slim-bookworm
 COPY --from=builder /usr/local/lib/python3.11/site-packages  /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 COPY --from=builder /cognite_toolkit /cognite_toolkit
-
+# This is only used for development
+RUN rm -rf /app/dev.py
 RUN mkdir /app
 WORKDIR /app
 
