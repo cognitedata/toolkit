@@ -24,7 +24,7 @@ VALID_CHANGELOG_HEADERS = {"Added", "Changed", "Removed", "Fixed"}
 BUMP_OPTIONS = Literal["major", "minor", "patch", "skip"]
 VALID_BUMP_OPTIONS = get_args(BUMP_OPTIONS)
 LAST_GIT_MESSAGE_FILE = REPO_ROOT / "last_git_message.txt"
-CHANGELOG_ENTRY_FILE = REPO_ROOT / "changelog_entry.md"
+CHANGELOG_ENTRY_FILE = REPO_ROOT / "last_changelog_entry.md"
 LAST_VERSION = REPO_ROOT / "last_version.txt"
 VERSION_PLACEHOLDER = "0.0.0"
 
