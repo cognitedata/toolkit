@@ -1,6 +1,5 @@
 import shutil
 from collections.abc import Callable, Iterable, Sequence
-from typing import Literal
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -26,7 +25,6 @@ class StreamlitBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             loaded = source_file.loaded

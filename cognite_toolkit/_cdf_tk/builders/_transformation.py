@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -9,7 +9,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
     SourceLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitIdentifierMissingError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import safe_write
@@ -23,12 +23,11 @@ class TransformationBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         query_files = {
             source_file.source.path: source_file
             for source_file in source_files
-            if source_file.source.path.suffix == ".sql"
+            if source_file.source.path.name.endswith(".sql") or source_file.source.path.name.endswith(".Query.sql")
         }
 
         for source_file in source_files:
@@ -44,14 +43,6 @@ class TransformationBuilder(Builder):
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
             extra_sources: list[SourceLocation] | None = None
-
-            if validation == "identifier":
-                try:
-                    items = [loaded] if isinstance(loaded, dict) else loaded
-                    for item in items:
-                        loader.get_id(item)  # check that it has an id
-                except KeyError as e:
-                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
 
             if loader is TransformationLoader:
                 extra_sources = self._add_query(loaded, source_file, query_files, destination_path)

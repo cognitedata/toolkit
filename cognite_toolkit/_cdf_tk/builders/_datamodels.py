@@ -1,7 +1,7 @@
 import shutil
 from collections.abc import Callable, Iterable
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
@@ -11,7 +11,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     ModuleLocation,
     SourceLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError, ToolkitIdentifierMissingError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders import GraphQLLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 
@@ -20,11 +20,7 @@ class DataModelBuilder(Builder):
     _resource_folder = GraphQLLoader.folder_name
 
     def build(
-        self,
-        source_files: list[BuildSourceFile],
-        module: ModuleLocation,
-        console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
+        self, source_files: list[BuildSourceFile], module: ModuleLocation, console: Callable[[str], None] | None = None
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         graphql_files = {
             source_file.source.path: source_file
@@ -46,14 +42,7 @@ class DataModelBuilder(Builder):
             extra_sources: list[SourceLocation] | None = None
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
-            if validation == "identifier":
-                items = loaded if isinstance(loaded, list) else [loaded]
-                try:
-                    for item in items:
-                        loader.get_id(item)
-                except KeyError as e:
-                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
-            elif loader is GraphQLLoader:
+            if loader is GraphQLLoader:
                 extra_sources = self._copy_graphql_to_build(source_file, destination_path, graphql_files)
 
             yield BuildDestinationFile(

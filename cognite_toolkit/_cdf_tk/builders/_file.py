@@ -1,6 +1,6 @@
 import copy
 from collections.abc import Callable, Iterable
-from typing import Any, Literal
+from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildSourceFile,
     ModuleLocation,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitIdentifierMissingError, ToolkitYAMLFormatError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import CogniteFileLoader, FileLoader, FileMetadataLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, ToolkitWarning
 
@@ -22,7 +22,6 @@ class FileBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         for source_file in source_files:
             loaded = source_file.loaded
@@ -35,14 +34,7 @@ class FileBuilder(Builder):
                     yield [warning]
                 continue
 
-            if validation == "identifier":
-                items = loaded if isinstance(loaded, list) else [loaded]
-                try:
-                    for item in items:
-                        loader.get_id(item)
-                except KeyError as e:
-                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
-            elif loader in {FileMetadataLoader, CogniteFileLoader}:
+            if loader in {FileMetadataLoader, CogniteFileLoader}:
                 loaded = self._expand_file_metadata(loaded, module, console)
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)

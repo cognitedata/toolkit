@@ -461,7 +461,6 @@ class PullCommand(ToolkitCommand):
                 no_clean=False,
                 client=client,
                 on_error="raise",
-                validation="identifier",
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e

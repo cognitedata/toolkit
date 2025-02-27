@@ -5,7 +5,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.commands.pull import PullCommand, ResourceYAMLDifference, TextFileDifference
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildVariable,
@@ -13,9 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuiltFullResourceList,
     BuiltResourceFull,
 )
-from cognite_toolkit._cdf_tk.data_classes._module_directories import ModuleDirectories
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
-from tests.data import PLACEHOLDERS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -522,16 +519,3 @@ class TestPullCommand:
         )
         assert not extra_files, "This tests does not support testing extra files"
         assert actual.splitlines() == expected.splitlines()
-
-    def test_build_for_pull(self, build_tmp_path: Path) -> None:
-        input_modules = ModuleDirectories.load(PLACEHOLDERS, None)
-        cmd = BuildCommand(silent=True, skip_tracking=True, print_warning=False)
-
-        res = cmd.build_modules(
-            modules=input_modules,
-            build_dir=build_tmp_path,
-            on_error="raise",
-            validation="identifier",
-            variables=BuildVariables([]),
-        )
-        assert res is not None

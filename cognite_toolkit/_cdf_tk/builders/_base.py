@@ -2,7 +2,7 @@ import difflib
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, ClassVar, Literal, cast
+from typing import Any, ClassVar, cast
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -13,7 +13,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     AmbiguousResourceFileError,
-    ToolkitIdentifierMissingError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -65,7 +64,6 @@ class Builder(ABC):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         raise NotImplementedError()
 
@@ -176,7 +174,6 @@ class DefaultBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | list[ToolkitWarning]]:
         for source_file in source_files:
             if source_file.loaded is None:
@@ -187,14 +184,6 @@ class DefaultBuilder(Builder):
                 if warning is not None:
                     yield [warning]
                 continue
-
-            if validation == "identifier":
-                items = source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]
-                try:
-                    for item in items:
-                        loader.get_id(item)
-                except KeyError as e:
-                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
 
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
             destination = BuildDestinationFile(

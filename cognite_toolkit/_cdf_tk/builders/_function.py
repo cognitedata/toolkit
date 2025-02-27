@@ -1,6 +1,5 @@
 import shutil
 from collections.abc import Callable, Iterable, Sequence
-from typing import Literal
 
 from cognite_toolkit._cdf_tk.builders import Builder
 from cognite_toolkit._cdf_tk.data_classes import (
@@ -11,7 +10,6 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileExistsError,
-    ToolkitIdentifierMissingError,
     ToolkitNotADirectoryError,
     ToolkitValueError,
 )
@@ -34,7 +32,6 @@ class FunctionBuilder(Builder):
         source_files: list[BuildSourceFile],
         module: ModuleLocation,
         console: Callable[[str], None] | None = None,
-        validation: Literal["identifier", "full"] = "full",
     ) -> Iterable[BuildDestinationFile | Sequence[ToolkitWarning]]:
         for source_file in source_files:
             loaded = source_file.loaded
@@ -49,14 +46,7 @@ class FunctionBuilder(Builder):
 
             warnings = WarningList[FileReadWarning]()
 
-            if validation == "identifier":
-                items = loaded if isinstance(loaded, list) else [loaded]
-                try:
-                    for item in items:
-                        loader.get_id(item)
-                except KeyError as e:
-                    raise ToolkitIdentifierMissingError(e.args, source_file.source.path) from e
-            elif loader is FunctionLoader:
+            if loader is FunctionLoader:
                 warnings = self.copy_function_directory_to_build(source_file)
 
             yield BuildDestinationFile(
