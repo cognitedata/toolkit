@@ -390,10 +390,6 @@ class ResourceLoader(
         return [cls.get_id(item) for item in items]
 
     @classmethod
-    def load_ids(cls, ids: SequenceNotStr[T_ID]) -> list[dict[str, Any]]:
-        return [cls.dump_id(id) for id in ids]
-
-    @classmethod
     def safe_get_write_cls_parameter_spec(cls) -> ParameterSpecSet | None:
         from sentry_sdk import capture_exception
 
