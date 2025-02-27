@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitKeyEr
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._version import __version__
 
-Provider: TypeAlias = Literal["entra_id", "auth0", "other", "cdf"]
+Provider: TypeAlias = Literal["entra_id", "auth0", "cdf", "other"]
 LoginFlow: TypeAlias = Literal["client_credentials", "token", "device_code", "interactive"]
 VALID_PROVIDERS = get_args(Provider)
 VALID_LOGIN_FLOWS = get_args(LoginFlow)
@@ -111,7 +111,7 @@ class EnvironmentVariables:
                 "entra_id": "https://login.microsoftonline.com/{IDP_TENANT_ID}/oauth2/v2.0/token",
                 "auth0": "https://<my_auth_url>/oauth/token",
             },
-            required=all_providers(flow="client_credentials", exclude="entra_id"),
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "cdf"}),
             optional=frozenset([("entra_id", "client_credentials")]),
         ),
     )
@@ -134,7 +134,7 @@ class EnvironmentVariables:
                 "auth0": "https: //{CDF_PROJECT}.fusion.cognite.com/{CDF_PROJECT}",
                 "other": "https://{CDF_CLUSTER}.cognitedata.com",
             },
-            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0"}),
+            required=all_providers(flow="client_credentials", exclude={"entra_id", "auth0", "cdf"}),
             optional=frozenset([("entra_id", "client_credentials"), ("auth0", "client_credentials")]),
         ),
     )
@@ -147,7 +147,7 @@ class EnvironmentVariables:
                 "entra_id": "https://{CDF_CLUSTER}.cognitedata.com/.default",
                 "auth0": "IDENTITY,user_impersonation",
             },
-            optional=frozenset([*all_providers("client_credentials"), (None, "interactive")]),
+            optional=frozenset([*all_providers("client_credentials", exclude="cdf"), (None, "interactive")]),
         ),
     )
     IDP_AUTHORITY_URL: str | None = field(
@@ -443,7 +443,9 @@ def prompt_user_environment_variables(current: EnvironmentVariables | None = Non
         "Choose the provider (Who authenticates you?)",
         choices=[
             Choice(title=f"{provider}: {description}", value=provider)
+            # We CDF as a provider is not yet out of alpha, so we hide it from the user.
             for provider, description in PROVIDER_DESCRIPTION.items()
+            if provider != "cdf"
         ],
         default=current.PROVIDER if current else "entra_id",
     ).ask()
