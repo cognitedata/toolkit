@@ -1,0 +1,18 @@
+build: set placeholder version (#3)
+
+# Description
+
+Please describe the change you have made.
+
+## Changelog
+- [ ] Patch
+- [x] Minor
+- [ ] Skip
+
+## cdf
+### Added
+- This is a change that I have made.
+
+## templates
+
+No changes to templates.
