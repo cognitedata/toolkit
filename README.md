@@ -35,6 +35,8 @@ pip install cognite-toolkit
 
 Then run `cdf --help` to get started with the interactive command-line tool.
 
+Doing some change. 
+
 ## For more information
 
 More details about the tool can be found at
