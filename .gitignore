@@ -284,6 +284,7 @@ tests/tests_unit/pytest-project/
 my_project/
 my_organization/
 *.bck
+!tests/data/placeholders/*
 
 # Hide environments used for migration testing
 **/.venv*
