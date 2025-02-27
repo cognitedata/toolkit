@@ -27,7 +27,6 @@ __all__ = [
     "DefaultBuilder",
     "FileBuilder",
     "FunctionBuilder",
-    "IdentifierBuilder",
     "RawBuilder",
     "StreamlitBuilder",
     "TransformationBuilder",
