@@ -21,7 +21,7 @@ ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
 COPY poetry.lock pyproject.toml README.md ./
 COPY cognite_toolkit/. ./cognite_toolkit/
 # This is only used for development
-RUN rm dev.py
+RUN rm -rf /dev.py
 # Ensure we get the exact version of the dependencies
 RUN poetry sync --without dev
 
