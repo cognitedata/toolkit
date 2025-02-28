@@ -43,6 +43,8 @@ class DataModelBuilder(Builder):
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
             if loader is GraphQLLoader:
+                # The GraphQL must be copied over instead of added to the DML field as
+                # it is hashed in the deployment step and used to determine if the DML has changed.
                 extra_sources = self._copy_graphql_to_build(source_file, destination_path, graphql_files)
 
             yield BuildDestinationFile(
