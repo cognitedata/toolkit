@@ -30,30 +30,31 @@ class DataModelBuilder(Builder):
 
         for source_file in source_files:
             loaded = source_file.loaded
-            if not loaded:
+            if loaded is None:
+                # Not a YAML file
                 continue
-
             loader, warning = self._get_loader(source_file.source.path)
-            if not loader:
-                if warning:
+            if loader is None:
+                if warning is not None:
                     yield [warning]
                 continue
 
-            extra_sources: list[SourceLocation] | None = None
             destination_path = self._create_destination_path(source_file.source.path, loader.kind)
 
+            extra_sources: list[SourceLocation] | None = None
             if loader is GraphQLLoader:
                 # The GraphQL must be copied over instead of added to the DML field as
                 # it is hashed in the deployment step and used to determine if the DML has changed.
                 extra_sources = self._copy_graphql_to_build(source_file, destination_path, graphql_files)
 
-            yield BuildDestinationFile(
+            destination = BuildDestinationFile(
                 path=destination_path,
                 loaded=loaded,
                 loader=loader,
                 source=source_file.source,
                 extra_sources=extra_sources,
             )
+            yield destination
 
     def _copy_graphql_to_build(
         self,
