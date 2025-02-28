@@ -529,6 +529,7 @@ class TestPullCommand:
         self,
         tmp_path: Path,
         toolkit_client_approval: ApprovalToolkitClient,
+        env_vars_with_client: EnvironmentVariables,
     ) -> None:
         tmp_org_path = tmp_path / "org"
         tmp_org_path.mkdir()
@@ -581,7 +582,7 @@ class TestPullCommand:
             dry_run=False,
             build_env_name="dev",
             client=toolkit_client_approval.mock_client,
-            env_vars=EnvironmentVariables.create_from_environment(),
+            env_vars=env_vars_with_client,
         )
 
         yaml_after = built_modules[0].resources["transformations"][0].source.path.read_text()
