@@ -17,7 +17,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
-from tests.data import COMPLETE_ORG
+from tests.data import ORG_FOR_PULL
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -533,7 +533,7 @@ class TestPullCommand:
         tmp_org_path = tmp_path / "org"
         tmp_org_path.mkdir()
         shutil.copytree(
-            str(COMPLETE_ORG / "modules" / "my_placeholder_module"),
+            str(ORG_FOR_PULL / "modules" / "my_placeholder_module"),
             str(tmp_org_path / "modules" / "my_placeholder_module"),
         )
 
@@ -560,7 +560,7 @@ class TestPullCommand:
         )
 
         build_cmd = BuildCommand(silent=True, skip_tracking=True)
-        config = BuildConfigYAML.load_default(COMPLETE_ORG)
+        config = BuildConfigYAML.load_default(ORG_FOR_PULL)
         config.environment.selected = ["my_placeholder_module"]
         built_modules = build_cmd.build_config(
             build_dir=tmp_build_path,
