@@ -27,7 +27,7 @@ class TransformationBuilder(Builder):
         query_files = {
             source_file.source.path: source_file
             for source_file in source_files
-            if source_file.source.path.name.endswith(".sql") or source_file.source.path.name.endswith(".Query.sql")
+            if source_file.source.path.name.endswith(".sql")
         }
 
         for source_file in source_files:
