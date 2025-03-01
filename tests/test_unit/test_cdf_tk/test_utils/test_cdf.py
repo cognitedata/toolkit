@@ -4,7 +4,7 @@ import pytest
 from cognite.client.data_classes import ClientCredentials, OidcCredentials
 from cognite.client.data_classes.data_modeling import ContainerId, MappedPropertyApply, ViewApply, ViewId
 
-from cognite_toolkit._cdf_tk.utils.cdf import append_parent_properties, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import append_parent_properties, try_find_error, parents_by_child_views
 
 
 class TestTryFindError:
@@ -104,3 +104,12 @@ class TestAddParentProperties:
             append_parent_properties([view1, view2])
 
         assert str(e.value.args[0]) == "nodes are in a cycle"
+
+class TestParentsByChildViews:
+    def test_parents_by_child_views(self, child_parent_grand_parent: list[ViewApply]) -> None:
+        parents_by_child = parents_by_child_views(child_parent_grand_parent)
+        assert parents_by_child == {
+            ViewId("my_space", "Child", "v1"): {ViewId("my_space", "Parent", "v1"), ViewId("my_space", "GrandParent", "v1")},
+            ViewId("my_space", "Parent", "v1"): {ViewId("my_space", "GrandParent", "v1")},
+            ViewId("my_space", "GrandParent", "v1"): set(),
+        }

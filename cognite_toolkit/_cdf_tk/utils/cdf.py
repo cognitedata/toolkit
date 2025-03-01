@@ -158,16 +158,50 @@ def append_parent_properties(views: Sequence[ViewApply]) -> None:
     Raises:
         CycleError: If a cycle is detected in the view implements.
     """
-    parents_by_view: dict[ViewId, set[ViewId]] = defaultdict(set)
-    for view in views:
-        parents_by_view[view.as_id()].update(view.implements or [])
-
     view_by_id = {view.as_id(): view for view in views}
-    for view_id in TopologicalSorter(parents_by_view).static_order():
+    for view_id in _topological_sort_by_implements(views):
         view = view_by_id[view_id]
         view.properties = view.properties or {}
         for parent_id in view.implements or []:
+            if parent_id not in view_by_id:
+                continue
             parent = view_by_id[parent_id]
             for prop_id, prop in (parent.properties or {}).items():
                 if prop_id not in view.properties:
                     view.properties[prop_id] = prop
+
+
+def parents_by_child_views(views: Sequence[ViewApply]) -> dict[ViewId, set[ViewId]]:
+    """Return a dictionary of parent views by child view.
+
+    Args:
+        views: A list of ViewApply objects.
+
+    Returns:
+        A dictionary of parent views by child view.
+    """
+    parents_by_view: dict[ViewId, set[ViewId]] = defaultdict(set)
+    views_by_id = {view.as_id(): view for view in views}
+    for view_id in _topological_sort_by_implements(views):
+        view = views_by_id[view_id]
+        parents_by_view[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
+        for parent in view.implements or []:
+            if parent in views_by_id:
+                parents_by_view[view_id].update(parents_by_view[parent])
+    return dict(parents_by_view)
+
+
+def _topological_sort_by_implements(views: Sequence[ViewApply]) -> list[ViewId]:
+    """Topologically sort views by the implements relationship.
+
+    Args:
+        views: A list of ViewApply objects.
+
+    Returns:
+        A topologically sorted list of ViewApply objects.
+    """
+    input_views = {view.as_id() for view in views}
+    parents_by_view: dict[ViewId, set[ViewId]] = defaultdict(set)
+    for view in views:
+        parents_by_view[view.as_id()].update(view.implements or [])
+    return [view_id for view_id in TopologicalSorter(parents_by_view).static_order() if view_id in input_views]

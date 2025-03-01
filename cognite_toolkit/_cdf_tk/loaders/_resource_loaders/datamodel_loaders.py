@@ -68,7 +68,7 @@ from cognite.client.data_classes.data_modeling.ids import (
     NodeId,
     ViewId,
 )
-from cognite.client.data_classes.data_modeling.views import ReverseDirectRelationApply
+from cognite.client.data_classes.data_modeling.views import MappedPropertyApply, ReverseDirectRelationApply
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
@@ -87,9 +87,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
 from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import (
     GraphQLParseError,
+    ResourceCreationError,
     ToolkitCycleError,
     ToolkitFileNotFoundError,
-    ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
@@ -106,7 +106,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
     to_directory_compatible,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances, append_parent_properties, parents_by_child_views
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
@@ -606,15 +606,76 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if self._is_auto_retryable(e1):
                 # Fallback to creating one by one if the error is auto-retryable.
                 return self._fallback_create_one_by_one(items, e1)
-            elif error_message := self._is_revers_direct_relation_target(e1, items):
-                raise ToolkitValueError(error_message) from e1
+            elif error_message := self._try_find_error(e1, items):
+                raise ResourceCreationError(error_message) from e1
             elif self._is_deployment_order(e1, set(self.get_ids(items))):
                 return self._fallback_create_one_by_one(self._topological_sort(items), e1, warn=False)
             raise
 
     @staticmethod
-    def _is_revers_direct_relation_target(e1: CogniteAPIError, items: Sequence[ViewApply]) -> str:
-        return ""
+    def _try_find_error(e1: CogniteAPIError, items: Sequence[ViewApply]) -> str | None:
+        results = re.findall(r"'([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e1.message)
+        if not results:
+            # No view ids in the error message.
+            return None
+        request_views = {item.as_id() for item in items}
+        target_views = {ViewId(*result) for result in results}
+        if not target_views.issubset(request_views):
+            return None
+        try:
+            append_parent_properties(items)
+        except CycleError as e:
+            return f"Failed to create {len(items)} views. This is likely due to a cycle in the view implements: {e.args[1]}"
+        parents_by_child = parents_by_child_views(items)
+        direct_relations_by_view_id: dict[ViewId, set[str]] = defaultdict(set)
+        reverse_direct_relations_by_view_id: dict[ViewId, list[tuple[str, ReverseDirectRelationApply]]] = defaultdict(
+            list
+        )
+        direct_relations_source_by_prop: dict[tuple[ViewId,str], ViewId] = {}
+        for item in items:
+            view_id = item.as_id()
+            for prop_id, prop in (item.properties or {}).items():
+                if isinstance(prop, MappedPropertyApply) and prop.source:
+                    # Mapped properties with source are direct relations.
+                    direct_relations_by_view_id[view_id].add(prop_id)
+                    direct_relations_source_by_prop[(view_id, prop_id)] = prop.source
+                elif isinstance(prop, ReverseDirectRelationApply):
+                    reverse_direct_relations_by_view_id[view_id].append((prop_id, prop))
+
+        missing_targets = []
+        for view_id, reverse_properties in reverse_direct_relations_by_view_id.items():
+            for prop_id, reverse in reverse_properties:
+
+                if reverse.through.source not in direct_relations_by_view_id and all(
+                   parent not in direct_relations_by_view_id for parent in parents_by_child.get(reverse.through.source, [])
+                ):
+                    missing_targets.append(
+                        f"{view_id!r}.{prop_id} is pointing to the view {reverse.through.source!r} which may be missing."
+                    )
+                    continue
+                if reverse.through.source in direct_relations_by_view_id:
+                    source_view = reverse.through.source
+                    direct_relations_properties = direct_relations_by_view_id[reverse.through.source]
+                    location = ""
+                else:
+                    location = " parent"
+                    source_view: ViewId | None = None
+                    for parent in parents_by_child.get(reverse.through.source, []):
+                        if parent in direct_relations_by_view_id:
+                            source_view = parent
+                            break
+                    else:
+                        raise ValueError(f"Could not find source view for {reverse.through.source!r}")
+                    direct_relations_properties = direct_relations_by_view_id[source_view]
+
+                if reverse.through.property not in direct_relations_properties:
+                    missing_targets.append(
+                        f"{view_id!r}.{prop_id} the property {reverse.through.property!r} is missing in the{location} source view {source_view!r}."
+                    )
+        if missing_targets:
+            body = "\n - ".join(missing_targets)
+            return f"Failed to create {len(items)} views. This is likely due to the following reverse direct relations:\n{escape(body)}"
+        return None
 
     @staticmethod
     def _is_deployment_order(e: CogniteAPIError, ids: set[ViewId]) -> bool:
