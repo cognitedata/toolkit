@@ -1,0 +1,42 @@
+externalId: Coordinates
+space: strongly-coupled-model
+version: v1
+name: Coordinates
+description: Missing
+properties:
+  elevation:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinates
+    containerPropertyIdentifier: elevation
+    name: elevation
+  lat:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinates
+    containerPropertyIdentifier: lat
+    name: lat
+  long:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinates
+    containerPropertyIdentifier: long
+    name: long
+  horizontalDistance:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinates
+    containerPropertyIdentifier: horizontalDistance
+    name: horizontalDistance
+  crs:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinates
+    containerPropertyIdentifier: crs
+    name: crs
+implements: []

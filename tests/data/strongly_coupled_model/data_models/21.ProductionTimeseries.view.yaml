@@ -1,0 +1,23 @@
+externalId: ProductionTimeseries
+space: strongly-coupled-model
+version: v1
+name: ProductionTimeseries
+description: Missing
+properties:
+  entity:
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: Production
+      version: v1
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: ProductionTimeseries
+    containerPropertyIdentifier: entity
+    name: entity
+implements:
+- type: view
+  space: cdf_cdm
+  externalId: CogniteTimeSeries
+  version: v1

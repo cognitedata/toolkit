@@ -1,0 +1,22 @@
+space: strongly-coupled-model
+externalId: SimSubNode
+name: SimSubNode
+usedFor: node
+description: Missing
+properties:
+  parent:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: parent
+constraints:
+  cogniteDescribablePresent:
+    require:
+      space: strongly-coupled-model
+      externalId: SimNode
+      type: container
+    constraintType: requires
+indexes: {}

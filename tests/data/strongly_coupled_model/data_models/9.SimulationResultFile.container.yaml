@@ -1,0 +1,22 @@
+space: strongly-coupled-model
+externalId: SimulationResultFile
+name: SimulationResultFile
+description: Missing
+properties:
+  entity:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: entity
+constraints:
+  cogniteFilePresent:
+    require:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    constraintType: requires
+indexes: {}
+usedFor: node
