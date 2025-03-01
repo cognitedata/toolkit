@@ -1,4 +1,6 @@
-from collections.abc import Hashable, Iterator
+from collections import defaultdict
+from collections.abc import Hashable, Iterator, Sequence
+from graphlib import TopologicalSorter
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -7,7 +9,7 @@ from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
 )
-from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
+from cognite.client.data_classes.data_modeling import Edge, Node, ViewApply, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
@@ -143,3 +145,29 @@ def read_auth(
     else:
         credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
     return credentials
+
+
+def append_parent_properties(views: Sequence[ViewApply]) -> None:
+    """Append parent properties to child views.
+
+    Note that this function modifies the input list in place.
+
+    Args:
+        views: A list of ViewApply objects.
+
+    Raises:
+        CycleError: If a cycle is detected in the view implements.
+    """
+    parents_by_view: dict[ViewId, set[ViewId]] = defaultdict(set)
+    for view in views:
+        parents_by_view[view.as_id()].update(view.implements or [])
+
+    view_by_id = {view.as_id(): view for view in views}
+    for view_id in TopologicalSorter(parents_by_view).static_order():
+        view = view_by_id[view_id]
+        view.properties = view.properties or {}
+        for parent_id in view.implements or []:
+            parent = view_by_id[parent_id]
+            for prop_id, prop in (parent.properties or {}).items():
+                if prop_id not in view.properties:
+                    view.properties[prop_id] = prop
