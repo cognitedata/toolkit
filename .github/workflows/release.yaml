@@ -30,12 +30,13 @@ jobs:
         run: git describe --tags --abbrev=0 > last_version.txt
       - name: Bump Version
         run: python dev.py bump --verbose
-      - name: Create CHANGELOG entry
-        run: python dev.py changelog
       - id: version
         name: Read the new version
         # Read the version from the cognite_toolkit/_version.py file
         run: echo "version=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' cognite_toolkit/_version.py)" >> $GITHUB_ENV
+      - name: Create CHANGELOG entry
+        if: env.version != '0.0.0'
+        run: python dev.py changelog
       - name: Build package
         if: env.version != '0.0.0'
         run: poetry build

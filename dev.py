@@ -23,7 +23,7 @@ TBD_HEADING = "## TBD"
 IMAGE_NAME = "cognite/toolkit"
 CDF_TOML = REPO_ROOT / "cdf.toml"
 
-VALID_CHANGELOG_HEADERS = {"Added", "Changed", "Removed", "Fixed"}
+VALID_CHANGELOG_HEADERS = {"Added", "Changed", "Removed", "Fixed", "Improved"}
 BUMP_OPTIONS = Literal["major", "minor", "patch", "skip"]
 VALID_BUMP_OPTIONS = get_args(BUMP_OPTIONS)
 LAST_GIT_MESSAGE_FILE = REPO_ROOT / "last_git_message.txt"
@@ -226,7 +226,7 @@ def _validate_entries(items: list[marko.element.Element], section: str) -> None:
                 raise SystemExit(1)
             header_text = item.children[0].children
             if header_text not in VALID_CHANGELOG_HEADERS:
-                print(f"Unexpected header in changelog: {header_text}.")
+                print(f"Unexpected header in changelog: {VALID_CHANGELOG_HEADERS}.")
                 raise SystemExit(1)
             if header_text in seen_headers:
                 print(f"Duplicate header in changelog: {header_text}.")
