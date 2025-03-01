@@ -106,7 +106,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_diff,
     to_directory_compatible,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances, append_parent_properties, parents_by_child_views
+from cognite_toolkit._cdf_tk.utils.cdf import append_parent_properties, iterate_instances, parents_by_child_views
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader
@@ -631,7 +631,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         reverse_direct_relations_by_view_id: dict[ViewId, list[tuple[str, ReverseDirectRelationApply]]] = defaultdict(
             list
         )
-        direct_relations_source_by_prop: dict[tuple[ViewId,str], ViewId] = {}
+        direct_relations_source_by_prop: dict[tuple[ViewId, str], ViewId] = {}
         for item in items:
             view_id = item.as_id()
             for prop_id, prop in (item.properties or {}).items():
@@ -645,9 +645,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         missing_targets = []
         for view_id, reverse_properties in reverse_direct_relations_by_view_id.items():
             for prop_id, reverse in reverse_properties:
-
                 if reverse.through.source not in direct_relations_by_view_id and all(
-                   parent not in direct_relations_by_view_id for parent in parents_by_child.get(reverse.through.source, [])
+                    parent not in direct_relations_by_view_id
+                    for parent in parents_by_child.get(reverse.through.source, [])
                 ):
                     missing_targets.append(
                         f"{view_id!r}.{prop_id} is pointing to the view {reverse.through.source!r} which may be missing."
