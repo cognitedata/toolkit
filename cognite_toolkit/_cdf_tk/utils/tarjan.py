@@ -1,45 +1,46 @@
-from cognite.client.data_classes.data_modeling import ViewId
+from typing import TypeVar
+
+T = TypeVar("T")
 
 
-def tarjan(dependencies_by_id: dict[ViewId, set[ViewId]]) -> list[set[ViewId]]:
+def tarjan(dependencies_by_id: dict[T, set[T]]) -> list[set[T]]:
     """Returns the strongly connected components of the dependency graph
      in topological order.
 
     Args:
-        dependencies_by_id: A dictionary where the keys are the view ids and the values are the set of view ids
-            that the key view depends on.
+        dependencies_by_id: A dictionary where the keys are ids and the values are sets of ids that the key depends on.
 
     Returns:
-        A list of sets of view ids, where each set is a strongly connected component.
+        A list of sets of ids that are strongly connected components in the dependency graph.
     """
 
-    S = []
-    S_set = set()
-    index: dict[ViewId, int] = {}
+    stack = []
+    stack_set = set()
+    index: dict[T, int] = {}
     lowlink = {}
-    ret = []
+    result = []
 
-    def visit(v: ViewId) -> None:
+    def visit(v: T) -> None:
         index[v] = len(index)
         lowlink[v] = index[v]
-        S.append(v)
-        S_set.add(v)
+        stack.append(v)
+        stack_set.add(v)
         for w in dependencies_by_id.get(v, []):
             if w not in index:
                 visit(w)
                 lowlink[v] = min(lowlink[w], lowlink[v])
-            elif w in S_set:
+            elif w in stack_set:
                 lowlink[v] = min(lowlink[v], index[w])
         if lowlink[v] == index[v]:
             scc = set()
-            dependency: ViewId | None = None
+            dependency: T | None = None
             while v != dependency:
-                dependency = S.pop()
+                dependency = stack.pop()
                 scc.add(dependency)
-                S_set.remove(dependency)
-            ret.append(scc)
+                stack_set.remove(dependency)
+            result.append(scc)
 
     for view_id in dependencies_by_id.keys():
         if view_id not in index:
             visit(view_id)
-    return ret
+    return result
