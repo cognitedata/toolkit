@@ -652,7 +652,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                         dependencies_by_id[view_id].add(properties.through.source)
 
         LowSeverityWarning(
-            f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to revover..."
+            f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to recover..."
         ).print_warning(include_timestamp=True, console=self.console)
         created = ViewList([])
         for strongly_connected in tarjan(dependencies_by_id):
@@ -667,7 +667,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 ).print_warning(console=self.console)
                 raise original_error
             created.extend(created_set)
-        message = f"Revory attempt succeeded. Created {len(created)} views."
+        message = f"Recovery attempt succeeded. Created {len(created)} views."
         if self.console:
             self.console.print(message)
         else:
