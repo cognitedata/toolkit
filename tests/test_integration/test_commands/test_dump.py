@@ -3,10 +3,19 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from cognite.client.data_classes import Asset, AssetWrite, AssetWriteList, DataSet, DataSetWrite
+from cognite.client.data_classes import (
+    AssetList,
+    AssetWrite,
+    AssetWriteList,
+    DataSet,
+    DataSetWrite,
+    TimeSeriesList,
+    TimeSeriesWrite,
+    TimeSeriesWriteList,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand
+from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpTimeSeriesCommand
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from tests.utils import rng_context
 
@@ -55,8 +64,27 @@ def generate_asset_tree(
     return hierarchy
 
 
+@rng_context(seed=42)
+def generate_timeseries(
+    count: int, asset_ids: list[int] | None = None, data_set_id: int | None = None
+) -> TimeSeriesWriteList:
+    return TimeSeriesWriteList(
+        [
+            TimeSeriesWrite(
+                external_id=f"test__timeseries_{i}",
+                name=f"Timeseries {i}",
+                is_step=random.choice([True, False]),
+                is_string=random.choice([True, False]),
+                asset_id=random.choice(asset_ids) if asset_ids else None,
+                data_set_id=data_set_id,
+            )
+            for i in range(count)
+        ]
+    )
+
+
 @pytest.fixture(scope="session")
-def asset_hierarchy(toolkit_client: ToolkitClient, dump_data_set: DataSet) -> Asset:
+def asset_hierarchy(toolkit_client: ToolkitClient, dump_data_set: DataSet) -> AssetList:
     root = AssetWrite(name="Root", external_id="test__asset_root", data_set_id=dump_data_set.id)
     hierarchy = generate_asset_tree(root, first_level_size=5, size=100, depth=5, data_set_id=dump_data_set.id)
     existing = toolkit_client.assets.retrieve_multiple(
@@ -65,16 +93,40 @@ def asset_hierarchy(toolkit_client: ToolkitClient, dump_data_set: DataSet) -> As
     if len(existing) != len(hierarchy):
         existing = toolkit_client.assets.create_hierarchy(hierarchy, upsert=True, upsert_mode="patch")
 
-    return next(asset for asset in existing if asset.external_id == root.external_id)
+    return existing
+
+
+@pytest.fixture(scope="session")
+def some_timeseries(toolkit_client: ToolkitClient, dump_data_set: DataSet, asset_hierarchy: AssetList) -> None:
+    asset_ids = [asset.id for asset in asset_hierarchy]
+    timeseries = generate_timeseries(100, asset_ids, dump_data_set.id)
+    existing = toolkit_client.time_series.retrieve_multiple(
+        external_ids=timeseries.as_external_ids(), ignore_unknown_ids=True
+    )
+    if len(existing) != len(timeseries):
+        existing = toolkit_client.time_series.upsert(timeseries, mode="patch")
+    return existing
 
 
 class TestDumpDataCommand:
-    def test_dump_asset(self, toolkit_client: ToolkitClient, asset_hierarchy: Asset, tmp_path: Path) -> None:
+    def test_dump_asset(self, toolkit_client: ToolkitClient, asset_hierarchy: AssetList, tmp_path: Path) -> None:
         dump_command = DumpAssetsCommand(skip_tracking=True, print_warning=False)
-        assert asset_hierarchy.external_id is not None
+        first = asset_hierarchy[0]
+        root = next(asset for asset in asset_hierarchy if first.root_id == asset.id)
+        assert first.external_id is not None
+        dump_command.execute(toolkit_client, [root.external_id], None, tmp_path / "asset", False, None, "csv", False)
+
+        hash_ = calculate_directory_hash(tmp_path / "asset", shorten=True)
+        assert hash_ == "7831ecbb"
+
+    def test_dump_timeseries(
+        self, toolkit_client: ToolkitClient, some_timeseries: TimeSeriesList, dump_data_set: DataSet, tmp_path: Path
+    ) -> None:
+        dump_command = DumpTimeSeriesCommand(skip_tracking=True, print_warning=False)
         dump_command.execute(
-            toolkit_client, [asset_hierarchy.external_id], None, tmp_path / "tmp", False, None, "csv", False
+            toolkit_client, [dump_data_set.external_id], None, tmp_path / "timeseries", False, None, "csv", False
         )
 
-        hash_ = calculate_directory_hash(tmp_path / "tmp", shorten=True)
-        assert hash_ == "7831ecbb"
+        hash_ = calculate_directory_hash(tmp_path / "timeseries", shorten=True)
+
+        assert hash_ == "efd3e94d"
