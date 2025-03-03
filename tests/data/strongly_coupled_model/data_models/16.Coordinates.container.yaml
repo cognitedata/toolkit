@@ -1,0 +1,49 @@
+space: strongly-coupled-model
+externalId: Coordinates
+name: Coordinates
+usedFor: node
+description: Missing
+properties:
+  elevation:
+    type:
+      type: float64
+      list: true
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: elevation
+  lat:
+    type:
+      type: float64
+      list: true
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: lat
+  long:
+    type:
+      type: float64
+      list: true
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: long
+  horizontalDistance:
+    type:
+      type: float64
+      list: true
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: horizontalDistance
+  crs:
+    type:
+      type: text
+      list: true
+      collation: ucs_basic
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: crs
+constraints: {}
+indexes: {}
