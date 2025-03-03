@@ -1,4 +1,7 @@
+import os
 from asyncio import sleep
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client import CogniteClient
@@ -46,6 +49,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
+    TransformationLoader,
 )
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
@@ -605,3 +609,35 @@ fileCategory: Document
             assert retrieved[0].extra_properties["status"] == "Inactive"
         finally:
             loader.delete([file.as_id()])
+
+
+class TestTransformationLoader:
+    def test_create_transformation_auth_without_scope(self, toolkit_client: ToolkitClient) -> None:
+        transformation_text = """externalId: transformation_without_scope
+name: This is a test transformation
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: Select * from assets
+# Reusing the credentials from the Toolkit principal
+authentication:
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+"""
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = transformation_text
+
+        loaded = loader.load_resource_file(filepath, dict(os.environ))
+        assert len(loaded) == 1
+        transformation = loader.load_resource(loaded[0])
+
+        try:
+            created = loader.create([transformation])
+            assert len(created) == 1
+        finally:
+            toolkit_client.transformations.delete(external_id="transformation_without_scope", ignoreNullFields=True)
