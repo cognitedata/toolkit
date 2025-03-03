@@ -13,10 +13,10 @@ from cognite.client.data_classes import (
     TimeSeriesWrite,
     TimeSeriesWriteList,
 )
+from pytest_regressions.file_regression import FileRegressionFixture
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpTimeSeriesCommand
-from cognite_toolkit._cdf_tk.utils.hashing import calculate_directory_hash
 from tests.utils import rng_context
 
 
@@ -109,24 +109,36 @@ def some_timeseries(toolkit_client: ToolkitClient, dump_data_set: DataSet, asset
 
 
 class TestDumpDataCommand:
-    def test_dump_asset(self, toolkit_client: ToolkitClient, asset_hierarchy: AssetList, tmp_path: Path) -> None:
+    def test_dump_asset(
+        self,
+        toolkit_client: ToolkitClient,
+        asset_hierarchy: AssetList,
+        tmp_path: Path,
+        file_regression: FileRegressionFixture,
+    ) -> None:
         dump_command = DumpAssetsCommand(skip_tracking=True, print_warning=False)
         first = asset_hierarchy[0]
         root = next(asset for asset in asset_hierarchy if first.root_id == asset.id)
         assert first.external_id is not None
         dump_command.execute(toolkit_client, [root.external_id], None, tmp_path / "asset", False, None, "csv", False)
 
-        hash_ = calculate_directory_hash(tmp_path / "asset", shorten=True)
-        assert hash_ == "7831ecbb"
+        dumped_files = list((tmp_path / "asset").rglob("*.csv"))
+        assert len(dumped_files) == 1
+        file_regression.check(dumped_files[0].read_text(), encoding="utf-8")
 
     def test_dump_timeseries(
-        self, toolkit_client: ToolkitClient, some_timeseries: TimeSeriesList, dump_data_set: DataSet, tmp_path: Path
+        self,
+        toolkit_client: ToolkitClient,
+        some_timeseries: TimeSeriesList,
+        dump_data_set: DataSet,
+        tmp_path: Path,
+        file_regression: FileRegressionFixture,
     ) -> None:
         dump_command = DumpTimeSeriesCommand(skip_tracking=True, print_warning=False)
         dump_command.execute(
             toolkit_client, [dump_data_set.external_id], None, tmp_path / "timeseries", False, None, "csv", False
         )
 
-        hash_ = calculate_directory_hash(tmp_path / "timeseries", shorten=True)
-
-        assert hash_ == "efd3e94d"
+        dumped_files = list((tmp_path / "timeseries").rglob("*.csv"))
+        assert len(dumped_files) == 1
+        file_regression.check(dumped_files[0].read_text(), encoding="utf-8")
