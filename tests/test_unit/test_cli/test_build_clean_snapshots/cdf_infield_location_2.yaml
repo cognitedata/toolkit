@@ -1,7 +1,0 @@
-deleted:
-  Space:
-  - sp_asset_oid2_source
-  - sp_infield_oid2_app_data
-  TransformationSchedule:
-  - externalId: tr_asset_oid2_workmate_infield_sync_assets_from_hierarchy_to_apm
-  - externalId: tr_workorder_oid2_workmate_infield_sync_workorders_to_apm_activities
