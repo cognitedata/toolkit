@@ -22,7 +22,4 @@ icapi_extractors_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET} # replaced by 
 # Variables shared by modules
 icapi_ds_external_id: ds_icapi
 icapi_space_name: icapi_dm_space
-oee_space_name: oee_ts_space 
-use_cases:
-  oee:
-    uc_oee_ds_external_id: ds_uc_oee
+oee_space_name: oee_ts_space
