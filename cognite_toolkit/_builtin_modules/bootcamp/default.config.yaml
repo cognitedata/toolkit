@@ -8,10 +8,10 @@ IDP_TOKEN_URL: ${IDP_TOKEN_URL} # replaced by .env
 
 # Groups
 # OBJECT ID FOR test/prod Groups
-data_developer_source_id: <OBJECT ID FOR TEST/PROD DATA DEVELOPER ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
-data_pipeline_oee_source_id: <OBJECT ID FOR TEST/PROD DATA PIPELINE OEE ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
-readwrite_source_id: <OBJECT ID FOR TEST/PROD ADMIN TK ENTRA GROUP>  # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
-icapi_extractors_source_id: <OBJECT ID FOR TEST/PROD ICAPI EXTRACTORS ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
+data_developer_source_id: <OBJECT ID FOR DATA DEVELOPER ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
+data_pipeline_oee_source_id: <OBJECT ID FOR DATA PIPELINE OEE ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
+readwrite_source_id: <OBJECT ID FOR ADMIN TK ENTRA GROUP>  # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
+icapi_extractors_source_id: <OBJECT ID FOR ICAPI EXTRACTORS ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
 
 # Client Ids (App registrations or Service Principals)
 data_pipeline_oee_client_id: ${DATA_PIPELINE_OEE_CLIENT_ID} # replaced by .env
