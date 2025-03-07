@@ -300,7 +300,7 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
     def _dump_yaml_with_comments(self, indent_size: int = 2, newline_after_indent_reduction: bool = False) -> str:
         """Dump a config dictionary to a yaml string"""
         config = self.dump()
-        dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+        dumped = yaml.dump(config, sort_keys=False, indent=indent_size, width=float("inf"))
         out_lines = []
         if comments := self._get_comment(tuple()):
             for comment in comments.above:
