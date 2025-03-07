@@ -18,6 +18,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -86,15 +87,12 @@ class LookUpAPI(ToolkitAPI, ABC):
             return self._cache[external_id]
 
     @overload
-    def external_id(self, id: int) -> str: ...
+    def external_id(self, id: int) -> str | None: ...
 
     @overload
     def external_id(self, id: Sequence[int]) -> list[str]: ...
 
-    def external_id(
-        self,
-        id: int | Sequence[int],
-    ) -> str | list[str]:
+    def external_id(self, id: int | Sequence[int]) -> str | None | list[str]:
         ids = [id] if isinstance(id, int) else id
         missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
         if 0 in missing:
@@ -115,20 +113,20 @@ class LookUpAPI(ToolkitAPI, ABC):
             self._reverse_cache.update(lookup)
             self._cache.update({v: k for k, v in lookup.items()})
             if len(missing) != len(lookup):
-                raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with id {missing}. Have you created it?"
-                )
-        return (
-            self._get_external_id_from_cache(id)
-            if isinstance(id, int)
-            else [self._get_external_id_from_cache(id) for id in ids]
-        )
+                MediumSeverityWarning(
+                    f"Failed to retrieve {self.resource_name} with id {missing}. It does not exist in CDF"
+                ).print_warning()
+        if isinstance(id, int):
+            return self._get_external_id_from_cache(id)
+        else:
+            ids = (self._get_external_id_from_cache(id) for id in ids)
+            return [id for id in ids if id is not None]
 
-    def _get_external_id_from_cache(self, id: int) -> str:
+    def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
             # Reverse of looking up an empty string.
             return ""
-        return self._reverse_cache[id]
+        return self._reverse_cache.get(id)
 
     @abstractmethod
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
