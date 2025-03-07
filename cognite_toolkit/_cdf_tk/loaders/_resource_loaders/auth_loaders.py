@@ -62,7 +62,7 @@ class _ReplaceMethod:
     lookup and replace in the ACL scoped ids"""
 
     lookup_method: Callable[[str, bool], int]
-    reverse_lookup_method: Callable[[int], str]
+    reverse_lookup_method: Callable[[int], str | None]
     id_name: str
 
 

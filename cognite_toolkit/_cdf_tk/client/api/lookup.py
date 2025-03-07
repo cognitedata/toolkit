@@ -119,8 +119,8 @@ class LookUpAPI(ToolkitAPI, ABC):
         if isinstance(id, int):
             return self._get_external_id_from_cache(id)
         else:
-            ids = (self._get_external_id_from_cache(id) for id in ids)
-            return [id for id in ids if id is not None]
+            external_ids = (self._get_external_id_from_cache(id) for id in ids)
+            return [id for id in external_ids if id is not None]
 
     def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
@@ -264,7 +264,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
         self._cache = {category.name: category.id for category in categories if category.name and category.id}
         self._reverse_cache = {category.id: category.name for category in categories if category.name and category.id}
 
-    def name(self, id: int | Sequence[int]) -> str | list[str]:
+    def name(self, id: int | Sequence[int]) -> str | list[str] | None:
         return self.external_id(id)
 
     def _read_acl(self) -> Capability:
