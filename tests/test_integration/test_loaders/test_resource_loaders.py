@@ -641,7 +641,7 @@ class TestGroupLoader:
             capabilities = dumped["capabilities"]
             assert isinstance(capabilities, list)
             assert len(capabilities) == 1
-            assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": []}}}
+            assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": {"ids": []}}}}
         finally:
             toolkit_client.time_series.delete(external_id=to_delete.external_id, ignore_unknown_ids=True)
             if group_id:

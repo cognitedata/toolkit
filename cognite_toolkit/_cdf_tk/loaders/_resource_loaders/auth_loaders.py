@@ -216,9 +216,12 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
                     continue
                 if ids := scope.get(scope_name, {}).get(replace_method.id_name, []):
                     if reverse:
-                        values["scope"][scope_name][replace_method.id_name] = [
+                        cdf_ids = (
                             replace_method.reverse_lookup_method(int_id) if isinstance(int_id, int) else int_id
                             for int_id in ids
+                        )
+                        values["scope"][scope_name][replace_method.id_name] = [
+                            id_ for id_ in cdf_ids if id_ is not None
                         ]
                     else:
                         values["scope"][scope_name][replace_method.id_name] = [
