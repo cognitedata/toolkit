@@ -7,7 +7,6 @@ IDP_SCOPES: https://westeurope-1.cognitedata.com/.default
 IDP_TOKEN_URL: ${IDP_TOKEN_URL} # replaced by .env
 
 # Groups
-# OBJECT ID FOR test/prod Groups
 data_developer_source_id: <OBJECT ID FOR DATA DEVELOPER ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
 data_pipeline_oee_source_id: <OBJECT ID FOR DATA PIPELINE OEE ENTRA GROUP> # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
 readwrite_source_id: <OBJECT ID FOR ADMIN TK ENTRA GROUP>  # ex. xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx
