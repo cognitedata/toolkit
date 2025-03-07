@@ -1,4 +1,5 @@
 from asyncio import sleep
+from contextlib import suppress
 
 import pytest
 from cognite.client import CogniteClient
@@ -14,9 +15,12 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
+    GroupWrite,
     LabelDefinitionWrite,
+    TimeSeriesWrite,
     filters,
 )
+from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
@@ -43,6 +47,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     DatapointSubscriptionLoader,
     FunctionScheduleLoader,
+    GroupLoader,
     LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
@@ -605,3 +610,40 @@ fileCategory: Document
             assert retrieved[0].extra_properties["status"] == "Inactive"
         finally:
             loader.delete([file.as_id()])
+
+
+class TestGroupLoader:
+    def test_dump_cdf_group_with_invalid_reference(self, toolkit_client: ToolkitClient) -> None:
+        to_delete = TimeSeriesWrite(
+            external_id="test_dump_cdf_group_with_invalid_reference",
+            name="Test dump CDF group with invalid reference",
+            is_step=False,
+            is_string=False,
+        )
+        group_id: int | None = None
+        try:
+            created_ts = toolkit_client.time_series.create(to_delete)
+            group = GroupWrite(
+                name="test_dump_cdf_group_with_invalid_reference",
+                source_id="1234-dummy",
+                capabilities=[
+                    TimeSeriesAcl(actions=[TimeSeriesAcl.Action.Read], scope=IDScopeLowerCase([created_ts.id]))
+                ],
+            )
+            created_group = toolkit_client.iam.groups.create(group)
+            group_id = created_group.id
+            toolkit_client.time_series.delete(id=created_ts.id)
+
+            loader = GroupLoader.create_loader(toolkit_client)
+
+            dumped = loader.dump_resource(created_group)
+            assert "capabilities" in dumped
+            capabilities = dumped["capabilities"]
+            assert isinstance(capabilities, list)
+            assert len(capabilities) == 1
+            assert capabilities[0] == {"timeSeriesAcl": {"actions": ["READ"], "scope": {"idscope": []}}}
+        finally:
+            toolkit_client.time_series.delete(external_id=to_delete.external_id, ignore_unknown_ids=True)
+            if group_id:
+                with suppress(CogniteAPIError):
+                    toolkit_client.iam.groups.delete(id=group_id)
