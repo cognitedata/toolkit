@@ -126,3 +126,21 @@ capabilities:
         - WRITE
       scope:
         all: {}
+  - eventsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - hostedExtractorsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
