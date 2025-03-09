@@ -141,26 +141,26 @@ Row:
   dataframe:
     empty_count: 7
     first_row:
-      areaId: '1004'
-      categoryId: '1152'
+      areaId: 1004
+      categoryId: 1152.0
       createdDate: '2013-05-16 11:50:16'
       description: 'VRD - PH STG1 COMP WTR MIST RELEASED : PRESSURE ALARM HIGH HIGH'
       externalId: WMT:48-PAHH-96960
-      isActive: 'true'
-      isCriticalLine: 'false'
+      isActive: true
+      isCriticalLine: false
       parentExternalId: WMT:48-PT-96960
       sourceDb: workmate
       tag: 48-PAHH-96960
       updatedDate: '2015-10-06 12:28:33'
     index_name: key
     last_row:
-      areaId: '1004'
-      categoryId: '1120'
+      areaId: 1004
+      categoryId: 1120.0
       createdDate: '2009-06-26 15:36:37'
       description: VRD - 1ST STAGE SUCTION SCRUBBER
       externalId: WMT:23-VG-9101
-      isActive: 'true'
-      isCriticalLine: 'false'
+      isActive: true
+      isCriticalLine: false
       parentExternalId: WMT:23-1ST STAGE COMPRESSION-PH
       sourceDb: workmate
       tag: 23-VG-9101
@@ -239,15 +239,15 @@ Row:
     first_row:
       criticality: HIGH
       description: ''
-      endTime: '1343472505000'
+      endTime: 1343472505000.0
       externalId: FAO-074014-
-      isCompleted: 'false'
+      isCompleted: false
       itemInfo: VRD - 1ST STAGE COMPRESSOR
       itemName: 23-KA-9101
       method: ''
-      startTime: '1343286000000'
+      startTime: 1343286000000
       title: ''
-      toBeDone: 'false'
+      toBeDone: false
       workOrder: FAO-074014
     index_name: key
     last_row:
@@ -255,13 +255,13 @@ Row:
       description: ''
       endTime: ''
       externalId: MAO-014277-
-      isCompleted: 'false'
+      isCompleted: false
       itemInfo: VAL,BRIDGES GENERAL
       itemName: VAL,B00
       method: ''
-      startTime: '1296816287000'
+      startTime: 1296816287000
       title: ''
-      toBeDone: 'false'
+      toBeDone: false
       workOrder: MAO-014277
     nan_count: 0
     null_count: 0
@@ -315,23 +315,23 @@ Row:
   dataframe:
     empty_count: 1393
     first_row:
-      actualHours: '4'
+      actualHours: 4.0
       createdDate: '2012-04-11T13:16:19'
       description: '<***> Smøreoljeprøve kompressorer  '
       dueDate: '2012-06-24T00:00:00'
-      durationHours: '0'
-      endTime: '1337790468000'
+      durationHours: 0.0
+      endTime: 1337790468000.0
       externalId: FAO-071979
-      isActive: 'false'
-      isCancelled: 'false'
-      isCompleted: 'true'
+      isActive: false
+      isCancelled: false
+      isCompleted: true
       isSafetyCritical: 'NO'
-      percentageProgress: '100'
+      percentageProgress: 100.0
       plannedStart: '2012-05-26T00:00:00'
       priorityDescription: Ikke kritisk (utføres sammen med planlagt vedlikehold)
       programNumber: PM-014055
-      startTime: '1338015600000'
-      status: '600'
+      startTime: 1338015600000
+      status: 600
       title: <PH> SMØREOLJEPRØVE KOMPRESSORER  (*** month)
       workOrderNumber: FAO-071979
       workPackageNumber: WPG-004844
@@ -341,19 +341,19 @@ Row:
       createdDate: '2009-04-28T14:08:39'
       description: 'INSTALLASJON - H05 SPOOL ***-***-***-*** MC: ***-***'
       dueDate: ''
-      durationHours: '0'
-      endTime: '1264182745000'
+      durationHours: 0.0
+      endTime: 1264182745000.0
       externalId: MAO-011259
-      isActive: 'false'
-      isCancelled: 'false'
-      isCompleted: 'true'
+      isActive: false
+      isCancelled: false
+      isCompleted: true
       isSafetyCritical: 'NO'
-      percentageProgress: '100'
+      percentageProgress: 100.0
       plannedStart: '2009-06-26T00:00:00'
       priorityDescription: Ikke kritisk (utføres sammen med planlagt vedlikehold)
       programNumber: ''
-      startTime: '1240927719000'
-      status: '600'
+      startTime: 1240927719000
+      status: 600
       title: ' '
       workOrderNumber: MAO-011259
       workPackageNumber: ''
