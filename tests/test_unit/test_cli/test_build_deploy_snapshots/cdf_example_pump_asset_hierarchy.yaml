@@ -11,30 +11,30 @@ Row:
     first_row:
       Comments: 'Col Lift Sta. #69   Poplar Park - On Honey Pod, behind 60841 Yellow
         Leaf St.'
-      DesignPointFlowGPM: '150'
-      DesignPointHeadFT: '86'
-      Enabled: '1'
+      DesignPointFlowGPM: 150.0
+      DesignPointHeadFT: 86.0
+      Enabled: 1
       FacilityID: CPUMP069A
       GlobalID: ab4bb18c-ffd6-4392-80bb-4de9e760ec0c
-      HighHeadShutOff: '0'
+      HighHeadShutOff: 0.0
       InstallDate: 2004/02/04 00:00:00+00
       LastEditor: ''
       LastUpdate: ''
       LifeCycleStatus: I
       LiftStationID: Poplar Park
       LocationDescription: Poplar Park - 60841 Yellow Leaf St., 97702
-      LowHeadFT: '77'
-      LowHeadFlowGPM: '300'
-      OBJECTID: '157'
+      LowHeadFT: 77.0
+      LowHeadFlowGPM: 300.0
+      OBJECTID: 157
       Position: LEAD
       PumpControl: ' '
-      PumpHP: '10'
+      PumpHP: 10.0
       PumpModel: 3127.090-2569
       PumpNumber: ' '
-      PumpOff: '3843.25'
-      PumpOn: '3844.42'
-      PumpOutDia: '4'
-      Shape__Length: '5.43071178655461'
+      PumpOff: 3843.25
+      PumpOn: 3844.42
+      PumpOutDia: 4.0
+      Shape__Length: 5.43071178655461
       VFD: ' '
       VFDSetting: ''
       created_date: 2022/12/07 18:30:02.971+00
@@ -46,7 +46,7 @@ Row:
       Comments: ''
       DesignPointFlowGPM: ''
       DesignPointHeadFT: ''
-      Enabled: '1'
+      Enabled: 1
       FacilityID: CPUMP094B
       GlobalID: f376a2ee-406a-4a83-bbea-bb03ad5f7395
       HighHeadShutOff: ''
@@ -58,7 +58,7 @@ Row:
       LocationDescription: Rimrock Pump Station Improvements
       LowHeadFT: ''
       LowHeadFlowGPM: ''
-      OBJECTID: '1921'
+      OBJECTID: 1921
       Position: ''
       PumpControl: ''
       PumpHP: ''
@@ -67,7 +67,7 @@ Row:
       PumpOff: ''
       PumpOn: ''
       PumpOutDia: ''
-      Shape__Length: '2.15722253363218'
+      Shape__Length: 2.15722253363218
       VFD: 'YES'
       VFDSetting: ''
       created_date: 2023/03/10 23:52:51+00
