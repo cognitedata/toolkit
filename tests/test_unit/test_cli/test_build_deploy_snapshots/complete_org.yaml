@@ -623,12 +623,12 @@ Row:
   dataframe:
     empty_count: 0
     first_row:
-      categoryId: '1'
+      categoryId: 1
       description: This is an example
       name: Example 1
     index_name: key
     last_row:
-      categoryId: '2'
+      categoryId: 2
       description: This is a third example
       name: Example 3
     nan_count: 0
