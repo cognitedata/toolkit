@@ -12,6 +12,7 @@ from cognite.client.data_classes.hosted_extractors import (
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
+    EventHubSourceWrite,
     Job,
     JobList,
     JobWrite,
@@ -38,6 +39,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
@@ -54,6 +56,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     kind = "Source"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
+    _SupportedSources = (_MQTTSourceWrite, KafkaSourceWrite, RestSourceWrite, EventHubSourceWrite)
 
     @property
     def display_name(self) -> str:
@@ -119,6 +122,19 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
             "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
         return self.dump_id(resource.external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SourceWrite:
+        loaded = super().load_resource(resource, is_dry_run=is_dry_run)
+        if not isinstance(loaded, self._SupportedSources):
+            # We need to explicitly check for the supported types as we need to ensure that we know
+            # what the sensitive strings are for each type of source.
+            # Technically, we could support any new source type added to the cognite-sdk, but
+            # we would risk printing sensitive strings in the terminal.
+            raise ToolkitNotSupported(
+                f"Hosted extractor source type {type(loaded).__name__} is not supported."
+                f"Please contact support to request support for this source type."
+            )
+        return loaded
 
     def sensitive_strings(self, item: SourceWrite) -> Iterable[str]:
         if isinstance(item, _MQTTSourceWrite | KafkaSourceWrite | RestSourceWrite) and item.authentication:
