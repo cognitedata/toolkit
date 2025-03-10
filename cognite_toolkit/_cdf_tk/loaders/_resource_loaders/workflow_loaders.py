@@ -628,3 +628,8 @@ class WorkflowTriggerLoader(
             # that the pull command works.
             dumped["authentication"] = local["authentication"]
         return dumped
+
+    def sensitive_strings(self, item: WorkflowTriggerUpsert) -> Iterable[str]:
+        id_ = self.get_id(item)
+        if id_ in self._authentication_by_id:
+            yield self._authentication_by_id[id_].client_secret

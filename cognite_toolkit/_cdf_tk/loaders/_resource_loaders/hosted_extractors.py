@@ -16,6 +16,7 @@ from cognite.client.data_classes.hosted_extractors import (
     JobList,
     JobWrite,
     JobWriteList,
+    KafkaSourceWrite,
     Mapping,
     MappingList,
     MappingWrite,
@@ -24,6 +25,13 @@ from cognite.client.data_classes.hosted_extractors import (
     SourceList,
     SourceWrite,
     SourceWriteList,
+)
+from cognite.client.data_classes.hosted_extractors.sources import (
+    AuthenticationWrite,
+    BasicAuthenticationWrite,
+    RESTClientCredentialsAuthenticationWrite,
+    RestSourceWrite,
+    _MQTTSourceWrite,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
@@ -111,6 +119,23 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
             "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
         return self.dump_id(resource.external_id)
+
+    def sensitive_strings(self, item: SourceWrite) -> Iterable[str]:
+        if isinstance(item, _MQTTSourceWrite | KafkaSourceWrite | RestSourceWrite) and item.authentication:
+            yield from self._sensitive_auth_strings(item.authentication)
+        if (
+            isinstance(item, _MQTTSourceWrite | KafkaSourceWrite)
+            and item.auth_certificate
+            and item.auth_certificate.key_password
+        ):
+            yield item.auth_certificate.key_password
+
+    @staticmethod
+    def _sensitive_auth_strings(auth: AuthenticationWrite) -> Iterable[str]:
+        if isinstance(auth, BasicAuthenticationWrite):
+            yield auth.password
+        elif isinstance(auth, RESTClientCredentialsAuthenticationWrite):
+            yield auth.client_secret
 
 
 class HostedExtractorDestinationLoader(
@@ -221,6 +246,12 @@ class HostedExtractorDestinationLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "targetDataSetId" in item:
             yield DataSetsLoader, item["targetDataSetId"]
+
+    def sensitive_strings(self, item: DestinationWrite) -> Iterable[str]:
+        yield item.credentials.nonce
+        id_ = self.get_id(item)
+        if id_ in self._authentication_by_id:
+            yield self._authentication_by_id[id_].client_secret
 
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):

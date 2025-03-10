@@ -422,6 +422,12 @@ class TransformationLoader(
         )
         return spec
 
+    def sensitive_strings(self, item: TransformationWrite) -> Iterable[str]:
+        if item.source_oidc_credentials:
+            yield item.source_oidc_credentials.client_secret
+        if item.destination_oidc_credentials:
+            yield item.destination_oidc_credentials.client_secret
+
 
 @final
 class TransformationScheduleLoader(
