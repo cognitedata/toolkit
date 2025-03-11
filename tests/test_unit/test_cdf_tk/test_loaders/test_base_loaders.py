@@ -11,6 +11,7 @@ import pytest
 import requests
 import yaml
 from cognite.client.data_classes import (
+    CreatedSession,
     FileMetadata,
     Transformation,
     TransformationSchedule,
@@ -24,6 +25,7 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_fr
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
@@ -35,13 +37,17 @@ from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
+    FunctionScheduleLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
     ResourceTypes,
+    TransformationLoader,
     ViewLoader,
+    WorkflowTriggerLoader,
     get_loader,
 )
 from cognite_toolkit._cdf_tk.utils import tmp_build_directory
@@ -265,6 +271,142 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                                 yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
+def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
+    yield pytest.param(
+        WorkflowTriggerLoader,
+        """externalId: my_trigger
+triggerRule:
+  triggerType: schedule
+  cronExpression: '* * * * *'
+workflowExternalId: my_workflow
+workflowVersion: v1
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+        """,
+        {"my_super_secret_42"},
+        id="WorkflowTriggerLoader",
+    )
+    yield pytest.param(
+        FunctionScheduleLoader,
+        """name: daily-8pm-utc
+functionExternalId: 'fn_example_repeater'
+cronExpression: '0 20 * * *'
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+""",
+        {"my_super_secret_42"},
+        id="FunctionScheduleLoader",
+    )
+    yield pytest.param(
+        TransformationLoader,
+        """externalId: my_transformation
+name: My Transformation
+destination:
+  type: 'asset_hierarchy'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: select * from my_table
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+  tokenUri: https://token_uri.com
+  cdfProjectName: my_project
+  scopes: https://scope.com
+""",
+        {"my_super_secret_42"},
+        id="TransformationLoader with authentication",
+    )
+    yield pytest.param(
+        TransformationLoader,
+        """externalId: my_transformation
+name: My Transformation
+destination:
+  type: 'asset_hierarchy'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: select * from my_table
+sourceOidcCredentials:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+  tokenUri: https://token_uri.com
+  cdfProjectName: my_project
+  scopes: https://scope.com
+destinationOidcCredentials:
+  clientId: my_client_id
+  clientSecret: my_other_super_secret_43
+  tokenUri: https://token_uri.com
+  cdfProjectName: my_project
+  scopes: https://scope.com
+""",
+        {"my_super_secret_42", "my_other_super_secret_43"},
+        id="TransformationLoader with source and destination authentication",
+    )
+
+    yield pytest.param(
+        HostedExtractorDestinationLoader,
+        """externalId: my_cdf
+credentials:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+targetDataSetExternalId: ds_files_hamburg""",
+        {"my_super_secret_42"},
+        id="HostedExtractorDestinationLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: mqtt5
+externalId: my_mqtt
+host: mqtt.example.com
+port: 1883
+authentication:
+  type: basic
+  username: my_user
+  password: my_password""",
+        {"my_password"},
+        id="MQTT HostedExtractorSourceLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: kafka
+externalId: my_kafka
+bootstrapBrokers:
+- host: kafka.example.com
+  port: 9092
+authentication:
+  type: basic
+  username: my_user
+  password: my_password
+authCertificate:
+  key: my_key
+  keyPassword: my_key_password
+  type: der
+  certificate: my_certificate
+""",
+        {"my_password", "my_key_password"},
+        id="Kafka HostedExtractorSourceLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: rest
+externalId: my_rest
+host: rest.example.com
+port: 443
+authentication:
+  type: clientCredentials
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+  tokenUrl: https://token.example.com
+  scopes: scope1 scope2
+""",
+        {"my_super_secret_42"},
+        id="REST HostedExtractorSourceLoader",
+    )
+
+
 class TestResourceLoaders:
     # The HostedExtractorSourceLoader does not support parameter spec.
     @pytest.mark.parametrize(
@@ -325,6 +467,23 @@ class TestResourceLoaders:
         duplicated.pop("auth")
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
+
+    @pytest.mark.parametrize("loader_cls, local_file, expected_strings", list(sensitive_strings_test_cases()))
+    def test_sensitive_strings(
+        self, loader_cls: type[ResourceLoader], local_file: str, expected_strings: set[str]
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            loader = loader_cls.create_loader(client)
+
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = local_file
+        loaded_dict = loader.load_resource_file(file)[0]
+        loaded = loader.load_resource(loaded_dict)
+
+        sensitive_strings = set(loader.sensitive_strings(loaded))
+
+        assert expected_strings.issubset(sensitive_strings), f"Expected {expected_strings} but got {sensitive_strings}"
 
 
 class TestLoaders:
