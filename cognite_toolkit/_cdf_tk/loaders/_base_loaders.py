@@ -384,6 +384,15 @@ class ResourceLoader(
             f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
         )
 
+    def sensitive_strings(self, item: T_WriteClass) -> Iterable[str]:
+        """Returns a list of strings that should be masked when printing.
+
+        This is used by the loaders with credentials to mask the credentials secrets. For example, the
+        WorkflowTriggerLoader uses this to maks the clientSecret.
+        """
+        return
+        yield
+
     # Helper methods
     @classmethod
     def get_ids(cls, items: Sequence[T_WriteClass | T_WritableCogniteResource | dict]) -> list[T_ID]:
