@@ -484,7 +484,7 @@ class MockQuestionary:
         self.answers = answers
         self.monkeypatch = monkeypatch
 
-    def select(self, *_, choices: list[Choice], **__) -> MockQuestion:
+    def select(self, _: str, choices: list[Choice] | None = None, **__) -> MockQuestion:
         return MockQuestion(self.answers.pop(0), choices)
 
     def confirm(self, *_, **__) -> MockQuestion:
