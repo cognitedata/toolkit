@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
-from typing import Generic
+from typing import Generic, cast
 
 import questionary
 import typer
@@ -90,54 +90,56 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         self.space_ids: set[str] = set()
 
     def _interactive_select(self) -> DataModelId:
-        include_global = False
-        spaces = self.client.data_modeling.spaces.list(limit=-1, include_global=include_global)
-        selected_space: str = questionary.select(
-            "In which space is your data model located?", [space.space for space in spaces]
-        ).ask()
-
         data_model_ids = self.client.data_modeling.data_models.list(
-            space=selected_space, all_versions=False, limit=-1, include_global=include_global
+            all_versions=False, limit=-1, include_global=False
         ).as_ids()
-
-        if not data_model_ids:
-            raise ToolkitMissingResourceError(f"No data models found in space {selected_space}")
+        available_spaces = sorted({model.space for model in data_model_ids})
+        if not available_spaces:
+            raise ToolkitMissingResourceError("No data models found")
+        if len(available_spaces) == 1:
+            selected_space = available_spaces[0]
+        else:
+            selected_space = questionary.select("In which space is your data model located?", available_spaces).ask()
+        data_model_ids = sorted(
+            [model for model in data_model_ids if model.space == selected_space], key=lambda model: model.as_tuple()
+        )
 
         selected_data_model: DataModelId = questionary.select(
-            "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_model_ids]
+            "Which data model would you like to dump?",
+            [Choice(f"{model_id!r}", value=model_id) for model_id in data_model_ids],
         ).ask()
 
-        data_models = self.client.data_modeling.data_models.list(
-            space=selected_space,
-            all_versions=True,
-            limit=-1,
-            include_global=include_global,
-            inline_views=False,
+        retrieved_models = self.client.data_modeling.data_models.retrieve(
+            (selected_data_model.space, selected_data_model.external_id), inline_views=False
         )
-        data_model_ids = data_models.as_ids()
-        data_model_versions = [
-            model.version
-            for model in data_model_ids
+        if not retrieved_models:
+            # This happens if the data model is removed after the list call above.
+            raise ToolkitMissingResourceError(f"Data model {selected_data_model} not found")
+        if len(retrieved_models) == 1:
+            self.data_model = retrieved_models[0]
+            return selected_data_model
+        models_by_version = {
+            model.version: model
+            for model in retrieved_models
             if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
             and model.version is not None
-        ]
-
-        if (
-            len(data_model_versions) == 1
-            or not questionary.confirm(
-                f"Would you like to select a different version than {selected_data_model.version} of the data model",
-                default=False,
-            ).ask()
-        ):
-            self.data_model = data_models[0]
+        }
+        if len(models_by_version) == 1:
+            self.data_model = retrieved_models[0]
+            return selected_data_model
+        if not questionary.confirm(
+            f"Would you like to select a different version than {selected_data_model.version} of the data model",
+            default=False,
+        ).ask():
+            self.data_model = models_by_version[cast(str, selected_data_model.version)]
             return selected_data_model
 
-        selected_version = questionary.select("Which version would you like to dump?", data_model_versions).ask()
-        for model in data_models:
-            if model.as_id() == (selected_space, selected_data_model.external_id, selected_version):
-                self.data_model = model
-                break
-        return DataModelId(selected_space, selected_data_model.external_id, selected_version)
+        selected_model = questionary.select(
+            "Which version would you like to dump?",
+            [Choice(f"{version}", value=model) for version, model in models_by_version.items()],
+        ).ask()
+        self.data_model = models_by_version[selected_model]
+        return self.data_model.as_id()
 
     def update(self, resources: CogniteResourceList) -> None:
         if isinstance(resources, dm.DataModelList):
