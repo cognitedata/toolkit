@@ -34,6 +34,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
+    DataModelList,
     Edge,
     EdgeApply,
     EdgeApplyResult,
@@ -53,7 +54,7 @@ from cognite.client.data_classes.data_modeling import (
     View,
 )
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
-from cognite.client.data_classes.data_modeling.ids import InstanceId
+from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier, InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
@@ -795,6 +796,19 @@ class ApprovalToolkitClient:
 
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
+        def return_data_models(
+            ids: DataModelIdentifier | Sequence[DataModelIdentifier], inline_views: bool = False
+        ) -> DataModelList:
+            if not existing_resources[resource_cls.__name__]:
+                return DataModelList([])
+            id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else [ids]
+            to_return = read_list_cls([], cognite_client=client)
+            for resource in existing_resources[resource_cls.__name__]:
+                id_ = resource.as_id()
+                if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
+                    to_return.append(resource)
+            return to_return
+
         def iterate_values(*argd, **kwargs):
             list_ = return_values(*argd, **kwargs)
             return (value for value in list_)
@@ -820,10 +834,11 @@ class ApprovalToolkitClient:
                 return return_value(external_id=external_id)
 
         def data_model_retrieve(ids, *args, **kwargs):
-            id_list = list(ids) if isinstance(ids, Sequence) else [ids]
+            id_set = set(ids) if isinstance(ids, Sequence) else {ids}
             to_return = read_list_cls([], cognite_client=client)
             for resource in existing_resources[resource_cls.__name__]:
-                if resource.as_id() in id_list:
+                id = resource.as_id()
+                if id in id_set or (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
                     to_return.append(resource)
             return to_return
 
@@ -836,6 +851,7 @@ class ApprovalToolkitClient:
                 return_instances,
                 files_retrieve,
                 iterate_values,
+                return_data_models,
             ]
         }
         if mock_method not in available_retrieve_methods:

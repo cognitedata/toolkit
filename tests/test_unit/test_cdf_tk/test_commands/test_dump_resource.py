@@ -18,17 +18,12 @@ class TestDataModelFinder:
         )
         models = [
             dm.DataModel("my_space", "first_model", "v1", **default_args),
-            dm.DataModel("my_space", "second_model", "v1", **default_args),
+            dm.DataModel("my_space2", "second_model", "v1", **default_args),
         ]
         toolkit_client_approval.append(dm.DataModel, models)
-        toolkit_client_approval.append(dm.Space, dm.Space("my_space", False, created_time=1, last_updated_time=1))
         selected = models[1].as_id()
         finder = DataModelFinder(toolkit_client_approval.mock_client, None)
-        answers = [
-            "my_space",
-            selected,
-            False,
-        ]
+        answers = ["my_space2", selected, False]
         with MockQuestionary(DataModelFinder.__module__, monkeypatch, answers):
             result = finder._interactive_select()
 
