@@ -278,13 +278,14 @@ class TransformationLoader(
         )
         transformation = TransformationWrite._load(resource)
         try:
-            transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                source_oidc_credentials
-            )
-
-            transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                destination_oidc_credentials
-            )
+            if transformation.source_oidc_credentials is None:
+                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
+                    source_oidc_credentials
+                )
+            if transformation.destination_oidc_credentials is None:
+                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
+                    destination_oidc_credentials
+                )
         except KeyError as e:
             item_id = self.get_id(resource)
             raise ToolkitTypeError(
