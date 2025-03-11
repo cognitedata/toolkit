@@ -12,7 +12,7 @@ import typing
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
+from typing import IO, Any, Callable, Literal, Optional, TypeVar, get_args, get_origin
 
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import CogniteClient
@@ -55,6 +55,7 @@ from cognite.client.data_classes.workflows import (
 )
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils.useful_types import SequenceNotStr
+from questionary import Choice
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
@@ -464,3 +465,48 @@ class FakeCogniteResourceGenerator:
             "NumpyFloat64Array": NumpyFloat64Array,
             "NumpyObjArray": NumpyObjArray,
         }
+
+
+class MockQuestion:
+    def __init__(self, answer: Any, choices: list[Choice] | None = None) -> None:
+        self.answer = answer
+        self.choices = choices
+
+    def ask(self) -> Any:
+        if isinstance(self.answer, Callable):
+            return self.answer(self.choices)
+        return self.answer
+
+
+class MockQuestionary:
+    def __init__(self, module_target: str, monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+        self.module_target = module_target
+        self.answers = answers
+        self.monkeypatch = monkeypatch
+
+    def select(self, *_, choices: list[Choice], **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0), choices)
+
+    def confirm(self, *_, **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
+    def checkbox(self, *_, choices: list[Choice], **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0), choices)
+
+    def text(self, *_, **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
+    def __enter__(self):
+        for method in [self.select, self.confirm, self.checkbox, self.text]:
+            self.monkeypatch.setattr(f"{self.module_target}.questionary.{method.__name__}", method)
+        return self
+
+    def __exit__(self, *args):
+        self.monkeypatch.undo()
+        return False
+
+    @staticmethod
+    def select_all(choices: list[Choice]) -> list[str]:
+        if not choices:
+            return []
+        return [choice.value for choice in choices]
