@@ -228,6 +228,7 @@ class HostedExtractorDestinationLoader(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DestinationWrite:
         if raw_auth := resource.pop("credentials", None):
             credentials = ClientCredentials._load(raw_auth)
+            self._authentication_by_id[self.get_id(resource)] = credentials
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
