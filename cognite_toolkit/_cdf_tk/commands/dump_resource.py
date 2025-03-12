@@ -106,7 +106,10 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 
         selected_data_model: DataModelId = questionary.select(
             "Which data model would you like to dump?",
-            [Choice(f"{model_id!r}", value=model_id) for model_id in data_model_ids],
+            [
+                Choice(f"{model_id!r}", value=model_id)
+                for model_id in sorted(data_model_ids, key=lambda model: model.as_tuple())
+            ],
         ).ask()
 
         retrieved_models = self.client.data_modeling.data_models.retrieve(
