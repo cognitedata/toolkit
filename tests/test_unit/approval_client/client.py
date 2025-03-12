@@ -801,7 +801,7 @@ class ApprovalToolkitClient:
         ) -> DataModelList:
             if not existing_resources[resource_cls.__name__]:
                 return DataModelList([])
-            id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else [ids]
+            id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else set(ids)
             to_return = read_list_cls([], cognite_client=client)
             for resource in existing_resources[resource_cls.__name__]:
                 id_ = resource.as_id()
