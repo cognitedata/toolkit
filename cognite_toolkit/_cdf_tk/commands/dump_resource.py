@@ -121,12 +121,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
         if len(retrieved_models) == 1:
             self.data_model = retrieved_models[0]
             return selected_data_model
-        models_by_version = {
-            model.version: model
-            for model in retrieved_models
-            if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
-            and model.version is not None
-        }
+        models_by_version = {model.version: model for model in retrieved_models if model.version is not None}
         if len(models_by_version) == 1:
             self.data_model = retrieved_models[0]
             return selected_data_model
