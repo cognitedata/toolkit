@@ -79,7 +79,7 @@ class DumpApp(typer.Typer):
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
         selected_data_model: Union[DataModelId, None] = None
         if data_model_id is not None:
-            if len(data_model_id) <= 2:
+            if len(data_model_id) < 2:
                 raise ToolkitRequiredValueError(
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
