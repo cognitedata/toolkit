@@ -493,11 +493,13 @@ class TestResourceLoaders:
             if loader_cls != {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
         ],
     )
-    def test_dump_resource_with_local_id(
-        self, loader_cls: type[ResourceLoader], env_vars_with_client: EnvironmentVariables
-    ) -> None:
-        client = env_vars_with_client.get_client()
-        loader = loader_cls.create_loader(client)
+    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceLoader]) -> None:
+        with monkeypatch_toolkit_client() as toolkit_client:
+            # Since we are not loading the local resource, we must allow reverse lookup
+            # without first lookup.
+            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
+
+        loader = loader_cls.create_loader(approval_client.mock_client)
         resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
         local_dict = loader.dump_id(loader.get_id(resource))
 
