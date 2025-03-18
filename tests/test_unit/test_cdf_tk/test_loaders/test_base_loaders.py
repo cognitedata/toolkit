@@ -485,6 +485,29 @@ class TestResourceLoaders:
 
         assert expected_strings.issubset(sensitive_strings), f"Expected {expected_strings} but got {sensitive_strings}"
 
+    @pytest.mark.parametrize(
+        "loader_cls",
+        [
+            loader_cls
+            for loader_cls in RESOURCE_LOADER_LIST
+            if loader_cls != {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+        ],
+    )
+    def test_dump_resource_with_local_id(
+        self, loader_cls: type[ResourceLoader], env_vars_with_client: EnvironmentVariables
+    ) -> None:
+        client = env_vars_with_client.get_client()
+        loader = loader_cls.create_loader(client)
+        resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
+        local_dict = loader.dump_id(loader.get_id(resource))
+
+        # The dump_resource method should work with the local dict only containing the
+        # identifier of the resource. This is to match the expectation of the cdf modules pull
+        # command.
+        dumped = loader.dump_resource(resource, local_dict)
+
+        assert isinstance(dumped, dict)
+
 
 class TestLoaders:
     def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
