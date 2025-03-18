@@ -1416,8 +1416,8 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                 edges=resource.as_id(), sources=sources
             ).edges[0]
-        except CogniteAPIError:
-            # View does not exist
+        except (CogniteAPIError, IndexError):
+            # View or Edge does not exist
             dumped = resource.as_write().dump()
         else:
             dumped = cdf_resource_with_properties.as_write().dump()
