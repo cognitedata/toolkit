@@ -172,9 +172,12 @@ class ResourceWorker(
                 to_delete.append(identifier)
                 to_create.append(local_resource)
             if verbose:
+                diff_str = "\n".join(to_diff(cdf_dict, local_dict))
+                for sensitive in self.loader.sensitive_strings(local_resource):
+                    diff_str = diff_str.replace(sensitive, "********")
                 print(
                     Panel(
-                        "\n".join(to_diff(cdf_dict, local_dict)),
+                        diff_str,
                         title=f"{self.loader.display_name}: {identifier}",
                         expand=False,
                     )

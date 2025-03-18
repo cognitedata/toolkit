@@ -532,3 +532,8 @@ class FunctionScheduleLoader(
             ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
         return spec
+
+    def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
+        id_ = self.get_id(item)
+        if id_ in self.authentication_by_id:
+            yield self.authentication_by_id[id_].client_secret
