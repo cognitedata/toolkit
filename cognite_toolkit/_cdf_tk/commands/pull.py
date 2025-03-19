@@ -510,12 +510,12 @@ class PullCommand(ToolkitCommand):
             )
             if not resources:
                 continue
-            if loader in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+            if isinstance(loader, HostedExtractorSourceLoader | HostedExtractorDestinationLoader):
                 self.warn(
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if loader in {GraphQLLoader, FunctionLoader, StreamlitLoader}:
+            if isinstance(loader, GraphQLLoader | FunctionLoader | StreamlitLoader):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
