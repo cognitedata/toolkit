@@ -307,7 +307,6 @@ def test_dump_datamodel(
     )
     toolkit_client_approval.append(dm.Space, space)
     toolkit_client_approval.append(dm.Container, container)
-    toolkit_client_approval.append(dm.View, parent_view)
     toolkit_client_approval.append(dm.DataModel, data_model)
     toolkit_client_approval.append(dm.View, [parent_view, view])
     cmd = DumpResourceCommand(silent=True)
