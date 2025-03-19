@@ -319,7 +319,7 @@ class ContainerLoader(
             if prop_id not in local_prop_by_id:
                 continue
             local_prop = local_prop_by_id[prop_id]
-            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", False)]:
+            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", True)]:
                 if cdf_prop.get(key) is default and key not in local_prop:
                     cdf_prop.pop(key, None)
             cdf_type = cdf_prop.get("type", {})
