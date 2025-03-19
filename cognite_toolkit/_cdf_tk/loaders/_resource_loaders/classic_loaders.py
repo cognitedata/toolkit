@@ -613,9 +613,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
 
         spec.add(ParameterSpec(("assetExternalIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
         spec.add(
-            ParameterSpec(
-                ("assetExternalIds", ANY_INT, "externalId"), frozenset({"str"}), is_required=False, _is_nullable=False
-            )
+            ParameterSpec(("assetExternalIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
         spec.discard(ParameterSpec(("assetIds",), frozenset({"int"}), is_required=False, _is_nullable=False))
         spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False))
