@@ -270,9 +270,14 @@ class WorkflowVersionLoader(
         if not local:
             return dumped
         # Sort to match the order of the local tasks
-        local_task_order_by_id = {
-            task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
-        }
+        if "workflowDefinition" in local and "tasks" in local["workflowDefinition"]:
+            local_task_order_by_id = {
+                task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
+            }
+            local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
+        else:
+            local_task_order_by_id = {}
+            local_task_by_id = {}
         end_of_list = len(local_task_order_by_id)
         dumped["workflowDefinition"]["tasks"] = sorted(
             dumped["workflowDefinition"]["tasks"],
@@ -281,7 +286,6 @@ class WorkflowVersionLoader(
 
         # Function tasks with empty data can be an empty dict or missing data field
         # This ensures that these two are treated as the same
-        local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
         for cdf_task in dumped["workflowDefinition"]["tasks"]:
             task_id = cdf_task["externalId"]
             if task_id not in local_task_by_id:
