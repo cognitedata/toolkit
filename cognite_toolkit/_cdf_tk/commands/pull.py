@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ExtractionPipelineConfigLoader,
     FunctionLoader,
     GraphQLLoader,
+    GroupAllScopedLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
@@ -522,6 +523,11 @@ class PullCommand(ToolkitCommand):
                     )
                 )
                 continue
+            if isinstance(loader, GroupAllScopedLoader):
+                # We have two loaders for Groups. We skip this one and
+                # only use the GroupResourceScopedLoader
+                continue
+
             result = self._pull_resources(loader, resources, dry_run, env_vars.dump(include_os=True))
             results[loader.display_name] = result
 
