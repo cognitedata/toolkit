@@ -90,7 +90,7 @@ del cap, scopes, names, action, scope
 class LookUpAPIMock:
     def __init__(self, allow_reverse_lookup: bool = False):
         self._reverse_cache: dict[int, str] = {}
-        self._allow_reverse_lookup = allow_reverse_lookup
+        self._generate_random_external_id_on_lookup_failure = allow_reverse_lookup
 
     @staticmethod
     def _create_id(string: str, allow_empty: bool = False) -> int:
@@ -127,7 +127,7 @@ class LookUpAPIMock:
         try:
             return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
         except KeyError:
-            if self._allow_reverse_lookup:
+            if self._generate_random_external_id_on_lookup_failure:
                 return "".join(random.choices(string.ascii_letters + string.digits, k=10))
             else:
                 raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
