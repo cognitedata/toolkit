@@ -157,9 +157,29 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             yield [], dm.DataModelList([self.data_model]), DataModelLoader.create_loader(self.client), None
         else:
             yield [self.identifier], None, DataModelLoader.create_loader(self.client), None
-        yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
-        yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
-        yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+        if self._include_global:
+            yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
+            yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
+            yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+        else:
+            view_loader = ViewLoader.create_loader(self.client)
+            views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
+            yield [], views, view_loader, "views"
+            container_loader = ContainerLoader.create_loader(self.client)
+            containers = dm.ContainerList(
+                [
+                    container
+                    for container in container_loader.retrieve(list(self.container_ids))
+                    if not container.is_global
+                ]
+            )
+            yield [], containers, container_loader, "containers"
+
+            space_loader = SpaceLoader.create_loader(self.client)
+            spaces = dm.SpaceList(
+                [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
+            )
+            yield [], spaces, space_loader, None
 
 
 class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
