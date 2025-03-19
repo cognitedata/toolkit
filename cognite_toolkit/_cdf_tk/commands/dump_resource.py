@@ -82,8 +82,9 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
 
 
 class DataModelFinder(ResourceFinder[DataModelId]):
-    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None):
+    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None, include_global: bool = False):
         super().__init__(client, identifier)
+        self._include_global = include_global
         self.data_model: dm.DataModel[dm.ViewId] | None = None
         self.view_ids: set[dm.ViewId] = set()
         self.container_ids: set[dm.ContainerId] = set()
