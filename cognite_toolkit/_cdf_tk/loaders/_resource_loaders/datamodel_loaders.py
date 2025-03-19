@@ -319,7 +319,7 @@ class ContainerLoader(
             if prop_id not in local_prop_by_id:
                 continue
             local_prop = local_prop_by_id[prop_id]
-            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", False)]:
+            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", True)]:
                 if cdf_prop.get(key) is default and key not in local_prop:
                     cdf_prop.pop(key, None)
             cdf_type = cdf_prop.get("type", {})
@@ -1416,8 +1416,8 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                 edges=resource.as_id(), sources=sources
             ).edges[0]
-        except CogniteAPIError:
-            # View does not exist
+        except (CogniteAPIError, IndexError):
+            # View or Edge does not exist
             dumped = resource.as_write().dump()
         else:
             dumped = cdf_resource_with_properties.as_write().dump()

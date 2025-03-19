@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import itertools
 import json as JSON
+import random
+import string
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -86,8 +88,9 @@ del cap, scopes, names, action, scope
 
 
 class LookUpAPIMock:
-    def __init__(self):
+    def __init__(self, allow_reverse_lookup: bool = False):
         self._reverse_cache: dict[int, str] = {}
+        self._generate_random_external_id_on_lookup_failure = allow_reverse_lookup
 
     @staticmethod
     def _create_id(string: str, allow_empty: bool = False) -> int:
@@ -124,7 +127,10 @@ class LookUpAPIMock:
         try:
             return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
         except KeyError:
-            raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
+            if self._generate_random_external_id_on_lookup_failure:
+                return "".join(random.choices(string.ascii_letters + string.digits, k=10))
+            else:
+                raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
 
 
 class ApprovalToolkitClient:
@@ -136,7 +142,7 @@ class ApprovalToolkitClient:
 
     """
 
-    def __init__(self, mock_client: ToolkitClientMock):
+    def __init__(self, mock_client: ToolkitClientMock, allow_reverse_lookup: bool = False):
         self._return_verify_resources = False
         self.mock_client = mock_client
         credentials = MagicMock(spec=OAuthClientCredentials)
@@ -181,7 +187,7 @@ class ApprovalToolkitClient:
         for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
             if method_name.startswith("_") or method_name == "method_calls":
                 continue
-            mock_lookup = LookUpAPIMock()
+            mock_lookup = LookUpAPIMock(allow_reverse_lookup)
             lookup_api.id.side_effect = mock_lookup.id
             lookup_api.external_id.side_effect = mock_lookup.external_id
         self.mock_client.verify.authorization.return_value = []
