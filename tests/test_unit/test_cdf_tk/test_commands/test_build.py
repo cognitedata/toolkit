@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -16,6 +17,7 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
 
 
@@ -81,6 +83,29 @@ class TestBuildCommand:
             if f.is_file() and TransformationLoader.is_supported_file(f)
         ]
         assert len(transformation_files) == 2
+
+    def test_build_complete_org_without_warnings(
+        self,
+        tmp_path: Path,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "build",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert not cmd.warning_list, (
+            f"No warnings should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
+        )
 
 
 class TestCheckYamlSemantics:
