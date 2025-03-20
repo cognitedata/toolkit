@@ -5,6 +5,7 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
+dataSetExternalId: ds_complete_org
 authentication:
   clientId: {{ cicd_clientId }}
   clientSecret: {{ cicd_clientSecret }}
