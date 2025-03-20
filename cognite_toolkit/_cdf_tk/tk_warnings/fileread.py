@@ -257,3 +257,14 @@ class EnvironmentVariableMissingWarning(FileReadWarning):
         suffix = "s are" if len(self.variables) > 1 else " is"
         variables = humanize_collection(self.variables, sort=True, bind_word="and")
         return f"The environment variable{suffix} missing: {variables}"
+
+
+@dataclass(frozen=True)
+class StreamlitRequirementsWarning(FileReadWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
+    dependencies: str | list[str]
+
+    def get_message(self) -> str:
+        if isinstance(self.dependencies, str):
+            return f"Missing recommended dependencies in requirements.txt: {self.dependencies}"
+        return f"Missing dependencies in requirements.txt: {', '.join(self.dependencies)}"
