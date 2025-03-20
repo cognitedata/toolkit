@@ -5,7 +5,8 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, GroupWrite, Transformation, WorkflowTrigger
+from cognite.client.data_classes import DataSet, Group, GroupWrite, Transformation, WorkflowTrigger
+from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -223,6 +224,44 @@ def test_pull_workflow_trigger_with_environment_variables(
     assert "cronExpression: '* 4 * * *'" in reloaded, "Workflow trigger was not updated"
     assert "clientId: {{ ingestionClientId }}" in reloaded, "Environment variables were not replaced"
     assert "clientSecret: {{ ingestionClientSecret }}" in reloaded, "Environment variables were not replaced"
+
+
+def test_pull_group(
+    build_tmp_path: Path,
+    env_vars_with_client: EnvironmentVariables,
+    toolkit_client_approval: ApprovalToolkitClient,
+    tmp_path: Path,
+) -> None:
+    org_dir = tmp_path / "my-org"
+    local_file = """name: my_group"""
+    local_path = org_dir / "modules" / "my-module" / "auth" / "my_group.Group.yaml"
+    local_path.parent.mkdir(parents=True)
+    local_path.write_text(local_file)
+    cdf_group = Group(
+        name="my_group",
+        source_id="123-456",
+        capabilities=[
+            AssetsAcl(scope=AssetsAcl.Scope.All(), actions=[AssetsAcl.Action.Read]),
+            TimeSeriesAcl(scope=TimeSeriesAcl.Scope.All(), actions=[TimeSeriesAcl.Action.Read]),
+            EventsAcl(scope=EventsAcl.Scope.All(), actions=[EventsAcl.Action.Read]),
+        ],
+        id=123,
+    )
+    toolkit_client_approval.append(Group, cdf_group)
+
+    cmd = PullCommand(skip_tracking=True, silent=True)
+    cmd.pull_module(
+        module_name_or_path="my-module",
+        organization_dir=org_dir,
+        env="dev",
+        dry_run=False,
+        verbose=False,
+        env_vars=env_vars_with_client,
+    )
+
+    reloaded = GroupWrite.load(local_path.read_text())
+
+    assert reloaded.dump() == cdf_group.as_write().dump()
 
 
 def test_dump_datamodel(
