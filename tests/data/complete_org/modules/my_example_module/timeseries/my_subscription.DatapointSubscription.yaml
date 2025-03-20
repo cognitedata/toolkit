@@ -2,6 +2,7 @@ externalId: my_subscription
 name: My Subscription
 description: All timeseries with externalId starting with ts_value
 partitionCount: 1
+dataSetExternalId: ds_complete_org
 filter:
   prefix:
     property:
