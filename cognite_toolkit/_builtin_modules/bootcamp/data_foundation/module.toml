@@ -1,7 +1,0 @@
-[module]
-title = "Data Foundation"
-
-[packages]
-tags = [
-    "bootcamp",
-]
