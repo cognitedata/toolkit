@@ -59,6 +59,7 @@ from questionary import Choice
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
+from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
 
 UNION_TYPES = {typing.Union, UnionType}
@@ -256,7 +257,7 @@ class FakeCogniteResourceGenerator:
                     keyword_arguments.pop(key)
         elif resource_cls is DatapointsArray:
             keyword_arguments["is_string"] = False
-        elif resource_cls is SequenceRows:
+        elif resource_cls is SequenceRows or resource_cls is ToolkitSequenceRows:
             # All row values must match the number of columns
             # Reducing to one column, and one value for each row
             if skip_defaulted_args:
