@@ -5,5 +5,6 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
+dataSetExternalId: ds_complete_org
 query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
   where UNY is not null

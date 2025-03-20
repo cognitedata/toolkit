@@ -21,7 +21,7 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -243,7 +243,7 @@ class DatapointSubscriptionLoader(
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
                 object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
-        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("filter", ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=False))
         return spec
 
     @classmethod

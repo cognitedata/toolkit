@@ -224,7 +224,8 @@ DataSet:
 Database:
 - name: db_complete_org
 DatapointSubscription:
-- description: All timeseries with externalId starting with ts_value
+- dataSetId: 7982613576047462211
+  description: All timeseries with externalId starting with ts_value
   externalId: my_subscription
   filter:
     prefix:
@@ -712,6 +713,7 @@ Space:
 - space: population_instance_space
 - space: population_model
 - space: sp_complete_org_files
+- space: sp_instance
 - space: sp_nodes
 - space: sp_schema
 Table:
@@ -744,6 +746,7 @@ TimeSeries:
   name: CDF Toolkit Example Timeseries 2
 Transformation:
 - conflictMode: upsert
+  dataSetId: 7982613576047462211
   destination:
     type: assets
   externalId: inlined_transformation
@@ -753,6 +756,7 @@ Transformation:
   query: select "fpso_uny" as externalId, UNY as uid, UNY as description from some_database.some_table
     where UNY is not null
 - conflictMode: upsert
+  dataSetId: 7982613576047462211
   destination:
     type: assets
   destinationOidcCredentials:
@@ -901,7 +905,8 @@ View:
   space: population_model
   version: v1
 Workflow:
-- description: A workflow for processing data
+- dataSetId: 7982613576047462211
+  description: A workflow for processing data
   externalId: baz
 WorkflowTrigger:
 - externalId: MyTrigger
