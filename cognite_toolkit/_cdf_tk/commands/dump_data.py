@@ -87,7 +87,7 @@ class AssetFinder(DataFinder[Asset, AssetList]):
         raise NotImplementedError()
 
 
-class DumpData(ToolkitCommand):
+class DumpDataCommand(ToolkitCommand):
     # 128 MB
     buffer_size = 128 * 1024 * 1024
     # Note the size in memory is not the same as the size on disk,
