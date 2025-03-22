@@ -292,14 +292,18 @@ class DumpDataCommand(ToolkitCommand):
         return questionary.checkbox(
             f"Select a {what} listed as 'name (external_id) [count]'",
             choices=[
-                # MyPy does not seem to understand that item is Asset | DataSet
-                self._create_choice(item, finder)  # type: ignore[arg-type]
-                for item in sorted(options, key=lambda x: x.name or x.external_id)
+                choice
+                for choice, count in (
+                    # MyPy does not seem to understand that item is Asset | DataSet
+                    self._create_choice(item, finder)  # type: ignore[arg-type]
+                    for item in sorted(options, key=lambda x: x.name or x.external_id)
+                )
+                if count > 0
             ],
         ).ask()
 
     @staticmethod
-    def _create_choice(item: Asset | DataSet, finder: DataFinder) -> questionary.Choice:
+    def _create_choice(item: Asset | DataSet, finder: DataFinder) -> tuple[questionary.Choice, int]:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
@@ -309,20 +313,20 @@ class DumpDataCommand(ToolkitCommand):
         if isinstance(item, DataSet):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for DataSet {item.id}")
-            ts_count = finder.aggregate_count(tuple(), (item.external_id,))
+            item_count = finder.aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for Asset {item.id}")
-            ts_count = finder.aggregate_count((item.external_id,), tuple())
+            item_count = finder.aggregate_count((item.external_id,), tuple())
         else:
             raise TypeError(f"Unsupported item type: {type(item)}")
 
         return questionary.Choice(
-            title=f"{item.name} ({item.external_id}) [{ts_count:,}]"
+            title=f"{item.name} ({item.external_id}) [{item_count:,}]"
             if item.name != item.external_id
-            else f"({item.external_id}) [{ts_count:,}]",
+            else f"({item.external_id}) [{item_count:,}]",
             value=item.external_id,
-        )
+        ), item_count
 
     def _write_data_sets(self, client: ToolkitClient, output_dir: Path, item_name: str) -> None:
         self._write_items_to_yaml(
