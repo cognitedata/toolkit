@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, cast
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -372,8 +372,8 @@ def test_dump_datamodel_skip_global(
     tmp_path: Path, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
 ) -> None:
     output_dir = tmp_path / "tmp_dump"
-    default_space_args: dict[str, Any] = dict(is_global=False, last_updated_time=0, created_time=0)
-    default_view_args: dict[str, Any] = dict(
+    default_space_args = dict(is_global=False, last_updated_time=0, created_time=0)
+    default_view_args = dict(
         last_updated_time=1,
         created_time=1,
         name=None,
@@ -384,7 +384,7 @@ def test_dump_datamodel_skip_global(
         is_global=False,
         filter=None,
     )
-    default_prop_args: dict[str, Any] = dict(
+    default_prop_args = dict(
         nullable=True,
         immutable=False,
         auto_increment=False,
@@ -392,7 +392,7 @@ def test_dump_datamodel_skip_global(
         name=None,
         description=None,
     )
-    default_container_args: dict[str, Any] = dict(
+    default_container_args = dict(
         name=None,
         description=None,
         is_global=False,
