@@ -12,6 +12,7 @@ strict-validation = true
 # Setting this to true wil change all snapshots for WorkflowTriggers/FunctionSchedules.
 # For simplicity, (avoid keeping track of two sets of snapshots), we keep this to false in development.
 credentials-hash = false
+dump-dm-global = true
 
 [plugins]
 run = true
