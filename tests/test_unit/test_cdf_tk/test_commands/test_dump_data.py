@@ -115,3 +115,34 @@ class TestDumpData:
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
+
+    def test_interactive_select_timeseries(self, monkeypatch) -> None:
+        cmd = DumpTimeSeriesCommand(skip_tracking=False, print_warning=False)
+
+        def select_data_set(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 3
+            return [choices[2].value]
+
+        def select_hierarchy(choices: list[Choice]) -> list[str]:
+            assert len(choices) == 2
+            return [choices[1].value]
+
+        answers = ["Data Set", select_data_set, "Hierarchy", select_hierarchy, "Done"]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(DumpTimeSeriesCommand.__module__, monkeypatch, answers),
+        ):
+            client.data_sets = [
+                DataSet(id=1, external_id="dataset1", name="Dataset 1"),
+                DataSet(id=2, external_id="dataset2", name="Dataset 2"),
+                DataSet(id=3, external_id="dataset3", name="Dataset 3"),
+            ]
+            client.assets.return_value = [
+                Asset(id=1, external_id="Root1", name="Root 1"),
+                Asset(id=2, external_id="Root2", name="Root 2"),
+            ]
+            client.time_series.aggregate_count.return_value = 100
+            selected_hierarchy, selected_dataset = cmd._select_data_set(client, None, None, interactive=True)
+
+        assert selected_hierarchy == ["Root2"]
+        assert selected_dataset == ["dataset3"]
