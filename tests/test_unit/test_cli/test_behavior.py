@@ -346,7 +346,6 @@ def test_dump_datamodel(
     )
     toolkit_client_approval.append(dm.Space, space)
     toolkit_client_approval.append(dm.Container, container)
-    toolkit_client_approval.append(dm.View, parent_view)
     toolkit_client_approval.append(dm.DataModel, data_model)
     toolkit_client_approval.append(dm.View, [parent_view, view])
     cmd = DumpResourceCommand(silent=True)
@@ -367,6 +366,113 @@ def test_dump_datamodel(
     assert child_loaded.implements[0] == parent_view.as_id()
     # The parent property should have been removed from the child view.
     assert len(child_loaded.properties) == 1
+
+
+def test_dump_datamodel_skip_global(
+    tmp_path: Path, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+) -> None:
+    output_dir = tmp_path / "tmp_dump"
+    default_space_args = dict(is_global=False, last_updated_time=0, created_time=0)
+    default_view_args = dict(
+        last_updated_time=1,
+        created_time=1,
+        name=None,
+        description=None,
+        implements=None,
+        writable=True,
+        used_for="node",
+        is_global=False,
+        filter=None,
+    )
+    default_prop_args = dict(
+        nullable=True,
+        immutable=False,
+        auto_increment=False,
+        default_value=None,
+        name=None,
+        description=None,
+    )
+    default_container_args = dict(
+        name=None,
+        description=None,
+        is_global=False,
+        last_updated_time=0,
+        created_time=0,
+        constraints=None,
+        indexes=None,
+        used_for="node",
+    )
+    local_space = dm.Space("my_space", **default_space_args)
+    global_space = dm.Space("cdf_cdm", **{**default_space_args, "is_global": True})
+    toolkit_client_approval.append(dm.Space, [local_space, global_space])
+    local_container = dm.Container(
+        space=local_space.space, external_id="MyAsset", properties={}, **default_container_args
+    )
+    global_container = dm.Container(
+        space=global_space.space,
+        external_id="CogniteAsset",
+        properties={},
+        **{**default_container_args, "is_global": True},
+    )
+    toolkit_client_approval.append(dm.Container, [local_container, global_container])
+    local_view = dm.View(
+        space=local_space.space,
+        external_id="my_view",
+        version="1",
+        properties={
+            "prop1": dm.MappedProperty(
+                container=local_container.as_id(),
+                container_property_identifier="prop1",
+                type=dm.Text(),
+                **default_prop_args,
+            ),
+        },
+        **{**default_view_args, "is_global": False},
+    )
+    global_view = dm.View(
+        space=global_space.space,
+        external_id="global_view",
+        version="1",
+        properties={
+            "prop1": dm.MappedProperty(
+                container=global_container.as_id(),
+                container_property_identifier="prop1",
+                type=dm.Text(),
+                **default_prop_args,
+            ),
+        },
+        **{**default_view_args, "is_global": True},
+    )
+    toolkit_client_approval.append(dm.View, [local_view, global_view])
+    data_model = dm.DataModel(
+        space=local_space.space,
+        external_id="my_data_model",
+        version="1",
+        views=[local_view.as_id(), global_view.as_id()],
+        is_global=False,
+        last_updated_time=0,
+        created_time=0,
+        name=None,
+        description=None,
+    )
+    toolkit_client_approval.append(dm.DataModel, data_model)
+
+    cmd = DumpResourceCommand(silent=True, skip_tracking=True)
+    cmd.dump_to_yamls(
+        finder=DataModelFinder(
+            env_vars_with_client.get_client(),
+            dm.DataModelId.load(("my_space", "my_data_model", "1")),
+            include_global=False,
+        ),
+        clean=True,
+        output_dir=output_dir,
+        verbose=False,
+    )
+
+    assert len(list(output_dir.glob("**/*.DataModel.yaml"))) == 1
+    assert len(list(output_dir.glob("**/*.Container.yaml"))) == 1
+    assert len(list(output_dir.glob("**/*.Space.yaml"))) == 1
+    assert len(list(output_dir.glob("**/*.View.yaml"))) == 1
 
 
 def test_build_custom_project(
