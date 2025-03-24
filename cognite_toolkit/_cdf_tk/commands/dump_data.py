@@ -84,7 +84,7 @@ class AssetFinder(DataFinder[Asset, AssetList]):
         )
 
     def key(self, item: Asset, hierarchies: list[str], data_sets: list[str]) -> str:
-        if hierarchies and hierarchies:
+        if hierarchies and data_sets:
             asset_external_id = self.client.lookup.assets.external_id(item.root_id or 0)
             data_set_external_id = self.client.lookup.data_sets.external_id(item.data_set_id or 0)
             if asset_external_id and data_set_external_id:
