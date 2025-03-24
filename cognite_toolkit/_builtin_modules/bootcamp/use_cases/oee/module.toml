@@ -1,5 +1,6 @@
 [module]
-title = "OEE Use Case"
+title = "Bootcamp"
+is_selected_by_default = true
 
 [packages]
 tags = [
