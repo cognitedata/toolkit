@@ -1,5 +1,7 @@
 from asyncio import sleep
 from contextlib import suppress
+from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from cognite.client import CogniteClient
@@ -15,6 +17,7 @@ from cognite.client.data_classes import (
     FunctionSchedulesList,
     FunctionScheduleWrite,
     FunctionScheduleWriteList,
+    FunctionTaskParameters,
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesWrite,
@@ -41,6 +44,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     RobotCapabilityWrite,
     RobotCapabilityWriteList,
 )
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.loaders import (
     AssetLoader,
     CogniteFileLoader,
@@ -51,7 +55,9 @@ from cognite_toolkit._cdf_tk.loaders import (
     LabelLoader,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
+    WorkflowVersionLoader,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -647,3 +653,41 @@ class TestGroupLoader:
             if group_id:
                 with suppress(CogniteAPIError):
                     toolkit_client.iam.groups.delete(id=group_id)
+
+
+class TestWorkflowVersionLoader:
+    def test_load_task_with_reference(self) -> None:
+        definition_yaml = """workflowExternalId: myWorkflow
+version: v1
+workflowDefinition:
+  description: Two tasks with reference
+  tasks:
+  - externalId: myTask2
+    type: function
+    parameters:
+      function:
+        externalId: fn_first_function
+  - externalId: myTask2
+    type: function
+    parameters:
+      function:
+        externalId: ${myTask1.output.nextFunction}
+        data: ${myTask1.output.data}
+    dependsOn:
+    - externalId: myTask1
+"""
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = definition_yaml
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader(client, None, None)
+
+            with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+                loaded = loader.load_resource_file(file, {"myTask1.output.data": "should-be-ignored"})
+            definition = loader.load_resource(loaded[0])
+
+        assert len(definition.workflow_definition.tasks) == 2
+        task2 = definition.workflow_definition.tasks[1]
+        parameters = task2.parameters
+        assert isinstance(parameters, FunctionTaskParameters)
+        assert parameters.data == "${myTask1.output.data}"
+        assert len(warning_list) == 0, "We should not get a warning for using a reference in a task parameter"
