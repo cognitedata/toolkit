@@ -129,7 +129,7 @@ def app() -> NoReturn:
                     f"{HINT_LEAD_TEXT} The plugin [bold]{cmd}[/bold] is not enabled."
                     f"\nEnable it in the [bold]cdf.toml[/bold] file by setting '{cmd} = true' in the "
                     f"[bold]{escape(plugin)}[/bold] section."
-                    f"\nDocs to lean more: {Hint._link(URL.plugins, URL.plugins)}"
+                    f"\nDocs to lean more: {Hint.link(URL.plugins, URL.plugins)}"
                 )
         raise
 
