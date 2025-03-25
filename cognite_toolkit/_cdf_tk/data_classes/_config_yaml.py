@@ -226,6 +226,9 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
         return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
 
+    def dump(self) -> dict[str, Any]:
+        return {"environment": self.environment.dump(), "variables": self.variables}
+
 
 @dataclass
 class BuildEnvironment(Environment):

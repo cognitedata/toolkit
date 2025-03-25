@@ -175,10 +175,10 @@ class ModuleResources:
 
     def __init__(self, organization_dir: Path, build_env: str | None) -> None:
         self._organization_dir = organization_dir
-        self._build_env = build_env
+        self._build_env = build_env or DEFAULT_ENV
         self._build_info: BuildInfo
         try:
-            self._build_info = BuildInfo.load_from_directory(organization_dir, build_env)
+            self._build_info = BuildInfo.load_from_directory(organization_dir, build_env or DEFAULT_ENV)
             self._has_rebuilt = False
         except (FileNotFoundError, KeyError):
             # FileNotFound = Not run before.

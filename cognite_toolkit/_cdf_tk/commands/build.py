@@ -128,7 +128,7 @@ class BuildCommand(ToolkitCommand):
         cdf_toml = CDFToml.load()
 
         if (organization_dir / BuildConfigYAML.get_filename(build_env_name or "dev")).exists():
-            config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name)
+            config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name or "dev")
         else:
             # Loads the default environment
             config = BuildConfigYAML.load_default(organization_dir)
