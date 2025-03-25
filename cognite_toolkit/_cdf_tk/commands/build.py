@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
+    DEFAULT_ENV,
     DEV_ONLY_MODULES,
     HINT_LEAD_TEXT,
     ROOT_MODULES,
@@ -127,8 +128,8 @@ class BuildCommand(ToolkitCommand):
 
         cdf_toml = CDFToml.load()
 
-        if (organization_dir / BuildConfigYAML.get_filename(build_env_name or "dev")).exists():
-            config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name or "dev")
+        if (organization_dir / BuildConfigYAML.get_filename(build_env_name or DEFAULT_ENV)).exists():
+            config = BuildConfigYAML.load_from_directory(organization_dir, build_env_name or DEFAULT_ENV)
         else:
             # Loads the default environment
             config = BuildConfigYAML.load_default(organization_dir)
