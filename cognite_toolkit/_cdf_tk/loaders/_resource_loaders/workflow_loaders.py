@@ -57,7 +57,12 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MissingReferencedWarning,
     ToolkitWarning,
 )
-from cognite_toolkit._cdf_tk.utils import calculate_secure_hash, humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_secure_hash,
+    humanize_collection,
+    load_yaml_inject_variables,
+    to_directory_compatible,
+)
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
@@ -264,6 +269,49 @@ class WorkflowVersionLoader(
     @classmethod
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
+
+    def load_resource_file(
+        self,
+        filepath: Path,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        # Special case where the environment variable keys in the 'workflowDefinition.tasks.parameters' are
+        # JSONPaths that are part of the API and thus should not be replaced.
+        raw_str = self.safe_read(filepath)
+
+        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
+
+        if isinstance(original, dict) and isinstance(replaced, dict):
+            self._update_task_parameters(replaced, original)
+            return [replaced]
+        elif isinstance(original, list) and isinstance(replaced, list):
+            for original_item, replaced_item in zip(original, replaced):
+                self._update_task_parameters(replaced_item, original_item)
+            return replaced
+        else:
+            # Should be unreachable
+            raise ValueError(
+                f"Unexpected state. Loaded {filepath.as_posix()!r} twice and got different types: {type(original)} and {type(replaced)}"
+            )
+
+    @staticmethod
+    def _update_task_parameters(replaced: dict, original: dict) -> None:
+        replaced_def = replaced.get("workflowDefinition")
+        original_def = original.get("workflowDefinition")
+        if not (isinstance(replaced_def, dict) and isinstance(original_def, dict)):
+            return
+        replaced_tasks = replaced_def.get("tasks")
+        original_tasks = original_def.get("tasks")
+        if not (isinstance(replaced_tasks, list) and isinstance(original_tasks, list)):
+            return
+        for replaced_task, original_task in zip(replaced_def["tasks"], original_def["tasks"]):
+            if not (isinstance(replaced_task, dict) and isinstance(original_task, dict)):
+                continue
+            if "parameters" in replaced_task and "parameters" in original_task:
+                replaced_task["parameters"] = original_task["parameters"]
 
     def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
