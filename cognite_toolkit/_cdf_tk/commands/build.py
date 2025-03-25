@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 import yaml
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
 from rich.progress import track
@@ -568,14 +569,15 @@ class BuildCommand(ToolkitCommand):
         """Check is the resource exists in the CDF project. If there are any issues assume it does not exist."""
         if id_ in self.existing_resources_by_loader[loader_cls]:
             return True
-        with contextlib.suppress(Exception):
-            if loader_cls not in self.instantiated_loaders:
-                self.instantiated_loaders[loader_cls] = loader_cls(client, None)
-            loader = self.instantiated_loaders[loader_cls]
+
+        if loader_cls not in self.instantiated_loaders:
+            self.instantiated_loaders[loader_cls] = loader_cls.create_loader(client)
+        loader = self.instantiated_loaders[loader_cls]
+        with contextlib.suppress(CogniteAPIError):
             retrieved = loader.retrieve([id_])
             if retrieved:
                 self.existing_resources_by_loader[loader_cls].add(id_)
-                return True
+            return True
         return False
 
     def check_built_resource(
