@@ -10,7 +10,9 @@ Please describe the change you have made.
 
 ## cdf
 
-### Added/Changed/Improved/Removed
+### Added/Changed/Improved/Removed/Fixed
+
+- My change
 
 ## templates
 

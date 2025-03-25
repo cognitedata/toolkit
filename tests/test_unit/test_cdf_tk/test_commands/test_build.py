@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, Space
 
 from cognite_toolkit._cdf_tk.commands.build import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture(scope="session")
@@ -106,6 +107,43 @@ class TestBuildCommand:
         assert not cmd.warning_list, (
             f"No warnings should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
         )
+
+    def test_build_no_warnings_when_space_exists_in_cdf(
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        my_group = """name: gp_trigger_issue
+sourceId: '1234567890123456789'
+capabilities:
+- dataModelInstancesAcls:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - existing-space
+"""
+        filepath = tmp_path / "my_org" / "modules" / "my_module" / "auth" / "my.Group.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(my_group)
+
+        # Simulate that the space exists in CDF
+        toolkit_client_approval.append(Space, Space("existing-space", False, 1, 1, None, None))
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                organization_dir=tmp_path / "my_org",
+                build_dir=tmp_path / "build",
+                selected=None,
+                build_env_name=None,
+                no_clean=False,
+                client=toolkit_client_approval.mock_client,
+                on_error="raise",
+            )
+        assert len(cmd.warning_list) == 0
 
 
 class TestCheckYamlSemantics:
