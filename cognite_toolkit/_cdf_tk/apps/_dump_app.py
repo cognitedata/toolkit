@@ -27,7 +27,10 @@ class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        self.command("datamodel")(self.dump_datamodel_cmd)
+        if Flags.DUMP_DM_GLOBAL:
+            self.command("datamodel")(self.dump_datamodel_cmd_v5)
+        else:
+            self.command("datamodel")(self.dump_datamodel_cmd)
         self.command("asset")(self.dump_asset_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
 
@@ -93,7 +96,73 @@ class DumpApp(typer.Typer):
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                DataModelFinder(client, selected_data_model),
+                DataModelFinder(client, selected_data_model, include_global=True),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_datamodel_cmd_v5(
+        ctx: typer.Context,
+        data_model_id: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
+                "Note that version is optional and defaults to the latest published version. If nothing is provided,"
+                "an interactive prompt will be shown to select the data model.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the datamodel files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        include_global: Annotated[
+            bool,
+            typer.Option(
+                "--include-global",
+                "-i",
+                help="Include global containers, views, spaces in the dump. "
+                "If this flag is not set, the global resources will be skipped.",
+            ),
+        ] = False,
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the datamodel.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
+        selected_data_model: Union[DataModelId, None] = None
+        if data_model_id is not None:
+            if len(data_model_id) < 2:
+                raise ToolkitRequiredValueError(
+                    "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
+                )
+            selected_data_model = DataModelId(*data_model_id)
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                DataModelFinder(client, selected_data_model, include_global=include_global),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
