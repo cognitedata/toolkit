@@ -16,8 +16,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.agent_tools import AgentTool
 
 
 class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
-    ## https://github.com/cognitedata/cog-ai/blob/main/cog_ai/agents/core/types/agent.py
-
     """Representation of an AI Agent in CDF.
 
     Args:
