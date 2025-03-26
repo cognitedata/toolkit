@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from ._base_loaders import DataLoader, Loader, ResourceContainerLoader, ResourceLoader
 from ._data_loaders import DatapointsLoader, FileLoader, RawFileLoader
 from ._resource_loaders import (
+    AgentLoader,
     AssetLoader,
     CogniteFileLoader,
     ContainerLoader,
@@ -77,6 +78,8 @@ else:
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
+if not FeatureFlag.is_enabled(Flags.AGENT_LOADER):
+    _EXCLUDED_LOADERS.add(AgentLoader)
 
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}

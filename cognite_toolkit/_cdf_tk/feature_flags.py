@@ -38,6 +38,11 @@ class Flags(Enum):
         " the resource is updated when the credentials change",
     }
 
+    AGENT_LOADER: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": False,
+        "description": "Enables the agent resource type",
+    }
+
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
 
