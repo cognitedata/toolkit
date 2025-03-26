@@ -128,27 +128,6 @@ class AgentWrite(AgentCore):
         tools (list[AgentTool] | None): List of tools for the agent.
     """
 
-    def __init__(
-        self,
-        external_id: str,
-        name: str,
-        description: str,
-        owner_id: str,
-        instructions: str,
-        model: str,
-        labels: list[str] | None = None,
-        example_questions: list[dict[str, str]] | None = None,
-        tools: list[AgentTool] | None = None,
-    ) -> None:
-        self.external_id = external_id
-        self.name = name
-        self.description = description
-        self.owner_id = owner_id
-        self.instructions = instructions
-        self.model = model
-        self.labels = labels
-        self.example_questions = example_questions
-        self.tools = tools
 
     def as_write(self) -> AgentWrite:
         return self
