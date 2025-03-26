@@ -78,7 +78,6 @@ class Agent(AgentCore):
         tools (list[AgentTool] | None): List of tools for the agent.
     """
 
-
     def as_write(self) -> AgentWrite:
         return AgentWrite(
             external_id=self.external_id,
@@ -127,7 +126,6 @@ class AgentWrite(AgentCore):
         example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
         tools (list[AgentTool] | None): List of tools for the agent.
     """
-
 
     def as_write(self) -> AgentWrite:
         return self
