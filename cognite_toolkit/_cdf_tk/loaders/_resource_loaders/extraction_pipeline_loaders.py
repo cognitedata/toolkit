@@ -386,6 +386,12 @@ class ExtractionPipelineConfigLoader(
         return retrieved
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
+        """Delete is not supported for extraction pipeline configs.
+
+        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
+        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
+        of configs that exist for the given ids and return that number as these will be deleted.
+        """
         count = 0
         for id_ in ids:
             try:
