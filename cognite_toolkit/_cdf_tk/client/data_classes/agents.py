@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import ABC
-from dataclasses import dataclass
 from typing import Any
 
 from cognite.client import CogniteClient
@@ -25,10 +24,10 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         description (str): The description of the agent.
         owner_id (str): The owner ID of the agent.
         instructions (str): Instructions for the agent.
-        model (str): (str | None): Name of the language model to use.
-        labels (list[str]): list[str] | None: List of labels for the agent.
-        example_questions (list[dict[str, Any]]): list[dict[str, Any]] | None: List of example questions for the agent.
-        tools (list[AgentTool]): list[AgentTool] | None: List of tools for the agent.
+        model (str | None): Name of the language model to use.
+        labels (list[str] | None): List of labels for the agent.
+        example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
+        tools (list[AgentTool] | None): List of tools for the agent.
     """
 
     def __init__(
@@ -41,7 +40,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         instructions: str,
         model: str,
         labels: list[str] | None = None,
-        example_questions: list[AgentExampleQuestion] | None = None,
+        example_questions: list[dict[str, str]] | None = None,
         tools: list[AgentTool] | None = None,
     ) -> None:
         self.id = id
@@ -55,6 +54,12 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         self.example_questions = example_questions
         self.tools = tools
 
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        result = super().dump(camel_case=camel_case)
+        if self.tools:
+            result["tools"] = [item.dump(camel_case=camel_case) for item in self.tools]
+        return result
+
 
 class Agent(AgentCore):
     """Representation of an AI Agent in CDF.
@@ -67,10 +72,10 @@ class Agent(AgentCore):
         description (str): The description of the agent.
         owner_id (str): The owner ID of the agent.
         instructions (str): Instructions for the agent.
-        model (str): (str | None): Name of the language model to use.
-        labels (list[str]): list[str] | None: List of labels for the agent.
-        example_questions (list[dict[str, Any]]): list[dict[str, Any]] | None: List of example questions for the agent.
-        tools (list[AgentTool]): list[AgentTool] | None: List of tools for the agent.
+        model (str | None): Name of the language model to use.
+        labels (list[str] | None): List of labels for the agent.
+        example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
+        tools (list[AgentTool] | None): List of tools for the agent.
     """
 
     def __init__(
@@ -83,7 +88,7 @@ class Agent(AgentCore):
         instructions: str,
         model: str,
         labels: list[str] | None = None,
-        example_questions: list[AgentExampleQuestion] | None = None,
+        example_questions: list[dict[str, str]] | None = None,
         tools: list[AgentTool] | None = None,
     ) -> None:
         super().__init__(
@@ -105,12 +110,6 @@ class Agent(AgentCore):
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Agent:
-        example_questions = (
-            [AgentExampleQuestion(question=k, answer=v) for k, v in resource["exampleQuestions"].items()]
-            if resource.get("exampleQuestions")
-            else None
-        )
-
         tools = (
             [AgentTool._load(item) for item in resource["tools"]] if isinstance(resource.get("tools"), list) else None
         )
@@ -124,12 +123,27 @@ class Agent(AgentCore):
             instructions=resource["instructions"],
             model=resource["model"],
             labels=resource.get("labels"),
-            example_questions=example_questions,
+            example_questions=resource.get("exampleQuestions"),
             tools=tools,
         )
 
 
 class AgentWrite(AgentCore):
+    """Representation of an AI Agent in CDF.
+    This is the write format of an agent.
+
+    Args:
+        external_id (str): The external ID provided by the client. Must be unique for the resource type.
+        name (str): The name of the agent.
+        description (str): The description of the agent.
+        owner_id (str): The owner ID of the agent.
+        instructions (str): Instructions for the agent.
+        model (str | None): Name of the language model to use.
+        labels (list[str] | None): List of labels for the agent.
+        example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
+        tools (list[AgentTool] | None): List of tools for the agent.
+    """
+
     def __init__(
         self,
         external_id: str,
@@ -139,7 +153,7 @@ class AgentWrite(AgentCore):
         instructions: str,
         model: str,
         labels: list[str] | None = None,
-        example_questions: list[AgentExampleQuestion] | None = None,
+        example_questions: list[dict[str, str]] | None = None,
         tools: list[AgentTool] | None = None,
     ) -> None:
         self.external_id = external_id
@@ -157,12 +171,6 @@ class AgentWrite(AgentCore):
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentWrite:
-        example_questions = (
-            [AgentExampleQuestion(question=k, answer=v) for k, v in resource["exampleQuestions"].items()]
-            if resource.get("exampleQuestions")
-            else None
-        )
-
         tools = (
             [AgentTool._load(item) for item in resource["tools"]] if isinstance(resource.get("tools"), list) else None
         )
@@ -175,7 +183,7 @@ class AgentWrite(AgentCore):
             instructions=resource["instructions"],
             model=resource["model"],
             labels=resource["labels"],
-            example_questions=example_questions,
+            example_questions=resource["exampleQuestions"],
             tools=tools,
         )
 
@@ -193,24 +201,3 @@ class AgentList(
     def as_write(self) -> AgentWriteList:
         """Returns this AgentList as writeableinstance"""
         return AgentWriteList([item.as_write() for item in self.data], cognite_client=self._get_cognite_client())
-
-
-# from cog_ai.agents.core.tools import (
-#     AnalyzeTimeSeriesTool,
-#     CogniteFunctionTool,
-#     DeprecatedTool,
-#     DocumentAskTool,
-#     DocumentSummaryTool,
-#     PythonCodeExecutionTool,
-#     QueryAndAnalyzeImagesTool,
-#     QueryDataModelTool,
-#     QueryTimeSeriesDatapointsTool,
-#     RestAPITool,
-#     WebhookTool,
-# )
-
-
-@dataclass(frozen=True)
-class AgentExampleQuestion:
-    question: str
-    answer: Any
