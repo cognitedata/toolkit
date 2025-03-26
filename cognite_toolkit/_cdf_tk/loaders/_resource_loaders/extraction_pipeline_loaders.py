@@ -305,7 +305,9 @@ class ExtractionPipelineConfigLoader(
         raw_str = self.safe_read(filepath)
 
         original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
