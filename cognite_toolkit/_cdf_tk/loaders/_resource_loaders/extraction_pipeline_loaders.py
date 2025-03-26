@@ -344,23 +344,11 @@ class ExtractionPipelineConfigLoader(
         return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        updated = ExtractionPipelineConfigList([])
+        upserted = ExtractionPipelineConfigList([])
         for item in items:
-            if not item.external_id:
-                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
-            try:
-                latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
-            except CogniteAPIError:
-                latest = None
-            local_dict = item.dump()
-
-            if latest and local_dict == self.dump_resource(latest, local_dict):
-                updated.append(latest)
-                continue
-            else:
-                created = self.client.extraction_pipelines.config.create(item)
-                updated.append(created)
-        return updated
+            created = self.client.extraction_pipelines.config.create(item)
+            upserted.append(created)
+        return upserted
 
     def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         return self._upsert(items)
