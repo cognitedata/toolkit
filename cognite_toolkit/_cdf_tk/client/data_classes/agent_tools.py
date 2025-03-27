@@ -60,15 +60,6 @@ class AgentTool(AgentToolCore):
         configuration (dict(str, Any)): The configuration of the tool.
     """
 
-    def __init__(
-        self,
-        id: int,
-        external_id: str,
-        name: str,
-        description: str,
-        configuration: dict[str, Any],
-    ) -> None:
-        super().__init__(id, external_id, name, description, configuration)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentTool:
