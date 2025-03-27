@@ -6,7 +6,11 @@ from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpResourceCommand, DumpTimeSeriesCommand
+from cognite_toolkit._cdf_tk.commands import DumpDataCommand, DumpResourceCommand
+from cognite_toolkit._cdf_tk.commands.dump_data import (
+    AssetFinder,
+    TimeSeriesFinder,
+)
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     GroupFinder,
@@ -441,11 +445,11 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
-        cmd = DumpAssetsCommand()
+        cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
-            lambda: cmd.execute(
-                client,
+            lambda: cmd.dump_table(
+                AssetFinder(client),
                 hierarchy,
                 data_set,
                 output_dir,
@@ -518,11 +522,11 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpTimeSeriesCommand()
+        cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
-            lambda: cmd.execute(
-                client,
+            lambda: cmd.dump_table(
+                TimeSeriesFinder(client),
                 data_set,
                 hierarchy,
                 output_dir,

@@ -5,9 +5,8 @@ from .build import BuildCommand
 from .clean import CleanCommand
 from .collect import CollectCommand
 from .deploy import DeployCommand
-from .dump_assets import DumpAssetsCommand
+from .dump_data import DumpDataCommand
 from .dump_resource import DumpResourceCommand
-from .dump_timeseries import DumpTimeSeriesCommand
 from .featureflag import FeatureFlagCommand
 from .init import InitCommand
 from .modules import ModulesCommand
@@ -21,9 +20,8 @@ __all__ = [
     "CleanCommand",
     "CollectCommand",
     "DeployCommand",
-    "DumpAssetsCommand",
+    "DumpDataCommand",
     "DumpResourceCommand",
-    "DumpTimeSeriesCommand",
     "FeatureFlagCommand",
     "InitCommand",
     "ModulesCommand",
