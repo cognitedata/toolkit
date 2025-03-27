@@ -18,12 +18,12 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
     """Representation of an AI Agent in CDF.
 
     Args:
-        id (int): A server-generated ID for the object.
-        external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str): The name of the agent.
-        description (str): The description of the agent.
-        owner_id (str): The owner ID of the agent.
-        instructions (str): Instructions for the agent.
+        id (int | None): A server-generated ID for the object.
+        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        name (str | None): The name of the agent.
+        description (str | None): The description of the agent.
+        owner_id (str | None): The owner ID of the agent.
+        instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         labels (list[str] | None): List of labels for the agent.
         example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
@@ -32,13 +32,13 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
 
     def __init__(
         self,
-        id: int,
-        external_id: str,
-        name: str,
-        description: str,
-        owner_id: str,
-        instructions: str,
-        model: str,
+        id: int | None = None,
+        external_id: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        owner_id: str | None = None,
+        instructions: str | None = None,
+        model: str | None = None,
         labels: list[str] | None = None,
         example_questions: list[dict[str, str]] | None = None,
         tools: list[AgentTool] | None = None,
@@ -67,11 +67,11 @@ class Agent(AgentCore):
 
     Args:
         id (int): A server-generated ID for the object.
-        external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str): The name of the agent.
-        description (str): The description of the agent.
-        owner_id (str): The owner ID of the agent.
-        instructions (str): Instructions for the agent.
+        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        name (str | None): The name of the agent.
+        description (str | None): The description of the agent.
+        owner_id (str | None): The owner ID of the agent.
+        instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         labels (list[str] | None): List of labels for the agent.
         example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
@@ -116,11 +116,11 @@ class AgentWrite(AgentCore):
     This is the write format of an agent.
 
     Args:
-        external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str): The name of the agent.
-        description (str): The description of the agent.
-        owner_id (str): The owner ID of the agent.
-        instructions (str): Instructions for the agent.
+        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        name (str | None): The name of the agent.
+        description (str | None): The description of the agent.
+        owner_id (str | None): The owner ID of the agent.
+        instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         labels (list[str] | None): List of labels for the agent.
         example_questions (list[dict[str, str]]) | None: List of example questions for the agent.
