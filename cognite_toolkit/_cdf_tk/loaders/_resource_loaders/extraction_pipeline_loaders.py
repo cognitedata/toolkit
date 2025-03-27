@@ -305,7 +305,9 @@ class ExtractionPipelineConfigLoader(
         raw_str = self.safe_read(filepath)
 
         original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
@@ -344,23 +346,11 @@ class ExtractionPipelineConfigLoader(
         return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        updated = ExtractionPipelineConfigList([])
+        upserted = ExtractionPipelineConfigList([])
         for item in items:
-            if not item.external_id:
-                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
-            try:
-                latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
-            except CogniteAPIError:
-                latest = None
-            local_dict = item.dump()
-
-            if latest and local_dict == self.dump_resource(latest, local_dict):
-                updated.append(latest)
-                continue
-            else:
-                created = self.client.extraction_pipelines.config.create(item)
-                updated.append(created)
-        return updated
+            created = self.client.extraction_pipelines.config.create(item)
+            upserted.append(created)
+        return upserted
 
     def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         return self._upsert(items)
@@ -386,6 +376,12 @@ class ExtractionPipelineConfigLoader(
         return retrieved
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
+        """Delete is not supported for extraction pipeline configs.
+
+        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
+        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
+        of configs that exist for the given ids and return that number as these will be deleted.
+        """
         count = 0
         for id_ in ids:
             try:
