@@ -92,17 +92,7 @@ class AgentToolWrite(AgentToolCore):
         configuration (dict(str, Any)): The configuration of the tool.
     """
 
-    def __init__(
-        self,
-        external_id: str,
-        name: str,
-        description: str,
-        configuration: dict[str, Any],
-    ) -> None:
-        self.external_id = external_id
-        self.name = name
-        self.description = description
-        self.configuration = configuration
+    ...
 
 
 class AgentToolWriteList(CogniteResourceList[AgentToolWrite]):
