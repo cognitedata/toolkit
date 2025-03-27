@@ -347,7 +347,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
             count = self.client.data_modeling.instances.aggregate(
                 self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
             ).value
-            if count == 0:
+            if count == 0 or count is None:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
             elif count > 50:
                 if not questionary.confirm(
