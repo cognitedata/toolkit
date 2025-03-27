@@ -71,7 +71,7 @@ testpaths = [
     # In the case of doctests.
     "cognite_toolkit",
 ]
-norecursedirs = "cognite_toolkit/_builtin_modules"
+norecursedirs = "cognite_toolkit/_builtin_modules,modules/"
 
 markers = [
     "toolkit: big smoke tests",
@@ -87,6 +87,9 @@ exclude = [
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
+    "modules/_builtin_modules/examples/*",
+    "modules/_builtin_modules/inrobot/*",
+    "modules/_builtin_modules/bootcamp/*",
 ]
 
 [tool.ruff]
@@ -99,6 +102,9 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
+    "modules/_builtin_modules/inrobot/*",
+    "modules/_builtin_modules/examples/*",
+    "modules/_builtin_modules/bootcamp/*",
 ]
 
 [tool.ruff.lint]
@@ -106,6 +112,9 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
+    "modules/_builtin_modules/inrobot/*",
+    "modules/_builtin_modules/examples/*",
+    "modules/_builtin_modules/bootcamp/*",
 ]
 
 [build-system]
