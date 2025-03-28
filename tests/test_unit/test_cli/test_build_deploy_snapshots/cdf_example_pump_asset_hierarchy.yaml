@@ -101,14 +101,14 @@ Transformation:
   ignoreNullFields: false
   isPublic: true
   name: pump_asset_hierarchy-load-collections_pump
-  query: "--- 1. asset root (defining all columns)\nSELECT\n    \"Lift Pump Stations\"\
-    \ AS name,\n    dataset_id(\"src:lift_pump_stations\") AS dataSetId,\n    \"lift_pump_stations:root\"\
-    \ AS externalId,\n    '' as parentExternalId,\n    \"An example pump dataset\"\
-    \ as description,\n    null as metadata\n\nUNION ALL\n--- 2. Lift Stations\nselect\n\
-    \    s.lift_station as name,\n    dataset_id(\"src:lift_pump_stations\") AS dataSetId,\n\
-    \    concat(\"lift_station:\", lower(replace(s.lift_station, ' ', '_'))) as externalId,\n\
-    \    'lift_pump_stations:root' as parentExternalId,\n    null as description,\n\
-    \    null as metadata\nFROM (\n    select\n        first_value(LiftStationID)\
+  query: "-- cdf-auth: f5da81f3\n--- 1. asset root (defining all columns)\nSELECT\n\
+    \    \"Lift Pump Stations\" AS name,\n    dataset_id(\"src:lift_pump_stations\"\
+    ) AS dataSetId,\n    \"lift_pump_stations:root\" AS externalId,\n    '' as parentExternalId,\n\
+    \    \"An example pump dataset\" as description,\n    null as metadata\n\nUNION\
+    \ ALL\n--- 2. Lift Stations\nselect\n    s.lift_station as name,\n    dataset_id(\"\
+    src:lift_pump_stations\") AS dataSetId,\n    concat(\"lift_station:\", lower(replace(s.lift_station,\
+    \ ' ', '_'))) as externalId,\n    'lift_pump_stations:root' as parentExternalId,\n\
+    \    null as description,\n    null as metadata\nFROM (\n    select\n        first_value(LiftStationID)\
     \ as lift_station\n    from pump_assets.`collections_pump`\n    group by LiftStationID\n\
     ) as s\n\nUNION ALL\n--- 3. Pumps\nSELECT\n    concat(\"Pump \", PumpModel) as\
     \ name,\n    dataset_id(\"src:lift_pump_stations\") AS dataSetId,\n    GlobalID\

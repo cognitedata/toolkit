@@ -18,7 +18,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -125,9 +124,7 @@ def read_auth(
 ) -> ClientCredentials:
     auth = resource.get("authentication")
     if auth is None:
-        if (client.config.is_strict_validation and Flags.STRICT_VALIDATION.is_enabled()) or not isinstance(
-            client.config.credentials, OAuthClientCredentials
-        ):
+        if client.config.is_strict_validation or not isinstance(client.config.credentials, OAuthClientCredentials):
             raise ToolkitRequiredValueError(f"Authentication is missing for {resource_name} {identifier!r}.")
         else:
             HighSeverityWarning(

@@ -789,10 +789,10 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: asset:oid:workmate:asset_hierarchy:example
-  query: "select\n  cast(`externalId` as STRING) as externalId,\n  cast(`tag` as STRING)\
-    \ as name,\n  cast(`description` as STRING) as description,\n  cast(`sourceDb`\
-    \ as STRING) as source,\n  cast(`parentExternalId` as STRING) as parentExternalId\n\
-    from\n  `asset_oid_workmate`.`assets`;\n"
+  query: "-- cdf-auth: f5da81f3\nselect\n  cast(`externalId` as STRING) as externalId,\n\
+    \  cast(`tag` as STRING) as name,\n  cast(`description` as STRING) as description,\n\
+    \  cast(`sourceDb` as STRING) as source,\n  cast(`parentExternalId` as STRING)\
+    \ as parentExternalId\nfrom\n  `asset_oid_workmate`.`assets`;\n"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
@@ -815,12 +815,12 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: event:oid:workmate:workitem:example
-  query: "with assetid (\nselect\n  first(wa.sourceExternalId) as workitemid,\n  collect_list(ai.id)\
-    \        as assetIds\nfrom\n  `workorder_oid_workmate`.`workitem2assets` wa,\n\
-    \  _cdf.assets                                ai\nwhere\n  ai.externalId = wa.targetExternalId\n\
-    GROUP BY sourceExternalId)\nselect\n  wo.externalId,\n  wo.itemInfo,\n  dataset_id('ds_transformations_oid')\
-    \  as dataSetId,\n  cast(from_unixtime(double(wo.`startTime`)/1000)\n        \
-    \                 as TIMESTAMP)  as startTime,\n  cast(from_unixtime(double(wo.`endTime`)/1000)\n\
+  query: "-- cdf-auth: f5da81f3\nwith assetid (\nselect\n  first(wa.sourceExternalId)\
+    \ as workitemid,\n  collect_list(ai.id)        as assetIds\nfrom\n  `workorder_oid_workmate`.`workitem2assets`\
+    \ wa,\n  _cdf.assets                                ai\nwhere\n  ai.externalId\
+    \ = wa.targetExternalId\nGROUP BY sourceExternalId)\nselect\n  wo.externalId,\n\
+    \  wo.itemInfo,\n  dataset_id('ds_transformations_oid')  as dataSetId,\n  cast(from_unixtime(double(wo.`startTime`)/1000)\n\
+    \                         as TIMESTAMP)  as startTime,\n  cast(from_unixtime(double(wo.`endTime`)/1000)\n\
     \                         as TIMESTAMP)  as endTime,\n  ai.assetIds          \
     \                 as assetIds,\n  \"workitem\"                            as type,\n\
     \  \"OID - workmate\"                      as source,\n  to_metadata_except(\n\
@@ -850,8 +850,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: event:oid:workmate:workorder:example
-  query: "with assetid (\nselect\n  first(wa.sourceExternalId) as workorderid,\n \
-    \ collect_list(ai.id)        as assetIds\nfrom\n  `workorder_oid_workmate`.`workorder2assets`\
+  query: "-- cdf-auth: f5da81f3\nwith assetid (\nselect\n  first(wa.sourceExternalId)\
+    \ as workorderid,\n  collect_list(ai.id)        as assetIds\nfrom\n  `workorder_oid_workmate`.`workorder2assets`\
     \ wa,\n  _cdf.assets                                 ai\nwhere\n  ai.externalId\
     \ = wa.targetExternalId\nGROUP BY sourceExternalId)\nselect\n  wo.externalId,\n\
     \  wo.description,\n  dataset_id('ds_transformations_oid')  as dataSetId,\n  cast(from_unixtime(double(wo.`startTime`)/1000)\n\

@@ -19,7 +19,13 @@ class TestTryFindError:
                 id="Missing environment variable",
             ),
             pytest.param(
-                OidcCredentials("my-client-id", "123", ["https://cognite.com"], "not-valid-uri", "my-project"),
+                OidcCredentials(
+                    client_id="my-client-id",
+                    client_secret="123",
+                    scopes=["https://cognite.com"],
+                    token_uri="not-valid-uri",
+                    cdf_project_name="my-project",
+                ),
                 "The tokenUri 'not-valid-uri' is not a valid URI.",
             ),
             pytest.param(None, None, id="empty"),

@@ -9,15 +9,11 @@ from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerLoader
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
 
 class TestWorkflowTriggerLoader:
-    @pytest.mark.skipif(
-        not Flags.STRICT_VALIDATION.is_enabled(), reason="This test is only relevant when strict validation is enabled"
-    )
     def test_credentials_missing_raise(self) -> None:
         trigger_content = """externalId: daily-8am-utc
 triggerRule:
@@ -49,9 +45,6 @@ workflowVersion: v1
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
 
-    @pytest.mark.skipif(
-        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
-    )
     def test_credentials_unchanged_changed(self) -> None:
         local_content = """externalId: daily-8am-utc
 triggerRule:

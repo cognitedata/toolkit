@@ -114,7 +114,7 @@ FunctionSchedule:
   data:
     WorkflowExtId: wf_oid_files_annotation
     WorkflowVersion: 1
-  description: Run every 30 minute
+  description: 'Run every 30 minute cdf-auth: def5e2e0'
   functionExternalId: fn_workflow_files_oid_fileshare_annotation
   name: every 30 min
 Group:
@@ -284,13 +284,13 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: files:oid:fileshare:file_metadata
-  query: "--\n-- Update file metdata using Transformation\n--\n-- Input data from\
-    \ RAW DB table (using example data) and uploaded files\n--\n\nWith \n  root_id\
-    \ AS (\n     Select id from _cdf.asset where externalId = 'WMT:VAL'\n  )\nSELECT\n\
-    \  file.id                          as id,\n  file.name                      \
-    \  as name,\n  file.externalId                  as externalId,\n  meta.source\
-    \                      as source,\n  meta.`mime_type`                 as mimeType,\n\
-    \  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
+  query: "-- cdf-auth: f5da81f3\n--\n-- Update file metdata using Transformation\n\
+    --\n-- Input data from RAW DB table (using example data) and uploaded files\n\
+    --\n\nWith \n  root_id AS (\n     Select id from _cdf.asset where externalId =\
+    \ 'WMT:VAL'\n  )\nSELECT\n  file.id                          as id,\n  file.name\
+    \                        as name,\n  file.externalId                  as externalId,\n\
+    \  meta.source                      as source,\n  meta.`mime_type`           \
+    \      as mimeType,\n  array(root_id.id)                as assetIds,\n  dataset_id('ds_files_oid')\
     \  as dataSetId,\n  map_concat(map(\"doc_type\", meta.doc_type),\n           \
     \ file.metadata)         as metadata\nFROM \n  `files_oid_fileshare`.`files_metadata`\
     \ meta,\n  _cdf.files                             file,\n  root_id\nWHERE \n \

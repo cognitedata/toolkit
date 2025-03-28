@@ -11,7 +11,6 @@ from cognite.client.data_classes import data_modeling as dm
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitTypeError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     DataSetsLoader,
@@ -113,9 +112,6 @@ conflictMode: upsert
             raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
             loader.load_resource(raw_list[0], is_dry_run=False)
 
-    @pytest.mark.skipif(
-        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
-    )
     def test_auth_unchanged_changed(
         self,
         toolkit_client_approval: ApprovalToolkitClient,

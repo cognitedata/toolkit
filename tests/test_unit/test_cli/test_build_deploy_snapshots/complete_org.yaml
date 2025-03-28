@@ -371,7 +371,7 @@ FunctionSchedule:
     breakfast: 'today: peanut butter sandwich and coffee'
     dinner: 'today: steak and red wine'
     lunch: 'today: greek salad and water'
-  description: Run every day at 8am UTC
+  description: 'Run every day at 8am UTC cdf-auth: def5e2e0'
   functionExternalId: fn_first_function
   name: daily-8am-utc
 Group:
@@ -770,8 +770,8 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
-  query: "select\n  cast(`externalId` as STRING) as externalId\nfrom\n  `db_foo`.`table_foo`;\n\
-    -- this is a comment with an ← Unicode character"
+  query: "-- cdf-auth: f5da81f3\nselect\n  cast(`externalId` as STRING) as externalId\n\
+    from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
     cdfProjectName: pytest-project
@@ -910,6 +910,8 @@ Workflow:
   externalId: baz
 WorkflowTrigger:
 - externalId: MyTrigger
+  metadata:
+    cognite-toolkit-auth-hash: def5e2e0
   triggerRule:
     cronExpression: 5 4 * * *
     triggerType: schedule
