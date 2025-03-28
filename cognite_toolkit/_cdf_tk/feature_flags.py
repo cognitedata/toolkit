@@ -37,12 +37,6 @@ class Flags(Enum):
         "description": "Stores a hash of the credentials of Workflow/Transformation/Function in the resources such that"
         " the resource is updated when the credentials change",
     }
-    DUMP_DM_GLOBAL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Changes the behavior of the cdf dump datamodel command to skip all"
-        " resources that are global (in a system space). You can get the original behavior"
-        "by using the --include-global flag",
-    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
