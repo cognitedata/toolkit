@@ -155,9 +155,6 @@ class TestFunctionScheduleLoader:
         assert credentials.client_id == "toolkit-client-id"
         assert credentials.client_secret == "toolkit-client-secret"
 
-    @pytest.mark.skipif(
-        not Flags.CREDENTIALS_HASH.is_enabled(), reason="This test is only relevant when credentials hash is enabled"
-    )
     def test_credentials_unchanged_changed(self) -> None:
         local_content = """name: daily-8am-utc
 functionExternalId: fn_example_repeater

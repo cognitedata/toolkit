@@ -50,7 +50,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
@@ -656,12 +655,11 @@ class WorkflowTriggerLoader(
             identifier = self.get_id(resource)
             credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
             self._authentication_by_id[identifier] = credentials
-            if Flags.CREDENTIALS_HASH.is_enabled():
-                if "metadata" not in resource:
-                    resource["metadata"] = {}
-                    resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
-                        credentials.dump(camel_case=True), shorten=True
-                    )
+            if "metadata" not in resource:
+                resource["metadata"] = {}
+                resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                    credentials.dump(camel_case=True), shorten=True
+                )
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:

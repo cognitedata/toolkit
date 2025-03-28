@@ -72,7 +72,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitTypeError,
     ToolkitYAMLFormatError,
 )
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -233,21 +232,20 @@ class TransformationLoader(
             elif query_file:
                 item["query"] = safe_read(query_file)
 
-            if Flags.CREDENTIALS_HASH.is_enabled():
-                auth_dict: dict[str, Any] = {}
-                for key in [
-                    "authentication",
-                    "sourceOidcCredentials",
-                    "destinationOidcCredentials",
-                    "sourceNonce",
-                    "destinationNonce",
-                ]:
-                    if key in item:
-                        auth_dict[key] = item[key]
-                if auth_dict:
-                    auth_hash = calculate_secure_hash(auth_dict, shorten=True)
-                    if "query" in item:
-                        item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
+            auth_dict: dict[str, Any] = {}
+            for key in [
+                "authentication",
+                "sourceOidcCredentials",
+                "destinationOidcCredentials",
+                "sourceNonce",
+                "destinationNonce",
+            ]:
+                if key in item:
+                    auth_dict[key] = item[key]
+            if auth_dict:
+                auth_hash = calculate_secure_hash(auth_dict, shorten=True)
+                if "query" in item:
+                    item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
