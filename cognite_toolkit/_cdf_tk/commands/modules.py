@@ -39,6 +39,7 @@ from cognite_toolkit._cdf_tk.constants import (
     EnvType,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
     Environment,
     InitConfigYAML,
     ModuleLocation,
@@ -50,7 +51,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, Toolki
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -664,13 +665,24 @@ default_organization_dir = "{organization_dir.name}"''',
         print(table)
 
     def add(self, organization_dir: Path) -> None:
-        verify_module_directory(organization_dir, "dev")
+        verify_module_directory(organization_dir, None)
+        environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
+        if environments:
+            build_env = environments[0]
+        else:
+            default = BuildConfigYAML.load_default(organization_dir)
+            print(
+                f"No config.[env].yaml files found in {organization_dir}."
+                f"This is required to add modules. Creating {default.filename}."
+            )
+            safe_write(default.filepath, yaml_safe_dump(default.dump()))
+            environments.append(default.environment.validation_type)
+            build_env = default.environment.validation_type
 
-        existing_module_names = [module.name for module in ModuleResources(organization_dir, "dev").list()]
+        existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
         available_packages = Packages().load(self._builtin_modules_path)
 
         added_packages = self._select_packages(available_packages, existing_module_names)
 
-        environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
         download_data = self._get_download_data(added_packages)
         self._create(organization_dir, added_packages, environments, "update", download_data)

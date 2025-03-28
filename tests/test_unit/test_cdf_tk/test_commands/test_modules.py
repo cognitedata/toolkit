@@ -6,10 +6,12 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
+from questionary import Choice
 
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes import Packages
+from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture(scope="session")
@@ -78,3 +80,49 @@ class TestModulesCommand:
 
         assert config["variables"]["modules"]["inrobot"]["first_location"] is not None
         assert (target_path / "modules" / "inrobot" / "cdf_inrobot_common").is_dir()
+
+    def test_add_without_config_yaml(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        dummy_resource = "space: my_space"
+        my_org = tmp_path / "my_org"
+        moules = my_org / "modules"
+        filepath = moules / "my_module" / "data_models" / "my.Space.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(dummy_resource)
+
+        def select_source_system(choices: list[Choice]) -> Package:
+            selected_package = next((c for c in choices if "sourcesystem" in c.title.lower()), None)
+            assert selected_package is not None
+            return selected_package.value
+
+        def select_sap_events(choices: list[Choice]) -> list:
+            selected_module = next(
+                (c for c in choices if "sap" in c.title.lower() and "event" in c.title.lower()), None
+            )
+            assert selected_module is not None
+            return [selected_module.value]
+
+        answers = [select_source_system, select_sap_events, False, False]
+
+        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+            cmd.add(my_org)
+
+        yaml_file_count = len(list(moules.rglob("*.yaml")))
+
+        assert yaml_file_count > 1, "Expected new yaml files to b created"
+
+        def select_sap_assets(choices: list[Choice]) -> list:
+            selected_module = next(
+                (c for c in choices if "sap" in c.title.lower() and "asset" in c.title.lower()), None
+            )
+            assert selected_module is not None
+            return [selected_module.value]
+
+        answers = [select_source_system, select_sap_assets, False, False]
+
+        with MockQuestionary(ModulesCommand.__module__, monkeypatch, answers):
+            cmd.add(my_org)
+
+        new_yaml_file_count = len(list(moules.rglob("*.yaml")))
+
+        assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
