@@ -233,6 +233,8 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
+        if "parentId" in dumped and "parentId" not in local:
+            dumped.pop("parentId")
         return dumped
 
 
