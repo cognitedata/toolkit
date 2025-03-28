@@ -109,7 +109,7 @@ FunctionSchedule:
 - cronExpression: 15 * * * *
   data:
     ExtractionPipelineExtId: ep_ctx_3d_oid_fileshare_annotation
-  description: Run every 30 minute
+  description: 'Run every 30 minute cdf-auth: def5e2e0'
   functionExternalId: fn_context_3d_oid_fileshare_asset
   name: daily-every-60-min
 Group:
