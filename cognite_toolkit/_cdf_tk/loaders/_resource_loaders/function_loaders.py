@@ -417,6 +417,9 @@ class FunctionScheduleLoader(
             extra_str = f" {self._hash_key}: {auth_hash}"
             if "description" not in resource:
                 resource["description"] = extra_str[1:]
+            elif resource["description"].endswith(extra_str[1:]):
+                # The hash is already in the description
+                ...
             elif len(resource["description"]) + len(extra_str) < self._description_character_limit:
                 resource["description"] += f"{extra_str}"
             else:
