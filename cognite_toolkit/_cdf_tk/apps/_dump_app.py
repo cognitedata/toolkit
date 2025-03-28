@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     WorkflowFinder,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -32,11 +31,10 @@ class DumpApp(typer.Typer):
         self.command("asset")(self.dump_asset_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
 
-        if Flags.DUMP_EXTENDED.is_enabled():
-            self.command("workflow")(self.dump_workflow)
-            self.command("transformation")(self.dump_transformation)
-            self.command("group")(self.dump_group)
-            self.command("node")(self.dump_node)
+        self.command("workflow")(self.dump_workflow)
+        self.command("transformation")(self.dump_transformation)
+        self.command("group")(self.dump_group)
+        self.command("node")(self.dump_node)
 
     def dump_main(self, ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
