@@ -245,7 +245,9 @@ class TransformationLoader(
             if auth_dict:
                 auth_hash = calculate_secure_hash(auth_dict, shorten=True)
                 if "query" in item:
-                    item["query"] = f"{self._hash_key}: {auth_hash}\n{item['query']}"
+                    hash_str = f"{self._hash_key}: {auth_hash}"
+                    if not item["query"].startswith(self._hash_key):
+                        item["query"] = f"{hash_str}\n{item['query']}"
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
