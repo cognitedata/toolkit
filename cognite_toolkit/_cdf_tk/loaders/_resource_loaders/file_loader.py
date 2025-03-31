@@ -143,7 +143,7 @@ class FileMetadataLoader(
 
     def dump_resource(self, resource: FileMetadata, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if ds_id := dumped.pop("dataSetId"):
+        if ds_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
         if security_categories := dumped.pop("securityCategories", []):
             dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)
