@@ -234,7 +234,9 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         else:
             yield [self.identifier], None, WorkflowVersionLoader.create_loader(self.client), None
         trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
-        trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
+        trigger_list = WorkflowTriggerList(
+            list(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
+        )
         yield [], trigger_list, trigger_loader, None
 
 
