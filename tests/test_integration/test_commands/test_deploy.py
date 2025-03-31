@@ -16,12 +16,15 @@ from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeploy
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
     FunctionLoader,
+    FunctionScheduleLoader,
     GraphQLLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
     ResourceWorker,
     StreamlitLoader,
+    TransformationLoader,
+    WorkflowTriggerLoader,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
@@ -145,6 +148,8 @@ def get_changed_source_files(
             loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
             # External files that cannot (or not yet supported) be pulled
             or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
+            # Have authentication hashes that is different for each environment
+            or loader_cls in {TransformationLoader, FunctionScheduleLoader, WorkflowTriggerLoader}
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)

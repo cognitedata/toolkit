@@ -20,28 +20,9 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
-    DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Enables support for dump workflow/transformation/group/node",
-    }
     POPULATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables support for the populate command",
-    }
-    STRICT_VALIDATION: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "For Workflow/Transformations/Function do not fallback to Toolkit credentials when validation-type != 'dev'",
-    }
-    CREDENTIALS_HASH: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Stores a hash of the credentials of Workflow/Transformation/Function in the resources such that"
-        " the resource is updated when the credentials change",
-    }
-    DUMP_DM_GLOBAL: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
-        "visible": True,
-        "description": "Changes the behavior of the cdf dump datamodel command to skip all"
-        " resources that are global (in a system space). You can get the original behavior"
-        "by using the --include-global flag",
     }
 
     def is_enabled(self) -> bool:

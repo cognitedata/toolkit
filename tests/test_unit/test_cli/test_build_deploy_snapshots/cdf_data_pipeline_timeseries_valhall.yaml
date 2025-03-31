@@ -165,7 +165,7 @@ FunctionSchedule:
 - cronExpression: 0,30 * * * *
   data:
     ExtractionPipelineExtId: ep_ctx_timeseries_oid_opcua_asset
-  description: Run every 30 minute
+  description: 'Run every 30 minute cdf-auth: def5e2e0'
   functionExternalId: fn_context_timeseries_oid_opcua_asset
   name: daily-every-30-min
 Group:
