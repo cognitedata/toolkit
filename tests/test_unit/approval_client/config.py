@@ -493,6 +493,7 @@ API_RESOURCES = [
             # "delete": [Method(api_class_method="delete", mock_name="delete")],
             "retrieve": [
                 Method(api_class_method="retrieve", mock_class_method="return_value"),
+                Method(api_class_method="list", mock_class_method="return_values"),
             ],
         },
     ),

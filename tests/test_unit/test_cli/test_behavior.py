@@ -5,13 +5,24 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from cognite.client import data_modeling as dm
-from cognite.client.data_classes import DataSet, Group, GroupWrite, Transformation, WorkflowTrigger
+from cognite.client.data_classes import (
+    DataSet,
+    Group,
+    GroupWrite,
+    Transformation,
+    Workflow,
+    WorkflowDefinition,
+    WorkflowTrigger,
+    WorkflowVersion,
+    WorkflowVersionId,
+)
 from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeSeriesAcl
+from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
-from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder
+from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
@@ -575,3 +586,45 @@ def test_build_project_with_only_top_level_variables(
     )
 
     assert build_tmp_path.exists()
+
+
+def test_dump_workflow(
+    tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    # Simulate Workflow, WorkflowVersion, and WorkflowTrigger in CDF.
+    toolkit_client_approval.append(
+        Workflow,
+        Workflow("myWorkflow", 0, 1),
+    )
+    toolkit_client_approval.append(
+        WorkflowVersion,
+        WorkflowVersion(
+            "myWorkflow",
+            "v1",
+            WorkflowDefinition(
+                # We are testing that the dump fetches the workflow version, not the actual content of the workflow.
+                hash_="some-hash",
+                tasks=[],
+            ),
+            0,
+            1,
+        ),
+    )
+    toolkit_client_approval.append(
+        WorkflowTrigger, WorkflowTrigger("myTrigger", WorkflowScheduledTriggerRule("* * * * * "), "myWorkflow", "v1")
+    )
+
+    output_dir = tmp_path / "tmp_dump"
+    cmd = DumpResourceCommand(silent=True)
+    cmd.dump_to_yamls(
+        WorkflowFinder(env_vars_with_client.get_client(), WorkflowVersionId("myWorkflow", "v1")),
+        output_dir=output_dir,
+        clean=True,
+        verbose=False,
+    )
+
+    assert len(list(output_dir.glob("**/*.Workflow.yaml"))) == 1
+    assert len(list(output_dir.glob("**/*.WorkflowTrigger.yaml"))) == 1
+    assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
