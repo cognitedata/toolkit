@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import 
     ExtendableCogniteFileApply,
     ExtendableCogniteFileApplyList,
 )
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList
 from cognite_toolkit._cdf_tk.client.data_classes.robotics import (
     DataPostProcessingWrite,
     DataPostProcessingWriteList,
@@ -52,12 +53,16 @@ from cognite_toolkit._cdf_tk.loaders import (
     DatapointSubscriptionLoader,
     FunctionScheduleLoader,
     GroupLoader,
+    GroupResourceScopedLoader,
     LabelLoader,
+    RawDatabaseLoader,
+    ResourceWorker,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
     WorkflowVersionLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
+from cognite_toolkit._cdf_tk.utils.file import read_yaml_content
 from tests.test_integration.constants import RUN_UNIQUE_ID
 
 
@@ -653,6 +658,42 @@ class TestGroupLoader:
             if group_id:
                 with suppress(CogniteAPIError):
                     toolkit_client.iam.groups.delete(id=group_id)
+
+    def test_unchanged_group_not_redeployed(self, toolkit_client: ToolkitClient) -> None:
+        name = "gp_unchanged_group_not_redeployed"
+        db = RawDatabase(db_name="some_table")
+        db_loader = RawDatabaseLoader.create_loader(toolkit_client)
+        if not db_loader.retrieve([db]):
+            db_loader.create(RawDatabaseList([db]))
+        raw = """name: gp_unchanged_group_not_redeployed
+sourceId: '123456789'
+metadata:
+  origin: cognite-toolkit
+capabilities:
+- rawAcl:
+    actions:
+    - READ
+    scope:
+      tableScope:
+        dbsToTables:
+          some_table: {}
+"""
+        loader = GroupResourceScopedLoader.create_loader(toolkit_client)
+        if not loader.retrieve([name]):
+            loader.create([loader.load_resource(read_yaml_content(raw), is_dry_run=False)])
+
+        worker = ResourceWorker(loader)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = raw
+
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath], environment_variables={})
+
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestWorkflowVersionLoader:
