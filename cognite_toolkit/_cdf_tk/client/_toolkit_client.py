@@ -5,6 +5,9 @@ from typing import Literal, cast
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import CredentialProvider
 
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
+
+from .api.agents.agents import AgentsAPI
 from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
@@ -76,6 +79,8 @@ class ToolkitClient(CogniteClient):
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
+        if FeatureFlag.is_enabled(Flags.AGENTS):
+            self.agents = AgentsAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:

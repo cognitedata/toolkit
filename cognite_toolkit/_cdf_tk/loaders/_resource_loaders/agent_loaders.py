@@ -41,7 +41,7 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
         return AgentList([])
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
-        return AgentList([])
+        return self.client.agents.retrieve(ids)
 
     def update(self, items: AgentWriteList) -> AgentList:
         return AgentList([])
