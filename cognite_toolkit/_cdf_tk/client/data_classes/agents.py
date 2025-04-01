@@ -20,7 +20,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
     """Representation of an AI Agent in CDF.
 
     Args:
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str | None): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
@@ -31,7 +31,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         tools (list[AgentTool] | None): List of tools for the agent.
     """
 
-    external_id: Optional[str] = None
+    external_id: str
     name: Optional[str] = None
     description: Optional[str] = None
     owner_id: Optional[str] = None
@@ -68,7 +68,7 @@ class Agent(AgentCore):
 
     Args:
         id (int | None): A server-generated ID for the object.
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str | None): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
@@ -91,7 +91,7 @@ class Agent(AgentCore):
 
         return cls(
             id=resource.get("id"),
-            external_id=resource.get("externalId"),
+            external_id=resource["externalId"],
             name=resource.get("name"),
             description=resource.get("description"),
             owner_id=resource.get("ownerId"),
@@ -109,7 +109,7 @@ class AgentWrite(AgentCore):
     This is the write format of an agent.
 
     Args:
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
+        external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str | None): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
@@ -129,7 +129,7 @@ class AgentWrite(AgentCore):
         )
 
         return cls(
-            external_id=resource.get("externalId"),
+            external_id=resource["externalId"],
             name=resource.get("name"),
             description=resource.get("description"),
             owner_id=resource.get("owner"),
