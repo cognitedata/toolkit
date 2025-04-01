@@ -55,7 +55,11 @@ class ModulesConfig:
     def load(cls, raw: dict[str, Any]) -> ModulesConfig:
         version = raw["version"]
         packages = raw.get("packages", {})
-        if version != _version.__version__ and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"]):
+        if (
+            version != _version.__version__
+            and (len(sys.argv) > 2 and sys.argv[1:3] != ["modules", "upgrade"])
+            and "--help" not in sys.argv
+        ):
             raise ToolkitVersionError(
                 f"The version of the modules ({version}) does not match the version of the installed CLI "
                 f"({_version.__version__}). Please either run `cdf-tk modules upgrade` to upgrade the modules OR "
