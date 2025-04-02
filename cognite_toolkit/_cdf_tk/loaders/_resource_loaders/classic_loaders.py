@@ -300,7 +300,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if asset_external_id := resource.pop("assetExternalId", None):
-            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return SequenceWrite._load(resource)
 
     def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
