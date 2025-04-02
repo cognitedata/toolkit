@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,8 @@ from cognite.client.data_classes.capabilities import Capability
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk._parameters.constants import ANY_INT, ANYTHING
+from cognite_toolkit._cdf_tk._parameters.data_classes import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.agents import Agent, AgentList, AgentWrite, AgentWriteList
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 
@@ -48,6 +51,21 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
             if "instructions" not in item:
                 item["instructions"] = ""
         return loaded
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
+        spec = super().get_write_cls_parameter_spec()
+        # Tool configuration is a dict where the accepted keys depend on the tool type.
+        spec.add(
+            ParameterSpec(
+                ("tools", ANY_INT, "configuration", ANYTHING),
+                frozenset({"dict"}),
+                is_required=False,
+                _is_nullable=False,
+            )
+        )
+        return spec
 
     def create(self, items: AgentWriteList) -> AgentList:
         return self.client.agents.create(items)
