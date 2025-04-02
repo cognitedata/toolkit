@@ -116,6 +116,7 @@
       "program": "./cdf-tk-dev.py",
       "args": [
         "deploy",
+        "--drop"
       ],
       "console": "integratedTerminal",
       "justMyCode": false

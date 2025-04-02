@@ -124,7 +124,9 @@ class AgentsAPI(APIClient):
 
         """
         body = self._create_body(external_id)
-        self._post(url_path=self._RESOURCE_PATH + "/delete", json=body)
+        headers = {"cdf-version": "alpha"}
+
+        self._post(url_path=self._RESOURCE_PATH + "/delete", json=body, headers=headers)
 
     def list(self) -> AgentList:
         """List agents.

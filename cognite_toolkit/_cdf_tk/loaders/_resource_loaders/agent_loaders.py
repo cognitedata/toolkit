@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes.capabilities import Capability
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.agents import Agent, AgentList, AgentWrite, AgentWriteList
@@ -59,7 +60,18 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
         return self.client.agents.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
-        return 0
+        try:
+            self.client.agents.delete(ids)
+            return len(ids)
+        except CogniteAPIError:
+            deleted = 0
+            for id in ids:
+                try:
+                    self.client.agents.delete(id)
+                    deleted += 1
+                except CogniteAPIError:
+                    pass
+            return deleted
 
     def _iterate(
         self,
