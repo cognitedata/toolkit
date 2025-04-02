@@ -19,21 +19,21 @@ class AgentToolCore(WriteableCogniteResource["AgentToolWrite"], ABC):
     Representation of an AI Agent Tool in CDF.
 
     Args:
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the tool.
-        description (str | None): The description of the tool.
+        name (str): The name of the tool.
+        type (str): The type of the tool.
+        description (str): The description of the tool.
         configuration (dict[str, Any] | None): The configuration of the tool.
     """
 
-    external_id: Optional[str] = None
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: str
+    type: str
+    description: str
     configuration: Optional[dict[str, Any]] = None
 
     def as_write(self) -> AgentToolWrite:
         return AgentToolWrite(
-            external_id=self.external_id,
             name=self.name,
+            type=self.type,
             description=self.description,
             configuration=self.configuration,
         )
@@ -46,10 +46,9 @@ class AgentTool(AgentToolCore):
     This is the read format of an agent tool.
 
     Args:
-        id (int | None): A server-generated ID for the object.
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the tool.
-        description (str | None): The description of the tool.
+        name (str): The name of the tool.
+        type (str): The type of the tool.
+        description (str): The description of the tool.
         configuration (dict[str, Any] | None): The configuration of the tool.
     """
 
@@ -58,10 +57,9 @@ class AgentTool(AgentToolCore):
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> AgentTool:
         return cls(
-            id=resource.get("id"),
-            external_id=resource.get("externalId"),
-            name=resource.get("name"),
-            description=resource.get("description"),
+            name=resource["name"],
+            type=resource["type"],
+            description=resource["description"],
             configuration=resource.get("configuration"),
         )
 
@@ -72,9 +70,9 @@ class AgentToolWrite(AgentToolCore):
     This is the write format of an agent tool.
 
     Args:
-        external_id (str | None): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the tool.
-        description (str | None): The description of the tool.
+        name (str): The name of the tool.
+        type (str): The type of the tool.
+        description (str): The description of the tool.
         configuration (dict[str, Any] | None): The configuration of the tool.
     """
 
