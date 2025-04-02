@@ -21,7 +21,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
 
     Args:
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the agent.
+        name (str): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
@@ -32,7 +32,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
     """
 
     external_id: str
-    name: Optional[str] = None
+    name: str
     description: Optional[str] = None
     owner_id: Optional[str] = None
     instructions: Optional[str] = None
@@ -69,7 +69,7 @@ class Agent(AgentCore):
     Args:
         id (int | None): A server-generated ID for the object.
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the agent.
+        name (str): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
@@ -92,7 +92,7 @@ class Agent(AgentCore):
         return cls(
             id=resource.get("id"),
             external_id=resource["externalId"],
-            name=resource.get("name"),
+            name=resource["name"],
             description=resource.get("description"),
             owner_id=resource.get("ownerId"),
             instructions=resource.get("instructions"),
@@ -110,7 +110,7 @@ class AgentWrite(AgentCore):
 
     Args:
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
-        name (str | None): The name of the agent.
+        name (str): The name of the agent.
         description (str | None): The description of the agent.
         owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
@@ -130,7 +130,7 @@ class AgentWrite(AgentCore):
 
         return cls(
             external_id=resource["externalId"],
-            name=resource.get("name"),
+            name=resource["name"],
             description=resource.get("description"),
             owner_id=resource.get("owner"),
             instructions=resource.get("instructions"),

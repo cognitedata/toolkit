@@ -10,7 +10,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.agents import Agent, AgentList,
 
 
 class AgentsAPI(APIClient):
-    _RESOURCE_PATH = "/agents"
+    _RESOURCE_PATH = "/ai/agents"
 
     @overload
     def __call__(self) -> Iterator[Agent]: ...
@@ -49,11 +49,13 @@ class AgentsAPI(APIClient):
             Agent object.
 
         """
+        headers = {"cdf-version": "alpha"}
         return self._create_multiple(
             list_cls=AgentList,
             resource_cls=Agent,
             items=agent,
             input_resource_cls=AgentWrite,
+            headers=headers,
         )
 
     def retrieve(self, external_id: str | SequenceNotStr[str]) -> AgentList:
@@ -66,19 +68,19 @@ class AgentsAPI(APIClient):
             Agent object.
 
         """
-        body = self._create_body(external_id)
+        body = self._create_body(external_id, True)
 
-        headers = self._cognite_client.config.headers.copy()
-        headers["cdf-version"] = "20230101-alpha"
+        headers = {"cdf-version": "alpha"}
         self._cognite_client.config.debug = True
 
         res = self._post(url_path=self._RESOURCE_PATH + "/byids", json=body, headers=headers)
         return AgentList._load(res.json()["items"], cognite_client=self._cognite_client)
 
     @staticmethod
-    def _create_body(external_id: str | SequenceNotStr[str]) -> dict:
+    def _create_body(external_id: str | SequenceNotStr[str], ignore_unknown_ids: bool = False) -> dict:
         ids = [external_id] if isinstance(external_id, str) else external_id
-        body = {"items": [{"externalId": external_id} for external_id in ids]}
+        body = {"items": [{"externalId": external_id} for external_id in ids], "ignoreUnknownIds": ignore_unknown_ids}
+
         return body
 
     @overload
@@ -94,7 +96,7 @@ class AgentsAPI(APIClient):
             agent: AgentWrite or list of AgentWrite.
 
         Returns:
-            Agent object.
+            Agent or AgentList object.
 
         """
         is_single = False
@@ -106,6 +108,7 @@ class AgentsAPI(APIClient):
         else:
             raise ValueError("agent must be a AgentWrite or a list of AgentWrite")
 
+        # THE agent API does not support update
         res = self._post(url_path=self._RESOURCE_PATH + "/update", json={"items": agents})
         loaded = AgentList._load(res.json()["items"], cognite_client=self._cognite_client)
         return loaded[0] if is_single else loaded
