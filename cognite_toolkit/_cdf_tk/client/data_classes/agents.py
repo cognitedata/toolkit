@@ -23,22 +23,17 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str): The name of the agent.
         description (str | None): The description of the agent.
-        owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
-        labels (list[str] | None): List of labels for the agent.
-        example_questions (list[dict[str, str]] | None): List of example questions for the agent.
         tools (list[AgentTool] | None): List of tools for the agent.
+
     """
 
     external_id: str
     name: str
     description: Optional[str] = None
-    owner_id: Optional[str] = None
     instructions: Optional[str] = None
     model: Optional[str] = None
-    labels: Optional[list[str]] = None
-    example_questions: Optional[list[dict[str, str]]] = None
     tools: Optional[list[AgentTool]] = None
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
@@ -52,11 +47,8 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
             external_id=self.external_id,
             name=self.name,
             description=self.description,
-            owner_id=self.owner_id,
             instructions=self.instructions,
             model=self.model,
-            labels=self.labels,
-            example_questions=self.example_questions,
             tools=self.tools,
         )
 
@@ -67,15 +59,11 @@ class Agent(AgentCore):
     This is the read format of an agent.
 
     Args:
-        id (int | None): A server-generated ID for the object.
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str): The name of the agent.
         description (str | None): The description of the agent.
-        owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
-        labels (list[str] | None): List of labels for the agent.
-        example_questions (list[dict[str, str]] | None): List of example questions for the agent.
         tools (list[AgentTool] | None): List of tools for the agent.
     """
 
@@ -94,11 +82,8 @@ class Agent(AgentCore):
             external_id=resource["externalId"],
             name=resource["name"],
             description=resource.get("description"),
-            owner_id=resource.get("ownerId"),
             instructions=resource.get("instructions"),
             model=resource.get("model"),
-            labels=resource.get("labels"),
-            example_questions=resource.get("exampleQuestions"),
             tools=tools,
         )
 
@@ -112,12 +97,10 @@ class AgentWrite(AgentCore):
         external_id (str): The external ID provided by the client. Must be unique for the resource type.
         name (str): The name of the agent.
         description (str | None): The description of the agent.
-        owner_id (str | None): The owner ID of the agent.
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
-        labels (list[str] | None): List of labels for the agent.
-        example_questions (list[dict[str, str]] | None): List of example questions for the agent.
         tools (list[AgentTool] | None): List of tools for the agent.
+
     """
 
     @classmethod
@@ -131,12 +114,9 @@ class AgentWrite(AgentCore):
         return cls(
             external_id=resource["externalId"],
             name=resource["name"],
-            description=resource.get("description"),
-            owner_id=resource.get("owner"),
-            instructions=resource.get("instructions"),
+            description=resource.get("description", ""),
+            instructions=resource.get("instructions", ""),
             model=resource.get("model"),
-            labels=resource.get("labels"),
-            example_questions=resource.get("exampleQuestions"),
             tools=tools,
         )
 

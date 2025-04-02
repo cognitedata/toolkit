@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
+from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes.capabilities import Capability
@@ -36,6 +37,16 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
         cls, items: Sequence[AgentWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
         return []
+
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        loaded = super().load_resource_file(filepath, environment_variables)
+        for item in loaded:
+            # the API always returns instructions
+            if "instructions" not in item:
+                item["instructions"] = ""
+        return loaded
 
     def create(self, items: AgentWriteList) -> AgentList:
         return self.client.agents.create(items)
