@@ -338,6 +338,10 @@ class WorkflowVersionLoader(
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
+            for default_key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+                if default_key not in local_task and cdf_task.get(default_key) == default_value:
+                    del cdf_task[default_key]
+
             if local_task["type"] == "function" and cdf_task["type"] == "function":
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
