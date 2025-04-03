@@ -324,7 +324,6 @@ WorkflowVersion:
           externalId: tr_files_oid_fileshare_file_metadata
           useTransformationCredentials: false
       retries: 3
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: tr_files_oid_fileshare_file_metadata
@@ -338,7 +337,6 @@ WorkflowVersion:
             ExtractionPipelineExtId: ep_ctx_files_oid_fileshare_pandid_annotation
           externalId: fn_context_files_oid_fileshare_annotation
       retries: 3
-      timeout: null
       type: function
   workflowExternalId: wf_oid_files_annotation
 deleted: {}

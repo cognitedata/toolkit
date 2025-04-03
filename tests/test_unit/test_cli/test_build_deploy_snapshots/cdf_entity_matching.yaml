@@ -178,8 +178,6 @@ WorkflowVersion:
           data:
             logLevel: INFO
           externalId: ctx_entity_matching
-      retries: null
-      timeout: null
       type: function
     - dependsOn:
       - externalId: entity_matching_task1
@@ -190,8 +188,6 @@ WorkflowVersion:
           data:
             logLevel: INFO
           externalId: contextualization_connection_writer
-      retries: null
-      timeout: null
       type: function
   workflowExternalId: entity_matching
 deleted: {}
