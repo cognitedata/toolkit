@@ -344,8 +344,8 @@ class WorkflowVersionLoader(
                 if "function" in cdf_parameters and "function" in local_parameters:
                     cdf_function = cdf_parameters["function"]
                     local_function = local_parameters["function"]
-                    if local_function["data"] == {} and "data" not in cdf_function:
-                        cdf_parameters["function"] = local_parameters["function"]
+                    if local_function.get("data") == {} and "data" not in cdf_function:
+                        cdf_parameters["function"] = local_function
         return dumped
 
     def diff_list(
