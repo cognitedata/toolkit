@@ -106,7 +106,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 security_categories_names, is_dry_run
             )
         if asset_external_id := resource.pop("assetExternalId", None):
-            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return TimeSeriesWrite._load(resource)
 
     def dump_resource(self, resource: TimeSeries, local: dict[str, Any] | None = None) -> dict[str, Any]:
