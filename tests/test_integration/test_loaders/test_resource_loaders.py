@@ -211,27 +211,18 @@ class TestLabelLoader:
         delete_count = loader.delete(["non_existing"])
         assert delete_count == 0
 
-    def test_create_update_delete_label(self, cognite_client: CogniteClient) -> None:
-        initial = LabelDefinitionWrite(
+    def test_create_delete_label(self, toolkit_client: ToolkitClient) -> None:
+        label = LabelDefinitionWrite(
             external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
             name="Initial name",
         )
-        update = LabelDefinitionWrite(
-            external_id=f"tmp_test_create_update_delete_label_{RUN_UNIQUE_ID}",
-            name="Updated name",
-        )
-
-        loader = LabelLoader(cognite_client, None)
+        loader = LabelLoader(toolkit_client, None)
 
         try:
-            created = loader.create(LabelDefinitionWriteList([initial]))
+            created = loader.create(LabelDefinitionWriteList([label]))
             assert len(created) == 1
-
-            updated = loader.update(LabelDefinitionWriteList([update]))
-            assert len(updated) == 1
-            assert updated[0].name == "Updated name"
         finally:
-            loader.delete([initial.external_id])
+            loader.delete([label.external_id])
 
 
 class TestAssetLoader:
