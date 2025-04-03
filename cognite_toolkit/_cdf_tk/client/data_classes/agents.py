@@ -67,8 +67,6 @@ class Agent(AgentCore):
         tools (list[AgentTool] | None): List of tools for the agent.
     """
 
-    id: Optional[int] = None
-
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> Agent:
         tools = (
@@ -78,7 +76,6 @@ class Agent(AgentCore):
         )
 
         return cls(
-            id=resource.get("id"),
             external_id=resource["externalId"],
             name=resource["name"],
             description=resource.get("description"),

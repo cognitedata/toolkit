@@ -111,6 +111,7 @@ del loader  # cleanup module namespace
 
 ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "3dmodels",
+    "agents",
     "auth",
     "classic",
     "data_models",

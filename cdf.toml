@@ -7,7 +7,7 @@ graphql = true
 import-cmd = true
 module-repeat = true
 populate = true
-agents = true
+agents = false
 
 [plugins]
 run = true

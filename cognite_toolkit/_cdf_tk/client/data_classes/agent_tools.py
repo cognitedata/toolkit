@@ -52,8 +52,6 @@ class AgentTool(AgentToolCore):
         configuration (dict[str, Any] | None): The configuration of the tool.
     """
 
-    id: Optional[int] = None
-
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> AgentTool:
         return cls(

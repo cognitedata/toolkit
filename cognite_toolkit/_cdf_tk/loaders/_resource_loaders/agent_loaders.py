@@ -24,7 +24,7 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
     list_write_cls = AgentWriteList
     kind = "Agent"
     _doc_base_url = ""
-    _doc_url = ""
+    _doc_url = "https://pr-2829.specs.preview.cogniteapp.com/20230101-alpha.json.html"
 
     @classmethod
     def get_id(cls, item: AgentWrite | Agent | dict) -> str:
