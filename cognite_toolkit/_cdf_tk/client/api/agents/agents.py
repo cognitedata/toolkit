@@ -34,12 +34,12 @@ class AgentsAPI(APIClient):
         return self.__call__()
 
     @overload
-    def create(self, agent: AgentWrite) -> Agent: ...
+    def apply(self, agent: AgentWrite) -> Agent: ...
 
     @overload
-    def create(self, agent: Sequence[AgentWrite]) -> AgentList: ...
+    def apply(self, agent: Sequence[AgentWrite]) -> AgentList: ...
 
-    def create(self, agent: AgentWrite | Sequence[AgentWrite]) -> Agent | AgentList:
+    def apply(self, agent: AgentWrite | Sequence[AgentWrite]) -> Agent | AgentList:
         """Create a new agent.
 
         Args:
@@ -80,38 +80,7 @@ class AgentsAPI(APIClient):
     def _create_body(external_id: str | SequenceNotStr[str], ignore_unknown_ids: bool = False) -> dict:
         ids = [external_id] if isinstance(external_id, str) else external_id
         body = {"items": [{"externalId": external_id} for external_id in ids], "ignoreUnknownIds": ignore_unknown_ids}
-
         return body
-
-    @overload
-    def update(self, agent: AgentWrite) -> Agent: ...
-
-    @overload
-    def update(self, agent: Sequence[AgentWrite]) -> AgentList: ...
-
-    def update(self, agent: AgentWrite | Sequence[AgentWrite]) -> Agent | AgentList:
-        """Update an agent.
-
-        Args:
-            agent: AgentWrite or list of AgentWrite.
-
-        Returns:
-            Agent or AgentList object.
-
-        """
-        is_single = False
-        if isinstance(agent, AgentWrite):
-            agents = [agent]
-            is_single = True
-        elif isinstance(agent, Sequence):
-            agents = list(agent)
-        else:
-            raise ValueError("agent must be a AgentWrite or a list of AgentWrite")
-
-        # THE agent API does not support update
-        res = self._post(url_path=self._RESOURCE_PATH + "/update", json={"items": agents})
-        loaded = AgentList._load(res.json()["items"], cognite_client=self._cognite_client)
-        return loaded[0] if is_single else loaded
 
     def delete(self, external_id: str | SequenceNotStr[str]) -> None:
         """Delete an agent.

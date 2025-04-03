@@ -68,14 +68,13 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
         return spec
 
     def create(self, items: AgentWriteList) -> AgentList:
-        return self.client.agents.create(items)
+        return self.client.agents.apply(items)
 
     def retrieve(self, ids: SequenceNotStr[str]) -> AgentList:
         return self.client.agents.retrieve(ids)
 
     def update(self, items: AgentWriteList) -> AgentList:
-        # The agent API does not support update, but accepts create with the same external ID.
-        return self.client.agents.create(items)
+        return self.client.agents.apply(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
