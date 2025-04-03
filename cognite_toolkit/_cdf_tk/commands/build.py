@@ -507,7 +507,7 @@ class BuildCommand(ToolkitCommand):
                     for w in replace_warnings
                     if isinstance(w, UnresolvedVariableWarning)
                 ]:
-                    variable_str = humanize_collection(unresolved_variables)
+                    variable_str = humanize_collection(set(unresolved_variables))
                     source_str = variables.source_path.as_posix() if variables.source_path else "config.[ENV].yaml"
                     suffix = "s" if len(unresolved_variables) > 1 else ""
                     message += f"\n{HINT_LEAD_TEXT}Add the following variable{suffix} to the {source_str!r} file: {variable_str!r}."
