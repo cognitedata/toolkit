@@ -18,6 +18,7 @@ from cognite.client.data_classes._base import (
     CogniteResourceList,
     WriteableCogniteResource,
 )
+from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, ViewId
 from cognite.client.utils._text import to_camel_case
 
 if sys.version_info >= (3, 11):
@@ -160,6 +161,9 @@ class FeatureConfiguration(APMConfigObject):
 
 
 class APMConfigCore(WriteableCogniteResource["APMConfigWrite"], ABC):
+    space: str = "APM_Config"
+    view_id: ViewId = ViewId("APM_Config", "APM_Config", "1")
+
     def __init__(
         self,
         external_id: str,
@@ -188,6 +192,28 @@ class APMConfigCore(WriteableCogniteResource["APMConfigWrite"], ABC):
 
 
 class APMConfigWrite(APMConfigCore):
+    def __init__(
+        self,
+        external_id: str,
+        name: str | None = None,
+        app_data_space_id: str | None = None,
+        app_data_space_version: str | None = None,
+        customer_data_space_id: str | None = None,
+        customer_data_space_version: str | None = None,
+        feature_configuration: FeatureConfiguration | None = None,
+        existing_version: int | None = None,
+    ) -> None:
+        super().__init__(
+            external_id=external_id,
+            name=name,
+            app_data_space_id=app_data_space_id,
+            app_data_space_version=app_data_space_version,
+            customer_data_space_id=customer_data_space_id,
+            customer_data_space_version=customer_data_space_version,
+            feature_configuration=feature_configuration,
+        )
+        self.existing_version = existing_version
+
     def as_write(self) -> "APMConfigWrite":
         return self
 
@@ -208,11 +234,29 @@ class APMConfigWrite(APMConfigCore):
             existing_version=resource.get("existingVersion"),
         )
 
+    def as_node(self) -> NodeApply:
+        properties = self.dump(camel_case=True)
+        # Node properties.
+        properties.pop("externalId", None)
+        properties.pop("existingVersion", None)
+        return NodeApply(
+            space=self.space,
+            external_id=self.external_id,
+            sources=[
+                NodeOrEdgeData(
+                    source=self.view_id,
+                    properties=properties,
+                )
+            ],
+            existing_version=self.existing_version,
+        )
+
 
 class APMConfig(APMConfigCore):
     def __init__(
         self,
         external_id: str,
+        version: int,
         created_time: int,
         last_updated_time: int,
         name: str | None = None,
@@ -233,6 +277,7 @@ class APMConfig(APMConfigCore):
         )
         self.created_time = created_time
         self.last_updated_time = last_updated_time
+        self.version = version
 
     def as_write(self) -> APMConfigWrite:
         return APMConfigWrite(
@@ -243,12 +288,14 @@ class APMConfig(APMConfigCore):
             customer_data_space_id=self.customer_data_space_id,
             customer_data_space_version=self.customer_data_space_version,
             feature_configuration=self.feature_configuration,
+            existing_version=self.version,
         )
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         return cls(
             external_id=resource["externalId"],
+            version=resource["version"],
             created_time=resource["createdTime"],
             last_updated_time=resource["lastUpdatedTime"],
             name=resource.get("name"),
@@ -262,6 +309,24 @@ class APMConfig(APMConfigCore):
             if "featureConfiguration" in resource
             else None,
         )
+
+    @classmethod
+    def from_node(cls, node: Node) -> Self:
+        if node.space != cls.space:
+            raise ValueError(f"Wrong instance space: {node.space}. {cls.__name__} nodes must be in {cls.space} space.")
+        view_identifier = {ViewId.load(identifier): identifier for identifier in node.properties.keys()}
+        if cls.view_id not in view_identifier:
+            raise ValueError(
+                f"Missing {cls.__name__} properties. All {cls.__name__} nodes must have properties from {cls.view_id}."
+            )
+        identifier = view_identifier[cls.view_id]
+
+        resource = dict(node.properties[identifier])
+        resource["externalId"] = node.external_id
+        resource["createdTime"] = node.created_time
+        resource["lastUpdatedTime"] = node.last_updated_time
+        resource["version"] = node.version
+        return cls._load(resource, None)
 
 
 class APMConfigWriteList(CogniteResourceList[APMConfigWrite]):
