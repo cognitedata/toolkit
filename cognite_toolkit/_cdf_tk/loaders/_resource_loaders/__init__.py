@@ -1,3 +1,4 @@
+from .agent_loaders import AgentLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader, EventLoader, SequenceLoader, SequenceRowLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
@@ -37,6 +38,7 @@ from .transformation_loaders import TransformationLoader, TransformationNotifica
 from .workflow_loaders import WorkflowLoader, WorkflowTriggerLoader, WorkflowVersionLoader
 
 __all__ = [
+    "AgentLoader",
     "AssetLoader",
     "CogniteFileLoader",
     "ContainerLoader",

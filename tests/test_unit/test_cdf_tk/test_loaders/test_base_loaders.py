@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
     BuildEnvironment,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
@@ -222,6 +223,10 @@ def test_resource_types_is_up_to_date() -> None:
 
     missing = expected - actual
     extra = actual - expected
+
+    if not FeatureFlag.is_enabled(Flags.AGENTS):
+        extra.discard("agents")
+
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 
