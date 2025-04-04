@@ -4,9 +4,10 @@ from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 class TestAgentDataClass:
     def test_agent_data_class_dump_load(self):
-        agent = FakeCogniteResourceGenerator(seed=1337).create_instance(Agent)
-        dumped = agent.dump()
-        assert agent == Agent._load(dumped)
+        expected = FakeCogniteResourceGenerator(seed=1337).create_instance(Agent)
+        dumped = expected.dump()
+        actual = Agent._load(dumped)
+        assert actual == expected
 
     def test_agent_tool_data_class_dump_load(self):
         agent_tool = FakeCogniteResourceGenerator(seed=1333).create_instance(AgentTool)
