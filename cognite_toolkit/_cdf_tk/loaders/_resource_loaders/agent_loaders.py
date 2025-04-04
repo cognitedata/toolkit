@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 from cognite.client.data_classes.capabilities import Capability
@@ -42,16 +41,6 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
     ) -> Capability | list[Capability]:
         return []
 
-    def load_resource_file(
-        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
-    ) -> list[dict[str, Any]]:
-        loaded = super().load_resource_file(filepath, environment_variables)
-        for item in loaded:
-            # the API always returns instructions
-            if "instructions" not in item:
-                item["instructions"] = ""
-        return loaded
-
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
@@ -79,7 +68,6 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
             self.client.agents.delete(ids)
-            return len(ids)
         except CogniteAPIError:
             deleted = 0
             for id in ids:
@@ -87,8 +75,10 @@ class AgentLoader(ResourceLoader[str, AgentWrite, Agent, AgentWriteList, AgentLi
                     self.client.agents.delete(id)
                     deleted += 1
                 except CogniteAPIError:
+                    # accepted because the resource may not exist
                     pass
             return deleted
+        return len(ids)
 
     def _iterate(
         self,

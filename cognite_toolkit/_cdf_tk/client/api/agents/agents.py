@@ -58,7 +58,7 @@ class AgentsAPI(APIClient):
             headers=headers,
         )
 
-    def retrieve(self, external_id: str | SequenceNotStr[str]) -> AgentList:
+    def retrieve(self, external_id: SequenceNotStr[str]) -> AgentList:
         """Retrieve an agent.
 
         Args:
