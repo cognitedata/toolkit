@@ -1,0 +1,268 @@
+"""This module contains data classes for the APM Config node used to configure Infield.
+
+These classes are used to represent the configuration of the APM Config node in a structured way, such that it can be
+used in the InfieldV1 Loader and thus be represented as a resource type in Toolkit. We do not do any validation in the
+FeatureConfiguration objects as this is just JSON object in the node, but use the structure to do lookup of
+data sets, spaces, and groups.
+"""
+
+import sys
+from abc import ABC
+from dataclasses import dataclass, field, fields
+from functools import lru_cache
+from typing import Any
+
+from cognite.client import CogniteClient
+from cognite.client.data_classes._base import (
+    CogniteObject,
+    CogniteResourceList,
+    WriteableCogniteResource,
+)
+from cognite.client.utils._text import to_camel_case
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
+
+
+@dataclass
+class APMConfigObject(CogniteObject):
+    """This is used as a base class for all objects in the APM Config node.
+
+    This ensures that all extra fields are  picked up when loading the resource from file and stored in the _extra field.
+    When the request is created the dump method is called and the extra fields are added to the request.
+
+    This is done to ensure that all fields are included in the request and that the request is valid in case JSON blob
+    in the property featureConfiguration in the view (APM_Config, APM_Config, 1) is changed in the future.
+    """
+
+    _extra: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        instance._extra = {k: v for k, v in resource.items() if k not in cls.get_field_names()}
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self._extra:
+            output.update(self._extra)
+        return output
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def get_field_names(cls) -> set[str]:
+        cls_fields = list(fields(cls))
+        return {field.name for field in cls_fields} | {to_camel_case(field.name) for field in cls_fields}
+
+
+@dataclass
+class ThreeDModelIdentifier(APMConfigObject):
+    revision_id: int | None = None
+    model_id: int | None = None
+    name: str | None = None
+
+
+@dataclass
+class ThreeDConfiguration(APMConfigObject):
+    full_weight_models: list[ThreeDModelIdentifier] | None = None
+    light_weight_models: list[ThreeDModelIdentifier] | None = None
+
+
+@dataclass
+class ResourceFilters(APMConfigObject):
+    data_set_ids: list[int] | None = None
+    asset_subtree_external_ids: list[str] | None = None
+    root_asset_external_ids: list[str] | None = None
+    external_id_prefix: str | None = None
+    spaces: list[str] | None = None
+
+
+@dataclass
+class RootLocationDataFilters(APMConfigObject):
+    general: ResourceFilters | None = None
+    assets: ResourceFilters | None = None
+    files: ResourceFilters | None = None
+    timeseries: ResourceFilters | None = None
+
+
+@dataclass
+class ObservationFeatureToggles(APMConfigObject):
+    is_enabled: bool | None = None
+    is_write_back_enabled: bool | None = None
+    notifications_endpoint_external_id: str | None = None
+    attachments_endpoint_external_id: str | None = None
+
+
+@dataclass
+class RootLocationFeatureToggles(APMConfigObject):
+    three_d: bool | None = None
+    trends: bool | None = None
+    documents: bool | None = None
+    workorders: bool | None = None
+    notifications: bool | None = None
+    media: bool | None = None
+    template_checklist_flow: bool | None = None
+    workorder_checklist_flow: bool | None = None
+    observations: ObservationFeatureToggles | None = None
+
+
+@dataclass
+class ObservationConfigFieldProperty(APMConfigObject):
+    display_title: str | None = None
+    display_description: str | None = None
+    is_required: bool | None = None
+
+
+@dataclass
+class ObservationConfigDropdownPropertyOption(APMConfigObject):
+    id: str | None = None
+    value: str | None = None
+    label: str | None = None
+
+
+@dataclass
+class ObservationConfigDropdownProperty(ObservationConfigFieldProperty):
+    options: list[ObservationConfigDropdownPropertyOption] | None = None
+
+
+@dataclass
+class ObservationsConfig(APMConfigObject):
+    files: ObservationConfigFieldProperty | None = None
+    description: ObservationConfigFieldProperty | None = None
+    asset: ObservationConfigFieldProperty | None = None
+    troubleshooting: ObservationConfigFieldProperty | None = None
+    type: ObservationConfigDropdownProperty | None = None
+    priority: ObservationConfigDropdownProperty | None = None
+
+
+@dataclass
+class RootLocationConfiguration(APMConfigObject):
+    asset_external_id: str | None = None
+    external_id: str | None = None
+    display_name: str | None = None
+    three_d_configuration: ThreeDConfiguration | None = None
+    data_set_id: int | None = None
+    template_admins: list[str] | None = None  # list of Group Names
+    checklist_admins: list[str] | None = None  # list of Group Names
+    app_data_instance_space: str | None = None
+    source_data_instance_space: str | None = None
+    data_filters: RootLocationDataFilters | None = None
+    feature_toggles: RootLocationFeatureToggles | None = None
+    observations: ObservationsConfig | None = None
+
+
+@dataclass
+class FeatureConfiguration(APMConfigObject):
+    root_location_configurations: list[RootLocationConfiguration] | None = None
+
+
+class APMConfigCore(WriteableCogniteResource["APMConfigWrite"], ABC):
+    def __init__(
+        self,
+        external_id: str,
+        name: str | None = None,
+        app_data_space_id: str | None = None,
+        app_data_space_version: str | None = None,
+        customer_data_space_id: str | None = None,
+        customer_data_space_version: str | None = None,
+        feature_configuration: FeatureConfiguration | None = None,
+    ) -> None:
+        self.external_id = external_id
+        self.name = name
+        self.app_data_space_id = app_data_space_id
+        self.app_data_space_version = app_data_space_version
+        self.customer_data_space_id = customer_data_space_id
+        self.customer_data_space_version = customer_data_space_version
+        self.feature_configuration = feature_configuration
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self.feature_configuration:
+            output["featureConfiguration" if camel_case else "feature_configuration"] = self.feature_configuration.dump(
+                camel_case=camel_case
+            )
+        return output
+
+
+class APMConfigWrite(APMConfigCore):
+    def as_write(self) -> "APMConfigWrite":
+        return self
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            name=resource.get("name"),
+            app_data_space_id=resource.get("appDataSpaceId"),
+            app_data_space_version=resource.get("appDataSpaceVersion"),
+            customer_data_space_id=resource.get("customerDataSpaceId"),
+            customer_data_space_version=resource.get("customerDataSpaceVersion"),
+            feature_configuration=FeatureConfiguration._load(
+                resource["featureConfiguration"], cognite_client=cognite_client
+            )
+            if "featureConfiguration" in resource
+            else None,
+            existing_version=resource.get("existingVersion"),
+        )
+
+
+class APMConfig(APMConfigCore):
+    def __init__(
+        self,
+        external_id: str,
+        created_time: int,
+        last_updated_time: int,
+        name: str | None = None,
+        app_data_space_id: str | None = None,
+        app_data_space_version: str | None = None,
+        customer_data_space_id: str | None = None,
+        customer_data_space_version: str | None = None,
+        feature_configuration: FeatureConfiguration | None = None,
+    ) -> None:
+        super().__init__(
+            external_id=external_id,
+            name=name,
+            app_data_space_id=app_data_space_id,
+            app_data_space_version=app_data_space_version,
+            customer_data_space_id=customer_data_space_id,
+            customer_data_space_version=customer_data_space_version,
+            feature_configuration=feature_configuration,
+        )
+        self.created_time = created_time
+        self.last_updated_time = last_updated_time
+
+    def as_write(self) -> APMConfigWrite:
+        return APMConfigWrite(
+            external_id=self.external_id,
+            name=self.name,
+            app_data_space_id=self.app_data_space_id,
+            app_data_space_version=self.app_data_space_version,
+            customer_data_space_id=self.customer_data_space_id,
+            customer_data_space_version=self.customer_data_space_version,
+            feature_configuration=self.feature_configuration,
+        )
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            external_id=resource["externalId"],
+            created_time=resource["createdTime"],
+            last_updated_time=resource["lastUpdatedTime"],
+            name=resource.get("name"),
+            app_data_space_id=resource.get("appDataSpaceId"),
+            app_data_space_version=resource.get("appDataSpaceVersion"),
+            customer_data_space_id=resource.get("customerDataSpaceId"),
+            customer_data_space_version=resource.get("customerDataSpaceVersion"),
+            feature_configuration=FeatureConfiguration._load(
+                resource["featureConfiguration"], cognite_client=cognite_client
+            )
+            if "featureConfiguration" in resource
+            else None,
+        )
+
+
+class APMConfigWriteList(CogniteResourceList[APMConfigWrite]):
+    _RESOURCE = APMConfigWrite
