@@ -24,6 +24,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for the populate command",
     }
+    AGENTS: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for Atlas Agents and Agent Tools",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
