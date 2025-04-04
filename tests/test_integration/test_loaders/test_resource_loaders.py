@@ -21,6 +21,8 @@ from cognite.client.data_classes import (
     GroupWrite,
     LabelDefinitionWrite,
     TimeSeriesWrite,
+    WorkflowVersionUpsert,
+    WorkflowVersionUpsertList,
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
@@ -53,6 +55,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FunctionScheduleLoader,
     GroupLoader,
     LabelLoader,
+    ResourceWorker,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
     WorkflowVersionLoader,
@@ -691,3 +694,37 @@ workflowDefinition:
         assert isinstance(parameters, FunctionTaskParameters)
         assert parameters.data == "${myTask1.output.data}"
         assert len(warning_list) == 0, "We should not get a warning for using a reference in a task parameter"
+
+    def test_load_workflow_without_defaults_not_redeployed(self, toolkit_client: ToolkitClient) -> None:
+        definition_yaml = """workflowExternalId: testWorkflowWithoutDefaults
+version: v1
+workflowDefinition:
+  description: Tasks without defaults
+  tasks:
+  - externalId: myTask1
+    type: function
+    parameters:
+      function:
+        externalId: fn_first_function
+"""
+        loader = WorkflowVersionLoader.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, WorkflowVersionUpsert)
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create(WorkflowVersionUpsertList([resource]))
+
+        worker = ResourceWorker(loader)
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
