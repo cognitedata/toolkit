@@ -28,7 +28,6 @@ from cognite.client.data_classes import (
     LabelDefinitionWrite,
     capabilities,
 )
-from cognite.client.data_classes._base import T_CogniteResourceList
 from cognite.client.data_classes.capabilities import (
     Capability,
     DataSetsAcl,
@@ -185,6 +184,7 @@ class LabelLoader(
     kind = "Label"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
+    support_update = False
 
     @property
     def display_name(self) -> str:
@@ -231,12 +231,6 @@ class LabelLoader(
 
     def retrieve(self, ids: SequenceNotStr[str]) -> LabelDefinitionList:
         return self.client.labels.retrieve(ids, ignore_unknown_ids=True)
-
-    def update(self, items: T_CogniteResourceList) -> LabelDefinitionList:
-        existing = self.client.labels.retrieve([item.external_id for item in items])
-        if existing:
-            self.delete([item.external_id for item in items])
-        return self.client.labels.create(items)
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
