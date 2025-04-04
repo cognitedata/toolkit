@@ -17,6 +17,7 @@ from cognite.client.data_classes._base import (
     CogniteObject,
     CogniteResourceList,
     WriteableCogniteResource,
+    WriteableCogniteResourceList,
 )
 from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, ViewId
 from cognite.client.utils._text import to_camel_case
@@ -331,3 +332,10 @@ class APMConfig(APMConfigCore):
 
 class APMConfigWriteList(CogniteResourceList[APMConfigWrite]):
     _RESOURCE = APMConfigWrite
+
+
+class APMConfigList(WriteableCogniteResourceList[APMConfigWrite, APMConfig]):
+    _RESOURCE = APMConfig
+
+    def as_write(self) -> APMConfigWriteList:
+        return APMConfigWriteList([item.as_write() for item in self], self._cognite_client)
