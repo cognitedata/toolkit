@@ -22,7 +22,7 @@ Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/reso
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dotenv = "^1.0.0"
-cognite-sdk = {version = "^7.73.1", extras = ["pandas"]}
+cognite-sdk = {version = "^7.74.2", extras = ["pandas"]}
 pandas = ">=1.5.3, <3.0"
 pyyaml = "^6.0.1"
 typer = ">=0.12.0, <1.0"
