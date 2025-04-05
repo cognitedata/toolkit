@@ -8,6 +8,7 @@ data sets, spaces, and groups.
 
 import sys
 from abc import ABC
+from collections.abc import Sequence
 from dataclasses import dataclass, field, fields
 from functools import lru_cache
 from typing import Any
@@ -19,7 +20,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeOrEdgeData, ViewId
+from cognite.client.data_classes.data_modeling import Node, NodeApply, NodeApplyList, NodeOrEdgeData, ViewId
 from cognite.client.utils._text import to_camel_case
 
 if sys.version_info >= (3, 11):
@@ -473,9 +474,16 @@ class APMConfig(APMConfigCore):
 class APMConfigWriteList(CogniteResourceList[APMConfigWrite]):
     _RESOURCE = APMConfigWrite
 
+    def as_nodes(self) -> NodeApplyList:
+        return NodeApplyList([item.as_node() for item in self])
+
 
 class APMConfigList(WriteableCogniteResourceList[APMConfigWrite, APMConfig]):
     _RESOURCE = APMConfig
 
     def as_write(self) -> APMConfigWriteList:
-        return APMConfigWriteList([item.as_write() for item in self], self._cognite_client)
+        return APMConfigWriteList([item.as_write() for item in self])
+
+    @classmethod
+    def from_nodes(cls, node: Sequence[Node]) -> Self:
+        return cls([cls._RESOURCE.from_node(item) for item in node], cognite_client=None)
