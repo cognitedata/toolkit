@@ -40,6 +40,7 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
     )
     _doc_url = "Instances/operation/applyNodeAndEdges"
     _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
+    _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
 
     @property
     def display_name(self) -> str:
@@ -143,7 +144,35 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
-        raise NotImplementedError
+        for config in cls._get_root_location_configurations(item) or []:
+            if isinstance(asset_external_id := config.get("assetExternalId"), str):
+                yield AssetLoader, asset_external_id
+            if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
+                yield DataSetsLoader, data_set_external_id
+            if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
+                yield SpaceLoader, app_data_instance_space
+            if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
+                yield SpaceLoader, source_data_instance_space
+            for key in cls._group_keys:
+                for group in config.get(key, []):
+                    if isinstance(group, str):
+                        yield GroupResourceScopedLoader, group
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in cls._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                for data_set_external_id in filter_.get("dataSetExternalIds", []):
+                    if isinstance(data_set_external_id, str):
+                        yield DataSetsLoader, data_set_external_id
+                for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
+                    if isinstance(asset_external_id, str):
+                        yield AssetLoader, asset_external_id
+                for space in filter_.get("appDataInstanceSpaces", []):
+                    if isinstance(space, str):
+                        yield SpaceLoader, space
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
         root_location_configurations = self._get_root_location_configurations(resource)
