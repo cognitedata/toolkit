@@ -92,6 +92,29 @@ Node:
       type: view
       version: v1
   space: sp_nodes
+- externalId: default_infield_config_minimal
+  instanceType: node
+  sources:
+  - properties:
+      customerDataSpaceId: APM_SourceData
+      customerDataSpaceVersion: '1'
+      featureConfiguration:
+        rootLocationConfigurations:
+        - appDataInstanceSpace: sp_infield_oid_app_data
+          assetExternalId: WMT:VAL
+          checklistAdmins:
+          - gp_infield_oid_checklist_admins
+          dataSetId: 7982613576047462211
+          sourceDataInstanceSpace: sp_asset_oid_source
+          templateAdmins:
+          - gp_infield_oid_template_admins
+      name: Infield APM App Config
+    source:
+      externalId: APM_Config
+      space: APM_Config
+      type: view
+      version: '1'
+  space: APM_Config
 Space:
 - space: sp_instance
 - space: sp_schema
