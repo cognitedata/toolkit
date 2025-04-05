@@ -3,7 +3,9 @@ from collections.abc import Hashable, Iterable
 from functools import lru_cache
 from typing import Any, final
 
-from cognite.client.data_classes.capabilities import Capability
+from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
@@ -14,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 
 from .auth_loaders import GroupAllScopedLoader
 from .classic_loaders import AssetLoader
@@ -57,19 +60,47 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
     def get_required_capability(
         cls, items: collections.abc.Sequence[APMConfigWrite] | None, read_only: bool
     ) -> Capability | list[Capability]:
-        raise NotImplementedError
+        if not items and items is not None:
+            return []
 
-    def create(self, items: APMConfigWriteList) -> APMConfigList:
-        raise NotImplementedError
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APMConfig.space]))
+
+    def create(self, items: APMConfigWriteList) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=False
+        )
+        return result.nodes
 
     def retrieve(self, ids: SequenceNotStr[str]) -> APMConfigList:
-        raise NotImplementedError
+        result = self.client.data_modeling.instances.retrieve(
+            nodes=self._as_node_ids(ids), sources=APMConfig.view_id
+        ).nodes
+        return APMConfigList.from_nodes(result)
 
     def update(self, items: APMConfigWriteList) -> APMConfigList:
-        raise NotImplementedError
+        result = self.client.data_modeling.instances.apply(
+            nodes=items.as_nodes(), auto_create_direct_relations=True, replace=True
+        )
+        return APMConfigList.from_nodes(result.nodes)
 
-    def delete(self, ids: SequenceNotStr[str | int]) -> int:
-        raise NotImplementedError
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            deleted = self.client.data_modeling.instances.delete(nodes=self._as_node_ids(ids))
+        except CogniteAPIError as e:
+            if "not exist" in e.message and "space" in e.message.lower():
+                return 0
+            raise e
+        return len(deleted.nodes)
+
+    @staticmethod
+    def _as_node_ids(ids: SequenceNotStr[str]) -> list[NodeId]:
+        return [NodeId(APMConfig.space, id) for id in ids]
 
     def _iterate(
         self,
@@ -77,7 +108,10 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[APMConfig]:
-        raise NotImplementedError
+        for node in iterate_instances(
+            self.client, space=space, instance_type="node", source=APMConfig.view_id, console=self.console
+        ):
+            yield APMConfig.from_node(node)
 
     @classmethod
     @lru_cache(maxsize=1)
