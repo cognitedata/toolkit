@@ -39,6 +39,7 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
         {DataSetsLoader, AssetLoader, SpaceLoader, GroupAllScopedLoader, GroupResourceScopedLoader}
     )
     _doc_url = "Instances/operation/applyNodeAndEdges"
+    _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
 
     @property
     def display_name(self) -> str:
@@ -143,3 +144,46 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         raise NotImplementedError
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
+        root_location_configurations = self._get_root_location_configurations(resource)
+        for config in root_location_configurations or []:
+            if not isinstance(config, dict):
+                continue
+            if ds_external_id := config.pop("dataSetExternalId", None):
+                config["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in self._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                if ds_external_ids := filter_.pop("dataSetExternalIds", None):
+                    filter_["dataSetIds"] = self.client.lookup.data_sets.id(ds_external_ids, is_dry_run)
+        return APMConfigWrite._load(resource)
+
+    def dump_resource(self, resource: APMConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        for config in self._get_root_location_configurations(dumped) or []:
+            if not isinstance(config, dict):
+                continue
+            if data_set_id := config.pop("dataSetId", None):
+                config["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in self._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                if data_set_ids := filter_.pop("dataSetIds", None):
+                    filter_["dataSetIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
+        return dumped
+
+    @staticmethod
+    def _get_root_location_configurations(resource: dict[str, Any]) -> list | None:
+        feature_configuration = resource.get("featureConfiguration")
+        if not isinstance(feature_configuration, dict):
+            return None
+        return feature_configuration.get("rootLocationConfigurations")
