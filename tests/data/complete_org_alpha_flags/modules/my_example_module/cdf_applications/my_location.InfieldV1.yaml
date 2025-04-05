@@ -1,0 +1,14 @@
+- externalId: default_infield_config_minimal
+  featureConfiguration:
+    rootLocationConfigurations:
+    - assetExternalId: WMT:VAL
+      appDataInstanceSpace: sp_infield_oid_app_data
+      sourceDataInstanceSpace: sp_asset_oid_source
+      templateAdmins:
+      - gp_infield_oid_template_admins
+      checklistAdmins:
+      - gp_infield_oid_checklist_admins
+      dataSetExternalId: ds_complete_org
+  customerDataSpaceId: APM_SourceData
+  customerDataSpaceVersion: '1'
+  name: Infield APM App Config

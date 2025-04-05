@@ -28,6 +28,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for Atlas Agents and Agent Tools",
     }
+    INFIELD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for Infield configs",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
