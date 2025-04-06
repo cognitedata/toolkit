@@ -208,6 +208,8 @@ class FakeCogniteResourceGenerator:
             elif name == "args" or name == "kwargs":
                 # Skipping generic arguments.
                 continue
+            elif name.startswith("_"):
+                continue
             elif parameter.annotation is inspect.Parameter.empty:
                 raise ValueError(f"Parameter {name} of {resource_cls.__name__} is missing annotation")
             elif skip_defaulted_args and parameter.default is not inspect.Parameter.empty:

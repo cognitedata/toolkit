@@ -8,6 +8,7 @@ import-cmd = true
 module-repeat = true
 populate = true
 agents = false
+infield = true
 
 [plugins]
 run = true
