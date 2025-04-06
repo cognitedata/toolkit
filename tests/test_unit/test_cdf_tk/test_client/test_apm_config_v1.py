@@ -1,6 +1,7 @@
+import pytest
 from cognite.client.data_classes.data_modeling import Node
 
-from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigWrite
+from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import APMConfig, APMConfigCore, APMConfigWrite
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
 
@@ -82,3 +83,13 @@ class TestAPMConfigV1Class:
         node_apply = write_config.as_node()
 
         assert node_apply.dump() == node.as_write().dump()
+
+    @pytest.mark.parametrize("config_cls", [APMConfig, APMConfigWrite])
+    def test_apm_config_write_dump_load_yaml(self, config_cls: type[APMConfigCore]) -> None:
+        instance = FakeCogniteResourceGenerator(seed=1338).create_instance(config_cls)
+
+        yaml_str = instance.dump_yaml()
+
+        loaded_instance = config_cls.load(yaml_str)
+
+        assert loaded_instance.dump() == instance.dump()
