@@ -40,7 +40,7 @@ class APMConfigObject(CogniteObject):
     in the property featureConfiguration in the view (APM_Config, APM_Config, 1) is changed in the future.
     """
 
-    _extra: dict[str, Any] = field(default_factory=dict)
+    _extra: dict[str, Any] = field(default_factory=dict, init=False)
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -89,7 +89,7 @@ class ThreeDConfiguration(APMConfigObject):
         output = super().dump(camel_case=camel_case)
         for snake, camel in [("full_weight_models", "fullWeightModels"), ("light_weight_models", "lightWeightModels")]:
             if hasattr(self, snake):
-                output[camel if camel_case else snake] = [value.dump() for value in getattr(self, snake)]
+                output[camel if camel_case else snake] = [value.dump() for value in getattr(self, snake) or []]
         return output
 
 
@@ -121,7 +121,8 @@ class RootLocationDataFilters(APMConfigObject):
         output = super().dump(camel_case=camel_case)
         for key in ["general", "assets", "files", "timeseries"]:
             if hasattr(self, key):
-                output[key] = getattr(self, key).dump(camel_case=camel_case)
+                if value := getattr(self, key):
+                    output[key] = value.dump(camel_case=camel_case)
         return output
 
 
@@ -224,7 +225,8 @@ class ObservationsConfig(APMConfigObject):
         output = super().dump(camel_case=camel_case)
         for key in ["files", "description", "asset", "troubleshooting", "type", "priority"]:
             if hasattr(self, key):
-                output[key] = getattr(self, key).dump(camel_case=camel_case)
+                if value := getattr(self, key):
+                    output[key] = value.dump(camel_case=camel_case)
         return output
 
 
