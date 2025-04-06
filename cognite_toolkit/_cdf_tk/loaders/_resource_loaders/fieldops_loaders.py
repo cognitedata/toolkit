@@ -144,6 +144,10 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
 
     @classmethod
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
+        if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
+            yield SpaceLoader, app_data_space_id
+        if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
+            yield SpaceLoader, customer_data_space_id
         for config in cls._get_root_location_configurations(item) or []:
             if isinstance(asset_external_id := config.get("assetExternalId"), str):
                 yield AssetLoader, asset_external_id
@@ -170,9 +174,9 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
                 for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
                     if isinstance(asset_external_id, str):
                         yield AssetLoader, asset_external_id
-                for space in filter_.get("appDataInstanceSpaces", []):
-                    if isinstance(space, str):
-                        yield SpaceLoader, space
+                if app_data_instance_space := filter_.get("appDataInstanceSpace"):
+                    if isinstance(app_data_instance_space, str):
+                        yield SpaceLoader, app_data_instance_space
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
         root_location_configurations = self._get_root_location_configurations(resource)
