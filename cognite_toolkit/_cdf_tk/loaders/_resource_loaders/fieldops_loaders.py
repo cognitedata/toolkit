@@ -211,7 +211,7 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
                 if not isinstance(filter_, dict):
                     continue
                 if data_set_ids := filter_.pop("dataSetIds", None):
-                    filter_["dataSetIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
+                    filter_["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
         return dumped
 
     @staticmethod
