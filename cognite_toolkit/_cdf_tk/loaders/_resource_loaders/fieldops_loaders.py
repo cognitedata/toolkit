@@ -1,6 +1,7 @@
 import collections.abc
 from collections.abc import Hashable, Iterable
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, final
 
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
@@ -16,7 +17,9 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
 
 from .auth_loaders import GroupAllScopedLoader
 from .classic_loaders import AssetLoader
@@ -85,11 +88,11 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
         ).nodes
         return APMConfigList.from_nodes(result)
 
-    def update(self, items: APMConfigWriteList) -> APMConfigList:
+    def update(self, items: APMConfigWriteList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
             nodes=items.as_nodes(), auto_create_direct_relations=True, replace=True
         )
-        return APMConfigList.from_nodes(result.nodes)
+        return result.nodes
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
         try:
@@ -178,6 +181,14 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
                     if isinstance(app_data_instance_space, str):
                         yield SpaceLoader, app_data_instance_space
 
+    def safe_read(self, filepath: Path | str) -> str:
+        # The customerDataSpaceVersion is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="customerDataSpaceVersion")
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
         root_location_configurations = self._get_root_location_configurations(resource)
         for config in root_location_configurations or []:
@@ -198,6 +209,12 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
 
     def dump_resource(self, resource: APMConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+
         for config in self._get_root_location_configurations(dumped) or []:
             if not isinstance(config, dict):
                 continue
@@ -213,6 +230,24 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
                 if data_set_ids := filter_.pop("dataSetIds", None):
                     filter_["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
         return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("featureConfiguration", "rootLocationConfigurations"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        if not (len(json_path) >= 3 and json_path[:2] == ("featureConfiguration", "rootLocationConfigurations")):
+            return super().diff_list(local, cdf, json_path)
+
+        if len(json_path) == 4 and json_path[-1] in self._group_keys:
+            return diff_list_hashable(local, cdf)
+        if len(json_path) == 5 and json_path[-1] in ("fullWeightModels", "lightWeightModels"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        if len(json_path) == 6 and json_path[-2] == "dataFilters" and json_path[-1] in self._root_location_filters:
+            return diff_list_hashable(local, cdf)
+        if len(json_path) == 7 and "observations" in json_path and json_path[-1] in ("type", "priority"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        return super().diff_list(local, cdf, json_path)
 
     @staticmethod
     def _get_root_location_configurations(resource: dict[str, Any]) -> list | None:
