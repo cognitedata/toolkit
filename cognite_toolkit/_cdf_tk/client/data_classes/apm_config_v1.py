@@ -72,6 +72,25 @@ class ThreeDConfiguration(APMConfigObject):
     full_weight_models: list[ThreeDModelIdentifier] | None = None
     light_weight_models: list[ThreeDModelIdentifier] | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        for snake, camel in [("full_weight_models", "fullWeightModels"), ("light_weight_models", "lightWeightModels")]:
+            if camel in resource:
+                setattr(
+                    instance,
+                    snake,
+                    [ThreeDModelIdentifier._load(model, cognite_client=cognite_client) for model in resource[camel]],
+                )
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        for snake, camel in [("full_weight_models", "fullWeightModels"), ("light_weight_models", "lightWeightModels")]:
+            if hasattr(self, snake):
+                output[camel if camel_case else snake] = [value.dump() for value in getattr(self, snake)]
+        return output
+
 
 @dataclass
 class ResourceFilters(APMConfigObject):
@@ -88,6 +107,21 @@ class RootLocationDataFilters(APMConfigObject):
     assets: ResourceFilters | None = None
     files: ResourceFilters | None = None
     timeseries: ResourceFilters | None = None
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        for key in ["general", "assets", "files", "timeseries"]:
+            if key in resource:
+                setattr(instance, key, ResourceFilters._load(resource[key], cognite_client=cognite_client))
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        for key in ["general", "assets", "files", "timeseries"]:
+            if hasattr(self, key):
+                output[key] = getattr(self, key).dump(camel_case=camel_case)
+        return output
 
 
 @dataclass
@@ -110,6 +144,21 @@ class RootLocationFeatureToggles(APMConfigObject):
     workorder_checklist_flow: bool | None = None
     observations: ObservationFeatureToggles | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "observations" in resource:
+            instance.observations = ObservationFeatureToggles._load(
+                resource["observations"], cognite_client=cognite_client
+            )
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self.observations:
+            output["observations"] = self.observations.dump(camel_case=camel_case)
+        return output
+
 
 @dataclass
 class ObservationConfigFieldProperty(APMConfigObject):
@@ -129,6 +178,22 @@ class ObservationConfigDropdownPropertyOption(APMConfigObject):
 class ObservationConfigDropdownProperty(ObservationConfigFieldProperty):
     options: list[ObservationConfigDropdownPropertyOption] | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "options" in resource:
+            instance.options = [
+                ObservationConfigDropdownPropertyOption._load(option, cognite_client=cognite_client)
+                for option in resource["options"]
+            ]
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self.options:
+            output["options"] = [option.dump(camel_case=camel_case) for option in self.options]
+        return output
+
 
 @dataclass
 class ObservationsConfig(APMConfigObject):
@@ -138,6 +203,28 @@ class ObservationsConfig(APMConfigObject):
     troubleshooting: ObservationConfigFieldProperty | None = None
     type: ObservationConfigDropdownProperty | None = None
     priority: ObservationConfigDropdownProperty | None = None
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        for key in ["files", "description", "asset", "troubleshooting"]:
+            if key in resource:
+                setattr(
+                    instance, key, ObservationConfigFieldProperty._load(resource[key], cognite_client=cognite_client)
+                )
+        for key in ["type", "priority"]:
+            if key in resource:
+                setattr(
+                    instance, key, ObservationConfigDropdownProperty._load(resource[key], cognite_client=cognite_client)
+                )
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        for key in ["files", "description", "asset", "troubleshooting", "type", "priority"]:
+            if hasattr(self, key):
+                output[key] = getattr(self, key).dump(camel_case=camel_case)
+        return output
 
 
 @dataclass
@@ -155,10 +242,63 @@ class RootLocationConfiguration(APMConfigObject):
     feature_toggles: RootLocationFeatureToggles | None = None
     observations: ObservationsConfig | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "threeDConfiguration" in resource:
+            instance.three_d_configuration = ThreeDConfiguration._load(
+                resource["threeDConfiguration"], cognite_client=cognite_client
+            )
+        if "dataFilters" in resource:
+            instance.data_filters = RootLocationDataFilters._load(
+                resource["dataFilters"], cognite_client=cognite_client
+            )
+        if "featureToggles" in resource:
+            instance.feature_toggles = RootLocationFeatureToggles._load(
+                resource["featureToggles"], cognite_client=cognite_client
+            )
+        if "observations" in resource:
+            instance.observations = ObservationsConfig._load(resource["observations"], cognite_client=cognite_client)
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self.three_d_configuration:
+            output["threeDConfiguration" if camel_case else "three_d_configuration"] = self.three_d_configuration.dump(
+                camel_case=camel_case
+            )
+        if self.data_filters:
+            output["dataFilters" if camel_case else "data_filters"] = self.data_filters.dump(camel_case=camel_case)
+        if self.feature_toggles:
+            output["featureToggles" if camel_case else "feature_toggles"] = self.feature_toggles.dump(
+                camel_case=camel_case
+            )
+        if self.observations:
+            output["observations"] = self.observations.dump(camel_case=camel_case)
+        return output
+
 
 @dataclass
 class FeatureConfiguration(APMConfigObject):
     root_location_configurations: list[RootLocationConfiguration] | None = None
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        instance = super()._load(resource, cognite_client=cognite_client)
+        if "rootLocationConfigurations" in resource:
+            instance.root_location_configurations = [
+                RootLocationConfiguration._load(item, cognite_client=cognite_client)
+                for item in resource.get("rootLocationConfigurations", [])
+            ]
+        return instance
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        output = super().dump(camel_case=camel_case)
+        if self.root_location_configurations:
+            output["rootLocationConfigurations" if camel_case else "root_location_configurations"] = [
+                item.dump(camel_case=camel_case) for item in self.root_location_configurations
+            ]
+        return output
 
 
 class APMConfigCore(WriteableCogniteResource["APMConfigWrite"], ABC):
