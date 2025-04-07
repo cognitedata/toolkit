@@ -1,6 +1,7 @@
 space: {{ schemaSpace }}
 externalId: Image360CollectionProperties
 name: Image360CollectionProperties
+usedFor: edge
 properties:
   image360CollectionExternalId:
     type:
