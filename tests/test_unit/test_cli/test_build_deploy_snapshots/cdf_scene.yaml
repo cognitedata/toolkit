@@ -13,6 +13,7 @@ Container:
         list: false
         type: int64
   space: scene
+  usedFor: edge
 - constraints: {}
   externalId: EnvironmentMap
   indexes: {}
@@ -51,6 +52,7 @@ Container:
         list: false
         type: text
   space: scene
+  usedFor: edge
 - constraints: {}
   externalId: Image360CollectionScene
   indexes: {}
