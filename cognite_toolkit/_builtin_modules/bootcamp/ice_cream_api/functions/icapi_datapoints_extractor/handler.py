@@ -137,15 +137,15 @@ def handle(client: CogniteClient = None, data=None):
             )
         } if not backfill else None
 
-        to_insert = []
-        for ts in time_series:
-            # figure out the window of datapoints to pull for this Time Series
-            latest = latest_dps[ts.external_id][0] if not backfill and latest_dps.get(ts.external_id) else None
+        try:
+            to_insert = []
+            for ts in time_series:
+                # figure out the window of datapoints to pull for this Time Series
+                latest = latest_dps[ts.external_id][0] if not backfill and latest_dps.get(ts.external_id) else None
 
-            start = latest if latest else now - increment
-            end = now
-
-            try:
+                start = latest if latest else now - increment
+                end = now
+            
                 dps_list = ice_cream_api.get_datapoints(timeseries_ext_id=ts.external_id, start=start, end=end)
 
                 for dp_dict in dps_list:
@@ -157,9 +157,9 @@ def handle(client: CogniteClient = None, data=None):
                     client.time_series.data.insert_multiple(datapoints=to_insert)
                     to_insert = []
 
-                report_ext_pipe(client, "success")
-            except Exception as e:
-                report_ext_pipe(client, "fail", e)
+            report_ext_pipe(client, "success")
+        except Exception as e:
+            report_ext_pipe(client, "fail", e)
 
         if to_insert:
             client.time_series.data.insert_multiple(datapoints=to_insert)
