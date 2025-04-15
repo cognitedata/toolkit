@@ -157,12 +157,12 @@ def handle(client: CogniteClient = None, data=None):
                     client.time_series.data.insert_multiple(datapoints=to_insert)
                     to_insert = []
 
-        report_ext_pipe(client, "success")
-    except Exception as e:
-        report_ext_pipe(client, "fail", e)
-
         if to_insert:
             client.time_series.data.insert_multiple(datapoints=to_insert)
             print(f"  {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
         else:
             print(f"  No TimeSeries, for {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
+
+        report_ext_pipe(client, "success")
+    except Exception as e:
+        report_ext_pipe(client, "fail", e)
