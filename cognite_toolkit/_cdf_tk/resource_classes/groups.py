@@ -29,7 +29,7 @@ class Group(ToolkitResource):
             return cast(Self, ExternalGroup.model_validate(data))
         elif "members" in data:
             return cast(Self, CDFGroup.model_validate(data))
-        raise ValueError(f"Cannot load group {data} - no sourceId or members found")
+        raise ValueError("Missing required field: Either 'sourceId' or 'members'")
 
     @model_serializer(mode="wrap")
     def serialize_group(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:

@@ -6,6 +6,8 @@ from typing import Any, ClassVar, Literal, cast
 from pydantic import BaseModel, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
+
 if sys.version_info < (3, 11):
     from typing_extensions import Self
 else:
@@ -29,7 +31,9 @@ class Scope(BaseModelResource):
             return handler(data)
         name, content = next(iter(data.items()))
         if name not in _SCOPE_CLASS_BY_NAME:
-            raise ValueError(f"Invalid scope name '{name}'. Expected one of {_SCOPE_CLASS_BY_NAME.keys()}")
+            raise ValueError(
+                f"Invalid scope name '{name}'. Expected one of {humanize_collection(_SCOPE_CLASS_BY_NAME.keys(), bind_word='or')}"
+            )
         cls_ = _SCOPE_CLASS_BY_NAME[name]
         return cast(Self, cls_.model_validate(content))
 
