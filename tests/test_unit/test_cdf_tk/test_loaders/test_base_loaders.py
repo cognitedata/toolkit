@@ -226,6 +226,8 @@ def test_resource_types_is_up_to_date() -> None:
 
     if not FeatureFlag.is_enabled(Flags.AGENTS):
         extra.discard("agents")
+    if not FeatureFlag.is_enabled(Flags.INFIELD):
+        extra.discard("cdf_applications")
 
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"

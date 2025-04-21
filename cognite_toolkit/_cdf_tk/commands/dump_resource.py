@@ -153,11 +153,17 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
+        model_loader = DataModelLoader.create_loader(self.client)
         if self.data_model:
-            yield [], dm.DataModelList([self.data_model]), DataModelLoader.create_loader(self.client), None
+            is_global_model = self.data_model.is_global
+            yield [], dm.DataModelList([self.data_model]), model_loader, None
         else:
-            yield [self.identifier], None, DataModelLoader.create_loader(self.client), None
-        if self._include_global:
+            model_list = model_loader.retrieve([self.identifier])
+            if not model_list:
+                raise ToolkitResourceMissingError(f"Data model {self.identifier} not found", str(self.identifier))
+            is_global_model = model_list[0].is_global
+            yield [], model_list, model_loader, None
+        if self._include_global or is_global_model:
             yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
             yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
             yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None

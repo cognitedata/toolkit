@@ -42,6 +42,7 @@ from ._resource_loaders import (
     HostedExtractorJobLoader,
     HostedExtractorMappingLoader,
     HostedExtractorSourceLoader,
+    InfieldV1Loader,
     LabelLoader,
     LocationFilterLoader,
     NodeLoader,
@@ -80,7 +81,8 @@ if not FeatureFlag.is_enabled(Flags.GRAPHQL):
     _EXCLUDED_LOADERS.add(GraphQLLoader)
 if not FeatureFlag.is_enabled(Flags.AGENTS):
     _EXCLUDED_LOADERS.add(AgentLoader)
-
+if not FeatureFlag.is_enabled(Flags.INFIELD):
+    _EXCLUDED_LOADERS.add(InfieldV1Loader)
 
 LOADER_BY_FOLDER_NAME: dict[str, list[type[Loader]]] = {}
 for _loader in itertools.chain(
@@ -113,6 +115,7 @@ ResourceTypes: TypeAlias = Literal[  # type: ignore[no-redef, misc]
     "3dmodels",
     "agents",
     "auth",
+    "cdf_applications",
     "classic",
     "data_models",
     "data_sets",
