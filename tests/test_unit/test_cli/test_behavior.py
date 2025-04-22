@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
+    NAUGHTY_PROJECT,
     PROJECT_FOR_TEST,
     PROJECT_NO_COGNITE_MODULES,
     PROJECT_WITH_DUPLICATES,
@@ -628,3 +629,41 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.Workflow.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowTrigger.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
+
+
+def test_build_deploy_keep_special_characters(
+    tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    build_dir = tmp_path / "build"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    transformation_source_file = (
+        NAUGHTY_PROJECT / MODULES / "encoding_issue" / "case" / "transformations" / "tr_equipamento.Transformation.yaml"
+    )
+    transformation_source = yaml.safe_load(transformation_source_file.read_text(encoding="utf-8"))
+    assert isinstance(transformation_source, dict)
+    assert "query" in transformation_source
+    expected_query = transformation_source["query"]
+
+    BuildCommand(silent=True).execute(
+        False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
+    )
+
+    DeployCommand(silent=True).execute(
+        env_vars_with_client,
+        build_dir,
+        None,
+        dry_run=False,
+        drop=False,
+        drop_data=False,
+        force_update=False,
+        include=None,
+        verbose=False,
+    )
+
+    transformations = toolkit_client_approval.created_resources_of_type(Transformation)
+
+    assert len(transformations) == 1
+    transformation = transformations[0]
+    assert transformation.query == expected_query
