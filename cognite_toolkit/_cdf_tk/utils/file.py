@@ -186,12 +186,12 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
         safe_rmtree(build_dir)
 
 
-def safe_read(file: Path | str) -> str:
+def safe_read(file: Path | str, encoding: str | None = None) -> str:
     """Falls back on explicit using utf-8 if the default .read_text()"""
     if isinstance(file, str):
         return file
     try:
-        return file.read_text()
+        return file.read_text(encoding=encoding)
     except UnicodeDecodeError:
         # On Windows, we may have issues as the encoding is not always utf-8
         try:

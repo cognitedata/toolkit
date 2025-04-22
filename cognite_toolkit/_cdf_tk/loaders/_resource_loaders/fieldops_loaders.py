@@ -16,6 +16,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.apm_config_v1 import (
     APMConfigWrite,
     APMConfigWriteList,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
@@ -187,7 +188,9 @@ class InfieldV1Loader(ResourceLoader[str, APMConfigWrite, APMConfig, APMConfigWr
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="customerDataSpaceVersion")
+        return quote_int_value_by_key_in_yaml(
+            safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="customerDataSpaceVersion"
+        )
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
         root_location_configurations = self._get_root_location_configurations(resource)
