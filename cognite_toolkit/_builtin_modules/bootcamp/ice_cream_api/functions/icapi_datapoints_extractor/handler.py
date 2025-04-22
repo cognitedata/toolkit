@@ -123,29 +123,29 @@ def handle(client: CogniteClient = None, data=None):
 
     ice_cream_api = IceCreamFactoryAPI(base_url="https://ice-cream-factory.inso-internal.cognite.ai")
 
-    for site in sites:
-        print(f"Getting Data Points for {site}")
-        big_start = default_timer()
+    try:
+        for site in sites:
+            print(f"Getting Data Points for {site}")
+            big_start = default_timer()
 
-        time_series = get_time_series_for_site(client, site)
+            time_series = get_time_series_for_site(client, site)
 
-        latest_dps = {
-            dp.external_id: dp.timestamp
-            for dp in client.time_series.data.retrieve_latest(
-                external_id=[ts.external_id for ts in time_series],
-                ignore_unknown_ids=True
-            )
-        } if not backfill else None
+            latest_dps = {
+                dp.external_id: dp.timestamp
+                for dp in client.time_series.data.retrieve_latest(
+                    external_id=[ts.external_id for ts in time_series],
+                    ignore_unknown_ids=True
+                )
+            } if not backfill else None
 
-        to_insert = []
-        for ts in time_series:
-            # figure out the window of datapoints to pull for this Time Series
-            latest = latest_dps[ts.external_id][0] if not backfill and latest_dps.get(ts.external_id) else None
+            to_insert = []
+            for ts in time_series:
+                # figure out the window of datapoints to pull for this Time Series
+                latest = latest_dps[ts.external_id][0] if not backfill and latest_dps.get(ts.external_id) else None
 
-            start = latest if latest else now - increment
-            end = now
-
-            try:
+                start = latest if latest else now - increment
+                end = now
+            
                 dps_list = ice_cream_api.get_datapoints(timeseries_ext_id=ts.external_id, start=start, end=end)
 
                 for dp_dict in dps_list:
@@ -157,12 +157,12 @@ def handle(client: CogniteClient = None, data=None):
                     client.time_series.data.insert_multiple(datapoints=to_insert)
                     to_insert = []
 
-                report_ext_pipe(client, "success")
-            except Exception as e:
-                report_ext_pipe(client, "fail", e)
-
         if to_insert:
             client.time_series.data.insert_multiple(datapoints=to_insert)
             print(f"  {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
         else:
             print(f"  No TimeSeries, for {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
+
+        report_ext_pipe(client, "success")
+    except Exception as e:
+        report_ext_pipe(client, "fail", e)

@@ -12,6 +12,7 @@ from .datamodel_loaders import (
     ViewLoader,
 )
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
+from .fieldops_loaders import InfieldV1Loader
 from .file_loader import CogniteFileLoader, FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
@@ -60,6 +61,7 @@ __all__ = [
     "HostedExtractorJobLoader",
     "HostedExtractorMappingLoader",
     "HostedExtractorSourceLoader",
+    "InfieldV1Loader",
     "LabelLoader",
     "LocationFilterLoader",
     "NodeLoader",
