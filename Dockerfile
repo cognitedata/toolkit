@@ -1,4 +1,4 @@
-FROM python:3.11-slim AS builder
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
 # Python
 ENV PYTHONFAULTHANDLER=1 \
   PYTHONUNBUFFERED=1 \
@@ -8,30 +8,25 @@ ENV PYTHONFAULTHANDLER=1 \
   PIP_DISABLE_PIP_VERSION_CHECK=on \
   PIP_DEFAULT_TIMEOUT=100 \
   # Poetry's configuration:
-  POETRY_NO_INTERACTION=1 \
-  POETRY_VIRTUALENVS_CREATE=false \
-  POETRY_CACHE_DIR='/var/cache/pypoetry' \
-  POETRY_HOME='/usr/local' \
-  POETRY_VERSION=2.0.1
-RUN apt-get update && apt-get install -y curl
-RUN curl -sSL https://install.python-poetry.org | python3 -
+  UV_COMPILE_BYTECODE=1 \
+  UV_LINK_MODE=copy \
+  UV_PYTHON_DOWNLOADS=0
 
-ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
-
-COPY poetry.lock pyproject.toml README.md ./
-COPY cognite_toolkit/. ./cognite_toolkit/
-# Ensure we get the exact version of the dependencies
-RUN poetry sync --without dev
+WORKDIR /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+ADD . /app
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
 # Building final image
 FROM python:3.11-slim-bookworm
-COPY --from=builder /usr/local/lib/python3.11/site-packages  /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /cognite_toolkit /cognite_toolkit
-# This is only used for development
-RUN rm -rf /app/dev.py
-RUN mkdir /app
-WORKDIR /app
 
+# Copy the application from the builder
+COPY --from=builder --chown=app:app /app /app
+# Place executables in the environment at the front of the path
+ENV PATH="/app/.venv/bin:$PATH"
 
 CMD ["cdf", "--help"]
