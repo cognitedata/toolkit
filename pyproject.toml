@@ -34,28 +34,30 @@ Changelog = "https://github.com/cognitedata/toolkit/releases"
 GitHub = "https://github.com/cognitedata/toolkit"
 Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
-[tool.poetry.group.dev.dependencies]
-mypy = "^1.8.0"
-pre-commit = "^4.0.0"
-pytest = "^8.0.0"
-pytest-icdiff = "*"  # Used for better diffs in pytest
-pytest-regressions = "^2.4.2"
-pytest-xdist = "^3.6.1"
-pytest-rerunfailures = "^14.0"
-types-PyYAML = "^6"
-types-toml = "^0.10.8.20240310"
-twine = "^6.0.0"
-toml = { version = "^0.10.2", python = ">=3.11" }
-pytest-freezegun = "^0.4.2"
-pytest-cov = "^6.0.0"
-setuptools = "^75.0.0"
-fastparquet = "^2024.5.0"
-pyperclip = "^1.9.0"
-pydantic = "^2.9.0"
-types-requests = "^2.32.0.20241016"
-marko = "^2.1.2"
+[dependency-groups]
+dev = [
+    "mypy >=1.8.0",
+    "pre-commit >=4.0.0",
+    "pytest >=8.0.0",
+    "pytest-icdiff", # Used for better diffs in pytest
+    "pytest-regressions >=2.4.2",
+    "pytest-xdist >=3.6.1",
+    "pytest-rerunfailures >=14.0",
+    "types-PyYAML >=6",
+    "types-toml >=0.10.8.20240310",
+    "twine >=6.0.0",
+    "toml >=0.10.2; python_version >= '3.11'",
+    "pytest-freezegun >=0.4.2",
+    "pytest-cov >=6.0.0",
+    "setuptools >=75.0.0",
+    "fastparquet >=2024.5.0",
+    "pyperclip >=1.9.0",
+    "pydantic >=2.9.0",
+    "types-requests >=2.32.0.20241016",
+    "marko >=2.1.2",
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
 cdf = "cognite_toolkit._cdf:app"
 
