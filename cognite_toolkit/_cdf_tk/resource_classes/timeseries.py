@@ -1,7 +1,7 @@
 from .base import ToolkitResource
 
 
-class TimeSeriesYAML(ToolkitResource):
+class TimeSeriesTK(ToolkitResource):
     external_id: str
     name: str | None = None
     is_string: bool = False
