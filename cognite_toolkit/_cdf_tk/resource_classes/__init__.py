@@ -8,9 +8,9 @@ This is means that we have three set of resource classes we use in Toolkit:
 """
 
 from .base import ToolkitResource
-from .timeseries import TimeSeriesYAML
+from .timeseries import TimeSeriesTK
 
 __all__ = [
-    "TimeSeriesYAML",
+    "TimeSeriesTK",
     "ToolkitResource",
 ]
