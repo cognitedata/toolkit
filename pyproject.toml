@@ -51,6 +51,7 @@ dev = [
     "pydantic >=2.9.0",
     "types-requests >=2.32.0.20241016",
     "marko >=2.1.2",
+    "pip>=25.0.1",
 ]
 
 [project.scripts]
