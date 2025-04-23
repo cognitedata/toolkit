@@ -1,7 +1,7 @@
 import pytest
 
 from cognite_toolkit._cdf_tk.constants import MODULES
-from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesTK
+from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 from tests.data import COMPLETE_ORG
 
@@ -25,6 +25,6 @@ def find_resources(resource: str):
 class TestTimeSeriesTK:
     @pytest.mark.parametrize("data", list(find_resources("TimeSeries")))
     def test_load_valid_timeseries(self, data: dict[str, object]) -> None:
-        loaded = TimeSeriesTK.model_validate(data)
+        loaded = TimeSeriesYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
