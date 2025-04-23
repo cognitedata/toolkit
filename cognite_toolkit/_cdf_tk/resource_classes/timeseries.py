@@ -2,7 +2,7 @@ from .base import ToolkitResource
 
 
 class TimeSeriesTK(ToolkitResource):
-    externalId: str | None = None
+    external_id: str
     name: str | None = None
     is_string: bool = False
     metadata: dict[str, str] | None = None
