@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -631,6 +632,7 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="The encoding issue is only present on Windows")
 @pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
 def test_build_deploy_keep_special_characters(
     encoding: str,
