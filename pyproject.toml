@@ -110,6 +110,6 @@ exclude = [
 ]
 
 [build-system]
-include = ["cognite_toolkit/*", "cognite_toolkit/**/*"]
+packages = ["cognite_toolkit"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
