@@ -631,21 +631,19 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
 
 
+@pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
 def test_build_deploy_keep_special_characters(
+    encoding: str,
     tmp_path: Path,
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
+    monkeypatch,
 ) -> None:
     build_dir = tmp_path / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
-    transformation_source_file = (
-        NAUGHTY_PROJECT / MODULES / "encoding_issue" / "case" / "transformations" / "tr_equipamento.Transformation.yaml"
-    )
-    transformation_source = yaml.safe_load(transformation_source_file.read_text(encoding="utf-8"))
-    assert isinstance(transformation_source, dict)
-    assert "query" in transformation_source
-    expected_query = transformation_source["query"]
+    expected_query = "SELECT * FROM my_éñcüd€d£d_table WHERE column = 'value'"
 
+    monkeypatch.setenv("TOOLKIT_FILE_ENCODING", encoding)
     BuildCommand(silent=True).execute(
         False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
     )
@@ -664,6 +662,6 @@ def test_build_deploy_keep_special_characters(
 
     transformations = toolkit_client_approval.created_resources_of_type(Transformation)
 
-    assert len(transformations) == 1
-    transformation = transformations[0]
+    assert len(transformations) == 2
+    transformation = next(t for t in transformations if t.external_id.endswith(encoding))
     assert transformation.query == expected_query
