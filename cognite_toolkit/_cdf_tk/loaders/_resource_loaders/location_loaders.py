@@ -101,6 +101,7 @@ class LocationFilterLoader(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):
+            # TODO: this will draw blanks if the parent is in the current build but has not been deployed yet
             resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
         if "assetCentric" not in resource:
             return LocationFilterWrite._load(resource)
