@@ -26,7 +26,7 @@ jobs:
       - name: Dump last tag to file
         run: git describe --tags --abbrev=0 > last_version.txt
       - name: Bump Version
-        run: python dev.py bump --verbose
+        run: uv run python dev.py bump --verbose
       - id: version
         name: Read the new version
         # Read the version from the cognite_toolkit/_version.py file
