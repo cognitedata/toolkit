@@ -11,6 +11,7 @@ from cognite.client.utils._text import to_camel_case, to_snake_case
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
 from cognite_toolkit._cdf_tk.loaders import NodeLoader
+from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
@@ -114,3 +115,9 @@ def _validate_resource_yaml(
         warnings.append(MissingRequiredParameterWarning(source_file, element, spec_param.path, spec_param.key))
 
     return warnings
+
+
+def validate_resource_yaml_pydantic(
+    data: dict[str, object] | list[dict[str, object]], validation_cls: type[ToolkitResource], source_file: Path
+) -> WarningList:
+    raise NotImplementedError
