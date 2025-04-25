@@ -61,7 +61,7 @@ from cognite_toolkit._cdf_tk.utils.modules import (
 )
 
 from ._base import ToolkitCommand
-from .build import BuildCommand
+from .build_cmd import BuildCommand
 from .clean import CleanCommand
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")

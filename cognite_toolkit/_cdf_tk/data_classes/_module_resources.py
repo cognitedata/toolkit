@@ -61,7 +61,7 @@ class BuildInfo(ConfigCore):
     ) -> BuildInfo:
         # To avoid circular imports
         # Ideally, this class should be in a separate module
-        from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+        from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 
         with tmp_build_directory() as build_dir:
             cdf_toml = CDFToml.load()
