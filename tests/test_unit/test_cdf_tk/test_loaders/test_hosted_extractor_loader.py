@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.loaders import HostedExtractorSourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import MissingRequiredParameterWarning
 from tests.data import COMPLETE_ORG
