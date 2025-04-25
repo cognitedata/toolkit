@@ -21,6 +21,7 @@ from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeS
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
@@ -645,7 +646,9 @@ def test_build_deploy_keep_special_characters(
     build_dir.mkdir(parents=True, exist_ok=True)
     expected_query = "SELECT * FROM my_éñcüd€d£d_table WHERE column = 'value'"
 
-    monkeypatch.setenv("TOOLKIT_FILE_ENCODING", encoding)
+    my_cdf_toml = cdf_toml.CDFToml.load(use_singleton=False)
+    my_cdf_toml.cdf.file_encoding = encoding
+    monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     BuildCommand(silent=True).execute(
         False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
     )
