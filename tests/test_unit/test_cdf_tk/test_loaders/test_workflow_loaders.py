@@ -4,12 +4,12 @@ from unittest.mock import MagicMock
 import pytest
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import WorkflowTrigger
-from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
+from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule, WorkflowVersionId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
-from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerLoader
+from cognite_toolkit._cdf_tk.loaders import WorkflowTriggerLoader, WorkflowVersionLoader
 from cognite_toolkit._cdf_tk.utils import calculate_secure_hash
 
 
@@ -84,3 +84,21 @@ authentication:
         cdf_dumped = loader.dump_resource(cdf_trigger, local_dumped)
 
         assert cdf_dumped != local_dumped
+
+
+class TestWorkflowVersionLoader:
+    def test_retrieve_above_chunk_limit(self) -> None:
+        filter_limit = 100
+        with monkeypatch_toolkit_client() as client:
+            loader = WorkflowVersionLoader.create_loader(client)
+        ids = [WorkflowVersionId(f"my_workflow_{no}", "v1") for no in range(filter_limit + 1)]
+
+        _ = loader.retrieve(ids)
+
+        assert client.workflows.versions.list.call_count == 2
+        call_above_limit = [
+            call_no
+            for call_no, call in enumerate(client.workflows.versions.list.call_args_list, 1)
+            if len(call.args[0]) > filter_limit
+        ]
+        assert not call_above_limit, "Above limit should not be called"
