@@ -30,7 +30,7 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2"},
         ],
         [
-            "In [1] Missing required field: 'externalId'",
+            "In item [1] missing required field: 'externalId'",
         ],
         id="Invalid second element of list of timeseries",
     )
@@ -45,4 +45,4 @@ class TestValidateResourceYAML:
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
 
-        assert format_warning.errors == expected_errors
+        assert format_warning.errors == tuple(expected_errors)
