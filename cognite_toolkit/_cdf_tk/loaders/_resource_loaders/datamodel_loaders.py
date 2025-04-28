@@ -84,7 +84,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
 )
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
@@ -568,7 +568,7 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def dump_resource(self, resource: View, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -887,7 +887,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def dump_resource(self, resource: DataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -1199,7 +1199,7 @@ class GraphQLLoader(
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -1221,7 +1221,7 @@ class GraphQLLoader(
                 )
 
             self._graphql_filepath_cache[model_id] = graphql_file
-            graphql_content = safe_read(graphql_file)
+            graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
 
             parser = GraphQLParser(graphql_content, model_id)
             try:

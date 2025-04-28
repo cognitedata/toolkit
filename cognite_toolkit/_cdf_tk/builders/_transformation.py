@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -86,7 +87,7 @@ class TransformationBuilder(Builder):
                 )
             elif query_file is not None:
                 destination_path = self._create_destination_path(query_file.source.path, "Query")
-                safe_write(destination_path, query_file.content)
+                safe_write(destination_path, query_file.content, encoding=BUILD_FOLDER_ENCODING)
                 relative = destination_path.relative_to(transformation_destination_path.parent)
                 entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)
