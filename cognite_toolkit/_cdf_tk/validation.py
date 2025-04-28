@@ -7,6 +7,7 @@ from typing import Any
 
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
+from pydantic import TypeAdapter, ValidationError
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
@@ -22,6 +23,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 
 __all__ = ["validate_data_set_is_set", "validate_modules_variables", "validate_resource_yaml"]
+
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
 
 
 def validate_modules_variables(variables: BuildVariables, filepath: Path) -> WarningList:
@@ -120,4 +123,40 @@ def _validate_resource_yaml(
 def validate_resource_yaml_pydantic(
     data: dict[str, object] | list[dict[str, object]], validation_cls: type[ToolkitResource], source_file: Path
 ) -> WarningList:
-    raise NotImplementedError
+    """Validates the resource given as a dictionary or list of dictionaries with the given pydantic model.
+
+    Args:
+        data: The data to validate.
+        validation_cls: The pydantic model to validate against.
+        source_file: The source file of the resource.
+
+    Returns:
+        A list of warnings.
+
+    """
+    warning_list: WarningList = WarningList()
+    if isinstance(data, dict):
+        try:
+            validation_cls.model_validate(data)
+        except ValidationError as e:
+            warning_list.append(ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e))))
+    elif isinstance(data, list):
+        try:
+            TypeAdapter(list[validation_cls]).validate_python(data)  # type: ignore[valid-type]
+        except ValidationError as e:
+            warning_list.append(ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e))))
+    else:
+        raise ValueError(f"Expected a dictionary or list of dictionaries, got {type(data)}.")
+    return warning_list
+
+
+def _humanize_validation_error(error: ValidationError) -> list[str]:
+    """Converts a ValidationError to a human-readable format.
+
+    Args:
+        error: The ValidationError to convert.
+
+    Returns:
+        A list of human-readable error messages.
+    """
+    raise
