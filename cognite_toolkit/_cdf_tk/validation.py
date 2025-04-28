@@ -8,6 +8,7 @@ from typing import Any
 from cognite.client.data_classes._base import CogniteObject
 from cognite.client.utils._text import to_camel_case, to_snake_case
 from pydantic import TypeAdapter, ValidationError
+from pydantic_core import ErrorDetails
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
@@ -153,10 +154,39 @@ def validate_resource_yaml_pydantic(
 def _humanize_validation_error(error: ValidationError) -> list[str]:
     """Converts a ValidationError to a human-readable format.
 
+    This overwrites the default error messages from Pydantic to be better suited for Toolkit users.
+
     Args:
         error: The ValidationError to convert.
 
     Returns:
         A list of human-readable error messages.
     """
-    raise
+    errors: list[str] = []
+    item: ErrorDetails
+    for item in error.errors(include_input=True, include_url=False):
+        loc = item["loc"]
+        error_type = item["type"]
+        if error_type == "missing":
+            msg = f"Missing required field: {loc[-1]!r}"
+        else:
+            # Default to the Pydantic error message
+            msg = item["msg"]
+        if len(loc) > 1:
+            msg = f"In {_as_json_path(loc[:-1])} {msg[0].casefold()}{msg[1:]}"
+        errors.append(msg)
+    return errors
+
+
+def _as_json_path(loc: tuple[str | int, ...]) -> str:
+    """Converts a location tuple to a JSON path.
+
+    Args:
+        loc: The location tuple to convert.
+
+    Returns:
+        A JSON path string.
+    """
+    if len(loc) == 1 and isinstance(loc[0], int):
+        return f"item [{loc[0]}]"
+    raise NotImplementedError
