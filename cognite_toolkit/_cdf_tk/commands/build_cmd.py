@@ -20,6 +20,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import (
     _RUNNING_IN_BROWSER,
+    BUILD_FOLDER_ENCODING,
     DEFAULT_ENV,
     DEV_ONLY_MODULES,
     HINT_LEAD_TEXT,
@@ -353,7 +354,7 @@ class BuildCommand(ToolkitCommand):
                     # This is a content file that we should not copy to the build directory.
                     continue
 
-                safe_write(destination.path, destination.content)
+                safe_write(destination.path, destination.content, encoding=BUILD_FOLDER_ENCODING)
                 if issubclass(destination.loader, DataLoader):
                     continue
 

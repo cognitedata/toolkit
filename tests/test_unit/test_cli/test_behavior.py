@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import cast
 from unittest.mock import MagicMock
@@ -20,6 +21,7 @@ from cognite.client.data_classes.capabilities import AssetsAcl, EventsAcl, TimeS
 from cognite.client.data_classes.workflows import WorkflowScheduledTriggerRule
 from pytest import MonkeyPatch
 
+from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
@@ -29,6 +31,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
+    NAUGHTY_PROJECT,
     PROJECT_FOR_TEST,
     PROJECT_NO_COGNITE_MODULES,
     PROJECT_WITH_DUPLICATES,
@@ -628,3 +631,42 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.Workflow.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowTrigger.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="The encoding issue is only present on Windows")
+@pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
+def test_build_deploy_keep_special_characters(
+    encoding: str,
+    tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    monkeypatch,
+) -> None:
+    build_dir = tmp_path / "build"
+    build_dir.mkdir(parents=True, exist_ok=True)
+    expected_query = "SELECT * FROM my_éñcüd€d£d_table WHERE column = 'value'"
+
+    my_cdf_toml = cdf_toml.CDFToml.load(use_singleton=False)
+    my_cdf_toml.cdf.file_encoding = encoding
+    monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
+    BuildCommand(silent=True).execute(
+        False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
+    )
+
+    DeployCommand(silent=True).execute(
+        env_vars_with_client,
+        build_dir,
+        None,
+        dry_run=False,
+        drop=False,
+        drop_data=False,
+        force_update=False,
+        include=None,
+        verbose=False,
+    )
+
+    transformations = toolkit_client_approval.created_resources_of_type(Transformation)
+
+    assert len(transformations) == 2
+    transformation = next(t for t in transformations if t.external_id.endswith(encoding))
+    assert transformation.query == expected_query

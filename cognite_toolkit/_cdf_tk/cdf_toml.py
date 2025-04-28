@@ -30,6 +30,7 @@ else:
 class CLIConfig:
     default_organization_dir: Path
     default_env: str = "dev"
+    file_encoding: str | None = None
     has_user_set_default_org: bool = False
     has_user_set_default_env: bool = False
 
@@ -41,6 +42,7 @@ class CLIConfig:
         return cls(
             default_organization_dir=default_organization_dir,
             default_env=raw.get("default_env", "dev"),
+            file_encoding=raw.get("file_encoding"),
             has_user_set_default_org=has_user_set_default_org,
             has_user_set_default_env=has_user_set_default_env,
         )
