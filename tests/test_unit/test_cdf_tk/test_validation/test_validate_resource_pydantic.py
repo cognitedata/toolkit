@@ -19,7 +19,7 @@ def timeseries_yaml_test_cases() -> Iterable:
 
 
 class TestValidateResourceYAML:
-    @pytest.mark.parametrize("data, expected_errors", list(timeseries_yaml_test_cases))
+    @pytest.mark.parametrize("data, expected_errors", list(timeseries_yaml_test_cases()))
     def test_validate_timeseries_resource_yaml(self, data: dict | list, expected_errors: list[str]) -> None:
         """Test the validate_resource_yaml function for TimeSeriesYAML."""
         warning_list = validate_resource_yaml_pydantic(data, TimeSeriesYAML, Path("some_file.yaml"))
