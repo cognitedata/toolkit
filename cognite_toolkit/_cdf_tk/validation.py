@@ -189,4 +189,5 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
     """
     if len(loc) == 1 and isinstance(loc[0], int):
         return f"item [{loc[0]}]"
-    raise NotImplementedError
+
+    return ".".join([str(x) if isinstance(x, str) else f"[{x}]" for x in loc]).replace(".[", "[")
