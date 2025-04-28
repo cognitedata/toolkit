@@ -45,7 +45,7 @@ def timeseries_yaml_test_cases() -> Iterable:
             "In item [1] missing required field: 'externalId'",
             "In item [1] unused field: 'type'",
         ],
-        id="Invalid second element of list of timeseries",
+        id="Multiple issues in a list of timeseries",
     )
 
 
