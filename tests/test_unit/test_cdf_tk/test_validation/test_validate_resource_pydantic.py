@@ -5,7 +5,7 @@ import pytest
 
 from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
-from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
+from cognite_toolkit._cdf_tk.validation import as_json_path, validate_resource_yaml_pydantic
 
 
 def timeseries_yaml_test_cases() -> Iterable:
@@ -46,3 +46,19 @@ class TestValidateResourceYAML:
         assert isinstance(format_warning, ResourceFormatWarning)
 
         assert format_warning.errors == tuple(expected_errors)
+
+
+class TestAsJsonPath:
+    @pytest.mark.parametrize(
+        "loc, expected",
+        [
+            (("a", "b", "c"), "a.b.c"),
+            (("a", 1, "c"), "a[1].c"),
+            (("a", 1, 2), "a[1][2]"),
+            (("a",), "a"),
+            ((), ""),
+            ((1,), "item [1]"),
+        ],
+    )
+    def test_as_json_path(self, loc: tuple[str | int, ...], expected: str) -> None:
+        assert as_json_path(loc) == expected

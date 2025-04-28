@@ -173,12 +173,12 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             # Default to the Pydantic error message
             msg = item["msg"]
         if len(loc) > 1:
-            msg = f"In {_as_json_path(loc[:-1])} {msg[0].casefold()}{msg[1:]}"
+            msg = f"In {as_json_path(loc[:-1])} {msg[0].casefold()}{msg[1:]}"
         errors.append(msg)
     return errors
 
 
-def _as_json_path(loc: tuple[str | int, ...]) -> str:
+def as_json_path(loc: tuple[str | int, ...]) -> str:
     """Converts a location tuple to a JSON path.
 
     Args:
