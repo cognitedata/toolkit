@@ -35,6 +35,19 @@ def timeseries_yaml_test_cases() -> Iterable:
         id="Invalid second element of list of timeseries",
     )
 
+    yield pytest.param(
+        [
+            {"externalId": "my_timeseries", "nam": "my_timeseries"},
+            {"name": "my_timeseries_2", "type": "numeric"},
+        ],
+        [
+            "In item [0] unused field: 'nam'",
+            "In item [1] missing required field: 'externalId'",
+            "In item [1] unused field: 'type'",
+        ],
+        id="Invalid second element of list of timeseries",
+    )
+
 
 class TestValidateResourceYAML:
     @pytest.mark.parametrize("data, expected_errors", list(timeseries_yaml_test_cases()))
