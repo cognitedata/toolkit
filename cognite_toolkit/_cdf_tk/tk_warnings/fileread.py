@@ -268,3 +268,13 @@ class StreamlitRequirementsWarning(FileReadWarning):
         if isinstance(self.dependencies, str):
             return f"Missing recommended dependencies in requirements.txt: {self.dependencies}"
         return f"Missing dependencies in requirements.txt: {', '.join(self.dependencies)}"
+
+
+@dataclass(frozen=True)
+class ResourceFormatWarning(YAMLFileWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    errors: tuple[str, ...]
+
+    def get_message(self) -> str:
+        errors = "\n  -".join(self.errors)
+        return f"{type(self).__name__}: The resource {self.filepath.as_posix()} has the following errors:\n  -{errors}"
