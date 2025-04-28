@@ -271,10 +271,12 @@ class StreamlitRequirementsWarning(FileReadWarning):
 
 
 @dataclass(frozen=True)
-class ResourceFormatWarning(YAMLFileWarning):
+class ResourceFormatWarning(FileReadWarning):
     severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
     errors: tuple[str, ...]
 
     def get_message(self) -> str:
-        errors = "\n  -".join(self.errors)
-        return f"{type(self).__name__}: The resource {self.filepath.as_posix()} has the following errors:\n  -{errors}"
+        sep = "\n     * "
+        errors = sep.join(self.errors)
+        s = "s" if len(self.errors) > 1 else ""
+        return f"{type(self).__name__} {len(self.errors)} error{s}:{sep}{errors}"
