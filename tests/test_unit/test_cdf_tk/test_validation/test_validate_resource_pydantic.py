@@ -16,6 +16,13 @@ def timeseries_yaml_test_cases() -> Iterable:
         ],
         id="Missing externalId",
     )
+    yield pytest.param(
+        {"externalId": "my_timeseries", "type": "numeric"},
+        [
+            "Unused field: 'type'",
+        ],
+        id="Unused field type",
+    )
 
 
 class TestValidateResourceYAML:
