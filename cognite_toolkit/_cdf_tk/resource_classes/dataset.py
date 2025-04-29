@@ -4,7 +4,10 @@ from .base import ToolkitResource
 
 
 class DataSetYAML(ToolkitResource):
-    external_id: str
+    external_id: str = Field(
+        description="The external ID provided by the client.",
+        max_length=255,
+    )
     name: str | None = Field(
         default=None,
         description="The name of the data set.",
