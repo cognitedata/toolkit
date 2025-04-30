@@ -171,6 +171,8 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"Missing required field: {loc[-1]!r}"
         elif error_type == "extra_forbidden":
             msg = f"Unused field: {loc[-1]!r}"
+        elif error_type == "value_error":
+            msg = str(item["ctx"]["error"])
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
