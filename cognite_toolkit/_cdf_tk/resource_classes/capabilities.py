@@ -54,14 +54,14 @@ class CurrentUserScope(Scope):
 
 class IDScope(Scope):
     _scope_name = "idScope"
-    ids: list[int]
+    ids: list[str]
 
 
 class IDScopeLowerCase(Scope):
     """Necessary due to lack of API standardisation on scope name: 'idScope' VS 'idscope'"""
 
     _scope_name = "idscope"
-    ids: list[int]
+    ids: list[str]
 
 
 class InstancesScope(Scope):
@@ -81,7 +81,7 @@ class PostgresGatewayUsersScope(Scope):
 
 class DataSetScope(Scope):
     _scope_name = "datasetScope"
-    ids: list[int]
+    ids: list[str]
 
 
 class TableScope(Scope):
@@ -91,7 +91,7 @@ class TableScope(Scope):
 
 class AssetRootIDScope(Scope):
     _scope_name = "assetRootIdScope"
-    root_ids: list[int]
+    root_ids: list[str]
 
 
 class ExperimentsScope(Scope):
@@ -241,7 +241,7 @@ class GeospatialCrsAcl(Capability):
 
 class GroupsAcl(Capability):
     _capability_name = "groupsAcl"
-    actions: list[Literal["READ", "WRITE"]]
+    actions: list[Literal["CREATE", "DELETE", "READ", "LIST", "UPDATE"]]
     scope: AllScope | CurrentUserScope
 
 
@@ -259,7 +259,7 @@ class LocationFiltersAcl(Capability):
 
 class ProjectsAcl(Capability):
     _capability_name = "projectsAcl"
-    actions: list[Literal["READ", "WRITE", "LIST", "UPDATE", "DELETE"]]
+    actions: list[Literal["READ", "CREATE", "LIST", "UPDATE", "DELETE"]]
     scope: AllScope
 
 
@@ -277,7 +277,7 @@ class RelationshipsAcl(Capability):
 
 class RoboticsAcl(Capability):
     _capability_name = "roboticsAcl"
-    actions: list[Literal["READ", "WRITE", "UPDATE", "DELETE"]]
+    actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
     scope: AllScope | DataSetScope
 
 
@@ -289,7 +289,7 @@ class SAPWritebackAcl(Capability):
 
 class SAPWritebackRequestsAcl(Capability):
     _capability_name = "sapWritebackRequestsAcl"
-    actions: list[Literal["READ", "WRITE"]]
+    actions: list[Literal["WRITE", "LIST"]]
     scope: AllScope | InstancesScope
 
 
@@ -305,15 +305,15 @@ class SeismicAcl(Capability):
     scope: AllScope | PartitionScope
 
 
-class listsAcl(Capability):
-    _capability_name = "listsAcl"
+class SequencesAcl(Capability):
+    _capability_name = "sequencesAcl"
     actions: list[Literal["READ", "WRITE"]]
     scope: AllScope | DataSetScope
 
 
 class SessionsAcl(Capability):
     _capability_name = "sessionsAcl"
-    actions: list[Literal["READ", "CREATE", "DELETE"]]
+    actions: list[Literal["LIST", "CREATE", "DELETE"]]
     scope: AllScope
 
 
@@ -362,13 +362,13 @@ class ExperimentsAcl(Capability):
 class TemplateGroupsAcl(Capability):
     _capability_name = "templateGroupsAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScope | DataSetScope
 
 
 class TemplateInstancesAcl(Capability):
     _capability_name = "templateInstancesAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScope | DataSetScope
 
 
 class DataModelInstancesAcl(Capability):
@@ -433,14 +433,14 @@ class VisionModelAcl(Capability):
 
 class DocumentFeedbackAcl(Capability):
     _capability_name = "documentFeedbackAcl"
-    actions: list[Literal["CREATE", "WRITE", "DELETE"]]
+    actions: list[Literal["CREATE", "READ", "DELETE"]]
     scope: AllScope
 
 
 class WorkflowOrchestrationAcl(Capability):
     _capability_name = "workflowOrchestrationAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope
+    scope: AllScope | DataSetScope
 
 
 class PostgresGatewayAcl(Capability):
@@ -458,6 +458,18 @@ class UserProfilesAcl(Capability):
 class AuditlogAcl(Capability):
     _capability_name = "auditlogAcl"
     actions: list[Literal["READ"]]
+    scope: AllScope
+
+
+class LegacyModelHostingAcl(Capability):
+    _capability_name = "modelHostingAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class LegacyGenericsAcl(Capability):
+    _capability_name = "genericsAcl"
+    actions: list[Literal["READ", "WRITE"]]
     scope: AllScope
 
 
