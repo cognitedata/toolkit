@@ -86,7 +86,7 @@ class DataSetScope(Scope):
 
 class TableScope(Scope):
     _scope_name = "tableScope"
-    dbs_to_tables: dict[str, list[str]]
+    dbs_to_tables: dict[str, list[str] | dict[Literal["tables"], list[str]]]
 
 
 class AssetRootIDScope(Scope):
@@ -200,7 +200,7 @@ class EventsAcl(Capability):
 class ExtractionPipelinesAcl(Capability):
     _capability_name = "extractionPipelinesAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | IDScope | DataSetScope
+    scope: AllScope | IDScopeLowerCase | DataSetScope
 
 
 class ExtractionsRunAcl(Capability):
