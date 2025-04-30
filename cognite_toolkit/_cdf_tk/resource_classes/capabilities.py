@@ -184,7 +184,7 @@ class AssetsAcl(Capability):
 class DataSetsAcl(Capability):
     _capability_name = "datasetsAcl"
     actions: list[Literal["READ", "WRITE", "OWNER"]]
-    scope: AllScope | IDScopeLowerCase
+    scope: AllScope | IDScope
 
 
 class DiagramParsingAcl(Capability):
