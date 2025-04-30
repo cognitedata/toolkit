@@ -121,6 +121,12 @@ class LegacyDataModelScope(Scope):
 
 class Capability(BaseModel):
     _capability_name: ClassVar[str]
+    scope: Scope
+
+    @field_validator("scope", mode="before")
+    @classmethod
+    def find_scope_cls(cls, data: Any) -> Scope:
+        return Scope.model_validate(data)
 
     @model_validator(mode="wrap")
     @classmethod
@@ -143,15 +149,232 @@ class Capability(BaseModel):
         return {self._capability_name: serialized_data}
 
 
+class AnalyticsAcl(Capability):
+    _capability_name = "analyticsAcl"
+    actions: list[Literal["READ", "EXECUTE", "LIST"]]
+    scope: AllScope
+
+
+class AnnotationsAcl(Capability):
+    _capability_name = "annotationsAcl"
+    actions: list[Literal["READ", "WRITE", "SUGGEST", "REVIEW"]]
+    scope: AllScope
+
+
+class AssetsAcl(Capability):
+    _capability_name = "assetsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class DataSetsAcl(Capability):
+    _capability_name = "datasetsAcl"
+    actions: list[Literal["READ", "WRITE", "OWNER"]]
+    scope: AllScope | IDScope
+
+
+class DiagramParsingAcl(Capability):
+    _capability_name = "diagramParsingAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class DigitalTwinAcl(Capability):
+    _capability_name = "digitalTwinAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class EntityMatchingAcl(Capability):
+    _capability_name = "entitymatchingAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class EventsAcl(Capability):
+    _capability_name = "eventsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class ExtractionPipelinesAcl(Capability):
+    _capability_name = "extractionPipelinesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | IDScope | DataSetScope
+
+
+class ExtractionsRunAcl(Capability):
+    _capability_name = "extractionRunsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope | ExtractionPipelineScope
+
+
+class ExtractionConfigsAcl(Capability):
+    _capability_name = "extractionConfigsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope | ExtractionPipelineScope
+
+
+class FilesAcl(Capability):
+    _capability_name = "filesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class FunctionsAcl(Capability):
+    _capability_name = "functionsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class GeospatialAcl(Capability):
+    _capability_name = "geospatialAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class GeospatialCrsAcl(Capability):
+    _capability_name = "geospatialCrsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class GroupsAcl(Capability):
+    _capability_name = "groupsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | CurrentUserScope
+
+
+class LabelsAcl(Capability):
+    _capability_name = "labelsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class LocationFiltersAcl(Capability):
+    _capability_name = "locationFiltersAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | IDScope
+
+
+class ProjectsAcl(Capability):
+    _capability_name = "projectsAcl"
+    actions: list[Literal["READ", "WRITE", "LIST", "UPDATE", "DELETE"]]
+    scope: AllScope
+
+
+class RawAcl(Capability):
+    _capability_name = "rawAcl"
+    actions: list[Literal["READ", "WRITE", "LIST"]]
+    scope: AllScope | TableScope
+
+
+class RelationshipsAcl(Capability):
+    _capability_name = "relationshipsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class RoboticsAcl(Capability):
+    _capability_name = "roboticsAcl"
+    actions: list[Literal["READ", "WRITE", "UPDATE", "DELETE"]]
+    scope: AllScope | DataSetScope
+
+
+class SAPWritebackAcl(Capability):
+    _capability_name = "sapWritebackAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | InstancesScope
+
+
+class SAPWritebackRequestsAcl(Capability):
+    _capability_name = "sapWritebackRequestsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | InstancesScope
+
+
+class SecurityCategoriesAcl(Capability):
+    _capability_name = "securityCategoriesAcl"
+    actions: list[Literal["MEMBEROF", "LIST", "CREATE", "UPDATE", "DELETE"]]
+    scope: AllScope | IDScopeLowerCase
+
+
+class SeismicAcl(Capability):
+    _capability_name = "seismicAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | PartitionScope
+
+
+class listsAcl(Capability):
+    _capability_name = "listsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class SessionsAcl(Capability):
+    _capability_name = "sessionsAcl"
+    actions: list[Literal["READ", "CREATE", "DELETE"]]
+    scope: AllScope
+
+
+class ThreeDAcl(Capability):
+    _capability_name = "threedAcl"
+    actions: list[Literal["READ", "CREATE", "UPDATE", "DELETE"]]
+    scope: AllScope | DataSetScope
+
+
+class TimeSeriesAcl(Capability):
+    _capability_name = "timeSeriesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope | IDScopeLowerCase | AssetRootIDScope
+
+
+class TimeSeriesSubscriptionsAcl(Capability):
+    _capability_name = "timeSeriesSubscriptionsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class TransformationsAcl(Capability):
+    _capability_name = "transformationsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | DataSetScope
+
+
+class TypesAcl(Capability):
+    _capability_name = "typesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class WellsAcl(Capability):
+    _capability_name = "wellsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class ExperimentsAcl(Capability):
+    _capability_name = "experimentAcl"
+    actions: list[Literal["USE"]]
+    scope: ExperimentsScope
+
+
+class TemplateGroupsAcl(Capability):
+    _capability_name = "templateGroupsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class TemplateInstancesAcl(Capability):
+    _capability_name = "templateInstancesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
 class DataModelInstancesAcl(Capability):
     _capability_name = "dataModelInstancesAcl"
     actions: list[Literal["READ", "WRITE", "WRITE_PROPERTIES"]]
     scope: AllScope | SpaceIDScope
-
-    @field_validator("scope", mode="before")
-    @classmethod
-    def find_scope_cls(cls, data: Any) -> Scope:
-        return Scope.model_validate(data)
 
 
 class DataModelsAcl(Capability):
@@ -159,10 +382,83 @@ class DataModelsAcl(Capability):
     actions: list[Literal["READ", "WRITE"]]
     scope: AllScope | SpaceIDScope
 
-    @field_validator("scope", mode="before")
-    @classmethod
-    def find_scope_cls(cls, data: Any) -> Scope:
-        return Scope.model_validate(data)
+
+class PipelinesAcl(Capability):
+    _capability_name = "pipelinesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class DocumentPipelinesAcl(Capability):
+    _capability_name = "documentPipelinesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class FilePipelinesAcl(Capability):
+    _capability_name = "filePipelinesAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class NotificationsAcl(Capability):
+    _capability_name = "notificationsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class ScheduledCalculationsAcl(Capability):
+    _capability_name = "scheduledCalculationsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class MonitoringTasksAcl(Capability):
+    _capability_name = "monitoringTasksAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class HostedExtractorsAcl(Capability):
+    _capability_name = "hostedExtractorsAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class VisionModelAcl(Capability):
+    _capability_name = "visionModelAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class DocumentFeedbackAcl(Capability):
+    _capability_name = "documentFeedbackAcl"
+    actions: list[Literal["CREATE", "WRITE", "DELETE"]]
+    scope: AllScope
+
+
+class WorkflowOrchestrationAcl(Capability):
+    _capability_name = "workflowOrchestrationAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope
+
+
+class PostgresGatewayAcl(Capability):
+    _capability_name = "postgresGatewayAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | PostgresGatewayUsersScope
+
+
+class UserProfilesAcl(Capability):
+    _capability_name = "userProfilesAcl"
+    actions: list[Literal["READ"]]
+    scope: AllScope
+
+
+class AuditlogAcl(Capability):
+    _capability_name = "auditlogAcl"
+    actions: list[Literal["READ"]]
+    scope: AllScope
 
 
 _CAPABILITY_CLASS_BY_NAME: MappingProxyType[str, type[Capability]] = MappingProxyType(
