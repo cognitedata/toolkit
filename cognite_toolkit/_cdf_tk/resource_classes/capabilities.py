@@ -1,5 +1,4 @@
 import sys
-from collections.abc import Sequence
 from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
@@ -49,9 +48,75 @@ class AllScope(Scope):
     _scope_name = "all"
 
 
+class CurrentUserScope(Scope):
+    _scope_name = "currentuserscope"
+
+
+class IDScope(Scope):
+    _scope_name = "idScope"
+    ids: list[int]
+
+
+class IDScopeLowerCase(Scope):
+    """Necessary due to lack of API standardisation on scope name: 'idScope' VS 'idscope'"""
+
+    _scope_name = "idscope"
+    ids: list[int]
+
+
+class InstancesScope(Scope):
+    _scope_name = "instancesScope"
+    instances: list[str]
+
+
+class ExtractionPipelineScope(Scope):
+    _scope_name = "extractionPipelineScope"
+    ids: list[int]
+
+
+class PostgresGatewayUsersScope(Scope):
+    _scope_name = "usersScope"
+    usernames: list[str]
+
+
+class DataSetScope(Scope):
+    _scope_name = "datasetScope"
+    ids: list[int]
+
+
+class TableScope(Scope):
+    _scope_name = "tableScope"
+    dbs_to_tables: dict[str, list[str]]
+
+
+class AssetRootIDScope(Scope):
+    _scope_name = "assetRootIdScope"
+    root_ids: list[int]
+
+
+class ExperimentsScope(Scope):
+    _scope_name = "experimentscope"
+    experiments: list[str]
+
+
 class SpaceIDScope(Scope):
     _scope_name = "spaceIdScope"
-    space_ids: Sequence[str]
+    space_ids: list[str]
+
+
+class PartitionScope(Scope):
+    _scope_name = "partition"
+    partition_ids: list[int]
+
+
+class LegacySpaceScope(Scope):
+    _scope_name = "spaceScope"
+    external_ids: list[str]
+
+
+class LegacyDataModelScope(Scope):
+    _scope_name = "dataModelScope"
+    external_ids: list[str]
 
 
 class Capability(BaseModel):
