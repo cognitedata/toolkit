@@ -477,7 +477,7 @@ class AuditlogAcl(Capability):
 
 class VideoStreamingAcl(Capability):
     _capability_name = "videoStreamingAcl"
-    actions: list[Literal["READ", "SUBSCRIBE", "LIST", "PUBLISH"]]
+    actions: list[Literal["READ", "WRITE", "SUBSCRIBE", "PUBLISH"]]
     scope: AllScope | DataSetScope
 
 
