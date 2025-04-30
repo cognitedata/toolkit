@@ -144,12 +144,18 @@ def _read_last_commit_message() -> tuple[list[marko.element.Element], str]:
         print("No changelog entry found in the last commit message.")
         raise SystemExit(1)
     changelog_text = last_git_message.split("## Changelog")[1].strip()
+
+    if "-----" in changelog_text:
+        # Co-authors section
+        changelog_text = changelog_text.split("-----")[0].strip()
+
     changelog_items = [
         item for item in marko.parse(changelog_text).children if not isinstance(item, marko.block.BlankLine)
     ]
     if not changelog_items:
         print("No changelog items found in the last commit message.")
         raise SystemExit(1)
+
     return changelog_items, changelog_text
 
 
