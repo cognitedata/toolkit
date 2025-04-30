@@ -230,6 +230,7 @@ class LocationFilter(LocationFilterCore):
         scene: The scene config for the location filter
         asset_centric: The filter definition for asset centric resource types
         views: The view mappings for the location filter
+        locations: The list of child locations
     """
 
     def __init__(
@@ -247,6 +248,7 @@ class LocationFilter(LocationFilterCore):
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
         data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
+        locations: LocationFilterList | None = None,
     ) -> None:
         super().__init__(
             external_id,
@@ -263,6 +265,7 @@ class LocationFilter(LocationFilterCore):
         self.id = id
         self.created_time = created_time
         self.updated_time = updated_time
+        self.locations = locations
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
@@ -282,6 +285,9 @@ class LocationFilter(LocationFilterCore):
             created_time=resource["createdTime"],
             updated_time=resource["lastUpdatedTime"],
             data_modeling_type=resource.get("dataModelingType"),
+            locations=LocationFilterList._load([item for item in resource["locations"]])
+            if "locations" in resource
+            else None,
         )
 
 
