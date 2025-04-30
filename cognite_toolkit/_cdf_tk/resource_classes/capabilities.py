@@ -129,7 +129,7 @@ class Capability(BaseModel):
         annotation = cls.model_fields["scope"].annotation
         if isinstance(annotation, UnionType):
             valid_types = {s._scope_name for s in get_args(annotation)}
-        elif isinstance(annotation, Scope):
+        elif annotation is not None and issubclass(annotation, Scope):
             valid_types = {annotation._scope_name}
         else:
             raise ValueError(f"Invalid scope annotation '{annotation}'")
