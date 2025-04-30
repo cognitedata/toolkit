@@ -52,7 +52,7 @@ def timeseries_yaml_test_cases() -> Iterable:
 def group_yaml_test_cases() -> Iterable:
     yield pytest.param(
         {"sourceId": "123-345"},
-        ["Missing required field: 'name'"],
+        {"Missing required field: 'name'"},
         id="Missing name",
     )
     yield pytest.param(
@@ -61,10 +61,10 @@ def group_yaml_test_cases() -> Iterable:
             "capabilities": [{"dataModelInstancesAcl": {"actions": ["INVALID_ACTION"]}}],
             "members": "allUserAccounts",
         },
-        [
+        {
             "In capabilities[0].actions input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'",
             "In capabilities[0] missing required field: 'scope'",
-        ],
+        },
         id="Invalid action and missing scope",
     )
 
@@ -78,9 +78,9 @@ def group_yaml_test_cases() -> Iterable:
                 "members": "allUserAccounts",
             }
         ],
-        [
+        {
             "In [0].capabilities[0] value error, Invalid scope name 'notExisting'. Expected one of all or spaceIdScope",
-        ],
+        },
         id="Invalid scope name",
     )
 
@@ -97,14 +97,14 @@ class TestValidateResourceYAML:
         assert format_warning.errors == tuple(expected_errors)
 
     @pytest.mark.parametrize("data, expected_errors", list(group_yaml_test_cases()))
-    def test_validate_group_resource_yaml(self, data: dict | list, expected_errors: list[str]) -> None:
+    def test_validate_group_resource_yaml(self, data: dict | list, expected_errors: set[str]) -> None:
         """Test the validate_resource_yaml function for GroupYAML."""
         warning_list = validate_resource_yaml_pydantic(data, GroupYAML, Path("some_file.yaml"))
         assert len(warning_list) == 1
         format_warning = warning_list[0]
         assert isinstance(format_warning, ResourceFormatWarning)
 
-        assert format_warning.errors == tuple(expected_errors)
+        assert set(format_warning.errors) == expected_errors
 
 
 class TestAsJsonPath:
