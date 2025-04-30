@@ -1,6 +1,6 @@
 import sys
-from types import MappingProxyType
-from typing import Any, ClassVar, Literal, cast
+from types import MappingProxyType, UnionType
+from typing import Any, ClassVar, Literal, cast, get_args
 
 from pydantic import BaseModel, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
@@ -31,7 +31,7 @@ class Scope(BaseModelResource):
         name, content = next(iter(data.items()))
         if name not in _SCOPE_CLASS_BY_NAME:
             raise ValueError(
-                f"Invalid scope name '{name}'. Expected one of {humanize_collection(_SCOPE_CLASS_BY_NAME.keys(), bind_word='or')}"
+                f"invalid scope name '{name}'. Expected one of {humanize_collection(_SCOPE_CLASS_BY_NAME.keys(), bind_word='or')}"
             )
         cls_ = _SCOPE_CLASS_BY_NAME[name]
         return cast(Self, cls_.model_validate(content))
@@ -126,6 +126,20 @@ class Capability(BaseModel):
     @field_validator("scope", mode="before")
     @classmethod
     def find_scope_cls(cls, data: Any) -> Scope:
+        annotation = cls.model_fields["scope"].annotation
+        if isinstance(annotation, UnionType):
+            valid_types = {s._scope_name for s in get_args(annotation)}
+        elif isinstance(annotation, Scope):
+            valid_types = {annotation._scope_name}
+        else:
+            raise ValueError(f"Invalid scope annotation '{annotation}'")
+
+        name = next(iter(data.keys()))
+        if name not in valid_types:
+            raise ValueError(
+                f"invalid scope name '{name}'. Expected one of {humanize_collection(valid_types, bind_word='or')}"
+            )
+
         return Scope.model_validate(data)
 
     @model_validator(mode="wrap")
@@ -480,4 +494,8 @@ ALL_CAPABILITIES = sorted(_CAPABILITY_CLASS_BY_NAME)
 
 _SCOPE_CLASS_BY_NAME: MappingProxyType[str, type[Scope]] = MappingProxyType(
     {s._scope_name: s for s in Scope.__subclasses__()}
+)
+
+_SCOPE_BY_CLASS_NAME: MappingProxyType[str, str] = MappingProxyType(
+    {scope_cls.__name__: scope_name for scope_name, scope_cls in _SCOPE_CLASS_BY_NAME.items()}
 )
