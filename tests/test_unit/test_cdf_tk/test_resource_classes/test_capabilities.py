@@ -38,7 +38,18 @@ def all_acls() -> Iterable:
         {"eventsAcl": {"actions": ["READ"], "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}}}},
         {"extractionConfigsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"extractionPipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"extractionPipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"idScope": ["myDataSet", "myDataSet2"]}}},
+        {
+            "extractionPipelinesAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"idscope": {"ids": ["myPipeline", "myPipeline"]}},
+            }
+        },
+        {
+            "extractionPipelinesAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"datasetScope": {"ids": ["myDataSet", "myDataSet2"]}},
+            }
+        },
         {"extractionRunsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filePipelinesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"filesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
@@ -50,7 +61,12 @@ def all_acls() -> Iterable:
         {"hostedExtractorsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"labelsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"locationFiltersAcl": {"actions": ["READ", "WRITE"], "scope": {"idScope": ["dataset", "otherDataset"]}}},
+        {
+            "locationFiltersAcl": {
+                "actions": ["READ", "WRITE"],
+                "scope": {"idScope": {"ids": ["dataset", "otherDataset"]}},
+            }
+        },
         {"modelHostingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"monitoringTasksAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"notificationsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
