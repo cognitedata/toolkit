@@ -27,7 +27,7 @@ def all_acls() -> Iterable:
             }
         },
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
-        {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
+        {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idScope": {"ids": ["my_dataset"]}}}},
         {"diagramParsingAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"digitalTwinAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"documentFeedbackAcl": {"actions": ["CREATE", "READ", "DELETE"], "scope": {"all": {}}}},
