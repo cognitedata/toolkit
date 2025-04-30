@@ -48,6 +48,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import GroupYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -74,6 +75,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
     resource_write_cls = GroupWrite
     list_cls = GroupList
     list_write_cls = GroupWriteList
+    yaml_cls = GroupYAML
     resource_scopes = frozenset(
         {
             cap.IDScope,
