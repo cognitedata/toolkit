@@ -71,7 +71,7 @@ class InstancesScope(Scope):
 
 class ExtractionPipelineScope(Scope):
     _scope_name = "extractionPipelineScope"
-    ids: list[int]
+    ids: list[str]
 
 
 class PostgresGatewayUsersScope(Scope):
@@ -184,7 +184,7 @@ class AssetsAcl(Capability):
 class DataSetsAcl(Capability):
     _capability_name = "datasetsAcl"
     actions: list[Literal["READ", "WRITE", "OWNER"]]
-    scope: AllScope | IDScope
+    scope: AllScope | IDScopeLowerCase
 
 
 class DiagramParsingAcl(Capability):
@@ -473,6 +473,12 @@ class AuditlogAcl(Capability):
     _capability_name = "auditlogAcl"
     actions: list[Literal["READ"]]
     scope: AllScope
+
+
+class VideoStreamingAcl(Capability):
+    _capability_name = "videoStreamingAcl"
+    actions: list[Literal["READ", "SUBSCRIBE", "LIST", "PUBLISH"]]
+    scope: AllScope | DataSetScope
 
 
 class LegacyModelHostingAcl(Capability):
