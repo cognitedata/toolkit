@@ -14,6 +14,7 @@ from pathlib import Path
 from types import UnionType
 from typing import IO, Any, Callable, Literal, Optional, TypeVar, get_args, get_origin
 
+import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import CogniteClient
 from cognite.client._constants import MAX_VALID_INTERNAL_ID
@@ -60,7 +61,9 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+from tests.data import COMPLETE_ORG
 
 UNION_TYPES = {typing.Union, UnionType}
 
@@ -513,3 +516,19 @@ class MockQuestionary:
         if not choices:
             return []
         return [choice.value for choice in choices]
+
+
+def find_resources(resource: str):
+    base = COMPLETE_ORG / MODULES
+    for path in base.rglob(f"*{resource}.yaml"):
+        data = read_yaml_file(path)
+        if isinstance(data, dict):
+            yield pytest.param(data, id=path.relative_to(base).as_posix())
+        elif isinstance(data, list):
+            for no, item in enumerate(data):
+                if isinstance(item, dict):
+                    yield pytest.param(item, id=f"{path.relative_to(base).as_posix()} - Item: {no}")
+                else:
+                    raise ValueError(f"Invalid data format in {path}: {item}")
+        else:
+            raise ValueError(f"Invalid data format in {path}: {data}")
