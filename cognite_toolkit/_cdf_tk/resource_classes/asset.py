@@ -8,7 +8,7 @@ from .base import ToolkitResource
 class AssetYAML(ToolkitResource):
     external_id: str = Field(description="External ID provided by the client.", max_length=255)
     name: str | None = Field(None, description="The name of the asset.", min_length=1, max_length=140)
-    external_parent_id: str | None = Field(
+    parent_external_id: str | None = Field(
         None, description="The external ID of the parent of the node.", max_length=255
     )
     description: str | None = Field(None, description="The description of the asset.", max_length=500)
