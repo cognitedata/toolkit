@@ -61,7 +61,6 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
-    LocationFilterList,
     LocationFilterScene,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
@@ -230,6 +229,9 @@ class FakeCogniteResourceGenerator:
             elif name == "version":
                 # Special case
                 value = random.choice(["v1", "v2", "v3"])
+            elif resource_cls is LocationFilter and name == "locations":
+                # Special case for LocationFilter to avoid recursion.
+                value = None
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 
@@ -325,8 +327,6 @@ class FakeCogniteResourceGenerator:
                 # The incremental load cannot be of type `nextUrl`
                 load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
                 keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
-        elif resource_cls in [LocationFilter, LocationFilterList]:
-            pass
         elif issubclass(resource_cls, ListablePropertyType) and "max_list_size" in keyword_arguments:
             if keyword_arguments["max_list_size"] <= 1:
                 keyword_arguments.pop("max_list_size")
