@@ -1,5 +1,3 @@
-from collections.abc import Sequence
-
 from pydantic import Field
 
 from .base import ToolkitResource
@@ -14,7 +12,7 @@ class EventYAML(ToolkitResource):
     subtype: str | None = Field(None, description="SubType of the event, e.g. 'electrical'.", max_length=64)
     description: str | None = Field(None, description="The description of the asset.", max_length=500)
     metadata: dict[str, str] | None = Field(None, description="Custom, application-specific metadata.", max_length=256)
-    asset_external_ids: Sequence[str] | None = Field(
+    asset_external_ids: list[str] | None = Field(
         None, description="Asset IDs of equipment that this event relates to.", max_length=10000
     )
     source: str | None = Field(None, description="The source of this event.", max_length=128)
