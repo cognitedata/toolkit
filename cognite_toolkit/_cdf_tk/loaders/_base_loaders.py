@@ -19,7 +19,7 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES, USE_SENTRY
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
 
@@ -307,7 +307,7 @@ class ResourceLoader(
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
         it is parsed as a string."""
-        return safe_read(filepath)
+        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None

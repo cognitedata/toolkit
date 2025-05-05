@@ -400,6 +400,7 @@ if __name__ == "__main__":
         external_id: str | None = None,
         data_source: str | WorkflowVersionId | None = None,
         rebuild_env: bool = False,
+        virtual_env_folder_name: str = virtual_env_folder,
     ) -> None:
         try:
             from ._virtual_env import FunctionVirtualEnvironment
@@ -417,7 +418,7 @@ if __name__ == "__main__":
 
         function_external_id = function_build.identifier
 
-        virtual_envs_dir = organization_dir / self.virtual_env_folder
+        virtual_envs_dir = organization_dir / virtual_env_folder_name
         virtual_envs_dir.mkdir(exist_ok=True)
         readme_overview = virtual_envs_dir / "README.md"
         if not readme_overview.exists():

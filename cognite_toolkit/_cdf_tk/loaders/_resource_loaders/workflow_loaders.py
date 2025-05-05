@@ -63,6 +63,7 @@ from cognite_toolkit._cdf_tk.utils import (
     to_directory_compatible,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -233,6 +234,8 @@ class WorkflowVersionLoader(
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
+    # The /list endpoint has a limit of 100 workflow ids per request.
+    _list_workflow_filter_limit = 100
 
     @property
     def display_name(self) -> str:
@@ -396,9 +399,13 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        retrieved = WorkflowVersionList([])
         if not ids:
-            return WorkflowVersionList([])
-        return self.client.workflows.versions.list(list(ids))
+            return retrieved
+        for chunk in chunker(ids, self._list_workflow_filter_limit):
+            retrieved_chunk = self.client.workflows.versions.list(chunk)
+            retrieved.extend(retrieved_chunk)
+        return retrieved
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])

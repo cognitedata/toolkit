@@ -11,6 +11,7 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
@@ -138,7 +139,7 @@ class FileLoader(DataLoader):
         ],
         identifier: T_ID,
     ) -> T_WriteClass:
-        built_content = read_yaml_content(safe_read(destination))
+        built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
         if isinstance(built_content, dict):
             return loader.resource_write_cls.load(built_content)
         elif isinstance(built_content, list):

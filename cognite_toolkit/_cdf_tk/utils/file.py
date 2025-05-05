@@ -19,6 +19,7 @@ import pandas as pd
 import yaml
 from rich import print
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
@@ -186,16 +187,21 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
         safe_rmtree(build_dir)
 
 
-def safe_read(file: Path | str) -> str:
+def safe_read(file: Path | str, encoding: str | None = None) -> str:
     """Falls back on explicit using utf-8 if the default .read_text()"""
+    encoding = encoding or CDFToml.load().cdf.file_encoding
     if isinstance(file, str):
         return file
     try:
-        return file.read_text()
+        return file.read_text(encoding=encoding)
     except UnicodeDecodeError:
+        # If we set the encoding, we try the system default. If we tried the system default, we try utf-8.
+        backup_encoding: str | None = None
+        if encoding is None:
+            backup_encoding = "utf-8"
         # On Windows, we may have issues as the encoding is not always utf-8
         try:
-            return file.read_text(encoding="utf-8")
+            return file.read_text(encoding=backup_encoding)
         except UnicodeDecodeError:
             raise
 
