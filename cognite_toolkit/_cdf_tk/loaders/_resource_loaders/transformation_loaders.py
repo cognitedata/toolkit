@@ -64,6 +64,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
@@ -193,7 +194,7 @@ class TransformationLoader(
 
     def safe_read(self, filepath: Path | str) -> str:
         # If the destination is a DataModel or a View we need to ensure that the version is a string
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -230,7 +231,7 @@ class TransformationLoader(
                     filepath,
                 )
             elif query_file:
-                item["query"] = safe_read(query_file)
+                item["query"] = safe_read(query_file, encoding=BUILD_FOLDER_ENCODING)
 
             auth_dict: dict[str, Any] = {}
             for key in [

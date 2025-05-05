@@ -1,0 +1,11 @@
+externalId: encoding_transformation_cp1252
+name: encoding_confusion
+query: >-
+    SELECT * FROM my_éñcüd€d£d_table
+    WHERE column = 'value'
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+dataSetExternalId: ds_at_p66

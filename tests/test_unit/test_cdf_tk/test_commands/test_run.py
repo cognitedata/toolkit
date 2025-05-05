@@ -86,6 +86,7 @@ class TestRunFunction:
             external_id="fn_test3",
             data_source="daily-8pm-utc",
             rebuild_env=False,
+            virtual_env_folder_name="function_local_venvs_test_run_local_function",
         )
 
     @patch.dict(
@@ -105,6 +106,7 @@ class TestRunFunction:
             external_id="fn_test3",
             data_source="workflow",
             rebuild_env=False,
+            virtual_env_folder_name="function_local_venvs_test_run_local_function_workflow",
         )
 
     @pytest.mark.parametrize(

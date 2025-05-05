@@ -1,6 +1,7 @@
 [cdf]
 default_organization_dir = "cognite_toolkit"
 #default_env = "dev"
+file_encoding = "utf-8"
 
 [alpha_flags]
 graphql = true
