@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
@@ -43,6 +44,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
+    yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
