@@ -30,6 +30,18 @@ LAST_GIT_MESSAGE_FILE = REPO_ROOT / "last_git_message.txt"
 CHANGELOG_ENTRY_FILE = REPO_ROOT / "last_changelog_entry.md"
 LAST_VERSION = REPO_ROOT / "last_version.txt"
 VERSION_PLACEHOLDER = "0.0.0"
+VERSION_FILES = [
+    REPO_ROOT / "pyproject.toml",
+    REPO_ROOT / "cognite_toolkit" / "_version.py",
+    REPO_ROOT / "cdf.toml",
+    *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
+    *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
+    *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
+]
+DOCKER_IMAGE_FILES = [
+    *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yml"),
+    *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yaml"),
+]
 
 app = typer.Typer(
     add_completion=False,
@@ -42,18 +54,6 @@ app = typer.Typer(
 
 @app.command()
 def bump(verbose: bool = False) -> None:
-    version_files = [
-        REPO_ROOT / "pyproject.toml",
-        REPO_ROOT / "cognite_toolkit" / "_version.py",
-        REPO_ROOT / "cdf.toml",
-        *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
-        *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
-        *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
-    ]
-    docker_image_files = [
-        *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yml"),
-        *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yaml"),
-    ]
     last_version_str = LAST_VERSION.read_text().strip().removeprefix("v")
     try:
         last_version = parse(last_version_str)
@@ -75,16 +75,16 @@ def bump(verbose: bool = False) -> None:
     else:
         raise typer.BadParameter("You must specify one of major, minor, patch, alpha, or beta.")
 
-    for file in version_files:
+    for file in VERSION_FILES:
         file.write_text(file.read_text().replace(str(VERSION_PLACEHOLDER), str(new_version), 1))
         if verbose:
             typer.echo(f"Bumped version from {last_version} to {new_version} in {file}.")
-    for file in docker_image_files:
+    for file in DOCKER_IMAGE_FILES:
         file.write_text(file.read_text().replace(f"{IMAGE_NAME}:{last_version!s}", f"{IMAGE_NAME}:{new_version!s}", 1))
         if verbose:
             typer.echo(f"Bumped version from {last_version} to {new_version} in {file}.")
 
-    typer.echo(f"Bumped version from {last_version} to {new_version} in {len(version_files)} files.")
+    typer.echo(f"Bumped version from {last_version} to {new_version} in {len(VERSION_FILES)} files.")
 
 
 @app.command("alpha")
@@ -144,12 +144,18 @@ def _read_last_commit_message() -> tuple[list[marko.element.Element], str]:
         print("No changelog entry found in the last commit message.")
         raise SystemExit(1)
     changelog_text = last_git_message.split("## Changelog")[1].strip()
+
+    if "-----" in changelog_text:
+        # Co-authors section
+        changelog_text = changelog_text.split("-----")[0].strip()
+
     changelog_items = [
         item for item in marko.parse(changelog_text).children if not isinstance(item, marko.block.BlankLine)
     ]
     if not changelog_items:
         print("No changelog items found in the last commit message.")
         raise SystemExit(1)
+
     return changelog_items, changelog_text
 
 

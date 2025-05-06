@@ -268,3 +268,15 @@ class StreamlitRequirementsWarning(FileReadWarning):
         if isinstance(self.dependencies, str):
             return f"Missing recommended dependencies in requirements.txt: {self.dependencies}"
         return f"Missing dependencies in requirements.txt: {', '.join(self.dependencies)}"
+
+
+@dataclass(frozen=True)
+class ResourceFormatWarning(FileReadWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    errors: tuple[str, ...]
+
+    def get_message(self) -> str:
+        sep = "\n     * "
+        errors = sep.join(self.errors)
+        s = "s" if len(self.errors) > 1 else ""
+        return f"{type(self).__name__} {len(self.errors)} error{s}:{sep}{errors}"
