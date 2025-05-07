@@ -94,7 +94,7 @@ class AssetRootIDScope(Scope):
     root_ids: list[str]
 
 
-class ExperimentsScope(Scope):
+class ExperimentScope(Scope):
     _scope_name = "experimentscope"
     experiments: list[str]
 
@@ -370,7 +370,7 @@ class WellsAcl(Capability):
 class ExperimentsAcl(Capability):
     _capability_name = "experimentAcl"
     actions: list[Literal["USE"]]
-    scope: ExperimentsScope
+    scope: ExperimentScope
 
 
 class TemplateGroupsAcl(Capability):
