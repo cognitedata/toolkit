@@ -4,8 +4,5 @@
   dataSetExternalId: ds_complete_org
   mimeType: text/plain
   source: doctrino
-  instanceId:
-    externalId: test-instance-id
-    space: instance-space
   metadata:
     origin: cognite-toolkit
