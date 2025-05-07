@@ -1,0 +1,26 @@
+externalId: ChildView
+space: sp_schema
+version: v1
+implements:
+- externalId: ParentView
+  space: sp_schema
+  type: view
+  version: v1
+properties:
+  description:
+    container:
+      externalId: DescriptionContainer
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: description
+  fileView:
+    connectionType: multi_edge_connection
+    type:
+      space: sp_schema
+      externalId: FileType
+    # We are overwriting the fileView property of the parent with a new source.
+    source:
+      type: view
+      space: cdf_cdm
+      externalId: MyFileExtension
+      version: v1
