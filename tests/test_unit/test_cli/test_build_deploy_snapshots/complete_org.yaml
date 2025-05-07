@@ -61,6 +61,11 @@ Container:
   externalId: NameContainer
   indexes: {}
   properties:
+    direct:
+      immutable: false
+      type:
+        list: false
+        type: direct
     name:
       immutable: false
       type:
@@ -828,12 +833,23 @@ View:
         space: sp_schema
         type: container
       containerPropertyIdentifier: description
+    directFile:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: direct
+      source:
+        externalId: MyFileExtension
+        space: sp_schema
+        type: view
+        version: v1
     fileView:
       connectionType: multi_edge_connection
       direction: outwards
       source:
         externalId: MyFileExtension
-        space: cdf_cdm
+        space: sp_schema
         type: view
         version: v1
       type:
@@ -876,6 +892,17 @@ View:
 - externalId: ParentView
   implements: []
   properties:
+    directFile:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: direct
+      source:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: view
+        version: v1
     fileView:
       connectionType: multi_edge_connection
       direction: outwards
