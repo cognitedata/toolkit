@@ -12,7 +12,7 @@ def all_acls() -> Iterable:
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
         {"dataModelInstancesAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
-        {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceScope": {"externalIds": ["maintain"]}}}},
+        {"dataModelInstancesAcl": {"actions": ["READ"], "scope": {"spaceIdScope": {"spaceIds": ["maintain"]}}}},
         {
             "dataModelInstancesAcl": {
                 "actions": ["WRITE_PROPERTIES"],
@@ -23,7 +23,7 @@ def all_acls() -> Iterable:
         {
             "dataModelsAcl": {
                 "actions": ["READ"],
-                "scope": {"dataModelScope": {"externalIds": ["maintain", "main-data"]}},
+                "scope": {"spaceIdScope": {"spaceIds": ["maintain", "main-data"]}},
             }
         },
         {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"all": {}}}},
