@@ -5,6 +5,11 @@ from pydantic import Field
 from .base import ToolkitResource
 
 
+class NodeId(ToolkitResource):
+    external_id: str
+    space: str
+
+
 class FileMetadataYAML(ToolkitResource):
     external_id: str = Field(
         description="The external ID provided by the client.",
@@ -19,7 +24,7 @@ class FileMetadataYAML(ToolkitResource):
         description="Directory associated with the file.",
         max_length=512,
     )
-    instance_id: str | None = Field(
+    instance_id: NodeId | None = Field(
         default=None,
         description="The Instance ID for the file when created in DMS.",
     )
