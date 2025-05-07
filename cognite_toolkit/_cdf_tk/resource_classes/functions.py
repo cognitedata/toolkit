@@ -11,7 +11,7 @@ class FunctionsYAML(ToolkitResource):
         max_length=255,
     )
     name: str = Field(
-        description="The name of the data set.",
+        description="The name of the function.",
         max_length=140,
     )
     description: str | None = Field(
@@ -50,12 +50,12 @@ class FunctionsYAML(ToolkitResource):
         default=None,
         description="Specify a different python package index, allowing for packages published in private repositories.",
     )
-    extra_index_urls: str | None = Field(
+    extra_index_urls: list[str] | None = Field(
         default=None,
         description=" Extra package index URLs to use when building the function, allowing for packages published in private repositories.",
     )
     data_set_external_id: str | None = Field(
         default=None,
-        description="Target dataset external ID for this function.",
+        description="Target dataset external ID for the file where the function code is stored.",
         max_length=255,
     )
