@@ -24,6 +24,19 @@ Asset:
   source: doctrino
 Container:
 - constraints: {}
+  description: Container with a description property
+  externalId: DescriptionContainer
+  indexes: {}
+  properties:
+    description:
+      immutable: false
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
+- constraints: {}
   externalId: MyFileExtension
   indexes: {}
   properties:
@@ -37,6 +50,19 @@ Container:
     status:
       immutable: false
       nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+  space: sp_schema
+  usedFor: node
+- constraints: {}
+  description: Container with a name property
+  externalId: NameContainer
+  indexes: {}
+  properties:
+    name:
+      immutable: false
       type:
         collation: ucs_basic
         list: false
@@ -789,6 +815,32 @@ TransformationSchedule:
   interval: 7 * * * *
   isPaused: true
 View:
+- externalId: ChildView
+  implements:
+  - externalId: ParentView
+    space: sp_schema
+    type: view
+    version: v1
+  properties:
+    description:
+      container:
+        externalId: DescriptionContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: description
+    fileView:
+      connectionType: multi_edge_connection
+      direction: outwards
+      source:
+        externalId: MyFileExtension
+        space: cdf_cdm
+        type: view
+        version: v1
+      type:
+        externalId: FileType
+        space: sp_schema
+  space: sp_schema
+  version: v1
 - externalId: MyFileExtension
   implements:
   - externalId: CogniteFile
@@ -819,6 +871,28 @@ View:
         space: sp_schema
         type: container
       containerPropertyIdentifier: myContainerProperty
+  space: sp_schema
+  version: v1
+- externalId: ParentView
+  implements: []
+  properties:
+    fileView:
+      connectionType: multi_edge_connection
+      direction: outwards
+      source:
+        externalId: CogniteFile
+        space: cdf_cdm
+        type: view
+        version: v1
+      type:
+        externalId: FileType
+        space: sp_schema
+    name:
+      container:
+        externalId: NameContainer
+        space: sp_schema
+        type: container
+      containerPropertyIdentifier: name
   space: sp_schema
   version: v1
 - externalId: PrimitiveNullable
