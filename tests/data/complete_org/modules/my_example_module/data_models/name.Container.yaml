@@ -7,3 +7,7 @@ properties:
     type:
       type: text
       list: false
+  direct:
+    type:
+      type: direct
+      list: false

@@ -21,6 +21,18 @@ properties:
     # We are overwriting the fileView property of the parent with a new source.
     source:
       type: view
-      space: cdf_cdm
+      space: sp_schema
+      externalId: MyFileExtension
+      version: v1
+  directFile:
+    container:
+      externalId: NameContainer
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: direct
+    # We are overwriting the directFile property of the parent with a new source.
+    source:
+      type: view
+      space: sp_schema
       externalId: MyFileExtension
       version: v1

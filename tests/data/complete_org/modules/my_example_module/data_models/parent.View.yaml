@@ -18,3 +18,14 @@ properties:
       space: cdf_cdm
       externalId: CogniteFile
       version: v1
+  directFile:
+    container:
+      externalId: NameContainer
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: direct
+    source:
+      type: view
+      space: cdf_cdm
+      externalId: CogniteFile
+      version: v1
