@@ -7,7 +7,7 @@
   metadata:
     version: '1'
   secrets:
-    mysecret: {{example_secret}}
+    mysecret: '${ENVIRONMENT_SECRET}'
   envVars:
     # The below two environment variables are set by the Toolkit
     ENV_TYPE: '${CDF_BUILD_TYPE}'
@@ -19,7 +19,7 @@
   runtime: 'py311'
   functionPath: './src/handler.py'
   # Data set id for the zip file with the code that is uploaded.
-  dataSetExternalId: 'ds_timeseries_{{example_variable}}'
+  dataSetExternalId: 'ds_timeseries_foo'
   indexUrl: https://pypi.org/simple
   # The cpu and memory limit are automatically increased to the default on an Azure or AWS cloud.
   cpu: 0.6
