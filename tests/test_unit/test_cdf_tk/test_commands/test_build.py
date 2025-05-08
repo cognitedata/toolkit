@@ -114,7 +114,7 @@ class TestBuildCommand:
         my_group = """name: gp_trigger_issue
 sourceId: '1234567890123456789'
 capabilities:
-- dataModelInstancesAcls:
+- dataModelInstancesAcl:
     actions:
     - READ
     scope:
