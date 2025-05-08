@@ -8,8 +8,10 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -17,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWriteList,
 )
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
@@ -55,6 +58,22 @@ class LocationFilterLoader(
     _doc_url = "Location-Filters/operation/createLocationFilter"
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
+        self.client = client
+        self.resource_build_path: Path | None = None
+
+        # location filters may have to be deployed in a specific order since the API doesn't
+        # support parentExternalId so we need to deploy them one by one
+        if build_dir and build_dir.is_file():
+            self.resource_build_path = build_dir
+        else:
+            if build_dir is not None and build_dir.name == self.folder_name:
+                raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
+            elif build_dir is not None:
+                self.resource_build_path = build_dir / self.folder_name
+
+        self.console = console
 
     @property
     def display_name(self) -> str:
@@ -102,7 +121,14 @@ class LocationFilterLoader(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):
-            resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
+            # TODO: this will draw blanks if the parent is in the current build but has not been deployed yet
+            #
+            try:
+                resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
+            except ResourceRetrievalError:
+                resource["parentId"] = -1
+                resource["_parentExternalId"] = parent_external_id
+
         if "assetCentric" not in resource:
             return LocationFilterWrite._load(resource)
         asset_centric = resource["assetCentric"]
@@ -157,13 +183,24 @@ class LocationFilterLoader(
 
         created = []
         for item in items:
+            if item._parent_external_id and item.parent_id == -1:
+                item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
             created.append(self.client.location_filters.create(item))
         return LocationFilterList(created)
 
     def retrieve(self, external_ids: SequenceNotStr[str]) -> LocationFilterList:
-        return LocationFilterList(
-            [loc for loc in self.client.location_filters.list() if loc.external_id in external_ids]
-        )
+        all_locations = self.client.location_filters.list()
+        found_locations: LocationFilterList = LocationFilterList([])
+
+        def _recursive_find(locs: LocationFilterList) -> None:
+            for loc in locs:
+                if loc.external_id in external_ids:
+                    found_locations.append(loc)
+                if loc.locations:
+                    _recursive_find(loc.locations)
+
+        _recursive_find(all_locations)
+        return LocationFilterList(found_locations)
 
     def update(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):
