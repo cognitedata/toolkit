@@ -149,6 +149,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         asset_centric: AssetCentricFilter | None = None,
         views: list[LocationFilterView] | None = None,
         data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = None,
+        _parent_external_id: str | None = None,
     ) -> None:
         self.external_id = external_id
         self.name = name
@@ -160,6 +161,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self.asset_centric = asset_centric
         self.views = views
         self.data_modeling_type = data_modeling_type
+        self._parent_external_id = _parent_external_id
 
     def as_write(self) -> LocationFilterWrite:
         return LocationFilterWrite(
@@ -212,6 +214,7 @@ class LocationFilterWrite(LocationFilterCore):
             asset_centric=asset_centric,
             views=views,
             data_modeling_type=resource.get("dataModelingType"),
+            _parent_external_id=resource.get("_parentExternalId"),
         )
 
 

@@ -41,14 +41,14 @@ class LocationBuilder(Builder):
 
         for loaded_location in loaded_locations:
             ext_id = loaded_location.get("externalId")
-            parent_id = loaded_location.get("parentExternalId")
+            parent_external_id = loaded_location.get("parentExternalId")
 
             if ext_id:
                 location_by_external_id[ext_id] = loaded_location
                 location_hierarchy_graph.setdefault(ext_id, [])  # Initialize if not present
-                if parent_id:
-                    location_hierarchy_graph.setdefault(parent_id, [])  # Initialize parent too
-                    location_hierarchy_graph[ext_id].append(parent_id)
+                if parent_external_id:
+                    location_hierarchy_graph.setdefault(parent_external_id, [])  # Initialize parent too
+                    location_hierarchy_graph[ext_id].append(parent_external_id)
 
         warnings = WarningList[FileReadWarning]()
 
