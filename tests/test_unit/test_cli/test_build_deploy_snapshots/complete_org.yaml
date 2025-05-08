@@ -453,6 +453,12 @@ LocationFilter:
   description: LocationFilter for DataModel
   externalId: DataModelLocationFilter
   name: LocationFilter for DataModel
+- externalId: child-location-1
+  name: Child 1
+  parentId: 17153903781108366294
+- externalId: child-location-2
+  name: Child 2
+  parentId: 12078427450105880526
 - description: A location filter for the Fornebu location
   externalId: fornebu_location_filter
   instanceSpaces:
@@ -463,6 +469,9 @@ LocationFilter:
     representsEntity: ASSET
     space: cdf_cdm
     version: v1
+- description: This is a description of the location.
+  externalId: main-location
+  name: Main location name
 Map:
 - description: Original Description
   externalId: robotMap

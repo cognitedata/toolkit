@@ -21,8 +21,18 @@ class LocationBuilder(Builder):
         location_by_external_id: dict[str, dict[str, Any]] = {}
         location_hierarchy_graph: dict[str, list[Any]] = {}
 
+        # combining all location filters in one file to ensure correct sequence and
+        # dependencies within the module
+        destination_path = self.build_dir / self.resource_folder / "ordered.LocationFilter.yaml"
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+
+        loaded_locations = []
         for source_file in source_files:
-            if source_file.loaded is None:
+            if isinstance(source_file.loaded, list):
+                loaded_locations.extend(source_file.loaded)
+            elif isinstance(source_file.loaded, dict):
+                loaded_locations.append(source_file.loaded)
+            else:
                 continue
 
             loader, warning = self._get_loader(source_file.source.path)
@@ -31,34 +41,33 @@ class LocationBuilder(Builder):
                     yield [warning]
                 continue
 
-            loaded_locations = source_file.loaded if isinstance(source_file.loaded, list) else [source_file.loaded]
+        for loaded_location in loaded_locations:
+            ext_id = loaded_location.get("externalId")
+            parent_id = loaded_location.get("parentExternalId")
 
-            for loaded_location in loaded_locations:
-                ext_id = loaded_location.get("externalId")
-                parent_id = loaded_location.get("parentExternalId")
+            if ext_id:
+                location_by_external_id[ext_id] = loaded_location
+                location_hierarchy_graph.setdefault(ext_id, [])  # Initialize if not present
+                if parent_id:
+                    location_hierarchy_graph.setdefault(parent_id, [])  # Initialize parent too
+                    location_hierarchy_graph[ext_id].append(parent_id)
 
-                if ext_id:
-                    location_by_external_id[ext_id] = loaded_location
-                    location_hierarchy_graph.setdefault(ext_id, [])  # Initialize if not present
-                    if parent_id:
-                        location_hierarchy_graph.setdefault(parent_id, [])  # Initialize parent too
-                        location_hierarchy_graph[ext_id].append(parent_id)
+        warnings = WarningList[FileReadWarning]()
 
-            warnings = WarningList[FileReadWarning]()
+        ordered_locations = []
+        for external_id in TopologicalSorter(location_hierarchy_graph).static_order():
+            target_dict = location_by_external_id[external_id]
+            ordered_locations.append(target_dict)
 
-            for i, external_id in enumerate(TopologicalSorter(location_hierarchy_graph).static_order()):
-                destination_path = self._create_file_path(source_file.source.path, i, loader.kind)
-
-                target_dict = location_by_external_id[external_id]
-
-                yield BuildDestinationFile(
-                    path=destination_path,
-                    loaded=target_dict,
-                    loader=loader,
-                    source=source_file.source,
-                    extra_sources=None,
-                    warnings=warnings,
-                )
+        if loader:
+            yield BuildDestinationFile(
+                path=destination_path,
+                loaded=ordered_locations,
+                loader=loader,
+                source=source_file.source,
+                extra_sources=None,
+                warnings=warnings,
+            )
 
     def _create_file_path(self, source_path: Path, index: int, kind: str) -> Path:
         """Creates the filepath in the build directory for the given source path.
