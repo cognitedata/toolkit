@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import glob
 from collections.abc import Hashable
 from graphlib import TopologicalSorter
 from pathlib import Path
@@ -40,7 +39,6 @@ from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
     GroupLoader,
     Loader,
-    LocationFilterLoader,
     RawDatabaseLoader,
     ResourceContainerLoader,
     ResourceLoader,
@@ -108,7 +106,7 @@ class DeployCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"[bold]{verb}[/] resource files from {build_dir} directory.{environment_vars}",
+                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
                 expand=False,
             )
         )
@@ -142,12 +140,12 @@ class DeployCommand(ToolkitCommand):
             elif drop_data:
                 print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
 
-            for drop_loader_cls in reversed(ordered_loaders):
-                if not issubclass(drop_loader_cls, ResourceLoader):
+            for loader_cls in reversed(ordered_loaders):
+                if not issubclass(loader_cls, ResourceLoader):
                     continue
-                drop_loader: ResourceLoader = drop_loader_cls.create_loader(client, build_dir)
+                loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
                 result = self._clean_command.clean_resources(
-                    drop_loader,
+                    loader,
                     env_vars=env_vars,
                     read_modules=deploy_state.read_modules,
                     drop=drop,
@@ -162,27 +160,10 @@ class DeployCommand(ToolkitCommand):
         if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
-        # instantiate loaders in topological order, but with special case:
-        # LocationFilters have to be deployed individually
-        # since they may have a parentId that specifies their place in the hierarchy.
-        # When we resolve the parentId from parentExternalId, the parent may not have been
-        # created yet and the hierarchy is broken. So we have to create them in topological sequence.
-        loaders: list[Loader] = []
-        for ordered_loader_cls in ordered_loaders:
-            if ordered_loader_cls is LocationFilterLoader and (
-                location_files := glob.glob(
-                    str(build_dir / LocationFilterLoader.folder_name / f"*.{LocationFilterLoader.kind}.yaml")
-                )
-            ):
-                loaders.extend(
-                    LocationFilterLoader.create_loader(client, Path(location_file)) for location_file in location_files
-                )
-            else:
-                loaders.append(ordered_loader_cls.create_loader(client, build_dir))
-
-        for loader in loaders:
+        for loader_cls in ordered_loaders:
+            loader_instance = loader_cls.create_loader(client, build_dir)
             result = self.deploy_resources(
-                loader,
+                loader_instance,
                 env_vars=env_vars,
                 state=deploy_state,
                 dry_run=dry_run,
