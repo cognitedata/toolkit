@@ -9,10 +9,12 @@ This is means that we have three set of resource classes we use in Toolkit:
 
 from .base import ToolkitResource
 from .dataset import DataSetYAML
+from .groups import GroupYAML
 from .timeseries import TimeSeriesYAML
 
 __all__ = [
     "DataSetYAML",
+    "GroupYAML",
     "TimeSeriesYAML",
     "ToolkitResource",
 ]
