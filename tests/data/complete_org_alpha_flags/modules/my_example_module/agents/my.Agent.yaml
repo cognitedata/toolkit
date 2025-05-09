@@ -1,0 +1,24 @@
+externalId: 6543ff3b-bbdd-41cf-990f-2dfffabac132
+name: My Agent
+description: |
+  This is an agent with multiple tools
+model: "azure/gpt-4o-mini"
+tools:
+- name: documentAsk
+  type: documentAsk
+  description: Interrogate documents.
+  configuration: {}
+- name: webhook
+  type: webhook
+  description: A tool for calling custom APIs.
+  configuration:
+    apiURL: https://api.example.com
+    method: POST
+    schema:
+      $schema: https://json-schema.org/draft/2020-12/schema
+      type: object
+      properties:
+        asset_id:
+          type: string
+      required:
+        - asset_id
