@@ -161,7 +161,7 @@ class LocationFilterCore(WriteableCogniteResource["LocationFilterWrite"], ABC):
         self.asset_centric = asset_centric
         self.views = views
         self.data_modeling_type = data_modeling_type
-        self._parent_external_id = _parent_external_id
+        self._parent_external_id = _parent_external_id  # This is an internal property used to temporarily hold the parentExternalId when lookup is deferred
 
     def as_write(self) -> LocationFilterWrite:
         return LocationFilterWrite(
@@ -214,7 +214,9 @@ class LocationFilterWrite(LocationFilterCore):
             asset_centric=asset_centric,
             views=views,
             data_modeling_type=resource.get("dataModelingType"),
-            _parent_external_id=resource.get("_parentExternalId"),
+            _parent_external_id=resource.get(
+                "_parentExternalId"
+            ),  # This is an internal property used to temporarily hold the parentExternalId when lookup is deferred
         )
 
 

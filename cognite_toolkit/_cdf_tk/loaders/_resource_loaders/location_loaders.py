@@ -8,10 +8,8 @@ from typing import Any, final
 from cognite.client.data_classes.capabilities import Capability, LocationFiltersAcl
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from cognite.client.utils.useful_types import SequenceNotStr
-from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
-from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilter,
     LocationFilterList,
@@ -59,22 +57,6 @@ class LocationFilterLoader(
 
     subfilter_names = ("assets", "events", "files", "timeseries", "sequences")
 
-    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None) -> None:
-        self.client = client
-        self.resource_build_path: Path | None = None
-
-        # location filters may have to be deployed in a specific order since the API doesn't
-        # support parentExternalId so we need to deploy them one by one
-        if build_dir and build_dir.is_file():
-            self.resource_build_path = build_dir
-        else:
-            if build_dir is not None and build_dir.name == self.folder_name:
-                raise ValueError(f"Build directory cannot be the same as the resource folder name: {self.folder_name}")
-            elif build_dir is not None:
-                self.resource_build_path = build_dir / self.folder_name
-
-        self.console = console
-
     @property
     def display_name(self) -> str:
         return "location filters"
@@ -121,7 +103,8 @@ class LocationFilterLoader(
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):
-            # TODO: this will draw blanks if the parent is in the current build but has not been deployed yet
+            # This is a workaround: when the parentExternalId cannot be resolved because the parent hasn't been created yet, , we save it so that we can try again "later"
+
             #
             try:
                 resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
@@ -182,7 +165,11 @@ class LocationFilterLoader(
             items = LocationFilterWriteList([items])
 
         created = []
+        # Note: the Location API does not support batch creation, so we need to do this one by one.
+        # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
+        # hence it may be deferred here.
         for item in items:
+            # These are set if lookup has been deferred
             if item._parent_external_id and item.parent_id == -1:
                 item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
             created.append(self.client.location_filters.create(item))
@@ -192,6 +179,7 @@ class LocationFilterLoader(
         all_locations = self.client.location_filters.list()
         found_locations: LocationFilterList = LocationFilterList([])
 
+        # locationfilter list returns a tree structure, so we need to traverse it
         def _recursive_find(locs: LocationFilterList) -> None:
             for loc in locs:
                 if loc.external_id in external_ids:
