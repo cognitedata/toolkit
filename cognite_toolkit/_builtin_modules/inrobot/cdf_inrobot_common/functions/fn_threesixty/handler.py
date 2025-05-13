@@ -110,6 +110,7 @@ def create_and_upload_360_files(
     robot_pose: SE3Pose,
     image: Image,
     waypoint: dict[str, Any],
+    metadata: dict[str, Any],
     timestamp: int,
 ):
     """Create Cogntie three sixty images."""
@@ -137,6 +138,7 @@ def create_and_upload_360_files(
         translation_unit="m",
         translation_offset_mm=VectorXYZ(0, 0, 0),
         timestamp=timestamp,
+        parent_file_metadata=metadata,
     )
     logger.info("Created event and files")
 
@@ -175,6 +177,8 @@ def process_threesixty_files(files: FileMetadataList, client: CogniteClient, dat
         try:
             # Updating the file immediately so that the same file will not be processed again
             client.files.update(FileMetadataUpdate(id=file.id).labels.remove("threesixty"))
+            
+            _file_metadata = file.metadata
 
             logger.info(f"Processing file with external id {file.external_id}, id {file.id}")
             if not file.uploaded:
@@ -226,6 +230,7 @@ def process_threesixty_files(files: FileMetadataList, client: CogniteClient, dat
                 robot_pose=site_pose,
                 image=image,
                 waypoint=waypoint,
+                metadata=_file_metadata,
                 timestamp=image_timestamp,
             )
         except Exception as e:
