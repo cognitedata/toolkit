@@ -1,7 +1,0 @@
-[module]
-title = "Example data for CDF OID"
-
-[packages]
-tags = [
-    "examples",
-]
