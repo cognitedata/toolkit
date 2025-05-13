@@ -12,6 +12,28 @@
     read_ir_raw_label: read_ir
     spill_detection_label: unprocessed_spill_detection
     data_set_external_id: "{{robot_1_dataset_ext_id}}"
+    # custom_meta_data:
+    custom_metadata_robot_id: slb-spot
+    custom_metadata_file_type: inspection
+    custom_metadata_file_wrapper: true
+    custom_metadata_from_inrobot: true
+    custom_metadata_asset_tag: none
+    custom_metadata_data_type: none
+    custom_metadata_payload_type: none
+    custom_metadata_payload_action_type: none
+    custom_metadata_mission_type: none
+    custom_metadata_timestamp: 0
+    # custom_meta_data_name_mapping
+    custom_mapping_robot_id: artemis_robot_id
+    custom_mapping_file_type: artemis_file_type
+    custom_mapping_file_wrapper: artemis_file_wrapper
+    custom_mapping_from_inrobot: artemis_from_inrobot
+    custom_mapping_asset_tag: artemis_asset_tag
+    custom_mapping_data_type: artemis_data_type
+    custom_mapping_payload_type: artemis_payload_type
+    custom_mapping_payload_action_type: artemis_payload_action_type
+    custom_mapping_mission_type: artemis_mission_type
+    custom_mapping_timestamp: artemis_timestamp_type
   authentication:
     clientId: "{{ run_function_client_id }}"
     clientSecret: "{{ run_function_secret }}"
