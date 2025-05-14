@@ -1,10 +1,8 @@
-import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
-from cognite.client.data_classes import CreatedSession
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -71,21 +69,6 @@ class ToolkitClientMock(CogniteClientMock):
 @contextmanager
 def monkeypatch_toolkit_client() -> Iterator[ToolkitClientMock]:
     toolkit_client_mock = ToolkitClientMock()
-    session_no = 1
-
-    def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
-        # This is a workaround to avoid the ToolkitClient to create a new session
-        # when it is created. This is needed for the tests to work.
-        nonlocal session_no
-        session_no += 1
-        return CreatedSession(
-            id=session_no,
-            status="READY",
-            nonce=uuid.uuid4().hex,
-            type="CLIENT_CREDENTIALS",
-        )
-
-    toolkit_client_mock.iam.sessions.create = create_session  # type: ignore[assignment]
     ToolkitClient.__new__ = lambda *args, **kwargs: toolkit_client_mock  # type: ignore[method-assign]
     yield toolkit_client_mock
     ToolkitClient.__new__ = lambda cls, *args, **kwargs: object.__new__(cls)  # type: ignore[method-assign]
