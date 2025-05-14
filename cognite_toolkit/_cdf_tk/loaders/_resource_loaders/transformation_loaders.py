@@ -29,11 +29,13 @@ from __future__ import annotations
 import warnings
 from collections import defaultdict
 from collections.abc import Hashable, Iterable, Sequence
+from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast, final
+from typing import Any, Literal, cast, final
 
 from cognite.client.data_classes import (
+    ClientCredentials,
     OidcCredentials,
     Transformation,
     TransformationList,
@@ -54,6 +56,7 @@ from cognite.client.data_classes.data_modeling.ids import (
     DataModelId,
     ViewId,
 )
+from cognite.client.data_classes.transformations import NonceCredentials
 from cognite.client.data_classes.transformations.notifications import (
     TransformationNotificationWrite,
     TransformationNotificationWriteList,
@@ -61,8 +64,10 @@ from cognite.client.data_classes.transformations.notifications import (
 from cognite.client.exceptions import CogniteAPIError, CogniteAuthError, CogniteDuplicatedError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
+from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
@@ -70,10 +75,10 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
     ToolkitRequiredValueError,
-    ToolkitTypeError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -82,7 +87,7 @@ from cognite_toolkit._cdf_tk.utils import (
     quote_int_value_by_key_in_yaml,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.cdf import try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -121,6 +126,13 @@ class TransformationLoader(
     )
     _doc_url = "Transformations/operation/createTransformations"
     _hash_key = "-- cdf-auth"
+
+    def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
+        super().__init__(client, build_dir, console)
+        self._authentication_by_id_operation: dict[
+            tuple[str, Literal["read", "write"]], OidcCredentials | ClientCredentials
+        ] = {}
+        self._nonce_cache: dict[str, NonceCredentials] = {}
 
     @property
     def display_name(self) -> str:
@@ -238,8 +250,6 @@ class TransformationLoader(
                 "authentication",
                 "sourceOidcCredentials",
                 "destinationOidcCredentials",
-                "sourceNonce",
-                "destinationNonce",
             ]:
                 if key in item:
                     auth_dict[key] = item[key]
@@ -249,6 +259,50 @@ class TransformationLoader(
                     hash_str = f"{self._hash_key}: {auth_hash}"
                     if not item["query"].startswith(self._hash_key):
                         item["query"] = f"{hash_str}\n{item['query']}"
+
+            if "sourceOidcCredentials" in item:
+                HighSeverityWarning(
+                    "The property 'sourceOidcCredentials' is deprecated. Use 'authentication.read' instead."
+                ).print_warning(console=self.console)
+                item.pop("sourceOidcCredentials")
+
+            if "destinationOidcCredentials" in item:
+                HighSeverityWarning(
+                    "The property 'destinationOidcCredentials' is deprecated. Use 'authentication.write' instead."
+                ).print_warning(console=self.console)
+                item.pop("destinationOidcCredentials")
+
+            if "sourceNonce" in item:
+                HighSeverityWarning(
+                    "The property 'sourceNonce' is not used by Toolkit. Use 'authentication.read' instead,"
+                    "then Toolkit will dynamically set the nonce."
+                ).print_warning(console=self.console)
+                item.pop("sourceNonce")
+
+            if "destinationNonce" in item:
+                HighSeverityWarning(
+                    "The property 'destinationNonce' is not used by Toolkit. Use 'authentication.write' instead,"
+                    "then Toolkit will dynamically set the nonce."
+                ).print_warning(console=self.console)
+                item.pop("destinationNonce")
+            auth = item.pop("authentication", None)
+            if isinstance(auth, dict):
+                self._authentication_by_id_operation[(external_id, "read")] = read_auth(
+                    auth["read"] if "read" in auth else auth,
+                    self.client.config,
+                    external_id,
+                    "transformation",
+                    allow_oidc=True,
+                    console=self.console,
+                )
+                self._authentication_by_id_operation[(external_id, "write")] = read_auth(
+                    auth["write"] if "write" in auth else auth,
+                    self.client.config,
+                    external_id,
+                    "transformation",
+                    allow_oidc=True,
+                    console=self.console,
+                )
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> TransformationWrite:
@@ -270,29 +324,7 @@ class TransformationLoader(
         if "conflictMode" not in resource:
             # Todo; Bug SDK missing default value
             resource["conflictMode"] = "upsert"
-
-        source_oidc_credentials = (
-            resource.get("authentication", {}).get("read") or resource.get("authentication") or None
-        )
-        destination_oidc_credentials = (
-            resource.get("authentication", {}).get("write") or resource.get("authentication") or None
-        )
-        transformation = TransformationWrite._load(resource)
-        try:
-            if transformation.source_oidc_credentials is None:
-                transformation.source_oidc_credentials = source_oidc_credentials and OidcCredentials.load(
-                    source_oidc_credentials
-                )
-            if transformation.destination_oidc_credentials is None:
-                transformation.destination_oidc_credentials = destination_oidc_credentials and OidcCredentials.load(
-                    destination_oidc_credentials
-                )
-        except KeyError as e:
-            item_id = self.get_id(resource)
-            raise ToolkitTypeError(
-                f"Ill-formed Transformation {item_id}: Authentication property is missing required fields"
-            ) from e
-        return transformation
+        return TransformationWrite._load(resource)
 
     def dump_resource(self, resource: Transformation, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -327,12 +359,13 @@ class TransformationLoader(
             warnings.simplefilter("ignore")
             # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
             # handle first a group that authorizes the session and then the transformation.
-            try:
-                return self.client.transformations.create(items)
-            except CogniteAuthError as e:
-                if error := self._create_auth_creation_error(items):
-                    raise error from e
-                raise e
+            self._update_nonce(items)
+        try:
+            return self.client.transformations.create(items)
+        except CogniteAuthError as e:
+            if error := self._create_auth_creation_error(items):
+                raise error from e
+            raise e
 
     def retrieve(self, ids: SequenceNotStr[str | int]) -> TransformationList:
         internal_ids, external_ids = self._split_ids(ids)
@@ -345,6 +378,7 @@ class TransformationLoader(
             warnings.simplefilter("ignore")
             # Ignoring warnings from SDK about session unauthorized. Motivation is CDF is not fast enough to
             # handle first a group that authorizes the session and then the transformation.
+            self._update_nonce(items)
             try:
                 return self.client.transformations.update(items, mode="replace")
             except CogniteAuthError as e:
@@ -376,6 +410,31 @@ class TransformationLoader(
         if existing:
             self.client.transformations.delete(id=existing, ignore_unknown_ids=True)
         return len(existing)
+
+    def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
+        for item in items:
+            if item.external_id:
+                if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
+                    item.source_nonce = self._create_nonce(read_credentials)
+                if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
+                    item.destination_nonce = self._create_nonce(write_credentials)
+
+    def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
+        key = calculate_secure_hash(credentials.dump(), shorten=True)
+        if key in self._nonce_cache:
+            return self._nonce_cache[key]
+        if isinstance(credentials, ClientCredentials):
+            session = self.client.iam.sessions.create(credentials)
+            return NonceCredentials(session.id, session.nonce, self.client.config.project)
+        elif isinstance(credentials, OidcCredentials):
+            config = deepcopy(self.client.config)
+            config.project = credentials.cdf_project_name
+            config.credentials = credentials.as_credential_provider()
+            other_client = ToolkitClient(config)
+            session = other_client.iam.sessions.create(credentials.as_client_credentials())
+            return NonceCredentials(session.id, session.nonce, credentials.cdf_project_name)
+        else:
+            raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
 
     def _iterate(
         self,
