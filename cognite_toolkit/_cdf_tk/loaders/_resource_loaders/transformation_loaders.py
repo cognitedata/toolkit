@@ -489,6 +489,12 @@ class TransformationLoader(
         if item.destination_oidc_credentials:
             yield item.destination_oidc_credentials.client_secret
 
+        if item.external_id:
+            if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
+                yield read_credentials.client_secret
+            if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
+                yield write_credentials.client_secret
+
 
 @final
 class TransformationScheduleLoader(
