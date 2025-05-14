@@ -1,0 +1,13 @@
+space: sp_schema
+externalId: NameContainer
+usedFor: node
+description: Container with a name property
+properties:
+  name:
+    type:
+      type: text
+      list: false
+  direct:
+    type:
+      type: direct
+      list: false
