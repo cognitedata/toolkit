@@ -389,7 +389,7 @@ Function:
   memory: 0.6
   metadata:
     cdf-toolkit-secret-hash: d218376a8813e2bb96b70b9f3df07157b0b58f18f3667c64e500032095f4f2cb0f1679ed7034189009131ce2e77cc363d840b478d94d8525cad7d9830a78e129
-    cognite-toolkit-hash: /=58b9b440;.DS_Store=b291249b;arbitrary.yaml=a66557f5;handler.py=c2bdf618;requirements.txt=f6da09a3;src.zip=a6693403;src/__init__.py=e3b0c442;src/handler.py=28ebbc99
+    cognite-toolkit-hash: /=9cf2f887;arbitrary.yaml=a66557f5;handler.py=c2bdf618;requirements.txt=f6da09a3;src.zip=a6693403;src/__init__.py=e3b0c442;src/handler.py=28ebbc99
     version: '1'
   name: first:example:function
   owner: Anonymous
