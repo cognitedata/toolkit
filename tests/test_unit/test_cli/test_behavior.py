@@ -48,7 +48,6 @@ def test_inject_custom_environmental_variables(
     organization_dir: Path,
 ) -> None:
     config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
-    config_yaml["variables"]["modules"]["examples"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     config_yaml["variables"]["modules"]["infield"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
     # Selecting a module with a transformation that uses the cicd_clientId variable
     config_yaml["environment"]["selected"] = ["cdf_infield_location"]
