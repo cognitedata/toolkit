@@ -411,7 +411,13 @@ class FunctionScheduleLoader(
         # is used to compare with the CDF resource.
         for resource in resources:
             identifier = self.get_id(resource)
-            credentials = read_auth(identifier, resource, self.client, "function schedule", self.console)
+            credentials = read_auth(
+                resource.get("authentication"),
+                self.client.config,
+                identifier,
+                "function schedule",
+                console=self.console,
+            )
             self.authentication_by_id[identifier] = credentials
             auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
             extra_str = f" {self._hash_key}: {auth_hash}"
