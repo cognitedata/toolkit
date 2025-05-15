@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
     WorkflowFinder,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -26,21 +27,44 @@ class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        self.command("datamodel")(self.dump_datamodel_cmd)
+        if Flags.DUMP_DATA.is_enabled():
+            self.add_typer(DumpDataApp(*args, **kwargs), name="data")
+            self.add_typer(DumpConfigApp(*args, **kwargs), name="config")
+        else:
+            self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
 
-        self.command("asset")(self.dump_asset_cmd)
-        self.command("timeseries")(self.dump_timeseries_cmd)
+            self.command("asset")(DumpDataApp.dump_asset_cmd)
+            self.command("timeseries")(DumpDataApp.dump_timeseries_cmd)
 
-        self.command("workflow")(self.dump_workflow)
-        self.command("transformation")(self.dump_transformation)
-        self.command("group")(self.dump_group)
-        self.command("node")(self.dump_node)
+            self.command("workflow")(DumpConfigApp.dump_workflow)
+            self.command("transformation")(DumpConfigApp.dump_transformation)
+            self.command("group")(DumpConfigApp.dump_group)
+            self.command("node")(DumpConfigApp.dump_node)
 
     @staticmethod
     def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf dump --help[/] for more information.")
+        return None
+
+
+class DumpConfigApp(typer.Typer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.callback(invoke_without_command=True)(self.dump_config_main)
+
+        self.command("datamodel")(self.dump_datamodel_cmd)
+        self.command("workflow")(self.dump_workflow)
+        self.command("transformation")(self.dump_transformation)
+        self.command("group")(self.dump_group)
+        self.command("node")(self.dump_node)
+
+    @staticmethod
+    def dump_config_main(ctx: typer.Context) -> None:
+        """Commands to dump resource configurations from CDF into a temporary directory."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf dump config --help[/] for more information.")
         return None
 
     @staticmethod
@@ -321,6 +345,21 @@ class DumpApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+
+class DumpDataApp(typer.Typer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.callback(invoke_without_command=True)(self.dump_data_main)
+        self.command("asset")(self.dump_asset_cmd)
+        self.command("timeseries")(self.dump_timeseries_cmd)
+
+    @staticmethod
+    def dump_data_main(ctx: typer.Context) -> None:
+        """Commands to dump data from CDF into a temporary directory."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf dump data --help[/] for more information.")
+        return None
 
     @staticmethod
     def dump_asset_cmd(
