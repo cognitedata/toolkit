@@ -1,0 +1,29 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}360ImageStation
+description: A way to group images across collections. Used for creating visual scan
+  history
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: cdf_cdm_3d
+      externalId: Cognite3DGroup
+  - equals:
+      property:
+      - cdf_cdm_3d
+      - Cognite3DGroup
+      - groupType
+      value: Station360
+implements:
+- space: cdf_cdm
+  externalId: Cognite360ImageStation
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageStation
+      type: container
+    containerPropertyIdentifier: UUID

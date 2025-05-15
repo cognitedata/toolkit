@@ -1,0 +1,54 @@
+name: gp_transformations_{{ sourceId }}_assets
+sourceId: {{ groupSourceId }}
+metadata:
+  origin: cognite-toolkit
+capabilities:
+  # minimum runtime capabilities
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
+  - rawAcl:
+      actions:
+        - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            {{ rawSourceDatabase }}: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ instanceSpace }}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
+  # Needed to write CogniteAsset.parent
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm

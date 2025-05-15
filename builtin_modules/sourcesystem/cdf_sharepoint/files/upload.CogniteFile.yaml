@@ -1,0 +1,4 @@
+- externalId: VAL_$FILENAME
+  space: {{ instanceSpace }}
+  name: $FILENAME
+  mimeType: application/pdf

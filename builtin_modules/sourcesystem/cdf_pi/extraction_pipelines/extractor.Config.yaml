@@ -1,0 +1,5 @@
+externalId: '{{ sourceId }}_extractors'
+config:
+  data:
+    debug: True
+

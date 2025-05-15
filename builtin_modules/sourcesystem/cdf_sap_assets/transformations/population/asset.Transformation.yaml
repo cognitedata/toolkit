@@ -1,0 +1,14 @@
+externalId: {{ assetTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: Asset Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}Asset
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+

@@ -100,6 +100,7 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
+    "builtin_modules",
 ]
 
 [tool.ruff.lint]
@@ -107,6 +108,7 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
+    "builtin_modules",
 ]
 
 [build-system]

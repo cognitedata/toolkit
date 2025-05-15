@@ -1,0 +1,7 @@
+[module]
+title = "Example of CogniteProcessIndustry Extension Model"
+
+[packages]
+tags = [
+    "models",
+]

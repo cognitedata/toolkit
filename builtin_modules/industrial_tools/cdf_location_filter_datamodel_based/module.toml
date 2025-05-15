@@ -1,0 +1,7 @@
+[module]
+title = "Example location filter datamodel based"
+
+[packages]
+tags = [
+    "industrial_tools",
+]

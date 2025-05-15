@@ -1,0 +1,81 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}3DObject
+description: This is the virtual position representation of an object in the physical
+  world, connecting an asset to one or more 3D resources
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DObject
+  version: v1
+  type: view
+version: v1
+properties:
+  asset:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}Asset
+        version: v1
+        type: view
+      identifier: object3D
+    description: Asset that is tied to this 3D object
+    connectionType: single_reverse_direct_relation
+  cadNodes:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADNode
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}CADNode
+        version: v1
+        type: view
+      identifier: object3D
+    description: List of up to 1000 CADNodes that represents the connected CogniteAsset
+    connectionType: multi_reverse_direct_relation
+  images360:
+    type:
+      space: cdf_cdm
+      externalId: image-360-annotation
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360Image
+      version: v1
+      type: view
+    direction: outwards
+    description: Edge connection to Cognite360Image annotations that represents the
+      connected CogniteAsset
+    edgeSource:
+      space: cdf_cdm
+      externalId: Cognite360ImageAnnotation
+      version: v1
+      type: view
+    connectionType: multi_edge_connection
+  pointCloudVolumes:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}PointCloudVolume
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}PointCloudVolume
+        version: v1
+        type: view
+      identifier: object3D
+    description: List of up to 1000 PointCloudVolumes that represents the connected
+      CogniteAsset
+    connectionType: multi_reverse_direct_relation
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DObject
+      type: container
+    containerPropertyIdentifier: UUID

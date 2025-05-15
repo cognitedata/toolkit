@@ -1,0 +1,13 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}PointCloudVolume
+properties:
+  UUID:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}
