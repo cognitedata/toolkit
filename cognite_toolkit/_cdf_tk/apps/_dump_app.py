@@ -386,7 +386,11 @@ class DumpDataApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
+                help=(
+                    "Format to dump the assets in. Supported formats: yaml, csv, and parquet."
+                    if Flags.DUMP_DATA.is_enabled()
+                    else "Format to dump the timeseries in. Supported formats: Csv, and parquet."
+                ),
             ),
         ] = "csv",
         limit: Annotated[
@@ -463,7 +467,11 @@ class DumpDataApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the timeseries in. Supported formats: yaml, csv, and parquet.",
+                help=(
+                    "Format to dump the timeseries in. Supported formats: yaml, csv, and parquet."
+                    if Flags.DUMP_DATA.is_enabled()
+                    else "Format to dump the timeseries in. Supported formats: Csv, and parquet."
+                ),
             ),
         ] = "csv",
         limit: Annotated[
