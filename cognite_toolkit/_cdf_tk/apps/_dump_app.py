@@ -36,7 +36,8 @@ class DumpApp(typer.Typer):
         self.command("group")(self.dump_group)
         self.command("node")(self.dump_node)
 
-    def dump_main(self, ctx: typer.Context) -> None:
+    @staticmethod
+    def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf dump --help[/] for more information.")
@@ -321,8 +322,8 @@ class DumpApp(typer.Typer):
             )
         )
 
+    @staticmethod
     def dump_asset_cmd(
-        self,
         ctx: typer.Context,
         hierarchy: Annotated[
             Optional[list[str]],
@@ -399,8 +400,8 @@ class DumpApp(typer.Typer):
             )
         )
 
+    @staticmethod
     def dump_timeseries_cmd(
-        self,
         ctx: typer.Context,
         hierarchy: Annotated[
             Optional[list[str]],
