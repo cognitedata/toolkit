@@ -10,6 +10,7 @@ module-repeat = true
 populate = true
 agents = false
 infield = true
+dump-data = true
 
 [plugins]
 run = true
