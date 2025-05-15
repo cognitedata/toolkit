@@ -32,6 +32,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for Infield configs",
     }
+    DUMP_DATA: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the dump data command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)
