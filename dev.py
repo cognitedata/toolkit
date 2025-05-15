@@ -191,8 +191,8 @@ def _get_change(changelog_items: list[marko.element.Element]) -> Literal["major"
         list_text = child.children[0].children[0].children
         if list_text.startswith("[ ]"):
             continue
-        elif list_text.startswith("[x]"):
-            change_type = list_text.removeprefix("[x]").strip()
+        elif list_text.lower().startswith("[x]"):
+            change_type = list_text.removeprefix("[x]").removeprefix("[X]").strip()
             if change_type.casefold() not in VALID_BUMP_OPTIONS:
                 print(f"Unexpected change type in changelog: {change_type}")
                 raise SystemExit(1)

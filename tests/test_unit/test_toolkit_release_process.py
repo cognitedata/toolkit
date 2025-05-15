@@ -16,7 +16,7 @@ Use the new `pydantic` class to replace the `get_paramter_spec` for giving error
 
 ## Changelog
 
-- [x] Patch
+- [X] Patch
 - [ ] Minor
 - [ ] Skip
 
