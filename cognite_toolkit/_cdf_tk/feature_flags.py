@@ -34,7 +34,7 @@ class Flags(Enum):
     }
     DUMP_DATA: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables support for the dump data command",
+        "description": "Splits the dump command in dump data and dump config",
     }
 
     def is_enabled(self) -> bool:
