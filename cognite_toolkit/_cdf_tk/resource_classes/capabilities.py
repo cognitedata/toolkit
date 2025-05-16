@@ -214,7 +214,7 @@ class EventsAcl(Capability):
 class ExtractionPipelinesAcl(Capability):
     _capability_name = "extractionPipelinesAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | IDScopeLowerCase | DataSetScope
+    scope: AllScope | IDScope | DataSetScope
 
 
 class ExtractionsRunAcl(Capability):
