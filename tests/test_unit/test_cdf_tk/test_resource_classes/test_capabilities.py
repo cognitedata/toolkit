@@ -176,7 +176,7 @@ class TestCapabilities:
         [
             pytest.param(
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
-                ["invalid scope name 'idscope'. Expected one of all or idScope"],
+                ["invalid scope name 'idscope'. Expected all or idScope"],
                 id="Wrong case for datasetsAcl idScope",
             )
         ],

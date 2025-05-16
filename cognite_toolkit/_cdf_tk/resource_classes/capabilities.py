@@ -137,7 +137,7 @@ class Capability(BaseModelResource):
         name = next(iter(data.keys()))
         if name not in valid_types:
             raise ValueError(
-                f"invalid scope name '{name}'. Expected one of {humanize_collection(valid_types, bind_word='or')}"
+                f"invalid scope name '{name}'. Expected {humanize_collection(valid_types, bind_word='or')}"
             )
 
         return Scope.model_validate(data)
