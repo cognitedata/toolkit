@@ -112,11 +112,11 @@ class TestAsJsonPath:
         "loc, expected",
         [
             (("a", "b", "c"), "a.b.c"),
-            (("a", 1, "c"), "a[1].c"),
-            (("a", 1, 2), "a[1][2]"),
+            (("a", 1, "c"), "a[2].c"),
+            (("a", 1, 2), "a[2][3]"),
             (("a",), "a"),
             ((), ""),
-            ((1,), "item [1]"),
+            ((1,), "item [2]"),
         ],
     )
     def test_as_json_path(self, loc: tuple[str | int, ...], expected: str) -> None:
