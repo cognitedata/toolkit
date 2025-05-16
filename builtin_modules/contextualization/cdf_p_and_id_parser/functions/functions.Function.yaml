@@ -1,0 +1,7 @@
+- name: P&ID Annotator
+  externalId: contextualization_p_and_id_annotater
+  owner: 'Anonymous'
+  description: Creates annotations for P&ID diagrams.
+  functionPath: 'handler.py'
+  # Data set id for the zip file with the code that is uploaded.
+  dataSetExternalId: {{ dataset }}

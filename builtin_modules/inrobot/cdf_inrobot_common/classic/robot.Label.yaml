@@ -1,0 +1,6 @@
+- name: robot_gauge
+  externalId: robot_gauge
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"
+- name: read_ir
+  externalId: read_ir
+  dataSetExternalId: "{{ robot_1_dataset_ext_id }}"

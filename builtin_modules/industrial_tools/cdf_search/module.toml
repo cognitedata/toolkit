@@ -1,0 +1,11 @@
+[module]
+title = "Search configuration with location filter"
+
+[packages]
+tags = [
+    "industrial_tools",
+    "quickstart",
+]
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"

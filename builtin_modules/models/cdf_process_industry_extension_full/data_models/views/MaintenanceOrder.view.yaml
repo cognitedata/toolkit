@@ -1,0 +1,100 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}MaintenanceOrder
+name: Maintenance order
+description: A formal request or directive to perform maintenance tasks such as repair,
+  inspection, or servicing of equipment or assets. It's often called a 'work order'.
+implements:
+- space: cdf_idm
+  externalId: CogniteMaintenanceOrder
+  version: v1
+  type: view
+version: v1
+properties:
+  mainAsset:
+    container:
+      space: cdf_idm
+      externalId: CogniteMaintenanceOrder
+      type: container
+    containerPropertyIdentifier: mainAsset
+    name: Main asset
+    description: The primary asset (functional location) the maintenance order refers
+      to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  operations:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Operation
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}Operation
+        version: v1
+        type: view
+      identifier: maintenanceOrder
+    name: Operations
+    description: Lists the individual work items on the maintenance order. An automatically
+      populated list of operations related to the maintenance order.
+    connectionType: multi_reverse_direct_relation
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  equipment:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: equipment
+    name: Equipment
+    description: A list of equipment the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+  timeSeries:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: timeSeries
+    name: Time series
+    description: A list of time series the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}TimeSeries
+      version: v1
+      type: view
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}MaintenanceOrder
+      type: container
+    containerPropertyIdentifier: UUID

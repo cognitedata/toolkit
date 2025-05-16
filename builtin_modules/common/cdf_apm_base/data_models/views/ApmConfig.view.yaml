@@ -1,0 +1,48 @@
+externalId: APM_Config
+name: APM Config
+description: "Config data for APM applications"
+version: 1 # must be this exact version
+space: APM_Config # Must be this exact space
+properties:
+  name:
+    description: "Name of the configuration, infield just use one config record"
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: name
+  appDataSpaceId:
+    description: "Deprecated as we now use system data models for app data"
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: appDataSpaceId
+  appDataSpaceVersion:
+    description: "Deprecated as we now use system data models for app data"
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: appDataSpaceVersion
+  customerDataSpaceId:
+    description: "Used to identifiy the SourceData model, as of now it requires the Model name to be the same as the space name its defined in."
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: customerDataSpaceId
+  customerDataSpaceVersion:
+    description: "Version of the Source data model"
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: customerDataSpaceVersion
+  featureConfiguration:
+    description: "Used by all apps to store feature configuration, eg. for InField, locations is stored inside this field"
+    container:
+      type: container
+      space: APM_Config
+      externalId: APM_Config
+    containerPropertyIdentifier: featureConfiguration

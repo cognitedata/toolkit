@@ -1,0 +1,7 @@
+bosdyn-client==3.3.2
+cognite-sdk==5.*
+Pillow==10.3.0
+py360convert==0.1.0
+scipy==1.10.0
+six==1.16.0
+numpy==1.26.4

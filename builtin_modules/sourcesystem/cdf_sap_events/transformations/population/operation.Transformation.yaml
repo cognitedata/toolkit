@@ -1,0 +1,14 @@
+externalId: {{ operationTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: Operation Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}Operation
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+

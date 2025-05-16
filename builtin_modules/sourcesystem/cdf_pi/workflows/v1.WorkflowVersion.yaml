@@ -1,0 +1,12 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    - externalId: {{ timeseriesTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ timeseriesTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+

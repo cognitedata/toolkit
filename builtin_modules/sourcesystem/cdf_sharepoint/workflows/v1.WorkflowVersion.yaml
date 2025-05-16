@@ -1,0 +1,11 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    - externalId: {{ fileTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ fileTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow

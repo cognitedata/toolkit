@@ -1,0 +1,13 @@
+externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: Operation to Maintenance Order for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace }}
+    externalId: {{ organization }}Operation
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert

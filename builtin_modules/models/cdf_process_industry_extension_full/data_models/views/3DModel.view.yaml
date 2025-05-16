@@ -1,0 +1,29 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}3DModel
+description: Groups revisions of 3D data of various kinds together (CAD, PointCloud,
+  Image360)
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DModel
+  version: v1
+  type: view
+version: v1
+properties:
+  thumbnail:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+      type: container
+    containerPropertyIdentifier: thumbnail
+    description: Thumbnail of the 3D model
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DModel
+      type: container
+    containerPropertyIdentifier: UUID

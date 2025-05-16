@@ -1,0 +1,54 @@
+externalId: '{{ directRelationJob }}'
+name: 'Direct Relation Writer'
+dataSetExternalId: {{ dataset }}
+description: Writes direct relations based on annotations.
+documentation: >
+  # Direct Relation Writer
+
+  This extraction pipeline is responsible for writing the direct relations into 
+  a data model based on annotations.
+
+  ## Annotations
+  Annotations are found based on three criteria:
+
+  1. It has to have data in the (`cdf_cdm", "CogniteAnnotation`, `v1`) view.
+  2. It is stored in the space configured in the `annotationSpace`.
+  3. It has to have a `sourceContext` that contains the views of the start and end nodes of the relations.
+
+  ```json
+  {"start" : {
+    "space": "cdf_cdm",
+    "externalId": "CogniteFile",
+    "version": "v1"
+  },
+  "end" : {
+    "space": "cdf_cdm",
+    "externalId": "CogniteAsset",
+    "version": "v1"
+  }}
+  ```
+
+  ## Configuration
+
+  The configuration of the direct relation writer:
+
+  ```yaml
+  state: # The Annotation writer uses the instances/sync endpoint to fetch annotations. 
+    # The state stores the last cursor.
+    rawDatabase: <>
+    rawTable: <>
+  data:
+    annotationSpace: <> # The space the edges for the annotations are stored.
+    directRelationMapping: # How to go from Annotation to DirectRelation
+      - startNodeView: # The view of the start node.
+         space: <> .
+         externalId: <>
+         version: <> 
+         directRelationProperty: <> # The property that contains the direct relation.
+          # Must be set either on the start or end node.
+        endNodeView: # The view of the end node.
+          space: <>
+          externalId: <>
+          version: <>
+          # directRelationProperty: <> # Must be set either on the start or end node.
+  ```

@@ -1,0 +1,16 @@
+sourceName: SAP Springfield S/4HANA Assets
+sourceId: sap_springfield_s4hana_assets
+assetTransformationExternalId: sap_assets_springfield_s4hana
+equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+dataset: ingestion
+rawSourceDatabase: ingestion
+instanceSpace: springfield_instances
+organization: YourOrg
+schemaSpace: sp_enterprise_process_industry
+
+groupSourceId: <not set>
+workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+

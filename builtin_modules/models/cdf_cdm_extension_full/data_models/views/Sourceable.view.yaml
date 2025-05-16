@@ -1,0 +1,27 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Sourceable
+implements:
+- space: cdf_cdm
+  externalId: CogniteSourceable
+  version: v1
+  type: view
+version: v1
+properties:
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Sourceable
+      type: container
+    containerPropertyIdentifier: UUID

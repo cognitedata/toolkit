@@ -1,0 +1,35 @@
+externalId: '{{ annotatorJob }}'
+config:
+  parameters:
+    autoApprovalThreshold: 0.85
+    autoRejectThreshold: 0.25
+    featureType: "bigram"
+  sourceSystem:
+    space: {{ annotationSpace }}
+    externalId: {{ contextualizationId }}
+  state:
+    rawDatabase: {{ rawStateDatabase }}
+    rawTable: {{ rawStateTable }}
+  data:
+    annotationSpace: '{{ annotationSpace }}'
+    instanceSpaces:
+      {{ instanceSpaces }}
+    matchingJobs:
+      job1:
+        sourceView:
+          space: {{ schemaSpace }}
+          externalId: CogniteTimeSeries
+          version: v1
+          properties:
+            - name
+        targetViews:
+          - space: {{ schemaSpace }}
+            externalId: CogniteEquipment
+            version: v1
+            properties:
+              - name
+          - space: {{ schemaSpace }}
+            externalId: CogniteAsset
+            version: v1
+            properties:
+              - name

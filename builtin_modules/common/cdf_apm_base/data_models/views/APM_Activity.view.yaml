@@ -1,0 +1,119 @@
+space: {{apm_datamodel_space}}
+externalId: APM_Activity
+name: APM_Activity
+description: An activity represents a set of maintenance tasks, comprised of multiple
+  operations for individual assets. It provides an overarching description and is
+  considered incomplete until all its operations are finished.
+implements: []
+version: '1'
+properties:
+  id:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: id
+    description: Unique identifier from the source, such as object ID in SAP.
+  title:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: title
+    description: Concise title or brief description of the maintenance activity or
+      work order.
+  description:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: description
+    description: Detailed explanation of the maintenance activity or work order.
+  assignedTo:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: assignedTo
+    description: Who the maintenance activity or work order has been assigned to.
+  source:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: source
+    description: Origin of the activity or work order, such as SAP, Comos, etc.
+  startTime:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: startTime
+    description: Planned start time of activity to be executed.
+  endTime:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: endTime
+    description: Planned end time of the activity to be done.
+  assetExternalId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: assetExternalId
+    description: The asset / functional location assosiated with the activity.
+  rootLocation:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: rootLocation
+    description: Primary location tied to the activity, useful for location-based
+      filtering. It refers to the external ID of the location set in InField.
+  resource:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: resource
+    description: Designated resources, work centers, or disciplines to execute the
+      work. Prefer descriptive names over codes for user interface clarity.
+  type:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: type
+    description: Nature of the activity, such as corrective or preventive. Use descriptive
+      terms over codes for better UI clarity.
+  status:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: status
+    description: Current state of the activity, e.g., planning, execution-ready, ongoing,
+      or completed. Use descriptive statuses over codes for better UI understanding.
+  cloneOf:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity
+      type: container
+    containerPropertyIdentifier: cloneOf
+    description: Used by 'Maintain' when modifying work orders and operations. 'InField'
+      currently filters out 'Maintain' activities and operations. Required for GraphQL
+      as it has an associated filter.
+  notifications:
+    type:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Activity.notifications
+    source:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Notification
+      version: '1'
+      type: view
+    direction: outwards
+    description: Originating notifications linked to this maintenance activity.
+    connectionType: multi_edge_connection

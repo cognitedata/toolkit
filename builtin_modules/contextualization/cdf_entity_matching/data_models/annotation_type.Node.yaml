@@ -1,0 +1,2 @@
+space: {{ annotationSpace }}
+externalId: "entity.match"

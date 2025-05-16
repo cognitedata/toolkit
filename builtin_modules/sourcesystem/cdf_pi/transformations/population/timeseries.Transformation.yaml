@@ -1,0 +1,14 @@
+externalId: {{ timeseriesTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: TimeSeries Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace }}
+    externalId: {{ organization }}TimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+conflictMode: upsert
+isPublic: true
+ignoreNullFields: true
+

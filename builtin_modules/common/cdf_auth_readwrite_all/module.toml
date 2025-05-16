@@ -1,0 +1,7 @@
+[module]
+title = "Admin group for CI/CD"
+
+[packages]
+tags = [
+    "custom",
+]

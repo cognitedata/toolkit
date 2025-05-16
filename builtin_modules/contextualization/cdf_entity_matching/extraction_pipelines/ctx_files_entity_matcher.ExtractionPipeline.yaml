@@ -1,0 +1,48 @@
+externalId: '{{ annotatorJob }}'
+name: 'Entity Matcher'
+dataSetExternalId: {{ dataset }}
+description: "Matches entities based on their properties"
+documentation: >
+  # Entity Matcher
+  
+  This extraction pipeline is responsible for matching entities based on their properties.
+  This means it looks for, for example, how to match time series to assets, or time series
+  to equipment, based on the properties of these. This is useful when you have data from different
+  sources and you only have partially the same information.
+  
+  ## Configuration
+    
+  ```yaml
+    parameters:
+        autoApprovalThreshold: # Automatically set the annotation as approved if the confidence is above this threshold
+        autoRejectThreshold: # Automatically reject the annotation if the confidence is below this threshold
+        featureType: "bigram" # The type of features to use for the matching. 
+          # "simple" "insensitive" "bigram" "frequencyweightedbigram" "bigramextratokenizers" "bigramcombo"
+    sourceSystem: # The source system of the annotations written by this pipeline
+      space: <>
+      externalId: <>
+    state: # The entity matcher uses the instances/sync endpoint to fetch sources entities,i.e, ensuring they are only used once.
+      rawDatabase: <>
+      rawTable: <>
+    data:
+      annotationSpace: # The space to write the annotations to
+      instanceSpaces:
+        - # The space to fetch entities such as Assets, Equipment, etc. from
+        - # Another space to fetch entities from
+      matchingJobs:
+        jobName:
+          sourceView:
+            space: <>
+            externalId: <>
+            version: <>
+            properties: # The properties to use for the matching
+              - propertyA
+              - propertyB
+          targetViews:
+           -  space: <>
+              externalId: <>
+              version: <>
+              properties: # The properties to use for the matching
+                - propertyA
+                - propertyB
+  ```

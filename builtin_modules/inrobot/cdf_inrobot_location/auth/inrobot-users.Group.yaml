@@ -1,0 +1,94 @@
+name: "gp_InRobot_Users_{{first_location}}"
+sourceId: "{{inrobot_users_first_location_source_id}}"
+metadata:
+  origin: "cdf-project-templates"
+capabilities:
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "APM_Config"
+            - "cdf_apm"
+            - "cdf_infield" # for user info
+            - "cdf_core"
+            - "cdf_apps_shared"
+
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "APM_Config"
+            - "cdf_apm"
+            - "cognite_app_data"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
+  - dataModelInstancesAcl:
+      actions:
+        - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "cognite_app_data" # This space stores user profile info
+  - eventsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - filesAcl:
+      actions:
+        - WRITE
+        - READ
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - groupsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - threedAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - videoStreamingAcl:
+      actions:
+        - READ
+        - SUBSCRIBE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"

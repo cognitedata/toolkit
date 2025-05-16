@@ -1,0 +1,138 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Enterprise
+name: {{ organization }} enterprise model
+description: {{ organization }} enterprise model
+version: v1
+views:
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Describable
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Sourceable
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}SourceSystem
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Schedulable
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Visualizable
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}3DTransformation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}CubeMap
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}3DObject
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}3DModel
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}CADModel
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}3DRevision
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}PointCloudModel
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}360ImageModel
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}CADRevision
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}PointCloudRevision
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}360ImageCollection
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}CADNode
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}PointCloudVolume
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}360Image
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}360ImageStation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}360ImageAnnotation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Asset
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}AssetClass
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}AssetType
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Equipment
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}EquipmentType
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}File
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}FileCategory
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Activity
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}TimeSeries
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Annotation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}DiagramAnnotation
+  version: v1
+  type: view
+- space: {{ schemaSpace }}
+  externalId: {{ organization }}Unit
+  version: v1
+  type: view

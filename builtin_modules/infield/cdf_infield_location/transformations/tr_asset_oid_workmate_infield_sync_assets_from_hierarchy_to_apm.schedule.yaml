@@ -1,0 +1,3 @@
+externalId: tr_asset_{{first_location}}_{{source_asset}}_infield_sync_assets_from_hierarchy_to_apm
+interval: '{{scheduleHourly}}'
+isPaused: false

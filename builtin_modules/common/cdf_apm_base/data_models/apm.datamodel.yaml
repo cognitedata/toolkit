@@ -1,0 +1,18 @@
+externalId: APM_SourceData
+name: APM Source data
+version: '1'
+space: {{apm_datamodel_space}}
+description: "APM data models for customer source data to be consumed by the APM application."
+views:
+  - type: view
+    externalId: APM_Activity
+    space: {{apm_datamodel_space}}
+    version: '1'
+  - type: view
+    externalId: APM_Operation
+    space: {{apm_datamodel_space}}
+    version: '1'
+  - type: view
+    externalId: APM_Notification
+    space: {{apm_datamodel_space}}
+    version: '1'

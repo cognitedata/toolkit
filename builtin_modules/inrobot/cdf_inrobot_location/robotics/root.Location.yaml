@@ -1,0 +1,3 @@
+name: {{ first_root_asset_external_id }}
+externalId: {{ first_root_asset_external_id }}
+description: Robot location

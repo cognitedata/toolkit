@@ -1,0 +1,16 @@
+contextualizationId: entity_matcher
+contextualizationName: Entity Matcher
+annotatorJob: ctx_entity_matching
+directRelationJob: ctx_files_direct_relation_write
+dataset: ingestion
+rawStateDatabase: contextualizationState
+rawStateTable: entityMatching
+schemaSpace: cdf_cdm
+annotationSpace: springfield_instances
+instanceSpaces:
+  - springfield_instances
+
+groupSourceId: <not set>
+workflow: entity_matching
+workflowClientId: ${IDP_WF_CLIENT_ID}
+workflowClientSecret: ${IDP_WF_CLIENT_SECRET}

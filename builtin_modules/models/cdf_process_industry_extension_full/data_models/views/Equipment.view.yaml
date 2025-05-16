@@ -1,0 +1,100 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Equipment
+name: Equipment
+description: Equipment represents physical supplies or devices.
+implements:
+- space: cdf_cdm
+  externalId: CogniteEquipment
+  version: v1
+  type: view
+version: v1
+properties:
+  asset:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: asset
+    name: Asset
+    description: The asset the equipment is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  equipmentType:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: equipmentType
+    name: Equipment type
+    description: Specifies the type of the equipment. It's a direct relation to CogniteEquipmentType.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}EquipmentType
+      version: v1
+      type: view
+  files:
+    container:
+      space: cdf_cdm
+      externalId: CogniteEquipment
+      type: container
+    containerPropertyIdentifier: files
+    name: Files
+    description: A list of files the equipment relates to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  activities:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Activity
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}Activity
+        version: v1
+        type: view
+      identifier: equipment
+    name: Activities
+    description: An automatically updated list of activities related to the equipment.
+    connectionType: multi_reverse_direct_relation
+  timeSeries:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}TimeSeries
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}TimeSeries
+        version: v1
+        type: view
+      identifier: equipment
+    name: Time series
+    description: An automatically updated list of time series related to the equipment.
+    connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Equipment
+      type: container
+    containerPropertyIdentifier: UUID

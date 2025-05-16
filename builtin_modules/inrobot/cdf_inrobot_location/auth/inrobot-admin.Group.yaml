@@ -1,0 +1,107 @@
+name: "gp_InRobot_Admin_{{first_location}}"
+sourceId: "{{inrobot_admin_first_location_source_id}}"
+metadata:
+  origin: "cdf-project-templates"
+capabilities:
+  - assetsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "APM_Config"
+            - "cdf_core"
+            - "cdf_apm"
+            - "cdf_infield"
+            - "cdf_apps_shared"
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - "cdf_apm"
+            - "cognite_app_data"
+            - "sp_{{first_location}}_source_data"
+            - "sp_{{first_location}}_app_data"
+  - eventsAcl:
+      actions:
+        - READ
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - filesAcl:
+      actions:
+        - WRITE
+        - READ
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - groupsAcl:
+      actions:
+        - CREATE
+        - READ
+        - UPDATE
+        - LIST
+        - DELETE
+      scope:
+        all: {}
+  - threedAcl:
+      actions:
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - roboticsAcl:
+      actions:
+        - READ
+        - CREATE
+        - UPDATE
+        - DELETE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - timeSeriesAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - videoStreamingAcl:
+      actions:
+        - READ
+        - SUBSCRIBE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - videoStreamingAcl:
+      actions:
+        - WRITE
+      scope:
+        all: {}

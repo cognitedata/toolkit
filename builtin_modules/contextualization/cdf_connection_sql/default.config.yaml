@@ -1,0 +1,10 @@
+activityToAssetTransformationExternalId: activity_to_asset
+activityToEquipmentTransformationExternalId: activity_to_equipment
+activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+
+dataset: ingestion
+instanceSpace: springfield_instances
+schemaSpace: cdf_cdm
+groupSourceId: <not set>

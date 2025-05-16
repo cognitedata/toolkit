@@ -1,0 +1,9 @@
+externalId: {{ location }}_location_filter
+name: {{ locationName }}
+description: This shows all resources in {{ locationName }} for users with access to the designated spaces.
+dataModels:
+ - externalId: CogniteProcessIndustries
+   space: cdf_idm
+   version: v1
+instanceSpaces:
+ - {{ instanceSpace }}

@@ -1,0 +1,15 @@
+sourceName: SAP Springfield S/4HANA Activities
+sourceId: sap_springfield_s4hana_activities
+maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+operationTransformationExternalId: sap_operations_springfield_s4hana
+operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+dataset: ingestion
+rawSourceDatabase: ingestion
+instanceSpace: springfield_instances
+organization: YourOrg
+schemaSpace: sp_enterprise_process_industry
+
+workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+groupSourceId: <not set>
+workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}

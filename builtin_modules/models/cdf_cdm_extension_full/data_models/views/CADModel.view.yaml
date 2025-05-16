@@ -1,0 +1,55 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}CADModel
+description: Navigational aid for traversing CogniteCADModel instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+  - equals:
+      property:
+      - cdf_cdm_3d
+      - Cognite3DModel
+      - type
+      value: CAD
+implements:
+- space: cdf_cdm
+  externalId: CogniteCADModel
+  version: v1
+  type: view
+version: v1
+properties:
+  revisions:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADRevision
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}3DRevision
+        version: v1
+        type: view
+      identifier: model3D
+    description: List of revisions for this CAD model
+    connectionType: multi_reverse_direct_relation
+  thumbnail:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+      type: container
+    containerPropertyIdentifier: thumbnail
+    description: Thumbnail of the 3D model
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADModel
+      type: container
+    containerPropertyIdentifier: UUID

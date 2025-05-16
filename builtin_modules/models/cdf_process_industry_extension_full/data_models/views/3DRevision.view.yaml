@@ -1,0 +1,30 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}3DRevision
+description: 'Shared revision information for various 3D data types. Normally not
+  used directly, but through CognitePointCloudRevision, Image360Collection or CogniteCADRevision
+
+  '
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DRevision
+  version: v1
+  type: view
+version: v1
+properties:
+  model3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
+      type: container
+    containerPropertyIdentifier: model3D
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DModel
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DRevision
+      type: container
+    containerPropertyIdentifier: UUID

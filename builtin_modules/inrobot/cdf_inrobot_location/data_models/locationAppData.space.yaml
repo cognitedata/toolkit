@@ -1,0 +1,3 @@
+space: sp_{{first_location}}_app_data
+name: sp:inrobot:{{first_location}}:app_data
+description: Space for {{first_location}} App Data

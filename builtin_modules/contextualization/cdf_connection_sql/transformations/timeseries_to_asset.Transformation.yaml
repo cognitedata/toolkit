@@ -1,0 +1,14 @@
+externalId: {{ timeSeriesToAssetTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: TimeSeries to asset Connection Transformation
+destination:
+  type: nodes
+  view:
+    space: cdf_cdm
+    externalId: CogniteTimeSeries
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+

@@ -1,0 +1,72 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}File
+name: File
+description: Represents files.
+implements:
+- space: cdf_cdm
+  externalId: CogniteFile
+  version: v1
+  type: view
+version: v1
+properties:
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets this file is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  category:
+    container:
+      space: cdf_cdm
+      externalId: CogniteFile
+      type: container
+    containerPropertyIdentifier: category
+    name: Category
+    description: Specifies the detected category the file belongs to. It's a direct
+      relation to an instance of CogniteFileCategory.
+    source:
+      space: cdf_cdm
+      externalId: CogniteFileCategory
+      version: v1
+      type: view
+  equipment:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}Equipment
+        version: v1
+        type: view
+      identifier: files
+    name: Equipment
+    description: An automatically updated list of equipment this file is related to.
+    connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      type: container
+    containerPropertyIdentifier: UUID

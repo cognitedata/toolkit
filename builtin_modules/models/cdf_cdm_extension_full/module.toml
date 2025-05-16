@@ -1,0 +1,7 @@
+[module]
+title = "Example of CogniteCore Extension Model"
+
+[packages]
+tags = [
+    "models",
+]

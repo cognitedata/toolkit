@@ -1,0 +1,17 @@
+- space: "APM_Config"
+  externalId: "default-config"
+  sources:
+    - source:
+        space: APM_Config
+        externalId: APM_Config
+        version: "1"
+        type: view
+      properties:
+        featureConfiguration:
+          rootLocationConfigurations:
+            - assetExternalId: "{{ first_root_asset_external_id }}"
+              appDataInstanceSpace: sp_{{ first_location }}_app_data
+              sourceDataInstanceSpace: sp_{{ first_location }}_source_data
+        customerDataSpaceId: APM_SourceData
+        customerDataSpaceVersion: "1"
+        name: InRobot APM App Config

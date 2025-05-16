@@ -1,0 +1,10 @@
+name: {{ three_d_model_name }}
+externalId: {{ three_d_model_name }}
+description: {{ three_d_type }} {{ three_d_model_name }}
+mapType: {{ three_d_type }}
+frameExternalId: frame_{{ three_d_model_name }}
+data:
+  modelId: {{ three_d_model_id }}
+  revisionId: {{ three_d_revision_id }}
+locationExternalId: "{{ first_root_asset_external_id }}"
+scale: 1.0

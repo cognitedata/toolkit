@@ -1,0 +1,17 @@
+externalId: view_based_location_filter
+name: Data Model Based Location Filter Example
+description: This is an example of a data model based location filter
+dataModels:
+ - externalId: CogniteProcessIndustries
+   space: cdf_idm
+   version: v1
+instanceSpaces:
+ - {{ instance_space1 }}
+ - {{ instance_space2 }}
+# If you have your own data model, with your own views, you can
+# specify what the views are representing. This is used by Cognite Applications.
+#views:
+#  - externalId: CogniteAsset
+#    space: cdf_cdm
+#    version: v1
+#    representsEntity: ASSET # Can be MAINTENANCE_ORDER, OPERATION, NOTIFICATION, ASSET

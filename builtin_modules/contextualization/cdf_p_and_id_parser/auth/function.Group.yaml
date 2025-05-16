@@ -1,0 +1,89 @@
+name: gp_function_{{ contextualizationId }}
+sourceId: {{ groupSourceId }}
+metadata:
+  origin: cognite-toolkit
+capabilities:
+  # minimum runtime capabilities
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+            {{ instanceSpaces }}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
+  - annotationsAcl:
+      actions:
+        - READ
+        - WRITE
+        - SUGGEST
+        - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+          - READ
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - extractionRunsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ dataset }}
+  - rawAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        tableScope:
+          dbsToTables:
+            {{ rawStateDatabase }}: {}
+  - extractionPipelinesAcl:
+        actions:
+          - READ
+        scope:
+          datasetScope:
+            ids:
+              - {{ dataset }}
+# Bug in /context/diagram/detect/ endpoint that requires this
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

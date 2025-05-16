@@ -1,0 +1,32 @@
+[module]
+title = "Sharepoint Files"
+
+[packages]
+tags = [
+    "sourcesystem",
+    "quickstart",
+]
+
+[[data]]
+repoType = "http"
+repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata/files"
+source = "PH-25578-P-4110006-001.pdf;PH-25578-P-4110010-001.pdf;PH-25578-P-4110119-001.pdf;PH-ME-P-0003-001.pdf;PH-ME-P-0004-001.pdf;PH-ME-P-0151-001.pdf;PH-ME-P-0152-001.pdf;PH-ME-P-0153-001.pdf;PH-ME-P-0156-001.pdf;PH-ME-P-0156-002.pdf;PH-ME-P-0160-001.pdf"
+destination = "files/"
+
+[[data]]
+repoType = "http"
+repo = "https://apps-cdn.cogniteapp.com/toolkit"
+source = "publicdata/valhall_file_metadata.csv"
+destination = "raw/files.Table.csv"
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"
+
+[[extra_resources]]
+location = "cdf_common/raw/source.DataBase.yaml"
+
+[[extra_resources]]
+location = "models/cdf_process_industry_extension/data_models"

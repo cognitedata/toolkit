@@ -1,0 +1,11 @@
+[module]
+title = "InRobot Common"
+is_selected_by_default = true
+
+[packages]
+tags = [
+    "inrobot",
+]
+
+[dependencies]
+modules = ["cdf_apm_base"]

@@ -1,0 +1,28 @@
+workflowExternalId: {{ workflow }}
+version: 'v1'
+workflowDefinition:
+  tasks:
+    - externalId: {{ maintenanceOrderTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ maintenanceOrderTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ operationTransformationExternalId }}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ operationTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+    - externalId: {{ operationToMaintenanceOrderTransformationExternalId}}
+      type: transformation
+      parameters:
+        transformation:
+          externalId: {{ operationToMaintenanceOrderTransformationExternalId }}
+          concurrencyPolicy: fail
+      onFailure: abortWorkflow
+      dependsOn:
+        - externalId: {{ maintenanceOrderTransformationExternalId }}
+        - externalId: {{ operationTransformationExternalId }}

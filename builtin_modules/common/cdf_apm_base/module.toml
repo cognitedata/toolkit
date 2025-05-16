@@ -1,0 +1,9 @@
+[module]
+title = "APM Base"
+is_selected_by_default = false
+
+[packages]
+tags = [
+    "infield",
+    "inrobot",
+]
