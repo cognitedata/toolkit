@@ -1,3 +1,4 @@
+import os
 from asyncio import sleep
 from contextlib import suppress
 from pathlib import Path
@@ -58,6 +59,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
+    TransformationLoader,
     WorkflowVersionLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
@@ -719,3 +721,33 @@ workflowDefinition:
             "delete": len(to_delete),
             "unchanged": len(unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
+
+class TestTransformationLoader:
+    def test_create_transformation_auth_without_scope(self, toolkit_client: ToolkitClient) -> None:
+        transformation_text = """externalId: transformation_without_scope
+name: This is a test transformation
+destination:
+  type: assets
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: Select * from assets
+# Reusing the credentials from the Toolkit principal
+authentication:
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
+"""
+        loader = TransformationLoader.create_loader(toolkit_client)
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = transformation_text
+
+        loaded = loader.load_resource_file(filepath, dict(os.environ))
+        assert len(loaded) == 1
+        transformation = loader.load_resource(loaded[0])
+
+        try:
+            created = loader.create([transformation])
+            assert len(created) == 1
+        finally:
+            toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)

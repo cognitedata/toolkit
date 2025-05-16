@@ -12,7 +12,7 @@ from cognite.client.data_classes.filters import SpaceFilter
 from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -115,28 +115,51 @@ def iterate_instances(
         body["cursor"] = next_cursor
 
 
+@overload
 def read_auth(
+    authentication: object,
+    client_config: ToolkitClientConfig,
     identifier: Hashable,
-    resource: dict[str, Any],
-    client: ToolkitClient,
     resource_name: str,
+    allow_oidc: Literal[False] = False,
     console: Console | None = None,
-) -> ClientCredentials:
-    auth = resource.get("authentication")
-    if auth is None:
-        if client.config.is_strict_validation or not isinstance(client.config.credentials, OAuthClientCredentials):
+) -> ClientCredentials: ...
+
+
+@overload
+def read_auth(
+    authentication: object,
+    client_config: ToolkitClientConfig,
+    identifier: Hashable,
+    resource_name: str,
+    allow_oidc: Literal[True],
+    console: Console | None = None,
+) -> OidcCredentials: ...
+
+
+def read_auth(
+    authentication: object,
+    client_config: ToolkitClientConfig,
+    identifier: Hashable,
+    resource_name: str,
+    allow_oidc: bool = False,
+    console: Console | None = None,
+) -> ClientCredentials | OidcCredentials:
+    if authentication is None:
+        if client_config.is_strict_validation or not isinstance(client_config.credentials, OAuthClientCredentials):
             raise ToolkitRequiredValueError(f"Authentication is missing for {resource_name} {identifier!r}.")
         else:
             HighSeverityWarning(
                 f"Authentication is missing for {resource_name} {identifier!r}. Falling back to the Toolkit credentials"
             ).print_warning(console=console)
-        credentials = ClientCredentials(client.config.credentials.client_id, client.config.credentials.client_secret)
-    elif not isinstance(auth, dict):
+        return ClientCredentials(client_config.credentials.client_id, client_config.credentials.client_secret)
+    elif not isinstance(authentication, dict):
         raise ToolkitTypeError(f"Authentication must be a dictionary for {resource_name} {identifier!r}")
-    elif "clientId" not in auth or "clientSecret" not in auth:
+    elif "clientId" not in authentication or "clientSecret" not in authentication:
         raise ToolkitRequiredValueError(
             f"Authentication must contain clientId and clientSecret for {resource_name} {identifier!r}"
         )
+    elif allow_oidc and "tokenUri" in authentication and "cdfProjectName" in authentication:
+        return OidcCredentials.load(authentication)
     else:
-        credentials = ClientCredentials(auth["clientId"], auth["clientSecret"])
-    return credentials
+        return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
