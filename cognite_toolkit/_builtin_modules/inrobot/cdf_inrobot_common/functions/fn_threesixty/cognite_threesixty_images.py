@@ -88,6 +88,7 @@ class ThreesixtyImage:
     tran_unit: str
     rot_angle_unit: str
     images: dict[str, Union[str, np.ndarray]]
+    parent_file_metadata: dict[str, str]
     threesixty_image_metadata: ThreesixtyImageMetadata
 
 
@@ -133,6 +134,7 @@ class CogniteThreeSixtyImageExtractor:
         translation_unit: str,
         translation_offset_mm: VectorXYZ,
         timestamp: int = 0,
+        parent_file_metadata: dict[str, Any] = {},
     ) -> tuple[Event, list[ImageWithFileMetadata]]:
         """Append station measurement to station list for truview."""
         if timestamp == 0 or timestamp is None:
@@ -153,6 +155,7 @@ class CogniteThreeSixtyImageExtractor:
                 translation=translation_to_mm_str_with_offset(translation, translation_offset_mm, translation_unit),
                 station_id=site_id + "-" + station_number,
                 timestamp=timestamp,
+                parent_file_metadata=parent_file_metadata,
             ),
         )
 
@@ -170,7 +173,13 @@ class CogniteThreeSixtyImageExtractor:
             three_sixty_image.threesixty_image_metadata.station_id
             + str(three_sixty_image.threesixty_image_metadata.timestamp)
         )
-        event.metadata = asdict(three_sixty_image.threesixty_image_metadata)
+        
+        three_sixty_metadata = asdict(three_sixty_image.threesixty_image_metadata)
+        parent_file_metadata = three_sixty_image.parent_file_metadata
+
+        metadata = {**three_sixty_metadata, **parent_file_metadata}
+        
+        event.metadata = metadata
         event.data_set_id = self.data_set_id
         event.description = "Scan position " + three_sixty_image.threesixty_image_metadata.station_name
         event.type = EVENT_TYPE
@@ -204,12 +213,10 @@ class CogniteThreeSixtyImageExtractor:
                     + face.name
                 )
                 file_metadata.labels = self.labels
-                metadata = {}
-                metadata["site_id"] = three_sixty_image.threesixty_image_metadata.site_id
-                metadata["site_name"] = three_sixty_image.threesixty_image_metadata.site_name
-                metadata["station_id"] = three_sixty_image.threesixty_image_metadata.station_id
-                metadata["station_name"] = three_sixty_image.threesixty_image_metadata.station_name
-                metadata["timestamp"] = str(three_sixty_image.threesixty_image_metadata.timestamp)
+                
+                three_sixty_metadata = asdict(three_sixty_image.threesixty_image_metadata)
+                parent_file_metadata = three_sixty_image.parent_file_metadata
+                metadata = {**three_sixty_metadata, **parent_file_metadata}
                 metadata["image_type"] = "cubemap"
                 metadata["image_resolution"] = str(resolution)
                 metadata["face"] = face.name
