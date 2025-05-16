@@ -3,6 +3,9 @@ from typing import Any
 import typer
 from rich import print
 
+from cognite_toolkit._cdf_tk.commands import ProfileCommand
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+
 
 class ProfileApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -21,4 +24,11 @@ class ProfileApp(typer.Typer):
         verbose: bool = False,
     ) -> None:
         """Asset centric profile"""
-        raise NotImplementedError()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ProfileCommand()
+        cmd.run(
+            lambda: cmd.asset_centric(
+                client,
+                verbose,
+            )
+        )

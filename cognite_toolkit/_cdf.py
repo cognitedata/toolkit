@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.apps import (
     LandingApp,
     ModulesApp,
     PopulateApp,
+    ProfileApp,
     PurgeApp,
     RepoApp,
     RunApp,
@@ -99,6 +100,9 @@ if Plugins.purge.value.is_enabled():
 
 if Flags.POPULATE.is_enabled():
     _app.add_typer(PopulateApp(**default_typer_kws), name="populate")
+
+if Flags.PROFILE.is_enabled():
+    _app.add_typer(ProfileApp(**default_typer_kws), name="profile")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)
