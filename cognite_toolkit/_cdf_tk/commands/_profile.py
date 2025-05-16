@@ -119,7 +119,7 @@ class ProfileCommand(ToolkitCommand):
             TimeSeriesAggregator(client),
             SequenceAggregator(client),
         ]
-        with Console().status("...", spinner="aesthetic", speed=0.4) as _:
+        with Console().status("profiling asset-centric", spinner="aesthetic", speed=0.4) as _:
             with ThreadPoolExecutor() as executor:
                 rows = list(executor.map(cls.process_aggregator, aggregators))
 
