@@ -7,12 +7,13 @@ This is means that we have three set of resource classes we use in Toolkit:
 3. Read resource classes (from cognite-sdk): Represent the read/response format the Cognite resources.
 """
 
-from .base import ToolkitResource
+from .base import BaseModelResource, ToolkitResource
 from .dataset import DataSetYAML
 from .groups import GroupYAML
 from .timeseries import TimeSeriesYAML
 
 __all__ = [
+    "BaseModelResource",
     "DataSetYAML",
     "GroupYAML",
     "TimeSeriesYAML",
