@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
 from rich.console import Console
@@ -118,23 +119,9 @@ class ProfileCommand(ToolkitCommand):
             TimeSeriesAggregator(client),
             SequenceAggregator(client),
         ]
-        rows = []
-        for aggregator in aggregators:
-            row = {
-                "Resource": aggregator.display_name,
-                "Count": aggregator.count(),
-            }
-            if isinstance(aggregator, MetadataAggregator):
-                count: str | int = aggregator.metadata_key_count()
-            else:
-                count = "-"
-            row["Metadata Key Count"] = count
-            if isinstance(aggregator, LabelAggregator):
-                count = aggregator.label_count()
-            else:
-                count = "-"
-            row["Label Count"] = count
-            rows.append(row)
+        with Console().status("...", spinner="aesthetic", speed=0.4) as _:
+            with ThreadPoolExecutor() as executor:
+                rows = list(executor.map(cls.process_aggregator, aggregators))
 
         table = Table(
             title="Asset Centric Profile",
@@ -150,3 +137,21 @@ class ProfileCommand(ToolkitCommand):
             table.add_row(*(f"{cell:,}" if isinstance(cell, int) else str(cell) for cell in row.values()))
         console = Console()
         console.print(table)
+
+    @staticmethod
+    def process_aggregator(aggregator: AssetCentricAggregator) -> dict[str, str | int]:
+        row: dict[str, str | int] = {
+            "Resource": aggregator.display_name,
+            "Count": aggregator.count(),
+        }
+        if isinstance(aggregator, MetadataAggregator):
+            count: str | int = aggregator.metadata_key_count()
+        else:
+            count = "-"
+        row["Metadata Key Count"] = count
+        if isinstance(aggregator, LabelAggregator):
+            count = aggregator.label_count()
+        else:
+            count = "-"
+        row["Label Count"] = count
+        return row
