@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType, UnionType
 from typing import Any, ClassVar, Literal, cast, get_args
 
-from pydantic import BaseModel, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -119,7 +119,7 @@ class LegacyDataModelScope(Scope):
     external_ids: list[str]
 
 
-class Capability(BaseModel):
+class Capability(BaseModelResource):
     _capability_name: ClassVar[str]
     scope: Scope
 
