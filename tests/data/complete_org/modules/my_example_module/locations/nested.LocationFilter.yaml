@@ -1,0 +1,9 @@
+- externalId: main-location
+  name: 'Main location name'
+  description: 'This is a description of the location.'
+- externalId: child-location-2
+  name: 'Child 2'
+  parentExternalId: 'child-location-1'
+- externalId: child-location-1
+  name: 'Child 1'
+  parentExternalId: 'main-location'
