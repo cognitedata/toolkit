@@ -1,8 +1,11 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 
 from cognite_toolkit._cdf_tk.resource_classes.capabilities import Capability
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 
 
 def all_acls() -> Iterable:
@@ -41,7 +44,7 @@ def all_acls() -> Iterable:
         {
             "extractionPipelinesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"idscope": {"ids": ["myPipeline", "myPipeline"]}},
+                "scope": {"idScope": {"ids": ["myPipeline", "myPipeline"]}},
             }
         },
         {
@@ -167,3 +170,33 @@ class TestCapabilities:
     def test_load_dump_capability(self, acl: dict[str, object]) -> None:
         capability = Capability.model_validate(acl)
         assert capability.model_dump(by_alias=True, exclude_unset=True) == acl
+
+    @pytest.mark.parametrize(
+        "data, expected_errors",
+        [
+            pytest.param(
+                {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
+                ["invalid scope name 'idscope'. Expected all or idScope"],
+                id="Wrong case for datasetsAcl idScope",
+            ),
+            pytest.param(
+                {
+                    "extractionPipelinesAcl": {
+                        "actions": ["OWNER", "READ"],
+                        "scope": {"idscope": {"ids": ["my_pipeline"]}},
+                    }
+                },
+                [
+                    "invalid scope name 'idscope'. Expected all, datasetScope or idScope",
+                    "In actions input should be 'READ' or 'WRITE'. Got 'OWNER'.",
+                ],
+                id="Wrong case for extractionPipelinesAcl idScope",
+            ),
+        ],
+    )
+    def test_invalid_capability(self, data: dict[str, object], expected_errors: list[str]) -> None:
+        warnings = validate_resource_yaml_pydantic(data, Capability, source_file=Path("filename.yaml"))
+        assert len(warnings) == 1
+        warning = warnings[0]
+        assert isinstance(warning, ResourceFormatWarning)
+        assert list(warning.errors) == expected_errors
