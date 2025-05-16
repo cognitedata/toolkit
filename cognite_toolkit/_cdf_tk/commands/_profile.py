@@ -12,8 +12,8 @@ class AssetCentricAggregator:
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
-    @abstractmethod
     @property
+    @abstractmethod
     def display_name(self) -> str:
         raise NotImplementedError()
 
@@ -35,14 +35,14 @@ class AssetAggregator(AssetCentricAggregator):
     def display_name(self) -> str:
         return "Assets"
 
-    def label_count(self) -> int:
-        raise NotImplementedError()
-
-    def metadata_key_count(self) -> int:
-        raise NotImplementedError()
-
     def count(self) -> int:
         return self.client.assets.aggregate_count()
+
+    def metadata_key_count(self) -> int:
+        return 0
+
+    def label_count(self) -> int:
+        return 0
 
 
 class ProfileCommand(ToolkitCommand):
