@@ -2,7 +2,7 @@ import sys
 from types import MappingProxyType, UnionType
 from typing import Any, ClassVar, Literal, cast, get_args
 
-from pydantic import BaseModel, ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
+from pydantic import ModelWrapValidatorHandler, field_validator, model_serializer, model_validator
 from pydantic_core.core_schema import SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -119,7 +119,7 @@ class LegacyDataModelScope(Scope):
     external_ids: list[str]
 
 
-class Capability(BaseModel):
+class Capability(BaseModelResource):
     _capability_name: ClassVar[str]
     scope: Scope
 
@@ -137,7 +137,7 @@ class Capability(BaseModel):
         name = next(iter(data.keys()))
         if name not in valid_types:
             raise ValueError(
-                f"invalid scope name '{name}'. Expected one of {humanize_collection(valid_types, bind_word='or')}"
+                f"invalid scope name '{name}'. Expected {humanize_collection(valid_types, bind_word='or')}"
             )
 
         return Scope.model_validate(data)
@@ -214,7 +214,7 @@ class EventsAcl(Capability):
 class ExtractionPipelinesAcl(Capability):
     _capability_name = "extractionPipelinesAcl"
     actions: list[Literal["READ", "WRITE"]]
-    scope: AllScope | IDScopeLowerCase | DataSetScope
+    scope: AllScope | IDScope | DataSetScope
 
 
 class ExtractionsRunAcl(Capability):

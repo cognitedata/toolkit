@@ -13,7 +13,7 @@ from pydantic_core import ErrorDetails
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameters_from_dict
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables
 from cognite_toolkit._cdf_tk.loaders import NodeLoader
-from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
+from cognite_toolkit._cdf_tk.resource_classes import BaseModelResource
 from cognite_toolkit._cdf_tk.tk_warnings import (
     CaseTypoWarning,
     DataSetMissingWarning,
@@ -122,7 +122,7 @@ def _validate_resource_yaml(
 
 
 def validate_resource_yaml_pydantic(
-    data: dict[str, object] | list[dict[str, object]], validation_cls: type[ToolkitResource], source_file: Path
+    data: dict[str, object] | list[dict[str, object]], validation_cls: type[BaseModelResource], source_file: Path
 ) -> WarningList:
     """Validates the resource given as a dictionary or list of dictionaries with the given pydantic model.
 
@@ -173,6 +173,8 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"Unused field: {loc[-1]!r}"
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
+        elif error_type == "literal_error":
+            msg = f"{item['msg']}. Got {item['input']!r}."
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
@@ -191,7 +193,8 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
     Returns:
         A JSON path string.
     """
+    # +1 to convert from 0-based to 1-based indexing
     if len(loc) == 1 and isinstance(loc[0], int):
-        return f"item [{loc[0]}]"
+        return f"item [{loc[0] + 1}]"
 
-    return ".".join([str(x) if isinstance(x, str) else f"[{x}]" for x in loc]).replace(".[", "[")
+    return ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
