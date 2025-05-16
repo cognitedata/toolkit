@@ -1,14 +1,16 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
+from typing import Literal
 
 from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.utils.cdf import label_count, metadata_key_counts
 
 from ._base import ToolkitCommand
 
 
-class AssetCentricAggregator:
+class AssetCentricAggregator(ABC):
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
@@ -21,16 +23,27 @@ class AssetCentricAggregator:
     def count(self) -> int:
         raise NotImplementedError
 
-    @abstractmethod
+
+class MetadataAggregator(AssetCentricAggregator, ABC):
+    def __init__(
+        self, client: ToolkitClient, resource_name: Literal["assets", "events", "files", "timeseries", "sequences"]
+    ) -> None:
+        super().__init__(client)
+        self.resource_name = resource_name
+
     def metadata_key_count(self) -> int:
-        raise NotImplementedError
+        return len(metadata_key_counts(self.client, self.resource_name))
 
-    @abstractmethod
+
+class LabelAggregator(MetadataAggregator, ABC):
     def label_count(self) -> int:
-        raise NotImplementedError
+        return len(label_count(self.client, self.resource_name))
 
 
-class AssetAggregator(AssetCentricAggregator):
+class AssetAggregator(LabelAggregator):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, "assets")
+
     @property
     def display_name(self) -> str:
         return "Assets"
@@ -38,11 +51,57 @@ class AssetAggregator(AssetCentricAggregator):
     def count(self) -> int:
         return self.client.assets.aggregate_count()
 
-    def metadata_key_count(self) -> int:
-        return 0
 
-    def label_count(self) -> int:
-        return 0
+class EventAggregator(MetadataAggregator):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, "events")
+
+    @property
+    def display_name(self) -> str:
+        return "Events"
+
+    def count(self) -> int:
+        return self.client.events.aggregate_count()
+
+
+class FileAggregator(LabelAggregator):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, "files")
+
+    @property
+    def display_name(self) -> str:
+        return "Files"
+
+    def count(self) -> int:
+        response = self.client.files.aggregate()
+        if response:
+            return response[0].count
+        else:
+            return 0
+
+
+class TimeSeriesAggregator(MetadataAggregator):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, "timeseries")
+
+    @property
+    def display_name(self) -> str:
+        return "Time Series"
+
+    def count(self) -> int:
+        return self.client.time_series.aggregate_count()
+
+
+class SequenceAggregator(MetadataAggregator):
+    def __init__(self, client: ToolkitClient) -> None:
+        super().__init__(client, "sequences")
+
+    @property
+    def display_name(self) -> str:
+        return "Sequences"
+
+    def count(self) -> int:
+        return self.client.sequences.aggregate_count()
 
 
 class ProfileCommand(ToolkitCommand):
@@ -52,16 +111,31 @@ class ProfileCommand(ToolkitCommand):
         client: ToolkitClient,
         verbose: bool = False,
     ) -> None:
+        aggregators: list[AssetCentricAggregator] = [
+            AssetAggregator(client),
+            EventAggregator(client),
+            FileAggregator(client),
+            TimeSeriesAggregator(client),
+            SequenceAggregator(client),
+        ]
         rows = []
-        for aggregator in [AssetAggregator(client)]:
-            rows.append(
-                {
-                    "Resource": aggregator.display_name,
-                    "Count": aggregator.count(),
-                    "Metadata Key Count": aggregator.metadata_key_count(),
-                    "Label Count": aggregator.label_count(),
-                }
-            )
+        for aggregator in aggregators:
+            row = {
+                "Resource": aggregator.display_name,
+                "Count": aggregator.count(),
+            }
+            if isinstance(aggregator, MetadataAggregator):
+                count: str | int = aggregator.metadata_key_count()
+            else:
+                count = "-"
+            row["Metadata Key Count"] = count
+            if isinstance(aggregator, LabelAggregator):
+                count = aggregator.label_count()
+            else:
+                count = "-"
+            row["Label Count"] = count
+            rows.append(row)
+
         table = Table(
             title="Asset Centric Profile",
             title_justify="left",
