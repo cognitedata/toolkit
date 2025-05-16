@@ -87,7 +87,7 @@ class TimeSeriesAggregator(MetadataAggregator):
 
     @property
     def display_name(self) -> str:
-        return "Time Series"
+        return "TimeSeries"
 
     def count(self) -> int:
         return self.client.time_series.aggregate_count()
@@ -111,7 +111,7 @@ class ProfileCommand(ToolkitCommand):
         cls,
         client: ToolkitClient,
         verbose: bool = False,
-    ) -> None:
+    ) -> list[dict[str, str | int]]:
         aggregators: list[AssetCentricAggregator] = [
             AssetAggregator(client),
             EventAggregator(client),
@@ -137,6 +137,7 @@ class ProfileCommand(ToolkitCommand):
             table.add_row(*(f"{cell:,}" if isinstance(cell, int) else str(cell) for cell in row.values()))
         console = Console()
         console.print(table)
+        return rows
 
     @staticmethod
     def process_aggregator(aggregator: AssetCentricAggregator) -> dict[str, str | int]:
