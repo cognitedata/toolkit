@@ -801,7 +801,7 @@ Transformation:
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
-  query: "-- cdf-auth: f5da81f3\nselect\n  cast(`externalId` as STRING) as externalId\n\
+  query: "-- cdf-auth: f164c472\nselect\n  cast(`externalId` as STRING) as externalId\n\
     from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character"
   sourceOidcCredentials:
     audience: https://bluefield.cognitedata.com
