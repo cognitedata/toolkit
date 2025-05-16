@@ -183,13 +183,14 @@ class TestCapabilities:
                 {
                     "extractionPipelinesAcl": {
                         "actions": ["OWNER", "READ"],
-                        "scope": {"idScope": {"ids": ["my_pipeline"]}},
+                        "scope": {"idscope": {"ids": ["my_pipeline"]}},
                     }
                 },
                 [
                     "invalid scope name 'idscope'. Expected all or idScope",
                     "In actions input should be 'READ' or 'WRITE'",
                 ],
+                id="Wrong case for extractionPipelinesAcl idScope",
             ),
         ],
     )
