@@ -9,7 +9,9 @@ import-cmd = true
 module-repeat = true
 populate = true
 agents = false
+profile = true
 infield = true
+
 
 [plugins]
 run = true
