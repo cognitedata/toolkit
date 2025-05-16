@@ -178,7 +178,19 @@ class TestCapabilities:
                 {"datasetsAcl": {"actions": ["READ", "WRITE", "OWNER"], "scope": {"idscope": {"ids": ["my_dataset"]}}}},
                 ["invalid scope name 'idscope'. Expected all or idScope"],
                 id="Wrong case for datasetsAcl idScope",
-            )
+            ),
+            pytest.param(
+                {
+                    "extractionPipelinesAcl": {
+                        "actions": ["OWNER", "READ"],
+                        "scope": {"idScope": {"ids": ["my_pipeline"]}},
+                    }
+                },
+                [
+                    "invalid scope name 'idscope'. Expected all or idScope",
+                    "In actions input should be 'READ' or 'WRITE'",
+                ],
+            ),
         ],
     )
     def test_invalid_capability(self, data: dict[str, object], expected_errors: list[str]) -> None:
