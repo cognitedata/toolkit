@@ -191,7 +191,8 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
     Returns:
         A JSON path string.
     """
+    # +1 to convert from 0-based to 1-based indexing
     if len(loc) == 1 and isinstance(loc[0], int):
-        return f"item [{loc[0]}]"
+        return f"item [{loc[0] + 1}]"
 
-    return ".".join([str(x) if isinstance(x, str) else f"[{x}]" for x in loc]).replace(".[", "[")
+    return ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
