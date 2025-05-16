@@ -30,7 +30,7 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2"},
         ],
         [
-            "In item [1] missing required field: 'externalId'",
+            "In item [2] missing required field: 'externalId'",
         ],
         id="Invalid second element of list of timeseries",
     )
@@ -41,9 +41,9 @@ def timeseries_yaml_test_cases() -> Iterable:
             {"name": "my_timeseries_2", "type": "numeric"},
         ],
         [
-            "In item [0] unused field: 'nam'",
-            "In item [1] missing required field: 'externalId'",
-            "In item [1] unused field: 'type'",
+            "In item [1] unused field: 'nam'",
+            "In item [2] missing required field: 'externalId'",
+            "In item [2] unused field: 'type'",
         ],
         id="Multiple issues in a list of timeseries",
     )
@@ -62,8 +62,8 @@ def group_yaml_test_cases() -> Iterable:
             "members": "allUserAccounts",
         },
         {
-            "In capabilities[0].actions input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'",
-            "In capabilities[0] missing required field: 'scope'",
+            "In capabilities[1].actions input should be 'READ', 'WRITE' or 'WRITE_PROPERTIES'. Got 'INVALID_ACTION'.",
+            "In capabilities[1] missing required field: 'scope'",
         },
         id="Invalid action and missing scope",
     )
@@ -79,7 +79,7 @@ def group_yaml_test_cases() -> Iterable:
             }
         ],
         {
-            "In [0].capabilities[0] invalid scope name 'notExisting'. Expected one of all or spaceIdScope",
+            "In [1].capabilities[1] invalid scope name 'notExisting'. Expected all or spaceIdScope",
         },
         id="Invalid scope name",
     )

@@ -44,7 +44,7 @@ def all_acls() -> Iterable:
         {
             "extractionPipelinesAcl": {
                 "actions": ["READ", "WRITE"],
-                "scope": {"idscope": {"ids": ["myPipeline", "myPipeline"]}},
+                "scope": {"idScope": {"ids": ["myPipeline", "myPipeline"]}},
             }
         },
         {
