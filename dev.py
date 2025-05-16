@@ -37,7 +37,7 @@ VERSION_FILES = [
     *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
     *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
     *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
-    REPO_ROOT / "cognite_toolkit" / "_repo_files" / "GitHub" / ".github" / "workflows" / "build.yaml",
+    REPO_ROOT / "cognite_toolkit" / "_repo_files" / "GitHub" / ".github" / "workflows" / "dry-run.yaml",
     REPO_ROOT / "cognite_toolkit" / "_repo_files" / "GitHub" / ".github" / "workflows" / "deploy.yaml",
 ]
 
