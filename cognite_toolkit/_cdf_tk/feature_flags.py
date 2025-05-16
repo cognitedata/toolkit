@@ -28,6 +28,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for Atlas Agents and Agent Tools",
     }
+    PROFILE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the profile command",
+    }
     INFIELD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables support for Infield configs",
