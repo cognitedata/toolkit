@@ -110,7 +110,9 @@ secrets:
             file_id=123,
             external_id="my_function",
             metadata={
-                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(tmp_path / "my_function"),
+                FunctionLoader._MetadataKey.function_hash: calculate_directory_hash(
+                    tmp_path / "my_function", exclude_prefixes={".DS_Store"}
+                ),
             },
         )
         loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path)
