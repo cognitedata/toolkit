@@ -188,7 +188,7 @@ class TestCapabilities:
                 },
                 [
                     "invalid scope name 'idscope'. Expected all, datasetScope or idScope",
-                    "In actions input should be 'READ' or 'WRITE'",
+                    "In actions input should be 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
             ),

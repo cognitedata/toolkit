@@ -173,6 +173,8 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"Unused field: {loc[-1]!r}"
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
+        elif error_type == "literal_error":
+            msg = f"{item['msg']}. Got {item['input']!r}."
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
