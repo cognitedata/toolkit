@@ -43,6 +43,3 @@ jobs:
       - name: "Deploy the templates"
         run: |
           uv run cdf deploy --env demo
-      - name: "Run transformations and other post-processing"
-        run: |
-          uv run python ./demo/postproc.py

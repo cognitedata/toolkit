@@ -24,8 +24,7 @@ def get_packages() -> list[ParameterSet]:
     packages = (
         package
         for package in packages.values()
-        if package.name
-        not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization", "custom"]
+        if package.name not in ["bootcamp", "sourcesystem", "industrial_tools", "contextualization", "custom"]
     )
     return [pytest.param(package, id=package.name) for package in sorted(packages, key=lambda p: p.name)]
 
@@ -85,7 +84,7 @@ def test_build_packages_without_warnings(
 def get_individual_modules() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
 
-    for package_name in ["examples", "sourcesystem"]:
+    for package_name in ["sourcesystem"]:
         modules = packages[package_name]
         for module_name in sorted(modules.module_names):
             yield package_name, module_name

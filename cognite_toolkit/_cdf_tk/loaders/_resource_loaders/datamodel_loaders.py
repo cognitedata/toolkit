@@ -586,6 +586,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if all(isinstance(v.get("container"), dict) for v in [prop, local_prop]):
                 if prop["container"].get("type") == "container" and "type" not in local_prop["container"]:
                     prop["container"].pop("type", None)
+            is_connection_prop = "connectionType" in prop
+            is_local_connection_prop = "connectionType" in local_prop
+            if (
+                is_connection_prop
+                and is_local_connection_prop
+                and "direction" not in local_prop
+                and prop.get("direction") == "outwards"
+            ):
+                # The API will set the direction to outwards by default, so we remove it from the dump.
+                prop.pop("direction", None)
         return dumped
 
     def diff_list(

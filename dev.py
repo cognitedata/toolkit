@@ -37,7 +37,10 @@ VERSION_FILES = [
     *(REPO_ROOT / "tests" / "data").rglob("cdf.toml"),
     *(REPO_ROOT / "tests" / "data").rglob("_build_environment.yaml"),
     *(REPO_ROOT / "cognite_toolkit").rglob("cdf.toml"),
+    REPO_ROOT / "cognite_toolkit" / "_repo_files" / "GitHub" / ".github" / "workflows" / "dry-run.yaml",
+    REPO_ROOT / "cognite_toolkit" / "_repo_files" / "GitHub" / ".github" / "workflows" / "deploy.yaml",
 ]
+
 DOCKER_IMAGE_FILES = [
     *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yml"),
     *(REPO_ROOT / "cognite_toolkit" / "_repo_files").rglob("*.yaml"),
@@ -188,8 +191,8 @@ def _get_change(changelog_items: list[marko.element.Element]) -> Literal["major"
         list_text = child.children[0].children[0].children
         if list_text.startswith("[ ]"):
             continue
-        elif list_text.startswith("[x]"):
-            change_type = list_text.removeprefix("[x]").strip()
+        elif list_text.lower().startswith("[x]"):
+            change_type = list_text.removeprefix("[x]").removeprefix("[X]").strip()
             if change_type.casefold() not in VALID_BUMP_OPTIONS:
                 print(f"Unexpected change type in changelog: {change_type}")
                 raise SystemExit(1)
