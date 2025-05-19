@@ -51,3 +51,23 @@ def test_location_builder_detect_self_reference(build_tmp_path):
     location_builder = LocationBuilder(build_dir=build_tmp_path)
     with pytest.raises(ToolkitError, match="Circular dependency found in Locations*"):
         list(location_builder.build(source_files=[source_file], module=module_location))
+
+
+def test_test_sequenced_location_files(build_tmp_path):
+    location_builder = LocationBuilder(build_dir=build_tmp_path)
+    source_path = Path("originally_multiple_locations.yaml")
+
+    destination_paths = [location_builder._create_file_path(source_path, i, "LocationFilter") for i in range(1, 4)]
+    assert len(destination_paths) == 3
+    assert (
+        destination_paths[0]
+        == build_tmp_path / location_builder.resource_folder / "1.originally_multiple_locations.LocationFilter.yaml"
+    )
+    assert (
+        destination_paths[1]
+        == build_tmp_path / location_builder.resource_folder / "2.originally_multiple_locations.LocationFilter.yaml"
+    )
+    assert (
+        destination_paths[2]
+        == build_tmp_path / location_builder.resource_folder / "3.originally_multiple_locations.LocationFilter.yaml"
+    )

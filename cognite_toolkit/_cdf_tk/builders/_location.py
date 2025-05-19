@@ -83,8 +83,8 @@ class LocationBuilder(Builder):
             )
 
     def _create_file_path(self, source_path: Path, index: int, kind: str) -> Path:
-        """Creates the filepath in the build directory for the given source path.
-        Note that we are splitting location filter into single files to ensure deployment dependencies.
+        """Helper function to prefix the filename with an index that ensures correct deployment order.
+        It also adds the kind as a suffix.
         """
         filestem = source_path.stem
         # Get rid of the local index
