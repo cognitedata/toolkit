@@ -16,6 +16,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
@@ -249,7 +250,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id}
+        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         if not self._has_looked_up:
@@ -276,15 +277,27 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
+        def _recursive_lookup(locs: LocationFilterList) -> None:
+            for loc in locs:
+                if loc.external_id and loc.id:
+                    self._cache[loc.external_id] = loc.id
+                    self._reverse_cache[loc.id] = loc.external_id
+                if loc.locations:
+                    _recursive_lookup(loc.locations)
+
         location_filters = self._toolkit_client.location_filters.list()
-        self._cache = {location_filter.external_id: location_filter.id for location_filter in location_filters}
-        self._reverse_cache = {location_filter.id: location_filter.external_id for location_filter in location_filters}
+        _recursive_lookup(location_filters)
 
     def _read_acl(self) -> Capability:
         return LocationFiltersAcl(
             [LocationFiltersAcl.Action.Read],
             scope=LocationFiltersAcl.Scope.All(),
         )
+
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        if not self._has_looked_up:
+            self._lookup()
+        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
 
 
 class LookUpGroup(ToolkitAPI):
