@@ -25,7 +25,7 @@ class Views(BaseModelResource):
     )
 
 
-class AssetCentricResourceData(BaseModelResource):
+class AssetCentricFields(BaseModelResource):
     data_set_external_id: list[str] | None = Field(default=None, description="The list of data set external IDs")
     asset_subtree_external_ids: list[dict[Literal["id"], str]] | None = Field(
         default=None, description="External IDs of the asset."
@@ -33,17 +33,16 @@ class AssetCentricResourceData(BaseModelResource):
     external_id_prefix: str | None = Field(default=None, description="The external ID prefix")
 
 
-class AssetCentricResource(BaseModelResource):
+class AssetCentricResourceData(AssetCentricFields):
+    """ """
+
+
+class AssetCentricResource(AssetCentricFields):
     assets: AssetCentricResourceData | None = Field(default=None, description="Asset resource type data")
     events: AssetCentricResourceData | None = Field(default=None, description="Event resource type data")
     timeseries: AssetCentricResourceData | None = Field(default=None, description="Timeseries resource type data")
     files: AssetCentricResourceData | None = Field(default=None, description="File resource type data")
     sequences: AssetCentricResourceData | None = Field(default=None, description="Sequence resource type data")
-    data_set_external_id: list[str] | None = Field(default=None, description="The list of data set external IDs")
-    asset_subtree_external_ids: list[dict[Literal["id"], str]] | None = Field(
-        default=None, description="External IDs of the asset."
-    )
-    external_id_prefix: str | None = Field(default=None, description="The external ID prefix")
 
 
 class LocationYAML(ToolkitResource):
