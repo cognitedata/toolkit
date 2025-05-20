@@ -134,7 +134,7 @@ def read_auth(
     resource_name: str,
     allow_oidc: Literal[True],
     console: Console | None = None,
-) -> OidcCredentials: ...
+) -> ClientCredentials | OidcCredentials: ...
 
 
 def read_auth(

@@ -74,11 +74,11 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitFileNotFoundError,
     ToolkitInvalidParameterNameError,
+    ToolkitNotSupported,
     ToolkitRequiredValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -261,42 +261,57 @@ class TransformationLoader(
                         item["query"] = f"{hash_str}\n{item['query']}"
 
             if "sourceOidcCredentials" in item:
-                HighSeverityWarning(
-                    "The property 'sourceOidcCredentials' is deprecated. Use 'authentication.read' instead."
-                ).print_warning(console=self.console)
-                item.pop("sourceOidcCredentials")
+                raise ToolkitNotSupported(
+                    "The property 'sourceOidcCredentials' is not supported. Use 'authentication.read' instead."
+                )
 
             if "destinationOidcCredentials" in item:
-                HighSeverityWarning(
-                    "The property 'destinationOidcCredentials' is deprecated. Use 'authentication.write' instead."
-                ).print_warning(console=self.console)
-                item.pop("destinationOidcCredentials")
+                raise ToolkitNotSupported(
+                    "The property 'destinationOidcCredentials' is not supported. Use 'authentication.write' instead."
+                )
 
             if "sourceNonce" in item:
-                HighSeverityWarning(
-                    "The property 'sourceNonce' is not used by Toolkit. Use 'authentication.read' instead,"
+                raise ToolkitNotSupported(
+                    "The property 'sourceNonce' is not supported by Toolkit. Use 'authentication.read' instead,"
                     "then Toolkit will dynamically set the nonce."
-                ).print_warning(console=self.console)
-                item.pop("sourceNonce")
+                )
 
             if "destinationNonce" in item:
-                HighSeverityWarning(
-                    "The property 'destinationNonce' is not used by Toolkit. Use 'authentication.write' instead,"
+                raise ToolkitNotSupported(
+                    "The property 'destinationNonce' is not supported by Toolkit. Use 'authentication.write' instead,"
                     "then Toolkit will dynamically set the nonce."
-                ).print_warning(console=self.console)
-                item.pop("destinationNonce")
+                )
             auth = item.pop("authentication", None)
-            if isinstance(auth, dict):
+            if isinstance(auth, dict) and "read" in auth:
                 self._authentication_by_id_operation[(external_id, "read")] = read_auth(
-                    auth["read"] if "read" in auth else auth,
+                    auth["read"],
                     self.client.config,
                     external_id,
                     "transformation",
                     allow_oidc=True,
                     console=self.console,
                 )
+            elif isinstance(auth, dict) and "write" not in auth:
+                self._authentication_by_id_operation[(external_id, "read")] = read_auth(
+                    auth,
+                    self.client.config,
+                    external_id,
+                    "transformation",
+                    allow_oidc=True,
+                    console=self.console,
+                )
+            if isinstance(auth, dict) and "write" in auth:
                 self._authentication_by_id_operation[(external_id, "write")] = read_auth(
-                    auth["write"] if "write" in auth else auth,
+                    auth["write"],
+                    self.client.config,
+                    external_id,
+                    "transformation",
+                    allow_oidc=True,
+                    console=self.console,
+                )
+            elif isinstance(auth, dict) and "read" not in auth:
+                self._authentication_by_id_operation[(external_id, "write")] = read_auth(
+                    auth["write"],
                     self.client.config,
                     external_id,
                     "transformation",
@@ -413,11 +428,12 @@ class TransformationLoader(
 
     def _update_nonce(self, items: Sequence[TransformationWrite]) -> None:
         for item in items:
-            if item.external_id:
-                if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
-                    item.source_nonce = self._create_nonce(read_credentials)
-                if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
-                    item.destination_nonce = self._create_nonce(write_credentials)
+            if not item.external_id:
+                raise ToolkitRequiredValueError("Transformation must have external_id set.")
+            if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
+                item.source_nonce = self._create_nonce(read_credentials)
+            if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
+                item.destination_nonce = self._create_nonce(write_credentials)
 
     def _create_nonce(self, credentials: OidcCredentials | ClientCredentials) -> NonceCredentials:
         key = calculate_secure_hash(credentials.dump(), shorten=True)
