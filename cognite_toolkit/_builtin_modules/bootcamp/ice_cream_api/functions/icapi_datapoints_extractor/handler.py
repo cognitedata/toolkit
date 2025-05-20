@@ -34,7 +34,7 @@ def get_time_series_for_site(client: CogniteClient, site):
             f"----No CogniteAssets in CDF for {site}!----\n"
             f"    Run the 'Create Cognite Asset Hierarchy' transformation!"
         )
-        return
+        return []
 
     sub_tree_nodes = client.data_modeling.instances.list(
         instance_type=CogniteAsset,
@@ -47,7 +47,7 @@ def get_time_series_for_site(client: CogniteClient, site):
             f"----No CogniteTimeSeries in CDF for {site}!----\n"
             f"    Run the 'Contextualize Timeseries and Assets' transformation!"
         )
-        return
+        return []
 
     value_list = [{"space": node.space, "externalId": node.external_id} for node in sub_tree_nodes]
 
