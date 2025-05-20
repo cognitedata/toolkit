@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     TransformationLoader,
     WorkflowTriggerLoader,
 )
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
@@ -150,6 +151,8 @@ def get_changed_source_files(
             or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
             # Have authentication hashes that is different for each environment
             or loader_cls in {TransformationLoader, FunctionScheduleLoader, WorkflowTriggerLoader}
+            # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
+            or loader_cls is LocationFilterLoader
         ):
             continue
         loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
