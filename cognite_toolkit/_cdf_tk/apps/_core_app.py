@@ -51,7 +51,7 @@ class CoreApp(typer.Typer):
             typer.Option(
                 help="Load the .env file in this or the parent directory, but also override currently set environment variables",
             ),
-        ] = False,
+        ] = True,
         env_path: Annotated[
             Optional[str],
             typer.Option(
@@ -62,7 +62,7 @@ class CoreApp(typer.Typer):
             bool,
             typer.Option(
                 "--version",
-                help="See which version of the tooklit and the templates are installed.",
+                help="See which version of the Toolkit is installed.",
                 callback=_version_callback,
             ),
         ] = False,
