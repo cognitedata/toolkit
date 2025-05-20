@@ -97,7 +97,7 @@ def handle(client: CogniteClient = None, data=None):
         backfill = data.get("backfill")
         hours = data.get("hours")
 
-        if hours > max_hours:
+        if hours and hours > max_hours:
             print(f"{hours} > {max_hours}! The Ice Cream API can't serve more than {max_hours} hours of datapoints, setting hours to max")
             hours = max_hours
 
