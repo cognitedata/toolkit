@@ -311,7 +311,7 @@ class TransformationLoader(
                 )
             elif isinstance(auth, dict) and "read" not in auth:
                 self._authentication_by_id_operation[(external_id, "write")] = read_auth(
-                    auth["write"],
+                    auth,
                     self.client.config,
                     external_id,
                     "transformation",
