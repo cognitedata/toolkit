@@ -59,7 +59,10 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from questionary import Choice
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
-from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
+    LocationFilter,
+    LocationFilterScene,
+)
 from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
@@ -226,6 +229,9 @@ class FakeCogniteResourceGenerator:
             elif name == "version":
                 # Special case
                 value = random.choice(["v1", "v2", "v3"])
+            elif resource_cls is LocationFilter and name == "locations":
+                # Special case for LocationFilter to avoid recursion.
+                value = None
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 
