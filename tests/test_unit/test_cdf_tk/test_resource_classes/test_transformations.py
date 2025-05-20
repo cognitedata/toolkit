@@ -21,6 +21,7 @@ def transformation_destination_cases() -> Iterable:
                         "space": "my_space",
                         "destinationType": "my_view",
                     },
+                    "instanceSpace": "my_instance_space",
                 },
             }
         },
@@ -30,7 +31,7 @@ def transformation_destination_cases() -> Iterable:
                 "name": "example:first:transformation",
                 "ignoreNullFields": True,
                 "destination": {
-                    "type": "assets",
+                    "type": "nodes",
                     "view": {"externalId": "my_view", "version": "1", "space": "my_space"},
                     "edgeType": {"externalId": "my_edge_type", "space": "my_space"},
                 },
@@ -58,13 +59,13 @@ def transformation_destination_cases() -> Iterable:
 
 class TestTransformationYAML:
     @pytest.mark.parametrize("data", list(find_resources("transformation")))
-    def test_load_valid_tranformation_file(self, data: dict[str, object]) -> None:
+    def test_load_valid_transformation_file(self, data: dict[str, object]) -> None:
         loaded = TransformationYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
 
     @pytest.mark.parametrize("data", transformation_destination_cases())
-    def test_load_valid_tranformation_destination_parameters(self, data: dict[str, object]) -> None:
+    def test_load_valid_transformation_destination_parameters(self, data: dict[str, object]) -> None:
         loaded = TransformationYAML.model_validate(data)
 
         assert loaded.model_dump(exclude_unset=True, by_alias=True) == data
