@@ -1,0 +1,53 @@
+name: gp_transformations_{{ sourceId }}
+sourceId: {{ groupSourceId }}
+metadata:
+  origin: 'Cognite Toolkit'
+capabilities:
+  # minimum runtime capabilities
+  - projectsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  # query-specific capabilities
+  - rawAcl:
+      actions:
+        - READ
+      scope:
+        tableScope:
+          dbsToTables:
+            {{ rawSourceDatabase }}: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ instanceSpace }}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - cdf_cdm_units
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        spaceIdScope:
+          spaceIds:
+            - {{ schemaSpace }}
+            - cdf_cdm_units

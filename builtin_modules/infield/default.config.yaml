@@ -1,0 +1,21 @@
+# The root asset external id should be
+# set to different values for each location,
+# but for demo purposes we are using the same value
+first_location: oid
+first_root_asset_external_id: 'WMT:VAL'
+second_location: oid2
+second_root_asset_external_id: 'WMT:VAL'
+
+scheduleHourly: "0 * * * *"
+
+# Transformation authentication
+cdf_cluster: ${CDF_CLUSTER}
+cicd_clientId: ${IDP_CLIENT_ID}
+cicd_clientSecret: ${IDP_CLIENT_SECRET}
+cicd_tokenUri: ${IDP_TOKEN_URL}
+cdfProjectName: ${CDF_PROJECT}
+# Optional: If idP requires providing the scopes
+cicd_scopes:
+  - ${IDP_SCOPES}
+# Optional: If idP requires providing the audience
+cicd_audience: ${IDP_AUDIENCE}

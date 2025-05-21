@@ -1,0 +1,16 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Unit
+description: Represents a single unit of measurement
+implements:
+- space: cdf_cdm
+  externalId: CogniteUnit
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Unit
+      type: container
+    containerPropertyIdentifier: UUID

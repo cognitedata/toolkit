@@ -1,0 +1,55 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}360ImageModel
+description: Navigational aid for traversing Cognite360ImageModel instances
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+  - equals:
+      property:
+      - cdf_cdm_3d
+      - Cognite3DModel
+      - type
+      value: Image360
+implements:
+- space: cdf_cdm
+  externalId: Cognite360ImageModel
+  version: v1
+  type: view
+version: v1
+properties:
+  collections:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageCollection
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}3DRevision
+        version: v1
+        type: view
+      identifier: model3D
+    description: List Cognite360Image collections for this instance
+    connectionType: multi_reverse_direct_relation
+  thumbnail:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DModel
+      type: container
+    containerPropertyIdentifier: thumbnail
+    description: Thumbnail of the 3D model
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageModel
+      type: container
+    containerPropertyIdentifier: UUID

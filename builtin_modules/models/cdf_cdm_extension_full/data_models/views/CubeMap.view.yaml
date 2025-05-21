@@ -1,0 +1,97 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}CubeMap
+description: 'The cube map holds references to 6 images in used to visually represent
+  the surrounding environment
+
+  '
+implements:
+- space: cdf_cdm
+  externalId: CogniteCubeMap
+  version: v1
+  type: view
+version: v1
+properties:
+  front:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: front
+    description: Direct relation to a file holding the front projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  back:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: back
+    description: Direct relation to a file holding the back projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  left:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: left
+    description: Direct relation to a file holding the left projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  right:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: right
+    description: Direct relation to a file holding the right projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  top:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: top
+    description: Direct relation to a file holding the top projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  bottom:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: bottom
+    description: Direct relation to a file holding the bottom projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CubeMap
+      type: container
+    containerPropertyIdentifier: UUID

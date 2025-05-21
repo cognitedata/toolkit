@@ -1,0 +1,7 @@
+[module]
+title = "Example location filter asset centric"
+
+[packages]
+tags = [
+    "industrial_tools",
+]

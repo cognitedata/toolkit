@@ -1,0 +1,47 @@
+name: 360 degree camera
+externalId: threesixty
+method: threesixty
+description: Panoramic 360 degree image capture.
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  additionalProperties: false
+  id: robotics/schemas/0.1.0/capabilities/threesixty
+  properties:
+    method:
+      type: string
+    parameters:
+      type: object
+      properties: {}
+  required:
+    - method
+    - parameters
+  title: 360 camera input
+  type: object
+dataHandlingSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_handling/threesixty
+  properties:
+    uploadInstructions:
+      type: object
+      additionalProperties: false
+      properties:
+        image:
+          type: object
+          additionalProperties: false
+          properties:
+            method:
+              const: uploadFile
+              type: string
+            parameters:
+              type: object
+              properties:
+                filenamePrefix:
+                  type: string
+              required:
+                - filenamePrefix
+          required:
+            - method
+            - parameters
+  required:
+    - uploadInstructions
+  type: object

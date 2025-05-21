@@ -1,0 +1,96 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Operation
+name: Operation
+description: Operations represent a specific part of the work included in a maintenance
+  order. Often called a 'work order item'.
+implements:
+- space: cdf_idm
+  externalId: CogniteOperation
+  version: v1
+  type: view
+version: v1
+properties:
+  maintenanceOrder:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: maintenanceOrder
+    name: Maintenance order
+    description: The maintenance order the operation is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}MaintenanceOrder
+      version: v1
+      type: view
+  mainAsset:
+    container:
+      space: cdf_idm
+      externalId: CogniteOperation
+      type: container
+    containerPropertyIdentifier: mainAsset
+    name: Main asset
+    description: The primary asset (functional location) the operation is related
+      to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  equipment:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: equipment
+    name: Equipment
+    description: A list of equipment the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+  timeSeries:
+    container:
+      space: cdf_cdm
+      externalId: CogniteActivity
+      type: container
+    containerPropertyIdentifier: timeSeries
+    name: Time series
+    description: A list of time series the activity is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}TimeSeries
+      version: v1
+      type: view
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Operation
+      type: container
+    containerPropertyIdentifier: UUID

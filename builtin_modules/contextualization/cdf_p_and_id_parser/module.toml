@@ -1,0 +1,31 @@
+[module]
+title = "Contextualization P&ID Diagram Parser"
+
+[packages]
+tags = [
+    "contextualization",
+    "quickstart",
+]
+
+[[extra_resources]]
+location = "cdf_common/data_sets/demo.DataSet.yaml"
+
+[[extra_resources]]
+location = "cdf_common/data_models/demo.Space.yaml"
+
+[[extra_resources]]
+location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.config.yaml"
+
+[[extra_resources]]
+location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.ExtractionPipeline.yaml"
+
+[[extra_resources]]
+location = "cdf_common/functions/contextualization_connection_writer"
+
+[[extra_resources]]
+location = "cdf_common/functions/write.Function.yaml"
+
+[[extra_resources]]
+location = "cdf_common/raw/contextualization_state.DataBase.yaml"
+
+
