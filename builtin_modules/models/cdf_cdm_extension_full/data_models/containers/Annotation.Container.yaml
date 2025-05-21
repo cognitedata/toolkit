@@ -1,0 +1,14 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Annotation
+properties:
+  UUID:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}
+usedFor: edge

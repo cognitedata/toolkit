@@ -1,0 +1,119 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}360Image
+description: ''
+implements:
+- space: cdf_cdm
+  externalId: Cognite360Image
+  version: v1
+  type: view
+version: v1
+properties:
+  collection360:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite360Image
+      type: container
+    containerPropertyIdentifier: collection360
+    description: Direct relation to Cognite360ImageCollection
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageCollection
+      version: v1
+      type: view
+  station360:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite360Image
+      type: container
+    containerPropertyIdentifier: group3d
+    description: Direct relation to Cognite3DGroup instance that groups different
+      Cognite360Image instances to the same station
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageStation
+      version: v1
+      type: view
+  front:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: front
+    description: Direct relation to a file holding the front projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  back:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: back
+    description: Direct relation to a file holding the back projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  left:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: left
+    description: Direct relation to a file holding the left projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  right:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: right
+    description: Direct relation to a file holding the right projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  top:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: top
+    description: Direct relation to a file holding the top projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  bottom:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCubeMap
+      type: container
+    containerPropertyIdentifier: bottom
+    description: Direct relation to a file holding the bottom projection of the cube
+      map
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}File
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360Image
+      type: container
+    containerPropertyIdentifier: UUID

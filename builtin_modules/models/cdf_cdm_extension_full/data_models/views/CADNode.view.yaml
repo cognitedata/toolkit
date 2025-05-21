@@ -1,0 +1,53 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}CADNode
+description: Represents nodes from the 3D model that have been contextualized
+implements:
+- space: cdf_cdm
+  externalId: CogniteCADNode
+  version: v1
+  type: view
+version: v1
+properties:
+  object3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: object3D
+    description: Direct relation to object3D grouping for this node
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DObject
+      version: v1
+      type: view
+  model3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: model3D
+    description: Direct relation to Cognite3DModel
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADModel
+      version: v1
+      type: view
+  revisions:
+    container:
+      space: cdf_cdm_3d
+      externalId: CogniteCADNode
+      type: container
+    containerPropertyIdentifier: revisions
+    description: List of direct relations to instances of Cognite3DRevision which
+      this CogniteCADNode exists in.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADRevision
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADNode
+      type: container
+    containerPropertyIdentifier: UUID
