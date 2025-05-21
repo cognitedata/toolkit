@@ -1,0 +1,39 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}CADRevision
+description: ''
+filter:
+  and:
+  - hasData:
+    - type: container
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
+  - equals:
+      property:
+      - cdf_cdm_3d
+      - Cognite3DModel
+      - type
+      value: CAD
+implements:
+- space: cdf_cdm
+  externalId: CogniteCADRevision
+  version: v1
+  type: view
+version: v1
+properties:
+  model3D:
+    container:
+      space: cdf_cdm_3d
+      externalId: Cognite3DRevision
+      type: container
+    containerPropertyIdentifier: model3D
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DModel
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}CADRevision
+      type: container
+    containerPropertyIdentifier: UUID

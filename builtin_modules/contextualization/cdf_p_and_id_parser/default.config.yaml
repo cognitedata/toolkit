@@ -1,0 +1,13 @@
+contextualizationId: p_and_id_parser
+contextualizationName: P&ID Parser
+annotatorJob: ctx_files_pandid_annotater
+dataset: ingestion
+schemaSpace: cdf_cdm
+annotationSpace: springfield_instances
+instanceSpaces:
+  - springfield_instances
+
+groupSourceId: <not set>
+workflow: p_and_id_parser
+workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}

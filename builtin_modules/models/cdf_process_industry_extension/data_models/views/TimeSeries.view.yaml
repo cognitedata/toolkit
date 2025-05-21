@@ -1,0 +1,85 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}TimeSeries
+name: Time series
+description: Represents a series of data points in time order."
+implements:
+- space: cdf_cdm
+  externalId: CogniteTimeSeries
+  version: v1
+  type: view
+version: v1
+properties:
+  unit:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: unit
+    name: Unit
+    description: The unit of the time series.
+    source:
+      space: cdf_cdm
+      externalId: CogniteUnit
+      version: v1
+      type: view
+  assets:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: assets
+    name: Assets
+    description: A list of assets the time series is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Asset
+      version: v1
+      type: view
+  equipment:
+    container:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    containerPropertyIdentifier: equipment
+    name: Equipment
+    description: A list of equipment the time series is related to.
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Equipment
+      version: v1
+      type: view
+  activities:
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Activity
+      version: v1
+      type: view
+    through:
+      source:
+        space: {{ schemaSpace }}
+        externalId: {{ organization }}Activity
+        version: v1
+        type: view
+      identifier: timeSeries
+    name: Activities
+    description: An automatically updated list of activities the time series is related
+      to.
+    connectionType: multi_reverse_direct_relation
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: cdf_cdm
+      externalId: CogniteSourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}TimeSeries
+      type: container
+    containerPropertyIdentifier: UUID

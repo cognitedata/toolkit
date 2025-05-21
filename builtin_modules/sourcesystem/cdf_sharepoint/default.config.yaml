@@ -1,0 +1,13 @@
+sourceName: Springfield Sharepoint
+sourceId: springfield_sharepoint
+fileTransformationExternalId: files_metadata_springfield
+dataset: ingestion
+rawSourceDatabase: ingestion
+instanceSpace: springfield_instances
+groupSourceId: <not set>
+organization: YourOrg
+schemaSpace: sp_enterprise_process_industry
+
+workflow: files_metadata_population # can also contain location files_metadata_springfield_population
+workflowClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+workflowClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
