@@ -1,0 +1,19 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}Describable
+description: 'The describable core concept is used as a standard way of holding the
+  bare minimum of information about the instance
+
+  '
+implements:
+- space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}Describable
+      type: container
+    containerPropertyIdentifier: UUID

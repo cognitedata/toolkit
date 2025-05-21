@@ -1,0 +1,19 @@
+externalId: asset_centric_individual_filter_location_filter
+name: Asset Centric Individual Filter Location Example
+description: This is an example of an asset centric individual filter location
+assetCentric:
+ assets:
+   # Typically, you would use either dataSetExternalIds, assetSubtreeIds, or externalIdPrefix
+   # not all of them. They are shown in this example for demonstration purposes.
+   dataSetExternalIds:
+     - '{{ ds_asset }}'
+   assetSubtreeIds:
+     - externalId: '{{  root_asset }}'
+   externalIdPrefix: pump_
+ timeseries:
+   dataSetExternalIds:
+     - '{{  ds_asset }}'
+   assetSubtreeIds:
+     - externalId: '{{  root_asset2 }}'
+   externalIdPrefix: '{{  ts_prefix }}'
+# events, sequences, and files are also supported.

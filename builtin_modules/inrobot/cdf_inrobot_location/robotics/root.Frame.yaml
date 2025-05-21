@@ -1,0 +1,15 @@
+- name: Root frame at the origin of location {{ first_root_asset_external_id }}
+  externalId: {{ first_root_asset_external_id }}
+- name: Frame {{ three_d_model_name }}
+  externalId: frame_{{ three_d_model_name }}
+  transform:
+    parentFrameExternalId: {{ first_root_asset_external_id }}
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    orientation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0

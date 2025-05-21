@@ -1,0 +1,23 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}3DTransformation
+description: 'The Cognite3DTransformation object defines a comprehensive 3D transformation,
+  enabling precise adjustments to an object''s position, orientation, and size in
+  the 3D coordinate system. It allows for the translation of objects along the three
+  spatial axes, rotation around these axes using Euler angles, and scaling along each
+  axis to modify the object''s dimensions. The object''s transformation is defined
+  in "CDF space", a coordinate system where the positive Z axis is the up direction
+
+  '
+implements:
+- space: cdf_cdm
+  externalId: Cognite3DTransformation
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}3DTransformation
+      type: container
+    containerPropertyIdentifier: UUID

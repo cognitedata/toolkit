@@ -1,0 +1,4 @@
+ds_asset: ds_asset_location_filter
+root_asset: my_root_asset
+root_asset2: my_root_asset2
+ts_prefix: sensor

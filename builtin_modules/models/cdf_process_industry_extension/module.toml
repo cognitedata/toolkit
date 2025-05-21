@@ -1,0 +1,8 @@
+[module]
+title = "Example of Minimum Extension of the Cognite Process Industry Model"
+
+[packages]
+tags = [
+    "quickstart",
+    "models",
+]

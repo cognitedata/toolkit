@@ -1,0 +1,86 @@
+space: {{apm_datamodel_space}}
+externalId: APM_Operation
+name: APM_Operation
+description: An operation delineates a distinct maintenance task tailored for a specific
+  asset, such as gasket replacement, scaffolding setup, or level measurement.
+implements: []
+version: '1'
+properties:
+  id:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: id
+    description: Unique identifier from the source, e.g., object ID in SAP.
+  title:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: title
+    description: Brief title or summary of the specified operation.
+  description:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: description
+    description: In-depth explanation of the operation.
+  source:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: source
+    description: Origin of the operation, typically consistent with the associated
+      activity, e.g., SAP or Comos.
+  parentActivityId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: parentActivityId
+    description: Link to the associated Activity. Every operation must belong to an
+      activity. This field establishes that connection.
+  startTime:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: startTime
+    description: Planned start time for the operation to be executed.
+  endTime:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: endTime
+    description: Planned end time for the operation to be done.
+  assetExternalId:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: assetExternalId
+    description: The asset assosiatet with the operation. An operation is unique to
+      its asset, as the operation represents the specific work to be done to that
+      specific asset.
+  order:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: order
+    description: The execution order of the operation. An activity can hold multiple
+      operations, and its important that they are executed in the correct order. Eg,
+      chagning a gasket must be done before a valve is reassembled.
+  cloneOf:
+    container:
+      space: {{apm_datamodel_space}}
+      externalId: APM_Operation
+      type: container
+    containerPropertyIdentifier: cloneOf
+    description: Used by 'Maintain' when altering work orders and operations. 'InField'
+      currently filters out 'Maintain' tasks. This field is mandatory for GraphQL
+      given its filter functionality.
