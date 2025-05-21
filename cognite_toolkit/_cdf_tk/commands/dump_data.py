@@ -1,11 +1,15 @@
+import itertools
+import queue
+import threading
 import warnings
 from abc import abstractmethod
 from collections import Counter, defaultdict
-from collections.abc import Hashable, Iterator
+from collections.abc import Hashable, Iterable, Iterator
+from dataclasses import dataclass
 from functools import lru_cache, partial
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Generic, Literal
+from typing import Any, Callable, Generic, Literal
 
 import pandas as pd
 import questionary
@@ -20,7 +24,8 @@ from cognite.client.data_classes import (
     TimeSeriesList,
 )
 from cognite.client.data_classes._base import T_CogniteResource, T_CogniteResourceList
-from rich.progress import Progress, TaskID, track
+from rich.console import Console
+from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn, track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -437,3 +442,253 @@ class DumpDataCommand(ToolkitCommand):
     @lru_cache
     def _get_available_hierarchies(self, client: ToolkitClient) -> AssetList:
         return client.assets.list(root=True, limit=-1)
+
+
+@dataclass
+class SchemaColumn:
+    name: str
+    type: str
+
+
+@dataclass
+class Schema:
+    display_name: str
+    format_: Literal["csv", "parquet", "yaml"]
+    columns: list[SchemaColumn]
+
+
+class DataFinder2:
+    supported_formats: frozenset[str]
+
+    def is_supported_format(self, format_: str) -> bool:
+        return format_ in self.supported_formats
+
+    def create_iterators(self, format_: str) -> Iterator[tuple[Schema, int, Iterable, Callable]]:
+        """Create an iterator for the specified format."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+
+class AssetFinder2(DataFinder2):
+    supported_formats = frozenset({"csv", "parquet", "yaml"})
+
+    def __init__(self, client: ToolkitClient):
+        self.client = client
+
+    def create_iterators(
+        self, format_: Literal["csv", "parquet", "yaml"]
+    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
+        # Implementation for creating an iterator for assets
+        yield (
+            Schema(display_name="assets", format=format_, columns=[SchemaColumn("name", "string")]),
+            100,
+            iter(self.client.assets),
+            self._asset_processor,
+        )
+
+    def _asset_processor(self, assets: AssetList) -> tuple[str, list[dict[str, object]]]: ...
+
+
+class FileWriter:
+    @abstractmethod
+    def write_rows(self, group: str, rows: list[str, object]) -> None:
+        """Write rows to a file."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @classmethod
+    def load(cls, schema: Schema) -> "FileWriter":
+        raise NotImplementedError()
+
+
+class ParquetWriter(FileWriter): ...
+
+
+class CSVWriter(FileWriter): ...
+
+
+class YAMLWriter(FileWriter): ...
+
+
+class ProducerWorkerExecutor:
+    def __init__(
+        self,
+        download_iterable: Iterable,
+        process: Callable,
+        write_to_file: Callable[[Any], None],
+        total_items: int,
+        max_queue_size: int,
+    ) -> None:
+        self._download_iterable = download_iterable
+        self.download_complete = False
+        self._write_to_file = write_to_file
+        self._process = process
+        self.console = Console()
+        self.process_queue = queue.Queue(maxsize=max_queue_size)
+        self.file_queue = queue.Queue(maxsize=max_queue_size)
+
+        self.total_items = total_items
+        self.error_occurred = False
+        self.error_message = ""
+
+    def run(self) -> None:
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=self.console,
+        ) as progress:
+            download_task = progress.add_task("Downloading", total=self.total_items)
+            download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
+            process_thread: threading.Thread | None = None
+            if self.process_queue:
+                process_task = progress.add_task("Processing", total=self.total_items)
+                process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
+
+            write_task = progress.add_task("Writing to file", total=self.total_items)
+            write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
+
+            download_thread.start()
+            if process_thread:
+                process_thread.start()
+            write_thread.start()
+
+            # Wait for all threads to finish
+            download_thread.join()
+            if process_thread:
+                process_thread.join()
+            write_thread.join()
+
+    def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
+        """Worker thread for downloading data."""
+        iterable = iter(self._download_iterable)
+        while True:
+            try:
+                items = next(iterable)
+                while True:
+                    try:
+                        self.process_queue.put(items, timeout=0.5)
+                        progress.update(download_task, advance=len(items))
+                        break  # Exit the loop once the item is successfully added
+                    except queue.Full:
+                        # Retry until the queue has space
+                        continue
+            except StopIteration:
+                self.download_complete = True
+                break
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]Error[/red] occurred while downloading: {self.error_message}")
+                break
+
+    def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
+        """Worker thread for processing data."""
+        if self._process is None or self.process_queue is None:
+            return
+        while not self.download_complete or not self.process_queue.empty():
+            try:
+                items = self.process_queue.get(timeout=0.5)
+                processed_items = self._process(items)
+                self.file_queue.put(processed_items)
+                progress.update(process_task, advance=len(items))
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]ErrorError[/red] occurred while processing: {self.error_message}")
+                break
+            finally:
+                self.process_queue.task_done()
+
+    def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
+        """Worker thread for writing data to file."""
+        # Simulate writing data to file
+        while not self.download_complete or not self.file_queue.empty():
+            try:
+                items = self.file_queue.get(timeout=0.5)
+                self._write_to_file(items)
+                progress.update(write_task, advance=len(items))
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]Error[/red] occurred while writing: {self.error_message}")
+                break
+            finally:
+                self.file_queue.task_done()
+
+
+class DumpDataCommand2(ToolkitCommand):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+
+    def dump_table(
+        self,
+        finder: DataFinder2,
+        output_dir: Path,
+        clean: bool,
+        limit: int | None = None,
+        format_: Literal["yaml", "csv", "parquet"] = "csv",
+        verbose: bool = False,
+        parallel_threshold: int = 100_000,
+        max_queue_size: int = 10,
+    ) -> None:
+        """Dumps data from CDF to files(s).
+
+        Args:
+            finder (DataFinder): The finder object to use for fetching data.
+            output_dir (Path): The directory to write the output files to.
+            clean (bool): Whether to clean the output directory before writing files.
+            limit (int | None, optional): The maximum number of rows to write. Defaults to None.
+            format_ (Literal["yaml", "csv", "parquet"], optional): The format of the output file. Defaults to "csv".
+            verbose (bool, optional): Whether to print detailed progress information. Defaults to False.
+            parallel_threshold (int, optional): The threshold for parallel processing. Defaults to 100_000.
+            max_queue_size (int, optional): If parallel processing is enabled, this is the maximum size of the queue.
+                Defaults to 10.
+
+        """
+        if not finder.is_supported_format(format_):
+            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
+
+        self.validate_directory(output_dir, clean)
+        is_first = True
+        for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_):
+            if is_first and limit is not None:
+                # The limit only apply to the first resource. The remaining resources are dependent on the first one
+                # and thus we will dump all of them.
+                total_items = min(total_items, limit)
+                resource_iterator = itertools.islice(resource_iterator, limit)
+            file_writer = FileWriter.load(schema)
+
+            if total_items > parallel_threshold:
+                executor = ProducerWorkerExecutor(
+                    resource_iterator,
+                    file_writer.write_rows,
+                    resource_processor,
+                    total_items,
+                    max_queue_size,
+                )
+                executor.run()
+                if executor.error_occurred:
+                    print(executor.error_message)
+                    continue
+                else:
+                    print(f"Dumped {total_items:,} rows to {output_dir}")
+            else:
+                for resources in track(
+                    resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"
+                ):
+                    processed = resource_processor(resources)
+                    file_writer.write_rows(*processed)
+            is_first = False
+
+    @staticmethod
+    def validate_directory(output_dir: Path, clean: bool) -> None:
+        if output_dir.exists() and clean:
+            safe_rmtree(output_dir)
+        elif output_dir.exists():
+            raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
+        elif output_dir.suffix:
+            raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
