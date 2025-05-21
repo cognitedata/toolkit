@@ -10,13 +10,13 @@ class Scenes(BaseModelResource):
     space: str = Field(description="The space that the scene is in")
 
 
-class DataModels(BaseModelResource):
+class DataModelID(BaseModelResource):
     external_id: str = Field(description="The external ID of the data model.")
     space: str = Field(description="The space of the data model.")
     version: str = Field(description="The version of the data model.")
 
 
-class Views(BaseModelResource):
+class LocationFilterViewId(BaseModelResource):
     external_id: str = Field(description="The external ID of the view.")
     space: str = Field(description="The space of the view.")
     version: str = Field(description="The version of the view.")
@@ -27,7 +27,7 @@ class Views(BaseModelResource):
 
 class AssetCentricFields(BaseModelResource):
     data_set_external_id: list[str] | None = Field(default=None, description="The list of data set external IDs")
-    asset_subtree_external_ids: list[dict[Literal["id"], str]] | None = Field(
+    asset_subtree_external_ids: list[dict[Literal["externalId"], str]] | None = Field(
         default=None, description="External IDs of the asset."
     )
     external_id_prefix: str | None = Field(default=None, description="The external ID prefix")
@@ -50,7 +50,7 @@ class LocationYAML(ToolkitResource):
     name: str = Field(description="The name of the location.")
     description: str | None = Field(default=None, description="The description of the data set.", max_length=255)
     parent_external_Id: str | None = Field(default=None, description="The external ID of the parent location.")
-    data_models: list[DataModels] | None = Field(
+    data_models: list[DataModelID] | None = Field(
         default=None, description="The data models associated with the location."
     )
     instance_spaces: list[str] | None = Field(default=None, description="The list of spaces that instances are in")
@@ -59,4 +59,9 @@ class LocationYAML(ToolkitResource):
         default=None,
         description="The filter definition for asset centric resource types",
     )
-    views: list[Views] | None = Field(default=None, description="The views associated with the location.")
+    views: list[LocationFilterViewId] | None = Field(
+        default=None, description="The views associated with the location."
+    )
+    data_modeling_type: Literal["HYBRID", "DATA_MODELING_ONLY"] | None = Field(
+        default="HYBRID", description="The data modeling type"
+    )
