@@ -1,17 +1,12 @@
-import itertools
-import queue
-import threading
-import warnings
-from abc import abstractmethod
-from collections import Counter, defaultdict
-from collections.abc import Hashable, Iterable, Iterator
+import csv
+from abc import ABC, abstractmethod
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
-from functools import lru_cache, partial
+from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Callable, Generic, Literal
+from typing import Any, Callable, ClassVar, Literal, TypeAlias
 
-import pandas as pd
 import questionary
 from cognite.client.data_classes import (
     Asset,
@@ -19,13 +14,10 @@ from cognite.client.data_classes import (
     AssetList,
     DataSet,
     DataSetList,
-    TimeSeries,
     TimeSeriesFilter,
-    TimeSeriesList,
 )
-from cognite.client.data_classes._base import T_CogniteResource, T_CogniteResourceList
 from rich.console import Console
-from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn, track
+from rich.progress import track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
@@ -34,24 +26,52 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitIsADirectoryError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.loaders import AssetLoader, ResourceLoader, TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils import to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
+FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
 
-class DataFinder(Generic[T_CogniteResource, T_CogniteResourceList]):
-    def __init__(self, client: ToolkitClient) -> None:
+
+@dataclass
+class SchemaColumn:
+    name: str
+    type: str
+
+
+@dataclass
+class Schema:
+    display_name: str
+    format_: FileFormat
+    columns: list[SchemaColumn]
+
+
+class DataFinder:
+    supported_formats: ClassVar[frozenset[FileFormat]] = frozenset()
+
+    def is_supported_format(self, format_: FileFormat) -> bool:
+        return format_ in self.supported_formats
+
+    @abstractmethod
+    def create_iterators(
+        self, format_: FileFormat, limit: int | None
+    ) -> Iterator[tuple[Schema, int, Iterable, Callable]]:
+        """Create an iterator for the specified format."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+
+class AssetCentricFinder(DataFinder, ABC):
+    def __init__(self, client: ToolkitClient, user_hierarchy: list[str] | None, user_data_set: list[str] | None):
         self.client = client
+        self.hierarchies, self.data_sets = self.select_hierarchy_datasets(user_hierarchy, user_data_set)
         self.loader = self._create_loader(client)
+        self._used_labels: set[str] = set()
+        self._used_data_sets: set[str] = set()
 
     @abstractmethod
     def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
         """Create the appropriate loader for the finder."""
         raise NotImplementedError()
-
-    def key(self, item: T_CogniteResource, hierarchies: list[str], data_sets: list[str]) -> str:
-        """Return the key for grouping items. Default is empty string."""
-        return ""
 
     @lru_cache
     def aggregate_count(self, hierarchies: tuple[str, ...], data_sets: tuple[str, ...]) -> int:
@@ -61,191 +81,30 @@ class DataFinder(Generic[T_CogniteResource, T_CogniteResourceList]):
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         raise NotImplementedError()
 
-    @abstractmethod
-    def create_iterator(
-        self, hierarchies: list[str], data_sets: list[str], limit: int | None
-    ) -> Iterator[T_CogniteResourceList]:
-        raise NotImplementedError()
+    def _to_write(self, items: Iterable) -> list[dict[str, Any]]:
+        write_items: list[dict[str, Any]] = []
+        for item in items:
+            dumped = self.loader.dump_resource(item)
+            if "metadata" in dumped:
+                metadata = dumped.pop("metadata")
+                for key, value in metadata.items():
+                    dumped[f"metadata.{key}"] = value
+            if isinstance(dumped.get("labels"), list):
+                dumped["labels"] = [label["externalId"] for label in dumped["labels"]]
+                self._used_labels.update(dumped["labels"])
+            if "dataSetExternalId" in dumped:
+                self._used_data_sets.add(dumped["dataSetExternalId"])
+            write_items.append(dumped)
+        return write_items
 
-
-class AssetFinder(DataFinder[Asset, AssetList]):
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
-        return AssetLoader.create_loader(client)
-
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        return self.client.assets.aggregate_count(
-            filter=AssetFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
-
-    def create_iterator(self, hierarchies: list[str], data_sets: list[str], limit: int | None) -> Iterator[AssetList]:
-        return self.client.assets(
-            chunk_size=1000,
-            asset_subtree_external_ids=hierarchies or None,
-            data_set_external_ids=data_sets or None,
-            limit=limit,
-        )
-
-    def key(self, item: Asset, hierarchies: list[str], data_sets: list[str]) -> str:
-        if hierarchies and data_sets:
-            asset_external_id = self.client.lookup.assets.external_id(item.root_id or 0)
-            data_set_external_id = self.client.lookup.data_sets.external_id(item.data_set_id or 0)
-            if asset_external_id and data_set_external_id:
-                return f"{asset_external_id}.{data_set_external_id}"
-            elif asset_external_id:
-                return asset_external_id
-            elif data_set_external_id:
-                return data_set_external_id
-            return ""
-        elif hierarchies:
-            return self.client.lookup.assets.external_id(item.root_id or 0) or ""
-        elif data_sets:
-            return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
-        return ""
-
-
-class TimeSeriesFinder(DataFinder[TimeSeries, TimeSeriesList]):
-    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
-        return TimeSeriesLoader.create_loader(client)
-
-    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
-        return self.client.time_series.aggregate_count(
-            filter=TimeSeriesFilter(
-                data_set_ids=[{"externalId": item} for item in data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
-            )
-        )
-
-    def create_iterator(
-        self, hierarchies: list[str], data_sets: list[str], limit: int | None
-    ) -> Iterator[TimeSeriesList]:
-        return self.client.time_series(
-            chunk_size=1000,
-            data_set_external_ids=data_sets or None,
-            asset_subtree_external_ids=hierarchies or None,
-            limit=limit,
-        )
-
-
-class DumpDataCommand(ToolkitCommand):
-    # 128 MB
-    buffer_size = 128 * 1024 * 1024
-    # Note the size in memory is not the same as the size on disk,
-    # so the resulting file size will vary.
-    encoding = "utf-8"
-    newline = "\n"
-
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
-        self._used_labels: set[str] = set()
-        self._used_data_sets: set[str] = set()
-        self._written_files: list[Path] = []
-        self._used_columns: set[str] = set()
-
-    def dump_table(
-        self,
-        finder: DataFinder,
-        user_hierarchy: list[str] | None,
-        user_data_set: list[str] | None,
-        output_dir: Path,
-        clean: bool,
-        limit: int | None = None,
-        format_: Literal["yaml", "csv", "parquet"] = "csv",
-        verbose: bool = False,
-    ) -> None:
-        """Dumps data from CDF to a file
-
-        Args:
-            finder (DataFinder): The finder object to use for fetching data.
-            user_hierarchy (list[str] | None): The list of hierarchy external IDs to dump.
-            user_data_set (list[str] | None): The list of data set external IDs to dump.
-            output_dir (Path): The directory to write the output files to.
-            clean (bool): Whether to clean the output directory before writing files.
-            limit (int | None, optional): The maximum number of rows to write. Defaults to None.
-            format_ (Literal["yaml", "csv", "parquet"], optional): The format of the output file. Defaults to "csv".
-            verbose (bool, optional): Whether to print detailed progress information. Defaults to False.
-        """
-        if format_ not in {"yaml", "csv", "parquet"}:
-            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet.")
-        if output_dir.exists() and clean:
-            safe_rmtree(output_dir)
-        elif output_dir.exists():
-            raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
-        elif output_dir.suffix:
-            raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
-
-        hierarchies, data_sets = self._select_hierarchy_datasets(user_hierarchy, user_data_set, finder)
-        if not hierarchies and not data_sets:
-            raise ToolkitValueError("No hierarchy or data set provided")
-
-        total_items = finder.aggregate_count(tuple(hierarchies), tuple(data_sets))
-        if limit:
-            total_items = min(total_items, limit)
-
-        loader = finder.loader
-        with Progress() as progress:
-            retrieved_time_series = progress.add_task(f"Retrieving {loader.display_name}", total=total_items)
-            write_to_file = progress.add_task(f"Writing {loader.display_name} to file(s)", total=total_items)
-
-            item_iterator = finder.create_iterator(hierarchies, data_sets, limit)
-            item_iterator = self._log_retrieved(item_iterator, progress, retrieved_time_series)
-            grouped_items = self._group_items(item_iterator, finder, hierarchies, data_sets)
-            writeable = self._to_write(grouped_items, loader, expand_metadata=True)
-            count = 0
-            if format_ == "yaml":
-                for group, item_list in writeable:
-                    clean_name = to_directory_compatible(group) if group else "my"
-                    file_path = output_dir / loader.folder_name / f"{clean_name}.{loader.kind}.yaml"
-                    self._write_to_yaml(item_list, file_path)
-                    count += len(item_list)
-                    progress.advance(write_to_file, advance=len(item_list))
-            elif format_ in {"csv", "parquet"}:
-                file_count_by_group: dict[str, int] = Counter()
-                for group, df in self._table_buffer(writeable):
-                    folder_path = output_dir / loader.folder_name
-                    if group != "":
-                        folder_path /= to_directory_compatible(group)
-                    folder_path.mkdir(parents=True, exist_ok=True)
-                    file_count = file_count_by_group[group]
-                    file_path = folder_path / f"part-{file_count:04}.{loader.kind}.{format_}"
-                    self._used_columns.update(df.columns)
-                    # Standardize column order
-                    df.sort_index(axis=1, inplace=True)
-
-                    if format_ == "csv":
-                        df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
-                    elif format_ == "parquet":
-                        df.to_parquet(file_path, index=False)
-                    if verbose:
-                        print(f"Dumped {len(df):,} {loader.display_name} in {group} to {file_path}")
-                    self._written_files.append(file_path)
-                    file_count_by_group[group] += 1
-                    count += len(df)
-                    progress.advance(write_to_file, advance=len(df))
-            else:
-                raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are yaml, csv, parquet. ")
-
-        if format_ in {"csv", "parquet"} and len(self._written_files) > 1:
-            self._standardize_columns(format_)
-
-        print(f"Dumped {count:,} assets to {output_dir}")
-
-        if self._used_labels:
-            self._write_labels(finder.client, output_dir, loader.kind.casefold())
-
-        if self._used_data_sets:
-            self._write_data_sets(finder.client, output_dir, loader.kind.casefold())
-
-    def _select_hierarchy_datasets(
-        self, user_hierarchy: list[str] | None, user_data_set: list[str] | None, finder: DataFinder
+    def select_hierarchy_datasets(
+        self, user_hierarchy: list[str] | None, user_data_set: list[str] | None
     ) -> tuple[list[str], list[str]]:
         if user_hierarchy or user_data_set:
             return user_hierarchy or [], user_data_set or []
-        return self.interactive_select_hierarchy_datasets(finder)
+        return self.interactive_select_hierarchy_datasets()
 
-    def interactive_select_hierarchy_datasets(self, finder: DataFinder) -> tuple[list[str], list[str]]:
+    def interactive_select_hierarchy_datasets(self) -> tuple[list[str], list[str]]:
         """Interactively select hierarchies and data sets to dump."""
         hierarchies: set[str] = set()
         data_sets: set[str] = set()
@@ -270,45 +129,38 @@ class DumpDataCommand(ToolkitCommand):
             elif what == "Abort":
                 return [], []
             elif what == "Hierarchy":
-                options = [
-                    asset
-                    for asset in self._get_available_hierarchies(finder.client)
-                    if asset.external_id not in hierarchies
-                ]
-                selected_hierarchy = self._select(what, options, finder)
+                options = [asset for asset in self._get_available_hierarchies() if asset.external_id not in hierarchies]
+                selected_hierarchy = self._select(what, options)
                 if selected_hierarchy:
                     hierarchies.update(selected_hierarchy)
                 else:
                     print("No hierarchy selected.")
             elif what == "Data Set":
                 available_data_sets = [
-                    data_set
-                    for data_set in self._get_available_data_sets(finder.client)
-                    if data_set.external_id not in data_sets
+                    data_set for data_set in self._get_available_data_sets() if data_set.external_id not in data_sets
                 ]
-                selected_data_set = self._select(what, available_data_sets, finder)
+                selected_data_set = self._select(what, available_data_sets)
                 if selected_data_set:
                     data_sets.update(selected_data_set)
                 else:
                     print("No data set selected.")
         return list(hierarchies), list(data_sets)
 
-    def _select(self, what: str, options: list[Asset] | list[DataSet], finder: DataFinder) -> str | None:
+    def _select(self, what: str, options: list[Asset] | list[DataSet]) -> str | None:
         return questionary.checkbox(
             f"Select a {what} listed as 'name (external_id) [count]'",
             choices=[
                 choice
                 for choice, count in (
                     # MyPy does not seem to understand that item is Asset | DataSet
-                    self._create_choice(item, finder)  # type: ignore[arg-type]
+                    self._create_choice(item)  # type: ignore[arg-type]
                     for item in sorted(options, key=lambda x: x.name or x.external_id)
                 )
                 if count > 0
             ],
         ).ask()
 
-    @staticmethod
-    def _create_choice(item: Asset | DataSet, finder: DataFinder) -> tuple[questionary.Choice, int]:
+    def _create_choice(self, item: Asset | DataSet) -> tuple[questionary.Choice, int]:
         """
         Choice with `title` including name and external_id if they differ.
         Adding `value` as external_id for the choice.
@@ -318,11 +170,11 @@ class DumpDataCommand(ToolkitCommand):
         if isinstance(item, DataSet):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for DataSet {item.id}")
-            item_count = finder.aggregate_count(tuple(), (item.external_id,))
+            item_count = self._aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for Asset {item.id}")
-            item_count = finder.aggregate_count((item.external_id,), tuple())
+            item_count = self._aggregate_count((item.external_id,), tuple())
         else:
             raise TypeError(f"Unsupported item type: {type(item)}")
 
@@ -333,48 +185,162 @@ class DumpDataCommand(ToolkitCommand):
             value=item.external_id,
         ), item_count
 
-    def _write_data_sets(self, client: ToolkitClient, output_dir: Path, item_name: str) -> None:
-        self._write_items_to_yaml(
-            DataSetsLoader.create_loader(client), list(self._used_data_sets), output_dir, item_name
+    @lru_cache
+    def _get_available_data_sets(self) -> DataSetList:
+        return self.client.data_sets.list(limit=-1)
+
+    @lru_cache
+    def _get_available_hierarchies(self) -> AssetList:
+        return self.client.assets.list(root=True, limit=-1)
+
+    def _data_sets(self) -> tuple[Schema, int, Iterable, Callable]:
+        data_sets = self.client.data_sets.list(external_ids=list(self._used_data_sets), limit=-1)
+        return (
+            Schema(display_name="data_sets", format_="yaml", columns=[]),
+            len(data_sets),
+            data_sets,
+            lambda items: [(item.external_id, item.name, item.description) for item in items],
         )
 
-    def _write_labels(self, client: ToolkitClient, output_dir: Path, item_name: str) -> None:
-        self._write_items_to_yaml(LabelLoader.create_loader(client), list(self._used_labels), output_dir, item_name)
+    def _labels(self) -> tuple[Schema, int, Iterable, Callable]:
+        labels = self.client.labels.list(external_ids=list(self._used_labels), limit=-1)
+        return (
+            Schema(display_name="labels", format_="yaml", columns=[]),
+            len(labels),
+            labels,
+            lambda items: [(item.external_id, item.name, item.description) for item in items],
+        )
 
-    def _write_items_to_yaml(
-        self, loader: ResourceLoader, ids: list[Hashable], output_dir: Path, item_name: str
-    ) -> None:
-        if not (items := loader.retrieve(ids)):
-            return
-        to_dump = [loader.dump_resource(item) for item in items]
-        file_path = output_dir / loader.folder_name / f"{item_name}.{loader.kind}.yaml"
-        self._write_to_yaml(to_dump, file_path)
-        print(f"Dumped {len(items):,} {loader.display_name} to {file_path}")
 
-    def _standardize_columns(self, format_: Literal["yaml", "csv", "parquet"]) -> None:
-        """Standardizes the columns across all written files to ensure consistency.
+class AssetFinder(AssetCentricFinder):
+    supported_formats = frozenset({"csv", "parquet", "yaml"})
 
-        This is required when loading the files into tools such as DuckDB.
-        """
-        for file_path in track(
-            self._written_files, total=len(self._written_files), description="Standardizing columns"
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return AssetLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        return self.client.assets.aggregate_count(
+            filter=AssetFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+
+    def create_iterators(
+        self, format_: FileFormat, limit: int | None
+    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
+        total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
+        columns = self._get_asset_columns()
+        yield (
+            Schema(display_name="assets", format_=format_, columns=columns),
+            total,
+            self.client.assets(
+                chunk_size=1000,
+                asset_subtree_external_ids=self.hierarchies or None,
+                data_set_external_ids=self.data_sets or None,
+                limit=limit,
+            ),
+            self._asset_processor,
+        )
+        if self._used_data_sets:
+            yield self._data_sets()
+        if self._used_labels:
+            yield self._labels()
+
+    def _asset_processor(self, assets: AssetList) -> list[tuple[str, list[dict[str, Any]]]]:
+        grouped_assets: list[tuple[str, list[dict[str, object]]]] = []
+        for group, asset_group in groupby(
+            sorted([(self._group(asset), asset) for asset in assets], key=lambda x: x[0]), key=lambda x: x[0]
         ):
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                if format_ == "csv":
-                    df = pd.read_csv(file_path, encoding=self.encoding, lineterminator=self.newline)
-                else:
-                    df = pd.read_parquet(file_path)
-            for missing_column in self._used_columns - set(df.columns):
-                df[missing_column] = None
-            # Standardize column order
-            df.sort_index(axis=1, inplace=True)
-            if format_ == "csv":
-                df.to_csv(file_path, index=False, encoding=self.encoding, lineterminator=self.newline)
-            elif format_ == "parquet":
-                df.to_parquet(file_path, index=False)
+            grouped_assets.append((group, self._to_write(asset_group)))
+        return grouped_assets
 
-    def _write_to_yaml(self, item_list: list[dict], file_path: Path) -> None:
+    def _group(self, item: Asset) -> str:
+        if self.hierarchies and self.data_sets:
+            asset_external_id = self.client.lookup.assets.external_id(item.root_id or 0)
+            data_set_external_id = self.client.lookup.data_sets.external_id(item.data_set_id or 0)
+            if asset_external_id and data_set_external_id:
+                return f"{asset_external_id}.{data_set_external_id}"
+            elif asset_external_id:
+                return asset_external_id
+            elif data_set_external_id:
+                return data_set_external_id
+            return ""
+        elif self.hierarchies:
+            return self.client.lookup.assets.external_id(item.root_id or 0) or ""
+        elif self.data_sets:
+            return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
+        return ""
+
+
+class TimeSeriesFinder(AssetCentricFinder):
+    def _create_loader(self, client: ToolkitClient) -> TimeSeriesLoader:
+        return TimeSeriesLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        return self.client.time_series.aggregate_count(
+            filter=TimeSeriesFilter(
+                data_set_ids=[{"externalId": item} for item in self.data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in self.hierarchies] or None,
+            )
+        )
+
+    def create_iterators(
+        self, format_: FileFormat, limit: int | None
+    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
+        total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
+        columns = self._get_time_series_columns(self.data_sets, self.hierarchies)
+        yield (
+            Schema(display_name="timeseries", format_=format_, columns=columns),
+            total,
+            self.client.time_series(
+                chunk_size=1000,
+                data_set_external_ids=self.data_sets or None,
+                asset_subtree_external_ids=self.hierarchies or None,
+                limit=limit,
+            ),
+            self._timeseries_preprocessor,
+        )
+        if self._used_data_sets:
+            yield self._data_sets()
+        if self._used_labels:
+            yield self._labels()
+
+
+class FileWriter:
+    # 128 MB
+    file_size = 128 * 1024 * 1024
+    # Note the size in memory is not the same as the size on disk,
+    # so the resulting file size will vary.
+    encoding = "utf-8"
+    newline = "\n"
+
+    @abstractmethod
+    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
+        """Write rows to a file."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @classmethod
+    def load(cls, schema: Schema) -> "FileWriter":
+        raise NotImplementedError()
+
+
+class CSVWriter(FileWriter):
+    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
+        clean_name = to_directory_compatible(group) if group else "my"
+        file_path = output_dir / loader.folder_name / f"{clean_name}.{loader.kind}.csv"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
+            if file_path.stat().st_size == 0:
+                writer.writeheader()
+            writer.writerows(rows)
+
+
+class YAMLWriter(FileWriter):
+    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
+        clean_name = to_directory_compatible(group) if group else "my"
+        file_path = output_dir / loader.folder_name / f"{clean_name}.{loader.kind}.yaml"
         file_path.parent.mkdir(parents=True, exist_ok=True)
         if file_path.exists():
             with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
@@ -384,256 +350,16 @@ class DumpDataCommand(ToolkitCommand):
             with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
                 f.write(yaml_safe_dump(item_list))
 
-    @staticmethod
-    def _log_retrieved(
-        item_iterator: Iterator[T_CogniteResourceList], progress: Progress, task: TaskID
-    ) -> Iterator[T_CogniteResourceList]:
-        for item_list in item_iterator:
-            progress.advance(task, advance=len(item_list))
-            yield item_list
 
-    @staticmethod
-    def _group_items(
-        items: Iterator[T_CogniteResourceList],
-        finder: DataFinder[T_CogniteResource, T_CogniteResourceList],
-        hierarchies: list[str],
-        data_sets: list[str],
-    ) -> Iterator[tuple[str, T_CogniteResourceList]]:
-        for item_list in items:
-            key = partial(finder.key, hierarchies=hierarchies, data_sets=data_sets)
-            for group, grouped_items in groupby(sorted(item_list, key=key), key=key):
-                yield group, finder.loader.list_cls(list(grouped_items))
-
-    def _to_write(
-        self, items: Iterator[tuple[str, T_CogniteResourceList]], loader: ResourceLoader, expand_metadata: bool
-    ) -> Iterator[tuple[str, list[dict[str, Any]]]]:
-        for group, item_list in items:
-            write_item: list[dict[str, Any]] = []
-            for item in item_list:
-                dumped = loader.dump_resource(item)
-                if expand_metadata and "metadata" in dumped:
-                    metadata = dumped.pop("metadata")
-                    for key, value in metadata.items():
-                        dumped[f"metadata.{key}"] = value
-                if isinstance(dumped.get("labels"), list):
-                    dumped["labels"] = [label["externalId"] for label in dumped["labels"]]
-                    self._used_labels.update(dumped["labels"])
-                if "dataSetExternalId" in dumped:
-                    self._used_data_sets.add(dumped["dataSetExternalId"])
-                write_item.append(dumped)
-            yield group, write_item
-
-    def _table_buffer(
-        self, item_iterator: Iterator[tuple[str, list[dict[str, Any]]]]
-    ) -> Iterator[tuple[str, pd.DataFrame]]:
-        stored_items: dict[str, pd.DataFrame] = defaultdict(pd.DataFrame)
-        for group, assets in item_iterator:
-            stored_items[group] = pd.concat([stored_items[group], pd.DataFrame(assets)], ignore_index=True)
-            if stored_items[group].memory_usage().sum() > self.buffer_size:
-                yield group, stored_items.pop(group)
-        for group, df in stored_items.items():
-            if not df.empty:
-                yield group, df
-
-    @lru_cache
-    def _get_available_data_sets(self, client: ToolkitClient) -> DataSetList:
-        return client.data_sets.list(limit=-1)
-
-    @lru_cache
-    def _get_available_hierarchies(self, client: ToolkitClient) -> AssetList:
-        return client.assets.list(root=True, limit=-1)
-
-
-@dataclass
-class SchemaColumn:
-    name: str
-    type: str
-
-
-@dataclass
-class Schema:
-    display_name: str
-    format_: Literal["csv", "parquet", "yaml"]
-    columns: list[SchemaColumn]
-
-
-class DataFinder2:
-    supported_formats: frozenset[str]
-
-    def is_supported_format(self, format_: str) -> bool:
-        return format_ in self.supported_formats
-
-    def create_iterators(self, format_: str) -> Iterator[tuple[Schema, int, Iterable, Callable]]:
-        """Create an iterator for the specified format."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-
-class AssetFinder2(DataFinder2):
-    supported_formats = frozenset({"csv", "parquet", "yaml"})
-
-    def __init__(self, client: ToolkitClient):
-        self.client = client
-
-    def create_iterators(
-        self, format_: Literal["csv", "parquet", "yaml"]
-    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
-        # Implementation for creating an iterator for assets
-        yield (
-            Schema(display_name="assets", format=format_, columns=[SchemaColumn("name", "string")]),
-            100,
-            iter(self.client.assets),
-            self._asset_processor,
-        )
-
-    def _asset_processor(self, assets: AssetList) -> tuple[str, list[dict[str, object]]]: ...
-
-
-class FileWriter:
-    @abstractmethod
-    def write_rows(self, group: str, rows: list[str, object]) -> None:
-        """Write rows to a file."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    @classmethod
-    def load(cls, schema: Schema) -> "FileWriter":
-        raise NotImplementedError()
-
-
-class ParquetWriter(FileWriter): ...
-
-
-class CSVWriter(FileWriter): ...
-
-
-class YAMLWriter(FileWriter): ...
-
-
-class ProducerWorkerExecutor:
-    def __init__(
-        self,
-        download_iterable: Iterable,
-        process: Callable,
-        write_to_file: Callable[[Any], None],
-        total_items: int,
-        max_queue_size: int,
-    ) -> None:
-        self._download_iterable = download_iterable
-        self.download_complete = False
-        self._write_to_file = write_to_file
-        self._process = process
-        self.console = Console()
-        self.process_queue = queue.Queue(maxsize=max_queue_size)
-        self.file_queue = queue.Queue(maxsize=max_queue_size)
-
-        self.total_items = total_items
-        self.error_occurred = False
-        self.error_message = ""
-
-    def run(self) -> None:
-        with Progress(
-            TextColumn("[bold blue]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            TimeRemainingColumn(),
-            console=self.console,
-        ) as progress:
-            download_task = progress.add_task("Downloading", total=self.total_items)
-            download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
-            process_thread: threading.Thread | None = None
-            if self.process_queue:
-                process_task = progress.add_task("Processing", total=self.total_items)
-                process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
-
-            write_task = progress.add_task("Writing to file", total=self.total_items)
-            write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
-
-            download_thread.start()
-            if process_thread:
-                process_thread.start()
-            write_thread.start()
-
-            # Wait for all threads to finish
-            download_thread.join()
-            if process_thread:
-                process_thread.join()
-            write_thread.join()
-
-    def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
-        """Worker thread for downloading data."""
-        iterable = iter(self._download_iterable)
-        while True:
-            try:
-                items = next(iterable)
-                while True:
-                    try:
-                        self.process_queue.put(items, timeout=0.5)
-                        progress.update(download_task, advance=len(items))
-                        break  # Exit the loop once the item is successfully added
-                    except queue.Full:
-                        # Retry until the queue has space
-                        continue
-            except StopIteration:
-                self.download_complete = True
-                break
-            except Exception as e:
-                self.error_occurred = True
-                self.error_message = str(e)
-                self.console.print(f"[red]Error[/red] occurred while downloading: {self.error_message}")
-                break
-
-    def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
-        """Worker thread for processing data."""
-        if self._process is None or self.process_queue is None:
-            return
-        while not self.download_complete or not self.process_queue.empty():
-            try:
-                items = self.process_queue.get(timeout=0.5)
-                processed_items = self._process(items)
-                self.file_queue.put(processed_items)
-                progress.update(process_task, advance=len(items))
-            except queue.Empty:
-                continue
-            except Exception as e:
-                self.error_occurred = True
-                self.error_message = str(e)
-                self.console.print(f"[red]ErrorError[/red] occurred while processing: {self.error_message}")
-                break
-            finally:
-                self.process_queue.task_done()
-
-    def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
-        """Worker thread for writing data to file."""
-        # Simulate writing data to file
-        while not self.download_complete or not self.file_queue.empty():
-            try:
-                items = self.file_queue.get(timeout=0.5)
-                self._write_to_file(items)
-                progress.update(write_task, advance=len(items))
-            except queue.Empty:
-                continue
-            except Exception as e:
-                self.error_occurred = True
-                self.error_message = str(e)
-                self.console.print(f"[red]Error[/red] occurred while writing: {self.error_message}")
-                break
-            finally:
-                self.file_queue.task_done()
-
-
-class DumpDataCommand2(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
-        super().__init__(print_warning, skip_tracking, silent)
-
+class DumpDataCommand(ToolkitCommand):
     def dump_table(
         self,
-        finder: DataFinder2,
+        finder: DataFinder,
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
-        format_: Literal["yaml", "csv", "parquet"] = "csv",
+        format_: FileFormat = "csv",
         verbose: bool = False,
-        parallel_threshold: int = 100_000,
-        max_queue_size: int = 10,
     ) -> None:
         """Dumps data from CDF to files(s).
 
@@ -644,45 +370,19 @@ class DumpDataCommand2(ToolkitCommand):
             limit (int | None, optional): The maximum number of rows to write. Defaults to None.
             format_ (Literal["yaml", "csv", "parquet"], optional): The format of the output file. Defaults to "csv".
             verbose (bool, optional): Whether to print detailed progress information. Defaults to False.
-            parallel_threshold (int, optional): The threshold for parallel processing. Defaults to 100_000.
-            max_queue_size (int, optional): If parallel processing is enabled, this is the maximum size of the queue.
-                Defaults to 10.
 
         """
         if not finder.is_supported_format(format_):
             raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
-
         self.validate_directory(output_dir, clean)
-        is_first = True
-        for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_):
-            if is_first and limit is not None:
-                # The limit only apply to the first resource. The remaining resources are dependent on the first one
-                # and thus we will dump all of them.
-                total_items = min(total_items, limit)
-                resource_iterator = itertools.islice(resource_iterator, limit)
-            file_writer = FileWriter.load(schema)
 
-            if total_items > parallel_threshold:
-                executor = ProducerWorkerExecutor(
-                    resource_iterator,
-                    file_writer.write_rows,
-                    resource_processor,
-                    total_items,
-                    max_queue_size,
-                )
-                executor.run()
-                if executor.error_occurred:
-                    print(executor.error_message)
-                    continue
-                else:
-                    print(f"Dumped {total_items:,} rows to {output_dir}")
-            else:
-                for resources in track(
-                    resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"
-                ):
-                    processed = resource_processor(resources)
-                    file_writer.write_rows(*processed)
-            is_first = False
+        console = Console()
+        for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+            file_writer = FileWriter.load(schema)
+            for resources in track(resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"):
+                processed = resource_processor(resources)
+                file_writer.write_rows(*processed)
+            console.print(f"Dumped {total_items:,} rows to {output_dir}")
 
     @staticmethod
     def validate_directory(output_dir: Path, clean: bool) -> None:
