@@ -1,7 +1,0 @@
-[module]
-title = "Example of Minimum Extension of the Cognite Core Model"
-
-[packages]
-tags = [
-    "models",
-]
