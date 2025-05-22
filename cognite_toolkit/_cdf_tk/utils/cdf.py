@@ -147,7 +147,7 @@ def metadata_key_counts(
     resource: Literal["assets", "events", "files", "timeseries", "sequences"],
     data_sets: list[int] | None = None,
     hierarchies: list[int] | None = None,
-) -> list[dict[str, int | str]]:
+) -> list[tuple[str, int]]:
     """Get the metadata key counts for a given resource.
 
     Args:
@@ -193,7 +193,7 @@ def metadata_key_counts(
        ORDER BY key_count DESC;
 """
     results = client.transformations.preview(query, convert_to_string=False, limit=1000)
-    return results.results or []
+    return [(item["key"], item["key_count"]) for item in results.results or []]
 
 
 def label_count(
