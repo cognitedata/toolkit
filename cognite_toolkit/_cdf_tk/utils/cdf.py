@@ -143,20 +143,33 @@ def read_auth(
 
 
 def metadata_key_counts(
-    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
+    client: ToolkitClient,
+    resource: Literal["assets", "events", "files", "timeseries", "sequences"],
+    data_sets: list[int] | None = None,
+    hierarchies: list[int] | None = None,
 ) -> list[dict[str, int | str]]:
     """Get the metadata key counts for a given resource.
 
     Args:
         client: ToolkitClient instance
         resource: The resource to get the metadata key counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+        hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
+    where_clause = ""
+    if data_sets is not None and hierarchies is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({''.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
+    elif data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+    elif hierarchies is not None:
+        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+
     query = f"""WITH meta AS (
          SELECT cast_to_strings(metadata) AS metadata_array
-         FROM _cdf.{resource}
+         FROM _cdf.{resource}{where_clause}
        ),
        exploded AS (
          SELECT explode(metadata_array) AS json_str
