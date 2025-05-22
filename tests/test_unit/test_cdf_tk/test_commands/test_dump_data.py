@@ -44,9 +44,7 @@ class TestDumpData:
             client.lookup.data_sets.external_id.return_value = dataset.external_id
 
             cmd.dump_table(
-                AssetFinder(client),
-                ["rootAsset"],
-                [],
+                AssetFinder(client, ["rootAsset"], []),
                 output_dir,
                 clean=True,
                 limit=None,
@@ -67,8 +65,6 @@ class TestDumpData:
         assert read_yaml_file(label_yaml) == [my_label.as_write().dump()]
 
     def test_interactive_select_assets(self, monkeypatch) -> None:
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
-
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2
             return [choices[1].value]
@@ -89,8 +85,9 @@ class TestDumpData:
                 DataSet(id=2, external_id="dataset2"),
                 DataSet(id=3, external_id="dataset3"),
             ]
+            finder = AssetFinder(client, None, None)
 
-            selected_hierarchy, selected_dataset = cmd.interactive_select_hierarchy_datasets(AssetFinder(client))
+            selected_hierarchy, selected_dataset = finder.select_hierarchy_datasets(None, None)
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
@@ -115,9 +112,7 @@ class TestDumpData:
             client.lookup.data_sets.external_id.return_value = dataset.external_id
 
             cmd.dump_table(
-                TimeSeriesFinder(client),
-                [],
-                [dataset.external_id],
+                TimeSeriesFinder(client, [], [dataset.external_id]),
                 output_dir,
                 clean=True,
                 limit=None,
@@ -135,8 +130,6 @@ class TestDumpData:
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
 
     def test_interactive_select_timeseries(self, monkeypatch) -> None:
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
-
         def select_data_set(choices: list[Choice]) -> list[str]:
             assert len(choices) == 3
             return [choices[2].value]
@@ -160,7 +153,10 @@ class TestDumpData:
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
             client.time_series.aggregate_count.return_value = 100
-            selected_hierarchy, selected_dataset = cmd.interactive_select_hierarchy_datasets(TimeSeriesFinder(client))
+
+            finder = TimeSeriesFinder(client, None, None)
+
+            selected_hierarchy, selected_dataset = finder.select_hierarchy_datasets(None, None)
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
