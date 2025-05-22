@@ -2,6 +2,7 @@ import csv
 import importlib.util
 from abc import abstractmethod
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
@@ -49,6 +50,12 @@ class TableFileWriter:
         """Write rows to a file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
+    def _get_filepath(self, group: str) -> Path:
+        clean_name = to_directory_compatible(group) if group else "my"
+        file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.{self.format}"
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        return file_path
+
     @classmethod
     def load(cls, schema: Schema, output_directory: Path) -> "TableFileWriter":
         write_cls = _TABLEWRITER_CLASS_BY_FORMAT.get(schema.format_)
@@ -76,12 +83,11 @@ class ParquetWrite(TableFileWriter):
         for group, group_rows in rows_group_list:
             if not group_rows:
                 continue
-            clean_name = to_directory_compatible(group) if group else "my"
-            file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.parquet"
-            file_path.parent.mkdir(parents=True, exist_ok=True)
+            filepath = self._get_filepath(group)
             table = pa.Table.from_pylist(group_rows, schema=schema)
-            pq.write_table(table, file_path, row_group_size=self.file_size)
+            pq.write_table(table, filepath)
 
+    @lru_cache(maxsize=1)
     def _create_schema(self) -> "pa.Schema":
         """Create a pyarrow schema from the schema definition."""
         self._check_pyarrow_dependency()
@@ -132,12 +138,10 @@ class CSVWriter(TableFileWriter):
         for group, group_rows in rows_group_list:
             if not group_rows:
                 continue
-            clean_name = to_directory_compatible(group) if group else "my"
-            file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.csv"
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+            filepath = self._get_filepath(group)
+            with filepath.open("a", encoding=self.encoding, newline=self.newline) as f:
                 writer = csv.DictWriter(f, fieldnames=[col.name for col in self.schema.columns], extrasaction="ignore")
-                if file_path.stat().st_size == 0:
+                if filepath.stat().st_size == 0:
                     writer.writeheader()
                 writer.writerows(group_rows)
 
@@ -149,16 +153,12 @@ class YAMLWriter(TableFileWriter):
         for group, group_rows in rows_group_list:
             if not group_rows:
                 continue
-            clean_name = to_directory_compatible(group) if group else "my"
-            file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.yaml"
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            if file_path.exists():
-                with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
-                    f.write("\n")
-                    f.write(yaml_safe_dump(group_rows))
-            else:
-                with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                    f.write(yaml_safe_dump(group_rows))
+            filepath = self._get_filepath(group)
+            yaml_str = yaml_safe_dump(group_rows)
+            if filepath.exists():
+                yaml_str = "\n" + yaml_str
+            with filepath.open("a", encoding=self.encoding, newline=self.newline) as f:
+                f.write(yaml_str)
 
 
 _TABLEWRITER_CLASS_BY_FORMAT: MappingProxyType[str, type[TableFileWriter]] = MappingProxyType(
