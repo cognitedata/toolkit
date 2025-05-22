@@ -246,13 +246,8 @@ class TransformationLoader(
                 item["query"] = safe_read(query_file, encoding=BUILD_FOLDER_ENCODING)
 
             auth_dict: dict[str, Any] = {}
-            for key in [
-                "authentication",
-                "sourceOidcCredentials",
-                "destinationOidcCredentials",
-            ]:
-                if key in item:
-                    auth_dict[key] = item[key]
+            if "authentication" in item:
+                auth_dict["authentication"] = item["authentication"]
             if auth_dict:
                 auth_hash = calculate_secure_hash(auth_dict, shorten=True)
                 if "query" in item:
@@ -441,16 +436,18 @@ class TransformationLoader(
             return self._nonce_cache[key]
         if isinstance(credentials, ClientCredentials):
             session = self.client.iam.sessions.create(credentials)
-            return NonceCredentials(session.id, session.nonce, self.client.config.project)
+            nonce = NonceCredentials(session.id, session.nonce, self.client.config.project)
         elif isinstance(credentials, OidcCredentials):
             config = deepcopy(self.client.config)
             config.project = credentials.cdf_project_name
             config.credentials = credentials.as_credential_provider()
             other_client = ToolkitClient(config)
             session = other_client.iam.sessions.create(credentials.as_client_credentials())
-            return NonceCredentials(session.id, session.nonce, credentials.cdf_project_name)
+            nonce = NonceCredentials(session.id, session.nonce, credentials.cdf_project_name)
         else:
             raise ValueError(f"Error in TransformationLoader: {type(credentials)} is not a valid credentials type")
+        self._nonce_cache[key] = nonce
+        return nonce
 
     def _iterate(
         self,
@@ -505,11 +502,11 @@ class TransformationLoader(
         if item.destination_oidc_credentials:
             yield item.destination_oidc_credentials.client_secret
 
-        if item.external_id:
-            if read_credentials := self._authentication_by_id_operation.get((item.external_id, "read")):
-                yield read_credentials.client_secret
-            if write_credentials := self._authentication_by_id_operation.get((item.external_id, "write")):
-                yield write_credentials.client_secret
+        external_id = self.get_id(item)
+        if read_credentials := self._authentication_by_id_operation.get((external_id, "read")):
+            yield read_credentials.client_secret
+        if write_credentials := self._authentication_by_id_operation.get((external_id, "write")):
+            yield write_credentials.client_secret
 
 
 @final
