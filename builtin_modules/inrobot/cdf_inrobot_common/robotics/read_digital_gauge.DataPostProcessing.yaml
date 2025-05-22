@@ -1,0 +1,35 @@
+method: read_digital_gauge
+name: Read digital gauge
+externalId: read_digital_gauge
+description: Read digital gauge from an image using Cognite Vision gauge reader
+inputSchema:
+  $schema: http://json-schema.org/draft-07/schema#
+  id: robotics/schemas/0.1.0/data_postprocessing/read_digital_gauge
+  title: Read digital gauge input
+  type: object
+  properties:
+    image:
+      type: object
+      properties:
+        method:
+          type: string
+        parameters:
+          type: object
+          properties:
+            unit:
+              type: string
+            minLevel:
+              type: number
+            maxLevel:
+              type: number
+            minNumDigits:
+              type: integer
+            maxNumDigits:
+              type: integer
+            commaPos:
+              type: integer
+      required:
+        - method
+        - parameters
+      additionalProperties: false
+  additionalProperties: false

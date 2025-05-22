@@ -1,0 +1,89 @@
+name: "gp_Run_Function_User"
+sourceId: "{{run_function_user_group_source_id}}"
+metadata:
+  origin: "cdf-project-templates"
+capabilities:
+  - datasetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+        - LIST
+      scope:
+        all: {}
+  - projectsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - labelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - timeSeriesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - filesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - visionModelAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - eventsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - "{{ robot_1_dataset_ext_id }}"
+  - roboticsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+        - WRITE
+      scope:
+        all: {}

@@ -1,0 +1,6 @@
+data_pipeline_oee_source_id: <OBJECT ID FOR DATA PIPELINE OEE ENTRA GROUP>
+
+uc_oee_ds_external_id: ds_uc_oee
+oee_space_name: oee_ts_space
+data_pipeline_oee_client_id: ${DATA_PIPELINE_OEE_CLIENT_ID}
+data_pipeline_oee_client_secret: ${DATA_PIPELINE_OEE_CLIENT_SECRET}

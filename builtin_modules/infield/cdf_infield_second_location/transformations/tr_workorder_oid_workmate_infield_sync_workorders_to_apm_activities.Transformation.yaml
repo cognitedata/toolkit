@@ -1,0 +1,25 @@
+externalId: tr_workorder_{{second_location}}_{{source_workorder}}_infield_sync_workorders_to_apm_activities
+name: workorder:{{second_location}}:{{source_workorder}}:infield:sync_workorders_to_apm_activities
+destination:
+  dataModel:
+    space: APM_SourceData
+    externalId: APM_SourceData
+    version: "1"
+    destinationType: APM_Activity
+  instanceSpace: 'sp_asset_{{second_location}}_source'
+  type: instances
+ignoreNullFields: true
+dataSetExternalId: ds_transformations_{{second_location}}
+isPublic: true
+conflictMode: upsert
+# Specify credentials separately like this:
+# You can also use different credentials for the running transformations than the ones you use to deploy
+authentication:
+  clientId: {{cicd_clientId}}
+  clientSecret: {{cicd_clientSecret}}
+  tokenUri: {{cicd_tokenUri}}
+  # Optional: If idP requires providing the scopes
+  cdfProjectName: {{cdfProjectName}}
+  scopes: {{cicd_scopes}}
+  # Optional: If idP requires providing the audience
+  audience: {{cicd_audience}}

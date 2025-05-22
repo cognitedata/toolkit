@@ -1,0 +1,28 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}360ImageAnnotation
+description: ''
+implements:
+- space: cdf_cdm
+  externalId: Cognite360ImageAnnotation
+  version: v1
+  type: view
+version: v1
+properties:
+  source:
+    container:
+      space: cdf_cdm
+      externalId: CogniteSourceable
+      type: container
+    containerPropertyIdentifier: source
+    description: Direct relation to a source system
+    source:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}SourceSystem
+      version: v1
+      type: view
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}360ImageAnnotation
+      type: container
+    containerPropertyIdentifier: UUID

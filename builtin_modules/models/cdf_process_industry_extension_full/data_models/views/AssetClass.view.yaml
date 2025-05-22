@@ -1,0 +1,17 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}AssetClass
+name: Asset class
+description: Represents the class of an asset.
+implements:
+- space: cdf_cdm
+  externalId: CogniteAssetClass
+  version: v1
+  type: view
+version: v1
+properties:
+  UUID:
+    container:
+      space: {{ schemaSpace }}
+      externalId: {{ organization }}AssetClass
+      type: container
+    containerPropertyIdentifier: UUID

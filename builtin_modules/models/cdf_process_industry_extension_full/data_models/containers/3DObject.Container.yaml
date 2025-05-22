@@ -1,0 +1,13 @@
+space: {{ schemaSpace }}
+externalId: {{ organization }}3DObject
+properties:
+  UUID:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+constraints: {}
+indexes: {}

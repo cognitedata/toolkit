@@ -1,0 +1,14 @@
+externalId: {{ equipmentToAssetTransformationExternalId }}
+dataSetExternalId: {{ dataset }}
+name: Equipment to Asset Transformations for {{ sourceName }}
+destination:
+  type: nodes
+  view:
+    space: {{ schemaSpace}}
+    externalId: {{ organization }}Equipment
+    version: v1
+  instanceSpace: {{ instanceSpace }}
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+
