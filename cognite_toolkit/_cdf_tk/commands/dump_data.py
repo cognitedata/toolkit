@@ -5,7 +5,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Literal, TypeAlias
+from types import MappingProxyType
+from typing import Any, Callable, ClassVar, Generic, Literal, TypeAlias
 
 import questionary
 from cognite.client.data_classes import (
@@ -14,8 +15,11 @@ from cognite.client.data_classes import (
     AssetList,
     DataSet,
     DataSetList,
+    LabelDefinitionList,
+    TimeSeries,
     TimeSeriesFilter,
 )
+from cognite.client.data_classes._base import T_CogniteResource
 from rich.console import Console
 from rich.progress import track
 
@@ -26,8 +30,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitIsADirectoryError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, ResourceLoader, TimeSeriesLoader
-from cognite_toolkit._cdf_tk.utils import to_directory_compatible
+from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
@@ -42,6 +47,8 @@ class SchemaColumn:
 @dataclass
 class Schema:
     display_name: str
+    folder_name: str
+    kind: str
     format_: FileFormat
     columns: list[SchemaColumn]
 
@@ -60,11 +67,13 @@ class DataFinder:
         raise NotImplementedError("This method should be implemented in subclasses.")
 
 
-class AssetCentricFinder(DataFinder, ABC):
+class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
     def __init__(self, client: ToolkitClient, user_hierarchy: list[str] | None, user_data_set: list[str] | None):
         self.client = client
         self.hierarchies, self.data_sets = self.select_hierarchy_datasets(user_hierarchy, user_data_set)
         self.loader = self._create_loader(client)
+        self._hierarchy_set = set(self.hierarchies)
+        self._data_set_set = set(self.data_sets)
         self._used_labels: set[str] = set()
         self._used_data_sets: set[str] = set()
 
@@ -81,7 +90,21 @@ class AssetCentricFinder(DataFinder, ABC):
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         raise NotImplementedError()
 
-    def _to_write(self, items: Iterable) -> list[dict[str, Any]]:
+    @abstractmethod
+    def _get_resource_columns(self) -> list[SchemaColumn]:
+        """Get the columns for the schema."""
+        raise NotImplementedError()
+
+    @abstractmethod
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _resource_processor(self, items: Iterable[T_CogniteResource]) -> list[tuple[str, list[dict[str, Any]]]]:
+        """Process the resources and return them in a format suitable for writing."""
+        raise NotImplementedError()
+
+    def _to_write(self, items: Iterable[T_CogniteResource]) -> list[dict[str, Any]]:
         write_items: list[dict[str, Any]] = []
         for item in items:
             dumped = self.loader.dump_resource(item)
@@ -96,6 +119,28 @@ class AssetCentricFinder(DataFinder, ABC):
                 self._used_data_sets.add(dumped["dataSetExternalId"])
             write_items.append(dumped)
         return write_items
+
+    def create_iterators(
+        self, format_: FileFormat, limit: int | None
+    ) -> Iterator[tuple[Schema, int, Iterable, Callable]]:
+        total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
+        columns = self._get_resource_columns()
+        yield (
+            Schema(
+                display_name=self.loader.display_name,
+                format_=format_,
+                columns=columns,
+                folder_name=self.loader.folder_name,
+                kind=self.loader.kind,
+            ),
+            total,
+            self.create_resource_iterator(limit),
+            self._resource_processor,
+        )
+        if self._used_data_sets:
+            yield self._data_sets()
+        if self._used_labels:
+            yield self._labels()
 
     def select_hierarchy_datasets(
         self, user_hierarchy: list[str] | None, user_data_set: list[str] | None
@@ -170,11 +215,11 @@ class AssetCentricFinder(DataFinder, ABC):
         if isinstance(item, DataSet):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for DataSet {item.id}")
-            item_count = self._aggregate_count(tuple(), (item.external_id,))
+            item_count = self.aggregate_count(tuple(), (item.external_id,))
         elif isinstance(item, Asset):
             if item.external_id is None:
                 raise ValueError(f"Missing external ID for Asset {item.id}")
-            item_count = self._aggregate_count((item.external_id,), tuple())
+            item_count = self.aggregate_count((item.external_id,), tuple())
         else:
             raise TypeError(f"Unsupported item type: {type(item)}")
 
@@ -194,25 +239,49 @@ class AssetCentricFinder(DataFinder, ABC):
         return self.client.assets.list(root=True, limit=-1)
 
     def _data_sets(self) -> tuple[Schema, int, Iterable, Callable]:
-        data_sets = self.client.data_sets.list(external_ids=list(self._used_data_sets), limit=-1)
+        data_sets = [d for d in self._get_available_data_sets() if d.external_id in self._used_data_sets]
+        loader = DataSetsLoader.create_loader(self.client)
+
+        def process_data_sets(items: DataSetList) -> list[tuple[str, list[dict[str, Any]]]]:
+            return [("", [loader.dump_resource(item) for item in items])]
+
         return (
-            Schema(display_name="data_sets", format_="yaml", columns=[]),
+            # YAML format does not need columns.
+            Schema(
+                display_name=loader.display_name,
+                format_="yaml",
+                columns=[],
+                folder_name=loader.folder_name,
+                kind=loader.kind,
+            ),
             len(data_sets),
-            data_sets,
-            lambda items: [(item.external_id, item.name, item.description) for item in items],
+            [data_sets],
+            process_data_sets,
         )
 
     def _labels(self) -> tuple[Schema, int, Iterable, Callable]:
-        labels = self.client.labels.list(external_ids=list(self._used_labels), limit=-1)
+        labels = self.client.labels.retrieve(external_id=list(self._used_labels))
+        loader = LabelLoader.create_loader(self.client)
+
+        def process_labels(items: LabelDefinitionList) -> list[tuple[str, list[dict[str, Any]]]]:
+            return [("", [loader.dump_resource(item) for item in items])]
+
         return (
-            Schema(display_name="labels", format_="yaml", columns=[]),
+            # YAML format does not need columns.
+            Schema(
+                display_name=loader.display_name,
+                format_="yaml",
+                columns=[],
+                folder_name=loader.folder_name,
+                kind=loader.kind,
+            ),
             len(labels),
-            labels,
-            lambda items: [(item.external_id, item.name, item.description) for item in items],
+            [labels],
+            process_labels,
         )
 
 
-class AssetFinder(AssetCentricFinder):
+class AssetFinder(AssetCentricFinder[Asset]):
     supported_formats = frozenset({"csv", "parquet", "yaml"})
 
     def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
@@ -226,33 +295,20 @@ class AssetFinder(AssetCentricFinder):
             )
         )
 
-    def create_iterators(
-        self, format_: FileFormat, limit: int | None
-    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
-        total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
-        columns = self._get_asset_columns()
-        yield (
-            Schema(display_name="assets", format_=format_, columns=columns),
-            total,
-            self.client.assets(
-                chunk_size=1000,
-                asset_subtree_external_ids=self.hierarchies or None,
-                data_set_external_ids=self.data_sets or None,
-                limit=limit,
-            ),
-            self._asset_processor,
+    def create_resource_iterator(self, limit: int | None) -> Iterator:
+        return self.client.assets(
+            chunk_size=1000,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
         )
-        if self._used_data_sets:
-            yield self._data_sets()
-        if self._used_labels:
-            yield self._labels()
 
-    def _asset_processor(self, assets: AssetList) -> list[tuple[str, list[dict[str, Any]]]]:
+    def _resource_processor(self, assets: Iterable[Asset]) -> list[tuple[str, list[dict[str, Any]]]]:
         grouped_assets: list[tuple[str, list[dict[str, object]]]] = []
         for group, asset_group in groupby(
             sorted([(self._group(asset), asset) for asset in assets], key=lambda x: x[0]), key=lambda x: x[0]
         ):
-            grouped_assets.append((group, self._to_write(asset_group)))
+            grouped_assets.append((group, self._to_write([asset for _, asset in asset_group])))
         return grouped_assets
 
     def _group(self, item: Asset) -> str:
@@ -272,8 +328,32 @@ class AssetFinder(AssetCentricFinder):
             return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
         return ""
 
+    def _get_resource_columns(self) -> list[SchemaColumn]:
+        columns = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="parentExternalId", type="string"),
+            SchemaColumn(name="description", type="string"),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="source", type="string"),
+            SchemaColumn(name="labels", type="array"),
+            SchemaColumn(name="geoLocation", type="json"),
+        ]
+        data_set_ids = [
+            dataset.id for dataset in self._get_available_data_sets() if dataset.external_id in self._data_set_set
+        ] or None
+        root_ids = [
+            root.id for root in self._get_available_hierarchies() if root.external_id in self._hierarchy_set
+        ] or None
+        metadata_keys = metadata_key_counts(self.client, "assets", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for item in metadata_keys for key in item.keys()])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
 
-class TimeSeriesFinder(AssetCentricFinder):
+
+class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
+    supported_formats = frozenset({"csv", "parquet", "yaml"})
+
     def _create_loader(self, client: ToolkitClient) -> TimeSeriesLoader:
         return TimeSeriesLoader.create_loader(client)
 
@@ -285,26 +365,40 @@ class TimeSeriesFinder(AssetCentricFinder):
             )
         )
 
-    def create_iterators(
-        self, format_: FileFormat, limit: int | None
-    ) -> Iterator[tuple[Schema, int, Iterable, Callable | None]]:
-        total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
-        columns = self._get_time_series_columns(self.data_sets, self.hierarchies)
-        yield (
-            Schema(display_name="timeseries", format_=format_, columns=columns),
-            total,
-            self.client.time_series(
-                chunk_size=1000,
-                data_set_external_ids=self.data_sets or None,
-                asset_subtree_external_ids=self.hierarchies or None,
-                limit=limit,
-            ),
-            self._timeseries_preprocessor,
+    def create_resource_iterator(self, limit: int | None) -> Iterator:
+        return self.client.time_series(
+            chunk_size=1000,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
         )
-        if self._used_data_sets:
-            yield self._data_sets()
-        if self._used_labels:
-            yield self._labels()
+
+    def _resource_processor(self, time_series: Iterable[TimeSeries]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(time_series))]
+
+    def _get_resource_columns(self) -> list[SchemaColumn]:
+        columns = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="isString", type="boolean"),
+            SchemaColumn(name="unit", type="string"),
+            SchemaColumn(name="unitExternalId", type="string"),
+            SchemaColumn(name="assetExternalId", type="string"),
+            SchemaColumn(name="isStep", type="boolean"),
+            SchemaColumn(name="description", type="string"),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="securityCategories", type="array"),
+        ]
+        data_set_ids = [
+            dataset.id for dataset in self._get_available_data_sets() if dataset.external_id in self._data_set_set
+        ] or None
+        root_ids = [
+            root.id for root in self._get_available_hierarchies() if root.external_id in self._hierarchy_set
+        ] or None
+        metadata_keys = metadata_key_counts(self.client, "timeseries", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for item in metadata_keys for key in item.keys()])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
 
 
 class FileWriter:
@@ -314,41 +408,62 @@ class FileWriter:
     # so the resulting file size will vary.
     encoding = "utf-8"
     newline = "\n"
+    format: ClassVar[FileFormat]
+
+    def __init__(self, schema: Schema, output_dir: Path) -> None:
+        self.schema = schema
+        self.output_dir = output_dir
 
     @abstractmethod
-    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
+    def write_rows(self, rows: list[tuple[str, list[dict[str, Any]]]]) -> None:
         """Write rows to a file."""
         raise NotImplementedError("This method should be implemented in subclasses.")
 
     @classmethod
-    def load(cls, schema: Schema) -> "FileWriter":
-        raise NotImplementedError()
+    def load(cls, schema: Schema, output_directory: Path) -> "FileWriter":
+        write_cls = _FILEWRITER_CLASS_BY_FORMAT.get(schema.format_)
+        if write_cls is None:
+            raise ToolkitValueError(
+                f"Unsupported format {schema.format_}. Supported formats are {humanize_collection(_FILEWRITER_CLASS_BY_FORMAT.keys())}."
+            )
+
+        return write_cls(schema, output_directory)
 
 
 class CSVWriter(FileWriter):
-    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
-        clean_name = to_directory_compatible(group) if group else "my"
-        file_path = output_dir / loader.folder_name / f"{clean_name}.{loader.kind}.csv"
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
-            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-            if file_path.stat().st_size == 0:
-                writer.writeheader()
-            writer.writerows(rows)
+    format = "csv"
+
+    def write_rows(self, rows: list[tuple[str, list[dict[str, Any]]]]) -> None:
+        for group, group_rows in rows:
+            if not group_rows:
+                continue
+            clean_name = to_directory_compatible(group) if group else "my"
+            file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.csv"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+                writer = csv.DictWriter(f, fieldnames=[col.name for col in self.schema.columns], extrasaction="ignore")
+                if file_path.stat().st_size == 0:
+                    writer.writeheader()
+                writer.writerows(group_rows)
 
 
 class YAMLWriter(FileWriter):
-    def write_rows(self, group: str, rows: list[dict[str, Any]]) -> None:
-        clean_name = to_directory_compatible(group) if group else "my"
-        file_path = output_dir / loader.folder_name / f"{clean_name}.{loader.kind}.yaml"
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        if file_path.exists():
-            with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
-                f.write("\n")
-                f.write(yaml_safe_dump(item_list))
-        else:
-            with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
-                f.write(yaml_safe_dump(item_list))
+    format = "yaml"
+
+    def write_rows(self, rows: list[tuple[str, list[dict[str, Any]]]]) -> None:
+        for group, group_rows in rows:
+            if not group_rows:
+                continue
+            clean_name = to_directory_compatible(group) if group else "my"
+            file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.yaml"
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            if file_path.exists():
+                with file_path.open("a", encoding=self.encoding, newline=self.newline) as f:
+                    f.write("\n")
+                    f.write(yaml_safe_dump(group_rows))
+            else:
+                with file_path.open("w", encoding=self.encoding, newline=self.newline) as f:
+                    f.write(yaml_safe_dump(group_rows))
 
 
 class DumpDataCommand(ToolkitCommand):
@@ -378,10 +493,10 @@ class DumpDataCommand(ToolkitCommand):
 
         console = Console()
         for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
-            file_writer = FileWriter.load(schema)
+            file_writer = FileWriter.load(schema, output_dir)
             for resources in track(resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"):
                 processed = resource_processor(resources)
-                file_writer.write_rows(*processed)
+                file_writer.write_rows(processed)
             console.print(f"Dumped {total_items:,} rows to {output_dir}")
 
     @staticmethod
@@ -392,3 +507,8 @@ class DumpDataCommand(ToolkitCommand):
             raise ToolkitFileExistsError(f"Output directory {output_dir!s} already exists. Use --clean to remove it.")
         elif output_dir.suffix:
             raise ToolkitIsADirectoryError(f"Output directory {output_dir!s} is not a directory.")
+
+
+_FILEWRITER_CLASS_BY_FORMAT: MappingProxyType[str, type[FileWriter]] = MappingProxyType(
+    {w.format: w for w in FileWriter.__subclasses__()}  # type: ignore[type-abstract]
+)
