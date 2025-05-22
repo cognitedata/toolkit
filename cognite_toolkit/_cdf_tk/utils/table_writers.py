@@ -1,13 +1,17 @@
 import csv
+import importlib.util
 from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any, ClassVar, Literal, TypeAlias
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+
+if TYPE_CHECKING:
+    from pyarrow import Schema as ArrowSchema
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
 Rows: TypeAlias = list[dict[str, Any]]
@@ -58,8 +62,18 @@ class FileWriter:
 class ParquetWrite(FileWriter):
     format = "parquet"
 
+    def __init__(self, schema: Schema, output_dir: Path) -> None:
+        super().__init__(schema, output_dir)
+        if importlib.util.find_spec("pyarrow") is None:
+            raise ToolkitMissingDependencyError(
+                "Writing to parquet requires pyarrow. Install with 'pip install cognite-toolkit[table]'"
+            )
+
     def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
-        pass
+        _ = self._create_schema()
+
+    def _create_schema(self) -> ArrowSchema:
+        raise NotImplementedError()
 
 
 class CSVWriter(FileWriter):
