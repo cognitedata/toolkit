@@ -35,15 +35,16 @@ class Schema:
 
 
 class TableFileWriter:
-    # 128 MB
-    file_size = 128 * 1024 * 1024
     encoding = "utf-8"
     newline = "\n"
     format: ClassVar[FileFormat]
 
-    def __init__(self, schema: Schema, output_dir: Path) -> None:
+    # 128 MB
+    def __init__(self, schema: Schema, output_dir: Path, max_file_size_bytes: int = 128 * 1024 * 1024) -> None:
+        self.max_file_size_bytes = max_file_size_bytes
         self.schema = schema
         self.output_dir = output_dir
+        self._file_count = 1
 
     @abstractmethod
     def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
@@ -52,7 +53,14 @@ class TableFileWriter:
 
     def _get_filepath(self, group: str) -> Path:
         clean_name = to_directory_compatible(group) if group else "my"
-        file_path = self.output_dir / self.schema.folder_name / f"{clean_name}.{self.schema.kind}.{self.format}"
+        file_path = (
+            self.output_dir
+            / self.schema.folder_name
+            / f"part-{self._file_count:04}-{clean_name}.{self.schema.kind}.{self.format}"
+        )
+        if file_path.exists() and file_path.stat().st_size >= self.max_file_size_bytes:
+            self._file_count += 1
+            return self._get_filepath(group)
         file_path.parent.mkdir(parents=True, exist_ok=True)
         return file_path
 
@@ -154,11 +162,8 @@ class YAMLWriter(TableFileWriter):
             if not group_rows:
                 continue
             filepath = self._get_filepath(group)
-            yaml_str = yaml_safe_dump(group_rows)
-            if filepath.exists():
-                yaml_str = "\n" + yaml_str
             with filepath.open("a", encoding=self.encoding, newline=self.newline) as f:
-                f.write(yaml_str)
+                f.write(yaml_safe_dump(group_rows))
 
 
 _TABLEWRITER_CLASS_BY_FORMAT: MappingProxyType[str, type[TableFileWriter]] = MappingProxyType(
