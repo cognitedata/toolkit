@@ -3,7 +3,7 @@ from pathlib import Path
 import pyarrow.parquet as pq
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.table_writers import CSVWriter, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.table_writers import CSVWriter, ParquetWriter, Schema, SchemaColumn, TableFileWriter
 
 
 @pytest.fixture()
@@ -50,10 +50,9 @@ class TestTableFileWriter:
     def test_write_parquet(self, example_schema: Schema, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         example_schema.format_ = "parquet"
-        writer = TableFileWriter.load(example_schema, output_dir)
-
-        writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-        writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+        with ParquetWriter(example_schema, output_dir) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
 
         parquet_file = list(output_dir.rglob("*.parquet"))
         assert len(parquet_file) == 1

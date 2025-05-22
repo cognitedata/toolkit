@@ -75,12 +75,35 @@ class TableFileWriter:
         return write_cls(schema, output_directory)
 
 
-class ParquetWrite(TableFileWriter):
+class ParquetWriter(TableFileWriter):
     format = "parquet"
 
     def __init__(self, schema: Schema, output_dir: Path) -> None:
         super().__init__(schema, output_dir)
         self._check_pyarrow_dependency()
+        import pyarrow as pa
+
+        self.writers: dict[Path, pa.TableWriter] = {}
+
+    def __enter__(self) -> "ParquetWriter":
+        self._file_count = 1
+        return self
+
+    def _get_filepath(self, group: str) -> Path:
+        clean_name = to_directory_compatible(group) if group else "my"
+        file_path = (
+            self.output_dir
+            / self.schema.folder_name
+            / f"part-{self._file_count:04}-{clean_name}.{self.schema.kind}.{self.format}"
+        )
+        if file_path.exists() and file_path.stat().st_size >= self.max_file_size_bytes:
+            self._file_count += 1
+            if file_path in self.writers:
+                self.writers[file_path].close()
+                del self.writers[file_path]
+            return self._get_filepath(group)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        return file_path
 
     def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
         schema = self._create_schema()
@@ -92,8 +115,16 @@ class ParquetWrite(TableFileWriter):
             if not group_rows:
                 continue
             filepath = self._get_filepath(group)
+            if filepath not in self.writers:
+                self.writers[filepath] = pq.ParquetWriter(filepath, schema)
+            writer = self.writers[filepath]
             table = pa.Table.from_pylist(group_rows, schema=schema)
-            pq.write_table(table, filepath)
+            writer.write_table(table)
+
+    def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any | None) -> None:
+        for writer in self.writers.values():
+            writer.close()
+        self.writers.clear()
 
     @lru_cache(maxsize=1)
     def _create_schema(self) -> "pa.Schema":
