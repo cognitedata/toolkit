@@ -163,3 +163,69 @@ def read_auth(
         return OidcCredentials.load(authentication)
     else:
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
+
+
+def metadata_key_counts(
+    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
+) -> list[dict[str, int | str]]:
+    """Get the metadata key counts for a given resource.
+
+    Args:
+        client: ToolkitClient instance
+        resource: The resource to get the metadata key counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+
+    Returns:
+        A dictionary with the metadata keys as keys and the counts as values.
+    """
+    query = f"""WITH meta AS (
+         SELECT cast_to_strings(metadata) AS metadata_array
+         FROM _cdf.{resource}
+       ),
+       exploded AS (
+         SELECT explode(metadata_array) AS json_str
+         FROM meta
+       ),
+       parsed AS (
+         SELECT from_json(json_str, 'map<string,string>') AS json_map
+         FROM exploded
+       ),
+       keys_extracted AS (
+         SELECT map_keys(json_map) AS keys_array
+         FROM parsed
+       ),
+       all_keys AS (
+         SELECT explode(keys_array) AS key
+         FROM keys_extracted
+       )
+       SELECT key, COUNT(key) AS key_count
+       FROM all_keys
+       GROUP BY key
+       ORDER BY key_count DESC;
+"""
+    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    return results.results or []
+
+
+def label_count(
+    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
+) -> list[dict[str, int | str]]:
+    """Get the label counts for a given resource.
+
+    Args:
+        client: ToolkitClient instance
+        resource: The resource to get the label counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+
+    Returns:
+        A dictionary with the labels as keys and the counts as values.
+    """
+    query = f"""WITH labels as (SELECT explode(labels) AS label
+	FROM _cdf.{resource}
+  )
+SELECT label, COUNT(label) as label_count
+FROM labels
+GROUP BY label
+ORDER BY label_count DESC;
+"""
+    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    # We know from the SQL that the result is a list of dictionaries with string keys and int values.
+    return results.results or []
