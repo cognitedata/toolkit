@@ -4,8 +4,10 @@ import os
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
+from cognite.client.data_classes import CreatedSession
 from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -23,6 +25,16 @@ TMP_FOLDER.mkdir(exist_ok=True)
 @pytest.fixture
 def toolkit_client_approval() -> Iterator[ApprovalToolkitClient]:
     with monkeypatch_toolkit_client() as toolkit_client:
+
+        def create_session(*args: Any, **kwargs: Any) -> CreatedSession:
+            return CreatedSession(
+                id=42,
+                status="READY",
+                nonce="dummy-nonce",
+                type="CLIENT_CREDENTIALS",
+            )
+
+        toolkit_client.iam.sessions.create = create_session
         approval_client = ApprovalToolkitClient(toolkit_client)
         yield approval_client
 
