@@ -280,8 +280,8 @@ class TimeSeriesFinder(AssetCentricFinder):
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self.client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
-                data_set_ids=[{"externalId": item} for item in self.data_sets] or None,
-                asset_subtree_ids=[{"externalId": item} for item in self.hierarchies] or None,
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )
         )
 

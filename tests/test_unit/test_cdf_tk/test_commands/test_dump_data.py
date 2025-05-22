@@ -87,10 +87,8 @@ class TestDumpData:
             ]
             finder = AssetFinder(client, None, None)
 
-            selected_hierarchy, selected_dataset = finder.select_hierarchy_datasets(None, None)
-
-        assert selected_hierarchy == ["Root2"]
-        assert selected_dataset == ["dataset3"]
+        assert finder.hierarchies == ["Root2"]
+        assert finder.data_sets == ["dataset3"]
 
     def test_dump_timeseries(self, tmp_path: Path) -> None:
         dataset = DataSet(external_id="my_dataset", name="My Dataset", id=123)
@@ -156,7 +154,5 @@ class TestDumpData:
 
             finder = TimeSeriesFinder(client, None, None)
 
-            selected_hierarchy, selected_dataset = finder.select_hierarchy_datasets(None, None)
-
-        assert selected_hierarchy == ["Root2"]
-        assert selected_dataset == ["dataset3"]
+        assert finder.hierarchies == ["Root2"]
+        assert finder.data_sets == ["dataset3"]
