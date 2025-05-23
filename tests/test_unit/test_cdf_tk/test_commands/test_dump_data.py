@@ -17,7 +17,7 @@ from cognite.client.data_classes import (
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import DumpDataCommand
-from cognite_toolkit._cdf_tk.commands.dump_data import AssetFinder, TimeSeriesFinder
+from cognite_toolkit._cdf_tk.commands.dump_data import AssetFinder, EventFinder, TimeSeriesFinder
 from cognite_toolkit._cdf_tk.utils.file import read_yaml_file
 
 
