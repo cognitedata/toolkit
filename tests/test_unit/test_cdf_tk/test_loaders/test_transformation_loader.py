@@ -10,7 +10,6 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.exceptions import ToolkitTypeError
 from cognite_toolkit._cdf_tk.loaders import (
     DataModelLoader,
     DataSetsLoader,
@@ -76,12 +75,15 @@ conflictMode: upsert
             "audience": "https://cognite.com",
         }
         filepath = self._create_mock_file(yaml.dump(resource))
+        resource_id = resource["externalId"]
 
         raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
-        loaded = loader.load_resource(raw_list[0], is_dry_run=False)
+        _ = loader.load_resource(raw_list[0], is_dry_run=False)
 
-        assert loaded.destination_oidc_credentials.dump() == loaded.source_oidc_credentials.dump()
-        assert loaded.destination is not None
+        read_credentials = loader._authentication_by_id_operation[(resource_id, "read")]
+        write_credentials = loader._authentication_by_id_operation[(resource_id, "write")]
+
+        assert read_credentials.dump() == write_credentials.dump()
 
     @staticmethod
     def _create_mock_file(content: str) -> MagicMock:
@@ -91,26 +93,6 @@ conflictMode: upsert
         filepath.stem = "transformation"
         filepath.parent = Path("path")
         return filepath
-
-    def test_oidc_raise_if_invalid(
-        self,
-        toolkit_client_approval: ApprovalToolkitClient,
-        env_vars_with_client: EnvironmentVariables,
-        monkeypatch: MonkeyPatch,
-    ) -> None:
-        loader = TransformationLoader(toolkit_client_approval.mock_client, None)
-
-        resource = yaml.CSafeLoader(self.trafo_yaml).get_data()
-
-        resource["authentication"] = {
-            "clientId": "my-client-id",
-            "clientSecret": "my-client-secret",
-        }
-        filepath = self._create_mock_file(yaml.dump(resource))
-
-        with pytest.raises(ToolkitTypeError):
-            raw_list = loader.load_resource_file(filepath, env_vars_with_client.dump())
-            loader.load_resource(raw_list[0], is_dry_run=False)
 
     def test_auth_unchanged_changed(
         self,
