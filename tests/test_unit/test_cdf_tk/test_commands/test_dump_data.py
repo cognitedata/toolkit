@@ -140,8 +140,8 @@ class TestDumpData:
     def test_dump_events(self, tmp_path: Path) -> None:
         dataset = DataSet(external_id="my_dataset", name="My Dataset", id=123)
         my_event = Event(
-            external_id="myt_event",
-            description="This is my timeseries",
+            external_id="my_event",
+            description="This is my event",
             start_time=1,
             end_time=2,
             type="my_type",
@@ -174,8 +174,8 @@ class TestDumpData:
         assert len(output_csvs) == 1
         output_csv = output_csvs[0]
         assert output_csv.read_text().splitlines() == [
-            "externalId,name,isString,unit,unitExternalId,assetExternalId,isStep,description,dataSetExternalId,securityCategories,metadata.key",
-            "my_timeseries,My TimeSeries,False,,,,False,This is my timeseries,my_dataset,,value",
+            "externalId,dataSetExternalId,startTime,endTime,type,subtype,description,assetExternalIds,source,metadata.key,metadata.key2",
+            "my_event,my_dataset,1,2,my_type,my_subtype,This is my event,,my_source,value,value2",
         ]
 
         dataset_yamls = list(output_dir.rglob("*DataSet.yaml"))
