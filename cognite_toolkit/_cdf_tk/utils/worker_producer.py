@@ -1,0 +1,122 @@
+import queue
+import threading
+from collections.abc import Callable, Iterable, Sized
+from typing import Generic, TypeVar
+
+from rich.console import Console
+from rich.progress import BarColumn, Progress, TaskID, TaskProgressColumn, TextColumn, TimeRemainingColumn
+
+T_Download = TypeVar("T_Download", bound=Sized)
+T_Processed = TypeVar("T_Processed", bound=Sized)
+
+
+class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
+    def __init__(
+        self,
+        download_iterable: Iterable[T_Download],
+        process: Callable[[T_Download], T_Processed],
+        write_to_file: Callable[[T_Processed], None],
+        total_items: int,
+        max_queue_size: int,
+    ) -> None:
+        self._download_iterable = download_iterable
+        self.download_complete = False
+        self._write_to_file = write_to_file
+        self._process = process
+        self.console = Console()
+        self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
+        self.file_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
+
+        self.total_items = total_items
+        self.error_occurred = False
+        self.error_message = ""
+
+    def run(self) -> None:
+        with Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeRemainingColumn(),
+            console=self.console,
+        ) as progress:
+            download_task = progress.add_task("Downloading", total=self.total_items)
+            download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
+            process_thread: threading.Thread | None = None
+            if self.process_queue:
+                process_task = progress.add_task("Processing", total=self.total_items)
+                process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
+
+            write_task = progress.add_task("Writing to file", total=self.total_items)
+            write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
+
+            download_thread.start()
+            if process_thread:
+                process_thread.start()
+            write_thread.start()
+
+            # Wait for all threads to finish
+            download_thread.join()
+            if process_thread:
+                process_thread.join()
+            write_thread.join()
+
+    def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
+        """Worker thread for downloading data."""
+        iterable = iter(self._download_iterable)
+        while True:
+            try:
+                items = next(iterable)
+                while True:
+                    try:
+                        self.process_queue.put(items, timeout=0.5)
+                        progress.update(download_task, advance=len(items))
+                        break  # Exit the loop once the item is successfully added
+                    except queue.Full:
+                        # Retry until the queue has space
+                        continue
+            except StopIteration:
+                self.download_complete = True
+                break
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]Error[/red] occurred while downloading: {self.error_message}")
+                break
+
+    def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
+        """Worker thread for processing data."""
+        if self._process is None or self.process_queue is None:
+            return
+        while not self.download_complete or not self.process_queue.empty():
+            try:
+                items = self.process_queue.get(timeout=0.5)
+                processed_items = self._process(items)
+                self.file_queue.put(processed_items)
+                progress.update(process_task, advance=len(items))
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]ErrorError[/red] occurred while processing: {self.error_message}")
+                break
+            finally:
+                self.process_queue.task_done()
+
+    def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
+        """Worker thread for writing data to file."""
+        # Simulate writing data to file
+        while not self.download_complete or not self.file_queue.empty():
+            try:
+                items = self.file_queue.get(timeout=0.5)
+                self._write_to_file(items)
+                progress.update(write_task, advance=len(items))
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self.error_occurred = True
+                self.error_message = str(e)
+                self.console.print(f"[red]Error[/red] occurred while writing: {self.error_message}")
+                break
+            finally:
+                self.file_queue.task_done()
