@@ -107,7 +107,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
         # Simulate writing data to file
-        while not self.download_complete or not self.file_queue.empty():
+        while not self.download_complete or not self.file_queue.empty() or not self.process_queue.empty():
             try:
                 items = self.file_queue.get(timeout=0.5)
                 self._write_to_file(items)
