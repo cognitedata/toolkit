@@ -1,3 +1,0 @@
-- externalId: {{ ds_asset }}
-  name: LocationFilter Asset DataSet
-  description: This is an example of a location filter asset centric data set
