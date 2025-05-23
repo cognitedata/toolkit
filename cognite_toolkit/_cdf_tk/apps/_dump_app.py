@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import (
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect, TimeSeriesInteractiveSelect
 
 
 class DumpApp(typer.Typer):
@@ -426,11 +427,12 @@ class DumpDataApp(typer.Typer):
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = AssetInteractiveSelect(client).interactive_select_hierarchy_datasets()
+
         cmd.run(
             lambda: cmd.dump_table(
-                AssetFinder(client),
-                hierarchy,
-                data_set,
+                AssetFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
                 limit,
@@ -503,11 +505,11 @@ class DumpDataApp(typer.Typer):
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpDataCommand()
         client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = TimeSeriesInteractiveSelect(client).interactive_select_hierarchy_datasets()
         cmd.run(
             lambda: cmd.dump_table(
-                TimeSeriesFinder(client),
-                data_set,
-                hierarchy,
+                TimeSeriesFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
                 limit,
