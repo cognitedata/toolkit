@@ -161,7 +161,7 @@ def metadata_key_counts(
     """
     where_clause = ""
     if data_sets is not None and hierarchies is not None:
-        where_clause = f"\n         WHERE dataSetId IN ({''.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
     elif data_sets is not None:
         where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
     elif hierarchies is not None:
