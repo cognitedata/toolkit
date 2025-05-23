@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
-DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time", "json"]
+DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time"]
 Rows: TypeAlias = list[dict[str, Any]]
 
 
@@ -25,6 +25,7 @@ Rows: TypeAlias = list[dict[str, Any]]
 class SchemaColumn:
     name: str
     type: DataType
+    is_array: bool = False
 
 
 @dataclass
@@ -142,7 +143,7 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
 
         fields: list[pa.Field] = []
         for prop in self.schema.columns:
-            pa_type = self._as_pa_type(prop.type)
+            pa_type = self._as_pa_type(prop.type, prop.is_array)
             fields.append(pa.field(prop.name, pa_type, nullable=True))
         return pa.schema(fields)
 
@@ -154,28 +155,30 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
             )
 
     @staticmethod
-    def _as_pa_type(type_: DataType) -> "pa.DataType":
+    def _as_pa_type(type_: DataType, is_array: bool) -> "pa.DataType":
         """Convert a data type to a pyarrow type."""
         import pyarrow as pa
 
         if type_ == "string":
-            return pa.string()
+            pa_type = pa.string()
         elif type_ == "integer":
-            return pa.int64()
+            pa_type = pa.int64()
         elif type_ == "float":
-            return pa.float64()
+            pa_type = pa.float64()
         elif type_ == "boolean":
-            return pa.bool_()
+            pa_type = pa.bool_()
         elif type_ == "datetime":
-            return pa.timestamp("ms")
+            pa_type = pa.timestamp("ms")
         elif type_ == "date":
-            return pa.date32()
+            pa_type = pa.date32()
         elif type_ == "time":
-            return pa.time64("ms")
-        elif type_ == "json":
-            return pa.string()
+            pa_type = pa.time64("ms")
         else:
             raise ToolkitValueError(f"Unsupported data type {type_}.")
+
+        if is_array:
+            pa_type = pa.list_(pa_type)
+        return pa_type
 
 
 class CSVWriter(TableFileWriter[TextIOWrapper]):
