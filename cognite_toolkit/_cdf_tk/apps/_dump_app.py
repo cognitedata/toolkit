@@ -587,6 +587,7 @@ class DumpDataApp(typer.Typer):
     ) -> None:
         """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
         cmd = DumpDataCommand()
+        cmd.validate_directory(output_dir, clean)
         client = EnvironmentVariables.create_from_environment().get_client()
         if hierarchy is None and data_set is None:
             hierarchy, data_set = EventInteractiveSelect(client).interactive_select_hierarchy_datasets()
