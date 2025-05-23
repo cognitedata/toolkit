@@ -13,6 +13,7 @@ profile = true
 infield = true
 dump-data = true
 
+exit-on-warning = true
 
 [plugins]
 run = true
