@@ -221,7 +221,7 @@ class AssetFinder(AssetCentricFinder[Asset]):
             SchemaColumn(name="dataSetExternalId", type="string"),
             SchemaColumn(name="source", type="string"),
             SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="string"),
+            SchemaColumn(name="geoLocation", type="json"),
         ]
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
