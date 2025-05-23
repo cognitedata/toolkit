@@ -16,7 +16,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         download_iterable: Iterable[T_Download],
         process: Callable[[T_Download], T_Processed],
         write_to_file: Callable[[T_Processed], None],
-        total_items: int,
+        iteration_count: int,
         max_queue_size: int,
     ) -> None:
         self._download_iterable = download_iterable
@@ -27,7 +27,8 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         self.process_queue: queue.Queue[T_Download] = queue.Queue(maxsize=max_queue_size)
         self.file_queue: queue.Queue[T_Processed] = queue.Queue(maxsize=max_queue_size)
 
-        self.total_items = total_items
+        self.iteration_count = iteration_count
+        self.total_items = 0
         self.error_occurred = False
         self.error_message = ""
 
@@ -66,10 +67,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         while True:
             try:
                 items = next(iterable)
+                self.total_items += len(items)
                 while True:
                     try:
                         self.process_queue.put(items, timeout=0.5)
-                        progress.update(download_task, advance=len(items))
+                        progress.update(download_task, advance=1)
                         break  # Exit the loop once the item is successfully added
                     except queue.Full:
                         # Retry until the queue has space
@@ -92,7 +94,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
                 self.file_queue.put(processed_items)
-                progress.update(process_task, advance=len(items))
+                progress.update(process_task, advance=1)
             except queue.Empty:
                 continue
             except Exception as e:
@@ -110,7 +112,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             try:
                 items = self.file_queue.get(timeout=0.5)
                 self._write_to_file(items)
-                progress.update(write_task, advance=len(items))
+                progress.update(write_task, advance=1)
             except queue.Empty:
                 continue
             except Exception as e:
