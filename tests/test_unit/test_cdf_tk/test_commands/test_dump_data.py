@@ -40,6 +40,8 @@ class TestDumpData:
         )
         cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "asset_dump"
+        csv_dir = output_dir / "csv"
+        parquet_dir = output_dir / "parquet"
         with monkeypatch_toolkit_client() as client:
             client.assets.return_value = [AssetList([my_asset])]
             client.assets.aggregate_count.return_value = 1
@@ -54,7 +56,7 @@ class TestDumpData:
 
             cmd.dump_table(
                 AssetFinder(client, ["rootAsset"], []),
-                output_dir,
+                csv_dir,
                 clean=True,
                 limit=None,
                 format_="csv",
@@ -62,26 +64,35 @@ class TestDumpData:
             )
             cmd.dump_table(
                 AssetFinder(client, [], [dataset.external_id]),
-                output_dir,
+                parquet_dir,
                 clean=True,
                 limit=None,
                 format_="parquet",
                 verbose=False,
             )
 
-        output_csv = next(output_dir.rglob("*.csv"))
+        output_csvs = list(csv_dir.rglob("*.csv"))
+        assert len(output_csvs) == 1
+        output_csv = output_csvs[0]
         assert output_csv.read_text().splitlines() == [
             "externalId,name,parentExternalId,description,dataSetExternalId,source,labels,geoLocation,metadata.key",
-            "my_asset,My Asset,,This is my asset,my_dataset,MySource,['label1'],,value",
+            "my_asset,My Asset,,This is my asset,my_dataset,MySource,['label1'],"
+            "\"{'type': 'Feature', 'geometry': {'type': 'LineString', 'coordinates': [[1.0, 1.0], [2.0, 2.0], "
+            "[3.0, 3.0]]}, 'properties': {}}\""
+            ",value",
         ]
 
-        dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
+        dataset_yamls = list(csv_dir.rglob("*DataSet.yaml"))
+        assert len(dataset_yamls) == 1
+        dataset_yaml = dataset_yamls[0]
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
 
-        label_yaml = next(output_dir.rglob("*Label.yaml"))
+        label_yamls = list(csv_dir.rglob("*Label.yaml"))
+        assert len(label_yamls) == 1
+        label_yaml = label_yamls[0]
         assert read_yaml_file(label_yaml) == [my_label.as_write().dump()]
 
-        parquet_files = list(output_dir.rglob("*.parquet"))
+        parquet_files = list(parquet_dir.rglob("*.parquet"))
         assert len(parquet_files) == 1
 
     def test_dump_timeseries(self, tmp_path: Path) -> None:
