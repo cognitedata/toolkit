@@ -103,6 +103,9 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
     ) -> Iterator[tuple[Schema, int, Iterable, Callable]]:
         total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
         columns = self._get_resource_columns()
+
+        iteration_count = total // 1000 + (1 if total % 1000 > 0 else 0)
+
         yield (
             Schema(
                 display_name=self.loader.display_name,
@@ -111,7 +114,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
                 folder_name=self.loader.folder_name,
                 kind=self.loader.kind,
             ),
-            total,
+            iteration_count,
             self.create_resource_iterator(limit),
             self._resource_processor,
         )
@@ -138,7 +141,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
-            len(data_sets),
+            1,
             [data_sets],
             process_data_sets,
         )
@@ -159,7 +162,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
-            len(labels),
+            1,
             [labels],
             process_labels,
         )
@@ -302,15 +305,17 @@ class DumpDataCommand(ToolkitCommand):
         self.validate_directory(output_dir, clean)
 
         console = Console()
-        for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+        row_counts = 0
+        for schema, total_iterations, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             with writer_cls(schema, output_dir) as writer:
                 for resources in track(
-                    resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"
+                    resource_iterator, total=total_iterations, description=f"Dumping {schema.display_name}"
                 ):
+                    row_counts += len(resources)
                     processed = resource_processor(resources)
                     writer.write_rows(processed)
-            console.print(f"Dumped {total_items:,} rows to {output_dir}")
+            console.print(f"Dumped {row_counts:,} rows to {output_dir}")
 
     @staticmethod
     def validate_directory(output_dir: Path, clean: bool) -> None:
