@@ -306,11 +306,11 @@ class DumpDataCommand(ToolkitCommand):
 
         console = Console()
         row_counts = 0
-        for schema, total_iterations, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             with writer_cls(schema, output_dir) as writer:
                 for resources in track(
-                    resource_iterator, total=total_iterations, description=f"Dumping {schema.display_name}"
+                    resource_iterator, total=iteration_count, description=f"Dumping {schema.display_name}"
                 ):
                     row_counts += len(resources)
                     processed = resource_processor(resources)
