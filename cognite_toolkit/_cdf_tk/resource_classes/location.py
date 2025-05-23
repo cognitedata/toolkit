@@ -49,7 +49,7 @@ class LocationYAML(ToolkitResource):
     external_id: str = Field(description="The external ID provided by the client.")
     name: str = Field(description="The name of the location.")
     description: str | None = Field(default=None, description="The description of the data set.", max_length=255)
-    parent_external_Id: str | None = Field(default=None, description="The external ID of the parent location.")
+    parent_external_id: str | None = Field(default=None, description="The external ID of the parent location.")
     data_models: list[DataModelID] | None = Field(
         default=None, description="The data models associated with the location."
     )
