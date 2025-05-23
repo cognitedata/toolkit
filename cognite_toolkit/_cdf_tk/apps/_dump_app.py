@@ -358,6 +358,7 @@ class DumpDataApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_data_main)
         self.command("asset")(self.dump_asset_cmd)
+        self.command("files-metadata")(self.dump_files_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
 
     @staticmethod
