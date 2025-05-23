@@ -664,7 +664,9 @@ class WorkflowTriggerLoader(
         # is used to compare with the CDF resource.
         for resource in resources:
             identifier = self.get_id(resource)
-            credentials = read_auth(identifier, resource, self.client, "workflow trigger", self.console)
+            credentials = read_auth(
+                resource.get("authentication"), self.client.config, identifier, "workflow trigger", console=self.console
+            )
             self._authentication_by_id[identifier] = credentials
             if "metadata" not in resource:
                 resource["metadata"] = {}
