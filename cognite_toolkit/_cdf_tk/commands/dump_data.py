@@ -14,7 +14,7 @@ from cognite.client.data_classes import (
     TimeSeriesFilter,
 )
 from cognite.client.data_classes._base import T_CogniteResource
-from rich import Console
+from rich.console import Console
 from rich.progress import track
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -220,8 +220,8 @@ class AssetFinder(AssetCentricFinder[Asset]):
             SchemaColumn(name="description", type="string"),
             SchemaColumn(name="dataSetExternalId", type="string"),
             SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="json", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
+            SchemaColumn(name="labels", type="string", is_array=True),
+            SchemaColumn(name="geoLocation", type="string"),
         ]
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
