@@ -40,14 +40,14 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             TimeRemainingColumn(),
             console=self.console,
         ) as progress:
-            download_task = progress.add_task("Downloading", total=self.total_items)
+            download_task = progress.add_task("Downloading", total=self.iteration_count)
             download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
             process_thread: threading.Thread | None = None
             if self.process_queue:
-                process_task = progress.add_task("Processing", total=self.total_items)
+                process_task = progress.add_task("Processing", total=self.iteration_count)
                 process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
 
-            write_task = progress.add_task("Writing to file", total=self.total_items)
+            write_task = progress.add_task("Writing to file", total=self.iteration_count)
             write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
 
             download_thread.start()
@@ -95,6 +95,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 processed_items = self._process(items)
                 self.file_queue.put(processed_items)
                 progress.update(process_task, advance=1)
+                self.process_queue.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
@@ -102,8 +103,6 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]ErrorError[/red] occurred while processing: {self.error_message}")
                 break
-            finally:
-                self.process_queue.task_done()
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
@@ -113,6 +112,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 items = self.file_queue.get(timeout=0.5)
                 self._write_to_file(items)
                 progress.update(write_task, advance=1)
+                self.file_queue.task_done()
             except queue.Empty:
                 continue
             except Exception as e:
@@ -120,5 +120,3 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]Error[/red] occurred while writing: {self.error_message}")
                 break
-            finally:
-                self.file_queue.task_done()
