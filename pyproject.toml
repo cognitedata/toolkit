@@ -55,6 +55,11 @@ dev = [
     "marko >=2.1.2",
 ]
 
+[project.optional-dependencies]
+table = [
+    "pyarrow>=20.0.0",
+]
+
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
 cdf = "cognite_toolkit._cdf:app"
@@ -88,7 +93,6 @@ exclude = [
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
-    "builtin_modules/*",
 ]
 
 [tool.ruff]
@@ -101,7 +105,6 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
-    "builtin_modules/*",
 ]
 
 [tool.ruff.lint]
@@ -109,7 +112,6 @@ exclude = [
     "cognite_toolkit/_builtin_modules/inrobot/*",
     "cognite_toolkit/_builtin_modules/examples/*",
     "cognite_toolkit/_builtin_modules/bootcamp/*",
-    "builtin_modules/*",
 ]
 
 [build-system]
