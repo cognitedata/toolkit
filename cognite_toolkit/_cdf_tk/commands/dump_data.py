@@ -220,15 +220,11 @@ class AssetFinder(AssetCentricFinder[Asset]):
             SchemaColumn(name="description", type="string"),
             SchemaColumn(name="dataSetExternalId", type="string"),
             SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="array"),
+            SchemaColumn(name="labels", type="json", is_array=True),
             SchemaColumn(name="geoLocation", type="json"),
         ]
-        data_set_ids = [
-            dataset.id for dataset in self._get_available_data_sets() if dataset.external_id in self._data_set_set
-        ] or None
-        root_ids = [
-            root.id for root in self._get_available_hierarchies() if root.external_id in self._hierarchy_set
-        ] or None
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "assets", data_set_ids or None, root_ids or None)
         sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
@@ -271,16 +267,12 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
             SchemaColumn(name="isStep", type="boolean"),
             SchemaColumn(name="description", type="string"),
             SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="securityCategories", type="array"),
+            SchemaColumn(name="securityCategories", type="string", is_array=True),
         ]
-        data_set_ids = [
-            dataset.id for dataset in self._get_available_data_sets() if dataset.external_id in self._data_set_set
-        ] or None
-        root_ids = [
-            root.id for root in self._get_available_hierarchies() if root.external_id in self._hierarchy_set
-        ] or None
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "timeseries", data_set_ids or None, root_ids or None)
-        sorted_keys = sorted([key for item in metadata_keys for key in item.keys()])
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
         return columns
 
@@ -312,12 +304,12 @@ class DumpDataCommand(ToolkitCommand):
         console = Console()
         for schema, total_items, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
-            with writer_cls(schema, output_dir):
+            with writer_cls(schema, output_dir) as writer:
                 for resources in track(
                     resource_iterator, total=total_items, description=f"Dumping {schema.display_name}"
                 ):
                     processed = resource_processor(resources)
-                    writer_cls.write_rows(processed)
+                    writer.write_rows(processed)
             console.print(f"Dumped {total_items:,} rows to {output_dir}")
 
     @staticmethod
