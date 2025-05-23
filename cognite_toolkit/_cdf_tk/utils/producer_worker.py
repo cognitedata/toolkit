@@ -21,6 +21,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     ) -> None:
         self._download_iterable = download_iterable
         self.download_complete = False
+        self.is_processing = False
         self._write_to_file = write_to_file
         self._process = process
         self.console = Console()
@@ -87,8 +88,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
 
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
-        if self._process is None or self.process_queue is None:
-            return
+        self.is_processing = True
         while not self.download_complete or not self.process_queue.empty():
             try:
                 items = self.process_queue.get(timeout=0.5)
@@ -103,11 +103,16 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
                 self.error_message = str(e)
                 self.console.print(f"[red]ErrorError[/red] occurred while processing: {self.error_message}")
                 break
+        self.is_processing = False
 
     def _write_worker(self, progress: Progress, write_task: TaskID) -> None:
         """Worker thread for writing data to file."""
-        # Simulate writing data to file
-        while not self.download_complete or not self.file_queue.empty() or not self.process_queue.empty():
+        while (
+            not self.download_complete
+            or self.is_processing
+            or not self.file_queue.empty()
+            or not self.process_queue.empty()
+        ):
             try:
                 items = self.file_queue.get(timeout=0.5)
                 self._write_to_file(items)
