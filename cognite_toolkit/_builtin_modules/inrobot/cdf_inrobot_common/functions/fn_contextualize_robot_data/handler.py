@@ -2,9 +2,12 @@
 
 import logging
 import sys
+import typing
 
 from cognite.client.data_classes import FileMetadataUpdate, TimeSeries
 from common.cdf_helpers import create_missing_labels
+from common.dataclass.common import PayloadActionType, PayloadType
+from common.utils import get_custom_mapping_metadata_dicts, rename_custom_metadata_fields_with_custom_names
 
 MAX_GET_JOB_ATTEMPTS = 10
 logger = logging.getLogger(__name__)
@@ -34,6 +37,7 @@ def create_timeseries(
     gauge_number=1,
     total_number_of_gauges=1,
     time_series_naming_tag="",
+    custom_metadata: dict[str, typing.Any] | None = None,
 ):
     """Create time series on the correct format."""
     if time_series_label == "IR_TIME_SERIES":
@@ -60,10 +64,15 @@ def create_timeseries(
         ts_name = f"{asset.name}_gauge_values_{gauge_number}"
 
     logger.info(f"Creates timeseries with name: {ts_name}")
+
+    # add the custom metadata to the timeseries' metadata
+    metadata_payload = {"TYPE": time_series_label}
+    metadata_payload.update(custom_metadata or {})
+
     data_set_id = client.data_sets.retrieve(external_id=data_set_external_id).id
     return client.time_series.create(
         TimeSeries(
-            metadata={"TYPE": time_series_label},
+            metadata=metadata_payload,
             asset_id=asset.id,
             external_id=ts_external_id,
             data_set_id=data_set_id,
@@ -84,12 +93,17 @@ def get_asset(client, file):
         return asset
 
 
-def get_timeseries_external_id(client, asset, data_set_external_id, time_series_label, number_of_gauges=1):
+def get_timeseries_external_id(
+    client, asset, data_set_external_id, time_series_label, number_of_gauges=1, custom_metadata=None
+):
     """Get time series external id."""
     ts = client.time_series.list(metadata={"TYPE": time_series_label}, asset_ids=[asset.id])
     number_of_timeseries = len(ts)
     ts_external_ids = []
     logger.info(f"{ts}")
+
+    if custom_metadata is None:
+        custom_metadata = {}
 
     # Create one timeseries for min temperature and one for max temperature for IR images
     if time_series_label == "IR_TIME_SERIES":
@@ -98,11 +112,12 @@ def get_timeseries_external_id(client, asset, data_set_external_id, time_series_
             ir_ts_naming_tags = ["min", "max"]
             for naming_tag in ir_ts_naming_tags:
                 ts = create_timeseries(
-                    client,
-                    asset,
-                    data_set_external_id,
-                    time_series_label,
+                    client=client,
+                    asset=asset,
+                    data_set_external_id=data_set_external_id,
+                    time_series_label=time_series_label,
                     time_series_naming_tag=naming_tag,
+                    custom_metadata=custom_metadata,
                 )
                 ts_external_ids.append(ts.external_id)
         else:
@@ -118,18 +133,36 @@ def get_timeseries_external_id(client, asset, data_set_external_id, time_series_
             logger.info("CREATE GAUGE TIMESERIES")
             new_gauge_number = gauge_number + number_of_timeseries
             ts = create_timeseries(
-                client, asset, data_set_external_id, time_series_label, new_gauge_number, number_of_gauges
+                client=client,
+                asset=asset,
+                data_set_external_id=data_set_external_id,
+                time_series_label=time_series_label,
+                gauge_number=new_gauge_number,
+                total_number_of_gauges=number_of_gauges,
+                custom_metadata=custom_metadata,
             )
             ts_external_ids.append(ts.external_id)
     elif number_of_timeseries == 0:
         logger.info("CREATE GAUGE TIMESERIES")
         if number_of_gauges <= 1:
-            ts = create_timeseries(client, asset, data_set_external_id, time_series_label)
+            ts = create_timeseries(
+                client=client,
+                asset=asset,
+                data_set_external_id=data_set_external_id,
+                time_series_label=time_series_label,
+                custom_metadata=custom_metadata,
+            )
             ts_external_ids.append(ts.external_id)
         else:
             for gauge_number in range(number_of_gauges):
                 ts = create_timeseries(
-                    client, asset, data_set_external_id, time_series_label, gauge_number, number_of_gauges
+                    client=client,
+                    asset=asset,
+                    data_set_external_id=data_set_external_id,
+                    time_series_label=time_series_label,
+                    gauge_number=gauge_number,
+                    total_number_of_gauges=number_of_gauges,
+                    custom_metadata=custom_metadata,
                 )
                 ts_external_ids.append(ts.external_id)
 
@@ -166,6 +199,9 @@ def handle(data, client):
     }
     if not required_input_data_fields <= data.keys():
         raise RuntimeError(f"Data should contain all keys:  {required_input_data_fields}. Current data: {data}")
+    
+    # Check if there are any custom_metadata_ fields that need to be used when generating data
+    custom_metadata_dict, custom_mapping_dict, include_custom_metadata = get_custom_mapping_metadata_dicts(data)
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format=logging.BASIC_FORMAT)
     create_missing_labels(
@@ -198,6 +234,15 @@ def handle(data, client):
 
         update = FileMetadataUpdate(file.id)
         asset = get_asset(client, file)
+        
+        if include_custom_metadata:
+            if asset is None:
+                custom_metadata_dict["custom_metadata_asset_tag"] = ""
+            elif "equipment_tag" in asset.metadata:
+                custom_metadata_dict["custom_metadata_asset_tag"] = asset.metadata["equipment_tag"] if asset else ""
+            else:
+                custom_metadata_dict["custom_metadata_asset_tag"] = asset.name if asset else ""
+        
         update.asset_ids.add([asset.id]) if asset else None
 
         print(f"The labels on this file are: {file.labels}")
@@ -208,17 +253,45 @@ def handle(data, client):
             camera_type = metadata.get("camera", None)
             time_series_label = get_time_series_label(camera_type)
 
-            if gauge_type == "valve":
+            if camera_type == "ir":
+                # this is never hit since spot not sending metadata info with IR we will repeat this in ir function
+                current_action_label = "read_ir_raw_label"
+                if include_custom_metadata:
+                    custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.IR_CAMERA
+                    custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.IR_SCAN
+
+            elif gauge_type == "spill":
+                current_action_label = "spill_detection_label"
+                if include_custom_metadata:
+                    custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.PTZ_CAMERA
+                    custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.SPILL_DETECTION
+
+            elif gauge_type == "valve":
                 current_action_label = "read_valve_label"
+                if include_custom_metadata:
+                    custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.PTZ_CAMERA
+                    custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.VALVE_READING
+                
             elif gauge_type == "dial":
                 if asset:
                     number_of_gauges = get_number_of_gauges(client, asset)
                 if number_of_gauges <= 1:
                     current_action_label = "read_dial_gauge_label"
+                    if include_custom_metadata:
+                        custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.PTZ_CAMERA
+                        custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.GAUGE_READING
                 else:
                     current_action_label = "read_multiple_dial_gauges_label"
+                    if include_custom_metadata:
+                        custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.PTZ_CAMERA
+                        custom_metadata_dict[
+                            "custom_metadata_payload_action_type"
+                        ] = PayloadActionType.MULTI_GAUGE_READING
             else:
                 current_action_label = f"read_{gauge_type}_gauge_label"
+                if include_custom_metadata:
+                    custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.PTZ_CAMERA
+                    custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.GAUGE_READING
 
             logger.info(f"Setting action label to {data[current_action_label]}")
             print(f"Setting action label to {data[current_action_label]}")
@@ -250,6 +323,9 @@ def handle(data, client):
         elif "threesixty" in file.external_id:
             print("This is a 360 image, adding threesixty label.")
             update.labels.add(["threesixty"])
+            if include_custom_metadata:
+                custom_metadata_dict["custom_metadata_payload_type"] = PayloadType.THREESIXTY_CAMERA
+                custom_metadata_dict["custom_metadata_payload_action_type"] = PayloadActionType.THREESIXTY_CAPTURE
 
         elif asset and metadata.get("method") == "process_ir_raw":
             current_action_label = "read_ir_raw_label"
@@ -264,6 +340,12 @@ def handle(data, client):
                     metadata[f"ts_external_id_{i}"] = ts_eid[i]
 
         metadata["processed"] = "true"
-        update.metadata.add(metadata)
+                
+        if include_custom_metadata:
+            new_metadata = rename_custom_metadata_fields_with_custom_names(custom_metadata_dict, custom_mapping_dict)
+            update.metadata.add(new_metadata)
+        else:
+            update.metadata.add(metadata)    
+  
         client.files.update(update)
     return {}
