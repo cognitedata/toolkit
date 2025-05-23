@@ -4,6 +4,8 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     DataSet,
+    GeoLocation,
+    Geometry,
     LabelDefinition,
     LabelDefinitionList,
     TimeSeries,
@@ -30,6 +32,11 @@ class TestDumpData:
             metadata={"key": "value"},
             source="MySource",
             labels=[my_label.external_id],
+            geo_location=GeoLocation(
+                type="Feature",
+                geometry=Geometry(type="LineString", coordinates=[[1.0, 1.0], [2.0, 2.0], [3.0, 3.0]]),
+                properties={},
+            ),
         )
         cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "asset_dump"
@@ -53,6 +60,14 @@ class TestDumpData:
                 format_="csv",
                 verbose=False,
             )
+            cmd.dump_table(
+                AssetFinder(client, [], [dataset.external_id]),
+                output_dir,
+                clean=True,
+                limit=None,
+                format_="parquet",
+                verbose=False,
+            )
 
         output_csv = next(output_dir.rglob("*.csv"))
         assert output_csv.read_text().splitlines() == [
@@ -65,6 +80,9 @@ class TestDumpData:
 
         label_yaml = next(output_dir.rglob("*Label.yaml"))
         assert read_yaml_file(label_yaml) == [my_label.as_write().dump()]
+
+        parquet_files = list(output_dir.rglob("*.parquet"))
+        assert len(parquet_files) == 1
 
     def test_dump_timeseries(self, tmp_path: Path) -> None:
         dataset = DataSet(external_id="my_dataset", name="My Dataset", id=123)
