@@ -65,11 +65,11 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
         iterable = iter(self._download_iterable)
-        while True:
+        while not self.error_occurred:
             try:
                 items = next(iterable)
                 self.total_items += len(items)
-                while True:
+                while not self.error_occurred:
                     try:
                         self.process_queue.put(items, timeout=0.5)
                         progress.update(download_task, advance=1)
@@ -89,7 +89,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
     def _process_worker(self, progress: Progress, process_task: TaskID) -> None:
         """Worker thread for processing data."""
         self.is_processing = True
-        while not self.download_complete or not self.process_queue.empty():
+        while (not self.download_complete or not self.process_queue.empty()) and not self.error_occurred:
             try:
                 items = self.process_queue.get(timeout=0.5)
                 processed_items = self._process(items)
@@ -112,7 +112,7 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
             or self.is_processing
             or not self.file_queue.empty()
             or not self.process_queue.empty()
-        ):
+        ) and not self.error_occurred:
             try:
                 items = self.file_queue.get(timeout=0.5)
                 self._write_to_file(items)
