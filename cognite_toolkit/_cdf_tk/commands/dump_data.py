@@ -28,6 +28,7 @@ from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLo
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.worker_producer import ProducerWorkerExecutor
 
 
 class DataFinder:
@@ -299,6 +300,8 @@ class DumpDataCommand(ToolkitCommand):
         limit: int | None = None,
         format_: Literal["yaml", "csv", "parquet"] = "csv",
         verbose: bool = False,
+        parallel_threshold: int = 10,
+        max_queue_size: int = 10,
     ) -> None:
         """Dumps data from CDF to a file
 
@@ -309,6 +312,9 @@ class DumpDataCommand(ToolkitCommand):
             limit (int | None, optional): The maximum number of rows to write. Defaults to None.
             format_ (Literal["yaml", "csv", "parquet"], optional): The format of the output file. Defaults to "csv".
             verbose (bool, optional): Whether to print detailed progress information. Defaults to False.
+            parallel_threshold (int, optional): The iteration threshold for parallel processing. Defaults to 10.
+            max_queue_size (int, optional): If using parallel processing, the maximum size of the queue. Defaults to 10.
+
         """
         if not finder.is_supported_format(format_):
             raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
@@ -319,12 +325,25 @@ class DumpDataCommand(ToolkitCommand):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
             with writer_cls(schema, output_dir) as writer:
-                for resources in track(
-                    resource_iterator, total=iteration_count, description=f"Dumping {schema.display_name}"
-                ):
-                    row_counts += len(resources)
-                    processed = resource_processor(resources)
-                    writer.write_rows(processed)
+                if iteration_count > parallel_threshold:
+                    executor = ProducerWorkerExecutor(
+                        download_iterable=resource_iterator,
+                        process=resource_processor,
+                        write_to_file=writer.write_rows,
+                        iteration_count=iteration_count,
+                        max_queue_size=max_queue_size,
+                    )
+                    executor.run()
+                    if executor.error_occurred:
+                        raise ToolkitValueError(executor.error_message)
+                    row_counts = executor.total_items
+                else:
+                    for resources in track(
+                        resource_iterator, total=iteration_count, description=f"Dumping {schema.display_name}"
+                    ):
+                        row_counts += len(resources)
+                        processed = resource_processor(resources)
+                        writer.write_rows(processed)
             console.print(f"Dumped {row_counts:,} rows to {output_dir}")
 
     @staticmethod
