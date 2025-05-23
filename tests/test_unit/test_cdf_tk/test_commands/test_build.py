@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client.data_classes.data_modeling import DataModelId, Space
 
@@ -85,12 +86,52 @@ class TestBuildCommand:
         ]
         assert len(transformation_files) == 2
 
+    def test_exit_build_complete_org_on_warnings(self, tmp_path: Path) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True, exit_on_warning=True)
+        with pytest.raises(typer.Exit) as exc_info:
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "build",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert exc_info.value.exit_code == 1, "Exit code should be 1 when exit warnings are raised"
+        assert len(cmd.warning_list) == 1, (
+            f"Only one warning should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
+        )
+
     def test_build_complete_org_without_warnings(
         self,
         tmp_path: Path,
         env_vars_with_client: EnvironmentVariables,
     ) -> None:
         cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "build",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert not cmd.warning_list, (
+            f"No warnings should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
+        )
+
+    def test_build_complete_org_without_warnings_with_exit_on_warning_flag(
+        self,
+        tmp_path: Path,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True, exit_on_warning=True)
         with patch.dict(
             os.environ,
             {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},

@@ -7,9 +7,11 @@ from collections.abc import Hashable, Iterable, Sequence
 from pathlib import Path
 from typing import Any, Literal, cast
 
+import typer
 import yaml
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
+from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 
@@ -74,6 +76,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     LowSeverityWarning,
     MediumSeverityWarning,
     MissingDependencyWarning,
+    ToolkitWarning,
     UnresolvedVariableWarning,
     WarningList,
 )
@@ -99,7 +102,13 @@ from cognite_toolkit._version import __version__
 
 
 class BuildCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+        exit_on_warning: bool = False,
+    ) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.existing_resources_by_loader: dict[type[ResourceLoader], set[Hashable]] = defaultdict(set)
         self.instantiated_loaders: dict[type[ResourceLoader], ResourceLoader] = {}
@@ -113,6 +122,7 @@ class BuildCommand(ToolkitCommand):
         )
         self._has_built = False
         self._printed_variable_tree_structure_hint = False
+        self.exit_on_warning = exit_on_warning
 
     def execute(
         self,
@@ -662,6 +672,13 @@ class BuildCommand(ToolkitCommand):
             warning_list.extend(item_warnings)
 
         return warning_list, identifier_kind_pairs
+
+    def warn(self, warning: ToolkitWarning, include_timestamp: bool = False, console: Console | None = None) -> None:
+        self.warning_list.append(warning)
+        if self.print_warning or self.exit_on_warning:
+            warning.print_warning(include_timestamp, console)
+            if self.exit_on_warning:
+                raise typer.Exit(code=1)
 
     @staticmethod
     def _is_system_resource(resource_cls: type[ResourceLoader], id_: Hashable) -> bool:

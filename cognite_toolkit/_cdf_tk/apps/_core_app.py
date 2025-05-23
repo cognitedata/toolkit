@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -186,6 +187,14 @@ class CoreApp(typer.Typer):
                 help="Do not check CDF for missing dependencies.",
             ),
         ] = False,
+        exit_on_warning: Annotated[
+            bool,
+            typer.Option(
+                "--exit-non-zero-on-warning",
+                "-w",
+                help="Exit with non-zero code on warning.",
+            ),
+        ] = False,
     ) -> None:
         """Build configuration files from the modules to the build directory."""
         client: Union[ToolkitClient, None] = None
@@ -195,7 +204,10 @@ class CoreApp(typer.Typer):
                 # This is verified in check_auth
                 client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = BuildCommand()
+        if not Flags.EXIT_ON_WARNING.is_enabled():
+            exit_on_warning = False
+
+        cmd = BuildCommand(exit_on_warning=exit_on_warning)
         cmd.run(
             lambda: cmd.execute(
                 verbose,
