@@ -8,6 +8,7 @@ from cognite.client.data_classes import (
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesList,
+    TransformationPreviewResult,
 )
 
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -40,6 +41,9 @@ class TestDumpData:
             client.data_sets.retrieve_multiple.return_value = [dataset]
             client.lookup.assets.external_id.return_value = "rootAsset"
             client.lookup.data_sets.external_id.return_value = dataset.external_id
+            client.transformations.preview.return_value = TransformationPreviewResult(
+                None, [{"key": "key", "key_count": 1}]
+            )
 
             cmd.dump_table(
                 AssetFinder(client, ["rootAsset"], []),
@@ -52,8 +56,8 @@ class TestDumpData:
 
         output_csv = next(output_dir.rglob("*.csv"))
         assert output_csv.read_text().splitlines() == [
-            "dataSetExternalId,description,externalId,labels,metadata.key,name,source",
-            "my_dataset,This is my asset,my_asset,['label1'],value,My Asset,MySource",
+            "externalId,name,parentExternalId,description,dataSetExternalId,source,labels,geoLocation,metadata.key",
+            "my_asset,My Asset,,This is my asset,my_dataset,MySource,['label1'],,value",
         ]
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
@@ -80,6 +84,9 @@ class TestDumpData:
             client.time_series.aggregate_count.return_value = 1
             client.data_sets.retrieve_multiple.return_value = [dataset]
             client.lookup.data_sets.external_id.return_value = dataset.external_id
+            client.transformations.preview.return_value = TransformationPreviewResult(
+                None, [{"key": "key", "key_count": 1}]
+            )
 
             cmd.dump_table(
                 TimeSeriesFinder(client, [], [dataset.external_id]),
@@ -92,8 +99,8 @@ class TestDumpData:
 
         output_csv = next(output_dir.rglob("*.csv"))
         assert output_csv.read_text().splitlines() == [
-            "dataSetExternalId,description,externalId,isStep,isString,metadata.key,name",
-            "my_dataset,This is my timeseries,my_timeseries,False,False,value,My TimeSeries",
+            "externalId,name,isString,unit,unitExternalId,assetExternalId,isStep,description,dataSetExternalId,securityCategories,metadata.key",
+            "my_timeseries,My TimeSeries,False,,,,False,This is my timeseries,my_dataset,,value",
         ]
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
