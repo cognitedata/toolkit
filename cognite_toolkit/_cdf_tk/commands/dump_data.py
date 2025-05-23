@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from functools import lru_cache
@@ -324,6 +325,7 @@ class DumpDataCommand(ToolkitCommand):
         for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
+            t0 = time.perf_counter()
             with writer_cls(schema, output_dir) as writer:
                 if iteration_count > parallel_threshold:
                     executor = ProducerWorkerExecutor(
@@ -344,7 +346,8 @@ class DumpDataCommand(ToolkitCommand):
                         row_counts += len(resources)
                         processed = resource_processor(resources)
                         writer.write_rows(processed)
-            console.print(f"Dumped {row_counts:,} rows to {output_dir}")
+            elapsed = time.perf_counter() - t0
+            console.print(f"Dumped {row_counts:,} rows to {output_dir} in {elapsed:,.2f} seconds.")
 
     @staticmethod
     def validate_directory(output_dir: Path, clean: bool) -> None:
