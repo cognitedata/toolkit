@@ -4,6 +4,8 @@ from cognite.client.data_classes import (
     Asset,
     AssetList,
     DataSet,
+    Event,
+    EventList,
     GeoLocation,
     Geometry,
     LabelDefinition,
@@ -133,4 +135,50 @@ class TestDumpData:
         ]
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
+        assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
+
+    def test_dump_events(self, tmp_path: Path) -> None:
+        dataset = DataSet(external_id="my_dataset", name="My Dataset", id=123)
+        my_event = Event(
+            external_id="myt_event",
+            description="This is my timeseries",
+            start_time=1,
+            end_time=2,
+            type="my_type",
+            subtype="my_subtype",
+            metadata={"key": "value", "key2": "value2"},
+            data_set_id=dataset.id,
+            source="my_source",
+        )
+        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        output_dir = tmp_path / "event_dump"
+        with monkeypatch_toolkit_client() as client:
+            client.events.return_value = [EventList([my_event])]
+            client.events.aggregate_count.return_value = 1
+            client.data_sets.retrieve_multiple.return_value = [dataset]
+            client.lookup.data_sets.external_id.return_value = dataset.external_id
+            client.transformations.preview.return_value = TransformationPreviewResult(
+                None, [{"key": "key", "key_count": 1}, {"key": "key2", "key_count": 1}]
+            )
+
+            cmd.dump_table(
+                EventFinder(client, [], [dataset.external_id]),
+                output_dir,
+                clean=True,
+                limit=None,
+                format_="csv",
+                verbose=False,
+            )
+
+        output_csvs = list(output_dir.rglob("*.csv"))
+        assert len(output_csvs) == 1
+        output_csv = output_csvs[0]
+        assert output_csv.read_text().splitlines() == [
+            "externalId,name,isString,unit,unitExternalId,assetExternalId,isStep,description,dataSetExternalId,securityCategories,metadata.key",
+            "my_timeseries,My TimeSeries,False,,,,False,This is my timeseries,my_dataset,,value",
+        ]
+
+        dataset_yamls = list(output_dir.rglob("*DataSet.yaml"))
+        assert len(dataset_yamls) == 1
+        dataset_yaml = dataset_yamls[0]
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
