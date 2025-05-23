@@ -300,6 +300,8 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
 
 
 class EventFinder(AssetCentricFinder[Event]):
+    supported_formats = frozenset({"csv", "parquet"})
+
     def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
         return EventLoader.create_loader(client)
 
