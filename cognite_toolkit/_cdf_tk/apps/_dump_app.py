@@ -428,9 +428,7 @@ class DumpDataApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.dump_table(
-                AssetFinder(client),
-                hierarchy,
-                data_set,
+                AssetFinder(client, hierarchy, data_set),
                 output_dir,
                 clean,
                 limit,
@@ -505,9 +503,7 @@ class DumpDataApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd.run(
             lambda: cmd.dump_table(
-                TimeSeriesFinder(client),
-                data_set,
-                hierarchy,
+                TimeSeriesFinder(client, hierarchy, data_set),
                 output_dir,
                 clean,
                 limit,

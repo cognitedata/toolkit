@@ -8,6 +8,7 @@ from cognite.client.data_classes import (
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesList,
+    TransformationPreviewResult,
 )
 from questionary import Choice
 
@@ -39,14 +40,13 @@ class TestDumpData:
             client.assets.aggregate_count.return_value = 1
             client.assets.retrieve.return_value = Asset(external_id="rootAsset")
             client.labels.retrieve.return_value = LabelDefinitionList([my_label])
-            client.data_sets.retrieve_multiple.return_value = [dataset]
+            client.data_sets.list.return_value = [dataset]
             client.lookup.assets.external_id.return_value = "rootAsset"
             client.lookup.data_sets.external_id.return_value = dataset.external_id
+            client.transformations.preview.return_value = TransformationPreviewResult(None, [{"key": 1}])
 
             cmd.dump_table(
-                AssetFinder(client),
-                ["rootAsset"],
-                [],
+                AssetFinder(client, ["rootAsset"], []),
                 output_dir,
                 clean=True,
                 limit=None,
@@ -56,8 +56,8 @@ class TestDumpData:
 
         output_csv = next(output_dir.rglob("*.csv"))
         assert output_csv.read_text().splitlines() == [
-            "dataSetExternalId,description,externalId,labels,metadata.key,name,source",
-            "my_dataset,This is my asset,my_asset,['label1'],value,My Asset,MySource",
+            "externalId,name,parentExternalId,description,dataSetExternalId,source,labels,geoLocation,metadata.key",
+            "my_asset,My Asset,,This is my asset,my_dataset,MySource,['label1'],,value",
         ]
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
@@ -67,8 +67,6 @@ class TestDumpData:
         assert read_yaml_file(label_yaml) == [my_label.as_write().dump()]
 
     def test_interactive_select_assets(self, monkeypatch) -> None:
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
-
         def select_hierarchy(choices: list[Choice]) -> list[str]:
             assert len(choices) == 2
             return [choices[1].value]
@@ -89,11 +87,10 @@ class TestDumpData:
                 DataSet(id=2, external_id="dataset2"),
                 DataSet(id=3, external_id="dataset3"),
             ]
+            finder = AssetFinder(client, None, None)
 
-            selected_hierarchy, selected_dataset = cmd.interactive_select_hierarchy_datasets(AssetFinder(client))
-
-        assert selected_hierarchy == ["Root2"]
-        assert selected_dataset == ["dataset3"]
+        assert finder.hierarchies == ["Root2"]
+        assert finder.data_sets == ["dataset3"]
 
     def test_dump_timeseries(self, tmp_path: Path) -> None:
         dataset = DataSet(external_id="my_dataset", name="My Dataset", id=123)
@@ -111,13 +108,11 @@ class TestDumpData:
         with monkeypatch_toolkit_client() as client:
             client.time_series.return_value = [TimeSeriesList([my_timeseries])]
             client.time_series.aggregate_count.return_value = 1
-            client.data_sets.retrieve_multiple.return_value = [dataset]
+            client.data_sets.list.return_value = [dataset]
             client.lookup.data_sets.external_id.return_value = dataset.external_id
-
+            client.transformations.preview.return_value = TransformationPreviewResult(None, [{"key": 1}])
             cmd.dump_table(
-                TimeSeriesFinder(client),
-                [],
-                [dataset.external_id],
+                TimeSeriesFinder(client, [], [dataset.external_id]),
                 output_dir,
                 clean=True,
                 limit=None,
@@ -127,16 +122,14 @@ class TestDumpData:
 
         output_csv = next(output_dir.rglob("*.csv"))
         assert output_csv.read_text().splitlines() == [
-            "dataSetExternalId,description,externalId,isStep,isString,metadata.key,name",
-            "my_dataset,This is my timeseries,my_timeseries,False,False,value,My TimeSeries",
+            "externalId,name,isString,unit,unitExternalId,assetExternalId,isStep,description,dataSetExternalId,securityCategories,metadata.key",
+            "my_timeseries,My TimeSeries,False,,,,False,This is my timeseries,my_dataset,,value",
         ]
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
 
     def test_interactive_select_timeseries(self, monkeypatch) -> None:
-        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
-
         def select_data_set(choices: list[Choice]) -> list[str]:
             assert len(choices) == 3
             return [choices[2].value]
@@ -160,7 +153,8 @@ class TestDumpData:
                 Asset(id=2, external_id="Root2", name="Root 2"),
             ]
             client.time_series.aggregate_count.return_value = 100
-            selected_hierarchy, selected_dataset = cmd.interactive_select_hierarchy_datasets(TimeSeriesFinder(client))
 
-        assert selected_hierarchy == ["Root2"]
-        assert selected_dataset == ["dataset3"]
+            finder = TimeSeriesFinder(client, None, None)
+
+        assert finder.hierarchies == ["Root2"]
+        assert finder.data_sets == ["dataset3"]
