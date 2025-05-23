@@ -399,13 +399,10 @@ Transformation:
       externalId: Asset
       space: cdf_core
       version: v1
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  destinationNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
   externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   ignoreNullFields: true
   isPublic: true
@@ -426,13 +423,10 @@ Transformation:
     \ as STRING) as sourceId\nfrom\n  cdf_assetSubtree('WMT:VAL') as asset\n  -- Get\
     \ root asset\n  inner join cdf_assetSubtree('WMT:VAL') as rootAsset on asset.rootId\
     \ = rootAsset.id\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  sourceNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
 - conflictMode: upsert
   dataSetId: 17668258978621355368
   destination:
@@ -443,13 +437,10 @@ Transformation:
       version: '1'
     instanceSpace: sp_asset_oid_source
     type: instances
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  destinationNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
   externalId: tr_workorder_oid_workmate_infield_sync_workorders_to_apm_activities
   ignoreNullFields: true
   isPublic: true
@@ -463,13 +454,10 @@ Transformation:
     \    cast(current_date() as TIMESTAMP) as startTime,\n    cast(date_add(current_date(),\
     \ 7) as TIMESTAMP) as endTime,\n    cast(`title` as STRING) as title,\n    'WMT:VAL'\
     \ as rootLocation,\n    'workmate' as source\n  from\n    `workorder_oid_workmate`.`workorders`;\n"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  sourceNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
 TransformationSchedule:
 - externalId: tr_asset_oid_workmate_infield_sync_assets_from_hierarchy_to_apm
   interval: 0 * * * *

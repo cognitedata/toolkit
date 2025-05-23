@@ -336,21 +336,22 @@ ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
 query: select * from my_table
-sourceOidcCredentials:
-  clientId: my_client_id
-  clientSecret: my_super_secret_42
-  tokenUri: https://token_uri.com
-  cdfProjectName: my_project
-  scopes: https://scope.com
-destinationOidcCredentials:
-  clientId: my_client_id
-  clientSecret: my_other_super_secret_43
-  tokenUri: https://token_uri.com
-  cdfProjectName: my_project
-  scopes: https://scope.com
+authentication:
+  read:
+    clientId: my_client_id
+    clientSecret: my_super_secret_42
+    tokenUri: https://token_uri.com
+    cdfProjectName: my_project
+    scopes: https://scope.com
+  write:
+    clientId: my_client_id
+    clientSecret: my_other_super_secret_43
+    tokenUri: https://token_uri.com
+    cdfProjectName: my_project
+    scopes: https://scope.com
 """,
         {"my_super_secret_42", "my_other_super_secret_43"},
-        id="TransformationLoader with source and destination authentication",
+        id="TransformationLoader with read and write authentication",
     )
 
     yield pytest.param(

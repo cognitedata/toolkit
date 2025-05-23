@@ -283,7 +283,7 @@ Datapoints:
   name: missing
 Destination:
 - credentials:
-    nonce: '123'
+    nonce: dummy-nonce
   externalId: EventHubTarget
   targetDataSetId: 7982613576047462211
 Edge:
@@ -799,26 +799,20 @@ Transformation:
   dataSetId: 7982613576047462211
   destination:
     type: assets
-  destinationOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  destinationNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
   externalId: tr_first_transformation
   ignoreNullFields: true
   isPublic: true
   name: example:first:transformation
   query: "-- cdf-auth: f164c472\nselect\n  cast(`externalId` as STRING) as externalId\n\
     from\n  `db_foo`.`table_foo`;\n-- this is a comment with an ← Unicode character"
-  sourceOidcCredentials:
-    audience: https://bluefield.cognitedata.com
+  sourceNonce:
     cdfProjectName: pytest-project
-    clientId: dummy-123
-    clientSecret: dummy-secret
-    scopes: https://bluefield.cognitedata.com/.default
-    tokenUri: https://login.microsoftonline.com/dummy-domain/oauth2/v2.0/token
+    nonce: dummy-nonce
+    sessionId: 42
 TransformationNotification:
 - destination: jane.smith@example.com
   transformationExternalId: tr_first_transformation

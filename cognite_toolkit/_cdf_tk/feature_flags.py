@@ -28,9 +28,17 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for Atlas Agents and Agent Tools",
     }
+    PROFILE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the profile command",
+    }
     INFIELD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables support for Infield configs",
+    }
+    DUMP_DATA: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Splits the dump command in dump data and dump config",
     }
 
     def is_enabled(self) -> bool:
