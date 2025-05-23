@@ -27,8 +27,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
-from cognite_toolkit._cdf_tk.utils.worker_producer import ProducerWorkerExecutor
 
 
 class DataFinder:
