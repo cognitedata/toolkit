@@ -3,9 +3,10 @@ import importlib.util
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
+from io import TextIOWrapper
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
@@ -13,6 +14,7 @@ from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 if TYPE_CHECKING:
     import pyarrow as pa
+    import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time", "json"]
@@ -34,97 +36,103 @@ class Schema:
     columns: list[SchemaColumn]
 
 
-class TableFileWriter:
+T_IO = TypeVar("T_IO", bound=IO)
+
+
+class TableFileWriter(Generic[T_IO]):
     encoding = "utf-8"
     newline = "\n"
     format: ClassVar[FileFormat]
 
-    # 128 MB
     def __init__(self, schema: Schema, output_dir: Path, max_file_size_bytes: int = 128 * 1024 * 1024) -> None:
         self.max_file_size_bytes = max_file_size_bytes
         self.schema = schema
         self.output_dir = output_dir
         self._file_count = 1
+        self._writer_by_filepath: dict[Path, T_IO] = {}
 
-    @abstractmethod
     def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
         """Write rows to a file."""
-        raise NotImplementedError("This method should be implemented in subclasses.")
-
-    def _get_filepath(self, group: str) -> Path:
-        clean_name = to_directory_compatible(group) if group else "my"
-        file_path = (
-            self.output_dir
-            / self.schema.folder_name
-            / f"part-{self._file_count:04}-{clean_name}.{self.schema.kind}.{self.format}"
-        )
-        if file_path.exists() and file_path.stat().st_size >= self.max_file_size_bytes:
-            self._file_count += 1
-            return self._get_filepath(group)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        return file_path
-
-    @classmethod
-    def load(cls, schema: Schema, output_directory: Path) -> "TableFileWriter":
-        write_cls = _TABLEWRITER_CLASS_BY_FORMAT.get(schema.format_)
-        if write_cls is None:
-            raise ToolkitValueError(
-                f"Unsupported format {schema.format_}. Supported formats are {humanize_collection(_TABLEWRITER_CLASS_BY_FORMAT.keys())}."
-            )
-
-        return write_cls(schema, output_directory)
-
-
-class ParquetWriter(TableFileWriter):
-    format = "parquet"
-
-    def __init__(self, schema: Schema, output_dir: Path) -> None:
-        super().__init__(schema, output_dir)
-        self._check_pyarrow_dependency()
-        import pyarrow as pa
-
-        self.writers: dict[Path, pa.TableWriter] = {}
-
-    def __enter__(self) -> "ParquetWriter":
-        self._file_count = 1
-        return self
-
-    def _get_filepath(self, group: str) -> Path:
-        clean_name = to_directory_compatible(group) if group else "my"
-        file_path = (
-            self.output_dir
-            / self.schema.folder_name
-            / f"part-{self._file_count:04}-{clean_name}.{self.schema.kind}.{self.format}"
-        )
-        if file_path.exists() and file_path.stat().st_size >= self.max_file_size_bytes:
-            self._file_count += 1
-            if file_path in self.writers:
-                self.writers[file_path].close()
-                del self.writers[file_path]
-            return self._get_filepath(group)
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        return file_path
-
-    def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
-        schema = self._create_schema()
-
-        import pyarrow as pa
-        import pyarrow.parquet as pq
-
         for group, group_rows in rows_group_list:
             if not group_rows:
                 continue
-            filepath = self._get_filepath(group)
-            if filepath not in self.writers:
-                self.writers[filepath] = pq.ParquetWriter(filepath, schema)
-            writer = self.writers[filepath]
-            table = pa.Table.from_pylist(group_rows, schema=schema)
-            writer.write_table(table)
+            writer = self._get_writer(group)
+            self._write_rows(writer, group_rows)
+
+    @abstractmethod
+    def _write_rows(self, writer: T_IO, rows: Rows) -> None:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _create_writer(self, filepath: Path) -> T_IO:
+        """Create a writer for the given file path."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    @abstractmethod
+    def _is_above_file_size_limit(self, filepath: Path, writer: T_IO) -> bool:
+        """Check if the file size is above the limit."""
+        raise NotImplementedError("This method should be implemented in subclasses.")
+
+    def __enter__(self) -> "TableFileWriter":
+        self._file_count = 1
+        return self
 
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: Any | None) -> None:
-        for writer in self.writers.values():
+        for writer in self._writer_by_filepath.values():
             writer.close()
-        self.writers.clear()
+        self._writer_by_filepath.clear()
+        return None
+
+    def _get_writer(self, group: str) -> T_IO:
+        clean_name = f"{to_directory_compatible(group)}-" if group else ""
+        file_path = (
+            self.output_dir
+            / self.schema.folder_name
+            / f"{clean_name}part-{self._file_count:04}.{self.schema.kind}.{self.format}"
+        )
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        if file_path not in self._writer_by_filepath:
+            self._writer_by_filepath[file_path] = self._create_writer(file_path)
+        elif self._is_above_file_size_limit(file_path, self._writer_by_filepath[file_path]):
+            self._writer_by_filepath[file_path].close()
+            del self._writer_by_filepath[file_path]
+            self._file_count += 1
+            return self._get_writer(group)
+        return self._writer_by_filepath[file_path]
+
+    @classmethod
+    def get_write_cls(cls, format_: FileFormat) -> "type[TableFileWriter]":
+        """Get the writer class for the given format."""
+        write_cls = _TABLEWRITER_CLASS_BY_FORMAT.get(format_)
+        if write_cls is None:
+            raise ToolkitValueError(
+                f"Unsupported format {format_}. Supported formats are {humanize_collection(_TABLEWRITER_CLASS_BY_FORMAT.keys())}."
+            )
+        return write_cls
+
+
+class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
+    format = "parquet"
+
+    def __init__(self, schema: Schema, output_dir: Path, max_file_size_bytes: int = 128 * 1024 * 1024) -> None:
+        super().__init__(schema, output_dir, max_file_size_bytes)
+        self._check_pyarrow_dependency()
+
+    def _create_writer(self, filepath: Path) -> "pq.ParquetWriter":
+        import pyarrow.parquet as pq
+
+        schema = self._create_schema()
+        return pq.ParquetWriter(filepath, schema)
+
+    def _write_rows(self, writer: "pq.ParquetWriter", rows: Rows) -> None:
+        import pyarrow as pa
+
+        schema = self._create_schema()
+        table = pa.Table.from_pylist(rows, schema=schema)
+        writer.write_table(table)
+
+    def _is_above_file_size_limit(self, filepath: Path, writer: "pq.ParquetWriter") -> bool:
+        return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
 
     @lru_cache(maxsize=1)
     def _create_schema(self) -> "pa.Schema":
@@ -170,31 +178,48 @@ class ParquetWriter(TableFileWriter):
             raise ToolkitValueError(f"Unsupported data type {type_}.")
 
 
-class CSVWriter(TableFileWriter):
+class CSVWriter(TableFileWriter[TextIOWrapper]):
     format = "csv"
 
-    def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
-        for group, group_rows in rows_group_list:
-            if not group_rows:
-                continue
-            filepath = self._get_filepath(group)
-            with filepath.open("a", encoding=self.encoding, newline=self.newline) as f:
-                writer = csv.DictWriter(f, fieldnames=[col.name for col in self.schema.columns], extrasaction="ignore")
-                if filepath.stat().st_size == 0:
-                    writer.writeheader()
-                writer.writerows(group_rows)
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        stream = filepath.open("a", encoding=self.encoding, newline=self.newline)
+        writer = self._create_dict_writer(stream)
+        if filepath.stat().st_size == 0:
+            writer.writeheader()
+        return stream
+
+    def _is_above_file_size_limit(self, filepath: Path, writer: TextIOWrapper) -> bool:
+        current_position = writer.tell()
+        writer.seek(0, 2)
+        if writer.tell() > self.max_file_size_bytes:
+            return True
+        writer.seek(current_position)
+        return False
+
+    def _write_rows(self, writer: TextIOWrapper, rows: Rows) -> None:
+        dict_writer = self._create_dict_writer(writer)
+        dict_writer.writerows(rows)
+
+    def _create_dict_writer(self, writer: TextIOWrapper) -> csv.DictWriter:
+        return csv.DictWriter(writer, fieldnames=[col.name for col in self.schema.columns], extrasaction="ignore")
 
 
-class YAMLWriter(TableFileWriter):
+class YAMLWriter(TableFileWriter[TextIOWrapper]):
     format = "yaml"
 
-    def write_rows(self, rows_group_list: list[tuple[str, Rows]]) -> None:
-        for group, group_rows in rows_group_list:
-            if not group_rows:
-                continue
-            filepath = self._get_filepath(group)
-            with filepath.open("a", encoding=self.encoding, newline=self.newline) as f:
-                f.write(yaml_safe_dump(group_rows))
+    def _create_writer(self, filepath: Path) -> TextIOWrapper:
+        return filepath.open("a", encoding=self.encoding, newline=self.newline)
+
+    def _is_above_file_size_limit(self, filepath: Path, writer: TextIOWrapper) -> bool:
+        current_position = writer.tell()
+        writer.seek(0, 2)
+        if writer.tell() > self.max_file_size_bytes:
+            return True
+        writer.seek(current_position)
+        return False
+
+    def _write_rows(self, writer: TextIOWrapper, rows: Rows) -> None:
+        writer.write(yaml_safe_dump(rows))
 
 
 _TABLEWRITER_CLASS_BY_FORMAT: MappingProxyType[str, type[TableFileWriter]] = MappingProxyType(

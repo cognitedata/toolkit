@@ -3,7 +3,13 @@ from pathlib import Path
 import pyarrow.parquet as pq
 import pytest
 
-from cognite_toolkit._cdf_tk.utils.table_writers import CSVWriter, ParquetWriter, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.table_writers import (
+    CSVWriter,
+    ParquetWriter,
+    Schema,
+    SchemaColumn,
+    YAMLWriter,
+)
 
 
 @pytest.fixture()
@@ -24,10 +30,10 @@ def example_schema() -> Schema:
 class TestTableFileWriter:
     def test_write_csv(self, example_schema: Schema, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
-        writer = TableFileWriter.load(example_schema, output_dir)
 
-        writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-        writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+        with CSVWriter(example_schema, output_dir) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
 
         csv_file = list(output_dir.rglob("*.csv"))
         assert len(csv_file) == 1
@@ -37,10 +43,10 @@ class TestTableFileWriter:
     def test_write_yaml(self, example_schema: Schema, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         example_schema.format_ = "yaml"
-        writer = TableFileWriter.load(example_schema, output_dir)
 
-        writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-        writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+        with YAMLWriter(example_schema, output_dir) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
 
         yaml_file = list(output_dir.rglob("*.yaml"))
         assert len(yaml_file) == 1
@@ -64,10 +70,27 @@ class TestTableFileWriter:
 
     def test_write_csv_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
-        writer = CSVWriter(example_schema, output_dir, max_file_size_bytes=1)
-
-        writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-        writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+        with CSVWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
 
         csv_files = list(output_dir.rglob("*.csv"))
         assert len(csv_files) == 2
+
+    def test_write_parquet_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
+        output_dir = tmp_path / "output"
+        with ParquetWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+
+        parquet_files = list(output_dir.rglob("*.parquet"))
+        assert len(parquet_files) == 2
+
+    def test_write_yaml_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
+        output_dir = tmp_path / "output"
+        with YAMLWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
+            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
+            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+
+        yaml_files = list(output_dir.rglob("*.yaml"))
+        assert len(yaml_files) == 2
