@@ -1,5 +1,6 @@
 import csv
 import importlib.util
+import json
 from abc import abstractmethod
 from dataclasses import dataclass
 from functools import lru_cache
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
-DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time"]
+DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time", "json"]
 Rows: TypeAlias = list[dict[str, Any]]
 
 
@@ -128,12 +129,22 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
     def _write_rows(self, writer: "pq.ParquetWriter", rows: Rows) -> None:
         import pyarrow as pa
 
-        schema = self._create_schema()
-        table = pa.Table.from_pylist(rows, schema=schema)
+        if json_columns := self._json_columns():
+            for row in rows:
+                json_values = set(row.keys()) & json_columns
+                for col in json_values:
+                    row[col] = json.dumps(row[col])
+
+        table = pa.Table.from_pylist(rows, schema=self._create_schema())
         writer.write_table(table)
 
     def _is_above_file_size_limit(self, filepath: Path, writer: "pq.ParquetWriter") -> bool:
         return filepath.exists() and filepath.stat().st_size > self.max_file_size_bytes
+
+    @lru_cache(maxsize=1)
+    def _json_columns(self) -> set[str]:
+        """Check if the writer supports JSON format."""
+        return {col.name for col in self.schema.columns if col.type == "json"}
 
     @lru_cache(maxsize=1)
     def _create_schema(self) -> "pa.Schema":
@@ -173,6 +184,8 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
             pa_type = pa.date32()
         elif type_ == "time":
             pa_type = pa.time64("ms")
+        elif type_ == "json":
+            pa_type = pa.string()
         else:
             raise ToolkitValueError(f"Unsupported data type {type_}.")
 
