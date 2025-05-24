@@ -48,9 +48,9 @@ def test_inject_custom_environmental_variables(
     organization_dir: Path,
 ) -> None:
     config_yaml = yaml.safe_load((organization_dir / "config.dev.yaml").read_text())
-    config_yaml["variables"]["modules"]["infield"]["cicd_clientId"] = "${MY_ENVIRONMENT_VARIABLE}"
-    # Selecting a module with a transformation that uses the cicd_clientId variable
-    config_yaml["environment"]["selected"] = ["cdf_infield_location"]
+    config_yaml["variables"]["modules"]["cdf_common"]["dataset"] = "${MY_ENVIRONMENT_VARIABLE}"
+    # Selecting the cdf_common module to be built
+    config_yaml["environment"]["selected"] = ["cdf_common"]
     config_yaml["environment"]["project"] = "pytest"
     mock_read_yaml_file(
         {
@@ -81,8 +81,8 @@ def test_inject_custom_environmental_variables(
         force_update=False,
     )
 
-    transformation = toolkit_client_approval.created_resources_of_type(Transformation)[0]
-    assert transformation.source_oidc_credentials.client_id == "my_environment_variable_value"
+    dataset = toolkit_client_approval.created_resources_of_type(DataSet)[0]
+    assert dataset.external_id == "my_environment_variable_value"
 
 
 def test_duplicated_modules(build_tmp_path: Path) -> None:
