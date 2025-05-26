@@ -166,20 +166,33 @@ def read_auth(
 
 
 def metadata_key_counts(
-    client: ToolkitClient, resource: Literal["assets", "events", "files", "timeseries", "sequences"]
-) -> list[dict[str, int | str]]:
+    client: ToolkitClient,
+    resource: Literal["assets", "events", "files", "timeseries", "sequences"],
+    data_sets: list[int] | None = None,
+    hierarchies: list[int] | None = None,
+) -> list[tuple[str, int]]:
     """Get the metadata key counts for a given resource.
 
     Args:
         client: ToolkitClient instance
         resource: The resource to get the metadata key counts for. Can be one of "assets", "events", "files", "timeseries", or "sequences".
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+        hierarchies: A list of hierarchy IDs to filter by. If None, no filtering is applied.
 
     Returns:
         A dictionary with the metadata keys as keys and the counts as values.
     """
+    where_clause = ""
+    if data_sets is not None and hierarchies is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))}) AND rootId IN ({','.join(map(str, hierarchies))})"
+    elif data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+    elif hierarchies is not None:
+        where_clause = f"\n         WHERE rootId IN ({','.join(map(str, hierarchies))})"
+
     query = f"""WITH meta AS (
          SELECT cast_to_strings(metadata) AS metadata_array
-         FROM _cdf.{resource}
+         FROM _cdf.{resource}{where_clause}
        ),
        exploded AS (
          SELECT explode(metadata_array) AS json_str
@@ -202,8 +215,8 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
-    return results.results or []
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    return [(item["key"], item["key_count"]) for item in results.results or []]
 
 
 def label_count(
