@@ -1,3 +1,0 @@
-space: {{ schemaSpace }}
-description: Space for storing 3D scene data model and instances
-name: {{ schemaSpace }}
