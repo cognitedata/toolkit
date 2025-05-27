@@ -18,9 +18,8 @@ from .groups import GroupYAML
 from .labels import LabelsYAML
 from .location import LocationYAML
 from .raw_database_table import DatabaseYAML, TableYAML
-from .securitycategories import SecuritytCategoriesYAML
+from .securitycategories import SecurityCategoriesYAML
 from .space import SpaceYAML
-from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
 from .transformation_schedule import TransformationScheduleYAML
 from .transformations import TransformationYAML
@@ -37,12 +36,11 @@ __all__ = [
     "GroupYAML",
     "LabelsYAML",
     "LocationYAML",
-    "SecuritytCategoriesYAML",
+    "SecurityCategoriesYAML",
     "SpaceYAML",
     "TableYAML",
-    "ThreeDModelYAML",
     "TimeSeriesYAML",
     "ToolkitResource",
-    "TransformationScheduleYAML",
     "TransformationYAML",
+    "TransformationScheduleYAML",
 ]
