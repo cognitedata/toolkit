@@ -139,7 +139,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
-        root_hash = calculate_directory_hash(function_rootdir, ignore_files={".pyc"}, shorten=True)
+        root_hash = calculate_directory_hash(
+            function_rootdir, exclude_prefixes={".DS_Store"}, ignore_files={".pyc"}, shorten=True
+        )
         hash_value = f"/={root_hash}"
         to_search = [function_rootdir]
         while to_search:
@@ -149,6 +151,8 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     to_search.append(file)
                     continue
                 elif file.is_file() and file.suffix == ".pyc":
+                    continue
+                elif file.is_file() and file.name == ".DS_Store":
                     continue
                 file_hash = calculate_str_or_file_hash(file, shorten=True)
                 new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
@@ -411,7 +415,13 @@ class FunctionScheduleLoader(
         # is used to compare with the CDF resource.
         for resource in resources:
             identifier = self.get_id(resource)
-            credentials = read_auth(identifier, resource, self.client, "function schedule", self.console)
+            credentials = read_auth(
+                resource.get("authentication"),
+                self.client.config,
+                identifier,
+                "function schedule",
+                console=self.console,
+            )
             self.authentication_by_id[identifier] = credentials
             auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
             extra_str = f" {self._hash_key}: {auth_hash}"

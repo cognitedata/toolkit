@@ -1,3 +1,0 @@
-dbName: {{ rawSourceDatabase }}
-tableName: worktask
-
