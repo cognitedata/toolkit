@@ -589,7 +589,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             #   The child will get the grandparent's source, not the parent's.
             # We sort the implements in topological order to ensure that the child view get the order grandparent,
             # parent, such that the parent's source is used.
-            dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+            try:
+                dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+            except ToolkitCycleError as e:
+                warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
+                warning.print_warning(console=self.console)
 
         local_properties = local.get("properties", {})
         for prop_id, prop in dumped.get("properties", {}).items():
@@ -846,9 +850,31 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def as_str(cls, id: ViewId) -> str:
         return to_directory_compatible(id.external_id)
 
+    def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, View]:
+        """Looks up views by their IDs and caches them."""
+        missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
+        if missing_ids:
+            retrieved_views = self.client.data_modeling.views.retrieve(missing_ids, all_versions=False)
+            for view in retrieved_views:
+                self._view_by_id[view.as_id()] = view
+        return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
+
     def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
         """Sorts the views in topological order based on their implements and through properties."""
-        raise NotImplementedError()
+        view_by_ids = self._lookup_views(view_ids)
+        parents_by_child: dict[ViewId, set[ViewId]] = {}
+        for child, view in view_by_ids.items():
+            parents_by_child[child] = set()
+            for parent in view.implements or []:
+                parents_by_child[child].add(parent)
+        try:
+            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+            )
+
+        return sorted_views
 
 
 @final
