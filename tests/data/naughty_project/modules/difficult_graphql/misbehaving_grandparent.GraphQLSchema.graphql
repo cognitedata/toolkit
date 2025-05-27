@@ -7,7 +7,7 @@ type ScalarPropertyType implements PropertyType{
   defaultValue: Float
 }
 
-interface Property @view(version: "1_7") {
+interface Property {
   name: String!
   source: String!
   isWellKnownSource: Boolean!
@@ -21,8 +21,7 @@ interface ScalarProperty implements Property {
   propertyType: ScalarPropertyType
 }
 
-type NumericProperty implements ScalarProperty & Property
-  @view(version: "1_0") {
+type NumericProperty implements ScalarProperty & Property {
   name: String!
   source: String!
   isWellKnownSource: Boolean!
