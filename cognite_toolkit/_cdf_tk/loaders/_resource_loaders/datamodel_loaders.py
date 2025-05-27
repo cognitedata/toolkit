@@ -494,7 +494,11 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     _doc_url = "Views/operation/ApplyViews"
 
     def __init__(
-        self, client: ToolkitClient, build_dir: Path, console: Console | None, topological_sort_implements: bool = False
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None,
+        topological_sort_implements: bool = False,
     ) -> None:
         super().__init__(client, build_dir, console)
         self._topological_sort_implements = topological_sort_implements
