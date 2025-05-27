@@ -1,0 +1,7 @@
+space: sp_schema
+externalId: MisbehavingGrandparent
+version: v1
+name: Misbehaving Grandparent
+description: A GraphQL schema that causes cdf dump datamodel to create an invalid datamodel.
+dml: misbehaving_grandparent.graphql
+preserveDml: true

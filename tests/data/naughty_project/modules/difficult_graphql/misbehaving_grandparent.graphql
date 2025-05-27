@@ -1,0 +1,31 @@
+interface PropertyType {
+  name: String!
+}
+
+type ScalarPropertyType implements PropertyType{
+  name: String!
+  defaultValue: Float
+}
+
+interface Property @view(version: "1_7") {
+  name: String!
+  source: String!
+  isWellKnownSource: Boolean!
+  propertyType: PropertyType
+}
+
+interface ScalarProperty implements Property {
+  name: String!
+  source: String!
+  isWellKnownSource: Boolean!
+  propertyType: ScalarPropertyType
+}
+
+type NumericProperty implements ScalarProperty & Property
+  @view(version: "1_0") {
+  name: String!
+  source: String!
+  isWellKnownSource: Boolean!
+  propertyType: ScalarPropertyType
+  unit_external_id: String
+}
