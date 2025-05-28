@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -39,7 +40,10 @@ class CoreApp(typer.Typer):
     def __init__(self, *args, **kwargs) -> None:  # type: ignore
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.common)
-        self.command()(self.build)
+        if Flags.EXIT_ON_WARNING.is_enabled():
+            self.command(name="build")(self.build_with_exit_on_warning_flag)
+        else:
+            self.command()(self.build)
         self.command()(self.deploy)
         self.command()(self.clean)
 
@@ -208,6 +212,104 @@ class CoreApp(typer.Typer):
                 on_error="raise",
             )
         )
+
+    def build_with_exit_on_warning_flag(
+        self,
+        ctx: typer.Context,
+        organization_dir: Annotated[
+            Path,
+            typer.Option(
+                "--organization-dir",
+                "-o",
+                help="Where to find the module templates to build from",
+            ),
+        ] = CDF_TOML.cdf.default_organization_dir,
+        build_dir: Annotated[
+            Path,
+            typer.Option(
+                "--build-dir",
+                "-b",
+                help="Where to save the built module files",
+            ),
+        ] = Path("./build"),
+        selected: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--modules",
+                "-m",
+                help="Specify paths or names to the modules to build",
+            ),
+        ] = None,
+        build_env_name: Annotated[
+            Optional[str],
+            typer.Option(
+                "--env",
+                "-e",
+                help="The name of the environment to build",
+            ),
+        ] = CDF_TOML.cdf.default_env,
+        no_clean: Annotated[
+            bool,
+            typer.Option(
+                "--no-clean",
+                "-c",
+                help="Whether not to delete the build directory before building the configurations",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+        offline: Annotated[
+            bool,
+            typer.Option(
+                "--offline",
+                help="Do not check CDF for missing dependencies.",
+            ),
+        ] = False,
+        exit_on_warning: Annotated[
+            bool,
+            typer.Option(
+                "--exit-non-zero-on-warning",
+                "-w",
+                help="Exit with non-zero code on warning.",
+            ),
+        ] = False,
+    ) -> None:
+        """Build configuration files from the modules to the build directory."""
+        client: Union[ToolkitClient, None] = None
+        if not offline:
+            with contextlib.redirect_stdout(None), contextlib.suppress(Exception):
+                # Remove the Error message from failing to load the config
+                # This is verified in check_auth
+                client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = BuildCommand(print_warning=not exit_on_warning)
+        cmd.run(
+            lambda: cmd.execute(
+                verbose,
+                organization_dir,
+                build_dir,
+                selected,  # type: ignore[arg-type]
+                build_env_name,
+                no_clean,
+                client,
+                on_error="raise",
+            )
+        )
+
+        if Flags.EXIT_ON_WARNING.is_enabled() and exit_on_warning and cmd.warning_list:
+            print("\n[bold red]Warnings raised during the build process:[/]\n")
+
+            for warning in cmd.warning_list:
+                warning.print_warning(include_timestamp=False)
+                print(end="\n")
+
+            raise typer.Exit(code=1)
 
     def deploy(
         self,

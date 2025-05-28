@@ -99,7 +99,12 @@ from cognite_toolkit._version import __version__
 
 
 class BuildCommand(ToolkitCommand):
-    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+    def __init__(
+        self,
+        print_warning: bool = True,
+        skip_tracking: bool = False,
+        silent: bool = False,
+    ) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.existing_resources_by_loader: dict[type[ResourceLoader], set[Hashable]] = defaultdict(set)
         self.instantiated_loaders: dict[type[ResourceLoader], ResourceLoader] = {}
