@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.asset import AssetYAML
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML
 from tests.test_unit.utils import find_resources
 
 

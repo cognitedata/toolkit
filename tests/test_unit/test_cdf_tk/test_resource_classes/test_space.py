@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.space import SpaceYAML
+from cognite_toolkit._cdf_tk.resource_classes import SpaceYAML
 from tests.test_unit.utils import find_resources
 
 
