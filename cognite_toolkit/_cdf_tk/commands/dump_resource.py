@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator
+from functools import cached_property
 from pathlib import Path
 from typing import Generic, cast
 
@@ -32,6 +33,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -42,6 +44,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
     GroupLoader,
+    LocationFilterLoader,
     NodeLoader,
     ResourceLoader,
     SpaceLoader,
@@ -365,6 +368,37 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
                     typer.Exit(0)
         nodes = dm.NodeList[dm.Node](list(loader.iterate()))
         yield [], nodes, loader, None
+
+
+class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
+    @cached_property
+    def all_filters(self) -> LocationFilterList:
+        return self.client.location_filters.list()
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        filters = self.all_filters
+        if not filters:
+            raise ToolkitMissingResourceError("No filters found")
+        id_by_display_name = {f"{filter.name} ({filter.external_id})": filter.external_id for filter in filters}
+        return tuple(
+            questionary.checkbox(
+                "Which filters would you like to dump?",
+                choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
+            ).ask()
+        )
+
+    def _get_filters(self, identifiers: tuple[str, ...]) -> LocationFilterList:
+        if not identifiers:
+            return self.all_filters
+        filters = [f for f in self.all_filters if f.external_id in identifiers]
+        if not filters:
+            raise ToolkitResourceMissingError(f"Location filters {identifiers} not found", str(identifiers))
+        return LocationFilterList(filters)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self.identifier or self._interactive_select()
+        filters = self._get_filters(self.identifier)
+        yield [], filters, LocationFilterLoader.create_loader(self.client), None
 
 
 class DumpResourceCommand(ToolkitCommand):
