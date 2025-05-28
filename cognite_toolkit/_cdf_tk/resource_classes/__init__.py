@@ -20,6 +20,7 @@ from .location import LocationYAML
 from .raw_database_table import DatabaseYAML, TableYAML
 from .securitycategories import SecurityCategoriesYAML
 from .space import SpaceYAML
+from .threedmodels import ThreeDModelYAML
 from .timeseries import TimeSeriesYAML
 from .transformation_schedule import TransformationScheduleYAML
 from .transformations import TransformationYAML
@@ -39,8 +40,9 @@ __all__ = [
     "SecurityCategoriesYAML",
     "SpaceYAML",
     "TableYAML",
+    "ThreeDModelYAML",
     "TimeSeriesYAML",
     "ToolkitResource",
-    "TransformationYAML",
     "TransformationScheduleYAML",
+    "TransformationYAML",
 ]
