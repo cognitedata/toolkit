@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.functions import FunctionsYAML
+from cognite_toolkit._cdf_tk.resource_classes import FunctionsYAML
 from tests.test_unit.utils import find_resources
 
 
