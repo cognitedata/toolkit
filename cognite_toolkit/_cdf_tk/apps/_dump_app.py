@@ -60,6 +60,8 @@ class DumpConfigApp(typer.Typer):
         self.command("transformation")(self.dump_transformation)
         self.command("group")(self.dump_group)
         self.command("node")(self.dump_node)
+        if Flags.DUMP_EXTENDED.is_enabled():
+            self.command("location-filters")(self.dump_location_filters)
 
     @staticmethod
     def dump_config_main(ctx: typer.Context) -> None:
