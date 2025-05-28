@@ -14,6 +14,7 @@ from cognite_toolkit._cdf_tk.commands.dump_data import (
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     GroupFinder,
+    LocationFilterFinder,
     NodeFinder,
     TransformationFinder,
     WorkflowFinder,
@@ -340,6 +341,54 @@ class DumpConfigApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_to_yamls(
                 NodeFinder(client, selected_view_id),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_location_filters(
+        ctx: typer.Context,
+        external_id: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="The external IDs of the location filters you want to dump. You can provide multiple external IDs separated by spaces. "
+                "If nothing is provided, an interactive prompt will be shown to select the location filters.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the location filters.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the location filters.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected location filters as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                LocationFilterFinder(client, tuple(external_id) if external_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
