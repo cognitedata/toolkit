@@ -493,10 +493,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None,
+        topological_sort_implements: bool = False,
+    ) -> None:
         super().__init__(client, build_dir, console)
-        # Caching to avoid multiple lookups on the same interfaces.
-        self._interfaces_by_id: dict[ViewId, View] = {}
+        self._topological_sort_implements = topological_sort_implements
+        self._view_by_id: dict[ViewId, View] = {}
 
     @property
     def display_name(self) -> str:
@@ -578,6 +584,21 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             dumped.pop("properties", None)
         if not dumped.get("implements") and not local.get("implements"):
             dumped.pop("implements", None)
+        if resource.implements and len(resource.implements) > 1 and self._topological_sort_implements:
+            # This is a special case that we want to do when we run the cdf dump datamodel command.
+            # The issue is as follows:
+            # 1. If a data model is deployed through GraphQL, the implements for a child view are sorted
+            #   from parent, grandparent, etc.
+            # 2. If the grand parent has a direct relation that the parent overwrites to update the source.
+            #   The child will get the grandparent's source, not the parent's.
+            # We sort the implements in topological order to ensure that the child view get the order grandparent,
+            # parent, such that the parent's source is used.
+            try:
+                dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+            except ToolkitCycleError as e:
+                warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
+                warning.print_warning(console=self.console)
+
         local_properties = local.get("properties", {})
         for prop_id, prop in dumped.get("properties", {}).items():
             if prop_id not in local_properties:
@@ -832,6 +853,32 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     @classmethod
     def as_str(cls, id: ViewId) -> str:
         return to_directory_compatible(id.external_id)
+
+    def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, View]:
+        """Looks up views by their IDs and caches them."""
+        missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
+        if missing_ids:
+            retrieved_views = self.client.data_modeling.views.retrieve(missing_ids, all_versions=False)
+            for view in retrieved_views:
+                self._view_by_id[view.as_id()] = view
+        return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
+
+    def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
+        """Sorts the views in topological order based on their implements and through properties."""
+        view_by_ids = self._lookup_views(view_ids)
+        parents_by_child: dict[ViewId, set[ViewId]] = {}
+        for child, view in view_by_ids.items():
+            parents_by_child[child] = set()
+            for parent in view.implements or []:
+                parents_by_child[child].add(parent)
+        try:
+            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+            )
+
+        return sorted_views
 
 
 @final

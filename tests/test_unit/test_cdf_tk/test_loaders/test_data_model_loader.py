@@ -7,9 +7,10 @@ import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader, ResourceWorker
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader
+from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader, ViewLoader
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
@@ -194,3 +195,63 @@ dml: model.graphql
 
         yaml_file.with_suffix.return_value = graphql_file
         return yaml_file
+
+
+@pytest.fixture()
+def parent_grandparent_view() -> dm.ViewlList:
+    return dm.ViewList(
+        [
+            dm.View(
+                space="space",
+                external_id="Parent",
+                version="v1",
+                name="Parent",
+                description=None,
+                implements=[dm.ViewId("space", "GrandParent", "v1")],
+                properties={},
+                last_updated_time=1,
+                created_time=1,
+                filter=None,
+                writable=True,
+                used_for="node",
+                is_global=False,
+            ),
+            dm.View(
+                space="space",
+                external_id="GrandParent",
+                version="v1",
+                name="GrandParent",
+                description=None,
+                implements=[],
+                properties={},
+                last_updated_time=1,
+                created_time=1,
+                filter=None,
+                writable=True,
+                used_for="node",
+                is_global=False,
+            ),
+        ]
+    )
+
+
+class TestViewLoader:
+    def test_topological_sorting(self, parent_grandparent_view: dm.ViewList) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            actual = loader.topological_sort(
+                [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
+            )
+
+        assert actual == [dm.ViewId("space", "GrandParent", "v1"), dm.ViewId("space", "Parent", "v1")]
+
+    def test_topological_sorting_cycle(self, parent_grandparent_view: dm.ViewList) -> None:
+        parent_grandparent_view[1].implements = [parent_grandparent_view[0].as_id()]
+
+        with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
+            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader.topological_sort([dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")])
+
+        assert "cycle in implements" in str(exc_info.value)

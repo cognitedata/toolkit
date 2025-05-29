@@ -168,7 +168,7 @@ class DataModelFinder(ResourceFinder[DataModelId]):
             yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
             yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
         else:
-            view_loader = ViewLoader.create_loader(self.client)
+            view_loader = ViewLoader(self.client, None, None, topological_sort_implements=True)
             views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
             yield [], views, view_loader, "views"
             container_loader = ContainerLoader.create_loader(self.client)
