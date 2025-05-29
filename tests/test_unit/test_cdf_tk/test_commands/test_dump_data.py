@@ -134,3 +134,39 @@ class TestDumpData:
 
         dataset_yaml = next(output_dir.rglob("*DataSet.yaml"))
         assert read_yaml_file(dataset_yaml) == [dataset.as_write().dump()]
+
+    def test_dump_timeseries_in_parallel(self, tmp_path: Path) -> None:
+        my_timeseries_list = [
+            TimeSeries(
+                external_id=f"my_timeseries_{i}",
+                name=f"My TimeSeries {i}",
+                is_string=False,
+                is_step=False,
+            )
+            for i in range(10)
+        ]
+        cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
+        output_dir = tmp_path / "timeseries_dump"
+        with monkeypatch_toolkit_client() as client:
+            client.time_series.return_value = [TimeSeriesList([ts]) for ts in my_timeseries_list]
+            # The iteration count is the number of timeseries / 1000
+            client.time_series.aggregate_count.return_value = 100_000
+            client.transformations.preview.return_value = TransformationPreviewResult(None, [])
+
+            cmd.dump_table(
+                TimeSeriesFinder(client, [], ["doesn't matter"]),
+                output_dir,
+                clean=True,
+                limit=None,
+                format_="csv",
+                verbose=False,
+                parallel_threshold=2,
+                max_queue_size=4,
+            )
+
+        output_csvs = list(output_dir.rglob("*.csv"))
+        assert len(output_csvs) == 1
+        output_csv = output_csvs[0]
+        assert output_csv.read_text().splitlines() == [
+            "externalId,name,isString,unit,unitExternalId,assetExternalId,isStep,description,dataSetExternalId,securityCategories",
+        ] + [f"my_timeseries_{i},My TimeSeries {i},False,,,,False,,," for i in range(10)]
