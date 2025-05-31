@@ -25,6 +25,7 @@ dependencies = [
     "pydantic >=2.11.0",
     # Pip is used in the cognite run function local
     "pip>=25.0.1",
+    "notebook>=7.4.3",
 ]
 
 [project.urls]
