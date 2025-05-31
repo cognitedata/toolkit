@@ -48,13 +48,19 @@ class DataFinder:
 class CanvasFinder(DataFinder):
     """A finder that is used to find Canvas and all data related to it."""
 
+    supported_formats = frozenset({"csv", "parquet"})
     data_model_id = DataModelId("cdf_industrial_canvas", "IndustrialCanvas", "v7")
     canvas_view_external_id = "Canvas"
     instance_space: ClassVar[str] = "IndustrialCanvasInstanceSpace"
 
-    def __init__(self, client: ToolkitClient, external_ids: list[str] | None = None) -> None:
+    def __init__(self, client: ToolkitClient, names: list[str] | None = None) -> None:
         self.client = client
-        self.external_ids = external_ids
+        self.names = names
+        # Flags: public/private, all-versions, user, name
+        # Notes on Canvas UI in Fusion:
+        # - The Canvas filter for public, isArchived set to null or False,
+        #   sourceCanvasId is null, and space equal to "IndustrialCanvasInstanceSpace".
+        # - There is data from a SharedCogniteApps/versions/v1/graphql and a RulesInstanceSpace.
 
     def create_iterators(
         self, format_: FileFormat, limit: int | None
@@ -69,6 +75,7 @@ class CanvasFinder(DataFinder):
         if self.canvas_view_external_id not in view_by_external_id:
             raise ToolkitValueError("Invalid Canvas Model could not find the Canvas view.")
         canvas_view = view_by_external_id[self.canvas_view_external_id]
+
         retrieved_canvases = self.client.data_modeling.instances.list(
             instance_type="node", sources=[canvas_view.as_id()], space=self.instance_space, limit=limit
         )
