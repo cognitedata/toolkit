@@ -1,9 +1,9 @@
 from pydantic import Field, field_validator
 
-from .base import ToolkitResource
+from cognite_toolkit._cdf_tk.constants import FORBIDDEN_SPACES, SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
-SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
-FORBIDDEN_SPACES = {"space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"}
+from .base import ToolkitResource
 
 
 class SpaceYAML(ToolkitResource):
@@ -21,5 +21,5 @@ class SpaceYAML(ToolkitResource):
     def check_forbidden_space_value(cls, val: str) -> str:
         """Check the space name not present in forbidden set"""
         if val in FORBIDDEN_SPACES:
-            raise ValueError(f"'{val}' is a reserved space. Reserved Spaces: {', '.join(FORBIDDEN_SPACES)}")
+            raise ValueError(f"'{val}' is a reserved space. Reserved Spaces: {humanize_collection(FORBIDDEN_SPACES)}")
         return val
