@@ -136,7 +136,7 @@ class TestTableFileWriter:
             for single_row in example_data:
                 writer.write_rows([("group1", [single_row])])
 
-        csv_files = list(output_dir.rglob("*.csv"))
+        csv_files = sorted(output_dir.rglob("*.csv"))
         assert len(csv_files) == len(example_data)
         # Each row should be written to a separate file due to the size limit
         for csv_file, row in zip(csv_files, example_data):
@@ -154,7 +154,7 @@ class TestTableFileWriter:
             for single_row in example_data:
                 writer.write_rows([("group1", [single_row])])
 
-        parquet_files = list(output_dir.rglob("*.parquet"))
+        parquet_files = sorted(output_dir.rglob("*.parquet"))
         assert len(parquet_files) == len(example_data)
         # Each row should be written to a separate file due to the size limit
         for parquet_file, row in zip(parquet_files, example_data):
@@ -168,7 +168,7 @@ class TestTableFileWriter:
             for single_row in example_data:
                 writer.write_rows([("group1", [single_row])])
 
-        yaml_files = list(output_dir.rglob("*.yaml"))
+        yaml_files = sorted(output_dir.rglob("*.yaml"))
         assert len(yaml_files) == len(example_data)
         for yaml_file, row in zip(yaml_files, example_data):
             with yaml_file.open("r", encoding="utf-8") as f:
