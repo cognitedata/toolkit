@@ -130,29 +130,47 @@ class TestTableFileWriter:
         actual_data = table.to_pylist()
         assert actual_data == example_data
 
-    def test_write_csv_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
+    def test_write_csv_above_limit(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         with CSVWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
-            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+            for single_row in example_data:
+                writer.write_rows([("group1", [single_row])])
 
         csv_files = list(output_dir.rglob("*.csv"))
-        assert len(csv_files) == 2
+        assert len(csv_files) == len(example_data)
+        # Each row should be written to a separate file due to the size limit
+        for csv_file, row in zip(csv_files, example_data):
+            with csv_file.open("r", newline="") as f:
+                reader = csv.reader(f)
+                header = next(reader)
+                actual_row = dict(zip(header, next(reader)))
+                # csv writer stringifies all values, so we convert them back to their original types.
+                expected_row = {key: str(value if value is not None else "") for key, value in row.items()}
+                assert actual_row == expected_row
 
-    def test_write_parquet_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
+    def test_write_parquet_above_limit(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         with ParquetWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
-            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+            for single_row in example_data:
+                writer.write_rows([("group1", [single_row])])
 
         parquet_files = list(output_dir.rglob("*.parquet"))
-        assert len(parquet_files) == 2
+        assert len(parquet_files) == len(example_data)
+        # Each row should be written to a separate file due to the size limit
+        for parquet_file, row in zip(parquet_files, example_data):
+            table = pq.read_table(parquet_file)
+            assert table.num_rows == 1
+            assert table.to_pylist() == [row]
 
-    def test_write_yaml_above_limit(self, example_schema: Schema, tmp_path: Path) -> None:
+    def test_write_yaml_above_limit(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         with YAMLWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
-            writer.write_rows([("group1", [{"column1": "value1", "column2": 1, "column3": 1.0}])])
-            writer.write_rows([("group1", [{"column1": "value2", "column3": 2.0}])])
+            for single_row in example_data:
+                writer.write_rows([("group1", [single_row])])
 
         yaml_files = list(output_dir.rglob("*.yaml"))
-        assert len(yaml_files) == 2
+        assert len(yaml_files) == len(example_data)
+        for yaml_file, row in zip(yaml_files, example_data):
+            with yaml_file.open("r", encoding="utf-8") as f:
+                actual_data = yaml.safe_load(f)
+                assert actual_data == [row]
