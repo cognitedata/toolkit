@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
-DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time", "json"]
+DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json"]
 Rows: TypeAlias = list[dict[str, str | int | float | bool | datetime | date | object | list | None]]
 
 
@@ -28,6 +28,10 @@ class SchemaColumn:
     name: str
     type: DataType
     is_array: bool = False
+
+    def __post_init__(self) -> None:
+        if self.type == "json" and self.is_array:
+            raise ValueError("JSON columns cannot be arrays. Use 'is_array=False' for JSON columns.")
 
 
 @dataclass
