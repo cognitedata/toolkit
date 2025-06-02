@@ -3,6 +3,7 @@ import importlib.util
 import json
 from abc import abstractmethod
 from dataclasses import dataclass
+from datetime import date, datetime
 from functools import lru_cache
 from io import TextIOWrapper
 from pathlib import Path
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
 DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "datetime", "date", "time", "json"]
-Rows: TypeAlias = list[dict[str, Any]]
+Rows: TypeAlias = list[dict[str, str | int | float | bool | datetime | date | object | list | None]]
 
 
 @dataclass
