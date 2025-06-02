@@ -163,7 +163,7 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
     def _check_pyarrow_dependency() -> None:
         if importlib.util.find_spec("pyarrow") is None:
             raise ToolkitMissingDependencyError(
-                "Writing to parquet requires pyarrow. Install with 'pip install cognite-toolkit[table]'"
+                "Writing to parquet requires pyarrow. Install with 'pip install \"cognite-toolkit[table]\"'"
             )
 
     @staticmethod

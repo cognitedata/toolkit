@@ -222,7 +222,7 @@ def _validate_entries(items: list[marko.element.Element], section: str) -> None:
     if (
         isinstance(items[0], marko.block.Paragraph)
         and isinstance(items[0].children[0], marko.inline.RawText)
-        and items[0].children[0].children == "No changes."
+        and "no changes" in items[0].children[0].children.casefold()
     ):
         return
     last_header: str = ""
