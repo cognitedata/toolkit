@@ -85,6 +85,7 @@ class TestTableFileWriter:
 
     def get_part_number(self, file_path: Path) -> int:
         """Extract the part number from the file name."""
+        # This is needed to sort files as Windows and Linux sorts numbers in file names differently.
         match = re.search(self.part_pattern, file_path.name)
         if match:
             return int(match.group("part"))
