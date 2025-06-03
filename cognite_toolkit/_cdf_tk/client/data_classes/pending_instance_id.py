@@ -8,15 +8,19 @@ from cognite.client.data_classes.data_modeling import NodeId
 
 @dataclass
 class PendingIdentifier(CogniteObject):
-    id: int
     pending_instance_id: NodeId
+    id: int | None = None
     external_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if id is None and self.external_id is None:
+            raise ValueError("Either 'id' or 'external_id' must be provided for PendingIdentifier.")
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> "PendingIdentifier":
         """Load a PendingIdentifier from a resource dictionary."""
         return cls(
-            id=resource["id"],
+            id=resource.get("id"),
             pending_instance_id=NodeId.load(resource["pendingInstanceId"]),
             external_id=resource.get("externalId"),
         )
@@ -24,7 +28,9 @@ class PendingIdentifier(CogniteObject):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the PendingIdentifier to a dictionary."""
         result = super().dump(camel_case)
-        result["pendingInstanceId"] = self.pending_instance_id.dump(camel_case, include_instance_type=False)
+        result["pendingInstanceId" if camel_case else "pending_instance_id"] = self.pending_instance_id.dump(
+            camel_case, include_instance_type=False
+        )
         return result
 
 

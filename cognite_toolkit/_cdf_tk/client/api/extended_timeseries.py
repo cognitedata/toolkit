@@ -89,7 +89,7 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         Returns:
             ExtendedTimeSeriesList: A list of ExtendedTimeSeries objects with the updated pending identifiers.
         """
-        body = [identifier.dump(camel_case=False) for identifier in identifiers]
+        body = [identifier.dump(camel_case=True) for identifier in identifiers]
         response = self._post(
             url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids", json={"items": body}, api_subversion="alpha"
         )

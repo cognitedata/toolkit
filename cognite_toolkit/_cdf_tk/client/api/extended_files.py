@@ -71,7 +71,7 @@ class ExtendedFileMetadataAPI(FilesAPI):
         response = self._post(
             url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids",
             json={"items": [body]},
-            headers={"cdf-version": "alpha"},
+            api_subversion="alpha",
         )
         data = response.json()
         if "items" not in data or not data["items"]:
@@ -117,7 +117,7 @@ class ExtendedFileMetadataAPI(FilesAPI):
         response = self._post(
             url_path=f"{self._RESOURCE_PATH}/unlink-instance-ids",
             json={"items": [body]},
-            headers={"cdf-version": "alpha"},
+            api_subversion="alpha",
         )
         data = response.json()
         raise NotImplementedError(f"Getting 404 {data!s}")
