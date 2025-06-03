@@ -15,6 +15,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.commands.clean import AVAILABLE_DATA_TYPES
 from cognite_toolkit._cdf_tk.exceptions import ToolkitFileNotFoundError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.utils import get_cicd_environment
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__ as current_version
@@ -186,6 +187,15 @@ class CoreApp(typer.Typer):
                 help="Do not check CDF for missing dependencies.",
             ),
         ] = False,
+        exit_on_warning: Annotated[
+            bool,
+            typer.Option(
+                "--exit-non-zero-on-warning",
+                "-w",
+                help="Exit with non-zero code on warning.",
+                hidden=not Flags.EXIT_ON_WARNING.is_enabled(),
+            ),
+        ] = False,
     ) -> None:
         """Build configuration files from the modules to the build directory."""
         client: Union[ToolkitClient, None] = None
@@ -195,7 +205,11 @@ class CoreApp(typer.Typer):
                 # This is verified in check_auth
                 client = EnvironmentVariables.create_from_environment().get_client()
 
-        cmd = BuildCommand()
+        print_warning = True
+        if Flags.EXIT_ON_WARNING.is_enabled() and exit_on_warning:
+            print_warning = False
+
+        cmd = BuildCommand(print_warning=print_warning)
         cmd.run(
             lambda: cmd.execute(
                 verbose,
@@ -208,6 +222,15 @@ class CoreApp(typer.Typer):
                 on_error="raise",
             )
         )
+
+        if Flags.EXIT_ON_WARNING.is_enabled() and exit_on_warning and cmd.warning_list:
+            print("\n[bold red]Warnings raised during the build process:[/]\n")
+
+            for warning in cmd.warning_list:
+                warning.print_warning(include_timestamp=False)
+                print(end="\n")
+
+            raise typer.Exit(code=1)
 
     def deploy(
         self,

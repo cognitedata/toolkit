@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.filemetadata import FileMetadataYAML
+from cognite_toolkit._cdf_tk.resource_classes import FileMetadataYAML
 from tests.test_unit.utils import find_resources
 
 

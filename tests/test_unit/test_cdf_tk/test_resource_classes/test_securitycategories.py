@@ -1,6 +1,6 @@
 import pytest
 
-from cognite_toolkit._cdf_tk.resource_classes.securitycategories import SecurityCategoriesYAML
+from cognite_toolkit._cdf_tk.resource_classes import SecurityCategoriesYAML
 from tests.test_unit.utils import find_resources
 
 
