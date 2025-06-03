@@ -15,12 +15,12 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
     """Extended TimeSeriesAPI to include pending ID methods."""
 
     @overload
-    def set_pending_ids(self, instance_id: Sequence[PendingIdentifier]) -> ExtendedTimeSeriesList: ...
-
-    @overload
     def set_pending_ids(
         self, instance_id: NodeId | tuple[str, str], id: int | None = None, external_id: str | None = None
     ) -> ExtendedTimeSeries: ...
+
+    @overload
+    def set_pending_ids(self, instance_id: Sequence[PendingIdentifier]) -> ExtendedTimeSeriesList: ...
 
     def set_pending_ids(
         self,
