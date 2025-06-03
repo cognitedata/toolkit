@@ -5,18 +5,18 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Literal, TypeAlias, get_args
 
-from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from rich.prompt import Prompt
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token"]
 _VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)
 
 
-def get_cognite_client(env_file_name: str) -> CogniteClient:
+def get_toolkit_client(env_file_name: str) -> ToolkitClient:
     """Instantiate a CogniteClient using environment variables. If the environment variables are not set, the user will
     be prompted to enter them.
 
@@ -226,8 +226,8 @@ class EnvironmentVariables:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
         return Token(self.TOKEN)
 
-    def get_client(self) -> CogniteClient:
-        config = ClientConfig(
+    def get_client(self) -> ToolkitClient:
+        config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project=self.CDF_PROJECT,
             credentials=self.get_credentials(),
@@ -235,7 +235,7 @@ class EnvironmentVariables:
             max_workers=self.CDF_MAX_WORKERS,
             timeout=self.CDF_TIMEOUT,
         )
-        return CogniteClient(config)
+        return ToolkitClient(config)
 
     def create_env_file(self) -> str:
         lines: list[str] = []
