@@ -309,3 +309,4 @@ tmp*.py
 my_*/
 !cognite_toolkit/_builtin_modules/custom/my_module/
 function_local_venvs*/
+qa_pending_id/

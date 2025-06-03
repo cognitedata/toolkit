@@ -214,3 +214,10 @@ class CDFAPIError(ToolkitError, RuntimeError):
     """Error raised when the CDF API returns an error."""
 
     ...
+
+
+class ToolkitMissingDependencyError(ToolkitError):
+    """Error raised when a required dependency is missing."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
