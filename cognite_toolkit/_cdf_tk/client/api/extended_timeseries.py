@@ -8,7 +8,7 @@ from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils.useful_types import SequenceNotStr
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries, ExtendedTimeSeriesList
-from cognite_toolkit._cdf_tk.client.data_classes.pending_instance_id import PendingIdentifier
+from cognite_toolkit._cdf_tk.client.data_classes.pending_instance_id import PendingIdentifier, UpgradeID
 
 
 class ExtendedTimeSeriesAPI(TimeSeriesAPI):
@@ -91,6 +91,33 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         )
         data = response.json()
         return ExtendedTimeSeriesList._load(data["items"], cognite_client=self._cognite_client)
+
+    def unlink_instance_ids(
+        self,
+        instance_id: NodeId | tuple[str, str] | None = None,
+        id: int | None = None,
+        external_id: str | None = None,
+    ) -> None:
+        """Unlink pending instance IDs from a time series.
+
+        Args:
+            instance_id: The pending instance ID to unlink. Can be a NodeId or a tuple of (str, str).
+            id: The ID of the time series.
+            external_id: The external ID of the time series.
+
+        Raises:
+            ValueError: If neither 'id' nor 'external_id' is provided, or if both are provided.
+        """
+        if not exactly_one_is_not_none(instance_id, id, external_id):
+            raise ValueError("Exactly one of 'instance_id', 'id', or 'external_id' must be provided.")
+        body = UpgradeID(id, external_id, NodeId.load_if(instance_id)).dump(camel_case=True)
+        response = self._post(
+            url_path=f"{self._RESOURCE_PATH}/unlink-instance-ids",
+            json={"items": [body]},
+            headers={"cdf-version": "alpha"},
+        )
+        data = response.json()
+        raise NotImplementedError(f"Getting 404 {data!s}")
 
     def retrieve(
         self, id: int | None = None, external_id: str | None = None, instance_id: NodeId | None = None
