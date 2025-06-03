@@ -6,7 +6,7 @@ from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.time_series import TimeSeriesFilter, TimeSeriesSort
-from cognite.client.utils._auxiliary import exactly_one_is_not_none
+from cognite.client.utils._auxiliary import exactly_one_is_not_none, split_into_chunks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils._validation import prepare_filter_sort, process_asset_subtree_ids, process_data_set_ids
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -89,12 +89,21 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         Returns:
             ExtendedTimeSeriesList: A list of ExtendedTimeSeries objects with the updated pending identifiers.
         """
-        body = [identifier.dump(camel_case=True) for identifier in identifiers]
-        response = self._post(
-            url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids", json={"items": body}, api_subversion="alpha"
-        )
-        data = response.json()
-        return ExtendedTimeSeriesList._load(data["items"], cognite_client=self._cognite_client)
+        all_pending = [identifier.dump(camel_case=True) for identifier in identifiers]
+        results = ExtendedTimeSeriesList([])
+        for chunk in split_into_chunks(all_pending, chunk_size=1000):
+            if not chunk:
+                continue
+            response = self._post(
+                url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids",
+                json={"items": all_pending},
+                api_subversion="alpha",
+            )
+            data = response.json()
+            if "items" not in data or not data["items"]:
+                raise ValueError("No items returned from the API. Check if the request was successful.")
+            results.extend(ExtendedTimeSeriesList._load(data["items"], cognite_client=self._cognite_client))
+        return results
 
     def unlink_instance_ids(
         self,
