@@ -14,7 +14,6 @@ from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, SupportsI
 
 from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
-from cognite.client.utils._time import convert_data_modelling_timestamp
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
@@ -260,8 +259,8 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
     def _date_columns(self) -> set[str]:
         return {col.name for col in self.schema.columns if col.type == "date"}
 
-    @staticmethod
-    def _to_datetime(value: CellValue) -> CellValue:
+    @classmethod
+    def _to_datetime(cls, value: CellValue) -> CellValue:
         if isinstance(value, datetime) or value is None:
             output = value
         elif isinstance(value, date):
@@ -270,7 +269,7 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
             # Assuming the value is a timestamp in milliseconds
             output = datetime.fromtimestamp(value / 1000.0)
         elif isinstance(value, str):
-            output = convert_data_modelling_timestamp(value)
+            output = cls._convert_data_modelling_timestamp(value)
         else:
             raise ToolkitTypeError(
                 f"Unsupported value type for datetime conversion: {type(value)}. Expected datetime, date, int, float, or str."
@@ -283,8 +282,8 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
             output = output.astimezone(timezone.utc)
         return output
 
-    @staticmethod
-    def _to_date(value: CellValue) -> CellValue:
+    @classmethod
+    def _to_date(cls, value: CellValue) -> CellValue:
         if isinstance(value, date) or value is None:
             return value
         elif isinstance(value, datetime):
@@ -293,10 +292,30 @@ class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
             # Assuming the value is a timestamp in milliseconds
             return date.fromtimestamp(value / 1000.0)
         elif isinstance(value, str):
-            return convert_data_modelling_timestamp(value).date()
+            return cls._convert_data_modelling_timestamp(value).date()
         else:
             raise ToolkitTypeError(
                 f"Unsupported value type for date conversion: {type(value)}. Expected date, datetime, int, float, or str."
+            )
+
+    @classmethod
+    def _convert_data_modelling_timestamp(cls, timestamp: str) -> datetime:
+        """Convert a timestamp string from the data modeling format to a datetime object."""
+        try:
+            return datetime.fromisoformat(timestamp)
+        except ValueError:
+            # Typically hits if the timestamp has truncated milliseconds,
+            # For example, "2021-01-01T00:00:00.17+00:00".
+            # In Python 3.10, the strptime requires exact formats so we need both formats below.
+            # In Python 3.11-13, if the timestamp matches on the second it will match on the first,
+            # so when we set lower bound to 3.11 the loop will not be needed.
+            for format_ in ["%Y-%m-%dT%H:%M:%S.%f%z", "%Y-%m-%dT%H:%M:%S%z"]:
+                try:
+                    return datetime.strptime(timestamp, format_)
+                except ValueError:
+                    continue
+            raise ValueError(
+                f"Invalid timestamp format: {timestamp}. Expected ISO 8601 format with optional milliseconds and timezone."
             )
 
     @lru_cache(maxsize=1)
