@@ -2,12 +2,13 @@ import csv
 import importlib.util
 import json
 from abc import abstractmethod
+from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from io import TextIOWrapper
 from pathlib import Path
 from types import MappingProxyType
-from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, TypeAlias, TypeVar
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, SupportsIndex, TypeAlias, TypeVar, overload
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
@@ -32,6 +33,26 @@ class SchemaColumn:
     def __post_init__(self) -> None:
         if self.type == "json" and self.is_array:
             raise ValueError("JSON columns cannot be arrays. Use 'is_array=False' for JSON columns.")
+
+
+class SchemaColumnList(list, Sequence[SchemaColumn]):
+    # Implemented to get correct type hints
+    def __init__(self, collection: Collection[SchemaColumn] | None = None) -> None:
+        super().__init__(collection or [])
+
+    def __iter__(self) -> Iterator[SchemaColumn]:
+        return super().__iter__()
+
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> SchemaColumn: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> Self: ...
+
+    def __getitem__(self, index: SupportsIndex | slice, /) -> SchemaColumn | Self:
+        if isinstance(index, slice):
+            return type(self)(super().__getitem__(index))
+        return super().__getitem__(index)
 
 
 @dataclass
