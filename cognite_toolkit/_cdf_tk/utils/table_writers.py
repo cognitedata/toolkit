@@ -36,7 +36,7 @@ CellValue: TypeAlias = PrimaryCellValue | list[PrimaryCellValue]
 Rows: TypeAlias = list[dict[str, CellValue]]
 
 
-@dataclass
+@dataclass(frozen=True)
 class SchemaColumn:
     name: str
     type: DataType
