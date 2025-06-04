@@ -1,6 +1,7 @@
 import csv
 import re
 from collections.abc import Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import ClassVar
 
@@ -44,11 +45,15 @@ def example_schema() -> Schema:
                 SchemaColumn(name="myFloat", type="float"),
                 SchemaColumn(name="myBoolean", type="boolean"),
                 SchemaColumn(name="myJson", type="json"),
+                SchemaColumn(name="myTimestamp", type="timestamp"),
+                SchemaColumn(name="myDate", type="date"),
                 SchemaColumn(name="myStringList", type="string", is_array=True),
                 SchemaColumn(name="myIntegerList", type="integer", is_array=True),
                 SchemaColumn(name="myFloatList", type="float", is_array=True),
                 SchemaColumn(name="myBooleanList", type="boolean", is_array=True),
                 SchemaColumn(name="myJsonList", type="json", is_array=False),
+                SchemaColumn(name="myTimestampList", type="timestamp", is_array=True),
+                SchemaColumn(name="myDateList", type="date", is_array=True),
             ]
         ),
     )
@@ -63,11 +68,15 @@ def example_data() -> Rows:
             "myFloat": 1.0,
             "myBoolean": True,
             "myJson": {"key": "value"},
+            "myTimestamp": "2023-01-01T00:00:00Z",
+            "myDate": "2023-01-01",
             "myStringList": ["on", "off", '"maybe"', "y", "n"],
             "myIntegerList": [1, 2],
             "myFloatList": [1.0, 2.0],
             "myBooleanList": [True, False],
             "myJsonList": [{"key1": "value1"}, {"key2": "value2"}],
+            "myTimestampList": ["2023-01-01T00:00:00Z", "2023-01-02T00:00:00Z"],
+            "myDateList": ["2023-01-01", "2023-01-02"],
         },
         {
             "myString": "value2",
@@ -75,11 +84,15 @@ def example_data() -> Rows:
             "myFloat": 2.0,
             "myBoolean": False,
             "myJson": None,
+            "myTimestamp": None,
+            "myDate": None,
             "myStringList": None,
             "myIntegerList": None,
             "myFloatList": None,
             "myBooleanList": None,
             "myJsonList": None,
+            "myTimestampList": None,
+            "myDateList": None,
         },
         {
             "myString": None,
@@ -87,11 +100,15 @@ def example_data() -> Rows:
             "myFloat": None,
             "myBoolean": True,
             "myJson": {"key": "value"},
+            "myTimestamp": datetime(2023, 1, 3, 0, 0, 0),
+            "myDate": date(2023, 1, 3),
             "myStringList": ["yes", "no"],
             "myIntegerList": [3, 4],
             "myFloatList": [3.0, 4.0],
             "myBooleanList": [True, False],
             "myJsonList": [{"key1": "value1"}, {"key2": "value2"}],
+            "myTimestampList": [datetime(2023, 1, 3, 0, 0, 0), datetime(2023, 1, 4, 0, 0, 0)],
+            "myDateList": [date(2023, 1, 3), date(2023, 1, 4)],
         },
     ]
 
