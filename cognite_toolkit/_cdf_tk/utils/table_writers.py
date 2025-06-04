@@ -61,7 +61,7 @@ class Schema:
     folder_name: str
     kind: str
     format_: FileFormat
-    columns: list[SchemaColumn]
+    columns: SchemaColumnList
 
 
 T_IO = TypeVar("T_IO", bound=IO)

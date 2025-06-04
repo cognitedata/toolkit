@@ -12,6 +12,7 @@ from cognite_toolkit._cdf_tk.utils.table_writers import (
     Rows,
     Schema,
     SchemaColumn,
+    SchemaColumnList,
     YAMLWriter,
 )
 
@@ -23,18 +24,20 @@ def example_schema() -> Schema:
         folder_name="example",
         kind="Example",
         format_="csv",
-        columns=[
-            SchemaColumn(name="myString", type="string"),
-            SchemaColumn(name="myInteger", type="integer"),
-            SchemaColumn(name="myFloat", type="float"),
-            SchemaColumn(name="myBoolean", type="boolean"),
-            SchemaColumn(name="myJson", type="json"),
-            SchemaColumn(name="myStringList", type="string", is_array=True),
-            SchemaColumn(name="myIntegerList", type="integer", is_array=True),
-            SchemaColumn(name="myFloatList", type="float", is_array=True),
-            SchemaColumn(name="myBooleanList", type="boolean", is_array=True),
-            SchemaColumn(name="myJsonList", type="json", is_array=False),
-        ],
+        columns=SchemaColumnList(
+            [
+                SchemaColumn(name="myString", type="string"),
+                SchemaColumn(name="myInteger", type="integer"),
+                SchemaColumn(name="myFloat", type="float"),
+                SchemaColumn(name="myBoolean", type="boolean"),
+                SchemaColumn(name="myJson", type="json"),
+                SchemaColumn(name="myStringList", type="string", is_array=True),
+                SchemaColumn(name="myIntegerList", type="integer", is_array=True),
+                SchemaColumn(name="myFloatList", type="float", is_array=True),
+                SchemaColumn(name="myBooleanList", type="boolean", is_array=True),
+                SchemaColumn(name="myJsonList", type="json", is_array=False),
+            ]
+        ),
     )
 
 
