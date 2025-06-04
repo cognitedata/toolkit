@@ -14,7 +14,7 @@ from cognite.client.data_classes import (
     TimeSeriesFilter,
 )
 from cognite.client.data_classes._base import T_CogniteResource
-from cognite.client.data_classes.data_modeling import DataModelId, View
+from cognite.client.data_classes.data_modeling import DataModelId, EdgeList, NodeList
 from rich.console import Console
 from rich.progress import track
 
@@ -54,6 +54,7 @@ class DataFinder:
 class CanvasFinder(DataFinder):
     """A finder that is used to find Canvas and all data related to it."""
 
+    folder_name: ClassVar[str] = "industrial_canvases"
     supported_formats = frozenset({"csv", "parquet"})
     data_model_id = DataModelId("cdf_industrial_canvas", "IndustrialCanvas", "v7")
     canvas_view_external_id = "Canvas"
@@ -62,11 +63,6 @@ class CanvasFinder(DataFinder):
     def __init__(self, client: ToolkitClient, names: list[str] | None = None) -> None:
         self.client = client
         self.names = names
-        # Flags: public/private, all-versions, user, name
-        # Notes on Canvas UI in Fusion:
-        # - The Canvas filter for public, isArchived set to null or False,
-        #   sourceCanvasId is null, and space equal to "IndustrialCanvasInstanceSpace".
-        # - There is data from a SharedCogniteApps/versions/v1/graphql and a RulesInstanceSpace.
 
     def create_iterators(
         self, format_: FileFormat, limit: int | None
@@ -83,22 +79,31 @@ class CanvasFinder(DataFinder):
         canvas_view = view_by_external_id[self.canvas_view_external_id]
 
         retrieved_canvases = self.client.data_modeling.instances.list(
-            instance_type="node", sources=[canvas_view.as_id()], space=self.instance_space, limit=limit
+            instance_type="node",
+            sources=[canvas_view.as_id()],
+            space=self.instance_space,
+            limit=limit,
         )
-        columns = self._columns_from_view(view_by_external_id[self.canvas_view_external_id])
-        schema = Schema("Industrial Canvases", "industrial_canvases", "Canvas", format_, columns)
-        yield schema, 1, retrieved_canvases, self._nodes_to_rows
-        # Todo Find all edges in the canvas, and store target
+        columns = SchemaColumnList.create_from_view_properties(canvas_view.properties)
+        schema = Schema("Industrial Canvases", self.folder_name, "Canvas", format_, columns)
+        yield schema, 1, [retrieved_canvases], self._instances_to_rows
 
+        # Todo Find all edges in the canvas, and store target
         # Todo Retrieve remaining data connected to the selected canvases.
         raise NotImplementedError()
 
-    def _columns_from_view(self, view: View) -> SchemaColumnList:
-        raise NotImplementedError()
-
-    def _nodes_to_rows(self, items: Iterable[View]) -> list[tuple[str, list[dict[str, Any]]]]:
+    @staticmethod
+    def _instances_to_rows(items: NodeList | EdgeList) -> list[tuple[str, list[dict[str, Any]]]]:
         """Convert nodes to rows."""
-        raise NotImplementedError()
+        rows: list[dict[str, Any]] = []
+        for item in items.as_write():
+            row = item.dump()
+            row.pop("sources", None)
+            for source in item.sources:
+                for key, value in source.properties.items():
+                    row[f"properties.{key}"] = value
+            rows.append(row)
+        return [("", rows)]
 
 
 class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
