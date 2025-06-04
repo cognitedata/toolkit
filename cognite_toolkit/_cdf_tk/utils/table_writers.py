@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     import pyarrow.parquet as pq
 
 FileFormat: TypeAlias = Literal["csv", "parquet", "yaml"]
-DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json"]
+DataType: TypeAlias = Literal["string", "integer", "float", "boolean", "json", "date", "timestamp"]
 JsonVal: TypeAlias = None | str | int | float | bool | dict[str, "JsonVal"] | list["JsonVal"]
 Rows: TypeAlias = list[dict[str, str | int | float | bool | JsonVal | None]]
 
