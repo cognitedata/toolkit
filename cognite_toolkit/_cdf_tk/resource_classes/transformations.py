@@ -55,6 +55,10 @@ class TransformationYAML(ToolkitResource):
         description="List of tags for the Transformation.",
         max_length=5,
     )
+    queryFile: str | None = Field(
+        default=None,
+        description="Used by Toolkit: Path to the SQL file containing the query for the transformation.",
+    )
 
     @model_serializer(mode="wrap")
     def serialize_transformation(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
