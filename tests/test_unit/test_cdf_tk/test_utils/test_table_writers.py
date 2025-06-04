@@ -1,6 +1,7 @@
 import csv
 import re
 from collections.abc import Mapping
+from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
 from typing import ClassVar
@@ -163,8 +164,11 @@ class TestTableFileWriter:
     def test_write_parquet(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
         example_schema.format_ = "parquet"
+        # The parquet writer mutates the input data, so we need to deepcopy it.
+        example_data_copy = deepcopy(example_data)
+
         with ParquetWriter(example_schema, output_dir) as writer:
-            for single_row in example_data:
+            for single_row in example_data_copy:
                 writer.write_rows([("group1", [single_row])])
 
         parquet_file = list(output_dir.rglob("*.parquet"))
@@ -172,7 +176,8 @@ class TestTableFileWriter:
         table = pq.read_table(parquet_file[0])
         assert table.num_rows == len(example_data)
         actual_data = table.to_pylist()
-        assert actual_data == example_data
+        # We compare the mutated data, as the ParquetWriter standardizes the date, timestamp, and json formats.
+        assert actual_data == example_data_copy
 
     def test_write_csv_above_limit(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
@@ -194,14 +199,17 @@ class TestTableFileWriter:
 
     def test_write_parquet_above_limit(self, example_schema: Schema, example_data: Rows, tmp_path: Path) -> None:
         output_dir = tmp_path / "output"
+        # The parquet writer mutates the input data, so we need to deepcopy it.
+        example_data_copy = deepcopy(example_data)
         with ParquetWriter(example_schema, output_dir, max_file_size_bytes=1) as writer:
-            for single_row in example_data:
+            for single_row in example_data_copy:
                 writer.write_rows([("group1", [single_row])])
 
         parquet_files = sorted(output_dir.rglob("*.parquet"), key=self.get_part_number)
         assert len(parquet_files) == len(example_data)
         # Each row should be written to a separate file due to the size limit
-        for parquet_file, row in zip(parquet_files, example_data):
+        # We compare the mutated data, as the ParquetWriter standardizes the date, timestamp, and json formats.
+        for parquet_file, row in zip(parquet_files, example_data_copy):
             table = pq.read_table(parquet_file)
             assert table.num_rows == 1
             assert table.to_pylist() == [row]

@@ -185,6 +185,14 @@ class TableFileWriter(Generic[T_IO]):
 
 
 class ParquetWriter(TableFileWriter["pq.ParquetWriter"]):
+    """Parquet writer for CDF Toolkit.
+
+    Caveat: This mutates the rows to convert JSON, timestamp, and date columns to appropriate formats.
+    This is necessary because pyarrow does not support JSON, timestamp, and date types directly in the way we need.
+    We avoid making a copy of each row for performance reasons, but this means that the rows passed to this writer
+    will be modified in place.
+    """
+
     format = "parquet"
 
     def __init__(self, schema: Schema, output_dir: Path, max_file_size_bytes: int = 128 * 1024 * 1024) -> None:
