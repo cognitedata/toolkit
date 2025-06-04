@@ -67,9 +67,26 @@ class SchemaColumnList(list, Sequence[SchemaColumn]):
         return super().__getitem__(index)
 
     @classmethod
-    def create_from_view_properties(cls, properties: Mapping[str, ViewProperty]) -> Self:
-        """Create a SchemaColumnList from a mapping of ViewProperty objects."""
-        columns = []
+    def create_from_view_properties(cls, properties: Mapping[str, ViewProperty], support_edges: bool = False) -> Self:
+        """Create a SchemaColumnList from a mapping of ViewProperty objects.
+
+        Args:
+            properties (Mapping[str, ViewProperty]): A mapping of property names to ViewProperty objects.
+            support_edges (bool): Whether the the view supports edges. If True, the schema will include
+                startNode and endNode columns.
+
+        Returns:
+            SchemaColumnList: A list of SchemaColumn objects representing the properties.
+        """
+        columns = [
+            SchemaColumn("space", "string", is_array=False),
+            SchemaColumn("externalId", "string", is_array=False),
+            SchemaColumn("existingVersion", "integer", is_array=False),
+            SchemaColumn("type", "json", is_array=False),
+        ]
+        if support_edges:
+            columns.append(SchemaColumn("startNode", "json", is_array=False))
+            columns.append(SchemaColumn("endNode", "json", is_array=False))
         for name, prop in properties.items():
             if not isinstance(prop, MappedProperty):
                 # We skip all properties that does not reside in a container.
@@ -80,7 +97,7 @@ class SchemaColumnList(list, Sequence[SchemaColumn]):
                 and prop.type.is_list
                 and schema_type != "json"  # JSON is not an array type
             )
-            columns.append(SchemaColumn(name=name, type=schema_type, is_array=is_array))
+            columns.append(SchemaColumn(name=f"properties.{name}", type=schema_type, is_array=is_array))
         return cls(columns)
 
     @classmethod
