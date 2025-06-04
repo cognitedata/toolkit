@@ -28,7 +28,13 @@ from cognite_toolkit._cdf_tk.exceptions import (
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
-from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.table_writers import (
+    FileFormat,
+    Schema,
+    SchemaColumn,
+    SchemaColumnList,
+    TableFileWriter,
+)
 
 
 class DataFinder:
@@ -87,7 +93,7 @@ class CanvasFinder(DataFinder):
         # Todo Retrieve remaining data connected to the selected canvases.
         raise NotImplementedError()
 
-    def _columns_from_view(self, view: View) -> list[SchemaColumn]:
+    def _columns_from_view(self, view: View) -> SchemaColumnList:
         raise NotImplementedError()
 
     def _nodes_to_rows(self, items: Iterable[View]) -> list[tuple[str, list[dict[str, Any]]]]:
@@ -120,7 +126,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         raise NotImplementedError()
 
     @abstractmethod
-    def _get_resource_columns(self) -> list[SchemaColumn]:
+    def _get_resource_columns(self) -> SchemaColumnList:
         """Get the columns for the schema."""
         raise NotImplementedError()
 
@@ -188,7 +194,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -209,7 +215,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -266,17 +272,19 @@ class AssetFinder(AssetCentricFinder[Asset]):
             return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
         return ""
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="parentExternalId", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="parentExternalId", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "assets", data_set_ids or None, root_ids or None)
@@ -310,19 +318,21 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
     def _resource_processor(self, time_series: Iterable[TimeSeries]) -> list[tuple[str, list[dict[str, Any]]]]:
         return [("", self._to_write(time_series))]
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="isString", type="boolean"),
-            SchemaColumn(name="unit", type="string"),
-            SchemaColumn(name="unitExternalId", type="string"),
-            SchemaColumn(name="assetExternalId", type="string"),
-            SchemaColumn(name="isStep", type="boolean"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="isString", type="boolean"),
+                SchemaColumn(name="unit", type="string"),
+                SchemaColumn(name="unitExternalId", type="string"),
+                SchemaColumn(name="assetExternalId", type="string"),
+                SchemaColumn(name="isStep", type="boolean"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "timeseries", data_set_ids or None, root_ids or None)
