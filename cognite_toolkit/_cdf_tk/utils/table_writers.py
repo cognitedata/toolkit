@@ -10,9 +10,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, SupportsIndex, TypeAlias, TypeVar, overload
 
-from cognite.client.data_classes.data_modeling.views import ViewProperty
+from cognite.client.data_classes.data_modeling import data_types as dt
+from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
 
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
@@ -58,7 +59,41 @@ class SchemaColumnList(list, Sequence[SchemaColumn]):
 
     @classmethod
     def create_from_view_properties(cls, properties: Mapping[str, ViewProperty]) -> Self:
-        raise NotImplementedError()
+        """Create a SchemaColumnList from a mapping of ViewProperty objects."""
+        columns = []
+        for name, prop in properties.items():
+            if not isinstance(prop, MappedProperty):
+                # We skip all properties that does not reside in a container.
+                continue
+            schema_type = cls._dms_to_schema_type(prop.type)
+            is_array = (
+                isinstance(prop.type, dt.ListablePropertyType)
+                and prop.type.is_list
+                and schema_type != "json"  # JSON is not an array type
+            )
+            columns.append(SchemaColumn(name=name, type=schema_type, is_array=is_array))
+        return cls(columns)
+
+    @classmethod
+    def _dms_to_schema_type(cls, model_type: dt.PropertyType) -> DataType:
+        if isinstance(model_type, dt.Text | dt.Enum | dt.CDFExternalIdReference):
+            return "string"
+        elif isinstance(model_type, dt.Boolean):
+            return "boolean"
+        elif isinstance(model_type, dt.Json | dt.DirectRelation):
+            return "json"
+        elif isinstance(model_type, dt.Int32 | dt.Int64):
+            return "integer"
+        elif isinstance(model_type, dt.Float32 | dt.Float64):
+            return "float"
+        elif isinstance(model_type, dt.Timestamp):
+            return "timestamp"
+        elif isinstance(model_type, dt.Date):
+            return "date"
+        else:
+            raise ToolkitTypeError(
+                f"Failed convertion from data modeling type to Table Schema. Unknown type: {type(model_type)!r}."
+            )
 
 
 @dataclass
