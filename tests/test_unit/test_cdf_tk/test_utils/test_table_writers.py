@@ -1,10 +1,23 @@
 import csv
 import re
+from collections.abc import Mapping
 from pathlib import Path
+from typing import ClassVar
 
 import pyarrow.parquet as pq
 import pytest
 import yaml
+from cognite.client.data_classes.data_modeling import ContainerId, PropertyId, ViewId
+from cognite.client.data_classes.data_modeling import data_types as dt
+from cognite.client.data_classes.data_modeling.data_types import DirectRelationReference, EnumValue
+from cognite.client.data_classes.data_modeling.views import (
+    MappedProperty,
+    MultiEdgeConnection,
+    MultiReverseDirectRelation,
+    SingleEdgeConnection,
+    SingleReverseDirectRelation,
+    ViewProperty,
+)
 
 from cognite_toolkit._cdf_tk.utils.table_writers import (
     CSVWriter,
@@ -188,3 +201,90 @@ class TestTableFileWriter:
             with yaml_file.open("r", encoding="utf-8") as f:
                 actual_data = yaml.safe_load(f)
                 assert actual_data == [row]
+
+
+class TestSchemaColumnList:
+    container: ClassVar[ContainerId] = ContainerId("my_space", "my_container")
+    view: ClassVar[ViewId] = ViewId("my_space", "my_view", "v1")
+    default_values: ClassVar[Mapping[str, bool]] = dict(nullable=True, immutable=False, auto_increment=False)
+    all_view_properties: Mapping[str, ViewProperty] = {
+        "myText": MappedProperty(container, "myText", dt.Text(), **default_values),
+        "myBoolean": MappedProperty(container, "myBoolean", dt.Boolean(), **default_values),
+        "myTimestamp": MappedProperty(container, "myTimestamp", dt.Timestamp(), **default_values),
+        "myDate": MappedProperty(container, "myDate", dt.Date(), **default_values),
+        "myFloat32": MappedProperty(container, "myFloat32", dt.Float32(), **default_values),
+        "myFloat64": MappedProperty(container, "myFloat64", dt.Float64(), **default_values),
+        "myInt32": MappedProperty(container, "myInt32", dt.Int32(), **default_values),
+        "myInt64": MappedProperty(container, "myInt64", dt.Int64(), **default_values),
+        "myJson": MappedProperty(container, "myJson", dt.Json(), **default_values),
+        "myStringList": MappedProperty(container, "myStringList", dt.Text(is_list=True), **default_values),
+        "myIntegerList": MappedProperty(container, "myIntegerList", dt.Int64(is_list=True), **default_values),
+        "myFloatList": MappedProperty(container, "myFloatList", dt.Float64(is_list=True), **default_values),
+        "myBooleanList": MappedProperty(container, "myBooleanList", dt.Boolean(is_list=True), **default_values),
+        "myJsonList": MappedProperty(container, "myJsonList", dt.Json(is_list=False), **default_values),
+        "myDirectRelation": MappedProperty(container, "myDirectRelation", dt.DirectRelation(), **default_values),
+        "myDirectRelationList": MappedProperty(
+            container, "myDirectRelationList", dt.DirectRelation(is_list=True), **default_values
+        ),
+        "myTimeSeriesReference": MappedProperty(
+            container, "myTimeSeriesReference", dt.TimeSeriesReference(), **default_values
+        ),
+        "myFileReference": MappedProperty(container, "myFileReference", dt.FileReference(), **default_values),
+        "mySequenceReference": MappedProperty(
+            container, "mySequenceReference", dt.SequenceReference(), **default_values
+        ),
+        "myTimeSeriesReferenceList": MappedProperty(
+            container, "myTimeSeriesReferenceList", dt.TimeSeriesReference(is_list=True), **default_values
+        ),
+        "myFileReferenceList": MappedProperty(
+            container, "myFileReferenceList", dt.FileReference(is_list=True), **default_values
+        ),
+        "mySequenceReferenceList": MappedProperty(
+            container, "mySequenceReferenceList", dt.SequenceReference(is_list=True), **default_values
+        ),
+        "myEnum": MappedProperty(
+            container, "myEnum", dt.Enum({"value1": EnumValue(), "value2": EnumValue()}), **default_values
+        ),
+        "myMultiEdge": MultiEdgeConnection(
+            DirectRelationReference("my_space", "myMultiEdge"), view, None, None, None, "outwards"
+        ),
+        "mySingleEdge": SingleEdgeConnection(
+            DirectRelationReference("my_space", "mySingleEdge"), view, None, None, None, "outwards"
+        ),
+        "myMultiReverseDirectRelation": MultiReverseDirectRelation(
+            view, PropertyId(view, "myMultiReverseDirectRelation"), None, None
+        ),
+        "mySingleReverseDirectRelation": SingleReverseDirectRelation(
+            view, PropertyId(view, "mySingleReverseDirectRelation"), None, None
+        ),
+    }
+
+    def test_create_schema_from_view_properties(self) -> None:
+        columns = SchemaColumnList.create_from_view_properties(self.all_view_properties)
+        assert columns == SchemaColumnList(
+            [
+                SchemaColumn(name="myText", type="string"),
+                SchemaColumn(name="myBoolean", type="boolean"),
+                SchemaColumn(name="myTimestamp", type="timestamp"),
+                SchemaColumn(name="myDate", type="date"),
+                SchemaColumn(name="myFloat32", type="float"),
+                SchemaColumn(name="myFloat64", type="float"),
+                SchemaColumn(name="myInt32", type="integer"),
+                SchemaColumn(name="myInt64", type="integer"),
+                SchemaColumn(name="myJson", type="json"),
+                SchemaColumn(name="myStringList", type="string", is_array=True),
+                SchemaColumn(name="myIntegerList", type="integer", is_array=True),
+                SchemaColumn(name="myFloatList", type="float", is_array=True),
+                SchemaColumn(name="myBooleanList", type="boolean", is_array=True),
+                SchemaColumn(name="myJsonList", type="json", is_array=False),
+                SchemaColumn(name="myDirectRelation", type="json"),
+                SchemaColumn(name="myDirectRelationList", type="json", is_array=False),
+                SchemaColumn(name="myTimeSeriesReference", type="string"),
+                SchemaColumn(name="myFileReference", type="string"),
+                SchemaColumn(name="mySequenceReference", type="string"),
+                SchemaColumn(name="myTimeSeriesReferenceList", type="string", is_array=True),
+                SchemaColumn(name="myFileReferenceList", type="string", is_array=True),
+                SchemaColumn(name="mySequenceReferenceList", type="string", is_array=True),
+                SchemaColumn(name="myEnum", type="string"),
+            ]
+        )

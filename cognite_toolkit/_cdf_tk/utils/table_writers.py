@@ -2,13 +2,15 @@ import csv
 import importlib.util
 import json
 from abc import abstractmethod
-from collections.abc import Collection, Iterator, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 from io import TextIOWrapper
 from pathlib import Path
 from types import MappingProxyType
 from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, SupportsIndex, TypeAlias, TypeVar, overload
+
+from cognite.client.data_classes.data_modeling.views import ViewProperty
 
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
@@ -53,6 +55,10 @@ class SchemaColumnList(list, Sequence[SchemaColumn]):
         if isinstance(index, slice):
             return type(self)(super().__getitem__(index))
         return super().__getitem__(index)
+
+    @classmethod
+    def create_from_view_properties(cls, properties: Mapping[str, ViewProperty]) -> Self:
+        raise NotImplementedError()
 
 
 @dataclass
