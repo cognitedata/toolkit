@@ -290,6 +290,7 @@ class TestSchemaColumnList:
             [
                 SchemaColumn("space", "string"),
                 SchemaColumn("externalId", "string"),
+                SchemaColumn("instanceType", "string"),
                 SchemaColumn("existingVersion", "integer"),
                 SchemaColumn("type", "json"),
                 SchemaColumn(name="properties.myText", type="string"),

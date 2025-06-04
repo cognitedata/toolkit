@@ -81,6 +81,7 @@ class SchemaColumnList(list, Sequence[SchemaColumn]):
         columns = [
             SchemaColumn("space", "string", is_array=False),
             SchemaColumn("externalId", "string", is_array=False),
+            SchemaColumn("instanceType", "string"),
             SchemaColumn("existingVersion", "integer", is_array=False),
             SchemaColumn("type", "json", is_array=False),
         ]
