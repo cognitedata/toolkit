@@ -1,6 +1,7 @@
 import csv
 import importlib.util
 import json
+import sys
 from abc import abstractmethod
 from collections.abc import Collection, Iterator, Mapping, Sequence
 from dataclasses import dataclass
@@ -9,7 +10,7 @@ from functools import lru_cache
 from io import TextIOWrapper
 from pathlib import Path
 from types import MappingProxyType
-from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, Self, SupportsIndex, TypeAlias, TypeVar, overload
+from typing import IO, TYPE_CHECKING, Any, ClassVar, Generic, Literal, SupportsIndex, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes.data_modeling import data_types as dt
 from cognite.client.data_classes.data_modeling.views import MappedProperty, ViewProperty
@@ -18,6 +19,11 @@ from cognite.client.utils._time import convert_data_modelling_timestamp
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError, ToolkitTypeError, ToolkitValueError
 from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 if TYPE_CHECKING:
     import pyarrow as pa
