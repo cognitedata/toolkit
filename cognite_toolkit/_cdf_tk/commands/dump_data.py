@@ -14,7 +14,17 @@ from cognite.client.data_classes import (
     TimeSeriesFilter,
 )
 from cognite.client.data_classes._base import T_CogniteResource
-from cognite.client.data_classes.data_modeling import DataModelId, EdgeList, NodeList
+from cognite.client.data_classes.data_modeling import (
+    DataModelId,
+    DirectRelation,
+    DirectRelationReference,
+    Edge,
+    EdgeConnection,
+    EdgeList,
+    MappedProperty,
+    NodeList,
+)
+from mypy.checkexpr import defaultdict
 from rich.console import Console
 from rich.progress import track
 
@@ -26,7 +36,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
-from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances, metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.table_writers import (
     FileFormat,
@@ -88,9 +98,86 @@ class CanvasFinder(DataFinder):
         schema = Schema("Industrial Canvases", self.folder_name, "Canvas", format_, columns)
         yield schema, 1, [retrieved_canvases], self._instances_to_rows
 
-        # Todo Find all edges in the canvas, and store target
-        # Todo Retrieve remaining data connected to the selected canvases.
-        raise NotImplementedError()
+        canvas_id = canvas_view.as_id()
+        direct_relation_properties = [
+            (prop_id, prop)
+            for prop_id, prop in canvas_view.properties.items()
+            if isinstance(prop, MappedProperty) and isinstance(prop.type, DirectRelation)
+        ]
+        for prop_id, direct_relation_property in direct_relation_properties:
+            if not isinstance(direct_relation_property.type, DirectRelation):
+                continue
+            if direct_relation_property.source is None:
+                continue
+            target_view = view_by_external_id[direct_relation_property.source.external_id]
+            target_columns = SchemaColumnList.create_from_view_properties(target_view.properties)
+            target_schema = Schema(
+                f"Industrial Canvases {target_view.external_id}",
+                self.folder_name,
+                target_view.external_id,
+                format_,
+                target_columns,
+            )
+            direct_relation_targets: list[tuple[str, str]] = []
+            for canvas in retrieved_canvases:
+                value = canvas.properties[canvas_id].get(prop_id)
+                if not value:
+                    continue
+                if isinstance(value, DirectRelationReference):
+                    direct_relation_targets.append(value.as_tuple())
+                elif isinstance(value, dict) and "space" in value and "externalId" in value:
+                    direct_relation_targets.append((value["space"], value["externalId"]))
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, DirectRelationReference):
+                            direct_relation_targets.append(item.as_tuple())
+                        elif isinstance(item, dict) and "space" in item and "externalId" in item:
+                            direct_relation_targets.append((item["space"], item["externalId"]))
+                        else:
+                            raise ToolkitValueError(
+                                f"Invalid value {item} for property {prop_id} in canvas {canvas.external_id}."
+                            )
+            targets = self.client.data_modeling.instances.retrieve(
+                direct_relation_targets, sources=[target_view.as_id()]
+            ).nodes
+            if targets:
+                yield target_schema, 1, [targets], self._instances_to_rows
+
+        edge_columns = SchemaColumnList(
+            [
+                SchemaColumn("space", "string"),
+                SchemaColumn("externalId", "string"),
+                SchemaColumn("startNode", "json"),
+                SchemaColumn("endNode", "json"),
+                SchemaColumn("type", "json"),
+                SchemaColumn("existingVersion", "integer"),
+            ]
+        )
+        edge_schema = Schema("Industrial Canvases Edges", self.folder_name, "CanvasEdges", format_, edge_columns)
+        edge_properties = [prop for prop in canvas_view.properties.values() if isinstance(prop, EdgeConnection)]
+        edges: EdgeList[Edge] = EdgeList(list(iterate_instances(self.client, "edge", space=self.instance_space)))
+        if edges:
+            yield edge_schema, 1, [edges], self._instances_to_rows
+
+        target_by_view_id: dict[DirectRelationReference, list[tuple[str, str]]] = defaultdict(list)
+        for edge in edges:
+            target_by_view_id[edge.type].append(edge.end_node.as_tuple())
+
+        for edge_property in edge_properties:
+            target_view = view_by_external_id[edge_property.source.external_id]
+            target_columns = SchemaColumnList.create_from_view_properties(target_view.properties)
+            target_schema = Schema(
+                f"Industrial Canvases {target_view.external_id}",
+                self.folder_name,
+                target_view.external_id,
+                format_,
+                target_columns,
+            )
+            edge_targets = target_by_view_id[edge_property.type]
+            nodes = self.client.data_modeling.instances.retrieve(edge_targets, sources=[target_view.as_id()]).nodes
+
+            if nodes:
+                yield target_schema, 1, [nodes], self._instances_to_rows
 
     @staticmethod
     def _instances_to_rows(items: NodeList | EdgeList) -> list[tuple[str, list[dict[str, Any]]]]:
