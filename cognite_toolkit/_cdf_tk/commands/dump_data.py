@@ -32,6 +32,8 @@ from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, Sche
 
 class DataFinder:
     supported_formats: ClassVar[frozenset[FileFormat]] = frozenset()
+    # This is the standard maximum items that can be returns by most CDF endpoints.
+    chunk_size: ClassVar[int] = 1000
 
     def is_supported_format(self, format_: FileFormat) -> bool:
         return format_ in self.supported_formats
@@ -104,7 +106,9 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         total = self.aggregate_count(tuple(self.hierarchies), tuple(self.data_sets))
         columns = self._get_resource_columns()
 
-        iteration_count = total // 1000 + (1 if total % 1000 > 0 else 0)
+        iteration_count = total // self.chunk_size + (1 if total % self.chunk_size > 0 else 0)
+        if iteration_count == 0:
+            return
 
         yield (
             Schema(
@@ -130,6 +134,9 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         loader = DataSetsLoader.create_loader(self.client)
 
         def process_data_sets(items: DataSetList) -> list[tuple[str, list[dict[str, Any]]]]:
+            # All data sets are written to a single group, thus the empty string as the group key.
+            # (Group keys are for example used in CSV files to create separate files for each
+            # data set an asset belongs to.)
             return [("", [loader.dump_resource(item) for item in items])]
 
         return (
@@ -151,6 +158,9 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         loader = LabelLoader.create_loader(self.client)
 
         def process_labels(items: LabelDefinitionList) -> list[tuple[str, list[dict[str, Any]]]]:
+            # All labels are written to a single group, thus the empty string as the group key.
+            # (Group keys are for example used in CSV files to create separate files for each
+            # label an asset belongs to.)
             return [("", [loader.dump_resource(item) for item in items])]
 
         return (
@@ -184,7 +194,7 @@ class AssetFinder(AssetCentricFinder[Asset]):
 
     def create_resource_iterator(self, limit: int | None) -> Iterator:
         return self.client.assets(
-            chunk_size=1000,
+            chunk_size=self.chunk_size,
             asset_subtree_external_ids=self.hierarchies or None,
             data_set_external_ids=self.data_sets or None,
             limit=limit,
@@ -250,7 +260,7 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
 
     def create_resource_iterator(self, limit: int | None) -> Iterator:
         return self.client.time_series(
-            chunk_size=1000,
+            chunk_size=self.chunk_size,
             asset_subtree_external_ids=self.hierarchies or None,
             data_set_external_ids=self.data_sets or None,
             limit=limit,
