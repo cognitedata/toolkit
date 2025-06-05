@@ -1,7 +1,7 @@
-from typing import Literal
+from typing import Any, Literal
 
 from cognite.client.data_classes import TransformationWrite
-from pydantic import Field, model_serializer
+from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from .base import BaseModelResource, ToolkitResource
@@ -55,6 +55,10 @@ class TransformationYAML(ToolkitResource):
         description="List of tags for the Transformation.",
         max_length=5,
     )
+    queryFile: str | None = Field(
+        default=None,
+        description="Used by Toolkit: Path to the SQL file containing the query for the transformation.",
+    )
 
     @model_serializer(mode="wrap")
     def serialize_transformation(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
@@ -62,3 +66,17 @@ class TransformationYAML(ToolkitResource):
         if self.destination:
             serialized_data["destination"] = self.destination.model_dump(**vars(info))
         return serialized_data
+
+    @field_validator("authentication", mode="before")
+    @classmethod
+    def validate_serialization(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        if "read" in value or "write" in value:
+            return {
+                k: AuthenticationClientIdSecret.model_validate(v) if isinstance(v, dict) else v
+                for k, v in value.items()
+            }
+        if "scopes" in value or "tokenUri" in value or "cdfProjectName" in value or "audience" in value:
+            return OIDCCredential.model_validate(value)
+        return AuthenticationClientIdSecret.model_validate(value)
