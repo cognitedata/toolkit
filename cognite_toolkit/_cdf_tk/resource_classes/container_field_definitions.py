@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import Any, ClassVar, Literal, cast
 
 from pydantic import Field, ModelWrapValidatorHandler, model_serializer, model_validator
-from pydantic_core.core_schema import SerializerFunctionWrapHandler
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_EXTERNAL_ID_PATTERN,
@@ -367,3 +367,14 @@ class ContainerPropertyDefinition(BaseModelResource):
         max_length=255,
     )
     type: PropertyTypeDefinition = Field(description="The type of data you can store in this property.")
+
+    @model_serializer(mode="wrap")
+    def serialize_type(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
+        # Types are serialized as a dict with only type {"type": "text"}
+        # This issue arises because Pydantic's serialization mechanism doesn't automatically
+        # handle polymorphic serialization for subclasses of Capability.
+        # To address this, we include the below to explicitly calling model dump on the capabilities
+        serialized_data = handler(self)
+        if self.type:
+            serialized_data["type"] = self.type.model_dump(**vars(info))
+        return serialized_data
