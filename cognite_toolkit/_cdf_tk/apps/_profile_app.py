@@ -14,7 +14,7 @@ class ProfileApp(typer.Typer):
         self.command("asset-centric")(self.asset_centric)
 
     def main(self, ctx: typer.Context) -> None:
-        """Commands populate functionality"""
+        """Commands profile functionality"""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf profile --help[/] for more information.")
 
@@ -24,7 +24,7 @@ class ProfileApp(typer.Typer):
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the metadata and labels for each of the asset-centric resources.
-        This shows roughly how much unstructured data there. This can, fox example, be used to determine the
+        This shows roughly how much unstructured data there. This can, for example, be used to determine the
         effort to model this data in data modeling."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = ProfileCommand()
