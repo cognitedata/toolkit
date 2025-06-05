@@ -9,13 +9,16 @@ from cognite.client.data_classes import (
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    LabelDefinitionList,
+    LabelDefinitionWrite,
     RelationshipList,
     RelationshipWrite,
     RelationshipWriteList,
 )
+from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts, relationship_aggregate_count
+from cognite_toolkit._cdf_tk.utils.cdf import label_aggregate_count, metadata_key_counts, relationship_aggregate_count
 
 
 @pytest.fixture(scope="session")
@@ -123,6 +126,32 @@ def asset_relationships(
     return existing
 
 
+@pytest.fixture(scope="session")
+def two_labels(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> LabelDefinitionList:
+    data_set_id = two_datasets[0].id  # Using the first dataset for labels
+    labels = LabelDefinitionWriteList(
+        [
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_1",
+                name="Test Label 1",
+                description="This is a test label 1",
+                data_set_id=data_set_id,
+            ),
+            LabelDefinitionWrite(
+                external_id="toolkit_test_label_aggregate_count_2",
+                name="Test Label 2",
+                description="This is a test label 2",
+                data_set_id=data_set_id,
+            ),
+        ]
+    )
+    existing = toolkit_client.labels.retrieve(external_id=labels.as_external_ids(), ignore_unknown_ids=True)
+    if missing := [label for label in labels if label.external_id not in set(existing.as_external_ids())]:
+        created = toolkit_client.labels.create(missing)
+        existing.extend(created)
+    return existing
+
+
 class TestMetadataKeyCounts:
     def test_metadata_key_counts(self, toolkit_client: ToolkitClient) -> None:
         metadata_keys = metadata_key_counts(toolkit_client, "events")
@@ -213,3 +242,23 @@ class TestRelationshipAggregateCount:
         assert item.source_type == "asset"
         assert item.target_type == "asset"
         assert item.count == len(asset_relationships)
+
+
+class TestLabelAggregateCount:
+    @pytest.mark.usefixtures("two_labels")
+    def test_label_aggregate_count(self, toolkit_client: ToolkitClient) -> None:
+        total = label_aggregate_count(toolkit_client)
+
+        # We do not know how many labels exists in the project, so we only check
+        # that there is at least one label.
+        assert total > 0
+
+    def test_label_aggregate_count_with_filtering(
+        self, toolkit_client: ToolkitClient, two_labels: LabelDefinitionList
+    ) -> None:
+        assert len(two_labels) > 0, "There should be some labels to test with."
+        data_set_id = two_labels[0].data_set_id
+        assert data_set_id is not None, "The labels should have a data set ID."
+        count = label_aggregate_count(toolkit_client, [data_set_id])
+
+        assert count == len(two_labels)
