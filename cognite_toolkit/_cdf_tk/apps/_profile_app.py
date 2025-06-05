@@ -24,7 +24,7 @@ class ProfileApp(typer.Typer):
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the metadata and labels for each of the asset-centric resources.
-        This shows roughly how much unstructured data there. This can, for example, be used to determine the
+        This shows an approximation of unstructured data count. This can, for example, be used to estimate the
         effort to model this data in data modeling."""
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = ProfileCommand()
