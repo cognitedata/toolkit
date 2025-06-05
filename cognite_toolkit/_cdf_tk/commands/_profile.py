@@ -157,12 +157,13 @@ class ProfileCommand(ToolkitCommand):
         )
         table.add_column("Resource")
         table.add_column("Count")
-        table.add_column("Metadata Key Count")
-        table.add_column("Label Count")
+        table.add_column("Metadata Key Count*")
+        table.add_column("Label Count*")
         for row in rows:
             table.add_row(*(f"{cell:,}" if isinstance(cell, int) else str(cell) for cell in row.values()))
         console = Console()
         console.print(table)
+        console.print("* '-' indicates not applicable.")
         return rows
 
     @staticmethod
