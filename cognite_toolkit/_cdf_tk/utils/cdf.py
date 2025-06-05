@@ -293,3 +293,28 @@ GROUP BY
         RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])
         for item in results.results or []
     ]
+
+
+def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = None) -> int:
+    """Get the total count of labels in the CDF project.
+
+    Args:
+        client: ToolkitClient instance
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+
+    Returns:
+        The total count of labels across all resources in the CDF project.
+    """
+    where_clause = ""
+    if data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+
+    query = f"""SELECT
+    COUNT(externalId) AS labelCount
+FROM
+    _cdf.labels{where_clause}"""
+
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    if results.results:
+        return int(results.results[0]["labelCount"])
+    return 0
