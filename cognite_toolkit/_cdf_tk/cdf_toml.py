@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import re
 import sys
+import urllib
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 from rich import print
 
@@ -64,10 +65,31 @@ class ModulesConfig:
         ):
             raise ToolkitVersionError(
                 f"The version of the modules ({version}) does not match the version of the installed CLI "
-                f"({_version.__version__}). Please either run `cdf-tk modules upgrade` to upgrade the modules OR "
-                f"run `pip install cognite-toolkit=={version}` to downgrade cdf-tk CLI."
+                f"({_version.__version__}). Please run `cdf modules upgrade` to upgrade the modules OR "
+                f"run `pip install cognite-toolkit=={version}` to downgrade cdf CLI."
             )
         return cls(version=version, packages=packages)
+
+
+@dataclass
+class Library:
+    type: Literal["https"]
+    url: str
+
+    @classmethod
+    def load(cls, raw: dict[str, Any]) -> Library:
+        if raw.get("type") != "https":
+            raise ValueError("Supported library type is 'https'")
+
+        if "url" not in raw:
+            raise ValueError("Library configuration must contain 'url' field.")
+
+        parsed_url = urllib.parse.urlparse(raw["url"])
+
+        if not all([parsed_url.scheme, parsed_url.netloc]):
+            raise ValueError("For type 'https', 'url' field must be a valid URL.")
+
+        return cls(**raw)
 
 
 @dataclass
@@ -80,6 +102,7 @@ class CDFToml:
     modules: ModulesConfig
     alpha_flags: dict[str, bool] = field(default_factory=dict)
     plugins: dict[str, bool] = field(default_factory=dict)
+    libraries: dict[str, Library] = field(default_factory=dict)
 
     is_loaded_from_file: bool = False
 
@@ -114,7 +137,21 @@ class CDFToml:
             if "plugins" in raw:
                 plugins = {clean_name(k): v for k, v in raw["plugins"].items()}
 
-            instance = cls(cdf=cdf, modules=modules, alpha_flags=alpha_flags, plugins=plugins, is_loaded_from_file=True)
+            libraries = {}
+            for k, v in raw.get("library", {}).items():
+                try:
+                    libraries[k] = Library.load(v)
+                except ValueError as e:
+                    raise ToolkitTOMLFormatError(f"Invalid library configuration for '{k}': {e.args[0]}") from e
+
+            instance = cls(
+                cdf=cdf,
+                modules=modules,
+                alpha_flags=alpha_flags,
+                plugins=plugins,
+                libraries=libraries,
+                is_loaded_from_file=True,
+            )
             if use_singleton:
                 _CDF_TOML = instance
             return instance
