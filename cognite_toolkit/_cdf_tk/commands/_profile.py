@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from typing import Literal
 
+from cognite.client.exceptions import CogniteReadTimeout
 from rich.console import Console
 from rich.table import Table
 
@@ -37,8 +38,11 @@ class MetadataAggregator(AssetCentricAggregator, ABC):
         super().__init__(client)
         self.resource_name = resource_name
 
-    def metadata_key_count(self) -> int:
-        return len(metadata_key_counts(self.client, self.resource_name))
+    def metadata_key_count(self) -> int | str:
+        try:
+            return len(metadata_key_counts(self.client, self.resource_name))
+        except CogniteReadTimeout:
+            return "Read Timeout"
 
 
 class LabelAggregator(MetadataAggregator, ABC):
@@ -172,10 +176,9 @@ class ProfileCommand(ToolkitCommand):
             "Resource": aggregator.display_name,
             "Count": aggregator.count(),
         }
+        count: int | str = "-"
         if isinstance(aggregator, MetadataAggregator):
-            count: str | int = aggregator.metadata_key_count()
-        else:
-            count = "-"
+            count = aggregator.metadata_key_count()
         row["Metadata Key Count"] = count
         if isinstance(aggregator, LabelAggregator):
             count = aggregator.label_count()
