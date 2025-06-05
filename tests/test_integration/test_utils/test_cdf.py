@@ -1,5 +1,5 @@
 import itertools
-from collections import Counter
+from collections import Counter, defaultdict
 
 import pytest
 from cognite.client.data_classes import (
@@ -9,10 +9,13 @@ from cognite.client.data_classes import (
     DataSetList,
     DataSetWrite,
     DataSetWriteList,
+    RelationshipList,
+    RelationshipWrite,
+    RelationshipWriteList,
 )
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts, relationship_aggregate_count
 
 
 @pytest.fixture(scope="session")
@@ -86,6 +89,40 @@ def two_hierarchies(toolkit_client: ToolkitClient, two_datasets: DataSetList) ->
     return retrieved_hierarchies[0], retrieved_hierarchies[1]
 
 
+@pytest.fixture(scope="session")
+def asset_relationships(
+    toolkit_client: ToolkitClient, two_hierarchies: tuple[AssetList, AssetList], two_datasets: DataSetList
+) -> RelationshipList:
+    dataset_id = two_datasets[0].id  # Using the first dataset for relationships
+    hierarchy, _ = two_hierarchies  # Using the first hierarchy for relationships
+    children_by_parent: dict[str, list[str]] = defaultdict(list)
+    for asset in hierarchy:
+        if asset.parent_external_id and asset.external_id:
+            children_by_parent[asset.parent_external_id].append(asset.external_id)
+
+    relationships = RelationshipWriteList(
+        [
+            RelationshipWrite(
+                external_id=f"toolkit_test_relationship_count_{parent}_{child}",
+                source_type="asset",
+                source_external_id=parent,
+                target_type="asset",
+                target_external_id=child,
+                data_set_id=dataset_id,
+            )
+            for parent, children in children_by_parent.items()
+            for child in children
+        ]
+    )
+    existing = toolkit_client.relationships.retrieve_multiple(
+        external_ids=relationships.as_external_ids(), ignore_unknown_ids=True
+    )
+    if missing := [rel for rel in relationships if rel.external_id not in set(existing.as_external_ids())]:
+        created = toolkit_client.relationships.create(missing)
+        existing.extend(created)
+    return existing
+
+
 class TestMetadataKeyCounts:
     def test_metadata_key_counts(self, toolkit_client: ToolkitClient) -> None:
         metadata_keys = metadata_key_counts(toolkit_client, "events")
@@ -151,3 +188,28 @@ class TestMetadataKeyCounts:
                     expected_keys.update(asset.metadata.keys())
 
         assert {key: count for key, count in metadata_keys} == dict(expected_keys.items())
+
+
+class TestRelationshipAggregateCount:
+    @pytest.mark.usefixtures("asset_relationships")
+    def test_relationship_aggregate_count(self, toolkit_client: ToolkitClient) -> None:
+        results = relationship_aggregate_count(toolkit_client)
+
+        # We do not know how many relationship exists in the project, so we only check
+        # that there is at least one relationship.
+        total = sum(item.count for item in results)
+        assert total > 0
+
+    def test_relationship_aggregate_count_with_filtering(
+        self, toolkit_client: ToolkitClient, asset_relationships: RelationshipList
+    ) -> None:
+        assert len(asset_relationships) > 0, "There should be some relationships to test with."
+        data_set_id = asset_relationships[0].data_set_id
+        assert data_set_id is not None, "The relationships should have a data set ID."
+        results = relationship_aggregate_count(toolkit_client, [data_set_id])
+
+        assert len(results) == 1
+        item = results[0]
+        assert item.source_type == "asset"
+        assert item.target_type == "asset"
+        assert item.count == len(asset_relationships)
