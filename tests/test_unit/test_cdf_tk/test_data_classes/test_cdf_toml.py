@@ -70,3 +70,6 @@ class TestCDFToml:
 
         with pytest.raises(ToolkitTOMLFormatError, match=re.escape(expected_error_message)):
             CDFToml.load(cwd=tmp_path, use_singleton=False)
+
+    def test_fallback_to_official(self):
+        pass
