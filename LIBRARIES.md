@@ -7,29 +7,22 @@ The Toolkit can import modules from external libraries.
 A user will add the library url to cdf.toml:
 
 ```toml
-[[libraries]]
-url = "https://example.com/my-library/<root folder>"
+[library.my_library]
+type = https
+url = https://example.com/my-library/
 ```
 
 ## Publishing a library
 
-The library must be available with https. Authentication is not currently supported.
+The library must be available over https. Authentication is not currently supported.
 
-To publish a library, create a repository with the following structure. It is strictly required for the
-Toolkit to recognize it and present it to the user in the cdf modules init or cdf modules add commands.
+To publish a library, create a repository where the root folder at `url` contains
+a **package.toml** and a **package.zip**. The zip file must have the structure
+and content described below.
 
-```example:
-
-<root folder>
-├── package.toml
-└── module_1
-    ├── <module content>
-    ├── default.config.yaml
-    └── module.toml
-└── module_2
-    ├── <module content>
-    ├── default.config.yaml
-    └── module.toml
+```sh
+https://<url>/package.toml
+https://<url>/package.zip
 ```
 
 ### package.toml
@@ -58,7 +51,24 @@ title = "Contextualization package 1"
 description = "<Description of what the package contains or does>"
 ```
 
-### module.toml
+### package.zip
+
+Zip file content must be structured like this:
+
+```shell
+
+package.zip
+└── module_1
+    ├── <module content>
+    ├── default.config.yaml
+    └── module.toml
+└── module_2
+    ├── <module content>
+    ├── default.config.yaml
+    └── module.toml
+```
+
+#### module.toml
 
 A **module.toml** file must be present in each module folder. It should contain the following information:
 
@@ -73,7 +83,7 @@ tags = [
 ]
 ```
 
-### default.config.yaml
+#### default.config.yaml
 
 A **default.config.yaml** file must be present in each module folder if the module contains any value placeholders.
 
@@ -121,8 +131,9 @@ To verify that the library is correctly structured:
 1. Add your library path ending with the root folder to cdf.toml:
 
 ```toml
-[[libraries]]
-url = "https://example.com/my-library/my-root-folder"
+[libraries.my_library]
+type = https
+url = https://example.com/my-library/my-root-folder
 ```
 
 1. Run `cdf modules init` or `cdf modules add` to verify that packages and modules are shown correctly
