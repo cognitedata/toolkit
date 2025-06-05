@@ -183,6 +183,22 @@
       "justMyCode": false
     },
     {
+      "name": "cdf dump config location-filters",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "./cdf-tk-dev.py",
+      "args": [
+        "dump",
+        "config",
+        "location-filters",
+        "--verbose",
+        "-o",
+        "./cognite_toolkit/"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
       "name": "Python: init",
       "type": "debugpy",
       "request": "launch",
