@@ -26,7 +26,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
-if sys.version_info < (3, 10):
+if sys.version_info < (3, 11):
     from typing_extensions import Self
 else:
     from typing import Self
