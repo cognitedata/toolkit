@@ -6,7 +6,7 @@ from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.time_series import TimeSeriesFilter, TimeSeriesSort
-from cognite.client.utils._auxiliary import exactly_one_is_not_none, split_into_chunks, unpack_items_in_payload
+from cognite.client.utils._auxiliary import split_into_chunks, unpack_items_in_payload
 from cognite.client.utils._concurrency import execute_tasks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils._validation import prepare_filter_sort, process_asset_subtree_ids, process_data_set_ids
@@ -49,39 +49,15 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
             and isinstance(instance_id[0], str)
             and isinstance(instance_id[1], str)
         ):
-            return self._set_single_pending_id(instance_id, id, external_id)
+            return self._set_pending_ids([PendingInstanceId(instance_id, id=id, external_id=external_id)])[0]  # type: ignore[return-value, arg-type]
         elif isinstance(instance_id, Sequence) and all(isinstance(item, PendingInstanceId) for item in instance_id):
-            return self._set_multiple_pending_ids(instance_id)  # type: ignore[arg-type]
+            return self._set_pending_ids(instance_id)  # type: ignore[arg-type]
         else:
             raise TypeError(
                 "instance_id must be a NodeId, a tuple of (str, str), or a sequence of PendingIdentifier objects."
             )
 
-    def _set_single_pending_id(
-        self, instance_id: NodeId | tuple[str, str], id: int | None = None, external_id: str | None = None
-    ) -> ExtendedTimeSeries:
-        if not exactly_one_is_not_none(id, external_id):
-            raise ValueError("Exactly one of 'id' or 'external_id' must be provided.")
-        body: dict[str, Any] = {
-            "pendingInstanceId": NodeId.load(instance_id).dump(include_instance_type=False),
-        }
-        if id is not None:
-            body["id"] = id
-        if external_id is not None:
-            body["externalId"] = external_id
-
-        response = self._post(
-            url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids",
-            json={"items": [body]},
-            headers={"cdf-version": "alpha"},
-        )
-        data = response.json()
-        if "items" not in data or not data["items"]:
-            raise ValueError("No items returned from the API. Check if the request was successful.")
-
-        return ExtendedTimeSeries._load(data["items"][0], cognite_client=self._cognite_client)
-
-    def _set_multiple_pending_ids(self, identifiers: Sequence[PendingInstanceId]) -> ExtendedTimeSeriesList:
+    def _set_pending_ids(self, identifiers: Sequence[PendingInstanceId]) -> ExtendedTimeSeriesList:
         """Set multiple pending identifiers for time series.
 
         Args:

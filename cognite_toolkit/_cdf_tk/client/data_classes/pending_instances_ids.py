@@ -20,7 +20,7 @@ class PendingInstanceId(CogniteObject):
     TimeSeries or FileMetadata.
     """
 
-    instance_id: NodeId
+    pending_instance_id: NodeId
     id: int | None = None
     external_id: str | None = None
 
@@ -32,7 +32,7 @@ class PendingInstanceId(CogniteObject):
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
         """Load a PendingInstanceId from a dictionary."""
         return cls(
-            instance_id=NodeId.load(resource["instanceId"]),
+            pending_instance_id=NodeId.load(resource["pendingInstanceId"]),
             id=resource.get("id"),
             external_id=resource.get("externalId"),
         )
@@ -40,7 +40,9 @@ class PendingInstanceId(CogniteObject):
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         """Dump the PendingInstanceId to a dictionary."""
         output: dict[str, Any] = {
-            "instanceId" if camel_case else "instance_id": self.instance_id.dump(camel_case=camel_case),
+            "pendingInstanceId" if camel_case else "pending_instance_id": self.pending_instance_id.dump(
+                camel_case=camel_case, include_instance_type=False
+            ),
         }
         if self.id is not None:
             output["id"] = self.id
