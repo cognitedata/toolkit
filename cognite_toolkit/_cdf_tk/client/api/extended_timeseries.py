@@ -6,7 +6,8 @@ from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.time_series import TimeSeriesFilter, TimeSeriesSort
-from cognite.client.utils._auxiliary import exactly_one_is_not_none
+from cognite.client.utils._auxiliary import exactly_one_is_not_none, split_into_chunks, unpack_items_in_payload
+from cognite.client.utils._concurrency import execute_tasks
 from cognite.client.utils._identifier import IdentifierSequence
 from cognite.client.utils._validation import prepare_filter_sort, process_asset_subtree_ids, process_data_set_ids
 from cognite.client.utils.useful_types import SequenceNotStr
@@ -89,12 +90,29 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         Returns:
             ExtendedTimeSeriesList: A list of ExtendedTimeSeries objects with the updated pending identifiers.
         """
-        body = [identifier.dump(camel_case=True) for identifier in identifiers]
-        response = self._post(
-            url_path=f"{self._RESOURCE_PATH}/set-pending-instance-ids", json={"items": body}, api_subversion="alpha"
+        tasks = [
+            {
+                "url_path": f"{self._RESOURCE_PATH}/set-pending-instance-ids",
+                "json": {
+                    "items": [identifier.dump(camel_case=True) for identifier in id_chunk],
+                },
+                "api_subversion": "alpha",
+            }
+            for id_chunk in split_into_chunks(list(identifiers), 1000)
+        ]
+        tasks_summary = execute_tasks(
+            self._post,
+            tasks,
+            max_workers=self._config.max_workers,
+            fail_fast=True,
         )
-        data = response.json()
-        return ExtendedTimeSeriesList._load(data["items"], cognite_client=self._cognite_client)
+        tasks_summary.raise_compound_exception_if_failed_tasks(
+            task_unwrap_fn=unpack_items_in_payload,
+        )
+
+        retrieved_items = tasks_summary.joined_results(lambda res: res.json()["items"])
+
+        return ExtendedTimeSeriesList._load(retrieved_items, cognite_client=self._cognite_client)
 
     def retrieve(
         self, id: int | None = None, external_id: str | None = None, instance_id: NodeId | None = None
