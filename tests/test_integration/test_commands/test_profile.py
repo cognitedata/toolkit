@@ -16,9 +16,12 @@ class TestDumpResource:
             "Relationships",
             "Labels",
         }
-        total_count = sum(item["Count"] for item in results)
+        total_count = sum(int(item["Count"].replace(",", "")) for item in results)
         assert total_count > 0
-        total_metadata_count = sum(
-            item["Metadata Key Count"] for item in results if isinstance(item.get("Metadata Key Count"), int)
-        )
+        total_metadata_count = 0
+        for item in results:
+            metadata_count = item.get("Metadata Key Count", "")
+            if "-" in metadata_count:
+                continue
+            total_metadata_count += int(metadata_count.replace("-", ""))
         assert total_metadata_count > 0
