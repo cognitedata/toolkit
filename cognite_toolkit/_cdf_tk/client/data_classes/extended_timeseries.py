@@ -1,9 +1,15 @@
+import sys
 from collections.abc import Sequence
-from typing import Any, Self, cast
+from typing import Any, cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.time_series import TimeSeries, TimeSeriesList
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class ExtendedTimeSeries(TimeSeries):
