@@ -20,8 +20,8 @@ class TestDumpResource:
         assert total_count > 0
         total_metadata_count = 0
         for item in results:
-            metadata_count = item.get("Metadata Key Count", "")
-            if "-" in metadata_count:
+            metadata_count = item.get(ProfileCommand.Columns.MetadataKeyCount, "")
+            if "-" in metadata_count or not metadata_count:
                 continue
             total_metadata_count += int(metadata_count.replace("-", ""))
         assert total_metadata_count > 0
