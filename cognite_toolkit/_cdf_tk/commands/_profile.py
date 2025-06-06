@@ -3,7 +3,9 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
+from cognite.client.exceptions import CogniteAPIError
 from rich.live import Live
+from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
@@ -143,6 +145,7 @@ class ProfileCommand(ToolkitCommand):
         Columns.MetadataKeyCount,
         Columns.LabelCount,
     )
+    spinner_speed = 0.7
 
     @classmethod
     def asset_centric(
@@ -172,36 +175,36 @@ class ProfileCommand(ToolkitCommand):
                     index, col = future_to_cell[future]
                     results[index][col] = future.result()
                     live.update(cls.create_profile_table(results))
-        return results
+        return [{col: str(value) for col, value in row.items()} for row in results]
 
     @classmethod
     def _create_initial_table(
         cls, aggregators: list[AssetCentricAggregator]
-    ) -> tuple[list[dict[str, str]], dict[tuple[int, str], Callable[[], str]]]:
-        rows: list[dict[str, str]] = []
+    ) -> tuple[list[dict[str, str | Spinner]], dict[tuple[int, str], Callable[[], str]]]:
+        rows: list[dict[str, str | Spinner]] = []
         api_calls: dict[tuple[int, str], Callable[[], str]] = {}
         for index, aggregator in enumerate(aggregators):
-            row: dict[str, str] = {
+            row: dict[str, str | Spinner] = {
                 cls.Columns.Resource: aggregator.display_name,
-                cls.Columns.Count: "loading...",
+                cls.Columns.Count: Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed),
             }
-            api_calls[(index, cls.Columns.Count)] = cls._int_as_str(aggregator.count)
-            count = "-"
+            api_calls[(index, cls.Columns.Count)] = cls._call_api(aggregator.count)
+            count: str | Spinner = "-"
             if isinstance(aggregator, MetadataAggregator):
-                count = "loading..."
-                api_calls[(index, cls.Columns.MetadataKeyCount)] = cls._int_as_str(aggregator.metadata_key_count)
+                count = Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed)
+                api_calls[(index, cls.Columns.MetadataKeyCount)] = cls._call_api(aggregator.metadata_key_count)
             row[cls.Columns.MetadataKeyCount] = count
 
             count = "-"
             if isinstance(aggregator, LabelAggregator):
-                count = "loading..."
-                api_calls[(index, cls.Columns.LabelCount)] = cls._int_as_str(aggregator.label_count)
+                count = Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed)
+                api_calls[(index, cls.Columns.LabelCount)] = cls._call_api(aggregator.label_count)
             row[cls.Columns.LabelCount] = count
             rows.append(row)
         return rows, api_calls
 
     @classmethod
-    def create_profile_table(cls, rows: list[dict[str, str]]) -> Table:
+    def create_profile_table(cls, rows: list[dict[str, str | Spinner]]) -> Table:
         table = Table(
             title="Asset Centric Profile",
             title_justify="left",
@@ -217,9 +220,13 @@ class ProfileCommand(ToolkitCommand):
         return table
 
     @staticmethod
-    def _int_as_str(call_fun: Callable[[], int]) -> Callable[[], str]:
+    def _call_api(call_fun: Callable[[], int]) -> Callable[[], str]:
         def styled_callable() -> str:
-            value = call_fun()
-            return f"{value:,}"
+            try:
+                value = call_fun()
+            except CogniteAPIError as e:
+                return type(e).__name__
+            else:
+                return f"{value:,}"
 
         return styled_callable
