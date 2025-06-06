@@ -1,7 +1,8 @@
 import re
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_serializer
+from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
     CONTAINER_EXTERNAL_ID_PATTERN,
@@ -79,3 +80,12 @@ class ContainerYAML(ToolkitResource):
                     f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER)}"
                 )
         return val
+
+    @model_serializer(mode="wrap")
+    def serialize_container(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
+        serialized_data = handler(self)
+        if self.constraints:
+            serialized_data["constraints"] = {k: v.model_dump(**vars(info)) for k, v in self.constraints.items()}
+        if self.indexes:
+            serialized_data["indexes"] = {k: v.model_dump(**vars(info)) for k, v in self.indexes.items()}
+        return serialized_data

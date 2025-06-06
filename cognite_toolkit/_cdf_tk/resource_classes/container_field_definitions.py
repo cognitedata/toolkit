@@ -63,11 +63,6 @@ class ConstraintDefinition(BaseModelResource):
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_constrain_definition(self, handler: SerializerFunctionWrapHandler) -> dict:
         serialized_data = handler(self)
-
-        # explict addition of fields that are not present in the base class
-        if hasattr(self, "by_space") and "bySpace" not in serialized_data and self.by_space is not None:
-            serialized_data["bySpace"] = self.by_space
-
         return serialized_data
 
 
@@ -118,13 +113,6 @@ class IndexDefinition(BaseModelResource):
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_index(self, handler: SerializerFunctionWrapHandler) -> dict:
         serialized_data = handler(self)
-
-        if hasattr(self, "by_space") and "bySpace" not in serialized_data and self.by_space is not None:
-            serialized_data["bySpace"] = self.by_space
-
-        if hasattr(self, "cursorable") and "cursorable" not in serialized_data and self.cursorable is not None:
-            serialized_data["cursorable"] = self.cursorable
-
         return serialized_data
 
 
@@ -175,13 +163,6 @@ class PropertyTypeDefinition(BaseModelResource):
     @model_serializer(mode="wrap", when_used="always", return_type=dict)
     def serialize_property_type(self, handler: SerializerFunctionWrapHandler) -> dict:
         serialized_data = handler(self)
-
-        if hasattr(self, "list") and "list" not in serialized_data and self.list is not None:
-            serialized_data["list"] = self.list
-
-        if hasattr(self, "cursorable") and "cursorable" not in serialized_data and self.cursorable is not None:
-            serialized_data["cursorable"] = self.cursorable
-
         return serialized_data
 
 

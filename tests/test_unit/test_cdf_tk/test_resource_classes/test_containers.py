@@ -114,13 +114,13 @@ def container_with_indexes_cases() -> Iterable:
         {
             "BtreeIndex": {
                 "space": "my_space",
-                "external_id": "indexed_container",
+                "externalId": "indexed_container",
                 "properties": {"timestamp": {"type": {"type": "timestamp"}}, "value": {"type": {"type": "float64"}}},
                 "indexes": {
                     "timeSeriesIndex": {
-                        "index_type": "btree",
+                        "indexType": "btree",
                         "properties": ["timestamp", "value"],
-                        "by_space": True,
+                        "bySpace": True,
                         "cursorable": True,
                     }
                 },
@@ -154,7 +154,7 @@ class TestContainerYAML:
     def test_invalid_external_id(self) -> None:
         invalid_data = {
             "space": "my_space",
-            "external_id": "Query",
+            "externalId": "Query",
             "properties": {"field": {"type": {"type": "text"}}},
         }
 
@@ -164,8 +164,8 @@ class TestContainerYAML:
     def test_invalid_property_identifier(self) -> None:
         invalid_data = {
             "space": "my_space",
-            "external_id": "valid_container",
-            "properties": {"1invalid": {"type": {"type": "text"}}},
+            "externalId": "valid_container",
+            "properties": {"invalid@": {"type": {"type": "text"}}},
         }
 
         with pytest.raises(ValueError, match="does not match the required pattern"):
@@ -174,8 +174,8 @@ class TestContainerYAML:
     def test_forbidden_property_identifier(self) -> None:
         invalid_data = {
             "space": "my_space",
-            "external_id": "valid_container",
-            "properties": {"id": {"type": {"type": "text"}}},
+            "externalId": "valid_container",
+            "properties": {"edge_id": {"type": {"type": "text"}}},
         }
 
         with pytest.raises(ValueError, match="is a reserved property identifier"):
@@ -184,7 +184,7 @@ class TestContainerYAML:
     def test_space_format_validation(self) -> None:
         invalid_data = {
             "space": "invalid space",  # Contains a space
-            "external_id": "valid_container",
+            "externalId": "valid_container",
             "properties": {"field": {"type": {"type": "text"}}},
         }
 
