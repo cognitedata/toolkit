@@ -28,6 +28,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables support for Atlas Agents and Agent Tools",
     }
+    DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the dumping Location Filters.",
+    }
     PROFILE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
         "description": "Enables support for the profile command",
