@@ -3,7 +3,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Literal
 
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.exceptions import CogniteException
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.table import Table
@@ -145,7 +145,7 @@ class ProfileCommand(ToolkitCommand):
         Columns.MetadataKeyCount,
         Columns.LabelCount,
     )
-    spinner_speed = 0.7
+    spinner_speed = 1.0
 
     @classmethod
     def asset_centric(
@@ -224,7 +224,7 @@ class ProfileCommand(ToolkitCommand):
         def styled_callable() -> str:
             try:
                 value = call_fun()
-            except CogniteAPIError as e:
+            except CogniteException as e:
                 return type(e).__name__
             else:
                 return f"{value:,}"
