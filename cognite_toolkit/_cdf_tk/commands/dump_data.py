@@ -334,7 +334,7 @@ class EventFinder(AssetCentricFinder[Event]):
 
     def create_resource_iterator(self, limit: int | None) -> Iterable:
         return self.client.events(
-            chunk_size=1000,
+            chunk_size=self.chunk_size,
             asset_subtree_external_ids=self.hierarchies or None,
             data_set_external_ids=self.data_sets or None,
             limit=limit,
