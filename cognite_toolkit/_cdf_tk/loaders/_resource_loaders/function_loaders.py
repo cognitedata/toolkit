@@ -36,6 +36,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -61,6 +62,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
     kind = "Function"
+    yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
