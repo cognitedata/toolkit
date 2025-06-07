@@ -48,6 +48,9 @@ class SQLParser:
         from sqlparse.tokens import Keyword
 
         from_seen = False
+        join_seen = False
+        join_keywords: set[str] = {"JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "FULL JOIN"}
+        join_related_keywords = {"ON", "USING"}
         for token in tokens:
             if isinstance(token, TokenList):
                 # Recursive search nested tokens
@@ -58,21 +61,29 @@ class SQLParser:
                 elif isinstance(token, Identifier):
                     self._add_to_sources(token)
                 elif token.ttype is Keyword:
-                    break
+                    value = token.value.upper()
+                    if value in join_keywords:
+                        join_seen = True
+                    elif value in join_related_keywords and join_seen:
+                        # If we see ON or USING after a JOIN, we can assume the next identifier is a table
+                        join_seen = False
+                    else:
+                        from_seen = False
+                        join_seen = False
             if token.ttype is Keyword and token.value.upper() == "FROM":
                 from_seen = True
 
     def _add_to_sources(self, *sources: "Identifier") -> None:
         """Add a source to the list if it hasn't been seen before."""
         from sqlparse.sql import Identifier
-        from sqlparse.tokens import Keyword, Punctuation
+        from sqlparse.tokens import Punctuation, Whitespace
 
         for source in sources:
-            if len(source.tokens) < 3 and source[0].ttype is not Punctuation:
+            if len(source.tokens) < 3 or source[1].ttype is not Punctuation:
                 # This is not a source. It should have three tokens:
                 # schema, punctuation, and table name.
                 continue
-            if len(source.tokens) >= 5 and (source[4].ttype is Keyword and source[4].value.upper() == "AS"):
+            if len(source.tokens) >= 4 and source[3].ttype is Whitespace:
                 # Skip the alias part if it exists
                 source = Identifier(source.tokens[:3])
             source_str = str(source)
