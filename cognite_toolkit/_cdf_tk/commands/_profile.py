@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Literal
+from typing import ClassVar, Literal
 
 from cognite.client.exceptions import CogniteException
 from rich.live import Live
@@ -20,6 +20,8 @@ from ._base import ToolkitCommand
 
 
 class AssetCentricAggregator(ABC):
+    _transformation_destination: ClassVar[tuple[str, ...]]
+
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
@@ -31,6 +33,14 @@ class AssetCentricAggregator(ABC):
     @abstractmethod
     def count(self) -> int:
         raise NotImplementedError
+
+    def transformation_count(self) -> int:
+        """Returns the number of transformations associated with the resource."""
+        transformation_count = 0
+        for destination in self._transformation_destination:
+            for chunk in self.client.transformations(chunk_size=1000, destination_type=destination, limit=None):
+                transformation_count += len(chunk)
+        return transformation_count
 
 
 class MetadataAggregator(AssetCentricAggregator, ABC):
@@ -50,6 +60,8 @@ class LabelAggregator(MetadataAggregator, ABC):
 
 
 class AssetAggregator(LabelAggregator):
+    _transformation_destination = ("assets", "asset_hierarchy")
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "assets")
 
@@ -62,6 +74,8 @@ class AssetAggregator(LabelAggregator):
 
 
 class EventAggregator(MetadataAggregator):
+    _transformation_destination = ("events",)
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "events")
 
@@ -74,6 +88,8 @@ class EventAggregator(MetadataAggregator):
 
 
 class FileAggregator(LabelAggregator):
+    _transformation_destination = ("files",)
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "files")
 
@@ -90,6 +106,8 @@ class FileAggregator(LabelAggregator):
 
 
 class TimeSeriesAggregator(MetadataAggregator):
+    _transformation_destination = ("timeseries",)
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "timeseries")
 
@@ -102,6 +120,8 @@ class TimeSeriesAggregator(MetadataAggregator):
 
 
 class SequenceAggregator(MetadataAggregator):
+    _transformation_destination = ("sequences",)
+
     def __init__(self, client: ToolkitClient) -> None:
         super().__init__(client, "sequences")
 
@@ -114,6 +134,8 @@ class SequenceAggregator(MetadataAggregator):
 
 
 class RelationshipAggregator(AssetCentricAggregator):
+    _transformation_destination = ("relationships",)
+
     @property
     def display_name(self) -> str:
         return "Relationships"
@@ -124,6 +146,8 @@ class RelationshipAggregator(AssetCentricAggregator):
 
 
 class LabelCountAggregator(AssetCentricAggregator):
+    _transformation_destination = ("labels",)
+
     @property
     def display_name(self) -> str:
         return "Labels"
@@ -136,14 +160,16 @@ class ProfileCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
         Count = "Count"
-        MetadataKeyCount = "Metadata Key Count*"
-        LabelCount = "Label Count*"
+        MetadataKeyCount = "Metadata Key Count"
+        LabelCount = "Label Count"
+        Transformation = "Transformations"
 
     columns = (
         Columns.Resource,
         Columns.Count,
         Columns.MetadataKeyCount,
         Columns.LabelCount,
+        Columns.Transformation,
     )
     spinner_speed = 1.0
 
@@ -200,6 +226,12 @@ class ProfileCommand(ToolkitCommand):
                 count = Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed)
                 api_calls[(index, cls.Columns.LabelCount)] = cls._call_api(aggregator.label_count)
             row[cls.Columns.LabelCount] = count
+
+            row[cls.Columns.Transformation] = Spinner(
+                "arc", text="loading...", style="bold green", speed=cls.spinner_speed
+            )
+            api_calls[(index, cls.Columns.Transformation)] = cls._call_api(aggregator.transformation_count)
+
             rows.append(row)
         return rows, api_calls
 
@@ -211,10 +243,9 @@ class ProfileCommand(ToolkitCommand):
             show_header=True,
             header_style="bold magenta",
         )
-        table.add_column(cls.Columns.Resource)
-        table.add_column(cls.Columns.Count)
-        table.add_column("Metadata Key Count*")
-        table.add_column("Label Count*")
+        for col in cls.columns:
+            table.add_column(col)
+
         for row in rows:
             table.add_row(*row.values())
         return table
