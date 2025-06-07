@@ -239,7 +239,7 @@ def metadata_key_counts(
        GROUP BY key
        ORDER BY key_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.helper.run_query(query, convert_to_string=False, limit=None, source_limit=None)
     return [(item["key"], item["key_count"]) for item in results.results or []]
 
 
