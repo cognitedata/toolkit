@@ -1,9 +1,9 @@
-from typing import Any
+from typing import Annotated, Any
 
 import typer
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import ProfileCommand
+from cognite_toolkit._cdf_tk.commands import ProfileCommand, ProfileRawCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -31,6 +31,38 @@ class ProfileApp(typer.Typer):
         cmd.run(
             lambda: cmd.asset_centric(
                 client,
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def raw(
+        ctx: typer.Context,
+        destination: Annotated[
+            str,
+            typer.Option(
+                "--destination",
+                "-d",
+                help="Destination type the raw data should be written to. This can be 'assets', 'events', 'files',"
+                "'timeseries', or 'sequences'.",
+            ),
+        ],
+        verbose: bool = False,
+    ) -> None:
+        """This command gives an overview over the staging tables in CDF and where they are used.
+
+        It works by checking all transformations that writes to the given destination and lists all the raw tables
+        that are used in those transformations.
+
+        This is intended to show the flow of data from raw into CDF. This can, for example, be used to determine the
+        source of the data in a specific CDF resource.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ProfileRawCommand()
+        cmd.run(
+            lambda: cmd.raw(
+                client,
+                destination,
                 verbose,
             )
         )

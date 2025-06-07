@@ -1,5 +1,5 @@
 from ._populate import PopulateCommand
-from ._profile import ProfileCommand
+from ._profile import ProfileCommand, ProfileRawCommand
 from ._purge import PurgeCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
@@ -28,6 +28,7 @@ __all__ = [
     "ModulesCommand",
     "PopulateCommand",
     "ProfileCommand",
+    "ProfileRawCommand",
     "PullCommand",
     "PurgeCommand",
     "RepoCommand",
