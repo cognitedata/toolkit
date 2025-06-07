@@ -57,7 +57,7 @@ class FixedTransformationsAPI(TransformationsAPI):
             "POST",
             "/transformations/query/run",
             json=request_body,
-            timeout=timeout or self._default_timeout_run_query,
+            timeout=timeout or (self._default_timeout_run_query + 60),  # add a buffer to the timeout
             retry=False,
         )
         return TransformationPreviewResult._load(response.json(), cognite_client=self._cognite_client)
