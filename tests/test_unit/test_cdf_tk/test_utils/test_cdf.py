@@ -135,7 +135,7 @@ where
         """with
   asset_metadata_to_add as
     (select
-        Vulnerability,
+        Vulnerability
   from `UpdateDB`.`Vulnerability`),
 
   exisiting_metadata as
@@ -150,12 +150,12 @@ where
 
 select
   map_concat(to_metadata(
-        Vulnerability,),
+        Vulnerability),
         metadata) as metadata,
   combined_table.externalId as externalId
   from
   combined_table""",
-        [RawTable(db_name="UpdateDB", table_name="Vulnerability")],
+        [RawTable(db_name="UpdateDB", table_name="Vulnerability"), "assets"],
         id="Source inside inner With Query",
     )
 
