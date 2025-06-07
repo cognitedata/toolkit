@@ -55,6 +55,15 @@ from
     )
 
     yield pytest.param(
+        """
+        select table.identifier as externalId,
+               table.name       as name
+        from `my db`.`my table` as table""",
+        [RawTable(db_name="my db", table_name="my table")],
+        id="Use of backticks in table name with AS alias",
+    )
+
+    yield pytest.param(
         """with parentLookup as (
   select
     concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,
@@ -120,6 +129,95 @@ where
 """,
         [RawTable(db_name="DTN", table_name="SAP_Functional_Location")],
         id="Query with inner join",
+    )
+
+    yield pytest.param(
+        """with
+  asset_metadata_to_add as
+    (select
+        Vulnerability,
+  from `UpdateDB`.`Vulnerability`),
+
+  exisiting_metadata as
+    (select metadata, externalId from _cdf.assets where externalId in (select Floc from asset_metadata_to_add)),
+
+  combined_table as
+    (select asset_metadata_to_add.*,
+        exisiting_metadata.*
+      from asset_metadata_to_add
+      JOIN exisiting_metadata
+      on asset_metadata_to_add.Floc = exisiting_metadata.externalId)
+
+select
+  map_concat(to_metadata(
+        Vulnerability,),
+        metadata) as metadata,
+  combined_table.externalId as externalId
+  from
+  combined_table""",
+        [RawTable(db_name="UpdateDB", table_name="Vulnerability")],
+        id="Source inside inner With Query",
+    )
+
+    yield pytest.param(
+        """select
+id as id,
+externalId as externalId,
+name as name,
+1234 as dataSetId
+from _cdf.assets
+where left(externalId,5)="GM-ST" and left(name,2)="ST"
+    """,
+        ["assets"],
+        id="Source is _cdf.assets (not a RawTable)",
+    )
+    yield pytest.param(
+        """with
+  created_assets as (
+    select
+      collect_set(externalId) as assets
+    from
+      _cdf.assets
+    where
+      dataSetId = 5238979812378
+  ),
+  bad_vals as (
+    select
+      array(
+        '000000000012345678',
+      ) as bv
+  ),
+  filtered_equipment as (
+    select
+      EQ_0EQUIPMENT) as externalId,
+    from
+      DTN.`SAP_EQUIPMENT`
+  )
+select
+  *
+from
+  filtered_equipment
+where
+EQ_0FUNCT_LOC in (
+    select
+      explode(assets)
+    from
+      created_assets)
+AND EQ_0EQUIPMENT not in (
+  select
+    explode(bv)
+  from
+    bad_vals
+)
+AND EQ_ZEQUI_PAR not in (
+  select
+    explode(bv)
+  from
+    bad_vals
+)
+""",
+        [RawTable(db_name="DTN", table_name="SAP_EQUIPMENT"), "assets"],
+        id="Source is a RawTable and _cdf.assets in a With Query",
     )
 
 
