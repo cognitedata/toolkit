@@ -182,8 +182,6 @@ def get_transformation_source(query: str) -> list[RawTable | str]:
             continue
         db, table = table_str.split(".", 1)
         db = db.removeprefix("`").removesuffix("`")
-        if " AS " in table or " as " in table:
-            table = table.split(" AS ")[0].split(" as ")[0]
         table = table.removeprefix("`").removesuffix("`")
         if db == "_cdf":
             tables.append(table)
