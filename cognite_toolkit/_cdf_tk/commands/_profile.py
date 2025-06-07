@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
     relationship_aggregate_count,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.utils.cdf import label_count, metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_source, label_count, metadata_key_counts
 
 from ._base import ToolkitCommand
 
@@ -274,8 +274,13 @@ class ProfileRawCommand(ToolkitCommand):
         transformations = client.transformations.list(destination_type=destination_type)
         transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
         for transformation in transformations:
-            if raw_table := get_raw_table(transformation.query):
-                transformations_by_raw_table[raw_table].append(transformation)
+            if transformation.query is None:
+                # No query means no source table.
+                continue
+            sources = get_transformation_source(transformation.query)
+            for source in sources:
+                if isinstance(source, RawTable):
+                    transformations_by_raw_table[source].append(transformation)
 
         table_content, api_calls, indices_by_raw_table = cls._setup_table_and_api_calls(
             client, transformations_by_raw_table
@@ -312,7 +317,7 @@ class ProfileRawCommand(ToolkitCommand):
                     cls.Columns.Rows: Spinner(**cls.spinner_args) if is_first else "",
                     cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
                     cls.Columns.Destination: transformation.destination.type
-                    if transformation.destination
+                    if transformation.destination and transformation.destination.type
                     else "Unknown",
                     cls.Columns.Operation: transformation.conflict_mode or "Unknown",
                     cls.Columns.UseAll: str("where" in (transformation.query or "unknown").casefold()),
@@ -341,8 +346,9 @@ class ProfileRawCommand(ToolkitCommand):
     def call_api(cls, client: ToolkitClient, raw_table: RawTable) -> Callable[[], tuple[str, str]]:
         def api_call() -> tuple[str, str]:
             try:
-                response = client.raw.profile(raw_table, limit=1_000_000)
-                return f"{response.column_count:,}", f"{(response.row_count,)}"
+                # response = client.raw.profile(raw_table, limit=1_000_000)
+                # return f"{response.column_count:,}", f"{(response.row_count,)}"
+                return "-", "-"
             except CogniteException as e:
                 return type(e).__name__, type(e).__name__
 
