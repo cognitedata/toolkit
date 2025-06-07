@@ -168,9 +168,9 @@ class ProfileCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
         Count = "Count"
-        MetadataKeyCount = "Metadata Key Count*"
-        LabelCount = "Label Count*"
-        Transformation = "Transformation"
+        MetadataKeyCount = "Metadata Key Count"
+        LabelCount = "Label Count"
+        Transformation = "Transformations"
 
     columns = (
         Columns.Resource,
