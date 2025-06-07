@@ -1,4 +1,5 @@
 import sys
+import importlib.util
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
 from typing import Any, Literal, overload
@@ -8,7 +9,6 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
-    RawTable,
 )
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMissingDependencyError,
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
