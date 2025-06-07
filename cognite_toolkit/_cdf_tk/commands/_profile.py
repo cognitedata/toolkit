@@ -311,7 +311,9 @@ class ProfileRawCommand(ToolkitCommand):
                     cls.Columns.Columns: Spinner(**cls.spinner_args) if is_first else "",
                     cls.Columns.Rows: Spinner(**cls.spinner_args) if is_first else "",
                     cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
-                    cls.Columns.Destination: transformation.destination.type if transformation.destination else "Unknown",
+                    cls.Columns.Destination: transformation.destination.type
+                    if transformation.destination
+                    else "Unknown",
                     cls.Columns.Operation: transformation.conflict_mode or "Unknown",
                     cls.Columns.UseAll: str("where" in (transformation.query or "unknown").casefold()),
                 }
