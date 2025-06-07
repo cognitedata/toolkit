@@ -189,7 +189,7 @@ where left(externalId,5)="GM-ST" and left(name,2)="ST"
   ),
   filtered_equipment as (
     select
-      EQ_0EQUIPMENT) as externalId,
+      EQ_0EQUIPMENT as externalId
     from
       DTN.`SAP_EQUIPMENT`
   )
@@ -216,7 +216,7 @@ AND EQ_ZEQUI_PAR not in (
     bad_vals
 )
 """,
-        [RawTable(db_name="DTN", table_name="SAP_EQUIPMENT"), "assets"],
+        ["assets", RawTable(db_name="DTN", table_name="SAP_EQUIPMENT")],
         id="Source is a RawTable and _cdf.assets in a With Query",
     )
 
