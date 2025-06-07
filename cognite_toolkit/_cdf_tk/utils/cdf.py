@@ -270,7 +270,7 @@ FROM labels
 GROUP BY label
 ORDER BY label_count DESC;
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=1000)
+    results = client.helper.run_query(query, convert_to_string=False, limit=1000)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return results.results or []
 
@@ -312,7 +312,7 @@ GROUP BY
     sourceType,
     targetType
 """
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.helper.run_query(query, convert_to_string=False, limit=None, source_limit=None)
     return [
         RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])
         for item in results.results or []
@@ -338,7 +338,7 @@ def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = N
 FROM
     _cdf.labels{where_clause}"""
 
-    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    results = client.helper.run_query(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["labelCount"])
     return 0
