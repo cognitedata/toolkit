@@ -1,3 +1,4 @@
+import importlib.util
 from collections.abc import Hashable, Iterator
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
@@ -6,7 +7,6 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     ClientCredentials,
     OidcCredentials,
-    RawTable,
 )
 from cognite.client.data_classes.data_modeling import Edge, Node, ViewId
 from cognite.client.data_classes.filters import SpaceFilter
@@ -14,8 +14,10 @@ from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitMissingDependencyError,
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
@@ -168,7 +170,42 @@ def read_auth(
 
 def get_transformation_source(query: str) -> list[RawTable | str]:
     """Get the source from a transformation query."""
-    raise NotImplementedError()
+    if importlib.util.find_spec("sqlparse") is None:
+        raise ToolkitMissingDependencyError(
+            "Looking up transformation source requires sqlparse. Install with 'pip install \"cognite-toolkit[profile]\"'"
+        )
+    import sqlparse
+
+    table_strings: list[str] = []
+    parsed = sqlparse.parse(query)
+    from_seen = False
+    for statement in parsed:
+        for token in statement.tokens:
+            if from_seen:
+                if isinstance(token, sqlparse.sql.IdentifierList):
+                    table_strings.extend(str(t) for t in token.get_identifiers())
+                elif isinstance(token, sqlparse.sql.Identifier):
+                    table_strings.append(str(token))
+                elif token.ttype is sqlparse.tokens.Keyword:
+                    break
+            if token.ttype is sqlparse.tokens.Keyword and token.value.upper() == "FROM":
+                from_seen = True
+    tables: list[RawTable | str] = []
+    for table_str in table_strings:
+        if "." not in table_str:
+            raise ToolkitTypeError(
+                f"Invalid table string '{table_str}' found in query. Expected format 'db_name.table_name'."
+            )
+        db, table = table_str.split(".", 1)
+        db = db.removeprefix("`").removesuffix("`")
+        if " AS " in table or " as " in table:
+            table = table.split(" AS ")[0].split(" as ")[0]
+        table = table.removeprefix("`").removesuffix("`")
+        if db == "_cdf":
+            tables.append(table)
+        else:
+            tables.append(RawTable(db_name=db, table_name=table))
+    return tables
 
 
 def metadata_key_counts(
