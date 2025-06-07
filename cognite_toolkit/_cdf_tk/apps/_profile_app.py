@@ -12,6 +12,7 @@ class ProfileApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("asset-centric")(self.asset_centric)
+        self.command("raw")(self.raw)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands profile functionality"""
