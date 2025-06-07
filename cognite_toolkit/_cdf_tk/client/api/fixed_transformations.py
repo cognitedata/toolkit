@@ -3,22 +3,19 @@ from __future__ import annotations
 import gzip
 from typing import Any
 
-from cognite.client._api_client import APIClient
+from cognite.client._api.transformations import TransformationsAPI
 from cognite.client.config import global_config
 from cognite.client.data_classes import TransformationPreviewResult
 from cognite.client.utils import _json
 from requests import Response
 
 
-class HelperAPI(APIClient):
-    """This class provides helper client methods for interacting with the CDF for Toolkit.
+class FixedTransformationsAPI(TransformationsAPI):
+    """This overrides the preview method in the transformations API to allow for longer timeouts and retries."""
 
-    It is an internal API and not intended for direct use by end users.
-    """
+    _default_timeout_run_query = 240  # seconds, this is the maximum timeout for running queries in CDF
 
-    _default_timeout_run_query = 240
-
-    def run_query(
+    def preview(
         self,
         query: str | None = None,
         convert_to_string: bool = False,
@@ -29,9 +26,13 @@ class HelperAPI(APIClient):
     ) -> TransformationPreviewResult:
         """`Preview the result of a query. <https://developer.cognite.com/api#tag/Query/operation/runPreview>`_
 
-        This method deviates from the `client.transformations.preview()` method in that it does retry, and it does
-        not use the global timeout setting. This is because Toolkit runs some time-consuming queries that takes
-        longer than 30 seconds to run, in addition Toolkit gives up after 1 attempt.
+        This method overrides the default preview method in the TransformationsAPI to allow for longer
+        timeouts and retries.
+
+        Toolkit runs long-running queries that takes longer than the typical default of 30 seconds. In addition,
+        we do not want to retry, which typically up to 10 times, as the user will have to wait for a long time. Instead,
+        we want to fail provide the user with the error and then let the user decide whether to retry or not by
+        running the CLI command again.
 
         Args:
             query (str | None): SQL query to run for preview.
