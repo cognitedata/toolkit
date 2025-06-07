@@ -64,6 +64,19 @@ from
     )
 
     yield pytest.param(
+        """SELECT
+    table1.externalId as externalId,
+    table2.name as name
+FROM
+    `ingestion`.`dump` as table1
+LEFT JOIN
+    `ingestion`.`workitem` as table2
+ON table1.shared_column = table2.shared_column""",
+        [RawTable(db_name="ingestion", table_name="dump"), RawTable(db_name="ingestion", table_name="workitem")],
+        id="Query with left join",
+    )
+
+    yield pytest.param(
         """with parentLookup as (
   select
     concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,
@@ -218,6 +231,78 @@ AND EQ_ZEQUI_PAR not in (
 """,
         ["assets", RawTable(db_name="DTN", table_name="SAP_EQUIPMENT")],
         id="Source is a RawTable and _cdf.assets in a With Query",
+    )
+
+    yield pytest.param(
+        """SELECT
+  CASE
+    WHEN REPLACE(LMD_ID, LMD.Component_ID, '') != LMD_ID THEN CONCAT(REPLACE(CP.parentExternalId, LMD.Component_ID, ''), LMD_ID)
+    ELSE CONCAT(REPLACE(TRIM(CT.INT_CTRL_NO1), LMD.Circuit_ID, ''), LMD_ID)
+  END AS externalId
+  ,CASE
+    WHEN LMD.Component_ID IS NULL THEN TRIM(CT.INT_CTRL_NO1)
+    ELSE CP.parentExternalId
+  END AS parentExternalId
+  ,CASE
+    WHEN LMD.Component_ID IS NULL THEN REPLACE(LMD_ID, CONCAT(LMD.Circuit_ID, '-'), '')
+    ELSE REPLACE(LMD_ID, CONCAT(LMD.Component_ID, '-'), '')
+  END AS name
+  ,LMD.description AS description
+  ,dataset_id('PSSD') AS dataSetId
+  ,to_metadata_except(array('description', 'FACILITY'), LMD.*) AS metadata
+  ,array('LMD') as labels
+FROM (
+  SELECT
+    TRIM(EQUIP_ID) AS Equipment_ID
+  FROM PSSD.PSSD_LMD
+  WHERE is_new('pssd_lmd', lastUpdatedTime)) LMD
+LEFT JOIN (
+  SELECT
+    CASE
+      WHEN TRIM(`Internal Control No 1`) LIKE "%_E" THEN CONCAT(REPLACE(TRIM(ASSET_NO), TRIM(`EQUIPMENT ID`), ''), REPLACE(TRIM(`component_id`), ' ', ''))
+      ELSE CONCAT(REPLACE(CL.INT_CTRL_NO1, TRIM(CIRCUIT_ID), ''), REPLACE(TRIM(`component_id`), ' ', ''))
+    END AS parentExternalId,
+    REPLACE(TRIM(`component_id`), ' ', '') AS  component_id,
+    TRIM(`FACILITY ID`) AS FACILITY,
+    TRIM(CPT.`EQUIPMENT ID`) AS EQUIP_ID
+  FROM PSSD.PSSD_component CPT
+  LEFT JOIN PSSD.PSSD_circuit CL
+    ON TRIM(`Internal Control No 1`) = CL.CIRCUIT_ID
+    AND TRIM(`FACILITY ID`) = FACILITY
+    AND TRIM(CPT.`EQUIPMENT ID`) = TRIM(CL.EQUIP_ID)
+  LEFT JOIN (
+    SELECT externalId AS cdf_asset
+    FROM _cdf.assets) CDF
+      ON CASE
+        WHEN TRIM(`Internal Control No 1`) LIKE "%_E" THEN TRIM(ASSET_NO)
+        ELSE CL.INT_CTRL_NO1
+      END = CDF.cdf_asset
+  WHERE (TRIM(`Internal Control No 1`) LIKE "%_E"
+    OR CIRCUIT_ID IS NOT NULL)
+    AND cdf_asset IS NOT NULL
+  ) CP
+  ON TRIM(LMD.Component_ID) = TRIM(CP.component_id)
+    AND TRIM(LMD.FACILITY) = TRIM(CP.FACILITY)
+    AND LMD.Equipment_ID = CP.EQUIP_ID
+    AND LMD.Circuit_ID = CP.CIRCUIT_ID
+LEFT JOIN PSSD.PSSD_circuit CT
+  ON TRIM(LMD.Circuit_ID) = TRIM(CT.CIRCUIT_ID)
+  AND TRIM(LMD.FACILITY) = TRIM(CT.FACILITY)
+  AND TRIM(LMD.Equipment_ID) = TRIM(CT.EQUIP_ID)
+LEFT JOIN (
+  SELECT externalId AS cdf_asset
+  FROM _cdf.assets) CDF2
+  ON CASE
+    WHEN LMD.Component_ID IS NULL THEN TRIM(CT.INT_CTRL_NO1)
+    ELSE CP.parentExternalId
+  END = CDF2.cdf_asset
+WHERE CP.component_id IS NOT NULL
+  OR (CT.CIRCUIT_ID IS NOT NULL
+    AND LMD.Component_ID IS NULL)
+    AND cdf_asset IS NOT NULL
+""",
+        [RawTable("PSSD", "PSSD_LMD"), RawTable("PSSD", "PSSD_component"), RawTable("PSSD", "PSSD_circuit"), "assets"],
+        id="Complex query with multiple joins and CDF assets",
     )
 
 
