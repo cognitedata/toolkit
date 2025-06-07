@@ -138,7 +138,7 @@ def validate_resource_yaml_pydantic(
     warning_list: WarningList = WarningList()
     if isinstance(data, dict):
         try:
-            validation_cls.model_validate(data)
+            validation_cls.model_validate(data, strict=True)
         except ValidationError as e:
             warning_list.append(ResourceFormatWarning(source_file, tuple(_humanize_validation_error(e))))
     elif isinstance(data, list):
@@ -180,6 +180,8 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = item["msg"]
         if len(loc) > 1:
             msg = f"In {as_json_path(loc[:-1])} {msg[0].casefold()}{msg[1:]}"
+        elif len(loc) == 1 and isinstance(loc[0], str) and error_type not in {"extra_forbidden", "missing"}:
+            msg = f"In field {loc[0]} {msg[0].casefold()}{msg[1:]}"
         errors.append(msg)
     return errors
 
