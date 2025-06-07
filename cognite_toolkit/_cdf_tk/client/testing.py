@@ -8,6 +8,7 @@ from cognite.client.testing import CogniteClientMock
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
 from .api.dml import DMLAPI
+from .api.helpers import HelperAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -47,6 +48,7 @@ class ToolkitClientMock(CogniteClientMock):
         #   - Use `spec_set=MyNestedAPI` for all nested APIs
 
         self.dml = MagicMock(spec_set=DMLAPI)
+        self.helper = MagicMock(spec_set=HelperAPI)
         self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
