@@ -1,4 +1,3 @@
-import importlib.util
 from collections.abc import Hashable, Iterator
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
@@ -17,7 +16,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMissingDependencyError,
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
@@ -26,6 +24,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+from .sql_parser import SQLParser
 
 
 def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> str | None:
@@ -170,32 +170,16 @@ def read_auth(
 
 def get_transformation_source(query: str) -> list[RawTable | str]:
     """Get the source from a transformation query."""
-    if importlib.util.find_spec("sqlparse") is None:
-        raise ToolkitMissingDependencyError(
-            "Looking up transformation source requires sqlparse. Install with 'pip install \"cognite-toolkit[profile]\"'"
-        )
-    import sqlparse
+    parser = SQLParser(query, operation="Lookup transformation source")
+    parser.parse()
 
-    table_strings: list[str] = []
-    parsed = sqlparse.parse(query)
-    from_seen = False
-    for statement in parsed:
-        for token in statement.tokens:
-            if from_seen:
-                if isinstance(token, sqlparse.sql.IdentifierList):
-                    table_strings.extend(str(t) for t in token.get_identifiers())
-                elif isinstance(token, sqlparse.sql.Identifier):
-                    table_strings.append(str(token))
-                elif token.ttype is sqlparse.tokens.Keyword:
-                    break
-            if token.ttype is sqlparse.tokens.Keyword and token.value.upper() == "FROM":
-                from_seen = True
     tables: list[RawTable | str] = []
-    for table_str in table_strings:
+    # Sort for deterministic output.
+    for table_str in parser.sources:
         if "." not in table_str:
-            raise ToolkitTypeError(
-                f"Invalid table string '{table_str}' found in query. Expected format 'db_name.table_name'."
-            )
+            # Internal reference to another table in the query,
+            # for example, when you use a WITH clause.
+            continue
         db, table = table_str.split(".", 1)
         db = db.removeprefix("`").removesuffix("`")
         if " AS " in table or " as " in table:
