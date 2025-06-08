@@ -11,7 +11,7 @@ from cognite.client.exceptions import CogniteException
 from rich.live import Live
 from rich.spinner import Spinner
 from cognite.client.data_classes import Transformation
-from cognite.client.exceptions import CogniteException
+from cognite.client.exceptions import CogniteAPIError, CogniteException, CogniteReadTimeout
 from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
@@ -265,7 +265,8 @@ class ProfileRawCommand(ToolkitCommand):
     spinner_args: Mapping[str, Any] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
 
     profile_row_limit = 1_000_000  # Limit for the number of rows to profile in a raw table
-    profile_timeout_seconds = 120  # Timeout for the profiling operation in seconds
+    profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
+    # This is the same ase the run/query maximum timeout.
 
     @classmethod
     def raw(
@@ -373,8 +374,12 @@ class ProfileRawCommand(ToolkitCommand):
                 result = client.raw.profile(  # type: ignore[attr-defined]
                     raw_table, limit=cls.profile_row_limit, timeout_seconds=cls.profile_timeout_seconds
                 )
-            except CogniteException as e:
-                return type(e).__name__, type(e).__name__
+            except CogniteAPIError as e1:
+                return f"{type(e1).__name__}({e1.code})", e1.message
+            except CogniteReadTimeout as e2:
+                return type(e2).__name__, f"Read timeout {cls.profile_timeout_seconds} exceeded"
+            except CogniteException as e3:
+                return type(e3).__name__, e3.args[0] if e3.args else "Unknown error"
             else:
                 row_count = f"{result.row_count:,}" if result.row_count < cls.profile_row_limit else "More than 1M"
                 column_count = f"{result.column_count:,}" if result.is_complete else f"More than {result.row_count:,}"
