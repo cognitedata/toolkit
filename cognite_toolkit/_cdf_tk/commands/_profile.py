@@ -264,6 +264,8 @@ class ProfileRawCommand(ToolkitCommand):
     )
     spinner_args: Mapping[str, Any] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
 
+    profile_row_limit = 1_000_000  # Limit for the number of rows to profile in a raw table
+
     @classmethod
     def raw(
         cls,
@@ -346,10 +348,14 @@ class ProfileRawCommand(ToolkitCommand):
     def call_api(cls, client: ToolkitClient, raw_table: RawTable) -> Callable[[], tuple[str, str]]:
         def api_call() -> tuple[str, str]:
             try:
-                # response = client.raw.profile(raw_table, limit=1_000_000)
-                # return f"{response.column_count:,}", f"{(response.row_count,)}"
-                return "-", "-"
+                # MyPy does not understand that ToolkitClient.raw.profile exists, it fails to account for the override
+                # in the init of the ToolkitClient class.
+                result = client.raw.profile(raw_table, limit=cls.profile_row_limit)  # type: ignore[attr-defined]
             except CogniteException as e:
                 return type(e).__name__, type(e).__name__
+            else:
+                row_count = f"{result.row_count:,}" if result.row_count < cls.profile_row_limit else "More than 1M"
+                column_count = f"{result.column_count:,}" if result.is_complete else f"More than {result.row_count:,}"
+                return column_count, row_count
 
         return api_call
