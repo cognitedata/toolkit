@@ -305,6 +305,52 @@ WHERE CP.component_id IS NOT NULL
         id="Complex query with multiple joins and CDF assets",
     )
 
+    yield pytest.param(
+        """SELECT
+  id,
+  map_concat(
+    metadata,
+    to_metadata(
+        Station_Name,
+        WellName,
+        GIS_latitude,
+        GIS_longitude,
+        SPSOnLine,
+        idwell
+    )
+  ) as metadata
+FROM
+  (
+    select
+      a.id,
+      ws.Station_Name,
+      sdo.WellName,
+      gis.WI_LATITUDE as GIS_latitude,
+      gis.WI_LONGITUDE as GIS_longitude,
+      pw.SPSOnLine,
+      wh.idwell,
+    FROM
+      _cdf.assets as a
+      left join SDO.`well_header` as sdo on a.metadata['PRANumber6Digits'] = sdo.PraNumber
+      left join SDO.`pw_DepletionPlan` AS pw on a.metadata['PRANumber6Digits'] = pw.PRANumber6Digits
+      left join SDO.`well_header` as wh on substring(sdo.ApiNumber, 0, 10) = substring(wellida, 0, 10)
+      left join `GIS`.`gis` as gis on substring(sdo.ApiNumber, 0, 10) = substring(WI_APINO, 0, 10)
+      left join SDO.`weather_station` as ws on sdo.ApiNumber = ws.ApiNumber
+    where
+      array_contains(labels, "my_location_sap")
+  )
+    """,
+        [
+            "assets",
+            RawTable(db_name="SDO", table_name="well_header"),
+            RawTable(db_name="SDO", table_name="pw_DepletionPlan"),
+            RawTable(db_name="SDO", table_name="well_header"),
+            RawTable(db_name="GIS", table_name="gis"),
+            RawTable(db_name="Extracts", table_name="weather_station"),
+        ],
+        id="Complex query with multiple joins and CDF assets with metadata",
+    )
+
 
 class TestGetTransformationSource:
     @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
