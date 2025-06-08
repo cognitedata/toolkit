@@ -265,6 +265,7 @@ class ProfileRawCommand(ToolkitCommand):
     spinner_args: Mapping[str, Any] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
 
     profile_row_limit = 1_000_000  # Limit for the number of rows to profile in a raw table
+    profile_timeout_seconds = 120  # Timeout for the profiling operation in seconds
 
     @classmethod
     def raw(
@@ -273,6 +274,17 @@ class ProfileRawCommand(ToolkitCommand):
         destination_type: str,
         verbose: bool = False,
     ) -> list[dict[str, str]]:
+        existing_tables: set[RawTable] = set()
+        databases = client.raw.databases.list(limit=-1)
+        for database in databases:
+            if database.name is None:
+                continue
+            tables = client.raw.tables.list(db_name=database.name, limit=-1)
+            for table in tables:
+                if table.name is None:
+                    continue
+                existing_tables.add(RawTable(db_name=database.name, table_name=table.name))
+
         transformations = client.transformations.list(destination_type=destination_type)
         transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
         for transformation in transformations:
@@ -285,12 +297,14 @@ class ProfileRawCommand(ToolkitCommand):
                     transformations_by_raw_table[source].append(transformation)
 
         table_content, api_calls, indices_by_raw_table = cls._setup_table_and_api_calls(
-            client, transformations_by_raw_table
+            client, transformations_by_raw_table, existing_tables
         )
         with Live(cls.draw_table(table_content, destination_type), refresh_per_second=4) as live:
             with ThreadPoolExecutor(max_workers=8) as executor:
                 future_to_cell = {
-                    executor.submit(api_calls[raw_id]): raw_id for raw_id in transformations_by_raw_table.keys()
+                    executor.submit(api_calls[raw_id]): raw_id
+                    for raw_id in transformations_by_raw_table.keys()
+                    if raw_id in api_calls
                 }
                 for future in as_completed(future_to_cell):
                     raw_id = future_to_cell[future]
@@ -303,20 +317,26 @@ class ProfileRawCommand(ToolkitCommand):
 
     @classmethod
     def _setup_table_and_api_calls(
-        cls, client: ToolkitClient, transformations_by_raw_table: dict[RawTable, list[Transformation]]
+        cls,
+        client: ToolkitClient,
+        transformations_by_raw_table: dict[RawTable, list[Transformation]],
+        existing_tables: set[RawTable],
     ) -> tuple[list[dict[str, str | Spinner]], dict[RawTable, Callable[[], tuple[str, str]]], dict[RawTable, int]]:
         rows: list[dict[str, str | Spinner]] = []
         api_calls: dict[RawTable, Callable[[], tuple[str, str]]] = {}
         index_by_raw_id: dict[RawTable, int] = {}
         index = 0
         for raw_id, transformations in transformations_by_raw_table.items():
-            api_calls[raw_id] = cls.call_api(client, raw_id)
+            is_existing = raw_id in existing_tables
+            if is_existing:
+                api_calls[raw_id] = cls.call_api(client, raw_id)
             for no, transformation in enumerate(transformations):
                 is_first = no == 0
+                existing_str = " (missing)" if not is_existing else ""
                 row: dict[str, str | Spinner] = {
-                    cls.Columns.RAW: f"{raw_id.db_name}.{raw_id.table_name}" if is_first else "",
-                    cls.Columns.Columns: Spinner(**cls.spinner_args) if is_first else "",
-                    cls.Columns.Rows: Spinner(**cls.spinner_args) if is_first else "",
+                    cls.Columns.RAW: f"{raw_id.db_name}.{raw_id.table_name}{existing_str}" if is_first else "",
+                    cls.Columns.Columns: Spinner(**cls.spinner_args) if is_first and is_existing else "",
+                    cls.Columns.Rows: Spinner(**cls.spinner_args) if is_first and is_existing else "",
                     cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
                     cls.Columns.Destination: transformation.destination.type
                     if transformation.destination and transformation.destination.type
@@ -350,7 +370,9 @@ class ProfileRawCommand(ToolkitCommand):
             try:
                 # MyPy does not understand that ToolkitClient.raw.profile exists, it fails to account for the override
                 # in the init of the ToolkitClient class.
-                result = client.raw.profile(raw_table, limit=cls.profile_row_limit)  # type: ignore[attr-defined]
+                result = client.raw.profile(  # type: ignore[attr-defined]
+                    raw_table, limit=cls.profile_row_limit, timeout_seconds=cls.profile_timeout_seconds
+                )
             except CogniteException as e:
                 return type(e).__name__, type(e).__name__
             else:
