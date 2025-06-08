@@ -40,6 +40,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Splits the dump command in dump data and dump config",
     }
+    EXIT_ON_WARNING: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the exit on warning feature during the build command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

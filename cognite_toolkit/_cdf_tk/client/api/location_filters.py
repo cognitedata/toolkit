@@ -92,5 +92,5 @@ class LocationFiltersAPI(APIClient):
         self._delete(url_path=f"{self._RESOURCE_PATH}/{id}")
 
     def list(self) -> LocationFilterList:
-        res = self._post(url_path=self._RESOURCE_PATH + "/list", json={"flat": False})
+        res = self._post(url_path=self._RESOURCE_PATH + "/list", json={"flat": True})
         return LocationFilterList._load(res.json()["items"], cognite_client=self._cognite_client)
