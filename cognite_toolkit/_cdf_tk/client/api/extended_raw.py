@@ -8,7 +8,11 @@ class ExtendedRawAPI(RawAPI):
     MAX_PROFILE_LIMIT = 1_000_000
 
     def profile(
-        self, database: str | RawTable, table: str | None = None, limit: int = DEFAULT_PROFILE_LIMIT
+        self,
+        database: str | RawTable,
+        table: str | None = None,
+        limit: int = DEFAULT_PROFILE_LIMIT,
+        timeout_seconds: int | None = None,
     ) -> RawProfileResults:
         """Profiles a table in the specified database and returns the results.
 
@@ -20,6 +24,7 @@ class ExtendedRawAPI(RawAPI):
             database (str): The name of the database to profile.
             table (str): The name of the table to profile.
             limit (int, optional): The maximum number of rows to profile. Defaults to DEFAULT_PROFILE_LIMIT.
+            timeout_seconds (int, optional): The timeout for the profiling operation in seconds. Defaults to global_config.timeout_seconds.
 
         Returns:
             RawProfileResults: The results of the profiling operation.
@@ -35,6 +40,10 @@ class ExtendedRawAPI(RawAPI):
         else:
             db_name = database
             table_name = table
-
-        response = self._post("/profiler/raw", json={"database": db_name, "table": table_name, "limit": limit})
+        response = self._do_request(
+            "POST",
+            "/profiler/raw",
+            json={"database": db_name, "table": table_name, "limit": limit},
+            timeout=timeout_seconds if timeout_seconds is not None else self._config.timeout,
+        )
         return RawProfileResults._load(response.json())
