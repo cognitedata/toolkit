@@ -35,7 +35,6 @@ class SQLParser:
         """Returns a list of sources (tables) found in the SQL query."""
         if not self._is_parsed:
             self.parse()
-            self._is_parsed = True
         return self._sources
 
     def parse(self) -> None:
@@ -44,10 +43,12 @@ class SQLParser:
 
         parsed = sqlparse.parse(self.query)
         if not parsed:
+            self._is_parsed = True
             return
 
         for statement in parsed:
             self._find_tables(statement.tokens)
+        self._is_parsed = True
         return
 
     def _find_tables(self, tokens: "list[Token]", in_nested: bool = False) -> None:
