@@ -169,7 +169,7 @@ def read_auth(
 
 
 def get_transformation_sources(query: str) -> list[RawTable | str]:
-    """Get the source from a transformation query."""
+    """Search the SQL query for source tables."""
     parser = SQLParser(query, operation="Lookup transformation source")
     parser.parse()
 
