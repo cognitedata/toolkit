@@ -241,8 +241,8 @@ class ProfileCommand(ToolkitCommand):
 class ProfileRawCommand(ToolkitCommand):
     class Columns:
         RAW = "Raw"
-        Columns = "Columns"
         Rows = "Rows"
+        Columns = "Columns"
         Transformation = "Transformation"
         Destination = "Destination"
         Operation = "Operation"
@@ -250,8 +250,8 @@ class ProfileRawCommand(ToolkitCommand):
 
     columns = (
         Columns.RAW,
-        Columns.Columns,
         Columns.Rows,
+        Columns.Columns,
         Columns.Transformation,
         Columns.Destination,
         Columns.Operation,
@@ -315,6 +315,8 @@ class ProfileRawCommand(ToolkitCommand):
         cls, client: ToolkitClient, destination_type: str
     ) -> dict[RawTable, list[Transformation]]:
         transformations = client.transformations.list(destination_type=destination_type)
+        if destination_type == "assets":
+            transformations.extend(client.transformations.list(destination_type="asset_hierarchy"))
         transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
         for transformation in transformations:
             if transformation.query is None:
