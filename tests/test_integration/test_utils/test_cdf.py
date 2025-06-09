@@ -14,11 +14,18 @@ from cognite.client.data_classes import (
     RelationshipList,
     RelationshipWrite,
     RelationshipWriteList,
+    RowWriteList,
 )
 from cognite.client.data_classes.labels import LabelDefinitionWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.cdf import label_aggregate_count, metadata_key_counts, relationship_aggregate_count
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.utils.cdf import (
+    label_aggregate_count,
+    metadata_key_counts,
+    raw_row_count,
+    relationship_aggregate_count,
+)
 
 
 @pytest.fixture(scope="session")
@@ -262,3 +269,12 @@ class TestLabelAggregateCount:
         count = label_aggregate_count(toolkit_client, [data_set_id])
 
         assert count == len(two_labels)
+
+
+class TestRawTableRowCount:
+    def test_raw_table_row_count(
+        self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList
+    ) -> None:
+        count = raw_row_count(toolkit_client, populated_raw_table)
+
+        assert count == len(raw_data)
