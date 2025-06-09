@@ -64,7 +64,7 @@ class SQLParser:
         content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
 
         for token in content_tokens:
-            raise NotImplementedError()
+            ...
 
     def _find_tables(self, tokens: "list[Token]") -> None:
         from sqlparse.sql import Identifier, TokenList
