@@ -8,7 +8,12 @@ from cognite.client.data_classes import ClientCredentials, OidcCredentials
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import (
+    get_transformation_destination_columns,
+    get_transformation_sources,
+    read_auth,
+    try_find_error,
+)
 
 
 class TestTryFindError:
@@ -51,6 +56,7 @@ select
 from
     my_db.my_table""",
         [RawTable(db_name="my_db", table_name="my_table")],
+        ["externalId", "name"],
         id="Simple query without joins",
     )
 
@@ -60,6 +66,7 @@ from
                table.name       as name
         from `my db`.`my table` as table""",
         [RawTable(db_name="my db", table_name="my table")],
+        ["externalId", "name"],
         id="Use of backticks in table name with AS alias",
     )
 
@@ -73,6 +80,7 @@ LEFT JOIN
     `ingestion`.`workitem` as table2
 ON table1.shared_column = table2.shared_column""",
         [RawTable(db_name="ingestion", table_name="dump"), RawTable(db_name="ingestion", table_name="workitem")],
+        ["externalId", "name"],
         id="Query with left join",
     )
 
@@ -113,6 +121,16 @@ where
 /* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while equipment is everything else */
   cast(d3.`WMT_CATEGORY_ID` as INT) = 1157""",
         [RawTable(db_name="ingestion", table_name="dump")],
+        [
+            "externalId",
+            "parent",
+            "name",
+            "description",
+            "sourceId",
+            "sourceCreatedTime",
+            "sourceUpdatedTime",
+            "sourceUpdatedUser",
+        ],
         id="Nested query with join",
     )
     yield pytest.param(
@@ -141,6 +159,7 @@ where
   AND a.FL_0FUNCT_LOC NOT LIKE "TG-TGP-18%"
 """,
         [RawTable(db_name="DTN", table_name="SAP_Functional_Location")],
+        ["externalId", "description", "metadata"],
         id="Query with inner join",
     )
 
@@ -169,6 +188,7 @@ select
   from
   combined_table""",
         [RawTable(db_name="UpdateDB", table_name="Vulnerability"), "assets"],
+        ["metadata", "externalId"],
         id="Source inside inner With Query",
     )
 
@@ -182,6 +202,7 @@ from _cdf.assets
 where left(externalId,5)="GM-ST" and left(name,2)="ST"
     """,
         ["assets"],
+        ["id", "externalId", "name", "dataSetId"],
         id="Source is _cdf.assets (not a RawTable)",
     )
     yield pytest.param(
@@ -230,6 +251,7 @@ AND EQ_ZEQUI_PAR not in (
 )
 """,
         ["assets", RawTable(db_name="DTN", table_name="SAP_EQUIPMENT")],
+        ["*"],
         id="Source is a RawTable and _cdf.assets in a With Query",
     )
 
@@ -302,6 +324,7 @@ WHERE CP.component_id IS NOT NULL
     AND cdf_asset IS NOT NULL
 """,
         [RawTable("PSSD", "PSSD_LMD"), RawTable("PSSD", "PSSD_component"), RawTable("PSSD", "PSSD_circuit"), "assets"],
+        ["externalId", "parentExternalId", "name", "description", "dataSetId", "metadata", "labels"],
         id="Complex query with multiple joins and CDF assets",
     )
 
@@ -348,6 +371,7 @@ FROM
             RawTable(db_name="GIS", table_name="gis"),
             RawTable(db_name="SDO", table_name="weather_station"),
         ],
+        ["id", "metadata"],
         id="Complex query with multiple joins and CDF assets with metadata",
     )
 
@@ -384,10 +408,27 @@ WHERE concat("GM", `Tag name`) IN (
 
 
 class TestGetTransformationSource:
-    @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
-    def test_get_transformation_sources(self, query: str, expected_sources: list[RawTable | str]) -> None:
+    @pytest.mark.parametrize(
+        "query, expected_sources, expected_destination_columns", list(get_transformation_source_test_cases())
+    )
+    def test_get_transformation_sources(
+        self, query: str, expected_sources: list[RawTable | str], expected_destination_columns: list[str]
+    ) -> None:
         """Test that the transformation source is correctly extracted from the query."""
         actual = get_transformation_sources(query)
+        assert actual == expected_sources
+
+
+class TestGetTransformationDestinationColumns:
+    @pytest.mark.parametrize(
+        "query, expected_sources, expected_destination_columns",
+        list(get_transformation_source_test_cases()),
+    )
+    def test_get_transformation_sources_and_destination_columns(
+        self, query: str, expected_sources: list[RawTable | str], expected_destination_columns: list[str]
+    ) -> None:
+        """Test that the transformation source and destination columns are correctly extracted from the query."""
+        actual = get_transformation_destination_columns(query)
         assert actual == expected_sources
 
 
