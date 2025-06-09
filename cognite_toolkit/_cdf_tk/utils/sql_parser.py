@@ -65,7 +65,6 @@ class SQLParser:
         from sqlparse.tokens import DML, Wildcard
 
         content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
-
         is_next: bool = False
         for token in content_tokens:
             if is_next and isinstance(token, IdentifierList):
