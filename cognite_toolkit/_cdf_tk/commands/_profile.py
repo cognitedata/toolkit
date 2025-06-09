@@ -281,7 +281,7 @@ class ProfileRawCommand(ToolkitCommand):
                 client, transformations_by_raw_table, existing_tables
             )
         with Live(cls.draw_table(table_content, destination_type), refresh_per_second=4, console=console) as live:
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=4) as executor:
                 future_to_cell = {
                     executor.submit(api_calls[(raw_id, col)]): (raw_id, col)
                     for raw_id in transformations_by_raw_table.keys()
@@ -396,7 +396,7 @@ class ProfileRawCommand(ToolkitCommand):
             else:
                 output = f"{result.column_count:,}"
                 if not result.is_complete or result.row_count >= cls.profile_row_limit:
-                    output = "> " + output
+                    output = "≥" + output
                 return output
 
         return api_call
