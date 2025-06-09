@@ -422,7 +422,7 @@ class ProfileTransformationCommand(ToolkitCommand):
     class Columns:
         Transformation = "Transformation"
         Source = "Sources"
-        TargetColumns = "Target Columns"
+        DestinationColumns = "Destination Columns"
         Destination = "Destination"
         ConflictMode = "Conflict Mode"
         IsPaused = "Is Paused"
@@ -430,7 +430,7 @@ class ProfileTransformationCommand(ToolkitCommand):
     columns = (
         Columns.Transformation,
         Columns.Source,
-        Columns.TargetColumns,
+        Columns.DestinationColumns,
         Columns.Destination,
         Columns.ConflictMode,
         Columns.IsPaused,
@@ -451,12 +451,15 @@ class ProfileTransformationCommand(ToolkitCommand):
                 iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy"))
             for transformation in iterable:
                 sources: list[SQLTable] = []
+                destination_columns: list[str] = []
                 if transformation.query:
-                    sources = SQLParser(transformation.query, operation="Profile transformations").sources
+                    parser = SQLParser(transformation.query, operation="Profile transformations")
+                    sources = parser.sources
+                    destination_columns = parser.destination_columns
                 row: dict[str, str] = {
                     cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
                     cls.Columns.Source: ", ".join(map(str, sources)),
-                    cls.Columns.TargetColumns: "Unknown",
+                    cls.Columns.DestinationColumns: ", ".join(destination_columns) or "None",
                     cls.Columns.Destination: transformation.destination.type or "Unknown"
                     if transformation.destination
                     else "Unknown",
