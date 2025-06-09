@@ -4,6 +4,7 @@ import typer
 from rich import print
 
 from cognite_toolkit._cdf_tk.commands import ProfileCommand, ProfileRawCommand
+from cognite_toolkit._cdf_tk.commands._profile import ProfileTransformationCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -62,6 +63,38 @@ class ProfileApp(typer.Typer):
         cmd = ProfileRawCommand()
         cmd.run(
             lambda: cmd.raw(
+                client,
+                destination,
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def transformations(
+        ctx: typer.Context,
+        destination: Annotated[
+            str,
+            typer.Option(
+                "--destination",
+                "-d",
+                help="Destination type the transformations data should be written to. This can be 'assets', 'events', 'files',"
+                "'timeseries', or 'sequences'.",
+            ),
+        ],
+        verbose: bool = False,
+    ) -> None:
+        """This command gives an overview over the transformations that write to the given destination.
+
+        It works by checking all transformations that writes to the given destination, lists the sources of the data,
+        and the target columns.
+
+        This is intended to show the flow of data from raw into CDF. This can, for example, be used to determine the
+        source of the data in a specific CDF resource.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ProfileTransformationCommand()
+        cmd.run(
+            lambda: cmd.transformation(
                 client,
                 destination,
                 verbose,
