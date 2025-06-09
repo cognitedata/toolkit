@@ -1,15 +1,9 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Literal
 from collections import defaultdict
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
-from cognite.client.exceptions import CogniteException
-from rich.live import Live
-from rich.spinner import Spinner
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteAPIError, CogniteException, CogniteReadTimeout
 from rich.console import Console
@@ -18,14 +12,15 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.utils.cdf import (
+    get_transformation_sources,
     label_aggregate_count,
     label_count,
     metadata_key_counts,
+    raw_row_count,
     relationship_aggregate_count,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, label_count, metadata_key_counts
 
 from ._base import ToolkitCommand
 
@@ -264,7 +259,9 @@ class ProfileRawCommand(ToolkitCommand):
     )
     spinner_args: Mapping[str, Any] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
 
-    profile_row_limit = 1_000_000  # Limit for the number of rows to profile in a raw table
+    profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
+    # The actual limit is 1 million, we typically run this against 30 tables and that high limit
+    # will cause 504 errors.
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
     # This is the same ase the run/query maximum timeout.
 
@@ -275,6 +272,32 @@ class ProfileRawCommand(ToolkitCommand):
         destination_type: str,
         verbose: bool = False,
     ) -> list[dict[str, str]]:
+        console = Console()
+        with console.status("Preparing...", spinner="aesthetic", speed=0.4) as _:
+            existing_tables = cls._get_existing_tables(client)
+            transformations_by_raw_table = cls._get_transformations_by_raw_table(client, destination_type)
+
+            table_content, api_calls, indices_by_raw_table = cls._setup_table_and_api_calls(
+                client, transformations_by_raw_table, existing_tables
+            )
+        with Live(cls.draw_table(table_content, destination_type), refresh_per_second=4, console=console) as live:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                future_to_cell = {
+                    executor.submit(api_calls[(raw_id, col)]): (raw_id, col)
+                    for raw_id in transformations_by_raw_table.keys()
+                    for col in [cls.Columns.Rows, cls.Columns.Columns]
+                    if (raw_id, col) in api_calls
+                }
+                for future in as_completed(future_to_cell):
+                    raw_id, col = future_to_cell[future]
+                    count = future.result()
+                    index = indices_by_raw_table[raw_id]
+                    table_content[index][col] = count
+                    live.update(cls.draw_table(table_content, destination_type))
+        return [{col: str(value) for col, value in row.items()} for row in table_content]
+
+    @classmethod
+    def _get_existing_tables(cls, client: ToolkitClient) -> set[RawTable]:
         existing_tables: set[RawTable] = set()
         databases = client.raw.databases.list(limit=-1)
         for database in databases:
@@ -285,7 +308,12 @@ class ProfileRawCommand(ToolkitCommand):
                 if table.name is None:
                     continue
                 existing_tables.add(RawTable(db_name=database.name, table_name=table.name))
+        return existing_tables
 
+    @classmethod
+    def _get_transformations_by_raw_table(
+        cls, client: ToolkitClient, destination_type: str
+    ) -> dict[RawTable, list[Transformation]]:
         transformations = client.transformations.list(destination_type=destination_type)
         transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
         for transformation in transformations:
@@ -296,25 +324,7 @@ class ProfileRawCommand(ToolkitCommand):
             for source in sources:
                 if isinstance(source, RawTable):
                     transformations_by_raw_table[source].append(transformation)
-
-        table_content, api_calls, indices_by_raw_table = cls._setup_table_and_api_calls(
-            client, transformations_by_raw_table, existing_tables
-        )
-        with Live(cls.draw_table(table_content, destination_type), refresh_per_second=4) as live:
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                future_to_cell = {
-                    executor.submit(api_calls[raw_id]): raw_id
-                    for raw_id in transformations_by_raw_table.keys()
-                    if raw_id in api_calls
-                }
-                for future in as_completed(future_to_cell):
-                    raw_id = future_to_cell[future]
-                    column_count, row_count = future.result()
-                    index = indices_by_raw_table[raw_id]
-                    table_content[index][cls.Columns.Columns] = column_count
-                    table_content[index][cls.Columns.Rows] = row_count
-                    live.update(cls.draw_table(table_content, destination_type))
-        return [{col: str(value) for col, value in row.items()} for row in table_content]
+        return transformations_by_raw_table
 
     @classmethod
     def _setup_table_and_api_calls(
@@ -322,22 +332,23 @@ class ProfileRawCommand(ToolkitCommand):
         client: ToolkitClient,
         transformations_by_raw_table: dict[RawTable, list[Transformation]],
         existing_tables: set[RawTable],
-    ) -> tuple[list[dict[str, str | Spinner]], dict[RawTable, Callable[[], tuple[str, str]]], dict[RawTable, int]]:
+    ) -> tuple[list[dict[str, str | Spinner]], dict[tuple[RawTable, str], Callable[[], str]], dict[RawTable, int]]:
         rows: list[dict[str, str | Spinner]] = []
-        api_calls: dict[RawTable, Callable[[], tuple[str, str]]] = {}
+        api_calls: dict[tuple[RawTable, str], Callable[[], str]] = {}
         index_by_raw_id: dict[RawTable, int] = {}
         index = 0
         for raw_id, transformations in transformations_by_raw_table.items():
             is_existing = raw_id in existing_tables
             if is_existing:
-                api_calls[raw_id] = cls.call_api(client, raw_id)
+                api_calls[(raw_id, cls.Columns.Rows)] = cls.row_count(client, raw_id)
+                api_calls[(raw_id, cls.Columns.Columns)] = cls.column_count(client, raw_id)
             for no, transformation in enumerate(transformations):
                 is_first = no == 0
                 existing_str = " (missing)" if not is_existing else ""
                 row: dict[str, str | Spinner] = {
                     cls.Columns.RAW: f"{raw_id.db_name}.{raw_id.table_name}{existing_str}" if is_first else "",
-                    cls.Columns.Columns: Spinner(**cls.spinner_args) if is_first and is_existing else "",
                     cls.Columns.Rows: Spinner(**cls.spinner_args) if is_first and is_existing else "",
+                    cls.Columns.Columns: Spinner(**cls.spinner_args) if is_first and is_existing else "",
                     cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
                     cls.Columns.Destination: transformation.destination.type
                     if transformation.destination and transformation.destination.type
@@ -366,8 +377,8 @@ class ProfileRawCommand(ToolkitCommand):
         return table
 
     @classmethod
-    def call_api(cls, client: ToolkitClient, raw_table: RawTable) -> Callable[[], tuple[str, str]]:
-        def api_call() -> tuple[str, str]:
+    def column_count(cls, client: ToolkitClient, raw_table: RawTable) -> Callable[[], str]:
+        def api_call() -> str:
             try:
                 # MyPy does not understand that ToolkitClient.raw.profile exists, it fails to account for the override
                 # in the init of the ToolkitClient class.
@@ -375,14 +386,29 @@ class ProfileRawCommand(ToolkitCommand):
                     raw_table, limit=cls.profile_row_limit, timeout_seconds=cls.profile_timeout_seconds
                 )
             except CogniteAPIError as e1:
-                return f"{type(e1).__name__}({e1.code})", e1.message
-            except CogniteReadTimeout as e2:
-                return type(e2).__name__, f"Read timeout {cls.profile_timeout_seconds} exceeded"
+                return f"{type(e1).__name__}({e1.code})"
+            except CogniteReadTimeout:
+                return f"Read timeout {cls.profile_timeout_seconds} exceeded"
             except CogniteException as e3:
-                return type(e3).__name__, e3.args[0] if e3.args else "Unknown error"
+                return type(e3).__name__
             else:
-                row_count = f"{result.row_count:,}" if result.row_count < cls.profile_row_limit else "More than 1M"
-                column_count = f"{result.column_count:,}" if result.is_complete else f"More than {result.row_count:,}"
-                return column_count, row_count
+                output = f"{result.column_count:,}"
+                if not result.is_complete or result.row_count >= cls.profile_row_limit:
+                    output = "> " + output
+                return output
+
+        return api_call
+
+    @classmethod
+    def row_count(cls, client: ToolkitClient, raw_table: RawTable) -> Callable[[], str]:
+        def api_call() -> str:
+            try:
+                count = raw_row_count(client, raw_table)
+            except CogniteAPIError as e1:
+                return f"{type(e1).__name__}({e1.code})"
+            except CogniteException as e2:
+                return type(e2).__name__
+            else:
+                return f"{count:,}"
 
         return api_call
