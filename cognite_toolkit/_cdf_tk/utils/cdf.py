@@ -168,25 +168,17 @@ def read_auth(
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
 
 
-def get_transformation_source(query: str) -> list[RawTable | str]:
+def get_transformation_sources(query: str) -> list[RawTable | str]:
     """Get the source from a transformation query."""
     parser = SQLParser(query, operation="Lookup transformation source")
     parser.parse()
 
     tables: list[RawTable | str] = []
-    # Sort for deterministic output.
-    for table_str in parser.sources:
-        if "." not in table_str:
-            # Internal reference to another table in the query,
-            # for example, when you use a WITH clause.
-            continue
-        db, table = table_str.split(".", 1)
-        db = db.removeprefix("`").removesuffix("`")
-        table = table.removeprefix("`").removesuffix("`")
-        if db == "_cdf":
-            tables.append(table)
+    for table in parser.sources:
+        if table.schema == "_cdf":
+            tables.append(table.name)
         else:
-            tables.append(RawTable(db_name=db, table_name=table))
+            tables.append(RawTable(db_name=table.schema, table_name=table.name))
     return tables
 
 

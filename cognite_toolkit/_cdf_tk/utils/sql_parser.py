@@ -6,25 +6,32 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingDependencyError
 if TYPE_CHECKING:
     from sqlparse.sql import Identifier
     from sqlparse.tokens import Token
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class SQLTable:
+    schema: str
+    name: str
 
 
 class SQLParser:
     def __init__(self, query: str, operation: str) -> None:
         self._verify_dependencies(operation)
         self.query = query
-        self._seen_sources: set[str] = set()
-        self._sources: list[str] = []
+        self._seen_sources: set[SQLTable] = set()
+        self._sources: list[SQLTable] = []
         self._is_parsed = False
 
     @staticmethod
     def _verify_dependencies(operation: str) -> None:
         if importlib.util.find_spec("sqlparse") is None:
             raise ToolkitMissingDependencyError(
-                f"{operation} requires sqlparse. Install with 'pip install \"cognite-toolkit[profile]\"'"
+                f"{operation} requires sqlparse. Install with 'pip install \"cognite-toolkit[sql]\"'"
             )
 
     @property
-    def sources(self) -> list[str]:
+    def sources(self) -> list[SQLTable]:
         """Returns a list of sources (tables) found in the SQL query."""
         if not self._is_parsed:
             self.parse()
@@ -43,50 +50,45 @@ class SQLParser:
             self._find_tables(statement.tokens)
         return
 
-    def _find_tables(self, tokens: "list[Token]") -> None:
-        from sqlparse.sql import Identifier, IdentifierList, TokenList
-        from sqlparse.tokens import Keyword
+    def _find_tables(self, tokens: "list[Token]", in_nested: bool = False) -> None:
+        from sqlparse.sql import Identifier, TokenList
+        from sqlparse.tokens import CTE, Keyword
 
-        from_seen = False
-        join_seen = False
-        join_keywords: set[str] = {"JOIN", "LEFT JOIN", "RIGHT JOIN", "INNER JOIN", "FULL JOIN"}
-        join_related_keywords = {"ON", "USING"}
-        for token in tokens:
-            if isinstance(token, TokenList):
-                # Recursive search nested tokens
-                self._find_tables(token.tokens)
-            if from_seen:
-                if isinstance(token, IdentifierList):
-                    self._add_to_sources(*token.get_identifiers())
-                elif isinstance(token, Identifier):
-                    self._add_to_sources(token)
-                elif token.ttype is Keyword:
-                    value = token.value.upper()
-                    if value in join_keywords:
-                        join_seen = True
-                    elif value in join_related_keywords and join_seen:
-                        # If we see ON or USING after a JOIN, we can assume the next identifier is a table
-                        join_seen = False
-                    else:
-                        from_seen = False
-                        join_seen = False
-            if token.ttype is Keyword and token.value.upper() == "FROM":
-                from_seen = True
+        content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
 
-    def _add_to_sources(self, *sources: "Identifier") -> None:
+        is_next_source: bool = False
+        is_next_nested: bool = False
+        for token in content_tokens:
+            if is_next_source and isinstance(token, Identifier):
+                if self._add_to_source(token) is False:
+                    # This could be a nested expression like '(SELECT ... FROM ...) Identifier'.
+                    self._find_tables(token.tokens, True)
+                is_next_source = False
+            elif (is_next_source or is_next_nested or in_nested) and isinstance(token, TokenList):
+                self._find_tables(token.tokens, is_next_nested or in_nested)
+                is_next_source = False
+                is_next_nested = False
+            elif token.ttype is Keyword and (token.normalized == "FROM" or token.normalized.endswith("JOIN")):
+                is_next_source = True
+            elif token.ttype is CTE and token.normalized == "WITH":
+                is_next_nested = True
+
+    def _add_to_source(self, source: "Identifier") -> bool:
         """Add a source to the list if it hasn't been seen before."""
-        from sqlparse.sql import Identifier
-        from sqlparse.tokens import Punctuation, Whitespace
+        from sqlparse.tokens import Name
 
-        for source in sources:
-            if len(source.tokens) < 3 or source[1].ttype is not Punctuation:
-                # This is not a source. It should have three tokens:
-                # schema, punctuation, and table name.
-                continue
-            if len(source.tokens) >= 4 and source[3].ttype is Whitespace:
-                # Skip the alias part if it exists
-                source = Identifier(source.tokens[:3])
-            source_str = str(source)
-            if source_str not in self._seen_sources:
-                self._seen_sources.add(source_str)
-                self._sources.append(source_str)
+        names = [token for token in source.tokens if token.ttype is Name]
+
+        if len(names) != 2:
+            # We are expecting a schema and a table name
+            return False
+        table = SQLTable(schema=self._clean_name(names[0].value), name=self._clean_name(names[1].value))
+        if table not in self._seen_sources:
+            self._seen_sources.add(table)
+            self._sources.append(table)
+        return True
+
+    @staticmethod
+    def _clean_name(name: str) -> str:
+        """Clean the name by removing quotes and whitespace."""
+        return name.strip().removeprefix("`").removesuffix("`").strip()
