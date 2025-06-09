@@ -25,7 +25,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
     relationship_aggregate_count,
 )
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_source, label_count, metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, label_count, metadata_key_counts
 
 from ._base import ToolkitCommand
 
@@ -292,7 +292,7 @@ class ProfileRawCommand(ToolkitCommand):
             if transformation.query is None:
                 # No query means no source table.
                 continue
-            sources = get_transformation_source(transformation.query)
+            sources = get_transformation_sources(transformation.query)
             for source in sources:
                 if isinstance(source, RawTable):
                     transformations_by_raw_table[source].append(transformation)
