@@ -354,7 +354,7 @@ FROM
 
 class TestGetTransformationSource:
     @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
-    def test_get_transformation_source(self, query: str, expected_sources: list[RawTable | str]) -> None:
+    def test_get_transformation_sources(self, query: str, expected_sources: list[RawTable | str]) -> None:
         """Test that the transformation source is correctly extracted from the query."""
         actual = get_transformation_sources(query)
         assert actual == expected_sources
