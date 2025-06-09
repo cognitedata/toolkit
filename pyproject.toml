@@ -59,7 +59,7 @@ dev = [
 table = [
     "pyarrow>=20.0.0",
 ]
-profile = [
+sql = [
     "sqlparse >=0.5.3",
 ]
 
