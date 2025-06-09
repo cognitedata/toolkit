@@ -8,7 +8,7 @@ from cognite.client.data_classes import ClientCredentials, OidcCredentials
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
-from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_source, read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, read_auth, try_find_error
 
 
 class TestTryFindError:
@@ -328,12 +328,12 @@ FROM
       gis.WI_LATITUDE as GIS_latitude,
       gis.WI_LONGITUDE as GIS_longitude,
       pw.SPSOnLine,
-      wh.idwell,
+      wh.idwell
     FROM
       _cdf.assets as a
       left join SDO.`well_header` as sdo on a.metadata['PRANumber6Digits'] = sdo.PraNumber
       left join SDO.`pw_DepletionPlan` AS pw on a.metadata['PRANumber6Digits'] = pw.PRANumber6Digits
-      left join SDO.`well_header` as wh on substring(sdo.ApiNumber, 0, 10) = substring(wellida, 0, 10)
+      left join SDO.`well_header2` as wh on substring(sdo.ApiNumber, 0, 10) = substring(wellida, 0, 10)
       left join `GIS`.`gis` as gis on substring(sdo.ApiNumber, 0, 10) = substring(WI_APINO, 0, 10)
       left join SDO.`weather_station` as ws on sdo.ApiNumber = ws.ApiNumber
     where
@@ -344,9 +344,9 @@ FROM
             "assets",
             RawTable(db_name="SDO", table_name="well_header"),
             RawTable(db_name="SDO", table_name="pw_DepletionPlan"),
-            RawTable(db_name="SDO", table_name="well_header"),
+            RawTable(db_name="SDO", table_name="well_header2"),
             RawTable(db_name="GIS", table_name="gis"),
-            RawTable(db_name="Extracts", table_name="weather_station"),
+            RawTable(db_name="SDO", table_name="weather_station"),
         ],
         id="Complex query with multiple joins and CDF assets with metadata",
     )
@@ -356,7 +356,7 @@ class TestGetTransformationSource:
     @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
     def test_get_transformation_source(self, query: str, expected_sources: list[RawTable | str]) -> None:
         """Test that the transformation source is correctly extracted from the query."""
-        actual = get_transformation_source(query)
+        actual = get_transformation_sources(query)
         assert actual == expected_sources
 
 
