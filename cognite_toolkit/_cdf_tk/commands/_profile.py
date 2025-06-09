@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
     raw_row_count,
     relationship_aggregate_count,
 )
+from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
 
@@ -414,3 +415,72 @@ class ProfileRawCommand(ToolkitCommand):
                 return f"{count:,}"
 
         return api_call
+
+
+class ProfileTransformationCommand(ToolkitCommand):
+    class Columns:
+        Transformation = "Transformation"
+        Source = "Sources"
+        TargetColumns = "Target Columns"
+        Destination = "Destination"
+        ConflictMode = "Conflict Mode"
+        IsPaused = "Is Paused"
+
+    columns = (
+        Columns.Transformation,
+        Columns.Source,
+        Columns.TargetColumns,
+        Columns.Destination,
+        Columns.ConflictMode,
+        Columns.IsPaused,
+    )
+
+    @classmethod
+    def transformation(
+        cls,
+        client: ToolkitClient,
+        destination_type: str,
+        verbose: bool = False,
+    ) -> list[dict[str, str]]:
+        console = Console()
+        content: list[dict[str, str]] = []
+        with console.status("Loading transformations...", spinner="aesthetic", speed=0.4) as _:
+            for transformation in client.transformations(destination_type=destination_type):
+                sources: list[SQLTable] = []
+                if transformation.query:
+                    sources = SQLParser(transformation.query, operation="Profile transformations").sources
+                row: dict[str, str] = {
+                    cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
+                    cls.Columns.Source: ", ".join(map(str, sources)),
+                    cls.Columns.TargetColumns: "Unknown",
+                    cls.Columns.Destination: transformation.destination.type or "Unknown"
+                    if transformation.destination
+                    else "Unknown",
+                    cls.Columns.ConflictMode: transformation.conflict_mode or "Unknown",
+                    cls.Columns.IsPaused: str(transformation.schedule.is_paused)
+                    if transformation.schedule
+                    else "No schedule",
+                }
+                content.append(row)
+
+        table = cls.draw_table(content, destination_type)
+        console.print(table)
+        return content
+
+    @classmethod
+    def draw_table(
+        cls,
+        rows: list[dict[str, str]],
+        destination: str,
+    ) -> Table:
+        table = Table(
+            title=f"Transformation Profile destination: {destination}",
+            title_justify="left",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        for col in cls.columns:
+            table.add_column(col)
+        for row in rows:
+            table.add_row(*row.values())
+        return table
