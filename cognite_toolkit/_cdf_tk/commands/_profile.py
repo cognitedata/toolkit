@@ -1,6 +1,7 @@
+import itertools
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
@@ -445,7 +446,10 @@ class ProfileTransformationCommand(ToolkitCommand):
         console = Console()
         content: list[dict[str, str]] = []
         with console.status("Loading transformations...", spinner="aesthetic", speed=0.4) as _:
-            for transformation in client.transformations(destination_type=destination_type):
+            iterable: Iterable[Transformation] = client.transformations.list(destination_type=destination_type)
+            if destination_type == "assets":
+                iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy"))
+            for transformation in iterable:
                 sources: list[SQLTable] = []
                 if transformation.query:
                     sources = SQLParser(transformation.query, operation="Profile transformations").sources
