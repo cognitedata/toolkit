@@ -21,6 +21,7 @@ class SQLParser:
         self.query = query
         self._seen_sources: set[SQLTable] = set()
         self._sources: list[SQLTable] = []
+        self._destination_columns: list[str] = []
         self._is_parsed = False
 
     @staticmethod
@@ -37,6 +38,13 @@ class SQLParser:
             self.parse()
         return self._sources
 
+    @property
+    def destination_columns(self) -> list[str]:
+        """Returns a list of destination columns found in the SQL query."""
+        if not self._is_parsed:
+            self.parse()
+        return self._destination_columns
+
     def parse(self) -> None:
         """Parse the SQL query and extract table names."""
         import sqlparse
@@ -48,8 +56,15 @@ class SQLParser:
 
         for statement in parsed:
             self._find_tables(statement.tokens)
+            self._find_destination_columns(statement.tokens)
         self._is_parsed = True
         return
+
+    def _find_destination_columns(self, tokens: "list[Token]") -> None:
+        content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
+
+        for token in content_tokens:
+            raise NotImplementedError()
 
     def _find_tables(self, tokens: "list[Token]") -> None:
         from sqlparse.sql import Identifier, TokenList
