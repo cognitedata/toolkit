@@ -335,3 +335,20 @@ FROM
     if results.results:
         return int(results.results[0]["labelCount"])
     return 0
+
+
+def raw_row_count(client: ToolkitClient, raw_table_id: RawTable) -> int:
+    """Get the number of rows in a raw table.
+
+    Args:
+        client: ToolkitClient instance
+        raw_table_id: The ID of the raw table to count rows in.
+
+    Returns:
+        The number of rows in the raw table.
+    """
+    query = f"SELECT COUNT(key) AS row_count FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`"
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    if results.results:
+        return int(results.results[0]["row_count"])
+    return 0
