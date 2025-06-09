@@ -429,7 +429,7 @@ class TestGetTransformationDestinationColumns:
     ) -> None:
         """Test that the transformation source and destination columns are correctly extracted from the query."""
         actual = get_transformation_destination_columns(query)
-        assert actual == expected_sources
+        assert actual == expected_destination_columns
 
 
 class TestReadAuth:
