@@ -61,10 +61,14 @@ class SQLParser:
         return
 
     def _find_destination_columns(self, tokens: "list[Token]") -> None:
-        from sqlparse.sql import IdentifierList
+        from sqlparse.sql import Comment, IdentifierList
         from sqlparse.tokens import DML, Wildcard
 
-        content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
+        content_tokens = [
+            token
+            for token in tokens
+            if not token.is_whitespace and not token.is_newline and not isinstance(token, Comment)
+        ]
         is_next: bool = False
         for token in content_tokens:
             if is_next and isinstance(token, IdentifierList):
@@ -77,10 +81,18 @@ class SQLParser:
                 is_next = True
 
     def _add_destination_columns(self, *identifiers: "Identifier") -> None:
+        from sqlparse.sql import Comment, Identifier
+
         for identifier in identifiers:
             # The identifier is either a `column_name` or `some expression AS column_name`.
             # Thus, we simply take the last token in the identifier.
-            self._destination_columns.append(identifier.tokens[-1].value)
+            if isinstance(identifier, Identifier) and identifier.tokens:
+                content_tokens = [
+                    token
+                    for token in identifier.tokens
+                    if not token.is_whitespace and not token.is_newline and not isinstance(token, Comment)
+                ]
+                self._destination_columns.append(content_tokens[-1].value)
 
     def _find_tables(self, tokens: "list[Token]") -> None:
         from sqlparse.sql import Identifier, TokenList
