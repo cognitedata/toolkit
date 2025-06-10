@@ -31,6 +31,8 @@ class ExtendedTimeSeries(TimeSeries):
         data_set_id (int | None): The dataSet ID for the item.
         created_time (int | None): The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
         last_updated_time (int | None): The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time (UTC), minus leap seconds.
+        pending_instance_id (NodeId | None): The pending instance ID for the time series. This is used in the migration of times series to CogniteTimeSeries
+            to specify which instance this time series should be linked with by the TimeSeries syncer service.
         legacy_name (str | None): This field is not used by the API and will be removed October 2024.
         cognite_client (CogniteClient | None): The client to associate with this object.
     """
