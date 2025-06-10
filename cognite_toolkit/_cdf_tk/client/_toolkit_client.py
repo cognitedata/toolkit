@@ -10,6 +10,7 @@ from .api.dml import DMLAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.robotics import RoboticsAPI
+from .api.statistics import StatisticsAPI
 from .api.verify import VerifyAPI
 
 
@@ -78,6 +79,7 @@ class ToolkitClient(CogniteClient):
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
         self.agents = AgentsAPI(self._config, self._API_VERSION, self)
+        self.statistics = StatisticsAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
