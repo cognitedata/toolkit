@@ -118,11 +118,15 @@ class TestDumpData:
                 properties={},
             ),
         )
+        my_other_file = FileMetadata(
+            "my_other_file_タシ",
+            name="My Other File",
+        )
         cmd = DumpDataCommand(skip_tracking=False, print_warning=False)
         output_dir = tmp_path / "file_dump"
         with monkeypatch_toolkit_client() as client:
-            client.files.return_value = [FileMetadataList([my_file])]
-            client.files.aggregate.return_value = [CountAggregate(count=1)]
+            client.files.return_value = [FileMetadataList([my_file, my_other_file])]
+            client.files.aggregate.return_value = [CountAggregate(count=2)]
             client.labels.retrieve.return_value = LabelDefinitionList([my_label])
             client.data_sets.retrieve_multiple.return_value = [dataset]
             client.lookup.assets.external_id.return_value = "rootAsset"
@@ -143,13 +147,14 @@ class TestDumpData:
         output_csvs = list(output_dir.rglob("*.csv"))
         assert len(output_csvs) == 1
         output_csv = output_csvs[0]
-        assert output_csv.read_text().splitlines() == [
+        assert output_csv.read_text(encoding="utf-8").splitlines() == [
             "externalId,name,directory,source,mimeType,assetExternalIds,dataSetExternalId,sourceCreatedTime,"
             "sourceModifiedTime,securityCategories,labels,geoLocation,metadata.key",
             "my_file,My File,my_directory,MySource,application/octet-stream,rootAsset,my_dataset,,,,['label1'],"
             "\"{'type': 'Feature', 'geometry': {'type': 'LineString', 'coordinates': [[1.0, 1.0], [2.0, 2.0], "
             "[3.0, 3.0]]}, 'properties': {}}\""
             ",value",
+            "my_other_file_タシ,My Other File,,,,,,,,,,,",
         ]
 
         dataset_yamls = list(output_dir.rglob("*DataSet.yaml"))
