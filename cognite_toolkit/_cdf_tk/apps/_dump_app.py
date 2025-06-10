@@ -199,10 +199,10 @@ class DumpConfigApp(typer.Typer):
     def dump_transformation(
         ctx: typer.Context,
         transformation_id: Annotated[
-            Optional[str],
+            Optional[list[str]],
             typer.Argument(
-                help="Transformation ID to dump. Format: external_id. Example: 'my_external_id'. "
-                "If nothing is provided, an interactive prompt will be shown to select the transformation.",
+                help="Transformation IDs to dump. Format: external_id. Example: 'my_external_id'. "
+                "If nothing is provided, an interactive prompt will be shown to select the transformation(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -237,7 +237,7 @@ class DumpConfigApp(typer.Typer):
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                TransformationFinder(client, transformation_id),
+                TransformationFinder(client, tuple(transformation_id) if transformation_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
