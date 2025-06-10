@@ -43,31 +43,27 @@ class ProducerWorkerExecutor(Generic[T_Download, T_Processed]):
         ) as progress:
             download_task = progress.add_task("Downloading", total=self.iteration_count)
             download_thread = threading.Thread(target=self._download_worker, args=(progress, download_task))
-            process_thread: threading.Thread | None = None
-            if self.process_queue:
-                process_task = progress.add_task("Processing", total=self.iteration_count)
-                process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
+            process_task = progress.add_task("Processing", total=self.iteration_count)
+            process_thread = threading.Thread(target=self._process_worker, args=(progress, process_task))
 
             write_task = progress.add_task("Writing to file", total=self.iteration_count)
             write_thread = threading.Thread(target=self._write_worker, args=(progress, write_task))
 
             download_thread.start()
-            if process_thread:
-                process_thread.start()
+            process_thread.start()
             write_thread.start()
 
             # Wait for all threads to finish
             download_thread.join()
-            if process_thread:
-                process_thread.join()
+            process_thread.join()
             write_thread.join()
 
     def _download_worker(self, progress: Progress, download_task: TaskID) -> None:
         """Worker thread for downloading data."""
-        iterable = iter(self._download_iterable)
+        iterator = iter(self._download_iterable)
         while not self.error_occurred:
             try:
-                items = next(iterable)
+                items = next(iterator)
                 self.total_items += len(items)
                 while not self.error_occurred:
                     try:
