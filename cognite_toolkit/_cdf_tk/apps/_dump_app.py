@@ -597,7 +597,7 @@ class DumpDataApp(typer.Typer):
                 output_dir,
                 clean,
                 limit,
-                format_,  # type: ignore [arg-type]
+                format_,
                 verbose,
             )
         )

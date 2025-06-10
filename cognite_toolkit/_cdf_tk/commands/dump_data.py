@@ -3,7 +3,7 @@ from collections.abc import Iterable, Iterator
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, Literal
+from typing import Any, Callable, ClassVar, Generic
 
 from cognite.client.data_classes import (
     Asset,
@@ -44,7 +44,7 @@ class DataFinder:
     # This is the standard maximum items that can be returns by most CDF endpoints.
     chunk_size: ClassVar[int] = 1000
 
-    def is_supported_format(self, format_: FileFormat) -> bool:
+    def is_supported_format(self, format_: str) -> bool:
         return format_ in self.supported_formats
 
     @abstractmethod
@@ -351,7 +351,7 @@ class DumpDataCommand(ToolkitCommand):
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
-        format_: Literal["yaml", "csv", "parquet"] = "csv",
+        format_: str = "csv",
         verbose: bool = False,
     ) -> None:
         """Dumps data from CDF to a file
@@ -369,7 +369,9 @@ class DumpDataCommand(ToolkitCommand):
         self.validate_directory(output_dir, clean)
 
         console = Console()
-        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+        # The ignore is used as MyPy does not understand that is_supported_format
+        # above guarantees that the format is valid.
+        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):  # type: ignore[arg-type]
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
             with writer_cls(schema, output_dir) as writer:
