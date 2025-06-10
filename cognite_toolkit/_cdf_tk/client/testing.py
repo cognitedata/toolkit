@@ -64,7 +64,7 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
 
-        self.data_modeling_statistics = MagicMock(spec_set=StatisticsAPI)
+        self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
         self.verify = MagicMock(spec_set=VerifyAPI)
 

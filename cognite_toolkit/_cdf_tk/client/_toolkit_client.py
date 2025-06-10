@@ -7,10 +7,10 @@ from cognite.client.credentials import CredentialProvider
 
 from .api.agents.agents import AgentsAPI
 from .api.dml import DMLAPI
+from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.robotics import RoboticsAPI
-from .api.statistics import StatisticsAPI
 from .api.verify import VerifyAPI
 
 
@@ -79,7 +79,7 @@ class ToolkitClient(CogniteClient):
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
         self.agents = AgentsAPI(self._config, self._API_VERSION, self)
-        self.data_modeling_statistics = StatisticsAPI(self._config, self._API_VERSION, self)
+        self.data_modeling = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
