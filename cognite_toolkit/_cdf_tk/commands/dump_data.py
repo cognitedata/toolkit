@@ -4,7 +4,7 @@ from collections.abc import Iterable, Iterator
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic
+from typing import Any, Callable, ClassVar, Generic, Literal
 
 from cognite.client.data_classes import (
     Asset,
@@ -35,6 +35,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceLoader,
     TimeSeriesLoader,
 )
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
@@ -46,8 +47,12 @@ class DataFinder:
     # This is the standard maximum items that can be returns by most CDF endpoints.
     chunk_size: ClassVar[int] = 1000
 
-    def is_supported_format(self, format_: str) -> bool:
-        return format_ in self.supported_formats
+    def validate_format(self, format_: str) -> Literal[FileFormat]:
+        if format_ in self.supported_formats:
+            return format_  # type: ignore[return-value]
+        raise ToolkitValueError(
+            f"Unsupported format {format_}. Supported formats are {humanize_collection(self.supported_formats)}."
+        )
 
     @abstractmethod
     def create_iterators(
@@ -371,14 +376,15 @@ class DumpDataCommand(ToolkitCommand):
             max_queue_size (int, optional): If using parallel processing, the maximum size of the queue. Defaults to 10.
 
         """
-        if not finder.is_supported_format(format_):
-            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
+        valid_format = finder.validate_format(format_)
         self.validate_directory(output_dir, clean)
 
         console = Console()
         # The ignore is used as MyPy does not understand that is_supported_format
         # above guarantees that the format is valid.
-        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):  # type: ignore[arg-type]
+        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(
+            valid_format, limit
+        ):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
             t0 = time.perf_counter()
