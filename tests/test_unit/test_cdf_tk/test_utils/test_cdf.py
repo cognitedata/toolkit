@@ -403,7 +403,50 @@ WHERE concat("GM", `Tag name`) IN (
     )
 ;""",
         [RawTable(db_name="GM_DATA", table_name="verified_new_only"), "assets"],
+        ["externalId", "parentExternalId", "name", "description", "dataSetId", "source"],
         id="Query listed in WHERE clause",
+    )
+
+    yield pytest.param(
+        """SELECT asset.id as id,
+        array("SAP DELETED") as labels
+        -- if(asset.labels is null, array("SAP DELETED"), array_union(asset.labels, array("SAP DELETED"))) as labels
+FROM
+(SELECT
+CONCAT(REPLACE(EQ_0FUNCT_LOC, "-IN", ""), "-", key) AS ext_id
+FROM DVT.`SAP_Equipment`
+WHERE RLIKE(EQ_0MD,"FL")
+UNION
+SELECT
+FL_0FUNCT_LOC AS ext_id
+FROM DVT.SAP_Functional_Location
+WHERE FL_PAR LIKE "ZZ%"
+OR FL_SYS_ST != "CE"
+UNION
+SELECT
+  FIRST(externalId) as ext_id
+FROM (
+  SELECT *,
+   element_at(split(externalId, "-"), -1) as equip_id,
+    COUNT(*) OVER (PARTITION BY element_at(split(externalId, "-"), -1)) AS count
+  FROM `_cdf`.`assets`
+  where dataSetId = dataset_id("sap_equipment")
+  or dataSetId = dataset_id("midstream_equipment")
+  order by createdTime asc
+) tmp
+WHERE count > 1
+GROUP BY equip_id
+)
+
+INNER JOIN _cdf.assets asset on ext_id = asset.externalId
+""",
+        [
+            RawTable(db_name="DVT", table_name="SAP_Equipment"),
+            RawTable(db_name="DVT", table_name="SAP_Functional_Location"),
+            "assets",
+        ],
+        ["id", "labels"],
+        id="Query with UNION and multiple sources including CDF assets and a comment in the Select clause",
     )
 
 
