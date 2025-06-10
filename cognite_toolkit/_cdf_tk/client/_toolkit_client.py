@@ -79,7 +79,7 @@ class ToolkitClient(CogniteClient):
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
         self.agents = AgentsAPI(self._config, self._API_VERSION, self)
-        self.statistics = StatisticsAPI(self._config, self._API_VERSION, self)
+        self.data_modeling_statistics = StatisticsAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
