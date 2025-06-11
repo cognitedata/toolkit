@@ -1,4 +1,6 @@
+import sys
 from collections.abc import Hashable, Iterator
+from dataclasses import dataclass
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -26,6 +28,11 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from .sql_parser import SQLParser
+
+if sys.version_info < (3, 11):
+    from typing_extensions import Self
+else:
+    from typing import Self
 
 
 def try_find_error(credentials: OidcCredentials | ClientCredentials | None) -> str | None:
@@ -259,3 +266,72 @@ ORDER BY label_count DESC;
     results = client.transformations.preview(query, convert_to_string=False, limit=1000)
     # We know from the SQL that the result is a list of dictionaries with string keys and int values.
     return results.results or []
+
+
+@dataclass
+class RelationshipCount:
+    source_type: str
+    target_type: str
+    count: int
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        return cls(
+            source_type=data["sourceType"],
+            target_type=data["targetType"],
+            count=int(data["relationshipCount"]),
+        )
+
+
+def relationship_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = None) -> list[RelationshipCount]:
+    """Get the relationship counts for the asset-centric resources.
+
+    Args:
+        client: ToolkitClient instance
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+
+    """
+    where_clause = ""
+    if data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+
+    query = f"""SELECT
+    sourceType,
+    targetType,
+    COUNT(externalId) AS relationshipCount
+FROM
+    _cdf.relationships{where_clause}
+GROUP BY
+    sourceType,
+    targetType
+"""
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    return [
+        RelationshipCount(item["sourceType"], item["targetType"], item["relationshipCount"])
+        for item in results.results or []
+    ]
+
+
+def label_aggregate_count(client: ToolkitClient, data_sets: list[int] | None = None) -> int:
+    """Get the total count of labels in the CDF project.
+
+    Args:
+        client: ToolkitClient instance
+        data_sets: A list of data set IDs to filter by. If None, no filtering is applied.
+
+    Returns:
+        The total count of labels across all resources in the CDF project.
+    """
+    where_clause = ""
+    if data_sets is not None:
+        where_clause = f"\n         WHERE dataSetId IN ({','.join(map(str, data_sets))})"
+
+    query = f"""SELECT
+    COUNT(externalId) AS labelCount
+FROM
+    _cdf.labels{where_clause}"""
+
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    if results.results:
+        return int(results.results[0]["labelCount"])
+    return 0
