@@ -26,6 +26,7 @@ from cognite_toolkit._cdf_tk.apps import (
     CoreApp,
     DumpApp,
     LandingApp,
+    MigrateApp,
     ModulesApp,
     PopulateApp,
     ProfileApp,
@@ -103,6 +104,9 @@ if Flags.POPULATE.is_enabled():
 
 if Flags.PROFILE.is_enabled():
     _app.add_typer(ProfileApp(**default_typer_kws), name="profile")
+
+if Flags.MIGRATE.is_enabled():
+    _app.add_typer(MigrateApp(**default_typer_kws), name="migrate")
 
 _app.add_typer(ModulesApp(**default_typer_kws), name="modules")
 _app.command("init")(landing_app.main_init)

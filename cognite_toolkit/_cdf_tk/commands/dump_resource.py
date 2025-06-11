@@ -9,7 +9,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Group,
     GroupList,
-    Transformation,
     TransformationList,
     TransformationNotificationList,
     TransformationScheduleList,
@@ -246,52 +245,54 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         yield [], trigger_list, trigger_loader, None
 
 
-class TransformationFinder(ResourceFinder[str]):
-    def __init__(self, client: ToolkitClient, identifier: str | None = None):
+class TransformationFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.transformation: Transformation | None = None
+        self.transformations: TransformationList | None = None
 
-    def _interactive_select(self) -> str:
-        transformations = self.client.transformations.list(limit=-1)
-        transformation_ids = [
-            transformation.external_id for transformation in transformations if transformation.external_id
-        ]
-
-        if transformations and not transformation_ids:
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.transformations = self.client.transformations.list(limit=-1)
+        if self.transformations and not any(transformation.external_id for transformation in self.transformations):
             raise ToolkitValueError(
                 "ExternalID is required for dumping transformations. "
-                f"Found {len(transformations)} transformations with only internal IDs."
+                f"Found {len(self.transformations)} transformations with only internal IDs."
             )
-        elif not transformation_ids:
+        elif not self.transformations:
             raise ToolkitMissingResourceError("No transformations found")
 
-        selected_transformation_id: str = questionary.select(
-            "Which transformation would you like to dump?",
-            [
-                Choice(transformation.external_id, value=transformation.external_id)
-                for transformation in transformations
-                if transformation.external_id
-            ],
-        ).ask()
-        for transformation in transformations:
-            if transformation.external_id == selected_transformation_id:
-                self.transformation = transformation
-                break
+        choices = [
+            Choice(f"{transformation.name} ({transformation.external_id})", value=transformation.external_id)
+            for transformation in sorted(self.transformations, key=lambda t: t.name or "")
+            if transformation.external_id
+        ]
 
-        return selected_transformation_id
+        selected_transformation_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which transformation(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_transformation_ids is None:
+            raise ToolkitValueError("No transformations selected for dumping.")
+        return tuple(selected_transformation_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
-        if self.transformation:
-            yield [], TransformationList([self.transformation]), TransformationLoader.create_loader(self.client), None
+        if self.transformations:
+            yield (
+                [],
+                TransformationList([t for t in self.transformations if t.external_id in self.identifier]),
+                TransformationLoader.create_loader(self.client),
+                None,
+            )
         else:
-            yield [self.identifier], None, TransformationLoader.create_loader(self.client), None
+            yield list(self.identifier), None, TransformationLoader.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleLoader.create_loader(self.client)
-        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=[self.identifier]))
+        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=list(self.identifier)))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationLoader.create_loader(self.client)
-        notification_list = TransformationNotificationList(notification_loader.iterate(parent_ids=[self.identifier]))
+        notification_list = TransformationNotificationList(
+            notification_loader.iterate(parent_ids=list(self.identifier))
+        )
         yield [], notification_list, notification_loader, None
 
 
