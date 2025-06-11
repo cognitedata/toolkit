@@ -1,3 +1,4 @@
+import time
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator
 from functools import lru_cache
@@ -9,6 +10,8 @@ from cognite.client.data_classes import (
     Asset,
     AssetFilter,
     DataSetList,
+    Event,
+    EventFilter,
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesFilter,
@@ -24,9 +27,18 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitIsADirectoryError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    AssetLoader,
+    DataSetsLoader,
+    EventLoader,
+    LabelLoader,
+    ResourceLoader,
+    TimeSeriesLoader,
+)
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
 
 
@@ -35,8 +47,12 @@ class DataFinder:
     # This is the standard maximum items that can be returns by most CDF endpoints.
     chunk_size: ClassVar[int] = 1000
 
-    def is_supported_format(self, format_: FileFormat) -> bool:
-        return format_ in self.supported_formats
+    def validate_format(self, format_: str) -> Literal[FileFormat]:
+        if format_ in self.supported_formats:
+            return format_  # type: ignore[return-value]
+        raise ToolkitValueError(
+            f"Unsupported format {format_}. Supported formats are {humanize_collection(self.supported_formats)}."
+        )
 
     @abstractmethod
     def create_iterators(
@@ -290,6 +306,51 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
         return columns
 
 
+class EventFinder(AssetCentricFinder[Event]):
+    supported_formats = frozenset({"csv", "parquet"})
+
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return EventLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        return self.client.events.aggregate_count(
+            filter=EventFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+
+    def _get_resource_columns(self) -> list[SchemaColumn]:
+        columns = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="startTime", type="integer"),
+            SchemaColumn(name="endTime", type="integer"),
+            SchemaColumn(name="type", type="string"),
+            SchemaColumn(name="subtype", type="string"),
+            SchemaColumn(name="description", type="string"),
+            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+            SchemaColumn(name="source", type="string"),
+        ]
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
+        metadata_keys = metadata_key_counts(self.client, "events", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
+
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        return self.client.events(
+            chunk_size=self.chunk_size,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
+        )
+
+    def _resource_processor(self, items: Iterable[Event]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(items))]
+
+
 class DumpDataCommand(ToolkitCommand):
     def dump_table(
         self,
@@ -297,8 +358,10 @@ class DumpDataCommand(ToolkitCommand):
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
-        format_: Literal["yaml", "csv", "parquet"] = "csv",
+        format_: str = "csv",
         verbose: bool = False,
+        parallel_threshold: int = 10,
+        max_queue_size: int = 10,
     ) -> None:
         """Dumps data from CDF to a file
 
@@ -309,23 +372,44 @@ class DumpDataCommand(ToolkitCommand):
             limit (int | None, optional): The maximum number of rows to write. Defaults to None.
             format_ (Literal["yaml", "csv", "parquet"], optional): The format of the output file. Defaults to "csv".
             verbose (bool, optional): Whether to print detailed progress information. Defaults to False.
+            parallel_threshold (int, optional): The iteration threshold for parallel processing. Defaults to 10.
+            max_queue_size (int, optional): If using parallel processing, the maximum size of the queue. Defaults to 10.
+
         """
-        if not finder.is_supported_format(format_):
-            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
+        valid_format = finder.validate_format(format_)
         self.validate_directory(output_dir, clean)
 
         console = Console()
-        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+        # The ignore is used as MyPy does not understand that is_supported_format
+        # above guarantees that the format is valid.
+        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(
+            valid_format, limit
+        ):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
+            t0 = time.perf_counter()
             with writer_cls(schema, output_dir) as writer:
-                for resources in track(
-                    resource_iterator, total=iteration_count, description=f"Dumping {schema.display_name}"
-                ):
-                    row_counts += len(resources)
-                    processed = resource_processor(resources)
-                    writer.write_rows(processed)
-            console.print(f"Dumped {row_counts:,} rows to {output_dir}")
+                if iteration_count > parallel_threshold:
+                    executor = ProducerWorkerExecutor(
+                        download_iterable=resource_iterator,
+                        process=resource_processor,
+                        write_to_file=writer.write_rows,
+                        iteration_count=iteration_count,
+                        max_queue_size=max_queue_size,
+                    )
+                    executor.run()
+                    if executor.error_occurred:
+                        raise ToolkitValueError(executor.error_message)
+                    row_counts = executor.total_items
+                else:
+                    for resources in track(
+                        resource_iterator, total=iteration_count, description=f"Dumping {schema.display_name}"
+                    ):
+                        row_counts += len(resources)
+                        processed = resource_processor(resources)
+                        writer.write_rows(processed)
+            elapsed = time.perf_counter() - t0
+            console.print(f"Dumped {row_counts:,} rows to {output_dir} in {elapsed:,.2f} seconds.")
 
     @staticmethod
     def validate_directory(output_dir: Path, clean: bool) -> None:
