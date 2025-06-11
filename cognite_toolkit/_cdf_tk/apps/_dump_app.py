@@ -10,6 +10,7 @@ from cognite_toolkit._cdf_tk.commands import DumpDataCommand, DumpResourceComman
 from cognite_toolkit._cdf_tk.commands.dump_data import (
     AssetFinder,
     EventFinder,
+    FileMetadataFinder,
     TimeSeriesFinder,
 )
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
@@ -25,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
     EventInteractiveSelect,
+    FileMetadataInteractiveSelect,
     TimeSeriesInteractiveSelect,
 )
 
@@ -358,6 +360,7 @@ class DumpDataApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_data_main)
         self.command("asset")(self.dump_asset_cmd)
+        self.command("files-metadata")(self.dump_files_cmd)
         self.command("timeseries")(self.dump_timeseries_cmd)
         self.command("event")(self.dump_event_cmd)
 
@@ -439,6 +442,84 @@ class DumpDataApp(typer.Typer):
         cmd.run(
             lambda: cmd.dump_table(
                 AssetFinder(client, hierarchy or [], data_set or []),
+                output_dir,
+                clean,
+                limit,
+                format_,  # type: ignore [arg-type]
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_files_cmd(
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump filemetadata from.",
+            ),
+        ] = None,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+            ),
+        ] = None,
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the filemetadata in. Supported formats: csv, and parquet.",
+            ),
+        ] = "csv",
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of filemetadata to dump.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the filemetadata files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the filemetadata.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DumpDataCommand()
+        cmd.validate_directory(output_dir, clean)
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = FileMetadataInteractiveSelect(client).interactive_select_hierarchy_datasets()
+        cmd.run(
+            lambda: cmd.dump_table(
+                FileMetadataFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
                 limit,

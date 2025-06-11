@@ -12,6 +12,8 @@ from cognite.client.data_classes import (
     DataSetList,
     Event,
     EventFilter,
+    FileMetadata,
+    FileMetadataFilter,
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesFilter,
@@ -31,6 +33,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     AssetLoader,
     DataSetsLoader,
     EventLoader,
+    FileMetadataLoader,
     LabelLoader,
     ResourceLoader,
     TimeSeriesLoader,
@@ -258,6 +261,55 @@ class AssetFinder(AssetCentricFinder[Asset]):
         sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
         return columns
+
+
+class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
+    supported_formats = frozenset({"csv", "parquet"})
+
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return FileMetadataLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        result = self.client.files.aggregate(
+            filter=FileMetadataFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+        return result[0].count if result else 0
+
+    def _get_resource_columns(self) -> list[SchemaColumn]:
+        columns = [
+            SchemaColumn(name="externalId", type="string"),
+            SchemaColumn(name="name", type="string"),
+            SchemaColumn(name="directory", type="string"),
+            SchemaColumn(name="source", type="string"),
+            SchemaColumn(name="mimeType", type="string"),
+            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+            SchemaColumn(name="dataSetExternalId", type="string"),
+            SchemaColumn(name="sourceCreatedTime", type="integer"),
+            SchemaColumn(name="sourceModifiedTime", type="integer"),
+            SchemaColumn(name="securityCategories", type="string", is_array=True),
+            SchemaColumn(name="labels", type="string", is_array=True),
+            SchemaColumn(name="geoLocation", type="json"),
+        ]
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
+        metadata_keys = metadata_key_counts(self.client, "files", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
+
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        return self.client.files(
+            chunk_size=self.chunk_size,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
+        )
+
+    def _resource_processor(self, items: Iterable[FileMetadata]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(items))]
 
 
 class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
