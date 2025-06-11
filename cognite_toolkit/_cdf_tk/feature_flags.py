@@ -48,6 +48,10 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the exit on warning feature during the build command",
     }
+    MIGRATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the migrate command",
+    }
 
     def is_enabled(self) -> bool:
         return FeatureFlag.is_enabled(self)

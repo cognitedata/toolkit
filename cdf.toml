@@ -13,6 +13,7 @@ profile = true
 dump-extended = true
 infield = true
 dump-data = true
+migrate = true
 
 exit-on-warning = true
 
