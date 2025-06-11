@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import shutil
+import tempfile
+import zipfile
 from collections import Counter
 from importlib import resources
 from pathlib import Path
 from typing import Any, Literal, Optional
 
 import questionary
+import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -14,7 +17,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.progress import track
+from rich.progress import Progress, track
 from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
@@ -280,6 +283,7 @@ default_organization_dir = "{organization_dir.name}"''',
             organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
+
         packages = Packages().load(self._builtin_modules_path)
 
         if select_all:
@@ -680,9 +684,54 @@ default_organization_dir = "{organization_dir.name}"''',
             build_env = default.environment.validation_type
 
         existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
-        available_packages = Packages().load(self._builtin_modules_path)
 
-        added_packages = self._select_packages(available_packages, existing_module_names)
+        cdf_toml = CDFToml.load(use_singleton=False)
+        if len(cdf_toml.libraries) > 0:
+            for library_name, library in cdf_toml.libraries.items():
+                print(f"[green]Adding library {library_name}[/]")
+                if library.url:
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        output_path = Path(temp_dir) / f"{library_name}.zip"
+                        self._download_and_unpack(library.url, output_path)
+                        available_packages = Packages().load(output_path.parent)
+                else:
+                    print(f"[red]Library {library_name} has no URL specified. Skipping download.[/red]")
+        else:
+            print("[yellow]No libraries found in cdf.toml. Skipping library addition.[/yellow]")
+            available_packages = Packages().load(self._builtin_modules_path)
 
-        download_data = self._get_download_data(added_packages)
-        self._create(organization_dir, added_packages, environments, "update", download_data)
+        added_libraries = self._select_packages(available_packages, existing_module_names)
+
+        download_data = self._get_download_data(added_libraries)
+        self._create(organization_dir, added_libraries, environments, "update", download_data)
+
+    def _download_and_unpack(self, url: str, output_path: Path) -> None:
+        """
+        Downloads a file from a URL with a progress bar.
+        """
+
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+
+            total_size = int(response.headers.get("content-length", 0))
+
+            with Progress() as progress:
+                task = progress.add_task("Download", total=total_size)
+                with open(output_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        progress.update(task, advance=len(chunk))
+
+                unzip = progress.add_task("Unzipping", total=total_size)
+                if output_path.suffix == ".zip":
+                    with zipfile.ZipFile(output_path, "r") as zip_ref:
+                        zip_ref.extractall(output_path.parent)
+                        progress.update(unzip, advance=total_size)
+                else:
+                    print(f"[green]File downloaded to {output_path}[/]")
+
+        except requests.exceptions.RequestException as e:
+            print(f"[red]Error downloading file: {e}[/red]")
+        except Exception as e:
+            print(f"[red]An unexpected error occurred: {e}[/red]")

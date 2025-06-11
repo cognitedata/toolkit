@@ -27,40 +27,51 @@ class TestCDFToml:
     @pytest.mark.parametrize(
         "invalid_toml_content, expected_error_message",
         [
-            # Invalid: library type is unknown
+            # Invalid: package type is unknown
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [library.bad_lib]
-                type = "ftp"
+                [package.bad_lib]
                 url = "ftp://bad.com"
                 """,
-                "Invalid library configuration for 'bad_lib': Supported library type is 'https'",
+                "Invalid package configuration for 'bad_lib': URL must start with 'https'",
             ),
-            # Invalid: library missing url for https type
+            # Invalid: package missing url for https type
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [library.missing_url]
+                [package.missing_url]
                 type = "https"
                 """,
-                "Invalid library configuration for 'missing_url': Library configuration must contain 'url' field.",
+                "Invalid package configuration for 'missing_url': Library configuration must contain 'url' field.",
             ),
-            # Invalid: library url is not a valid URL
+            # Invalid: package url is not a valid URL
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [library.invalid_url]
+                [package.invalid_url]
                 type = "https"
                 url = "bad.com"
                 """,
-                "Invalid library configuration for 'invalid_url': For type 'https', 'url' field must be a valid URL.",
+                "Invalid package configuration for 'invalid_url': URL is missing scheme or network location (e.g., 'https://domain.com')",
+            ),
+            # Invalid: package url does not end with .zip
+            (
+                """
+                [cdf]
+                [modules]
+                version = "0.0.0"
+                [package.invalid_zip]
+                type = "https"
+                url = "https://example.com/my-package/my-package.txt"
+                """,
+                "Invalid package configuration for 'invalid_zip': URL must point to a .zip file.",
             ),
         ],
     )
@@ -71,5 +82,28 @@ class TestCDFToml:
         with pytest.raises(ToolkitTOMLFormatError, match=re.escape(expected_error_message)):
             CDFToml.load(cwd=tmp_path, use_singleton=False)
 
-    def test_fallback_to_official(self):
-        pass
+    def test_load_package_url(self, tmp_path: Path):
+        valid_toml_content = """
+        [cdf]
+        [modules]
+        version = "0.0.0"
+        [package.valid_url]
+        url = "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
+        """
+        file_path = tmp_path / CDFToml.file_name
+        file_path.write_text(valid_toml_content)
+
+        config = CDFToml.load(cwd=tmp_path, use_singleton=False)
+        assert config.packages["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
+
+    def test_fallback_to_official(self, tmp_path: Path):
+        valid_toml_content = """
+        [cdf]
+        [modules]
+        version = "0.0.0"
+        """
+        file_path = tmp_path / CDFToml.file_name
+        file_path.write_text(valid_toml_content)
+
+        config = CDFToml.load(cwd=tmp_path, use_singleton=False)
+        assert config.packages == {}

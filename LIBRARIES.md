@@ -4,60 +4,33 @@ The Toolkit can import modules from external libraries.
 
 ## Usage
 
-A user will add the library url to cdf.toml:
+A user can add packages to cdf.toml:
 
 ```toml
-[library.my_library]
-type = https
-url = https://example.com/my-library/
+[library.package_1]
+url = https://example.com/my-library/<package_1>.zip
+
+[library.package_2]
+url = https://github.com/cognitedata/library/archive/refs/tags/0.0.1.zip
 ```
+
+When running `cdf modules init` or `cdf modules add`, the packages will be imported and selectable for the user.
 
 ## Publishing a library
 
 The library must be available over https. Authentication is not currently supported.
 
-To publish a library, create a repository where the root folder at `url` contains
-a **package.toml** and a **package.zip**. The zip file must have the structure
-and content described below.
+To publish a library, create a repository that contains one or more downloadable zip files.
+The zip file must have the structure and content described below.
 
-```sh
-https://<url>/package.toml
-https://<url>/package.zip
-```
-
-### package.toml
-
-The package.toml in the root folder is required to make the library discoverable by the Toolkit. It allows you to describe
-the content of the library and bundle modules into packages. A module can belong to several packages.
-
-The **package.toml** file should contain the following information:
-
-```toml
-[packages]
-title = "<descriptive title for the library>"
-toolkit-version = ">=0.6.0" # Minimum version of the Toolkit required to use this library
-
-[packages.my_package_1]
-title = "Data pipeline package 1"
-description = "<Description of what the package contains or does>"
-
-[packages.my_package_2]
-title = "Data pipeline package 2"
-description = "<Description of what the package contains or does>"
-canCherryPick = true # Set to false if the user should not be able to pick individual modules in this package
-
-[packages.my_package_3]
-title = "Contextualization package 1"
-description = "<Description of what the package contains or does>"
-```
-
-### package.zip
+### <package_1>.zip
 
 Zip file content must be structured like this:
 
 ```shell
 
-package.zip
+<package_1>.zip
+├── package.toml
 └── module_1
     ├── <module content>
     ├── default.config.yaml
@@ -66,6 +39,34 @@ package.zip
     ├── <module content>
     ├── default.config.yaml
     └── module.toml
+```
+
+#### package.toml
+
+The package.toml in the root folder is required to make the library discoverable by the Toolkit. It allows you to describe
+the content of the library and bundle modules into packages. A module can belong to several packages.
+
+The **packages.toml** file should contain the following information:
+
+```toml
+
+[package]
+description = "<Description for the end user>"
+toolkit-version = ">=0.6.0" # Recommended version of the Toolkit required to use this library
+canCherryPick = true # Set to false if the user should not be able to pick individual modules in this package
+
+[packages.quickstart]
+title = "Quickstart"
+description = "Get started with Cognite Data Fusion in minutes."
+canCherryPick = false
+
+[[packages.quickstart.modules]]
+name = "timeseries_and_assets"
+description = "Create basic time series and assets."
+
+[[packages.quickstart.modules]]
+name = "transformations_and_dms"
+description = "Set up simple transformations and data models."
 ```
 
 #### module.toml

@@ -16,6 +16,11 @@ migrate = true
 
 exit-on-warning = true
 
+[library.toolkit-data]
+url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtin.zip"
+
+
+
 [plugins]
 run = true
 purge = true

@@ -6,7 +6,7 @@ import urllib
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Literal
+from typing import Any, ClassVar
 
 from rich import print
 
@@ -73,21 +73,23 @@ class ModulesConfig:
 
 @dataclass
 class Library:
-    type: Literal["https"]
     url: str
 
     @classmethod
     def load(cls, raw: dict[str, Any]) -> Library:
-        if raw.get("type") != "https":
-            raise ValueError("Supported library type is 'https'")
-
         if "url" not in raw:
             raise ValueError("Library configuration must contain 'url' field.")
 
         parsed_url = urllib.parse.urlparse(raw["url"])
 
         if not all([parsed_url.scheme, parsed_url.netloc]):
-            raise ValueError("For type 'https', 'url' field must be a valid URL.")
+            raise ValueError("URL is missing scheme or network location (e.g., 'https://domain.com')")
+
+        if parsed_url.scheme != "https":
+            raise ValueError("URL must start with 'https'")
+
+        if not parsed_url.path.casefold().endswith(".zip"):
+            raise ValueError("URL must point to a .zip file.")
 
         return cls(**raw)
 

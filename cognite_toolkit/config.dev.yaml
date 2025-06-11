@@ -1,0 +1,23 @@
+environment:
+  name: dev
+  project: consul-dev
+  validation-type: dev
+  selected:
+  - modules/
+
+variables:
+  modules:
+    cdf_common:
+      dataset: ingestion
+      instanceSpace: springfield_instances
+      directRelationJob: ctx_files_direct_relation_write
+      rawSourceDatabase: ingestion
+      rawStateDatabase: contextualizationState
+      rawStateTable: diagramParsing
+      schemaSpace: cdf_cdm
+      annotationSpace: springfield_instances
+
+    models:
+      cdf_process_industry_extension:
+        organization: YourOrg
+        schemaSpace: sp_enterprise_process_industry
