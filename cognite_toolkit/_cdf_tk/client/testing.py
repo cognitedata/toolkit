@@ -24,6 +24,7 @@ from .api.robotics.data_postprocessing import DataPostProcessingAPI
 from .api.robotics.frames import FramesAPI
 from .api.robotics.locations import LocationsAPI as RoboticsLocationsAPI
 from .api.robotics.maps import MapsAPI
+from .api.statistics import StatisticsAPI
 from .api.verify import VerifyAPI
 
 
@@ -62,6 +63,8 @@ class ToolkitClientMock(CogniteClientMock):
         self.robotics.frames = MagicMock(spec_set=FramesAPI)
         self.robotics.maps = MagicMock(spec_set=MapsAPI)
         self.robotics.capabilities = MagicMock(spec_set=CapabilitiesAPI)
+
+        self.data_modeling.statistics = MagicMock(spec_set=StatisticsAPI)
 
         self.verify = MagicMock(spec_set=VerifyAPI)
 

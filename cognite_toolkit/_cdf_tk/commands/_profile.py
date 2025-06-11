@@ -6,7 +6,12 @@ from rich.console import Console
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.cdf import label_count, metadata_key_counts
+from cognite_toolkit._cdf_tk.utils.cdf import (
+    label_aggregate_count,
+    label_count,
+    metadata_key_counts,
+    relationship_aggregate_count,
+)
 
 from ._base import ToolkitCommand
 
@@ -105,6 +110,25 @@ class SequenceAggregator(MetadataAggregator):
         return self.client.sequences.aggregate_count()
 
 
+class RelationshipAggregator(AssetCentricAggregator):
+    @property
+    def display_name(self) -> str:
+        return "Relationships"
+
+    def count(self) -> int:
+        results = relationship_aggregate_count(self.client)
+        return sum(result.count for result in results)
+
+
+class LabelCountAggregator(AssetCentricAggregator):
+    @property
+    def display_name(self) -> str:
+        return "Labels"
+
+    def count(self) -> int:
+        return label_aggregate_count(self.client)
+
+
 class ProfileCommand(ToolkitCommand):
     @classmethod
     def asset_centric(
@@ -118,6 +142,8 @@ class ProfileCommand(ToolkitCommand):
             FileAggregator(client),
             TimeSeriesAggregator(client),
             SequenceAggregator(client),
+            RelationshipAggregator(client),
+            LabelCountAggregator(client),
         ]
         with Console().status("profiling asset-centric", spinner="aesthetic", speed=0.4) as _:
             with ThreadPoolExecutor() as executor:
@@ -131,12 +157,13 @@ class ProfileCommand(ToolkitCommand):
         )
         table.add_column("Resource")
         table.add_column("Count")
-        table.add_column("Metadata Key Count")
-        table.add_column("Label Count")
+        table.add_column("Metadata Key Count*")
+        table.add_column("Label Count*")
         for row in rows:
             table.add_row(*(f"{cell:,}" if isinstance(cell, int) else str(cell) for cell in row.values()))
         console = Console()
         console.print(table)
+        console.print("* '-' indicates not applicable.")
         return rows
 
     @staticmethod
