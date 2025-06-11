@@ -59,6 +59,9 @@ dev = [
 table = [
     "pyarrow>=20.0.0",
 ]
+sql = [
+    "sqlparse >=0.5.3",
+]
 
 [project.scripts]
 cdf-tk = "cognite_toolkit._cdf:app"
