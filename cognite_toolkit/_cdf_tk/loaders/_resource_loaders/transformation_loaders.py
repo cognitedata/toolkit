@@ -79,6 +79,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import TransformationYAML
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -111,6 +112,7 @@ class TransformationLoader(
     list_cls = TransformationList
     list_write_cls = TransformationWriteList
     kind = "Transformation"
+    yaml_cls = TransformationYAML
     dependencies = frozenset(
         {
             DataSetsLoader,
