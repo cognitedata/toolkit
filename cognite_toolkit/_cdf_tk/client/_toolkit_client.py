@@ -8,6 +8,7 @@ from cognite.client.credentials import CredentialProvider
 from .api.agents.agents import AgentsAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
+from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.robotics import RoboticsAPI
@@ -71,7 +72,7 @@ class ToolkitClientConfig(ClientConfig):
 
 
 class ToolkitClient(CogniteClient):
-    def __init__(self, config: ToolkitClientConfig | None = None) -> None:
+    def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
         self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
@@ -80,6 +81,8 @@ class ToolkitClient(CogniteClient):
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self)
         self.agents = AgentsAPI(self._config, self._API_VERSION, self)
         self.data_modeling = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
+        if enable_set_pending_ids:
+            self.time_series = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
