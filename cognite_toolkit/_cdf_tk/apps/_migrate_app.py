@@ -1,7 +1,10 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
+
+from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class MigrateApp(typer.Typer):
@@ -19,37 +22,23 @@ class MigrateApp(typer.Typer):
     def timeseries(
         ctx: typer.Context,
         mapping_file: Annotated[
-            Optional[Path],
-            typer.Argument(
+            Path,
+            typer.Option(
+                "--mapping-file",
+                "-m",
                 help="Path to the mapping file that contains the mapping from TimeSeries to CogniteTimeSeries. "
-                "Note you cannot provide a mapping file and data sets at the same time. If neither is provided"
-                ", interactive mode will be used.",
+                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
-        data_set: Annotated[
-            Optional[list[str]],
-            typer.Option(
-                "--data-sets",
-                "-d",
-                help="List of data sets to migrate. If not provided, interactive mode will be used. "
-                "Note you cannot provide a mapping file and data sets at the same time. If neither is provided"
-                ", interactive mode will be used.",
-            ),
-        ] = None,
         dry_run: Annotated[
-            Optional[bool],
-            typer.Argument(
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
                 help="If set, the migration will not be executed, but only a report of what would be done is printed.",
             ),
         ] = False,
-        link: Annotated[
-            bool,
-            typer.Option(
-                "--link",
-                "-l",
-                help="By default, the migration will link the migrated CogniteTimeSeries to the original TimeSeries.",
-            ),
-        ] = True,
         verbose: Annotated[
             bool,
             typer.Option(
@@ -60,4 +49,14 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate TimeSeries to CogniteTimeSeries."""
-        raise NotImplementedError()
+
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = MigrateTimeseriesCommand()
+        cmd.run(
+            lambda: cmd.migrate_timeseries(
+                client,
+                mapping_file=mapping_file,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
