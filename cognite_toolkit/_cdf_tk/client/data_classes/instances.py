@@ -3,6 +3,7 @@ from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import CogniteResourceList
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 from cognite.client.data_classes.data_modeling.instances import EdgeApplyResult, InstanceApplyResult, NodeApplyResult
 
 
@@ -30,3 +31,12 @@ class InstancesApplyResultList(CogniteResourceList[InstanceApplyResult]):
         self._build_id_mappings()
 
     _RESOURCE = InstanceApplyResultAdapter
+
+    def as_ids(self) -> list[NodeId | EdgeId]:
+        """Return a list of IDs for the instances in the list."""
+        return [
+            NodeId(item.space, item.external_id)
+            if item.instance_type == "node"
+            else EdgeId(item.space, item.external_id)
+            for item in self
+        ]
