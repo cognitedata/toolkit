@@ -12,6 +12,8 @@ from cognite.client.data_classes import (
     DataSetList,
     Event,
     EventFilter,
+    FileMetadata,
+    FileMetadataFilter,
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesFilter,
@@ -31,6 +33,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     AssetLoader,
     DataSetsLoader,
     EventLoader,
+    FileMetadataLoader,
     LabelLoader,
     ResourceLoader,
     TimeSeriesLoader,
@@ -39,7 +42,13 @@ from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.table_writers import (
+    FileFormat,
+    Schema,
+    SchemaColumn,
+    SchemaColumnList,
+    TableFileWriter,
+)
 
 
 class DataFinder:
@@ -87,7 +96,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         raise NotImplementedError()
 
     @abstractmethod
-    def _get_resource_columns(self) -> list[SchemaColumn]:
+    def _get_resource_columns(self) -> SchemaColumnList:
         """Get the columns for the schema."""
         raise NotImplementedError()
 
@@ -160,7 +169,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -184,7 +193,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -241,23 +250,76 @@ class AssetFinder(AssetCentricFinder[Asset]):
             return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
         return ""
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="parentExternalId", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="parentExternalId", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "assets", data_set_ids or None, root_ids or None)
         sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
         return columns
+
+
+class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
+    supported_formats = frozenset({"csv", "parquet"})
+
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return FileMetadataLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        result = self.client.files.aggregate(
+            filter=FileMetadataFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+        return result[0].count if result else 0
+
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
+        )
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
+        metadata_keys = metadata_key_counts(self.client, "files", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
+
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        return self.client.files(
+            chunk_size=self.chunk_size,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
+        )
+
+    def _resource_processor(self, items: Iterable[FileMetadata]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(items))]
 
 
 class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
@@ -285,19 +347,21 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
     def _resource_processor(self, time_series: Iterable[TimeSeries]) -> list[tuple[str, list[dict[str, Any]]]]:
         return [("", self._to_write(time_series))]
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="isString", type="boolean"),
-            SchemaColumn(name="unit", type="string"),
-            SchemaColumn(name="unitExternalId", type="string"),
-            SchemaColumn(name="assetExternalId", type="string"),
-            SchemaColumn(name="isStep", type="boolean"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="isString", type="boolean"),
+                SchemaColumn(name="unit", type="string"),
+                SchemaColumn(name="unitExternalId", type="string"),
+                SchemaColumn(name="assetExternalId", type="string"),
+                SchemaColumn(name="isStep", type="boolean"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "timeseries", data_set_ids or None, root_ids or None)
@@ -320,18 +384,20 @@ class EventFinder(AssetCentricFinder[Event]):
             )
         )
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="startTime", type="integer"),
-            SchemaColumn(name="endTime", type="integer"),
-            SchemaColumn(name="type", type="string"),
-            SchemaColumn(name="subtype", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="assetExternalIds", type="string", is_array=True),
-            SchemaColumn(name="source", type="string"),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="startTime", type="integer"),
+                SchemaColumn(name="endTime", type="integer"),
+                SchemaColumn(name="type", type="string"),
+                SchemaColumn(name="subtype", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "events", data_set_ids or None, root_ids or None)
