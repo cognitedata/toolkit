@@ -23,11 +23,13 @@ from rich.progress import track
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import PendingInstanceId
+from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
     ToolkitFileNotFoundError,
     ToolkitValueError,
 )
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
@@ -126,6 +128,7 @@ class MigrateTimeseriesCommand(ToolkitCommand):
 
         self._validate_access(client, mappings)
         self._validate_timeseries_existence(client, mappings)
+        self._validate_available_capacity(client, mappings)
 
         if dry_run:
             self.console(f"Dry run mode. Would have migrated {len(mappings):,} TimeSeries to CogniteTimeSeries.")
@@ -189,6 +192,30 @@ class MigrateTimeseriesCommand(ToolkitCommand):
         print(
             f"Validated {total_validated:,} TimeSeries for migration. "
             f"{len(mappings):,} mappings provided in the mapping file."
+        )
+
+    def _validate_available_capacity(self, client: ToolkitClient, mappings: MigrationMappingList) -> None:
+        """Validate that the project has enough capacity to accommodate the migration."""
+        try:
+            # MyPy does not understand that statistics has been redefined in the ToolkitClient
+            stats = client.data_modeling.statistics.project()  # type: ignore[attr-defined]
+        except CogniteAPIError:
+            # This endpoint is not yet in alpha, it may change or not be available.
+            self.warn(HighSeverityWarning("Cannot check the instances capacity proceeding with migration anyway."))
+            return
+        available_capacity = stats.instances.instances_limit - stats.instances.instances
+        available_capacity_after = available_capacity - len(mappings)
+
+        if available_capacity_after < DMS_INSTANCE_LIMIT_MARGIN:
+            raise ToolkitValueError(
+                "Cannot proceed with migration, not enough instance capacity available. Total capacity after migration"
+                f"would be {available_capacity_after:,} instances, which is less than the required margin of"
+                f"{DMS_INSTANCE_LIMIT_MARGIN:,} instances. Please increase the instance capacity in your CDF project"
+                f" or delete some existing instances before proceeding with the migration of {len(mappings):,} timeseries."
+            )
+        total_instances = stats.instances.instances + len(mappings)
+        self.console(
+            f"Project has enough capacity for migration. Total instances after migration: {total_instances:,}."
         )
 
     @staticmethod
