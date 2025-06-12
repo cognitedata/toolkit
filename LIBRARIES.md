@@ -1,17 +1,15 @@
 # Module libraries
 
-The Toolkit can import modules from external libraries.
+The Toolkit can import modules from external libraries. This is an ALPHA feature.
 
 ## Usage
 
-A user can add packages to cdf.toml:
+A user can add packages to cdf.toml. At the moment, the Toolkit only loads one library.
 
 ```toml
 [library.package_1]
-url = https://example.com/my-library/<package_1>.zip
+url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtin.zip"
 
-[library.package_2]
-url = https://github.com/cognitedata/library/archive/refs/tags/0.0.1.zip
 ```
 
 When running `cdf modules init` or `cdf modules add`, the packages will be imported and selectable for the user.
@@ -33,17 +31,15 @@ Zip file content must be structured like this:
 ├── package.toml
 └── module_1
     ├── <module content>
-    ├── default.config.yaml
-    └── module.toml
+    └── default.config.yaml
 └── module_2
     ├── <module content>
-    ├── default.config.yaml
-    └── module.toml
+    └── default.config.yaml
 ```
 
-#### package.toml
+#### packages.toml
 
-The package.toml in the root folder is required to make the library discoverable by the Toolkit. It allows you to describe
+The packages.toml in the root folder is required to make the library discoverable by the Toolkit. It allows you to describe
 the content of the library and bundle modules into packages. A module can belong to several packages.
 
 The **packages.toml** file should contain the following information:
@@ -55,11 +51,13 @@ description = "<Description for the end user>"
 toolkit-version = ">=0.6.0" # Recommended version of the Toolkit required to use this library
 canCherryPick = true # Set to false if the user should not be able to pick individual modules in this package
 
+# Package definition
 [packages.quickstart]
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
 canCherryPick = false
 
+# modules that belong to this package
 [[packages.quickstart.modules]]
 name = "timeseries_and_assets"
 description = "Create basic time series and assets."
@@ -69,26 +67,11 @@ name = "transformations_and_dms"
 description = "Set up simple transformations and data models."
 ```
 
-#### module.toml
-
-A **module.toml** file must be present in each module folder. It should contain the following information:
-
-```toml
-[module]
-title = "Module 1"
-is_selected_by_default = false # Set to true if the module should be selected by default when the user runs cdf modules init
- 
-[packages]
-tags = [
-    "my_package_1", "my_package_3" # use tags to indicate which packages the module should be available in
-]
-```
-
 #### default.config.yaml
 
-A **default.config.yaml** file must be present in each module folder if the module contains any value placeholders.
+A **default.config.yaml** file must be present in each module folder *if the module contains any value placeholders.*
 
-In other words, if your module has any placeholders in the resource file `my.<Kind>.yaml` file,
+In other words, if your module has any curly bracket placeholders in the resource file `my.<Kind>.yaml` file,
 you must provide a **default.config.yaml** file with those values:
 
 ```yaml
@@ -133,31 +116,11 @@ To verify that the library is correctly structured:
 
 ```toml
 [libraries.my_library]
-type = https
 url = https://example.com/my-library/my-root-folder
 ```
 
 1. Run `cdf modules init` or `cdf modules add` to verify that packages and modules are shown correctly
 1. Verify that the module content is copied into the local modules/ folder
-
-## Versioning
-
-When importing, the Toolkit will check the `toolkit-version` in the `package.toml` file and
-issue a warning if it is incompatible with the current Toolkit version.
-
-As a maintainer, it is possible to maintain multiple versions of the library by creating separate folders in the repository:
-
-```yaml
-#<root folder>/v1/package.toml
-[packages]
-title = "<descriptive title for the library>"
-toolkit-version = "<0.6"
-
-#<root folder>/v2/package.toml
-[packages]
-title = "<descriptive title for the library>"
-toolkit-version = ">=0.6"
-```
 
 ## Rate limiting
 
