@@ -143,7 +143,7 @@ class CDFToml:
             for k, v in raw.get("library", {}).items():
                 try:
                     libraries[k] = Library.load(v)
-                except ValueError as e:
+                except Exception as e:
                     raise ToolkitTOMLFormatError(f"Invalid library configuration for '{k}': {e.args[0]}") from e
 
             instance = cls(

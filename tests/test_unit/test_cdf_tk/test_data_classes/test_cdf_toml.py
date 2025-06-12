@@ -33,45 +33,45 @@ class TestCDFToml:
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [package.bad_lib]
+                [library.bad_lib]
                 url = "ftp://bad.com"
                 """,
-                "Invalid package configuration for 'bad_lib': URL must start with 'https'",
+                "Invalid library configuration for 'bad_lib': URL must start with 'https'",
             ),
-            # Invalid: package missing url for https type
+            # Invalid: library missing url for https type
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [package.missing_url]
+                [library.missing_url]
                 type = "https"
                 """,
-                "Invalid package configuration for 'missing_url': Library configuration must contain 'url' field.",
+                "Invalid library configuration for 'missing_url': Library configuration must contain 'url' field.",
             ),
-            # Invalid: package url is not a valid URL
+            # Invalid: library url is not a valid URL
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [package.invalid_url]
+                [library.invalid_url]
                 type = "https"
                 url = "bad.com"
                 """,
-                "Invalid package configuration for 'invalid_url': URL is missing scheme or network location (e.g., 'https://domain.com')",
+                "Invalid library configuration for 'invalid_url': URL is missing scheme or network location (e.g., 'https://domain.com')",
             ),
-            # Invalid: package url does not end with .zip
+            # Invalid: library url does not end with .zip
             (
                 """
                 [cdf]
                 [modules]
                 version = "0.0.0"
-                [package.invalid_zip]
+                [library.invalid_zip]
                 type = "https"
                 url = "https://example.com/my-package/my-package.txt"
                 """,
-                "Invalid package configuration for 'invalid_zip': URL must point to a .zip file.",
+                "Invalid library configuration for 'invalid_zip': URL must point to a .zip file.",
             ),
         ],
     )
@@ -87,11 +87,11 @@ class TestCDFToml:
         [cdf]
         [modules]
         version = "0.0.0"
-        [package.valid_url]
+        [library.valid_url]
         url = "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
         """
         file_path = tmp_path / CDFToml.file_name
         file_path.write_text(valid_toml_content)
 
         config = CDFToml.load(cwd=tmp_path, use_singleton=False)
-        assert config.packages["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
+        assert config.libraries["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
