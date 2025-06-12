@@ -27,7 +27,7 @@ class ExtendedDataModelingAPI(DataModelingAPI):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
         self.statistics = StatisticsAPI(config, api_version, cognite_client)
-        self.instances = ExtendedInstancesAPI(config, api_version, cognite_client)
+        self.instances: ExtendedInstancesAPI = ExtendedInstancesAPI(config, api_version, cognite_client)
 
 
 class ExtendedInstancesAPI(InstancesAPI):

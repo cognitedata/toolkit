@@ -197,8 +197,7 @@ class MigrateTimeseriesCommand(ToolkitCommand):
     def _validate_available_capacity(self, client: ToolkitClient, mappings: MigrationMappingList) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
         try:
-            # MyPy does not understand that statistics has been redefined in the ToolkitClient
-            stats = client.data_modeling.statistics.project()  # type: ignore[attr-defined]
+            stats = client.data_modeling.statistics.project()
         except CogniteAPIError:
             # This endpoint is not yet in alpha, it may change or not be available.
             self.warn(HighSeverityWarning("Cannot check the instances capacity proceeding with migration anyway."))
@@ -251,15 +250,14 @@ class MigrateTimeseriesCommand(ToolkitCommand):
 
             # Set pending IDs for the chunk of mappings
             try:
-                # Mypy does not understand that time_series has been redefined in the ToolkitClient
-                pending_timeseries = client.time_series.set_pending_ids(chunk.as_pending_ids())  # type: ignore[attr-defined]
+                pending_timeseries = client.time_series.set_pending_ids(chunk.as_pending_ids())
             except CogniteAPIError as e:
                 raise ToolkitValueError(f"Failed to set pending IDs for TimeSeries: {e!s}") from e
 
-            converted_timeseries = [self.as_cognite_timeseries(ts) for ts in pending_timeseries]
+            # The ExtendedTimeSeriesList is iterating ExtendedTimeSeries objects.
+            converted_timeseries = [self.as_cognite_timeseries(ts) for ts in pending_timeseries]  # type: ignore[arg-type]
             try:
-                # MyPy does not understand that instances has been redefined in the ToolkitClient
-                created = client.data_modeling.instances.apply_fast(converted_timeseries)  # type: ignore[attr-defined]
+                created = client.data_modeling.instances.apply_fast(converted_timeseries)
             except CogniteAPIError as e:
                 raise ToolkitValueError(f"Failed to apply TimeSeries: {e!s}") from e
             if verbose:
