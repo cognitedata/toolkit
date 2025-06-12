@@ -54,6 +54,12 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
 
 
 @pytest.fixture(scope="session")
+def toolkit_client_with_pending_ids(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
+    """Returns a ToolkitClient configured to enable pending IDs."""
+    return ToolkitClient(toolkit_client_config, enable_set_pending_ids=True)
+
+
+@pytest.fixture(scope="session")
 def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
     env_vars = EnvironmentVariables.create_from_environment()
     # Ensure we use the client above that has CLIENT NAME set to the test name
