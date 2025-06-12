@@ -50,7 +50,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
@@ -284,7 +284,8 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
-        packages = Packages().load(self._builtin_modules_path)
+        cdf_toml = CDFToml.load()
+        packages = self._get_library_packages(cdf_toml) or Packages.load(self._builtin_modules_path)
 
         if select_all:
             print(Panel("Instantiating all available modules"))
@@ -683,31 +684,40 @@ default_organization_dir = "{organization_dir.name}"''',
             environments.append(default.environment.validation_type)
             build_env = default.environment.validation_type
 
+        cdf_toml = CDFToml.load()
         existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
+        available_packages = self._get_library_packages(cdf_toml) or Packages.load(self._builtin_modules_path)
+        added_packages = self._select_packages(available_packages, existing_module_names)
 
-        cdf_toml = CDFToml.load(use_singleton=False)
-        if len(cdf_toml.libraries) > 0:
-            for library_name, library in cdf_toml.libraries.items():
+        download_data = self._get_download_data(added_packages)
+        self._create(organization_dir, added_packages, environments, "update", download_data)
+
+    def _get_library_packages(self, cdf_toml: CDFToml) -> Packages | None:
+        if not cdf_toml.libraries or len(cdf_toml.libraries) == 0:
+            return None
+
+        # Note: just returning the first library's packages for now
+        for library_name, library in cdf_toml.libraries.items():
+            try:
                 print(f"[green]Adding library {library_name}[/]")
                 if library.url:
                     with tempfile.TemporaryDirectory() as temp_dir:
                         output_path = Path(temp_dir) / f"{library_name}.zip"
                         self._download_and_unpack(library.url, output_path)
                         available_packages = Packages().load(output_path.parent)
+                    return available_packages  # not supporting multiple libraries yet
                 else:
                     print(f"[red]Library {library_name} has no URL specified. Skipping download.[/red]")
-        else:
-            print("[yellow]No libraries found in cdf.toml. Skipping library addition.[/yellow]")
-            available_packages = Packages().load(self._builtin_modules_path)
+                    return None
+            except Exception as e:
+                print(f"[red]Failed to add library {library_name}: {e}[/red]")
+                return None
 
-        added_libraries = self._select_packages(available_packages, existing_module_names)
-
-        download_data = self._get_download_data(added_libraries)
-        self._create(organization_dir, added_libraries, environments, "update", download_data)
+        return None
 
     def _download_and_unpack(self, url: str, output_path: Path) -> None:
         """
-        Downloads a file from a URL with a progress bar.
+        Downloads and unzips a file from a URL with a progress bar.
         """
 
         try:
@@ -732,6 +742,10 @@ default_organization_dir = "{organization_dir.name}"''',
                     print(f"[green]File downloaded to {output_path}[/]")
 
         except requests.exceptions.RequestException as e:
-            print(f"[red]Error downloading file: {e}[/red]")
-        except Exception as e:
-            print(f"[red]An unexpected error occurred: {e}[/red]")
+            raise ToolkitError(f"Error downloading file from {url}: {e}") from e
+        except zipfile.BadZipFile as e:
+            raise ToolkitError(f"Error unpacking zip file {output_path}: {e}") from e
+        except Exception as e:  # This is your catch-all
+            raise ToolkitError(
+                f"An unexpected error occurred during download/unpack of {url} to {output_path}: {e}"
+            ) from e

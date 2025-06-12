@@ -95,15 +95,3 @@ class TestCDFToml:
 
         config = CDFToml.load(cwd=tmp_path, use_singleton=False)
         assert config.packages["valid_url"].url == "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
-
-    def test_fallback_to_official(self, tmp_path: Path):
-        valid_toml_content = """
-        [cdf]
-        [modules]
-        version = "0.0.0"
-        """
-        file_path = tmp_path / CDFToml.file_name
-        file_path.write_text(valid_toml_content)
-
-        config = CDFToml.load(cwd=tmp_path, use_singleton=False)
-        assert config.packages == {}

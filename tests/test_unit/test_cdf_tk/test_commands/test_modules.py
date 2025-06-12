@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
@@ -11,12 +13,29 @@ from questionary import Choice
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError
 from tests.test_unit.utils import MockQuestionary
 
 
 @pytest.fixture(scope="session")
 def selected_packages() -> Packages:
     return Packages.load(BUILTIN_MODULES_PATH)
+
+
+class MockResponse:
+    def __init__(self, content, status_code=200, headers=None):
+        self._content = content
+        self.status_code = status_code
+        self.headers = headers if headers is not None else {"content-length": str(len(content))}
+        self.raise_for_status_called = False
+
+    def iter_content(self, chunk_size=8192):
+        yield self._content
+
+    def raise_for_status(self):
+        self.raise_for_status_called = True
+        if self.status_code >= 400:
+            raise requests.exceptions.HTTPError(f"HTTP Error: {self.status_code}")
 
 
 class TestModulesCommand:
@@ -126,3 +145,115 @@ class TestModulesCommand:
         new_yaml_file_count = len(list(moules.rglob("*.yaml")))
 
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
+
+    def test_download_and_unpack_success_zip(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+
+        dummy_zip_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        mock_response = MockResponse(dummy_zip_content, status_code=200)
+        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
+
+        mock_zip_file_instance = MagicMock(spec=zipfile.ZipFile)
+        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zip_file_instance))
+
+        # Simulate the zip extraction by creating a dummy file in the target directory
+        mock_zip_file_instance.__enter__.return_value.extractall.side_effect = lambda path: (
+            Path(path) / "extracted_content.txt"
+        ).touch()
+
+        output_zip_path = tmp_path / "test_file.zip"
+        extracted_file_path = tmp_path / "extracted_content.txt"
+
+        cmd._download_and_unpack("http://example.com/test.zip", output_zip_path)
+
+        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
+        assert mock_response.raise_for_status_called
+
+        assert output_zip_path.exists()
+        assert output_zip_path.read_bytes() == dummy_zip_content
+
+        zipfile.ZipFile.assert_called_once_with(output_zip_path, "r")
+        mock_zip_file_instance.__enter__.return_value.extractall.assert_called_once_with(output_zip_path.parent)
+
+        assert extracted_file_path.exists()
+
+    @pytest.mark.parametrize(
+        "test_id, mock_setup_func, expected_error_msg_part, expected_chained_exception_type, output_file_should_exist, url_suffix",
+        [
+            (
+                "http_error",
+                lambda monkeypatch, url, output_path: monkeypatch.setattr(
+                    requests, "get", MagicMock(return_value=MockResponse(b"", status_code=404))
+                ),
+                "Error downloading file from",
+                requests.exceptions.HTTPError,
+                False,
+                "error.zip",
+            ),
+            (
+                "network_error",
+                lambda monkeypatch, url, output_path: monkeypatch.setattr(
+                    requests, "get", MagicMock(side_effect=requests.exceptions.RequestException("Connection aborted."))
+                ),
+                "Error downloading file from",
+                requests.exceptions.RequestException,
+                False,
+                "network_error.zip",
+            ),
+            (
+                "corrupt_zip_error",
+                lambda monkeypatch, url, output_path: (
+                    monkeypatch.setattr(
+                        requests, "get", MagicMock(return_value=MockResponse(b"corrupt", status_code=200))
+                    ),
+                    monkeypatch.setattr(
+                        zipfile, "ZipFile", MagicMock(side_effect=zipfile.BadZipFile("File is not a zip file"))
+                    ),
+                ),
+                "Error unpacking zip file",
+                zipfile.BadZipFile,
+                True,  # File is downloaded before zip error
+                "corrupt.zip",
+            ),
+            (
+                "os_error_during_write",
+                lambda monkeypatch, url, output_path: (
+                    monkeypatch.setattr(
+                        requests, "get", MagicMock(return_value=MockResponse(b"some content", status_code=200))
+                    ),
+                    monkeypatch.setattr("builtins.open", MagicMock(side_effect=OSError("No space left on device"))),
+                ),
+                "An unexpected error occurred during download/unpack of",
+                OSError,
+                False,
+                "os_error_file.txt",
+            ),
+        ],
+        ids=["http_error", "network_error", "corrupt_zip", "os_error_write"],
+    )
+    def test_download_and_unpack_exception_handling(
+        self,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+        test_id: str,
+        mock_setup_func,
+        expected_error_msg_part: str,
+        expected_chained_exception_type: type,
+        output_file_should_exist: bool,
+        url_suffix: str,
+    ) -> None:
+        test_url = f"[http://example.com/](http://example.com/){url_suffix}"
+        output_path = tmp_path / url_suffix
+
+        mock_setup_func(monkeypatch, test_url, output_path)
+
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._download_and_unpack(test_url, output_path)
+
+        assert expected_error_msg_part in str(excinfo.value)
+        assert isinstance(excinfo.value.__cause__, expected_chained_exception_type)
+
+        if output_file_should_exist:
+            assert output_path.exists()
+        else:
+            assert not output_path.exists()
