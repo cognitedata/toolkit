@@ -2,7 +2,16 @@ from abc import abstractmethod
 from functools import lru_cache
 
 import questionary
-from cognite.client.data_classes import Asset, AssetFilter, AssetList, DataSet, DataSetList, TimeSeriesFilter
+from cognite.client.data_classes import (
+    Asset,
+    AssetFilter,
+    AssetList,
+    DataSet,
+    DataSetList,
+    EventFilter,
+    FileMetadataFilter,
+    TimeSeriesFilter,
+)
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 
@@ -115,10 +124,31 @@ class AssetInteractiveSelect(AssetCentricInteractiveSelect):
         )
 
 
+class FileMetadataInteractiveSelect(AssetCentricInteractiveSelect):
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        result = self.client.files.aggregate(
+            filter=FileMetadataFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+        return result[0].count if result else 0
+
+
 class TimeSeriesInteractiveSelect(AssetCentricInteractiveSelect):
     def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
         return self.client.time_series.aggregate_count(
             filter=TimeSeriesFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+
+
+class EventInteractiveSelect(AssetCentricInteractiveSelect):
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        return self.client.events.aggregate_count(
+            filter=EventFilter(
                 data_set_ids=[{"externalId": item} for item in data_sets] or None,
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )

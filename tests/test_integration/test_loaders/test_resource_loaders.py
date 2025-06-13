@@ -56,6 +56,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     FunctionScheduleLoader,
     GroupLoader,
     LabelLoader,
+    NodeLoader,
     ResourceWorker,
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
@@ -751,3 +752,52 @@ authentication:
             assert len(created) == 1
         finally:
             toolkit_client.transformations.delete(external_id="transformation_without_scope", ignore_unknown_ids=True)
+
+
+class TestNodeLoader:
+    def test_update_existing_node(self, toolkit_client: ToolkitClient, instance_space: dm.Space) -> None:
+        loader = NodeLoader(toolkit_client, None)
+        view_id = dm.ViewId("cdf_cdm", "CogniteDescribable", "v1")
+        existing_node = dm.NodeApply(
+            space=instance_space.space,
+            external_id=f"toolkit_test_update_existing_node_{RUN_UNIQUE_ID}",
+            sources=[
+                dm.NodeOrEdgeData(
+                    view_id,
+                    {
+                        "name": "existing name",
+                        "description": "Existing description",
+                    },
+                )
+            ],
+        )
+        updated_node = dm.NodeApply(
+            space=existing_node.space,
+            external_id=existing_node.external_id,
+            sources=[
+                dm.NodeOrEdgeData(
+                    view_id,
+                    {
+                        "name": "updated name",
+                        "aliases": ["alias1", "alias2"],
+                    },
+                )
+            ],
+        )
+        try:
+            created = loader.create(dm.NodeApplyList([existing_node]))
+            assert len(created) == 1
+
+            updated = loader.update(dm.NodeApplyList([updated_node]))
+            assert len(updated) == 1
+
+            retrieved = toolkit_client.data_modeling.instances.retrieve(existing_node.as_id(), sources=[view_id])
+            assert len(retrieved.nodes) == 1
+            node = retrieved.nodes[0]
+            assert node.properties[view_id] == {
+                "name": "updated name",  # Overwrite
+                "description": "Existing description",  # Keep existing description
+                "aliases": ["alias1", "alias2"],  # Add new aliases
+            }
+        finally:
+            loader.delete([existing_node.as_id()])

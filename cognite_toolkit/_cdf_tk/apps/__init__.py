@@ -2,6 +2,7 @@ from ._auth_app import AuthApp
 from ._core_app import CoreApp
 from ._dump_app import DumpApp
 from ._landing_app import LandingApp
+from ._migrate_app import MigrateApp
 from ._modules_app import ModulesApp
 from ._populate_app import PopulateApp
 from ._profile_app import ProfileApp
@@ -14,6 +15,7 @@ __all__ = [
     "CoreApp",
     "DumpApp",
     "LandingApp",
+    "MigrateApp",
     "ModulesApp",
     "PopulateApp",
     "ProfileApp",
