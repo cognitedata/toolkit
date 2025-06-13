@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,8 +6,9 @@ from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import ClientCredentials, OidcCredentials
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitTypeError
-from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources, read_auth, try_find_error
 
 
 class TestTryFindError:
@@ -38,6 +40,355 @@ class TestTryFindError:
     )
     def test_try_find_error(self, credentials: OidcCredentials | ClientCredentials | None, expected: str | None):
         assert try_find_error(credentials) == expected
+
+
+def get_transformation_source_test_cases() -> Iterable:
+    yield pytest.param(
+        """
+select
+  identifier as externalId,
+  name as name
+from
+    my_db.my_table""",
+        [RawTable(db_name="my_db", table_name="my_table")],
+        id="Simple query without joins",
+    )
+
+    yield pytest.param(
+        """
+        select table.identifier as externalId,
+               table.name       as name
+        from `my db`.`my table` as table""",
+        [RawTable(db_name="my db", table_name="my table")],
+        id="Use of backticks in table name with AS alias",
+    )
+
+    yield pytest.param(
+        """SELECT
+    table1.externalId as externalId,
+    table2.name as name
+FROM
+    `ingestion`.`dump` as table1
+LEFT JOIN
+    `ingestion`.`workitem` as table2
+ON table1.shared_column = table2.shared_column""",
+        [RawTable(db_name="ingestion", table_name="dump"), RawTable(db_name="ingestion", table_name="workitem")],
+        id="Query with left join",
+    )
+
+    yield pytest.param(
+        """with parentLookup as (
+  select
+    concat('WMT:', cast(d1.`WMT_TAG_NAME` as STRING)) as externalId,
+    node_reference('springfield_instances',  concat('WMT:', cast(d2.`WMT_TAG_NAME` as STRING))) as parent
+  from
+      `ingestion`.`dump` as  d1
+  join
+    `ingestion`.`dump` as d2
+  on
+    d1.`WMT_TAG_ID_ANCESTOR` = d2.`WMT_TAG_ID`
+  where
+    isnotnull(d1.`WMT_TAG_NAME`) AND
+    cast(d1.`WMT_CATEGORY_ID` as INT) = 1157 AND
+    isnotnull(d2.`WMT_TAG_NAME`) AND
+    cast(d2.`WMT_CATEGORY_ID` as INT) = 1157
+)
+select
+	concat('WMT:', cast(d3.`WMT_TAG_NAME` as STRING)) as externalId,
+    parentLookup.parent,
+    cast(`WMT_TAG_NAME` as STRING) as name,
+    cast(`WMT_TAG_DESC` as STRING) as description,
+    cast(`WMT_TAG_ID` as STRING) as sourceId,
+    cast(`WMT_TAG_CREATED_DATE` as TIMESTAMP) as sourceCreatedTime,
+    cast(`WMT_TAG_UPDATED_DATE` as TIMESTAMP) as sourceUpdatedTime,
+    cast(`WMT_TAG_UPDATED_BY` as STRING) as sourceUpdatedUser
+from
+  `ingestion`.`dump` as d3
+left join
+	parentLookup
+on
+ concat('WMT:', cast(d3.`WMT_TAG_NAME` as STRING)) = parentLookup.externalId
+where
+  isnotnull(d3.`WMT_TAG_NAME`) AND
+/* Inspection of the WMT_TAG_DESC looks like asset are category 1157 while equipment is everything else */
+  cast(d3.`WMT_CATEGORY_ID` as INT) = 1157""",
+        [RawTable(db_name="ingestion", table_name="dump")],
+        id="Nested query with join",
+    )
+    yield pytest.param(
+        """select
+  a.FL_0FUNCT_LOC as externalId,
+  a.FL_0COSTCENTER as description,
+  to_metadata(
+    a.FL_0ABCINDIC,
+    a.FL_0BEGRU,
+    a.FL_0COMP_CODE,
+  ) as metadata
+from
+  DTN.SAP_Functional_Location as a
+  inner join (
+    select
+      *
+    from
+      DTN.SAP_Functional_Location
+    where
+      FL_ZFLOC_PAR NOT LIKE "ZZ%"
+  ) as v on a.FL_ZFLOC_PAR = v.FL_0FUNCT_LOC
+where
+  is_new('my_sap_2123,', a.lastUpdatedTime)
+  AND size(split(a.FL_ZFLOC_PAR, "-")) > 1
+  AND a.FL_ZFLOC_PAR NOT LIKE "ZZ%"
+  AND a.FL_0FUNCT_LOC NOT LIKE "TG-TGP-18%"
+""",
+        [RawTable(db_name="DTN", table_name="SAP_Functional_Location")],
+        id="Query with inner join",
+    )
+
+    yield pytest.param(
+        """with
+  asset_metadata_to_add as
+    (select
+        Vulnerability
+  from `UpdateDB`.`Vulnerability`),
+
+  exisiting_metadata as
+    (select metadata, externalId from _cdf.assets where externalId in (select Floc from asset_metadata_to_add)),
+
+  combined_table as
+    (select asset_metadata_to_add.*,
+        exisiting_metadata.*
+      from asset_metadata_to_add
+      JOIN exisiting_metadata
+      on asset_metadata_to_add.Floc = exisiting_metadata.externalId)
+
+select
+  map_concat(to_metadata(
+        Vulnerability),
+        metadata) as metadata,
+  combined_table.externalId as externalId
+  from
+  combined_table""",
+        [RawTable(db_name="UpdateDB", table_name="Vulnerability"), "assets"],
+        id="Source inside inner With Query",
+    )
+
+    yield pytest.param(
+        """select
+id as id,
+externalId as externalId,
+name as name,
+1234 as dataSetId
+from _cdf.assets
+where left(externalId,5)="GM-ST" and left(name,2)="ST"
+    """,
+        ["assets"],
+        id="Source is _cdf.assets (not a RawTable)",
+    )
+    yield pytest.param(
+        """with
+  created_assets as (
+    select
+      collect_set(externalId) as assets
+    from
+      _cdf.assets
+    where
+      dataSetId = 5238979812378
+  ),
+  bad_vals as (
+    select
+      array(
+        '000000000012345678',
+      ) as bv
+  ),
+  filtered_equipment as (
+    select
+      EQ_0EQUIPMENT as externalId
+    from
+      DTN.`SAP_EQUIPMENT`
+  )
+select
+  *
+from
+  filtered_equipment
+where
+EQ_0FUNCT_LOC in (
+    select
+      explode(assets)
+    from
+      created_assets)
+AND EQ_0EQUIPMENT not in (
+  select
+    explode(bv)
+  from
+    bad_vals
+)
+AND EQ_ZEQUI_PAR not in (
+  select
+    explode(bv)
+  from
+    bad_vals
+)
+""",
+        ["assets", RawTable(db_name="DTN", table_name="SAP_EQUIPMENT")],
+        id="Source is a RawTable and _cdf.assets in a With Query",
+    )
+
+    yield pytest.param(
+        """SELECT
+  CASE
+    WHEN REPLACE(LMD_ID, LMD.Component_ID, '') != LMD_ID THEN CONCAT(REPLACE(CP.parentExternalId, LMD.Component_ID, ''), LMD_ID)
+    ELSE CONCAT(REPLACE(TRIM(CT.INT_CTRL_NO1), LMD.Circuit_ID, ''), LMD_ID)
+  END AS externalId
+  ,CASE
+    WHEN LMD.Component_ID IS NULL THEN TRIM(CT.INT_CTRL_NO1)
+    ELSE CP.parentExternalId
+  END AS parentExternalId
+  ,CASE
+    WHEN LMD.Component_ID IS NULL THEN REPLACE(LMD_ID, CONCAT(LMD.Circuit_ID, '-'), '')
+    ELSE REPLACE(LMD_ID, CONCAT(LMD.Component_ID, '-'), '')
+  END AS name
+  ,LMD.description AS description
+  ,dataset_id('PSSD') AS dataSetId
+  ,to_metadata_except(array('description', 'FACILITY'), LMD.*) AS metadata
+  ,array('LMD') as labels
+FROM (
+  SELECT
+    TRIM(EQUIP_ID) AS Equipment_ID
+  FROM PSSD.PSSD_LMD
+  WHERE is_new('pssd_lmd', lastUpdatedTime)) LMD
+LEFT JOIN (
+  SELECT
+    CASE
+      WHEN TRIM(`Internal Control No 1`) LIKE "%_E" THEN CONCAT(REPLACE(TRIM(ASSET_NO), TRIM(`EQUIPMENT ID`), ''), REPLACE(TRIM(`component_id`), ' ', ''))
+      ELSE CONCAT(REPLACE(CL.INT_CTRL_NO1, TRIM(CIRCUIT_ID), ''), REPLACE(TRIM(`component_id`), ' ', ''))
+    END AS parentExternalId,
+    REPLACE(TRIM(`component_id`), ' ', '') AS  component_id,
+    TRIM(`FACILITY ID`) AS FACILITY,
+    TRIM(CPT.`EQUIPMENT ID`) AS EQUIP_ID
+  FROM PSSD.PSSD_component CPT
+  LEFT JOIN PSSD.PSSD_circuit CL
+    ON TRIM(`Internal Control No 1`) = CL.CIRCUIT_ID
+    AND TRIM(`FACILITY ID`) = FACILITY
+    AND TRIM(CPT.`EQUIPMENT ID`) = TRIM(CL.EQUIP_ID)
+  LEFT JOIN (
+    SELECT externalId AS cdf_asset
+    FROM _cdf.assets) CDF
+      ON CASE
+        WHEN TRIM(`Internal Control No 1`) LIKE "%_E" THEN TRIM(ASSET_NO)
+        ELSE CL.INT_CTRL_NO1
+      END = CDF.cdf_asset
+  WHERE (TRIM(`Internal Control No 1`) LIKE "%_E"
+    OR CIRCUIT_ID IS NOT NULL)
+    AND cdf_asset IS NOT NULL
+  ) CP
+  ON TRIM(LMD.Component_ID) = TRIM(CP.component_id)
+    AND TRIM(LMD.FACILITY) = TRIM(CP.FACILITY)
+    AND LMD.Equipment_ID = CP.EQUIP_ID
+    AND LMD.Circuit_ID = CP.CIRCUIT_ID
+LEFT JOIN PSSD.PSSD_circuit CT
+  ON TRIM(LMD.Circuit_ID) = TRIM(CT.CIRCUIT_ID)
+  AND TRIM(LMD.FACILITY) = TRIM(CT.FACILITY)
+  AND TRIM(LMD.Equipment_ID) = TRIM(CT.EQUIP_ID)
+LEFT JOIN (
+  SELECT externalId AS cdf_asset
+  FROM _cdf.assets) CDF2
+  ON CASE
+    WHEN LMD.Component_ID IS NULL THEN TRIM(CT.INT_CTRL_NO1)
+    ELSE CP.parentExternalId
+  END = CDF2.cdf_asset
+WHERE CP.component_id IS NOT NULL
+  OR (CT.CIRCUIT_ID IS NOT NULL
+    AND LMD.Component_ID IS NULL)
+    AND cdf_asset IS NOT NULL
+""",
+        [RawTable("PSSD", "PSSD_LMD"), RawTable("PSSD", "PSSD_component"), RawTable("PSSD", "PSSD_circuit"), "assets"],
+        id="Complex query with multiple joins and CDF assets",
+    )
+
+    yield pytest.param(
+        """SELECT
+  id,
+  map_concat(
+    metadata,
+    to_metadata(
+        Station_Name,
+        WellName,
+        GIS_latitude,
+        GIS_longitude,
+        SPSOnLine,
+        idwell
+    )
+  ) as metadata
+FROM
+  (
+    select
+      a.id,
+      ws.Station_Name,
+      sdo.WellName,
+      gis.WI_LATITUDE as GIS_latitude,
+      gis.WI_LONGITUDE as GIS_longitude,
+      pw.SPSOnLine,
+      wh.idwell
+    FROM
+      _cdf.assets as a
+      left join SDO.`well_header` as sdo on a.metadata['PRANumber6Digits'] = sdo.PraNumber
+      left join SDO.`pw_DepletionPlan` AS pw on a.metadata['PRANumber6Digits'] = pw.PRANumber6Digits
+      left join SDO.`well_header2` as wh on substring(sdo.ApiNumber, 0, 10) = substring(wellida, 0, 10)
+      left join `GIS`.`gis` as gis on substring(sdo.ApiNumber, 0, 10) = substring(WI_APINO, 0, 10)
+      left join SDO.`weather_station` as ws on sdo.ApiNumber = ws.ApiNumber
+    where
+      array_contains(labels, "my_location_sap")
+  )
+    """,
+        [
+            "assets",
+            RawTable(db_name="SDO", table_name="well_header"),
+            RawTable(db_name="SDO", table_name="pw_DepletionPlan"),
+            RawTable(db_name="SDO", table_name="well_header2"),
+            RawTable(db_name="GIS", table_name="gis"),
+            RawTable(db_name="SDO", table_name="weather_station"),
+        ],
+        id="Complex query with multiple joins and CDF assets with metadata",
+    )
+
+    yield pytest.param(
+        """SELECT
+  cast(concat("GM", `Tag name`) as STRING) as externalId,
+  cast(`Parent tag` as STRING) as parentExternalId,
+  cast(concat("TB-",`Tag name`) as STRING) as name,
+  cast(concat(`Tag class name`," ", `Tag description`) as STRING) as description,
+  1238456789 as dataSetId,
+  'Engineering Documents' as source
+FROM `GM_DATA`.`verified_new_only`
+
+WHERE concat("GM", `Tag name`) IN (
+
+    WITH existing_ext_ids AS (
+        SELECT DISTINCT externalId AS value
+        FROM _cdf.assets
+    ),
+    new_ext_ids AS (
+        SELECT DISTINCT concat("GM", `Tag name`) AS value
+        FROM `GM_DATA`.`verified_new_only`
+    )
+    SELECT COALESCE(existing_ext_ids.value, new_ext_ids.value) AS differing_value
+    FROM existing_ext_ids
+    RIGHT JOIN new_ext_ids
+    ON existing_ext_ids.value = new_ext_ids.value
+    WHERE existing_ext_ids.value IS NULL OR new_ext_ids.value IS NULL
+    )
+;""",
+        [RawTable(db_name="GM_DATA", table_name="verified_new_only"), "assets"],
+        id="Query listed in WHERE clause",
+    )
+
+
+class TestGetTransformationSource:
+    @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
+    def test_get_transformation_sources(self, query: str, expected_sources: list[RawTable | str]) -> None:
+        """Test that the transformation source is correctly extracted from the query."""
+        actual = get_transformation_sources(query)
+        assert actual == expected_sources
 
 
 class TestReadAuth:
