@@ -1,48 +1,20 @@
-import pytest
-from cognite.client.data_classes.raw import RowWrite, RowWriteList
+from cognite.client.data_classes.raw import RowWriteList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import (
     BooleanProfileColumn,
     NumberProfileColumn,
     ObjectProfileColumn,
+    RawTable,
     StringProfileColumn,
     UnknownTypeProfileColumn,
     VectorProfileColumn,
 )
 
 
-@pytest.fixture()
-def raw_data() -> RowWriteList:
-    return RowWriteList(
-        [
-            RowWrite(
-                key=f"row{i}",
-                columns={
-                    "StringCol": f"value{i % 3}",
-                    "IntegerCol": i % 5,
-                    "BooleanCol": [True, False][i % 2],
-                    "FloatCol": i * 0.1,
-                    "EmptyCol": None,
-                    "ArrayCol": [i, i + 1, i + 2] if i % 2 == 0 else None,
-                    "ObjectCol": {"nested_key": f"nested_value_{i}" if i % 2 == 0 else None},
-                },
-            )
-            for i in range(10)
-        ]
-    )
-
-
 class TestRawProfile:
-    def test_raw_profile(self, toolkit_client: ToolkitClient, raw_data: RowWriteList):
-        db_name = "toolkit_test_db"
-        table_name = "toolkit_test_profiling_table"
-        existing_dbs = toolkit_client.raw.databases.list(limit=-1)
-        existing_table_names: set[str] = set()
-        if db_name in {db.name for db in existing_dbs}:
-            existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=-1)}
-        if table_name not in existing_table_names:
-            toolkit_client.raw.rows.insert(db_name, table_name, raw_data, ensure_parent=True)
+    def test_raw_profile(self, toolkit_client: ToolkitClient, populated_raw_table: RawTable, raw_data: RowWriteList):
+        db_name, table_name = populated_raw_table.db_name, populated_raw_table.table_name
 
         limit = len(raw_data) // 2
         results = toolkit_client.raw.profile(db_name, table_name, limit=limit)
