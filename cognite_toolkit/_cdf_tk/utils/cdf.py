@@ -15,6 +15,7 @@ from cognite.client.exceptions import CogniteAPIError
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
@@ -25,6 +26,8 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     MediumSeverityWarning,
 )
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+
+from .sql_parser import SQLParser
 
 if sys.version_info < (3, 11):
     from typing_extensions import Self
@@ -172,6 +175,20 @@ def read_auth(
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
 
 
+def get_transformation_sources(query: str) -> list[RawTable | str]:
+    """Search the SQL query for source tables."""
+    parser = SQLParser(query, operation="Lookup transformation source")
+    parser.parse()
+
+    tables: list[RawTable | str] = []
+    for table in parser.sources:
+        if table.schema == "_cdf":
+            tables.append(table.name)
+        else:
+            tables.append(RawTable(db_name=table.schema, table_name=table.name))
+    return tables
+
+
 def metadata_key_counts(
     client: ToolkitClient,
     resource: Literal["assets", "events", "files", "timeseries", "sequences"],
@@ -317,4 +334,21 @@ FROM
     results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
     if results.results:
         return int(results.results[0]["labelCount"])
+    return 0
+
+
+def raw_row_count(client: ToolkitClient, raw_table_id: RawTable) -> int:
+    """Get the number of rows in a raw table.
+
+    Args:
+        client: ToolkitClient instance
+        raw_table_id: The ID of the raw table to count rows in.
+
+    Returns:
+        The number of rows in the raw table.
+    """
+    query = f"SELECT COUNT(key) AS row_count FROM `{raw_table_id.db_name}`.`{raw_table_id.table_name}`"
+    results = client.transformations.preview(query, convert_to_string=False, limit=None, source_limit=None)
+    if results.results:
+        return int(results.results[0]["row_count"])
     return 0
