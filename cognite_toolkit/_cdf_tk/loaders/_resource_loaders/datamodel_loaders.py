@@ -1131,7 +1131,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=True, replace=False
+            # Note replace should never be relevant as Toolkit always checks whether the node exists before applying.
+            nodes=items,
+            auto_create_direct_relations=True,
+            replace=True,
         )
         return result.nodes
 
@@ -1140,7 +1143,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def update(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=False, replace=True
+            nodes=items, auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 

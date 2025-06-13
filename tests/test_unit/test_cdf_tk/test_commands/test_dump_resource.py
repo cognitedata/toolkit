@@ -6,9 +6,15 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import Transformation, TransformationList, TransformationScheduleList
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter, LocationFilterList
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
-from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, DumpResourceCommand, TransformationFinder
-from cognite_toolkit._cdf_tk.loaders import TransformationLoader
+from cognite_toolkit._cdf_tk.commands.dump_resource import (
+    DataModelFinder,
+    DumpResourceCommand,
+    LocationFilterFinder,
+    TransformationFinder,
+)
+from cognite_toolkit._cdf_tk.loaders import LocationFilterLoader, TransformationLoader
 from cognite_toolkit._cdf_tk.utils import read_yaml_file
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import MockQuestionary
@@ -109,3 +115,52 @@ class TestDataModelFinder:
 
         assert result == selected
         assert finder.data_model.as_id() == selected
+
+
+@pytest.fixture()
+def three_location_filters() -> LocationFilterList:
+    return LocationFilterList(
+        [
+            LocationFilter(1, external_id="filterA", name="Filter A", created_time=1, updated_time=1),
+            LocationFilter(2, external_id="filterB", name="Filter B", created_time=1, updated_time=1),
+            LocationFilter(3, external_id="filterC", name="Filter C", created_time=1, updated_time=1),
+        ]
+    )
+
+
+class TestLocationFilterFinder:
+    def test_select_location_filter(self, three_location_filters: LocationFilterList, monkeypatch: MonkeyPatch) -> None:
+        def select_filters(choices: list[Choice]) -> list[str]:
+            assert len(choices) == len(three_location_filters)
+            return [choices[1].value, choices[2].value]
+
+        answers = [select_filters]
+
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(LocationFilterFinder.__module__, monkeypatch, answers),
+        ):
+            client.location_filters.list.return_value = three_location_filters
+            finder = LocationFilterFinder(client, None)
+            selected = finder._interactive_select()
+
+        assert selected == ("filterB", "filterC")
+
+
+class TestDumpLocationFilter:
+    def test_dump_location_filter(self, three_location_filters: LocationFilterList, tmp_path: Path) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.location_filters.list.return_value = three_location_filters
+            cmd = DumpResourceCommand(silent=True)
+            cmd.dump_to_yamls(
+                LocationFilterFinder(client, ("filterB", "filterC")),
+                output_dir=tmp_path,
+                clean=False,
+                verbose=False,
+            )
+            loader = LocationFilterLoader(client, None, None)
+
+        filepaths = list(loader.find_files(tmp_path))
+        assert len(filepaths) == 2
+        items = [item for filepath in filepaths for item in loader.load_resource_file(filepath)]
+        assert items == three_location_filters[1:].as_write().dump()
