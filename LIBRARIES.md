@@ -8,7 +8,7 @@ A user can add packages to cdf.toml. At the moment, the Toolkit only loads one l
 
 ```toml
 [library.package_1]
-url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtin.zip"
+url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtins.zip"
 
 ```
 
