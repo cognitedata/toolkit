@@ -189,6 +189,13 @@ def get_transformation_sources(query: str) -> list[RawTable | str]:
     return tables
 
 
+def get_transformation_destination_columns(query: str) -> list[str]:
+    """Search the SQL query for destination columns."""
+    parser = SQLParser(query, operation="Lookup transformation destination columns")
+    parser.parse()
+    return parser.destination_columns
+
+
 def metadata_key_counts(
     client: ToolkitClient,
     resource: Literal["assets", "events", "files", "timeseries", "sequences"],
