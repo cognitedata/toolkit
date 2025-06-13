@@ -51,28 +51,24 @@ class SQLParser:
         self._is_parsed = True
         return
 
-    def _find_tables(self, tokens: "list[Token]", in_nested: bool = False) -> None:
+    def _find_tables(self, tokens: "list[Token]") -> None:
         from sqlparse.sql import Identifier, TokenList
-        from sqlparse.tokens import CTE, Keyword
+        from sqlparse.tokens import Keyword
 
         content_tokens = [token for token in tokens if not token.is_whitespace and not token.is_newline]
 
         is_next_source: bool = False
-        is_next_nested: bool = False
         for token in content_tokens:
             if is_next_source and isinstance(token, Identifier):
                 if self._add_to_source(token) is False:
                     # This could be a nested expression like '(SELECT ... FROM ...) Identifier'.
-                    self._find_tables(token.tokens, True)
+                    self._find_tables(token.tokens)
                 is_next_source = False
-            elif (is_next_source or is_next_nested or in_nested) and isinstance(token, TokenList):
-                self._find_tables(token.tokens, is_next_nested or in_nested)
-                is_next_source = False
-                is_next_nested = False
             elif token.ttype is Keyword and (token.normalized == "FROM" or token.normalized.endswith("JOIN")):
                 is_next_source = True
-            elif token.ttype is CTE and token.normalized == "WITH":
-                is_next_nested = True
+            elif isinstance(token, TokenList):
+                # If the token is a TokenList, we need to check its tokens recursively.
+                self._find_tables(token.tokens)
 
     def _add_to_source(self, source: "Identifier") -> bool:
         """Add a source to the list if it hasn't been seen before."""
