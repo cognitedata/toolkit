@@ -170,6 +170,9 @@ class ExtendedInstancesAPI(InstancesAPI):
             case 429 | 502 | 503 | 504:
                 items = json_payload["items"]
                 if retry_tracker.should_retry(status_code=result.status_code, is_auto_retryable=True):
+                    if len(items) == 1:
+                        self._sleep(retry_tracker, headers)
+                        return self._post_with_item_reduction_retry(url_path, json_payload, retry_tracker)
                     # If we get a 429 or 5xx error, we reduce the number of items in the payload and retry.
                     # This is to avoid overwhelming the API with too many items at once.
                     half = len(items) // 2
