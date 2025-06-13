@@ -54,6 +54,10 @@ def three_timeseries_with_datapoints(
 
 
 class TestMigrateTimeSeriesCommand:
+    # This tests uses instances.apply_fast() which uses up to 4 workers for writing instances,
+    # when this is used in parallel with other tests that uses instances.apply() then we get 5 workers in total,
+    # which will trigger a 429 error.
+    @pytest.mark.usefixtures("max_two_workers")
     def test_migrate_timeseries_command(
         self,
         toolkit_client_with_pending_ids: ToolkitClient,

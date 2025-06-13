@@ -53,6 +53,14 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
     return ToolkitClient(toolkit_client_config)
 
 
+@pytest.fixture()
+def max_two_workers():
+    old = global_config.max_workers
+    global_config.max_workers = 2
+    yield
+    global_config.max_workers = old
+
+
 @pytest.fixture(scope="session")
 def toolkit_client_with_pending_ids(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
     """Returns a ToolkitClient configured to enable pending IDs."""
