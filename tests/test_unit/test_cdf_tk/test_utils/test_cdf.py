@@ -379,7 +379,7 @@ WHERE concat("GM", `Tag name`) IN (
     )
 ;""",
         [RawTable(db_name="GM_DATA", table_name="verified_new_only"), "assets"],
-        id="Query listed with clause",
+        id="Query listed in WHERE clause",
     )
 
 
