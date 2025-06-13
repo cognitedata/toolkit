@@ -8,6 +8,7 @@ from cognite.client.credentials import CredentialProvider
 from .api.agents.agents import AgentsAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
+from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
@@ -83,6 +84,7 @@ class ToolkitClient(CogniteClient):
         self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
+        self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
 
     @property
     def config(self) -> ToolkitClientConfig:
