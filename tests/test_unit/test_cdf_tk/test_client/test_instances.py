@@ -105,6 +105,49 @@ class TestInstances:
                 assert call.response.status_code == 200
                 assert len(json.loads(call.request.body)["items"]) == 1
 
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_apply_fast_429_single_instance(
+        self, toolkit_config: ToolkitClientConfig, some_timeseries: CogniteTimeSeriesApply
+    ) -> None:
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                url,
+                status=429,
+                json={"error": "Too many items"},
+            )
+            rsps.add(
+                responses.POST,
+                url,
+                status=200,
+                json={
+                    "items": [
+                        {
+                            "instanceType": "node",
+                            "space": some_timeseries.space,
+                            "externalId": some_timeseries.external_id,
+                            "version": 1,
+                            "wasModified": False,
+                            "createdTime": 0,
+                            "lastUpdatedTime": 0,
+                        }
+                    ]
+                },
+            )
+            client = ToolkitClient(config=toolkit_config)
+
+            results = client.data_modeling.instances.apply_fast([some_timeseries])
+
+            assert len(results) == 1
+            assert len(rsps.calls) >= 2
+            failed_call = rsps.calls[-2]
+            assert failed_call.response.status_code == 429
+            assert len(json.loads(failed_call.request.body)["items"]) == 1
+            last_call = rsps.calls[-1]
+            assert last_call.response.status_code == 200
+            assert len(json.loads(last_call.request.body)["items"]) == 1
+
     @pytest.mark.usefixtures("max_retries_2")
     @pytest.mark.parametrize(
         "args, expected_exception",
