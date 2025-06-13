@@ -25,6 +25,8 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
+from ..exceptions import ToolkitValueError
+from ..utils.interactive_select import AssetCentricInteractiveSelect
 
 
 class AssetCentricAggregator(ABC):
@@ -263,6 +265,135 @@ class ProfileCommand(ToolkitCommand):
         def styled_callable() -> str:
             try:
                 value = call_fun()
+            except CogniteException as e:
+                return type(e).__name__
+            else:
+                return f"{value:,}"
+
+        return styled_callable
+
+class ProfileAssetCommand(ToolkitCommand):
+    class Columns:
+        Resource = "Resource"
+        Count = "Count"
+        DataSets = "DataSets"
+        Transformations = "Transformations"
+        RawTable = "Raw Table"
+        RowCount = "Rows"
+        ColumnCount = "Columns"
+
+    columns = (
+        Columns.Resource,
+        Columns.Count,
+        Columns.DataSets,
+        Columns.Transformations,
+        Columns.RawTable,
+        Columns.RowCount,
+        Columns.ColumnCount,
+    )
+    spinner_args: Mapping[str, Any] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
+
+    def assets(
+        self,
+        client: ToolkitClient,
+        hierarchy: str | None = None,
+        verbose: bool = False,
+        ) -> list[dict[str, str]]:
+        if hierarchy is None:
+            hierarchies, _ = AssetCentricInteractiveSelect(client).interactive_select_hierarchy_datasets()
+            if len(hierarchies) > 1:
+                raise ToolkitValueError("Profiling multiple hierarchies is not supported.")
+            hierarchy = hierarchies[0]
+        aggregators: list[AssetCentricAggregator] = [
+            AssetAggregator(client),
+            TimeSeriesAggregator(client),
+            FileAggregator(client),
+            EventAggregator(client),
+            SequenceAggregator(client),
+        ]
+        retrieved = client.assets.retrieve(external_id=hierarchy)
+        if retrieved is None:
+            raise ToolkitValueError(f"Hierarchy not found: {hierarchy}")
+        elif retrieved.root_id != retrieved.id:
+            raise ToolkitValueError(f"The asset {hierarchy} is not a root asset. Please select a root asset.")
+
+        table_content, api_calls = self._setup_table_content(hierarchy, aggregators)
+        with Live(self._draw_table(table_content, hierarchy), refresh_per_second=4) as live:
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                future_to_cell = {
+                    executor.submit(api_calls[(index, col)]): (index, col)
+                    for index in range(len(aggregators))
+                    for col in self.columns
+                    if (index, col) in api_calls
+                }
+                for future in as_completed(future_to_cell):
+                    index, col = future_to_cell[future]
+                    table_content[index][col] = future.result()
+                    live.update(self._draw_table(table_content, hierarchy))
+        return [{col: str(value) for col, value in row.items()} for row in table_content]
+
+    @classmethod
+    def _setup_table_content(
+        cls,
+        hierarchy: str,
+        aggregators: list[AssetCentricAggregator],
+    ) -> tuple[list[dict[str, str | Spinner]], dict[tuple[int, str], Callable[[], str]]]:
+        rows: list[dict[str, str | Spinner]] = []
+        api_calls: dict[tuple[int, str], Callable[[], str]] = {}
+        for index, aggregator in enumerate(aggregators):
+            row: dict[str, str | Spinner] = {
+                cls.Columns.Resource: aggregator.display_name,
+                cls.Columns.Count: Spinner(**cls.spinner_args) ,
+            }
+            api_calls[(index, cls.Columns.Count)] = cls._call_api(aggregator.count, hierarchy=hierarchy)
+            row[cls.Columns.DataSets] = Spinner(**cls.spinner_args)
+            api_calls[(index, cls.Columns.DataSets)] = cls._call_api(
+                aggregator.used_data_sets, hierarchy=hierarchy
+            )
+            row[cls.Columns.Transformations] = Spinner(**cls.spinner_args)
+            api_calls[(index, cls.Columns.Transformations)] = cls._call_api(
+                aggregator.transformation, data_sets=datasets
+            )
+            row[cls.Columns.RawTable] = Spinner(**cls.spinner_args)
+            api_calls[(index, cls.Columns.RawTable)] = cls._call_api(
+                aggregator.raw_table, transformations=transformations
+            )
+            row[cls.Columns.RowCount] = Spinner(**cls.spinner_args)
+            api_calls[(index, cls.Columns.RowCount)] = cls._call_api(
+                aggregator.row_count, raw_table=raw_table
+            )
+            row[cls.Columns.ColumnCount] = Spinner(**cls.spinner_args)
+            api_calls[(index, cls.Columns.ColumnCount)] = cls._call_api(
+                aggregator.column_count, raw_table=raw_table
+            )
+            rows.append(row)
+
+        return rows, api_calls
+
+    @classmethod
+    def _draw_table(
+        cls,
+        rows: list[dict[str, str | Spinner]],
+        hierarchy: str,
+    ) -> Table:
+        table = Table(
+            title=f"Asset Profile for Hierarchy: {hierarchy!r}",
+            title_justify="left",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        for col in cls.columns:
+            table.add_column(col)
+
+        for row in rows:
+            table.add_row(*row.values())
+        return table
+
+    @staticmethod
+    def _call_api(call_fun: Callable[[], int], *args, **kwargs) -> Callable[[], str]:
+        def styled_callable() -> str:
+            try:
+                value = call_fun(*args, **kwargs)
             except CogniteException as e:
                 return type(e).__name__
             else:
