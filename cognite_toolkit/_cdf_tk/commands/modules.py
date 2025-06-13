@@ -6,6 +6,7 @@ import zipfile
 from collections import Counter
 from importlib import resources
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Literal, Optional
 
 import questionary
@@ -88,6 +89,28 @@ class ModulesCommand(ToolkitCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+        self._temp_download_dir = Path(tempfile.gettempdir()) / "library_downloads"
+        if not self._temp_download_dir.exists():
+            self._temp_download_dir.mkdir(parents=True, exist_ok=True)
+
+    def __enter__(self) -> ModulesCommand:
+        """
+        Context manager to ensure the temporary download directory is cleaned up after use. It requires the command to be used in a `with` block.
+        """
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,  # Type of the exception
+        exc_value: BaseException | None,  # Exception instance
+        traceback: TracebackType | None,  # Traceback object
+    ) -> None:
+        """
+        Clean up the temporary download directory.
+        """
+
+        if self._temp_download_dir.exists():
+            safe_rmtree(self._temp_download_dir)
 
     @classmethod
     def _create_tree(cls, item: Packages) -> Tree:
@@ -131,6 +154,7 @@ class ModulesCommand(ToolkitCommand):
         downloader_by_repo: dict[str, FileDownloader] = {}
 
         extra_resources: set[Path] = set()
+
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -701,10 +725,9 @@ default_organization_dir = "{organization_dir.name}"''',
             try:
                 print(f"[green]Adding library {library_name}[/]")
                 if library.url:
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        output_path = Path(temp_dir) / f"{library_name}.zip"
-                        self._download_and_unpack(library.url, output_path)
-                        available_packages = Packages().load(output_path.parent)
+                    output_path = self._temp_download_dir / f"{library_name}.zip"
+                    self._download_and_unpack(library.url, output_path)
+                    available_packages = Packages().load(output_path.parent)
                     return available_packages  # not supporting multiple libraries yet
                 else:
                     print(f"[red]Library {library_name} has no URL specified. Skipping download.[/red]")

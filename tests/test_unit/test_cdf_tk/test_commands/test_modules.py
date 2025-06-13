@@ -257,3 +257,10 @@ class TestModulesCommand:
             assert output_path.exists()
         else:
             assert not output_path.exists()
+
+    def test_context_manager_scope(self):
+        with ModulesCommand() as cmd:
+            first = Path(cmd._temp_download_dir / "test.txt")
+            first.write_text("This is a test file.")
+            assert first.exists()
+        assert not first.exists(), "File should not exist after context manager exits"

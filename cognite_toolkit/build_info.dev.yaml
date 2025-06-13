@@ -2,6 +2,51 @@
 modules:
   version: 0.0.0
   modules:
+  - name: cdf_inrobot_location
+    location:
+      path: modules/modules/inrobot/cdf_inrobot_location
+      hash: 0c37fd1c
+    build_variables: []
+    resources: {}
+    warning_count: 36
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_infield_common
+    location:
+      path: modules/modules/infield/cdf_infield_common
+      hash: 645bd6ea
+    build_variables: []
+    resources: {}
+    warning_count: 11
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_ingestion
+    location:
+      path: modules/modules/cdf_ingestion
+      hash: 6d96ebc3
+    build_variables: []
+    resources: {}
+    warning_count: 13
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_pi
+    location:
+      path: modules/modules/sourcesystem/cdf_pi
+      hash: 5e4cc702
+    build_variables: []
+    resources: {}
+    warning_count: 9
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_sharepoint
+    location:
+      path: modules/modules/sourcesystem/cdf_sharepoint
+      hash: bb11f657
+    build_variables: []
+    resources: {}
+    warning_count: 6
+    status: ToolkitYAMLFormatError
+    iteration: 1
   - name: refdocs
     location:
       path: modules/refdocs
@@ -24,87 +69,6 @@ modules:
         kind: Database
     warning_count: 0
     status: Success
-    iteration: 1
-  - name: cdf_search
-    location:
-      path: modules/modules/industrial_tools/cdf_search
-      hash: 7ea9eb57
-    build_variables: []
-    resources: {}
-    warning_count: 4
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_ingestion
-    location:
-      path: modules/modules/cdf_ingestion
-      hash: 6d96ebc3
-    build_variables: []
-    resources: {}
-    warning_count: 13
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_scene
-    location:
-      path: modules/gaetan/cdf_scene
-      hash: 2b4661fe
-    build_variables: []
-    resources: {}
-    warning_count: 5
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_pi
-    location:
-      path: modules/modules/sourcesystem/cdf_pi
-      hash: 5e4cc702
-    build_variables: []
-    resources: {}
-    warning_count: 9
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_sap_assets
-    location:
-      path: modules/modules/sourcesystem/cdf_sap_assets
-      hash: b07d13b2
-    build_variables: []
-    resources: {}
-    warning_count: 6
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: nutcha
-    location:
-      path: modules/nutcha
-      hash: 567e53ce
-    build_variables: []
-    resources: {}
-    warning_count: 1
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_p_and_id_parser
-    location:
-      path: modules/modules/contextualization/cdf_p_and_id_parser
-      hash: d35401ae
-    build_variables: []
-    resources: {}
-    warning_count: 2
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_sap_events
-    location:
-      path: modules/modules/sourcesystem/cdf_sap_events
-      hash: 3c5ada2b
-    build_variables: []
-    resources: {}
-    warning_count: 6
-    status: ToolkitYAMLFormatError
-    iteration: 1
-  - name: cdf_sharepoint
-    location:
-      path: modules/modules/sourcesystem/cdf_sharepoint
-      hash: bb11f657
-    build_variables: []
-    resources: {}
-    warning_count: 6
-    status: ToolkitYAMLFormatError
     iteration: 1
   - name: cdf_process_industry_extension
     location:
@@ -258,6 +222,15 @@ modules:
     warning_count: 0
     status: Success
     iteration: 1
+  - name: cdf_search
+    location:
+      path: modules/modules/industrial_tools/cdf_search
+      hash: 7ea9eb57
+    build_variables: []
+    resources: {}
+    warning_count: 4
+    status: ToolkitYAMLFormatError
+    iteration: 1
   - name: cdf_connection_sql
     location:
       path: modules/modules/contextualization/cdf_connection_sql
@@ -265,6 +238,60 @@ modules:
     build_variables: []
     resources: {}
     warning_count: 3
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: nutcha
+    location:
+      path: modules/nutcha
+      hash: 567e53ce
+    build_variables: []
+    resources: {}
+    warning_count: 1
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: pierre
+    location:
+      path: modules/pierre
+      hash: bd4390dc
+    build_variables: []
+    resources: {}
+    warning_count: 8
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_process_industry_extension
+    location:
+      path: modules/modules/models/cdf_process_industry_extension
+      hash: b85e5fc3
+    build_variables: []
+    resources: {}
+    warning_count: 2
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_sap_assets
+    location:
+      path: modules/modules/sourcesystem/cdf_sap_assets
+      hash: b07d13b2
+    build_variables: []
+    resources: {}
+    warning_count: 6
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_scene
+    location:
+      path: modules/gaetan/cdf_scene
+      hash: 2b4661fe
+    build_variables: []
+    resources: {}
+    warning_count: 5
+    status: ToolkitYAMLFormatError
+    iteration: 1
+  - name: cdf_sap_events
+    location:
+      path: modules/modules/sourcesystem/cdf_sap_events
+      hash: 3c5ada2b
+    build_variables: []
+    resources: {}
+    warning_count: 6
     status: ToolkitYAMLFormatError
     iteration: 1
   - name: cdf_common
@@ -355,6 +382,15 @@ modules:
     warning_count: 0
     status: Success
     iteration: 1
+  - name: cdf_p_and_id_parser
+    location:
+      path: modules/modules/contextualization/cdf_p_and_id_parser
+      hash: d35401ae
+    build_variables: []
+    resources: {}
+    warning_count: 2
+    status: ToolkitYAMLFormatError
+    iteration: 1
   - name: noah
     location:
       path: modules/noah
@@ -389,21 +425,219 @@ modules:
     warning_count: 0
     status: Success
     iteration: 1
-  - name: cdf_process_industry_extension
+  - name: cdf_inrobot_common
     location:
-      path: modules/modules/models/cdf_process_industry_extension
-      hash: b85e5fc3
+      path: modules/modules/inrobot/cdf_inrobot_common
+      hash: d2d855af
+    build_variables: []
+    resources:
+      data_models:
+      - identifier:
+          space: cognite_app_data
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/data_models/cogniteAppData.space.yaml
+          hash: 9b20a160
+        kind: Space
+      - identifier:
+          space: APM_Config
+          externalId: default-config
+          type: node
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/data_models/inrobotApmConfig.node.yaml
+          hash: 0c2a0816
+        kind: Node
+      auth:
+      - identifier:
+          name: gp_Run_Function_User
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/auth/run-function-user.Group.yaml
+          hash: 77d48fdd
+        kind: Group
+      classic:
+      - identifier:
+          externalId: robot_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/classic/robot.Label.yaml
+          hash: ef7fda9d
+        kind: Label
+      - identifier:
+          externalId: read_ir
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/classic/robot.Label.yaml
+          hash: ef7fda9d
+        kind: Label
+      robotics:
+      - identifier:
+          externalId: acoustic_video
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/acoustic_video.RobotCapability.yaml
+          hash: 7bc7184c
+        kind: RobotCapability
+      - identifier:
+          externalId: process_threesixty
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/process_threesixty.DataPostProcessing.yaml
+          hash: 85b70d84
+        kind: DataPostProcessing
+      - identifier:
+          externalId: pt_ir_video
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/pt_ir_video.RobotCapability.yaml
+          hash: 6214c358
+        kind: RobotCapability
+      - identifier:
+          externalId: ptz
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/ptz.RobotCapability.yaml
+          hash: e2d96319
+        kind: RobotCapability
+      - identifier:
+          externalId: ptz_ir
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/ptz_ir.RobotCapability.yaml
+          hash: 02b4e6af
+        kind: RobotCapability
+      - identifier:
+          externalId: ptz_video
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/ptz_video.RobotCapability.yaml
+          hash: 932c670c
+        kind: RobotCapability
+      - identifier:
+          externalId: read_dial_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/read_dial_gauge.DataPostProcessing.yaml
+          hash: 8430f57d
+        kind: DataPostProcessing
+      - identifier:
+          externalId: read_digital_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/read_digital_gauge.DataPostProcessing.yaml
+          hash: 7c7a286d
+        kind: DataPostProcessing
+      - identifier:
+          externalId: read_level_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/read_level_gauge.DataPostProcessing.yaml
+          hash: 7171b200
+        kind: DataPostProcessing
+      - identifier:
+          externalId: read_valve
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/read_valve.DataPostProcessing.yaml
+          hash: af0c30e7
+        kind: DataPostProcessing
+      - identifier:
+          externalId: threesixty
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/threesixty.RobotCapability.yaml
+          hash: f66a16b3
+        kind: RobotCapability
+      - identifier:
+          externalId: threesixty_video
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/robotics/threesixty_video.RobotCapability.yaml
+          hash: efb4753f
+        kind: RobotCapability
+      functions:
+      - identifier:
+          externalId: fn_contextualize_robot_data
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/robots.functions.Function.yaml
+          hash: 253bdd24
+        kind: Function
+      - identifier:
+          externalId: fn_gauge_reading
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/robots.functions.Function.yaml
+          hash: 253bdd24
+        kind: Function
+      - identifier:
+          externalId: fn_get_ir_data_from_ir_raw
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/robots.functions.Function.yaml
+          hash: 253bdd24
+        kind: Function
+      - identifier:
+          externalId: fn_threesixty
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/robots.functions.Function.yaml
+          hash: 253bdd24
+        kind: Function
+      - identifier:
+          functionExternalId: fn_contextualize_robot_data
+          name: contextualize_robot_data
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_gauge_reading
+          name: read_dial_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_gauge_reading
+          name: read_level_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_gauge_reading
+          name: read_digital_gauge
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_gauge_reading
+          name: read_valve
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_get_ir_data_from_ir_raw
+          name: get_ir_data
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      - identifier:
+          functionExternalId: fn_threesixty
+          name: threesixty
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/functions/schedules.Schedule.yaml
+          hash: e66bb5eb
+        kind: Schedule
+      data_sets:
+      - identifier:
+          externalId: '{{ robot_1_dataset_ext_id }}'
+        source:
+          path: /Users/pal.ronning@cognitedata.com/Local/toolkit/cognite_toolkit/modules/modules/inrobot/cdf_inrobot_common/data_sets/robot_1.dataset.yaml
+          hash: b0dddc6e
+        kind: DataSet
+    warning_count: 29
+    status: Success
+    iteration: 1
+  - name: cdf_apm_base
+    location:
+      path: modules/modules/common/cdf_apm_base
+      hash: 893bbe83
     build_variables: []
     resources: {}
-    warning_count: 2
+    warning_count: 1
     status: ToolkitYAMLFormatError
     iteration: 1
-  - name: pierre
+  - name: cdf_infield_location
     location:
-      path: modules/pierre
-      hash: bd4390dc
+      path: modules/modules/infield/cdf_infield_location
+      hash: 003167b3
     build_variables: []
     resources: {}
-    warning_count: 8
+    warning_count: 16
     status: ToolkitYAMLFormatError
     iteration: 1

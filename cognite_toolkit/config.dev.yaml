@@ -21,3 +21,291 @@ variables:
       cdf_process_industry_extension:
         organization: YourOrg
         schemaSpace: sp_enterprise_process_industry
+
+      cdf_cdm_extension:
+        organization: ToolkitMinimum
+        schemaSpace: sp_enterprise_min_schema
+
+      cdf_cdm_extension_full:
+        organization: Toolkit
+        schemaSpace: sp_enterprise_schema
+
+      cdf_process_industry_extension_full:
+        organization: ToolkitIDM
+        schemaSpace: sp_enterprise_process_industry_full
+
+      cdf_scene:
+        schemaSpace: scene
+
+    bootcamp:
+      # Variables shared by modules
+      icapi_ds_external_id: ds_icapi
+      icapi_space_name: icapi_dm_space
+      ice_cream_api:
+        icapi_extractors_source_id: <OBJECT ID FOR ICAPI EXTRACTORS ENTRA GROUP>
+        tokenUri: ${IDP_TOKEN_URL}
+        cdfProjectName: ${CDF_PROJECT}
+        scopes: ${IDP_SCOPES}
+        icapi_trigger_client_id: ${ICAPI_EXTRACTORS_CLIENT_ID}
+        icapi_trigger_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET}
+        icapi_extractors_client_id: ${ICAPI_EXTRACTORS_CLIENT_ID}
+        icapi_extractors_client_secret: ${ICAPI_EXTRACTORS_CLIENT_SECRET}
+
+      use_cases:
+        oee:
+          data_pipeline_oee_source_id: <OBJECT ID FOR DATA PIPELINE OEE ENTRA GROUP>
+          uc_oee_ds_external_id: ds_uc_oee
+          oee_space_name: oee_ts_space
+          data_pipeline_oee_client_id: ${DATA_PIPELINE_OEE_CLIENT_ID}
+          data_pipeline_oee_client_secret: ${DATA_PIPELINE_OEE_CLIENT_SECRET}
+
+    cdf_ingestion:
+      workflow: ingestion
+      groupSourceId: <not set>
+      ingestionClientId: ${INGESTION_CLIENT_ID}
+      ingestionClientSecret: ${INGESTION_CLIENT_SECRET}
+      assetTransformationExternalId: sap_assets_springfield_s4hana
+      equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+      equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+      timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+      maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+      operationTransformationExternalId: sap_operations_springfield_s4hana
+      operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+      fileTransformationExternalId: files_metadata_springfield
+      activityToAssetTransformationExternalId: activity_to_asset
+      activityToEquipmentTransformationExternalId: activity_to_equipment
+      activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+      timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+      timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+      pandidContextualizationFunction: contextualization_p_and_id_annotater
+      contextualization_connection_writer: contextualization_connection_writer
+      dataset: ingestion
+      rawSourceDatabase: ingestion
+      rawStateDatabase: contextualizationState
+      schemaSpace: sp_enterprise_process_industry
+      schemaSpace2: cdf_cdm
+      schemaSpace3: cdf_idm
+      instanceSpaces:
+      - springfield_instances
+      - cdf_cdm_units
+      runWorkflowUserIds:
+      - <your user id>
+
+    common:
+      cdf_apm_base:
+        apm_datamodel_space: APM_SourceData
+
+      cdf_auth_readwrite_all:
+        readwrite_source_id: <change_me>
+        readonly_source_id: <change_me>
+
+    contextualization:
+      cdf_connection_sql:
+        activityToAssetTransformationExternalId: activity_to_asset
+        activityToEquipmentTransformationExternalId: activity_to_equipment
+        activityToTimeSeriesTransformationExternalId: activity_to_timeseries
+        timeSeriesToAssetTransformationExternalId: timeseries_to_asset
+        timeSeriesToEquipmentTransformationExternalId: timeseries_to_equipment
+        dataset: ingestion
+        instanceSpace: springfield_instances
+        schemaSpace: cdf_cdm
+        groupSourceId: <not set>
+
+      cdf_entity_matching:
+        contextualizationId: entity_matcher
+        contextualizationName: Entity Matcher
+        annotatorJob: ctx_entity_matching
+        directRelationJob: ctx_files_direct_relation_write
+        dataset: ingestion
+        rawStateDatabase: contextualizationState
+        rawStateTable: entityMatching
+        schemaSpace: cdf_cdm
+        annotationSpace: springfield_instances
+        instanceSpaces:
+        - springfield_instances
+        groupSourceId: <not set>
+        workflow: entity_matching
+        workflowClientId: ${IDP_WF_CLIENT_ID}
+        workflowClientSecret: ${IDP_WF_CLIENT_SECRET}
+
+      cdf_p_and_id_parser:
+        contextualizationId: p_and_id_parser
+        contextualizationName: P&ID Parser
+        annotatorJob: ctx_files_pandid_annotater
+        dataset: ingestion
+        schemaSpace: cdf_cdm
+        annotationSpace: springfield_instances
+        instanceSpaces:
+        - springfield_instances
+        groupSourceId: <not set>
+        workflow: p_and_id_parser
+        workflowClientId: ${P_AND_ID_PARSER_CLIENT_ID}
+        workflowClientSecret: ${P_AND_ID_PARSER_CLIENT_SECRET}
+
+    custom:
+      my_module:
+        my_var: my_value
+
+    industrial_tools:
+      cdf_location_filter_asset_centric:
+        ds_asset: ds_asset_location_filter
+        root_asset: my_root_asset
+        root_asset2: my_root_asset2
+        ts_prefix: sensor
+
+      cdf_location_filter_datamodel_based:
+        instance_space1: my_instance_space1
+        instance_space2: my_instance_space2
+
+      cdf_search:
+        location: springfield
+        locationName: Springfield
+        instanceSpace: springfield_instances
+
+    infield:
+      # The root asset external id should be
+      # set to different values for each location,
+      # but for demo purposes we are using the same value
+      first_location: oid
+      first_root_asset_external_id: WMT:VAL
+      second_location: oid2
+      second_root_asset_external_id: WMT:VAL
+      scheduleHourly: 0 * * * *
+      # Transformation authentication
+      cdf_cluster: ${CDF_CLUSTER}
+      cicd_clientId: ${IDP_CLIENT_ID}
+      cicd_clientSecret: ${IDP_CLIENT_SECRET}
+      cicd_tokenUri: ${IDP_TOKEN_URL}
+      cdfProjectName: ${CDF_PROJECT}
+      # Optional: If idP requires providing the scopes
+      cicd_scopes:
+      - ${IDP_SCOPES}
+      # Optional: If idP requires providing the audience
+      cicd_audience: ${IDP_AUDIENCE}
+      cdf_infield_common:
+        applicationsconfiguration_source_id: <change_me>
+        apm_config_instance_space: APM_Config
+
+      cdf_infield_location:
+        # This first location points to the location created by the cdf_oid_example_data module.
+        # When you create your own location by copying the cdf_oid_example_data module to
+        # set up data sets and groups, the below needs to refer to the location to define.
+        module_version: '1'
+        apm_datamodel_space: APM_SourceData
+        apm_app_config_external_id: default-infield-config-minimal
+        # RAW databases to load workorders and other workorder data from
+        # The below values point to the RAW database in the cdf_oid_example_data and should be
+        # changed if you want to load workorders from another RAW database.
+        source_asset: workmate
+        source_workorder: workmate
+        workorder_raw_db: workorder_oid_workmate
+        # The table name in the raw_db database that has workorder data
+        workorder_table_name: workorders
+        # the following properties are required for
+        # infield and must be updated for each location
+        infield_location_checklist_admin_users_source_id: <change_me>
+        infield_location_normal_users_source_id: <change_me>
+        infield_location_template_admin_users_source_id: <change_me>
+        infield_location_viewer_users_source_id: <change_me>
+
+      cdf_infield_second_location:
+        # This default_location points to the location created by the cdf_oid_example_data module.
+        # When you create your own location by copying the cdf_oid_example_data module to
+        # set up data sets and groups, the below needs to refer to the location to define.
+        # 
+        module_version: '1'
+        apm_datamodel_space: APM_SourceData
+        apm_app_config_external_id: default-infield-config-minimal
+        # RAW databases to load workorders and other workorder data from
+        # The below values point to the RAW database in the cdf_oid_example_data and should be
+        # changed if you want to load workorders from another RAW database.
+        source_asset: workmate
+        source_workorder: workmate
+        workorder_raw_db: workorder_oid_workmate
+        # The table name in the raw_db database that has workorder data
+        workorder_table_name: workorders
+        # the following properties are required for
+        # infield and must be updated for each location
+        infield_location_checklist_admin_users_source_id: <change_me>
+        infield_location_normal_users_source_id: <change_me>
+        infield_location_template_admin_users_source_id: <change_me>
+        infield_location_viewer_users_source_id: <change_me>
+
+    inrobot:
+      first_root_asset_external_id: <change_me>
+      first_location: <change_me>
+      robot_1_dataset_ext_id: ds_robot_1
+      cdf_inrobot_common:
+        run_function_user_group_source_id: <change_me>
+        run_function_client_id: <change_me>
+        run_function_secret: <change_me>
+
+      cdf_inrobot_location:
+        inrobot_admin_first_location_source_id: <change_me>
+        inrobot_users_first_location_source_id: <change_me>
+        robot_1_first_location_source_id: <change_me>
+        three_d_model_name: <change_me>
+        three_d_type: <change_me>
+        three_d_model_id: <change_me>
+        three_d_revision_id: <change_me>
+
+    sourcesystem:
+      cdf_pi:
+        sourceName: Springfield AVEVA PI
+        sourceId: springfield_aveva_pi
+        timeseriesTransformationExternalId: pi_timeseries_springfield_aveva_pi
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        instanceSpace: springfield_instances
+        organization: YourOrg
+        schemaSpace: sp_enterprise_process_industry
+        groupSourceId: <not set>
+        workflow: aveva_pi_population # can also contain location aveva_pi_springfield_population
+        workflowClientId: ${AVEVA_PI_SPRINGFIELD_CLIENT_ID}
+        workflowClientSecret: ${AVEVA_PI_SPRINGFIELD_CLIENT_SECRET}
+
+      cdf_sap_assets:
+        sourceName: SAP Springfield S/4HANA Assets
+        sourceId: sap_springfield_s4hana_assets
+        assetTransformationExternalId: sap_assets_springfield_s4hana
+        equipmentTransformationExternalId: sap_equipment_springfield_s4hana
+        equipmentToAssetTransformationExternalId: sap_equipment_to_asset_springfield_s4hana
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        instanceSpace: springfield_instances
+        organization: YourOrg
+        schemaSpace: sp_enterprise_process_industry
+        groupSourceId: <not set>
+        workflow: sap_s4hana_population # can also contain location sap_springfield_s4hana_population
+        workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+        workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+
+      cdf_sap_events:
+        sourceName: SAP Springfield S/4HANA Activities
+        sourceId: sap_springfield_s4hana_activities
+        maintenanceOrderTransformationExternalId: sap_maintenance_orders_springfield_s4hana
+        operationTransformationExternalId: sap_operations_springfield_s4hana
+        operationToMaintenanceOrderTransformationExternalId: sap_operation_to_maintenance_order_springfield_s4hana
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        instanceSpace: springfield_instances
+        organization: YourOrg
+        schemaSpace: sp_enterprise_process_industry
+        workflow: sap_s4hana_population_events # can also contain location sap_springfield_s4hana_population
+        groupSourceId: <not set>
+        workflowClientId: ${SAP_SPRINGFIELD_S4HANA_CLIENT_ID}
+        workflowClientSecret: ${SAP_SPRINGFIELD_S4HANA_CLIENT_SECRET}
+
+      cdf_sharepoint:
+        sourceName: Springfield Sharepoint
+        sourceId: springfield_sharepoint
+        fileTransformationExternalId: files_metadata_springfield
+        dataset: ingestion
+        rawSourceDatabase: ingestion
+        instanceSpace: springfield_instances
+        groupSourceId: <not set>
+        organization: YourOrg
+        schemaSpace: sp_enterprise_process_industry
+        workflow: files_metadata_population # can also contain location files_metadata_springfield_population
+        workflowClientId: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_ID}
+        workflowClientSecret: ${SHAREPOINT_SERVICE_PRINCIPAL_CLIENT_SECRET}
