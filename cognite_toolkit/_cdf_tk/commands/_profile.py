@@ -1,6 +1,7 @@
+import itertools
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Literal
 
@@ -21,6 +22,7 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
     raw_row_count,
     relationship_aggregate_count,
 )
+from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
 
@@ -414,3 +416,78 @@ class ProfileRawCommand(ToolkitCommand):
                 return f"{count:,}"
 
         return api_call
+
+
+class ProfileTransformationCommand(ToolkitCommand):
+    class Columns:
+        Transformation = "Transformation"
+        Source = "Sources"
+        DestinationColumns = "Destination Columns"
+        Destination = "Destination"
+        ConflictMode = "Conflict Mode"
+        IsPaused = "Is Paused"
+
+    columns = (
+        Columns.Transformation,
+        Columns.Source,
+        Columns.DestinationColumns,
+        Columns.Destination,
+        Columns.ConflictMode,
+        Columns.IsPaused,
+    )
+
+    @classmethod
+    def transformation(
+        cls,
+        client: ToolkitClient,
+        destination_type: str,
+        verbose: bool = False,
+    ) -> list[dict[str, str]]:
+        console = Console()
+        content: list[dict[str, str]] = []
+        with console.status("Loading transformations...", spinner="aesthetic", speed=0.4) as _:
+            iterable: Iterable[Transformation] = client.transformations.list(destination_type=destination_type)
+            if destination_type == "assets":
+                iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy"))
+            for transformation in iterable:
+                sources: list[SQLTable] = []
+                destination_columns: list[str] = []
+                if transformation.query:
+                    parser = SQLParser(transformation.query, operation="Profile transformations")
+                    sources = parser.sources
+                    destination_columns = parser.destination_columns
+                row: dict[str, str] = {
+                    cls.Columns.Transformation: transformation.name or transformation.external_id or "Unknown",
+                    cls.Columns.Source: ", ".join(map(str, sources)),
+                    cls.Columns.DestinationColumns: ", ".join(destination_columns) or "None",
+                    cls.Columns.Destination: transformation.destination.type or "Unknown"
+                    if transformation.destination
+                    else "Unknown",
+                    cls.Columns.ConflictMode: transformation.conflict_mode or "Unknown",
+                    cls.Columns.IsPaused: str(transformation.schedule.is_paused)
+                    if transformation.schedule
+                    else "No schedule",
+                }
+                content.append(row)
+
+        table = cls.draw_table(content, destination_type)
+        console.print(table)
+        return content
+
+    @classmethod
+    def draw_table(
+        cls,
+        rows: list[dict[str, str]],
+        destination: str,
+    ) -> Table:
+        table = Table(
+            title=f"Transformation Profile destination: {destination}",
+            title_justify="left",
+            show_header=True,
+            header_style="bold magenta",
+        )
+        for col in cls.columns:
+            table.add_column(col)
+        for row in rows:
+            table.add_row(*row.values())
+        return table
