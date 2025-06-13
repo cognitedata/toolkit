@@ -351,6 +351,37 @@ FROM
         id="Complex query with multiple joins and CDF assets with metadata",
     )
 
+    yield pytest.param(
+        """SELECT
+  cast(concat("GM", `Tag name`) as STRING) as externalId,
+  cast(`Parent tag` as STRING) as parentExternalId,
+  cast(concat("TB-",`Tag name`) as STRING) as name,
+  cast(concat(`Tag class name`," ", `Tag description`) as STRING) as description,
+  1238456789 as dataSetId,
+  'Engineering Documents' as source
+FROM `GM_DATA`.`verified_new_only`
+
+WHERE concat("GM", `Tag name`) IN (
+
+    WITH existing_ext_ids AS (
+        SELECT DISTINCT externalId AS value
+        FROM _cdf.assets
+    ),
+    new_ext_ids AS (
+        SELECT DISTINCT concat("GM", `Tag name`) AS value
+        FROM `GM_DATA`.`verified_new_only`
+    )
+    SELECT COALESCE(existing_ext_ids.value, new_ext_ids.value) AS differing_value
+    FROM existing_ext_ids
+    RIGHT JOIN new_ext_ids
+    ON existing_ext_ids.value = new_ext_ids.value
+    WHERE existing_ext_ids.value IS NULL OR new_ext_ids.value IS NULL
+    )
+;""",
+        [RawTable(db_name="GM_DATA", table_name="verified_new_only"), "assets"],
+        id="Query listed with clause",
+    )
+
 
 class TestGetTransformationSource:
     @pytest.mark.parametrize("query, expected_sources", list(get_transformation_source_test_cases()))
