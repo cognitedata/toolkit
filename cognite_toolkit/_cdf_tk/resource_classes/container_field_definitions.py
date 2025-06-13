@@ -48,8 +48,7 @@ class ConstraintDefinition(BaseModelResource):
 
         if cls is not ConstraintDefinition:
             data_copy = dict(data)
-            if "constraintType" in data_copy:
-                data_copy.pop("constraintType")
+            data_copy.pop("constraintType", None)
             return handler(data_copy)
 
         constraint_type = data.get("constraintType")
@@ -102,8 +101,7 @@ class IndexDefinition(BaseModelResource):
 
         if cls is not IndexDefinition:
             data_copy = dict(data)
-            if "indexType" in data_copy:
-                data_copy.pop("indexType")
+            data_copy.pop("indexType", None)
             return handler(data_copy)
 
         index_type = data.get("indexType")
@@ -155,8 +153,7 @@ class PropertyTypeDefinition(BaseModelResource):
 
         if cls is not PropertyTypeDefinition:
             data_copy = dict(data)
-            if "type" in data_copy:
-                data_copy.pop("type")
+            data_copy.pop("type", None)
             return handler(data_copy)
 
         property_type = data.get("type")
