@@ -16,6 +16,8 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from .base import ToolkitResource
 from .container_field_definitions import ConstraintDefinition, ContainerPropertyDefinition, IndexDefinition
 
+KEY_PATTERN = re.compile(CONTAINER_PROPERTIES_IDENTIFIER_PATTERN)
+
 
 class ContainerYAML(ToolkitResource):
     space: str = Field(
@@ -71,10 +73,9 @@ class ContainerYAML(ToolkitResource):
     @classmethod
     def validate_properties_identifier(cls, val: dict[str, str]) -> dict[str, str]:
         """Validate properties Identifier"""
-        key_pattern = re.compile(CONTAINER_PROPERTIES_IDENTIFIER_PATTERN)
         for key in val.keys():
-            if not key_pattern.match(key):
-                raise ValueError(f"Property '{key}' does not match the required pattern: {key_pattern.pattern}")
+            if not KEY_PATTERN.match(key):
+                raise ValueError(f"Property '{key}' does not match the required pattern: {KEY_PATTERN.pattern}")
             if key in FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER:
                 raise ValueError(
                     f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER)}"
