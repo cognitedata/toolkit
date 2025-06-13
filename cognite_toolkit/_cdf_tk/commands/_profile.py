@@ -5,7 +5,19 @@ from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, ClassVar, Literal
 
-from cognite.client.data_classes import Transformation
+from cognite.client.data_classes import (
+    AssetFilter,
+    EventFilter,
+    FileMetadataFilter,
+    SequenceFilter,
+    TimeSeriesFilter,
+    Transformation,
+)
+from cognite.client.data_classes.assets import AssetProperty
+from cognite.client.data_classes.documents import SourceFileProperty
+from cognite.client.data_classes.events import EventProperty
+from cognite.client.data_classes.sequences import SequenceProperty
+from cognite.client.data_classes.time_series import TimeSeriesProperty
 from cognite.client.exceptions import CogniteAPIError, CogniteException, CogniteReadTimeout
 from rich.console import Console
 from rich.live import Live
@@ -24,9 +36,9 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
 )
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
-from ._base import ToolkitCommand
 from ..exceptions import ToolkitValueError
 from ..utils.interactive_select import AssetCentricInteractiveSelect
+from ._base import ToolkitCommand
 
 
 class AssetCentricAggregator(ABC):
@@ -60,6 +72,15 @@ class MetadataAggregator(AssetCentricAggregator, ABC):
         super().__init__(client)
         self.resource_name = resource_name
 
+    @abstractmethod
+    def count(self, hierarchy: str | None = None) -> int:
+        raise NotImplementedError
+
+    @abstractmethod
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        raise NotImplementedError
+
     def metadata_key_count(self) -> int:
         return len(metadata_key_counts(self.client, self.resource_name))
 
@@ -79,8 +100,21 @@ class AssetAggregator(LabelAggregator):
     def display_name(self) -> str:
         return "Assets"
 
-    def count(self) -> int:
-        return self.client.assets.aggregate_count()
+    def count(self, hierarchy: str | None = None) -> int:
+        return self.client.assets.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+
+    @classmethod
+    def _create_hierarchy_filter(cls, hierarchy: str | None) -> AssetFilter | None:
+        if hierarchy is None:
+            return None
+        return AssetFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        results = self.client.assets.aggregate_unique_values(
+            AssetProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
+        )
+        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
 
 class EventAggregator(MetadataAggregator):
@@ -93,8 +127,21 @@ class EventAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "Events"
 
-    def count(self) -> int:
-        return self.client.events.aggregate_count()
+    def count(self, hierarchy: str | None = None) -> int:
+        return self.client.events.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+
+    @classmethod
+    def _create_hierarchy_filter(cls, hierarchy: str | None) -> EventFilter | None:
+        if hierarchy is None:
+            return None
+        return EventFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        results = self.client.events.aggregate_unique_values(
+            property=EventProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
+        )
+        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
 
 class FileAggregator(LabelAggregator):
@@ -107,12 +154,25 @@ class FileAggregator(LabelAggregator):
     def display_name(self) -> str:
         return "Files"
 
-    def count(self) -> int:
-        response = self.client.files.aggregate()
+    def count(self, hierarchy: str | None = None) -> int:
+        response = self.client.files.aggregate(filter=self._create_hierarchy_filter(hierarchy))
         if response:
             return response[0].count
         else:
             return 0
+
+    @classmethod
+    def _create_hierarchy_filter(cls, hierarchy: str | None) -> FileMetadataFilter | None:
+        if hierarchy is None:
+            return None
+        return FileMetadataFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        results = self.client.documents.aggregate_unique_values(
+            property=SourceFileProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy).dump()
+        )
+        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
 
 class TimeSeriesAggregator(MetadataAggregator):
@@ -125,8 +185,21 @@ class TimeSeriesAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "TimeSeries"
 
-    def count(self) -> int:
-        return self.client.time_series.aggregate_count()
+    def count(self, hierarchy: str | None = None) -> int:
+        return self.client.time_series.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+
+    @classmethod
+    def _create_hierarchy_filter(cls, hierarchy: str | None) -> TimeSeriesFilter | None:
+        if hierarchy is None:
+            return None
+        return TimeSeriesFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        results = self.client.time_series.aggregate_unique_values(
+            property=TimeSeriesProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
+        )
+        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
 
 class SequenceAggregator(MetadataAggregator):
@@ -139,8 +212,22 @@ class SequenceAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "Sequences"
 
-    def count(self) -> int:
-        return self.client.sequences.aggregate_count()
+    def count(self, hierarchy: str | None = None) -> int:
+        return self.client.sequences.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+
+    @classmethod
+    def _create_hierarchy_filter(cls, hierarchy: str | None) -> SequenceFilter | None:
+        if hierarchy is None:
+            return None
+        return SequenceFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+
+    def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
+        """Returns a list of data sets used by the resource."""
+        results = self.client.sequences.aggregate_unique_values(
+            property=SequenceProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
+        )
+
+        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
 
 class RelationshipAggregator(AssetCentricAggregator):
@@ -272,6 +359,7 @@ class ProfileCommand(ToolkitCommand):
 
         return styled_callable
 
+
 class ProfileAssetCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
@@ -298,7 +386,7 @@ class ProfileAssetCommand(ToolkitCommand):
         client: ToolkitClient,
         hierarchy: str | None = None,
         verbose: bool = False,
-        ) -> list[dict[str, str]]:
+    ) -> list[dict[str, str]]:
         if hierarchy is None:
             hierarchies, _ = AssetCentricInteractiveSelect(client).interactive_select_hierarchy_datasets()
             if len(hierarchies) > 1:
@@ -343,13 +431,11 @@ class ProfileAssetCommand(ToolkitCommand):
         for index, aggregator in enumerate(aggregators):
             row: dict[str, str | Spinner] = {
                 cls.Columns.Resource: aggregator.display_name,
-                cls.Columns.Count: Spinner(**cls.spinner_args) ,
+                cls.Columns.Count: Spinner(**cls.spinner_args),
             }
             api_calls[(index, cls.Columns.Count)] = cls._call_api(aggregator.count, hierarchy=hierarchy)
             row[cls.Columns.DataSets] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.DataSets)] = cls._call_api(
-                aggregator.used_data_sets, hierarchy=hierarchy
-            )
+            api_calls[(index, cls.Columns.DataSets)] = cls._call_api(aggregator.used_data_sets, hierarchy=hierarchy)
             row[cls.Columns.Transformations] = Spinner(**cls.spinner_args)
             api_calls[(index, cls.Columns.Transformations)] = cls._call_api(
                 aggregator.transformation, data_sets=datasets
@@ -359,13 +445,9 @@ class ProfileAssetCommand(ToolkitCommand):
                 aggregator.raw_table, transformations=transformations
             )
             row[cls.Columns.RowCount] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.RowCount)] = cls._call_api(
-                aggregator.row_count, raw_table=raw_table
-            )
+            api_calls[(index, cls.Columns.RowCount)] = cls._call_api(aggregator.row_count, raw_table=raw_table)
             row[cls.Columns.ColumnCount] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.ColumnCount)] = cls._call_api(
-                aggregator.column_count, raw_table=raw_table
-            )
+            api_calls[(index, cls.Columns.ColumnCount)] = cls._call_api(aggregator.column_count, raw_table=raw_table)
             rows.append(row)
 
         return rows, api_calls
