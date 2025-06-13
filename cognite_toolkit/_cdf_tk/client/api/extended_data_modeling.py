@@ -169,9 +169,7 @@ class ExtendedInstancesAPI(InstancesAPI):
                 self._raise_no_project_access_error(result)
             case 429 | 502 | 503 | 504:
                 items = json_payload["items"]
-                if len(items) > 1 and retry_tracker.should_retry(
-                    status_code=result.status_code, is_auto_retryable=True
-                ):
+                if retry_tracker.should_retry(status_code=result.status_code, is_auto_retryable=True):
                     # If we get a 429 or 5xx error, we reduce the number of items in the payload and retry.
                     # This is to avoid overwhelming the API with too many items at once.
                     half = len(items) // 2
