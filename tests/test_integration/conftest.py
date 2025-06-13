@@ -5,10 +5,12 @@ from pathlib import Path
 import pytest
 from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import RowWrite, RowWriteList
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.commands import CollectCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.constants import REPO_ROOT
@@ -104,3 +106,37 @@ def dev_cluster_client() -> ToolkitClient | None:
         is_strict_validation=False,
     )
     return ToolkitClient(config, enable_set_pending_ids=True)
+
+
+@pytest.fixture()
+def raw_data() -> RowWriteList:
+    return RowWriteList(
+        [
+            RowWrite(
+                key=f"row{i}",
+                columns={
+                    "StringCol": f"value{i % 3}",
+                    "IntegerCol": i % 5,
+                    "BooleanCol": [True, False][i % 2],
+                    "FloatCol": i * 0.1,
+                    "EmptyCol": None,
+                    "ArrayCol": [i, i + 1, i + 2] if i % 2 == 0 else None,
+                    "ObjectCol": {"nested_key": f"nested_value_{i}" if i % 2 == 0 else None},
+                },
+            )
+            for i in range(10)
+        ]
+    )
+
+
+@pytest.fixture()
+def populated_raw_table(toolkit_client: ToolkitClient, raw_data: RowWriteList) -> RawTable:
+    db_name = "toolkit_test_db"
+    table_name = "toolkit_test_profiling_table"
+    existing_dbs = toolkit_client.raw.databases.list(limit=-1)
+    existing_table_names: set[str] = set()
+    if db_name in {db.name for db in existing_dbs}:
+        existing_table_names = {table.name for table in toolkit_client.raw.tables.list(db_name=db_name, limit=-1)}
+    if table_name not in existing_table_names:
+        toolkit_client.raw.rows.insert(db_name, table_name, raw_data, ensure_parent=True)
+    return RawTable(db_name, table_name)
