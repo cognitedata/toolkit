@@ -3,7 +3,7 @@ from typing import Annotated, Any, Optional
 import typer
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import ProfileCommand, ProfileRawCommand
+from cognite_toolkit._cdf_tk.commands import ProfileAssetCommand, ProfileCommand, ProfileRawCommand
 from cognite_toolkit._cdf_tk.commands._profile import ProfileTransformationCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
@@ -59,7 +59,15 @@ class ProfileApp(typer.Typer):
         In addition, it lists the data sets that is used for each of the resources, the transformations that writes to
         these data sets, and the RAW tables that is used in these transformations..
         """
-        raise NotImplementedError()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ProfileAssetCommand()
+        cmd.run(
+            lambda: cmd.assets(
+                client,
+                hierarchy,
+                verbose,
+            )
+        )
 
     @staticmethod
     def raw(
