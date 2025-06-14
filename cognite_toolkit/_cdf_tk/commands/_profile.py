@@ -671,7 +671,7 @@ class ProfileAssetCommand(ToolkitCommand):
                 current = table_content.pop(ResourceLineageID(resource=agg_id, dataset=dataset))
                 for transformation in result:
                     copy_ = current.copy()
-                    copy_.transformation = transformation.external_id or "<unknown>"
+                    copy_.transformation = f"{transformation.name} ({transformation.external_id})"
                     sources = get_transformation_sources(transformation.query or "")
                     if not sources:
                         table_content[ResourceLineageID(resource=agg_id, dataset=dataset)] = copy_
