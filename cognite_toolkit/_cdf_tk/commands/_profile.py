@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, ClassVar, Literal, TypeVar, cast
+from typing import Any, ClassVar, Literal, TypeVar
 
 from cognite.client.data_classes import (
     AssetFilter,
@@ -416,7 +416,6 @@ class ProfileCommand(ToolkitCommand):
 class ResourceLineageID:
     resource: str
     dataset: str | None = None
-    transformation: int | None = None
     raw_table: str | None = None
 
 
@@ -437,8 +436,8 @@ class ResourceLineageProfile:
     dataset_count: int | WaitingAPICallClass | None = WaitingAPICall
     transformation: str | WaitingAPICallClass | None = WaitingAPICall
     raw_table: str | WaitingAPICallClass | None = WaitingAPICall
-    row_count: int | WaitingAPICallClass | None = WaitingAPICall
-    column_count: int | WaitingAPICallClass | None = WaitingAPICall
+    row_count: int | str | WaitingAPICallClass | None = WaitingAPICall
+    column_count: int | str | WaitingAPICallClass | None = WaitingAPICall
 
     def copy(self) -> Self:
         return self.__class__(
@@ -494,9 +493,9 @@ class ProfileAssetCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
         Count = "Count"
-        DataSets = "DataSets"
+        DataSets = "DataSet"
         DataSetCount = "DataSet Count"
-        Transformations = "Transformations"
+        Transformations = "Transformation"
         RawTable = "Raw Table"
         RowCount = "Rows"
         ColumnCount = "Columns"
@@ -594,32 +593,29 @@ class ProfileAssetCommand(ToolkitCommand):
                 next_calls[(agg_id, cls.Columns.DataSetCount, item)] = cls._call_api(
                     partial(aggregator.count, data_set_external_id=item, hierarchy=hierarchy)
                 )
-        elif col == cls.Columns.DataSetCount:
-            dataset = cast(str, extra[0] if extra else None)
+        elif col == cls.Columns.DataSetCount and extra and isinstance(extra[0], str):
+            dataset = extra[0]
             next_calls[(agg_id, cls.Columns.Transformations, dataset)] = cls._call_api(
                 partial(aggregator.used_transformations, data_set_external_ids=[dataset])
             )
-
-    # elif (
-    #     col == self.Columns.Transformations
-    #     and isinstance(result, list)
-    #     and all(isinstance(item, str) for item in result)
-    # ):
-    #     aggregator = aggregators[agg_id]
-    #     next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
-    #         partial(aggregator.used_raw_tables, transformations=result)
-    #     )
-    # elif (
-    #     col == self.Columns.RawTable
-    #     and isinstance(result, list)
-    #     and all(isinstance(item, RawTable) for item in result)
-    # ):
-    #     next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
-    #         partial(aggregator.used_raw_tables, raw_tables=result)
-    #     )
-    #     next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
-    #         partial(aggregator.used_raw_tables_column_count, raw_tables=result)
-    #     )
+        elif (
+            col == cls.Columns.Transformations
+            and isinstance(result, list)
+            and result
+            and extra
+            and isinstance(extra[0], str)
+        ):
+            dataset = extra[0]
+            for transformation in result:
+                sources = get_transformation_sources(transformation.query or "")
+                for source in sources:
+                    if isinstance(source, RawTable):
+                        next_calls[(agg_id, cls.Columns.RowCount, dataset, str(source))] = ProfileRawCommand.row_count(
+                            client=aggregator.client, raw_table=source
+                        )
+                        next_calls[(agg_id, cls.Columns.ColumnCount, dataset, str(source))] = (
+                            ProfileRawCommand.column_count(client=aggregator.client, raw_table=source)
+                        )
 
     @classmethod
     def _update_table_content(
@@ -678,9 +674,10 @@ class ProfileAssetCommand(ToolkitCommand):
                     copy_.transformation = transformation.name or transformation.external_id or "<unknown>"
                     sources = get_transformation_sources(transformation.query or "")
                     if not sources:
-                        table_content[
-                            ResourceLineageID(resource=agg_id, dataset=dataset, transformation=transformation.id)
-                        ] = copy_
+                        table_content[ResourceLineageID(resource=agg_id, dataset=dataset)] = copy_
+                        copy_.raw_table = None
+                        copy_.row_count = None
+                        copy_.column_count = None
                     else:
                         for source in sources:
                             copy_copy = copy_.copy()
@@ -694,7 +691,6 @@ class ProfileAssetCommand(ToolkitCommand):
                                 ResourceLineageID(
                                     resource=agg_id,
                                     dataset=dataset,
-                                    transformation=transformation.id,
                                     raw_table=str(source),
                                 )
                             ] = copy_copy
@@ -703,6 +699,22 @@ class ProfileAssetCommand(ToolkitCommand):
                 value.transformation = None
                 value.raw_table = None
                 value.row_count = None
+                value.column_count = None
+        elif col == cls.Columns.RowCount:
+            dataset = extra[0] if extra else None
+            raw_table = extra[1] if len(extra) > 1 else None
+            value = table_content[ResourceLineageID(resource=agg_id, dataset=dataset, raw_table=raw_table)]
+            if isinstance(result, int | str):
+                value.row_count = result
+            else:
+                value.row_count = None
+        elif col == cls.Columns.ColumnCount:
+            dataset = extra[0] if extra else None
+            raw_table = extra[1] if len(extra) > 1 else None
+            value = table_content[ResourceLineageID(resource=agg_id, dataset=dataset, raw_table=raw_table)]
+            if isinstance(result, int | str):
+                value.column_count = result
+            else:
                 value.column_count = None
 
     @classmethod
