@@ -1,7 +1,7 @@
 import sys
-import importlib.util
 from collections.abc import Hashable, Iterator
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal, overload
 from urllib.parse import urlparse
 
@@ -19,7 +19,6 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.exceptions import (
-    ToolkitMissingDependencyError,
     ToolkitRequiredValueError,
     ToolkitTypeError,
 )
@@ -177,6 +176,7 @@ def read_auth(
         return ClientCredentials(authentication["clientId"], authentication["clientSecret"])
 
 
+@lru_cache
 def get_transformation_sources(query: str) -> list[RawTable | str]:
     """Search the SQL query for source tables."""
     parser = SQLParser(query, operation="Lookup transformation source")
