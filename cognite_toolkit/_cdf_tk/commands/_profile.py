@@ -1,8 +1,10 @@
 import itertools
+import sys
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from functools import partial
 from typing import Any, ClassVar, Literal, TypeVar
 
@@ -20,6 +22,7 @@ from cognite.client.data_classes.events import EventProperty
 from cognite.client.data_classes.sequences import SequenceProperty
 from cognite.client.data_classes.time_series import TimeSeriesProperty
 from cognite.client.exceptions import CogniteAPIError, CogniteException, CogniteReadTimeout
+from rich import box
 from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
@@ -40,6 +43,11 @@ from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSel
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class AssetCentricAggregator(ABC):
@@ -74,13 +82,26 @@ class MetadataAggregator(AssetCentricAggregator, ABC):
         self.resource_name = resource_name
 
     @abstractmethod
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         raise NotImplementedError
 
     @abstractmethod
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
         raise NotImplementedError
+
+    def used_transformations(self, data_set_external_ids: list[str]) -> list[Transformation]:
+        """Returns a list of transformations used by the resource."""
+        data_set_ids = self.client.lookup.data_sets.id(data_set_external_ids, allow_empty=True)
+        found_transformations: list[Transformation] = []
+        for destination in self._transformation_destination:
+            for chunk in self.client.transformations(chunk_size=1000, destination_type=destination, limit=None):
+                for transformation in chunk:
+                    if SQLParser(transformation.query or "", operation="profiling").is_using_data_set(
+                        data_set_ids, data_set_external_ids
+                    ):
+                        found_transformations.append(transformation)
+        return found_transformations
 
     def metadata_key_count(self) -> int:
         return len(metadata_key_counts(self.client, self.resource_name))
@@ -101,7 +122,7 @@ class AssetAggregator(LabelAggregator):
     def display_name(self) -> str:
         return "Assets"
 
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         return self.client.assets.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
 
     @classmethod
@@ -128,7 +149,7 @@ class EventAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "Events"
 
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         return self.client.events.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
 
     @classmethod
@@ -155,7 +176,7 @@ class FileAggregator(LabelAggregator):
     def display_name(self) -> str:
         return "Files"
 
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         response = self.client.files.aggregate(filter=self._create_hierarchy_filter(hierarchy))
         if response:
             return response[0].count
@@ -187,7 +208,7 @@ class TimeSeriesAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "TimeSeries"
 
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         return self.client.time_series.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
 
     @classmethod
@@ -214,7 +235,7 @@ class SequenceAggregator(MetadataAggregator):
     def display_name(self) -> str:
         return "Sequences"
 
-    def count(self, hierarchy: str | None = None) -> int:
+    def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
         return self.client.sequences.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
 
     @classmethod
@@ -362,6 +383,81 @@ class ProfileCommand(ToolkitCommand):
         return styled_callable
 
 
+@dataclass(frozen=True)
+class ResourceLineageID:
+    resource: str
+    dataset: str | None = None
+    transformation: str | None = None
+    raw_table: str | None = None
+
+
+class WaitingAPICallClass:
+    def __bool__(self) -> bool:
+        return False
+
+
+WaitingAPICall = WaitingAPICallClass()
+
+
+@dataclass
+class ResourceLineageProfile:
+    index: int
+    resource: str
+    count: int | WaitingAPICallClass | None = WaitingAPICall
+    dataset: str | WaitingAPICallClass | None = WaitingAPICall
+    dataset_count: int | WaitingAPICallClass | None = WaitingAPICall
+    transformation: str | WaitingAPICallClass | None = WaitingAPICall
+    raw_table: str | WaitingAPICallClass | None = WaitingAPICall
+    row_count: int | WaitingAPICallClass | None = WaitingAPICall
+    column_count: int | WaitingAPICallClass | None = WaitingAPICall
+
+    def copy(self) -> Self:
+        return self.__class__(
+            index=self.index,
+            resource=self.resource,
+            count=self.count,
+            dataset=self.dataset,
+            dataset_count=self.dataset_count,
+            transformation=self.transformation,
+            raw_table=self.raw_table,
+            row_count=self.row_count,
+            column_count=self.column_count,
+        )
+
+    def as_sort_tuple(self) -> tuple[int, int, int]:
+        return (
+            self.index,
+            self.dataset_count if isinstance(self.dataset_count, int) else 0,
+            self.row_count if isinstance(self.row_count, int) else 0,
+        )
+
+    def as_row(self) -> tuple[str | Spinner, ...]:
+        return (
+            self.resource,
+            self.as_cell(self.count),
+            self.as_cell(self.dataset),
+            self.as_cell(self.dataset_count),
+            self.as_cell(self.transformation),
+            self.as_cell(self.raw_table),
+            self.as_cell(self.row_count),
+            self.as_cell(self.column_count),
+        )
+
+    @staticmethod
+    def as_cell(value: str | int | WaitingAPICallClass | None) -> str | Spinner:
+        """Convert a value to a cell representation."""
+        if isinstance(value, WaitingAPICallClass):
+            return Spinner(name="arc", text="loading...", style="bold green", speed=1.0)
+        elif isinstance(value, int):
+            return f"{value:,}"
+        elif isinstance(value, str):
+            return value
+        elif value is None:
+            return ""
+        else:
+            raise ToolkitValueError(f"Unsupported type for cell conversion: {type(value)}")
+
+
 T = TypeVar("T")
 
 
@@ -370,6 +466,7 @@ class ProfileAssetCommand(ToolkitCommand):
         Resource = "Resource"
         Count = "Count"
         DataSets = "DataSets"
+        DataSetCount = "DataSet Count"
         Transformations = "Transformations"
         RawTable = "Raw Table"
         RowCount = "Rows"
@@ -379,6 +476,7 @@ class ProfileAssetCommand(ToolkitCommand):
         Columns.Resource,
         Columns.Count,
         Columns.DataSets,
+        Columns.DataSetCount,
         Columns.Transformations,
         Columns.RawTable,
         Columns.RowCount,
@@ -391,12 +489,17 @@ class ProfileAssetCommand(ToolkitCommand):
         client: ToolkitClient,
         hierarchy: str | None = None,
         verbose: bool = False,
-    ) -> list[dict[str, str]]:
+    ) -> None:
         if hierarchy is None:
             hierarchies, _ = AssetInteractiveSelect(client).interactive_select_hierarchy_datasets()
             if len(hierarchies) > 1:
                 raise ToolkitValueError("Profiling multiple hierarchies is not supported.")
             hierarchy = hierarchies[0]
+        retrieved = client.assets.retrieve(external_id=hierarchy)
+        if retrieved is None:
+            raise ToolkitValueError(f"Hierarchy not found: {hierarchy}")
+        elif retrieved.root_id != retrieved.id:
+            raise ToolkitValueError(f"The asset {hierarchy} is not a root asset. Please select a root asset.")
         aggregators: dict[str, MetadataAggregator] = {
             aggregator.display_name: aggregator
             for aggregator in [
@@ -407,90 +510,136 @@ class ProfileAssetCommand(ToolkitCommand):
                 SequenceAggregator(client),
             ]
         }
-        retrieved = client.assets.retrieve(external_id=hierarchy)
-        if retrieved is None:
-            raise ToolkitValueError(f"Hierarchy not found: {hierarchy}")
-        elif retrieved.root_id != retrieved.id:
-            raise ToolkitValueError(f"The asset {hierarchy} is not a root asset. Please select a root asset.")
-
-        table_content, api_calls = self._setup_table_content(hierarchy, aggregators)
-        with Live(self._draw_table(table_content, hierarchy), refresh_per_second=4) as live:
+        api_calls = self._setup_initial_api_calls(hierarchy, aggregators)
+        table_content: dict[ResourceLineageID, ResourceLineageProfile] = {
+            ResourceLineageID(resource=agg_id): ResourceLineageProfile(index, agg_id)
+            for index, agg_id in enumerate(aggregators.keys())
+        }
+        with Live(self._draw_table(table_content.values(), hierarchy), refresh_per_second=4) as live:
             with ThreadPoolExecutor(max_workers=8) as executor:
-                current_calls = {
-                    executor.submit(api_calls[(agg_id, col)]): (agg_id, col)
-                    for agg_id in aggregators.keys()
-                    for col in self.columns
-                    if (agg_id, col) in api_calls
-                }
-                while current_calls:
-                    next_calls: dict[Future, tuple[str, str]] = {}
+                while True:
+                    current_calls: dict[Future, tuple[str, ...]] = {
+                        executor.submit(api_calls[(agg_id, col)]): (agg_id, col)
+                        for agg_id in aggregators.keys()
+                        for col in self.columns
+                        if (agg_id, col) in api_calls
+                    }
+                    next_calls: dict[tuple[str, ...], Callable] = {}
                     for future in as_completed(current_calls):
-                        agg_id, col = current_calls[future]
+                        location = current_calls[future]
                         result = future.result()
-                        # Set up dependent calls based on the result of the current call.
-                        if col == self.Columns.DataSets and (
-                            isinstance(result, list) and all(isinstance(item, str) for item in result)
-                        ):
-                            continue
-                            aggregator = aggregators[agg_id]
-                            next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
-                                partial(aggregator.used_transformations, data_set_external_ids=result)
-                            )
-                        elif (
-                            col == self.Columns.Transformations
-                            and isinstance(result, list)
-                            and all(isinstance(item, str) for item in result)
-                        ):
-                            continue
-                            aggregator = aggregators[agg_id]
-                            next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
-                                partial(aggregator.used_raw_tables, transformations=result)
-                            )
-                        elif (
-                            col == self.Columns.RawTable
-                            and isinstance(result, list)
-                            and all(isinstance(item, RawTable) for item in result)
-                        ):
-                            continue
-                            next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
-                                partial(aggregator.used_raw_tables, raw_tables=result)
-                            )
-                            next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
-                                partial(aggregator.used_raw_tables_column_count, raw_tables=result)
-                            )
+                        self._update_next_calls(result, location, hierarchy, next_calls, aggregators)
+                        self._update_table_content(result, location, table_content)
+                        live.update(self._draw_table(table_content.values(), hierarchy))
+                    if not next_calls:
+                        break
+                    api_calls = next_calls
 
-                        result_list = [result] if isinstance(result, int | str) else list(result)
-                        for item in result_list:
-                            table_content[agg_id][col].append(self._as_human_readable(item))
-
-                        live.update(self._draw_table(table_content, hierarchy))
-                    current_calls = next_calls
-
-        return [{col: str(value) for col, value in row.items()} for row in table_content.values()]
+        return None
 
     @classmethod
-    def _setup_table_content(
+    def _setup_initial_api_calls(
         cls,
         hierarchy: str,
         aggregators: dict[str, MetadataAggregator],
-    ) -> tuple[dict[str, dict[str, list[str | Spinner]]], dict[tuple[str, str], Callable[[], str | int | list[str]]]]:
-        rows: dict[str, dict[str, list[str | Spinner]]] = defaultdict(lambda: defaultdict(list))
-        api_calls: dict[tuple[str, str], Callable[[], str | int | list[str]]] = {}
+    ) -> dict[tuple[str, ...], Callable]:
+        api_calls: dict[tuple[str, ...], Callable] = {}
         for agg_id, aggregator in aggregators.items():
-            rows[agg_id][aggregator.display_name].append(aggregator.display_name)
-            for col in cls.columns[1:]:
-                rows[agg_id][col].append(Spinner(**cls.spinner_args))
             api_calls[(agg_id, cls.Columns.Count)] = cls._call_api(partial(aggregator.count, hierarchy=hierarchy))
-            api_calls[(agg_id, cls.Columns.DataSets)] = cls._call_api(
+        return api_calls
+
+    @classmethod
+    def _update_next_calls(
+        cls,
+        result: str | int | list[str],
+        location: tuple[str, ...],
+        hierarchy: str,
+        next_calls: dict[tuple[str, ...], Callable],
+        aggregators: dict[str, MetadataAggregator],
+    ) -> None:
+        agg_id, col, *extra = location
+        aggregator = aggregators[agg_id]
+        if col == cls.Columns.Count and isinstance(result, int) and result > 0:
+            next_calls[(agg_id, cls.Columns.DataSets)] = cls._call_api(
                 partial(aggregator.used_data_sets, hierarchy=hierarchy)
             )
+        elif col == cls.Columns.DataSets and isinstance(result, list) and result:
+            for item in result:
+                next_calls[(agg_id, cls.Columns.DataSetCount, item)] = cls._call_api(
+                    partial(aggregator.count, data_set_external_id=item)
+                )
+            next_calls[(agg_id, cls.Columns.Transformations)] = cls._call_api(
+                partial(aggregator.used_transformations, data_set_external_ids=result)
+            )
+        # if col == cls.Columns.DataSets and (
+        #     isinstance(result, list) and all(isinstance(item, str) for item in result)
+        # ):
+        #     aggregator = aggregators[agg_id]
+        #     next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
+        #         partial(aggregator.used_transformations, data_set_external_ids=result)
+        #     )
+        # elif (
+        #     col == self.Columns.Transformations
+        #     and isinstance(result, list)
+        #     and all(isinstance(item, str) for item in result)
+        # ):
+        #     aggregator = aggregators[agg_id]
+        #     next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
+        #         partial(aggregator.used_raw_tables, transformations=result)
+        #     )
+        # elif (
+        #     col == self.Columns.RawTable
+        #     and isinstance(result, list)
+        #     and all(isinstance(item, RawTable) for item in result)
+        # ):
+        #     next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
+        #         partial(aggregator.used_raw_tables, raw_tables=result)
+        #     )
+        #     next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
+        #         partial(aggregator.used_raw_tables_column_count, raw_tables=result)
+        #     )
 
-        return rows, api_calls
+    @classmethod
+    def _update_table_content(
+        cls,
+        result: str | int | list[str],
+        location: tuple[str, ...],
+        table_content: dict[ResourceLineageID, ResourceLineageProfile],
+    ) -> None:
+        agg_id, col, *extra = location
+        if col == cls.Columns.Count:
+            value = table_content[ResourceLineageID(resource=agg_id)]
+            if isinstance(result, int):
+                value.count = result
+            else:
+                value.count = None
+            if value.count is None or value.count == 0:
+                value.dataset = None
+                value.dataset_count = None
+                value.transformation = None
+                value.raw_table = None
+                value.row_count = None
+                value.column_count = None
+        elif col == cls.Columns.DataSets:
+            if isinstance(result, list) and result:
+                current = table_content.pop(ResourceLineageID(resource=agg_id))
+                for dataset in result:
+                    copy_ = current.copy()
+                    copy_.dataset = dataset
+                    table_content[ResourceLineageID(resource=agg_id, dataset=dataset)] = copy_
+            else:
+                value = table_content[ResourceLineageID(resource=agg_id)]
+                value.dataset = None
+                value.dataset_count = None
+                value.transformation = None
+                value.raw_table = None
+                value.row_count = None
+                value.column_count = None
 
     @classmethod
     def _draw_table(
         cls,
-        rows: dict[str, dict[str, list[str | Spinner]]],
+        rows: Iterable[ResourceLineageProfile],
         hierarchy: str,
     ) -> Table:
         table = Table(
@@ -498,21 +647,17 @@ class ProfileAssetCommand(ToolkitCommand):
             title_justify="left",
             show_header=True,
             header_style="bold magenta",
+            box=box.MINIMAL,
         )
         for col in cls.columns:
             table.add_column(col)
+        content = list(rows)
 
-        for agg_id, content in rows.items():
-            row_count = max(len(content[col]) for col in cls.columns)
-            for i in range(row_count):
-                row: list[str | Spinner] = []
-                for col in cls.columns:
-                    if i < len(content[col]):
-                        cell = content[col][i]
-                    else:
-                        cell = ""
-                    row.append(cell)
-                table.add_row(*row)
+        for group, rows in itertools.groupby(
+            sorted(content, key=lambda x: x.as_sort_tuple()), key=lambda x: x.as_sort_tuple()
+        ):
+            for row in rows:
+                table.add_row(*row.as_row())
         return table
 
     @staticmethod
