@@ -416,7 +416,7 @@ class ProfileCommand(ToolkitCommand):
 class ResourceLineageID:
     resource: str
     dataset: str | None = None
-    transformation: str | None = None
+    transformation: int | None = None
     raw_table: str | None = None
 
 
@@ -577,7 +577,7 @@ class ProfileAssetCommand(ToolkitCommand):
     @classmethod
     def _update_next_calls(
         cls,
-        result: str | int | list[str],
+        result: Any,
         location: tuple[str, ...],
         hierarchy: str,
         next_calls: dict[tuple[str, ...], Callable],
@@ -600,13 +600,6 @@ class ProfileAssetCommand(ToolkitCommand):
                 partial(aggregator.used_transformations, data_set_external_ids=[dataset])
             )
 
-    # if col == cls.Columns.DataSets and (
-    #     isinstance(result, list) and all(isinstance(item, str) for item in result)
-    # ):
-    #     aggregator = aggregators[agg_id]
-    #     next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
-    #         partial(aggregator.used_transformations, data_set_external_ids=result)
-    #     )
     # elif (
     #     col == self.Columns.Transformations
     #     and isinstance(result, list)
@@ -683,9 +676,28 @@ class ProfileAssetCommand(ToolkitCommand):
                 for transformation in result:
                     copy_ = current.copy()
                     copy_.transformation = transformation.name or transformation.external_id or "<unknown>"
-                    table_content[
-                        ResourceLineageID(resource=agg_id, dataset=dataset, transformation=copy_.transformation)
-                    ] = copy_
+                    sources = get_transformation_sources(transformation.query or "")
+                    if not sources:
+                        table_content[
+                            ResourceLineageID(resource=agg_id, dataset=dataset, transformation=transformation.id)
+                        ] = copy_
+                    else:
+                        for source in sources:
+                            copy_copy = copy_.copy()
+                            if isinstance(source, str):
+                                copy_copy.raw_table = f"_cdf.{source}"
+                                copy_copy.row_count = None
+                                copy_copy.column_count = None
+                            else:
+                                copy_copy.raw_table = str(source)
+                            table_content[
+                                ResourceLineageID(
+                                    resource=agg_id,
+                                    dataset=dataset,
+                                    transformation=transformation.id,
+                                    raw_table=str(source),
+                                )
+                            ] = copy_copy
             else:
                 value = table_content[ResourceLineageID(resource=agg_id, dataset=dataset)]
                 value.transformation = None
