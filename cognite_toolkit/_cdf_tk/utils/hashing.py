@@ -46,10 +46,10 @@ def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
 
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     if isinstance(content, str):
-        byte_content = content.encode("utf-8")
-    else:
-        byte_content = content.read_bytes()
-    return calculate_bytes_or_file_hash(byte_content, shorten)
+        return calculate_bytes_or_file_hash(content.encode("utf-8"), shorten)
+    elif isinstance(content, Path):
+        return calculate_bytes_or_file_hash(content, shorten)
+    raise TypeError("Content must be a string or a Path object.")
 
 
 def calculate_bytes_or_file_hash(content: bytes | Path, shorten: bool = False) -> str:
