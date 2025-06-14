@@ -2,8 +2,9 @@ import itertools
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections.abc import Callable, Iterable, Mapping
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, ClassVar, Literal
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from functools import partial
+from typing import Any, ClassVar, Literal, TypeVar
 
 from cognite.client.data_classes import (
     AssetFilter,
@@ -26,6 +27,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 from cognite_toolkit._cdf_tk.utils.cdf import (
     get_transformation_sources,
     label_aggregate_count,
@@ -34,10 +36,9 @@ from cognite_toolkit._cdf_tk.utils.cdf import (
     raw_row_count,
     relationship_aggregate_count,
 )
+from cognite_toolkit._cdf_tk.utils.interactive_select import AssetInteractiveSelect
 from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
-from ..exceptions import ToolkitValueError
-from ..utils.interactive_select import AssetCentricInteractiveSelect
 from ._base import ToolkitCommand
 
 
@@ -169,8 +170,9 @@ class FileAggregator(LabelAggregator):
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
+        filter_ = self._create_hierarchy_filter(hierarchy)
         results = self.client.documents.aggregate_unique_values(
-            property=SourceFileProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy).dump()
+            property=SourceFileProperty.data_set_id, filter=filter_.dump() if filter_ else None
         )
         return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
 
@@ -360,6 +362,9 @@ class ProfileCommand(ToolkitCommand):
         return styled_callable
 
 
+T = TypeVar("T")
+
+
 class ProfileAssetCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
@@ -388,17 +393,20 @@ class ProfileAssetCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> list[dict[str, str]]:
         if hierarchy is None:
-            hierarchies, _ = AssetCentricInteractiveSelect(client).interactive_select_hierarchy_datasets()
+            hierarchies, _ = AssetInteractiveSelect(client).interactive_select_hierarchy_datasets()
             if len(hierarchies) > 1:
                 raise ToolkitValueError("Profiling multiple hierarchies is not supported.")
             hierarchy = hierarchies[0]
-        aggregators: list[AssetCentricAggregator] = [
-            AssetAggregator(client),
-            TimeSeriesAggregator(client),
-            FileAggregator(client),
-            EventAggregator(client),
-            SequenceAggregator(client),
-        ]
+        aggregators: dict[str, MetadataAggregator] = {
+            aggregator.display_name: aggregator
+            for aggregator in [
+                AssetAggregator(client),
+                TimeSeriesAggregator(client),
+                FileAggregator(client),
+                EventAggregator(client),
+                SequenceAggregator(client),
+            ]
+        }
         retrieved = client.assets.retrieve(external_id=hierarchy)
         if retrieved is None:
             raise ToolkitValueError(f"Hierarchy not found: {hierarchy}")
@@ -408,54 +416,81 @@ class ProfileAssetCommand(ToolkitCommand):
         table_content, api_calls = self._setup_table_content(hierarchy, aggregators)
         with Live(self._draw_table(table_content, hierarchy), refresh_per_second=4) as live:
             with ThreadPoolExecutor(max_workers=8) as executor:
-                future_to_cell = {
-                    executor.submit(api_calls[(index, col)]): (index, col)
-                    for index in range(len(aggregators))
+                current_calls = {
+                    executor.submit(api_calls[(agg_id, col)]): (agg_id, col)
+                    for agg_id in aggregators.keys()
                     for col in self.columns
-                    if (index, col) in api_calls
+                    if (agg_id, col) in api_calls
                 }
-                for future in as_completed(future_to_cell):
-                    index, col = future_to_cell[future]
-                    table_content[index][col] = future.result()
-                    live.update(self._draw_table(table_content, hierarchy))
-        return [{col: str(value) for col, value in row.items()} for row in table_content]
+                while current_calls:
+                    next_calls: dict[Future, tuple[str, str]] = {}
+                    for future in as_completed(current_calls):
+                        agg_id, col = current_calls[future]
+                        result = future.result()
+                        # Set up dependent calls based on the result of the current call.
+                        if col == self.Columns.DataSets and (
+                            isinstance(result, list) and all(isinstance(item, str) for item in result)
+                        ):
+                            continue
+                            aggregator = aggregators[agg_id]
+                            next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
+                                partial(aggregator.used_transformations, data_set_external_ids=result)
+                            )
+                        elif (
+                            col == self.Columns.Transformations
+                            and isinstance(result, list)
+                            and all(isinstance(item, str) for item in result)
+                        ):
+                            continue
+                            aggregator = aggregators[agg_id]
+                            next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
+                                partial(aggregator.used_raw_tables, transformations=result)
+                            )
+                        elif (
+                            col == self.Columns.RawTable
+                            and isinstance(result, list)
+                            and all(isinstance(item, RawTable) for item in result)
+                        ):
+                            continue
+                            next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
+                                partial(aggregator.used_raw_tables, raw_tables=result)
+                            )
+                            next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
+                                partial(aggregator.used_raw_tables_column_count, raw_tables=result)
+                            )
+
+                        result_list = [result] if isinstance(result, int | str) else list(result)
+                        for item in result_list:
+                            table_content[agg_id][col].append(self._as_human_readable(item))
+
+                        live.update(self._draw_table(table_content, hierarchy))
+                    current_calls = next_calls
+
+        return [{col: str(value) for col, value in row.items()} for row in table_content.values()]
 
     @classmethod
     def _setup_table_content(
         cls,
         hierarchy: str,
-        aggregators: list[AssetCentricAggregator],
-    ) -> tuple[list[dict[str, str | Spinner]], dict[tuple[int, str], Callable[[], str]]]:
-        rows: list[dict[str, str | Spinner]] = []
-        api_calls: dict[tuple[int, str], Callable[[], str]] = {}
-        for index, aggregator in enumerate(aggregators):
-            row: dict[str, str | Spinner] = {
-                cls.Columns.Resource: aggregator.display_name,
-                cls.Columns.Count: Spinner(**cls.spinner_args),
-            }
-            api_calls[(index, cls.Columns.Count)] = cls._call_api(aggregator.count, hierarchy=hierarchy)
-            row[cls.Columns.DataSets] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.DataSets)] = cls._call_api(aggregator.used_data_sets, hierarchy=hierarchy)
-            row[cls.Columns.Transformations] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.Transformations)] = cls._call_api(
-                aggregator.transformation, data_sets=datasets
+        aggregators: dict[str, MetadataAggregator],
+    ) -> tuple[dict[str, dict[str, list[str | Spinner]]], dict[tuple[str, str], Callable[[], str | int | list[str]]]]:
+        rows: dict[str, dict[str, list[str | Spinner]]] = defaultdict(lambda: defaultdict(list))
+        api_calls: dict[tuple[str, str], Callable[[], str | int | list[str]]] = {}
+        for agg_id, aggregator in aggregators.items():
+            rows[agg_id][aggregator.display_name].append(aggregator.display_name)
+            for col in cls.columns[1:]:
+                rows[agg_id][col].append(Spinner(**cls.spinner_args))
+            api_calls[(agg_id, cls.Columns.Count)] = cls._call_api(partial(aggregator.count, hierarchy=hierarchy))
+            api_calls[(agg_id, cls.Columns.DataSets)] = cls._call_api(
+                partial(aggregator.used_data_sets, hierarchy=hierarchy)
             )
-            row[cls.Columns.RawTable] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.RawTable)] = cls._call_api(
-                aggregator.raw_table, transformations=transformations
-            )
-            row[cls.Columns.RowCount] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.RowCount)] = cls._call_api(aggregator.row_count, raw_table=raw_table)
-            row[cls.Columns.ColumnCount] = Spinner(**cls.spinner_args)
-            api_calls[(index, cls.Columns.ColumnCount)] = cls._call_api(aggregator.column_count, raw_table=raw_table)
-            rows.append(row)
 
         return rows, api_calls
 
     @classmethod
     def _draw_table(
         cls,
-        rows: list[dict[str, str | Spinner]],
+        rows: dict[str, dict[str, list[str | Spinner]]],
         hierarchy: str,
     ) -> Table:
         table = Table(
@@ -467,21 +502,38 @@ class ProfileAssetCommand(ToolkitCommand):
         for col in cls.columns:
             table.add_column(col)
 
-        for row in rows:
-            table.add_row(*row.values())
+        for agg_id, content in rows.items():
+            row_count = max(len(content[col]) for col in cls.columns)
+            for i in range(row_count):
+                row: list[str | Spinner] = []
+                for col in cls.columns:
+                    if i < len(content[col]):
+                        cell = content[col][i]
+                    else:
+                        cell = ""
+                    row.append(cell)
+                table.add_row(*row)
         return table
 
     @staticmethod
-    def _call_api(call_fun: Callable[[], int], *args, **kwargs) -> Callable[[], str]:
-        def styled_callable() -> str:
+    def _call_api(call_fun: Callable[[], T]) -> Callable[[], T | str]:
+        def styled_callable() -> T | str:
             try:
-                value = call_fun(*args, **kwargs)
+                return call_fun()
             except CogniteException as e:
                 return type(e).__name__
-            else:
-                return f"{value:,}"
 
         return styled_callable
+
+    @staticmethod
+    def _as_human_readable(value: int | str) -> str:
+        """Convert a value to a human-readable string."""
+        if isinstance(value, int):
+            return f"{value:,}"
+        elif isinstance(value, str):
+            return value
+        else:
+            raise ToolkitValueError(f"Unsupported type for human-readable conversion: {type(value)}")
 
 
 class ProfileRawCommand(ToolkitCommand):
