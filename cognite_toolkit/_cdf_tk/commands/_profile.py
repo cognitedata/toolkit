@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, ClassVar, Literal, TypeVar
+from typing import Any, ClassVar, Literal, TypeVar, cast
 
 from cognite.client.data_classes import (
     AssetFilter,
@@ -123,13 +123,18 @@ class AssetAggregator(LabelAggregator):
         return "Assets"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
-        return self.client.assets.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+        return self.client.assets.aggregate_count(filter=self._create_hierarchy_filter(hierarchy, data_set_external_id))
 
     @classmethod
-    def _create_hierarchy_filter(cls, hierarchy: str | None) -> AssetFilter | None:
+    def _create_hierarchy_filter(
+        cls, hierarchy: str | None, data_set_external_id: str | None = None
+    ) -> AssetFilter | None:
         if hierarchy is None:
             return None
-        return AssetFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+        return AssetFilter(
+            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
+        )
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -150,13 +155,18 @@ class EventAggregator(MetadataAggregator):
         return "Events"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
-        return self.client.events.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+        return self.client.events.aggregate_count(filter=self._create_hierarchy_filter(hierarchy, data_set_external_id))
 
     @classmethod
-    def _create_hierarchy_filter(cls, hierarchy: str | None) -> EventFilter | None:
+    def _create_hierarchy_filter(
+        cls, hierarchy: str | None, data_set_external_id: str | None = None
+    ) -> EventFilter | None:
         if hierarchy is None:
             return None
-        return EventFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+        return EventFilter(
+            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
+        )
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -177,17 +187,22 @@ class FileAggregator(LabelAggregator):
         return "Files"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
-        response = self.client.files.aggregate(filter=self._create_hierarchy_filter(hierarchy))
+        response = self.client.files.aggregate(filter=self._create_hierarchy_filter(hierarchy, data_set_external_id))
         if response:
             return response[0].count
         else:
             return 0
 
     @classmethod
-    def _create_hierarchy_filter(cls, hierarchy: str | None) -> FileMetadataFilter | None:
+    def _create_hierarchy_filter(
+        cls, hierarchy: str | None, data_set_external_id: str | None = None
+    ) -> FileMetadataFilter | None:
         if hierarchy is None:
             return None
-        return FileMetadataFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+        return FileMetadataFilter(
+            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
+        )
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -209,13 +224,20 @@ class TimeSeriesAggregator(MetadataAggregator):
         return "TimeSeries"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
-        return self.client.time_series.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+        return self.client.time_series.aggregate_count(
+            filter=self._create_hierarchy_filter(hierarchy, data_set_external_id)
+        )
 
     @classmethod
-    def _create_hierarchy_filter(cls, hierarchy: str | None) -> TimeSeriesFilter | None:
+    def _create_hierarchy_filter(
+        cls, hierarchy: str | None, data_set_external_id: str | None = None
+    ) -> TimeSeriesFilter | None:
         if hierarchy is None:
             return None
-        return TimeSeriesFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+        return TimeSeriesFilter(
+            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
+        )
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -236,13 +258,20 @@ class SequenceAggregator(MetadataAggregator):
         return "Sequences"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
-        return self.client.sequences.aggregate_count(filter=self._create_hierarchy_filter(hierarchy))
+        return self.client.sequences.aggregate_count(
+            filter=self._create_hierarchy_filter(hierarchy, data_set_external_id)
+        )
 
     @classmethod
-    def _create_hierarchy_filter(cls, hierarchy: str | None) -> SequenceFilter | None:
+    def _create_hierarchy_filter(
+        cls, hierarchy: str | None, data_set_external_id: str | None = None
+    ) -> SequenceFilter | None:
         if hierarchy is None:
             return None
-        return SequenceFilter(asset_subtree_ids=[{"externalId": hierarchy}])
+        return SequenceFilter(
+            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
+        )
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
@@ -427,8 +456,8 @@ class ResourceLineageProfile:
     def as_sort_tuple(self) -> tuple[int, int, int]:
         return (
             self.index,
-            self.dataset_count if isinstance(self.dataset_count, int) else 0,
-            self.row_count if isinstance(self.row_count, int) else 0,
+            -self.dataset_count if isinstance(self.dataset_count, int) else 0,
+            -self.row_count if isinstance(self.row_count, int) else 0,
         )
 
     def as_row(self) -> tuple[str | Spinner, ...]:
@@ -519,10 +548,7 @@ class ProfileAssetCommand(ToolkitCommand):
             with ThreadPoolExecutor(max_workers=8) as executor:
                 while True:
                     current_calls: dict[Future, tuple[str, ...]] = {
-                        executor.submit(api_calls[(agg_id, col)]): (agg_id, col)
-                        for agg_id in aggregators.keys()
-                        for col in self.columns
-                        if (agg_id, col) in api_calls
+                        executor.submit(call): key for key, call in api_calls.items()
                     }
                     next_calls: dict[tuple[str, ...], Callable] = {}
                     for future in as_completed(current_calls):
@@ -566,43 +592,46 @@ class ProfileAssetCommand(ToolkitCommand):
         elif col == cls.Columns.DataSets and isinstance(result, list) and result:
             for item in result:
                 next_calls[(agg_id, cls.Columns.DataSetCount, item)] = cls._call_api(
-                    partial(aggregator.count, data_set_external_id=item)
+                    partial(aggregator.count, data_set_external_id=item, hierarchy=hierarchy)
                 )
-            next_calls[(agg_id, cls.Columns.Transformations)] = cls._call_api(
-                partial(aggregator.used_transformations, data_set_external_ids=result)
+        elif col == cls.Columns.DataSetCount:
+            dataset = cast(str, extra[0] if extra else None)
+            next_calls[(agg_id, cls.Columns.Transformations, dataset)] = cls._call_api(
+                partial(aggregator.used_transformations, data_set_external_ids=[dataset])
             )
-        # if col == cls.Columns.DataSets and (
-        #     isinstance(result, list) and all(isinstance(item, str) for item in result)
-        # ):
-        #     aggregator = aggregators[agg_id]
-        #     next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
-        #         partial(aggregator.used_transformations, data_set_external_ids=result)
-        #     )
-        # elif (
-        #     col == self.Columns.Transformations
-        #     and isinstance(result, list)
-        #     and all(isinstance(item, str) for item in result)
-        # ):
-        #     aggregator = aggregators[agg_id]
-        #     next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
-        #         partial(aggregator.used_raw_tables, transformations=result)
-        #     )
-        # elif (
-        #     col == self.Columns.RawTable
-        #     and isinstance(result, list)
-        #     and all(isinstance(item, RawTable) for item in result)
-        # ):
-        #     next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
-        #         partial(aggregator.used_raw_tables, raw_tables=result)
-        #     )
-        #     next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
-        #         partial(aggregator.used_raw_tables_column_count, raw_tables=result)
-        #     )
+
+    # if col == cls.Columns.DataSets and (
+    #     isinstance(result, list) and all(isinstance(item, str) for item in result)
+    # ):
+    #     aggregator = aggregators[agg_id]
+    #     next_calls[(agg_id, self.Columns.Transformations)] = self._call_api(
+    #         partial(aggregator.used_transformations, data_set_external_ids=result)
+    #     )
+    # elif (
+    #     col == self.Columns.Transformations
+    #     and isinstance(result, list)
+    #     and all(isinstance(item, str) for item in result)
+    # ):
+    #     aggregator = aggregators[agg_id]
+    #     next_calls[(agg_id, self.Columns.RawTable)] = self._call_api(
+    #         partial(aggregator.used_raw_tables, transformations=result)
+    #     )
+    # elif (
+    #     col == self.Columns.RawTable
+    #     and isinstance(result, list)
+    #     and all(isinstance(item, RawTable) for item in result)
+    # ):
+    #     next_calls[(agg_id, self.Columns.RowCount)] = self._call_api(
+    #         partial(aggregator.used_raw_tables, raw_tables=result)
+    #     )
+    #     next_calls[(agg_id, self.Columns.ColumnCount)] = self._call_api(
+    #         partial(aggregator.used_raw_tables_column_count, raw_tables=result)
+    #     )
 
     @classmethod
     def _update_table_content(
         cls,
-        result: str | int | list[str],
+        result: Any,
         location: tuple[str, ...],
         table_content: dict[ResourceLineageID, ResourceLineageProfile],
     ) -> None:
@@ -635,6 +664,34 @@ class ProfileAssetCommand(ToolkitCommand):
                 value.raw_table = None
                 value.row_count = None
                 value.column_count = None
+        elif col == cls.Columns.DataSetCount:
+            dataset = extra[0] if extra else None
+            value = table_content[ResourceLineageID(resource=agg_id, dataset=dataset)]
+            if isinstance(result, int):
+                value.dataset_count = result
+            else:
+                value.dataset_count = None
+            if value.dataset_count is None or value.dataset_count == 0:
+                value.transformation = None
+                value.raw_table = None
+                value.row_count = None
+                value.column_count = None
+        elif col == cls.Columns.Transformations:
+            dataset = extra[0] if extra else None
+            if isinstance(result, list) and result:
+                current = table_content.pop(ResourceLineageID(resource=agg_id, dataset=dataset))
+                for transformation in result:
+                    copy_ = current.copy()
+                    copy_.transformation = transformation.name or transformation.external_id or "<unknown>"
+                    table_content[
+                        ResourceLineageID(resource=agg_id, dataset=dataset, transformation=copy_.transformation)
+                    ] = copy_
+            else:
+                value = table_content[ResourceLineageID(resource=agg_id, dataset=dataset)]
+                value.transformation = None
+                value.raw_table = None
+                value.row_count = None
+                value.column_count = None
 
     @classmethod
     def _draw_table(
@@ -653,11 +710,21 @@ class ProfileAssetCommand(ToolkitCommand):
             table.add_column(col)
         content = list(rows)
 
+        shown_by_index: dict[int, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))
+        seen_indexes = set()
         for group, rows in itertools.groupby(
             sorted(content, key=lambda x: x.as_sort_tuple()), key=lambda x: x.as_sort_tuple()
         ):
+            index = group[0]
+            shown = shown_by_index[index]
             for row in rows:
-                table.add_row(*row.as_row())
+                this_row = row.as_row()
+                draw_row = ["" if cell in shown[i] else cell for i, cell in enumerate(this_row)]
+                table.add_row(*draw_row, style="bold" if index not in seen_indexes else "dim")
+                for i, cell in enumerate(draw_row):
+                    if isinstance(cell, str):
+                        shown[i].add(cell)
+                seen_indexes.add(index)
         return table
 
     @staticmethod
