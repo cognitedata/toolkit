@@ -2,6 +2,7 @@ from pathlib import Path
 
 from cognite_toolkit._cdf_tk.utils.hashing import calculate_bytes_or_file_hash, calculate_str_or_file_hash
 
+
 def test_hash_filepath_equals_windows_line_endings(tmp_path: Path) -> None:
     # This test ensures that the hash of a file with Windows line endings is the same as the hash of the same file
     # with Unix line endings.
