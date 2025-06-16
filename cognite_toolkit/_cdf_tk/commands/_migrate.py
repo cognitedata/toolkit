@@ -75,15 +75,31 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
 
     def as_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
-        return [mapping.id for mapping in self if isinstance(mapping, IdMigrationMapping)]
+        ids: list[int] = []
+        for mapping in self:
+            if not isinstance(mapping, IdMigrationMapping):
+                raise ToolkitValueError(
+                    "Cannot retrieve IDs from migration mappings that do not contain IDs. "
+                    "Ensure all mappings are of type IdMigrationMapping."
+                )
+            ids.append(mapping.id)
+        return ids
 
     def as_external_ids(self) -> list[str]:
         """Return a list of external IDs from the migration mappings."""
-        return [mapping.external_id for mapping in self if isinstance(mapping, ExternalIdMigrationMapping)]
+        external_ids: list[str] = []
+        for mapping in self:
+            if not isinstance(mapping, ExternalIdMigrationMapping):
+                raise ToolkitValueError(
+                    "Cannot retrieve external IDs from migration mappings that do not contain external IDs. "
+                    "Ensure all mappings are of type ExternalIdMigrationMapping."
+                )
+            external_ids.append(mapping.external_id)
+        return external_ids
 
     def as_node_ids(self) -> list[NodeId]:
         """Return a list of NodeIds from the migration mappings."""
-        return [mapping.instance_id for mapping in self if isinstance(mapping, MigrationMapping)]
+        return [mapping.instance_id for mapping in self]
 
     def spaces(self) -> set[str]:
         """Return a set of spaces from the migration mappings."""
