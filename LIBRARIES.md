@@ -7,6 +7,10 @@ The Toolkit can import modules from external libraries. This is an ALPHA feature
 A user can add packages to cdf.toml. At the moment, the Toolkit only loads one library.
 
 ```toml
+[alpha_flags]
+external-libraries = true
+
+
 [library.package_1]
 url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtins.zip"
 
