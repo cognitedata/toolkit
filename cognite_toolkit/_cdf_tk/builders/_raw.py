@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.loaders import RawDatabaseLoader, RawTableLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
 
@@ -55,7 +55,7 @@ class RawBuilder(Builder):
                 if loader is RawDatabaseLoader and has_split_table_and_database:
                     # We have inferred the database from a Table file, so we need to recalculate the hash
                     # in case we also inferred the database from another Table file
-                    new_hash = calculate_str_or_file_hash(
+                    new_hash = calculate_hash(
                         yaml_safe_dump(sorted(entries, key=lambda entry: entry["dbName"])),
                         shorten=True,
                     )
