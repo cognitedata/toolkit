@@ -42,6 +42,7 @@ class Builder(ABC):
         self,
         build_dir: Path | None,
         resource_folder: str | None = None,
+        warn: Callable[[ToolkitWarning], None] | None = None,
     ):
         self._build_dir = build_dir
         self.resource_counter = 0
