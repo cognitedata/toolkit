@@ -721,8 +721,9 @@ default_organization_dir = "{organization_dir.name}"''',
         If the feature flag is not enabled and no libraries are specified, it returns the built-in modules.
         """
 
-        if Flags.EXTERNAL_LIBRARIES.is_enabled() and CDFToml.libraries:
-            for library_name, library in CDFToml.libraries.items():
+        cdf_toml = CDFToml.load()
+        if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
+            for library_name, library in cdf_toml.libraries.items():
                 try:
                     print(f"[green]Adding library {library_name}[/]")
                     output_path = self._temp_download_dir / f"{library_name}.zip"
