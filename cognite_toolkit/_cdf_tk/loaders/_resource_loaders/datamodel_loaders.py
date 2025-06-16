@@ -93,7 +93,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
-    calculate_str_or_file_hash,
+    calculate_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -1294,7 +1294,7 @@ class GraphQLLoader(
 
             # Add hash to description
             description = item.get("description", "")
-            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
                 LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
