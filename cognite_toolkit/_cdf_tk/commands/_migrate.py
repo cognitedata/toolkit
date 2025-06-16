@@ -73,29 +73,13 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             return MigrationMappingList(super().__getitem__(index))
         return super().__getitem__(index)
 
-    def as_ids(self) -> list[int]:
+    def get_ids(self) -> list[int]:
         """Return a list of IDs from the migration mappings."""
-        ids: list[int] = []
-        for mapping in self:
-            if not isinstance(mapping, IdMigrationMapping):
-                raise ToolkitValueError(
-                    "Cannot retrieve IDs from migration mappings that do not contain IDs. "
-                    "Ensure all mappings are of type IdMigrationMapping."
-                )
-            ids.append(mapping.id)
-        return ids
+        return [mapping.id for mapping in self if isinstance(mapping, IdMigrationMapping)]
 
-    def as_external_ids(self) -> list[str]:
+    def get_external_ids(self) -> list[str]:
         """Return a list of external IDs from the migration mappings."""
-        external_ids: list[str] = []
-        for mapping in self:
-            if not isinstance(mapping, ExternalIdMigrationMapping):
-                raise ToolkitValueError(
-                    "Cannot retrieve external IDs from migration mappings that do not contain external IDs. "
-                    "Ensure all mappings are of type ExternalIdMigrationMapping."
-                )
-            external_ids.append(mapping.external_id)
-        return external_ids
+        return [mapping.external_id for mapping in self if isinstance(mapping, ExternalIdMigrationMapping)]
 
     def as_node_ids(self) -> list[NodeId]:
         """Return a list of NodeIds from the migration mappings."""
@@ -115,7 +99,7 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             for mapping in self
         ]
 
-    def as_data_set_ids(self) -> set[int]:
+    def get_data_set_ids(self) -> set[int]:
         """Return a list of data set IDs from the migration mappings."""
         return {
             mapping.data_set_id
@@ -165,7 +149,7 @@ class MigrateTimeseriesCommand(ToolkitCommand):
                 scope=SpaceIDScope(list(mappings.spaces())),
             ),
         ]
-        if data_set_ids := mappings.as_data_set_ids():
+        if data_set_ids := mappings.get_data_set_ids():
             required_capabilities.append(
                 TimeSeriesAcl(
                     actions=[TimeSeriesAcl.Action.Read, TimeSeriesAcl.Action.Write],
@@ -185,8 +169,8 @@ class MigrateTimeseriesCommand(ToolkitCommand):
         ):
             try:
                 timeseries = client.time_series.retrieve_multiple(
-                    ids=chunk.as_ids(),
-                    external_ids=chunk.as_external_ids(),
+                    ids=chunk.get_ids(),
+                    external_ids=chunk.get_external_ids(),
                     ignore_unknown_ids=True,
                 )
             except CogniteAPIError as e:
