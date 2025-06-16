@@ -732,7 +732,8 @@ default_organization_dir = "{organization_dir.name}"''',
                     print(f"[red]Failed to add library {library_name}: {e}[/red]")
                     raise
             # If no libraries are specified or the flag is not enabled, load the built-in modules
-        return Packages.load(self._builtin_modules_path)
+        else:
+            return Packages.load(self._builtin_modules_path)
 
     def _download_and_unpack(self, url: str, output_path: Path) -> None:
         """
