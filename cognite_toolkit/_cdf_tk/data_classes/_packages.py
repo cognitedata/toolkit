@@ -66,8 +66,8 @@ class Packages(dict, MutableMapping[str, Package]):
             root_module_dir: The module directories to load the packages from.
         """
 
-        package_definition_path = next(root_module_dir.rglob("packages.toml"))
-        if not package_definition_path.exists():
+        package_definition_path = next(root_module_dir.rglob("packages.toml"), None)
+        if not package_definition_path or not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
         package_definitions = toml.loads(package_definition_path.read_text(encoding="utf-8"))["packages"]
 
