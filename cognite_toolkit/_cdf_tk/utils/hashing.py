@@ -46,17 +46,19 @@ def calculate_secure_hash(item: dict[str, Any], shorten: bool = False) -> str:
 
 def calculate_str_or_file_hash(content: str | Path, shorten: bool = False) -> str:
     if isinstance(content, str):
-        return calculate_bytes_or_file_hash(content.encode("utf-8"), shorten)
+        return calculate_hash(content.encode("utf-8"), shorten)
     elif isinstance(content, Path):
-        return calculate_bytes_or_file_hash(content, shorten)
+        return calculate_hash(content, shorten)
     raise TypeError("Content must be a string or a Path object.")
 
 
-def calculate_bytes_or_file_hash(content: bytes | Path, shorten: bool = False) -> str:
+def calculate_hash(content: str | bytes | Path, shorten: bool = False) -> str:
     sha256_hash = hashlib.sha256()
     if isinstance(content, Path):
         # Get rid of Windows line endings to make the hash consistent across platforms.
         content = content.read_bytes().replace(b"\r\n", b"\n")
+    elif isinstance(content, str):
+        content = content.encode("utf-8")
     sha256_hash.update(content)
     calculated = sha256_hash.hexdigest()
     if shorten:
