@@ -732,6 +732,7 @@ default_organization_dir = "{organization_dir.name}"''',
                     print(f"[red]Failed to add library {library_name}: {e}[/red]")
                     raise
             # If no libraries are specified or the flag is not enabled, load the built-in modules
+            raise ValueError("No valid libraries found.")
         else:
             return Packages.load(self._builtin_modules_path)
 
