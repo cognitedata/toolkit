@@ -10,13 +10,10 @@ module-repeat = true
 populate = true
 agents = false
 profile = true
-dump-extended = true
 infield = true
 dump-data = true
-migrate = true
 
 exit-on-warning = true
-
 
 [plugins]
 run = true
