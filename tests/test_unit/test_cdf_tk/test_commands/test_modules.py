@@ -10,6 +10,7 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands.modules import ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
@@ -264,3 +265,28 @@ class TestModulesCommand:
             first.write_text("This is a test file.")
             assert first.exists()
         assert not first.exists(), "File should not exist after context manager exits"
+
+    @pytest.fixture(autouse=True)
+    def reset_cdf_toml_singleton(self):
+        global _CDF_TOML
+        _CDF_TOML = None
+        yield
+        _CDF_TOML = None
+
+    def test_library_fallback_if_flag_is_false(self, tmp_path: Path) -> None:
+        valid_toml_content = """
+        [cdf]
+        [modules]
+        version = "0.0.0"
+        [alpha_flags]
+        external_libraries = false
+        [library.valid_url]
+        url = "https://github.com/cognitedata/package.zip"
+        """
+
+        file_path = tmp_path / CDFToml.file_name
+        file_path.write_text(valid_toml_content)
+
+        with ModulesCommand() as cmd:
+            packs = cmd._get_available_packages()
+            assert "quickstart" in packs

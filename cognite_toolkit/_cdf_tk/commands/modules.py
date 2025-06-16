@@ -52,6 +52,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Packages,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
@@ -308,8 +309,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
         modules_root_dir = organization_dir / MODULES
 
-        cdf_toml = CDFToml.load()
-        packages = self._get_library_packages(cdf_toml) or Packages.load(self._builtin_modules_path)
+        packages = self._get_available_packages()
 
         if select_all:
             print(Panel("Instantiating all available modules"))
@@ -708,35 +708,31 @@ default_organization_dir = "{organization_dir.name}"''',
             environments.append(default.environment.validation_type)
             build_env = default.environment.validation_type
 
-        cdf_toml = CDFToml.load()
         existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
-        available_packages = self._get_library_packages(cdf_toml) or Packages.load(self._builtin_modules_path)
+        available_packages = self._get_available_packages()
         added_packages = self._select_packages(available_packages, existing_module_names)
 
         download_data = self._get_download_data(added_packages)
         self._create(organization_dir, added_packages, environments, "update", download_data)
 
-    def _get_library_packages(self, cdf_toml: CDFToml) -> Packages | None:
-        if not cdf_toml.libraries or len(cdf_toml.libraries) == 0:
-            return None
+    def _get_available_packages(self) -> Packages:
+        """
+        Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
+        If the feature flag is not enabled and no libraries are specified, it returns the built-in modules.
+        """
 
-        # Note: just returning the first library's packages for now
-        for library_name, library in cdf_toml.libraries.items():
-            try:
-                print(f"[green]Adding library {library_name}[/]")
-                if library.url:
+        if Flags.EXTERNAL_LIBRARIES.is_enabled() and CDFToml.libraries:
+            for library_name, library in CDFToml.libraries.items():
+                try:
+                    print(f"[green]Adding library {library_name}[/]")
                     output_path = self._temp_download_dir / f"{library_name}.zip"
                     self._download_and_unpack(library.url, output_path)
-                    available_packages = Packages().load(output_path.parent)
-                    return available_packages  # not supporting multiple libraries yet
-                else:
-                    print(f"[red]Library {library_name} has no URL specified. Skipping download.[/red]")
-                    return None
-            except Exception as e:
-                print(f"[red]Failed to add library {library_name}: {e}[/red]")
-                return None
-
-        return None
+                    return Packages().load(output_path.parent)
+                except Exception as e:
+                    print(f"[red]Failed to add library {library_name}: {e}[/red]")
+                    raise
+            # If no libraries are specified or the flag is not enabled, load the built-in modules
+        return Packages.load(self._builtin_modules_path)
 
     def _download_and_unpack(self, url: str, output_path: Path) -> None:
         """
