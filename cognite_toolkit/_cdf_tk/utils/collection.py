@@ -1,7 +1,7 @@
 import difflib
-from collections.abc import Collection, Iterable, Iterator
+from collections.abc import Collection, Iterable, Iterator, Sequence
 from itertools import islice
-from typing import Any
+from typing import Any, TypeVar
 
 from cognite_toolkit._cdf_tk.utils.file import yaml_safe_dump
 
@@ -48,3 +48,13 @@ def chunker(iterable: Iterable[Any], size: int) -> Iterator[list[Any]]:
     iterator = iter(iterable)
     while chunk := list(islice(iterator, size)):
         yield chunk
+
+
+T_Sequence = TypeVar("T_Sequence", bound=Sequence)
+
+
+def chunker_sequence(sequence: T_Sequence, size: int) -> Iterator[T_Sequence]:
+    """Yield successive n-sized chunks from sequence."""
+    for i in range(0, len(sequence), size):
+        # MyPy does not expect sequence[i : i + size] to be of type T_Sequence
+        yield sequence[i : i + size]  # type: ignore[misc]
