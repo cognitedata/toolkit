@@ -69,7 +69,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
-from cognite_toolkit._cdf_tk.utils import calculate_hash, calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 from .config import API_RESOURCES
@@ -653,7 +653,7 @@ class ApprovalToolkitClient:
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
             return _upload_file_content_files_api(
-                calculate_str_or_file_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
+                calculate_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
             )
 
         def _upload_file_content_files_api(

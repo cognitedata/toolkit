@@ -79,7 +79,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings.fileread import MissingRequiredIdentifierWarning
 from cognite_toolkit._cdf_tk.utils import (
-    calculate_str_or_file_hash,
+    calculate_hash,
     humanize_collection,
     quote_int_value_by_key_in_yaml,
     read_yaml_content,
@@ -480,7 +480,7 @@ class BuildCommand(ToolkitCommand):
             # We cannot use the content as the basis for hash as this have been encoded.
             # Instead, we use the source path, which will hash the bytes of the file directly,
             # which is what we do in the deploy step to verify that the source file has not changed.
-            source = SourceLocationEager(source_path, calculate_str_or_file_hash(source_path, shorten=True))
+            source = SourceLocationEager(source_path, calculate_hash(source_path, shorten=True))
 
             content = variables.replace(content, source_path.suffix)
 
