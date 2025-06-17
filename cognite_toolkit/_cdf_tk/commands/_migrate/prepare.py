@@ -12,7 +12,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 
-from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW, SPACE
+from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW, MODEL_ID, SPACE
 
 
 class MigrationPrepareCommand(ToolkitCommand):
@@ -22,6 +22,8 @@ class MigrationPrepareCommand(ToolkitCommand):
         deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
         deploy_cmd.tracker = self.tracker
 
+        verb = "Would deploy" if dry_run else "Deploying"
+        print(f"{verb} {MODEL_ID!r}")
         results = DeployResults([], "deploy", dry_run=dry_run)
         for loader_cls, resources in [
             (SpaceLoader, [SPACE]),
