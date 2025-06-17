@@ -17,7 +17,9 @@ from cognite.client.data_classes import (
     FunctionWriteList,
 )
 from cognite.client.data_classes.capabilities import (
+    AllScope,
     Capability,
+    DataSetScope,
     FilesAcl,
     FunctionsAcl,
     SessionsAcl,
@@ -166,6 +168,14 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     def get_function_required_capabilities(
         self, items: Sequence[FunctionWrite] | None, read_only: bool
     ) -> list[Capability] | list[Capability]:
+        """
+        Get required capabilities for working with CDF Functions and their associated files.
+
+        This method determines the necessary permissions needed for function operations,
+        with dataset-scoped file access when possible. When functions are associated with
+        specific datasets, it will request file permissions only for those datasets
+        rather than requiring all-scope file access.
+        """
         if not items and items is not None:
             return []
 
@@ -174,7 +184,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         )
         file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
 
-        file_scope = FilesAcl.Scope.All()  # type: ignore[assignment]
+        file_scope: AllScope | DataSetScope = FilesAcl.Scope.All()
 
         if items and self.data_set_id_by_external_id:
             dataset_ids = [
@@ -183,7 +193,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 if item.external_id and item.external_id in self.data_set_id_by_external_id
             ]
             if dataset_ids:
-                file_scope = FilesAcl.Scope.DataSet(dataset_ids)  # type: ignore[assignment]
+                file_scope = FilesAcl.Scope.DataSet(dataset_ids)
 
         return [
             FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
