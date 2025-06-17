@@ -173,8 +173,13 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"Unused field: {loc[-1]!r}"
         elif error_type == "value_error":
             msg = str(item["ctx"]["error"])
-        elif error_type == "literal_error":
+        elif error_type in {"literal_error", "list_type"}:
             msg = f"{item['msg']}. Got {item['input']!r}."
+        elif error_type == "string_type" and len(loc) >= 2 and loc[-2] == "metadata":
+            key = loc[-1]
+            msg = f"The key {key!r} should be a valid string. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
+        elif error_type == "string_type":
+            msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
         else:
             # Default to the Pydantic error message
             msg = item["msg"]
@@ -195,8 +200,12 @@ def as_json_path(loc: tuple[str | int, ...]) -> str:
     Returns:
         A JSON path string.
     """
+    if not loc:
+        return ""
     # +1 to convert from 0-based to 1-based indexing
-    if len(loc) == 1 and isinstance(loc[0], int):
-        return f"item [{loc[0] + 1}]"
+    prefix = ""
+    if isinstance(loc[0], int):
+        prefix = "item "
 
-    return ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
+    suffix = ".".join([str(x) if isinstance(x, str) else f"[{x + 1}]" for x in loc]).replace(".[", "[")
+    return f"{prefix}{suffix}"

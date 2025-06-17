@@ -27,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -104,7 +104,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             item_id = self.get_id(item)
             self._source_file_by_external_id[item_id] = filepath
             content = self._as_json_string(item_id, item["entrypoint"])
-            item["cogniteToolkitAppHash"] = calculate_str_or_file_hash(content, shorten=True)
+            item["cogniteToolkitAppHash"] = calculate_hash(content, shorten=True)
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitWrite:
