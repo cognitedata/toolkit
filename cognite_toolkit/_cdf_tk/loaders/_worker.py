@@ -21,6 +21,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, Toolki
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
+from . import FunctionLoader
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
@@ -135,9 +136,15 @@ class ResourceWorker(
                 else:
                     warning.print_warning()
 
-        capabilities = self.loader.get_required_capability(
-            [item for _, item in local_by_id.values()], read_only=is_dry_run
-        )
+        capabilities = []
+        if isinstance(self.loader, FunctionLoader):
+            capabilities = self.loader.get_function_required_capabilities(  # type: ignore[attr-defined]
+                [item for _, item in local_by_id.values()], read_only=is_dry_run
+            )
+        else:
+            capabilities = self.loader.get_required_capability(  # type: ignore[assignment]
+                [item for _, item in local_by_id.values()], read_only=is_dry_run
+            )
         if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):
             raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
 

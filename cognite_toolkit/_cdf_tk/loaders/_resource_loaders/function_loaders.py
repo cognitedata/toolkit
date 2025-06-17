@@ -163,6 +163,33 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                 hash_value += f";{new_entry}"
         return hash_value
 
+    def get_function_required_capabilities(
+        self, items: Sequence[FunctionWrite] | None, read_only: bool
+    ) -> list[Capability] | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        function_actions = (
+            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        )
+        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+
+        file_scope = FilesAcl.Scope.All()  # type: ignore[assignment]
+
+        if items and self.data_set_id_by_external_id:
+            dataset_ids = [
+                self.data_set_id_by_external_id[item.external_id]
+                for item in items
+                if item.external_id and item.external_id in self.data_set_id_by_external_id
+            ]
+            if dataset_ids:
+                file_scope = FilesAcl.Scope.DataSet(dataset_ids)  # type: ignore[assignment]
+
+        return [
+            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+            FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
+        ]
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
         item_id = self.get_id(resource)
         if ds_external_id := resource.pop("dataSetExternalId", None):

@@ -5,6 +5,7 @@ import pytest
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import Function, FunctionSchedule, FunctionWrite
+from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -121,6 +122,51 @@ secrets:
 
         assert "indexUrl" in dumped
         assert dumped["indexUrl"] == "http://my-index-url"
+
+    def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
+
+        # Mock data
+        items = [
+            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
+            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
+            FunctionWrite(external_id="function3", name="Function 3", file_id=1003),
+        ]
+
+        # Test read-only mode
+        read_capabilities = loader.get_function_required_capabilities(items, read_only=True)
+        assert len(read_capabilities) == 2
+        assert isinstance(read_capabilities[0], FunctionsAcl)
+        assert isinstance(read_capabilities[1], FilesAcl)
+        assert read_capabilities[0].actions == [FunctionsAcl.Action.Read]
+        assert read_capabilities[1].actions == [FilesAcl.Action.Read]
+        assert isinstance(read_capabilities[1].scope, FilesAcl.Scope.DataSet)
+        assert sorted(read_capabilities[1].scope.ids) == [123, 456]
+
+        # Test write mode
+        write_capabilities = loader.get_function_required_capabilities(items, read_only=False)
+        assert len(write_capabilities) == 2
+        assert write_capabilities[0].actions == [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        assert write_capabilities[1].actions == [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        assert isinstance(write_capabilities[1].scope, FilesAcl.Scope.DataSet)
+        assert sorted(write_capabilities[1].scope.ids) == [123, 456]
+
+    def test_get_function_required_capabilities_empty(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        capabilities = loader.get_function_required_capabilities([], read_only=False)
+        assert capabilities == []
+
+    def test_get_function_required_capabilities_no_datasets(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        items = [
+            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
+            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
+        ]
+
+        capabilities = loader.get_function_required_capabilities(items, read_only=False)
+        assert len(capabilities) == 2
+        assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
 
 class TestFunctionScheduleLoader:
