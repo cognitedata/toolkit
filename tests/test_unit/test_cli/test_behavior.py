@@ -23,6 +23,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -31,6 +32,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
+    COMPLETE_ORG_ONLY_IDENTIFIER,
     NAUGHTY_PROJECT,
     PROJECT_FOR_TEST,
     PROJECT_NO_COGNITE_MODULES,
@@ -632,6 +634,39 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
 
 
+def test_build_deploy_location_filter_with_same_filename_in_different_modules(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    BuildCommand(silent=True).execute(
+        False,
+        NAUGHTY_PROJECT,
+        build_tmp_path,
+        ["modules/multi_locations"],
+        None,
+        False,
+        env_vars_with_client.get_client(),
+        "raise",
+    )
+
+    DeployCommand(silent=True).execute(
+        env_vars_with_client,
+        build_tmp_path,
+        None,
+        dry_run=False,
+        drop=False,
+        drop_data=False,
+        force_update=False,
+        include=None,
+        verbose=False,
+    )
+
+    locations = toolkit_client_approval.created_resources_of_type(LocationFilter)
+
+    assert len(locations) == 2
+
+
 @pytest.mark.skipif(sys.platform != "win32", reason="The encoding issue is only present on Windows")
 @pytest.mark.parametrize("encoding", ["utf-8", "cp1252"])
 def test_build_deploy_keep_special_characters(
@@ -649,7 +684,7 @@ def test_build_deploy_keep_special_characters(
     my_cdf_toml.cdf.file_encoding = encoding
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     BuildCommand(silent=True).execute(
-        False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
+        False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
     )
 
     DeployCommand(silent=True).execute(
@@ -669,3 +704,23 @@ def test_build_deploy_keep_special_characters(
     assert len(transformations) == 2
     transformation = next(t for t in transformations if t.external_id.endswith(encoding))
     assert transformation.query == expected_query
+
+
+def test_build_project_with_only_identifiers(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    """In the cdf modules pull command, we have to be able to build a project that only has identifiers
+    without raising any errors.
+    """
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name="dev",
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
