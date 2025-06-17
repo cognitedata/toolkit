@@ -6,7 +6,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesAp
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
-from cognite_toolkit._cdf_tk.commands._migrate import (
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ExternalIdMigrationMapping,
     IdMigrationMapping,
     MigrationMappingList,
