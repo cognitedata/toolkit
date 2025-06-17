@@ -23,6 +23,7 @@ from pytest import MonkeyPatch
 
 from cognite_toolkit._cdf_tk import cdf_toml
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilter
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, DumpResourceCommand, PullCommand
 from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, WorkflowFinder
 from cognite_toolkit._cdf_tk.constants import MODULES
@@ -630,6 +631,39 @@ def test_dump_workflow(
     assert len(list(output_dir.glob("**/*.Workflow.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowTrigger.yaml"))) == 1
     assert len(list(output_dir.glob("**/*.WorkflowVersion.yaml"))) == 1
+
+
+def test_build_deploy_location_filter_with_same_filename_in_different_modules(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    BuildCommand(silent=True).execute(
+        False,
+        NAUGHTY_PROJECT,
+        build_tmp_path,
+        ["modules/multi_locations"],
+        None,
+        False,
+        env_vars_with_client.get_client(),
+        "raise",
+    )
+
+    DeployCommand(silent=True).execute(
+        env_vars_with_client,
+        build_tmp_path,
+        None,
+        dry_run=False,
+        drop=False,
+        drop_data=False,
+        force_update=False,
+        include=None,
+        verbose=False,
+    )
+
+    locations = toolkit_client_approval.created_resources_of_type(LocationFilter)
+
+    assert len(locations) == 2
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="The encoding issue is only present on Windows")
