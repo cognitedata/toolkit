@@ -143,7 +143,7 @@ class DataModelSource(Destination):
     _destination_type = "instances"
     type: Literal["instances"] = "instances"
     data_model: DataModelInfo = Field(description="Target data model info.")
-    instance_space: str = Field(description="The space where the instances will be created.")
+    instance_space: str | None = Field(None, description="The space where the instances will be created.")
 
 
 class ViewDataSource(Destination):
