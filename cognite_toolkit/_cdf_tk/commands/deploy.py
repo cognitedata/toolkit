@@ -162,18 +162,25 @@ class DeployCommand(ToolkitCommand):
 
         for loader_cls in ordered_loaders:
             loader_instance = loader_cls.create_loader(client, build_dir)
-            result = self.deploy_resources(
-                loader_instance,
-                env_vars=env_vars,
-                state=deploy_state,
-                dry_run=dry_run,
-                has_done_drop=drop,
-                has_dropped_data=drop_data,
-                force_update=force_update,
-                verbose=verbose,
-            )
-            if result:
-                results[result.name] = result
+            cdf_result: DeployResult | None
+            if isinstance(loader_instance, ResourceLoader):
+                cdf_result = self.deploy_resources(
+                    loader_instance,
+                    env_vars,
+                    deploy_state.read_modules,
+                    dry_run,
+                    drop,
+                    drop_data,
+                    force_update,
+                    verbose,
+                )
+            elif isinstance(loader_instance, DataLoader):
+                cdf_result = self.upload_data(loader_instance, deploy_state, dry_run, verbose)
+            else:
+                raise ValueError(f"Unsupported loader type {type(loader)}.")
+
+            if cdf_result:
+                results[cdf_result.name] = cdf_result
             if verbose:
                 print("")  # Extra newline
 
@@ -183,26 +190,6 @@ class DeployCommand(ToolkitCommand):
             print(results.uploads_table())
 
     def deploy_resources(
-        self,
-        loader: Loader,
-        env_vars: EnvironmentVariables,
-        state: BuildEnvironment,
-        dry_run: bool = False,
-        has_done_drop: bool = False,
-        has_dropped_data: bool = False,
-        force_update: bool = False,
-        verbose: bool = False,
-    ) -> DeployResult | None:
-        if isinstance(loader, ResourceLoader):
-            return self._deploy_resources(
-                loader, env_vars, state.read_modules, dry_run, has_done_drop, has_dropped_data, force_update, verbose
-            )
-        elif isinstance(loader, DataLoader):
-            return self._deploy_data(loader, state, dry_run, verbose)
-        else:
-            raise ValueError(f"Unsupported loader type {type(loader)}.")
-
-    def _deploy_resources(
         self,
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
@@ -400,7 +387,7 @@ class DeployCommand(ToolkitCommand):
             return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
         return ""
 
-    def _deploy_data(
+    def upload_data(
         self,
         loader: DataLoader,
         state: BuildEnvironment,
