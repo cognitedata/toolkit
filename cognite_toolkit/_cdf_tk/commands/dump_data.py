@@ -10,6 +10,10 @@ from cognite.client.data_classes import (
     Asset,
     AssetFilter,
     DataSetList,
+    Event,
+    EventFilter,
+    FileMetadata,
+    FileMetadataFilter,
     LabelDefinitionList,
     TimeSeries,
     TimeSeriesFilter,
@@ -25,11 +29,26 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitIsADirectoryError,
     ToolkitValueError,
 )
-from cognite_toolkit._cdf_tk.loaders import AssetLoader, DataSetsLoader, LabelLoader, ResourceLoader, TimeSeriesLoader
+from cognite_toolkit._cdf_tk.loaders import (
+    AssetLoader,
+    DataSetsLoader,
+    EventLoader,
+    FileMetadataLoader,
+    LabelLoader,
+    ResourceLoader,
+    TimeSeriesLoader,
+)
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.cdf import metadata_key_counts
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
 from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
-from cognite_toolkit._cdf_tk.utils.table_writers import FileFormat, Schema, SchemaColumn, TableFileWriter
+from cognite_toolkit._cdf_tk.utils.table_writers import (
+    FileFormat,
+    Schema,
+    SchemaColumn,
+    SchemaColumnList,
+    TableFileWriter,
+)
 
 
 class DataFinder:
@@ -37,8 +56,12 @@ class DataFinder:
     # This is the standard maximum items that can be returns by most CDF endpoints.
     chunk_size: ClassVar[int] = 1000
 
-    def is_supported_format(self, format_: FileFormat) -> bool:
-        return format_ in self.supported_formats
+    def validate_format(self, format_: str) -> Literal[FileFormat]:
+        if format_ in self.supported_formats:
+            return format_  # type: ignore[return-value]
+        raise ToolkitValueError(
+            f"Unsupported format {format_}. Supported formats are {humanize_collection(self.supported_formats)}."
+        )
 
     @abstractmethod
     def create_iterators(
@@ -73,7 +96,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
         raise NotImplementedError()
 
     @abstractmethod
-    def _get_resource_columns(self) -> list[SchemaColumn]:
+    def _get_resource_columns(self) -> SchemaColumnList:
         """Get the columns for the schema."""
         raise NotImplementedError()
 
@@ -146,7 +169,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -170,7 +193,7 @@ class AssetCentricFinder(DataFinder, ABC, Generic[T_CogniteResource]):
             Schema(
                 display_name=loader.display_name,
                 format_="yaml",
-                columns=[],
+                columns=SchemaColumnList(),
                 folder_name=loader.folder_name,
                 kind=loader.kind,
             ),
@@ -227,23 +250,76 @@ class AssetFinder(AssetCentricFinder[Asset]):
             return self.client.lookup.data_sets.external_id(item.data_set_id or 0) or ""
         return ""
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="parentExternalId", type="string"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="source", type="string"),
-            SchemaColumn(name="labels", type="string", is_array=True),
-            SchemaColumn(name="geoLocation", type="json"),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="parentExternalId", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "assets", data_set_ids or None, root_ids or None)
         sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
         return columns
+
+
+class FileMetadataFinder(AssetCentricFinder[FileMetadata]):
+    supported_formats = frozenset({"csv", "parquet"})
+
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return FileMetadataLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        result = self.client.files.aggregate(
+            filter=FileMetadataFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+        return result[0].count if result else 0
+
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="directory", type="string"),
+                SchemaColumn(name="source", type="string"),
+                SchemaColumn(name="mimeType", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="sourceCreatedTime", type="integer"),
+                SchemaColumn(name="sourceModifiedTime", type="integer"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+                SchemaColumn(name="labels", type="string", is_array=True),
+                SchemaColumn(name="geoLocation", type="json"),
+            ]
+        )
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
+        metadata_keys = metadata_key_counts(self.client, "files", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
+
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        return self.client.files(
+            chunk_size=self.chunk_size,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
+        )
+
+    def _resource_processor(self, items: Iterable[FileMetadata]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(items))]
 
 
 class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
@@ -271,25 +347,74 @@ class TimeSeriesFinder(AssetCentricFinder[TimeSeries]):
     def _resource_processor(self, time_series: Iterable[TimeSeries]) -> list[tuple[str, list[dict[str, Any]]]]:
         return [("", self._to_write(time_series))]
 
-    def _get_resource_columns(self) -> list[SchemaColumn]:
-        columns = [
-            SchemaColumn(name="externalId", type="string"),
-            SchemaColumn(name="name", type="string"),
-            SchemaColumn(name="isString", type="boolean"),
-            SchemaColumn(name="unit", type="string"),
-            SchemaColumn(name="unitExternalId", type="string"),
-            SchemaColumn(name="assetExternalId", type="string"),
-            SchemaColumn(name="isStep", type="boolean"),
-            SchemaColumn(name="description", type="string"),
-            SchemaColumn(name="dataSetExternalId", type="string"),
-            SchemaColumn(name="securityCategories", type="string", is_array=True),
-        ]
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="name", type="string"),
+                SchemaColumn(name="isString", type="boolean"),
+                SchemaColumn(name="unit", type="string"),
+                SchemaColumn(name="unitExternalId", type="string"),
+                SchemaColumn(name="assetExternalId", type="string"),
+                SchemaColumn(name="isStep", type="boolean"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="securityCategories", type="string", is_array=True),
+            ]
+        )
         data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
         root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
         metadata_keys = metadata_key_counts(self.client, "timeseries", data_set_ids or None, root_ids or None)
         sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
         columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
         return columns
+
+
+class EventFinder(AssetCentricFinder[Event]):
+    supported_formats = frozenset({"csv", "parquet"})
+
+    def _create_loader(self, client: ToolkitClient) -> ResourceLoader:
+        return EventLoader.create_loader(client)
+
+    def _aggregate_count(self, hierarchies: list[str], data_sets: list[str]) -> int:
+        return self.client.events.aggregate_count(
+            filter=EventFilter(
+                data_set_ids=[{"externalId": item} for item in data_sets] or None,
+                asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
+            )
+        )
+
+    def _get_resource_columns(self) -> SchemaColumnList:
+        columns = SchemaColumnList(
+            [
+                SchemaColumn(name="externalId", type="string"),
+                SchemaColumn(name="dataSetExternalId", type="string"),
+                SchemaColumn(name="startTime", type="integer"),
+                SchemaColumn(name="endTime", type="integer"),
+                SchemaColumn(name="type", type="string"),
+                SchemaColumn(name="subtype", type="string"),
+                SchemaColumn(name="description", type="string"),
+                SchemaColumn(name="assetExternalIds", type="string", is_array=True),
+                SchemaColumn(name="source", type="string"),
+            ]
+        )
+        data_set_ids = self.client.lookup.data_sets.id(self.data_sets) if self.data_sets else []
+        root_ids = self.client.lookup.assets.id(self.hierarchies) if self.hierarchies else []
+        metadata_keys = metadata_key_counts(self.client, "events", data_set_ids or None, root_ids or None)
+        sorted_keys = sorted([key for key, count in metadata_keys if count > 0])
+        columns.extend([SchemaColumn(name=f"metadata.{key}", type="string") for key in sorted_keys])
+        return columns
+
+    def create_resource_iterator(self, limit: int | None) -> Iterable:
+        return self.client.events(
+            chunk_size=self.chunk_size,
+            asset_subtree_external_ids=self.hierarchies or None,
+            data_set_external_ids=self.data_sets or None,
+            limit=limit,
+        )
+
+    def _resource_processor(self, items: Iterable[Event]) -> list[tuple[str, list[dict[str, Any]]]]:
+        return [("", self._to_write(items))]
 
 
 class DumpDataCommand(ToolkitCommand):
@@ -299,7 +424,7 @@ class DumpDataCommand(ToolkitCommand):
         output_dir: Path,
         clean: bool,
         limit: int | None = None,
-        format_: Literal["yaml", "csv", "parquet"] = "csv",
+        format_: str = "csv",
         verbose: bool = False,
         parallel_threshold: int = 10,
         max_queue_size: int = 10,
@@ -317,12 +442,15 @@ class DumpDataCommand(ToolkitCommand):
             max_queue_size (int, optional): If using parallel processing, the maximum size of the queue. Defaults to 10.
 
         """
-        if not finder.is_supported_format(format_):
-            raise ToolkitValueError(f"Unsupported format {format_}. Supported formats are {finder.supported_formats}.")
+        valid_format = finder.validate_format(format_)
         self.validate_directory(output_dir, clean)
 
         console = Console()
-        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(format_, limit):
+        # The ignore is used as MyPy does not understand that is_supported_format
+        # above guarantees that the format is valid.
+        for schema, iteration_count, resource_iterator, resource_processor in finder.create_iterators(
+            valid_format, limit
+        ):
             writer_cls = TableFileWriter.get_write_cls(schema.format_)
             row_counts = 0
             t0 = time.perf_counter()

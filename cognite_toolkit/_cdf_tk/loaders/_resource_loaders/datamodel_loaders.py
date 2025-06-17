@@ -93,7 +93,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
-    calculate_str_or_file_hash,
+    calculate_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -1131,7 +1131,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=True, replace=False
+            # Note replace should never be relevant as Toolkit always checks whether the node exists before applying.
+            nodes=items,
+            auto_create_direct_relations=True,
+            replace=True,
         )
         return result.nodes
 
@@ -1140,7 +1143,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def update(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=False, replace=True
+            nodes=items, auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 
@@ -1291,7 +1294,7 @@ class GraphQLLoader(
 
             # Add hash to description
             description = item.get("description", "")
-            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
                 LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()

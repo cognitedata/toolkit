@@ -53,6 +53,20 @@ def toolkit_client(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
     return ToolkitClient(toolkit_client_config)
 
 
+@pytest.fixture()
+def max_two_workers():
+    old = global_config.max_workers
+    global_config.max_workers = 2
+    yield
+    global_config.max_workers = old
+
+
+@pytest.fixture(scope="session")
+def toolkit_client_with_pending_ids(toolkit_client_config: ToolkitClientConfig) -> ToolkitClient:
+    """Returns a ToolkitClient configured to enable pending IDs."""
+    return ToolkitClient(toolkit_client_config, enable_set_pending_ids=True)
+
+
 @pytest.fixture(scope="session")
 def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
     env_vars = EnvironmentVariables.create_from_environment()
@@ -73,3 +87,34 @@ def build_dir() -> Path:
     build_path.mkdir(exist_ok=True, parents=True)
     yield build_path
     shutil.rmtree(build_path, ignore_errors=True)
+
+
+@pytest.fixture(scope="session")
+def dev_cluster_client() -> ToolkitClient | None:
+    """Returns a ToolkitClient configured for the development cluster."""
+    dev_cluster_env = REPO_ROOT / "dev-cluster.env"
+    if not dev_cluster_env.exists():
+        pytest.skip("dev-cluster.env file not found, skipping tests that require dev cluster client.")
+        return None
+    env_content = dev_cluster_env.read_text(encoding="utf-8")
+    env_vars = dict(
+        line.strip().split("=")
+        for line in env_content.splitlines()
+        if line.strip() and not line.startswith("#") and "=" in line
+    )
+    cdf_cluster = env_vars["CDF_CLUSTER"]
+    credentials = OAuthClientCredentials(
+        token_url=env_vars["IDP_TOKEN_URL"],
+        client_id=env_vars["IDP_CLIENT_ID"],
+        client_secret=env_vars["IDP_CLIENT_SECRET"],
+        scopes=[f"https://{cdf_cluster}.cognitedata.com/.default"],
+        audience=f"https://{cdf_cluster}.cognitedata.com",
+    )
+    config = ToolkitClientConfig(
+        client_name="cdf-toolkit-integration-tests",
+        base_url=f"https://{cdf_cluster}.cognitedata.com",
+        project=env_vars["CDF_PROJECT"],
+        credentials=credentials,
+        is_strict_validation=False,
+    )
+    return ToolkitClient(config, enable_set_pending_ids=True)

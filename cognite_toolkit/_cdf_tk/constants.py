@@ -92,3 +92,12 @@ class URL:
     plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
     libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"
     build_variables = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/api/config_yaml#the-variables-section"
+
+
+# The number of instances that should be left as a margin when Toolkit writes to CDF through the DMS API.
+# This is currently set conservatively to 1 million. The reasoning for this is that there are CDF
+# applications such as Infield and Industrial Canvas that can write to the DMS API, as well as likely third-party
+# applications that can write to the DMS API. If Toolkit fills up the entire capacity, these type of data gathering
+# applications will experience data loss. The limit of 1 million is chosen such that it will trigger alarms in the
+# CDF projects, such that admins can take action to increase or clean up the capacity before it is too late.
+DMS_INSTANCE_LIMIT_MARGIN = 1_000_000

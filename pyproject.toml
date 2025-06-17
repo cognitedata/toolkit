@@ -53,11 +53,15 @@ dev = [
     "pyperclip >=1.9.0",
     "types-requests >=2.32.0.20241016",
     "marko >=2.1.2",
+    "responses>=0.25.7"
 ]
 
 [project.optional-dependencies]
 table = [
     "pyarrow>=20.0.0",
+]
+sql = [
+    "sqlparse >=0.5.3",
 ]
 
 [project.scripts]
