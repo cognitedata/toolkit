@@ -3,7 +3,7 @@ from typing import Annotated, Any
 
 import typer
 
-from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
+from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand, MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -47,7 +47,15 @@ class MigrateApp(typer.Typer):
         This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
         depend on the primary resources 3D and annotations.
         """
-        raise NotImplementedError()
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = MigrationPrepareCommand()
+        cmd.run(
+            lambda: cmd.deploy_cognite_migration(
+                client,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
 
     @staticmethod
     def timeseries(

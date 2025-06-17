@@ -15,7 +15,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW, SPACE
 
 
-class MigrateTimeseriesCommand(ToolkitCommand):
+class MigrationPrepareCommand(ToolkitCommand):
     def deploy_cognite_migration(self, client: ToolkitClient, dry_run: bool, verbose: bool = False) -> None:
         """Deploys the Cognite Migration Data Model"""
 
