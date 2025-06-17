@@ -1,0 +1,3 @@
+- transformationExternalId: my_transformation_id
+  destination: john.smith@example.com
+
