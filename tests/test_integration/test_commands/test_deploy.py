@@ -55,7 +55,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
         os.environ,
         {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
     ):
-        deploy_command.execute(
+        deploy_command.deploy_build_directory(
             env_vars=env_vars,
             build_dir=build_dir,
             build_env_name="dev",
@@ -97,7 +97,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         os.environ,
         {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
     ):
-        deploy_command.execute(
+        deploy_command.deploy_build_directory(
             env_vars,
             build_dir=build_dir,
             build_env_name="dev",
