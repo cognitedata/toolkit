@@ -649,7 +649,7 @@ def test_build_deploy_keep_special_characters(
     my_cdf_toml.cdf.file_encoding = encoding
     monkeypatch.setattr(cdf_toml, "_CDF_TOML", my_cdf_toml)
     BuildCommand(silent=True).execute(
-        False, NAUGHTY_PROJECT, build_dir, None, None, False, env_vars_with_client.get_client(), "raise"
+        False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
     )
 
     DeployCommand(silent=True).execute(
