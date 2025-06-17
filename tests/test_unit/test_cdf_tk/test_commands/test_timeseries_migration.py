@@ -6,7 +6,7 @@ from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesAp
 
 from cognite_toolkit._cdf_tk.client.data_classes.extended_timeseries import ExtendedTimeSeries
 from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand
-from cognite_toolkit._cdf_tk.commands._migrate import (
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import (
     ExternalIdMigrationMapping,
     IdMigrationMapping,
     MigrationMappingList,
@@ -14,6 +14,55 @@ from cognite_toolkit._cdf_tk.commands._migrate import (
 
 
 class TestMigrateTimeSeriesCommand:
+    @pytest.mark.parametrize(
+        "ts, expected",
+        [
+            (
+                ExtendedTimeSeries(
+                    external_id="full_ts",
+                    data_set_id=123,
+                    description="Test description",
+                    name="Test Time Series",
+                    is_step=True,
+                    is_string=False,
+                    unit="m/s",
+                    unit_external_id="velocity:m-per-sec",
+                    pending_instance_id=NodeId("sp_full_ts", "full_ts_id"),
+                ),
+                CogniteTimeSeriesApply(
+                    space="sp_full_ts",
+                    external_id="full_ts_id",
+                    is_step=True,
+                    time_series_type="numeric",
+                    name="Test Time Series",
+                    description="Test description",
+                    source_unit="m/s",
+                    unit=DirectRelationReference("cdf_cdm_units", "velocity:m-per-sec"),
+                ),
+            ),
+            (
+                ExtendedTimeSeries(
+                    external_id="minimum_ts",
+                    is_step=False,
+                    is_string=True,
+                    pending_instance_id=NodeId("sp_step_ts", "step_ts_id"),
+                ),
+                CogniteTimeSeriesApply(
+                    space="sp_step_ts",
+                    external_id="step_ts_id",
+                    is_step=False,
+                    time_series_type="string",
+                ),
+            ),
+        ],
+    )
+    def test_as_cognite_timeseries(self, ts: ExtendedTimeSeries, expected: CogniteTimeSeriesApply) -> None:
+        actual = MigrateTimeseriesCommand.as_cognite_timeseries(ts)
+
+        assert actual.dump() == expected.dump()
+
+
+class TestMigrationMappingList:
     @pytest.mark.parametrize(
         "content, expected",
         [
@@ -94,8 +143,7 @@ class TestMigrateTimeSeriesCommand:
     def test_read_mapping_file(self, content: str, expected: MigrationMappingList, tmp_path: Path) -> None:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
-        cmd = MigrateTimeseriesCommand()
-        actual = cmd.read_mapping_file(input_file)
+        actual = MigrationMappingList.read_mapping_file(input_file)
         assert actual == expected
 
     @pytest.mark.parametrize(
@@ -151,54 +199,6 @@ class TestMigrateTimeSeriesCommand:
         input_file = tmp_path / "mapping_file.csv"
         input_file.write_text(content, encoding="utf-8")
 
-        cmd = MigrateTimeseriesCommand()
         with pytest.raises(ValueError) as exc_info:
-            cmd.read_mapping_file(input_file)
+            MigrationMappingList.read_mapping_file(input_file)
         assert str(exc_info.value) == expected_msg
-
-    @pytest.mark.parametrize(
-        "ts, expected",
-        [
-            (
-                ExtendedTimeSeries(
-                    external_id="full_ts",
-                    data_set_id=123,
-                    description="Test description",
-                    name="Test Time Series",
-                    is_step=True,
-                    is_string=False,
-                    unit="m/s",
-                    unit_external_id="velocity:m-per-sec",
-                    pending_instance_id=NodeId("sp_full_ts", "full_ts_id"),
-                ),
-                CogniteTimeSeriesApply(
-                    space="sp_full_ts",
-                    external_id="full_ts_id",
-                    is_step=True,
-                    time_series_type="numeric",
-                    name="Test Time Series",
-                    description="Test description",
-                    source_unit="m/s",
-                    unit=DirectRelationReference("cdf_cdm_units", "velocity:m-per-sec"),
-                ),
-            ),
-            (
-                ExtendedTimeSeries(
-                    external_id="minimum_ts",
-                    is_step=False,
-                    is_string=True,
-                    pending_instance_id=NodeId("sp_step_ts", "step_ts_id"),
-                ),
-                CogniteTimeSeriesApply(
-                    space="sp_step_ts",
-                    external_id="step_ts_id",
-                    is_step=False,
-                    time_series_type="string",
-                ),
-            ),
-        ],
-    )
-    def test_as_cognite_timeseries(self, ts: ExtendedTimeSeries, expected: CogniteTimeSeriesApply) -> None:
-        actual = MigrateTimeseriesCommand.as_cognite_timeseries(ts)
-
-        assert actual.dump() == expected.dump()

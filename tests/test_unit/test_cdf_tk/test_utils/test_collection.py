@@ -1,6 +1,6 @@
 from cognite.client.data_classes.data_modeling import NodeId
 
-from cognite_toolkit._cdf_tk.commands._migrate import IdMigrationMapping, MigrationMappingList
+from cognite_toolkit._cdf_tk.commands._migrate.data_classes import IdMigrationMapping, MigrationMappingList
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
 
