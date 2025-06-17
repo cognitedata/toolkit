@@ -16,7 +16,7 @@ from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW
 
 
 class MigrationPrepareCommand(ToolkitCommand):
-    def deploy_cognite_migration(self, client: ToolkitClient, dry_run: bool, verbose: bool = False) -> None:
+    def deploy_cognite_migration(self, client: ToolkitClient, dry_run: bool, verbose: bool = False) -> DeployResults:
         """Deploys the Cognite Migration Data Model"""
 
         deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
@@ -56,3 +56,4 @@ class MigrationPrepareCommand(ToolkitCommand):
                 results[result.name] = result
         if results.has_counts:
             print(results.counts_table())
+        return results
