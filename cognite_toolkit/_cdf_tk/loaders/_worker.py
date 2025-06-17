@@ -94,7 +94,10 @@ class ResourceWorker(
 
         self.validate_access(local_by_id, is_dry_run)
 
-        return self.categorize_resources(local_by_id, force_update, verbose)
+        # Lookup the existing resources in CDF
+        cdf_resources: T_WritableCogniteResourceList
+        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
+        return self.categorize_resources(local_by_id, cdf_resources, force_update, verbose)
 
     def load_resources(
         self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
@@ -143,12 +146,12 @@ class ResourceWorker(
             raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
 
     def categorize_resources(
-        self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]], force_update: bool, verbose: bool
+        self,
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]],
+        cdf_resources: T_WritableCogniteResourceList,
+        force_update: bool,
+        verbose: bool,
     ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList]:
-        # Lookup the existing resources in CDF
-        cdf_resources: T_WritableCogniteResourceList
-        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
-
         to_create: T_CogniteResourceList
         to_update: T_CogniteResourceList
         to_delete: list[T_ID] = []
