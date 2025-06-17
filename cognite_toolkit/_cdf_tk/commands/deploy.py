@@ -38,7 +38,6 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders import (
     DataLoader,
-    GroupLoader,
     Loader,
     RawDatabaseLoader,
     ResourceContainerLoader,
@@ -47,7 +46,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
-from cognite_toolkit._cdf_tk.tk_warnings.base import catch_warnings
+from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
     LowSeverityWarning,
     ToolkitDependenciesIncludedWarning,
@@ -259,7 +258,7 @@ class DeployCommand(ToolkitCommand):
         if not files:
             return None
 
-        with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
+        with catch_warnings(EnvironmentVariableMissingWarning) as env_var_warnings:
             to_create, to_update, to_delete, unchanged = worker.prepare_resources(
                 files,
                 environment_variables=env_vars.dump(include_os=True),
@@ -267,9 +266,9 @@ class DeployCommand(ToolkitCommand):
                 force_update=force_update,
                 verbose=verbose,
             )
-        if warning_list:
-            print(str(warning_list))
-            self.warning_list.extend(warning_list)
+        if env_var_warnings:
+            print(str(env_var_warnings))
+            self.warning_list.extend(env_var_warnings)
 
         # We are not counting to_delete as these are captured by to_create.
         # (to_delete is used for resources that does not support update and instead needs to be deleted and recreated)
@@ -279,83 +278,105 @@ class DeployCommand(ToolkitCommand):
 
         prefix = "Would deploy" if dry_run else "Deploying"
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
+
         # Moved here to avoid printing before the above message.
         if not isinstance(loader, RawDatabaseLoader):
             for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
-        nr_of_created = nr_of_changed = nr_of_unchanged = nr_of_deleted = 0
-
         if dry_run:
-            if (
-                loader.support_drop
-                and has_done_drop
-                and (not isinstance(loader, ResourceContainerLoader) or has_dropped_data)
-            ):
-                # Means the resources will be deleted and not left unchanged or changed
-                for item in unchanged:
-                    # We cannot use extents as LoadableNodes cannot be extended.
-                    to_create.append(item)
-                for item in to_update:
-                    to_create.append(item)
-                unchanged.clear()
-                to_update.clear()
-
-            nr_of_unchanged += len(unchanged)
-            nr_of_created += len(to_create)
-            nr_of_deleted += len(to_delete)
-            if isinstance(loader, GroupLoader):
-                nr_of_deleted += len(to_update)
-                nr_of_created += len(to_update)
-            else:
-                nr_of_changed += len(to_update)
+            result = self.dry_run_deploy(
+                to_create,
+                to_update,
+                to_delete,
+                unchanged,
+                loader,
+                has_done_drop,
+                has_dropped_data,
+            )
         else:
-            environment_variable_warning_by_id = {
-                identifier: warning
-                for warning in warning_list
-                if isinstance(warning, EnvironmentVariableMissingWarning)
-                for identifier in warning.identifiers or []
-            }
-            nr_of_unchanged += len(unchanged)
-
-            if to_delete:
-                deleted = loader.delete(to_delete)
-                nr_of_deleted += deleted
-
-            if to_create:
-                created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
-                nr_of_created += created
-
-            if to_update:
-                updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
-                if isinstance(loader, GroupLoader):
-                    nr_of_deleted += updated
-                    nr_of_created += updated
-                else:
-                    nr_of_changed += updated
+            result = self.actual_deploy(to_create, to_update, to_delete, unchanged, loader, env_var_warnings)
 
         if verbose:
             self._verbose_print(to_create, to_update, unchanged, loader, dry_run)
 
         if isinstance(loader, ResourceContainerLoader):
-            return ResourceContainerDeployResult(
-                name=loader.display_name,
-                created=nr_of_created,
-                changed=nr_of_changed,
-                deleted=nr_of_deleted,
-                unchanged=nr_of_unchanged,
-                total=nr_of_items,
+            return ResourceContainerDeployResult.from_resource_deploy_result(
+                result,
                 item_name=loader.item_name,
             )
-        else:
-            return ResourceDeployResult(
-                name=loader.display_name,
-                created=nr_of_created,
-                changed=nr_of_changed,
-                deleted=nr_of_deleted,
-                unchanged=nr_of_unchanged,
-                total=nr_of_items,
-            )
+        return result
+
+    def actual_deploy(
+        self,
+        to_create: T_CogniteResourceList,
+        to_update: T_CogniteResourceList,
+        to_delete: list[T_ID],
+        unchanged: T_CogniteResourceList,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        env_var_warnings: WarningList,
+    ) -> ResourceDeployResult:
+        environment_variable_warning_by_id = {
+            identifier: warning
+            for warning in env_var_warnings
+            if isinstance(warning, EnvironmentVariableMissingWarning)
+            for identifier in warning.identifiers or []
+        }
+        nr_of_unchanged = len(unchanged)
+        nr_of_deleted, nr_of_created, nr_of_changed = 0, 0, 0
+        if to_delete:
+            deleted = loader.delete(to_delete)
+            nr_of_deleted += deleted
+        if to_create:
+            created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
+            nr_of_created += created
+        if to_update:
+            updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
+            nr_of_changed += updated
+        return ResourceDeployResult(
+            name=loader.display_name,
+            created=nr_of_created,
+            deleted=nr_of_deleted,
+            changed=nr_of_changed,
+            unchanged=nr_of_unchanged,
+            total=nr_of_created + nr_of_deleted + nr_of_changed + nr_of_unchanged,
+        )
+
+    @staticmethod
+    def dry_run_deploy(
+        to_create: T_CogniteResourceList,
+        to_update: T_CogniteResourceList,
+        to_delete: list[T_ID],
+        unchanged: T_CogniteResourceList,
+        loader: ResourceLoader[
+            T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
+        ],
+        has_done_drop: bool,
+        has_dropped_data: bool,
+    ) -> ResourceDeployResult:
+        if (
+            loader.support_drop
+            and has_done_drop
+            and (not isinstance(loader, ResourceContainerLoader) or has_dropped_data)
+        ):
+            # Means the resources will be deleted and not left unchanged or changed
+            for item in unchanged:
+                # We cannot use extents as LoadableNodes cannot be extended.
+                to_create.append(item)
+            for item in to_update:
+                to_create.append(item)
+            unchanged.clear()
+            to_update.clear()
+        return ResourceDeployResult(
+            name=loader.display_name,
+            created=len(to_create),
+            deleted=len(to_delete),
+            changed=len(to_update),
+            unchanged=len(unchanged),
+            total=len(to_create) + len(to_delete) + len(to_update) + len(unchanged),
+        )
 
     @staticmethod
     def _verbose_print(
