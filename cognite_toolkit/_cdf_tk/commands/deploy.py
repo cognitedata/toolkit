@@ -62,7 +62,7 @@ class DeployCommand(ToolkitCommand):
         super().__init__(print_warning, skip_tracking, silent)
         self._clean_command = CleanCommand(print_warning, skip_tracking=True)
 
-    def execute(
+    def deploy_build_directory(
         self,
         env_vars: EnvironmentVariables,
         build_dir: Path,
@@ -83,9 +83,11 @@ class DeployCommand(ToolkitCommand):
         self._start_message(build_dir, dry_run, env_vars)
         results = DeployResults([], "deploy", dry_run=dry_run)
         if drop or drop_data:
-            self._clean(client, results, build, build_dir, drop, drop_data, dry_run, env_vars, ordered_loaders, verbose)
+            self.clean_all_resources(
+                client, results, build, build_dir, drop, drop_data, dry_run, env_vars, ordered_loaders, verbose
+            )
 
-        self._deploy(
+        self.deploy_all_resources(
             client,
             results,
             build,
@@ -157,7 +159,7 @@ class DeployCommand(ToolkitCommand):
             )
         )
 
-    def _clean(
+    def clean_all_resources(
         self,
         client: ToolkitClient,
         results: DeployResults,
@@ -198,7 +200,7 @@ class DeployCommand(ToolkitCommand):
         print("[bold]...cleaning complete![/]")
         return None
 
-    def _deploy(
+    def deploy_all_resources(
         self,
         client: ToolkitClient,
         results: DeployResults,
@@ -219,7 +221,7 @@ class DeployCommand(ToolkitCommand):
             loader = loader_cls.create_loader(client, build_dir)
             resource_result: DeployResult | None
             if isinstance(loader, ResourceLoader):
-                resource_result = self.deploy_resources(
+                resource_result = self.deploy_resource_type(
                     loader,
                     env_vars,
                     build.read_modules,
@@ -240,7 +242,7 @@ class DeployCommand(ToolkitCommand):
                 print("")  # Extra newline
         return None
 
-    def deploy_resources(
+    def deploy_resource_type(
         self,
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList

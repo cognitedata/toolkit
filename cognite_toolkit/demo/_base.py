@@ -157,7 +157,7 @@ class CogniteToolkitDemo:
             raise AuthenticationError("Environment variables not set.")
 
         deploy.run(
-            lambda: deploy.execute(
+            lambda: deploy.deploy_build_directory(
                 # MyPy fails to see th check above.
                 env_vars=self._env_vars,  # type: ignore[arg-type]
                 build_dir=self._build_dir,
