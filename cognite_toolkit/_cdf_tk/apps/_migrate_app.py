@@ -11,12 +11,43 @@ class MigrateApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
+        self.command("prepare")(self.prepare)
         self.command("timeseries")(self.timeseries)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf migrate --help[/] for more information.")
+
+    @staticmethod
+    def prepare(
+        ctx: typer.Context,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="The preparation will not be executed, only report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Prepare the migration of resources from Asset-Centric to data modeling in CDF.
+
+        This means deploying the CogniteMigration data model that contains the Mapping view. This will be used
+        to store the mapping from Asset-Centric resources to the new data modeling resources.
+
+        This mapping will be used when migrating applications such as Canvas, Charts, as well as resources that
+        depend on the primary resources 3D and annotations.
+        """
+        raise NotImplementedError()
 
     @staticmethod
     def timeseries(
