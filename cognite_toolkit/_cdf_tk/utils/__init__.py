@@ -15,10 +15,9 @@ from .file import (
 )
 from .graphql_parser import GraphQLParser
 from .hashing import (
-    calculate_bytes_or_file_hash,
     calculate_directory_hash,
+    calculate_hash,
     calculate_secure_hash,
-    calculate_str_or_file_hash,
 )
 from .modules import find_directory_with_subdirectories, iterate_modules, module_from_path, resource_folder_from_path
 from .sentry_utils import sentry_exception_filter
@@ -27,10 +26,9 @@ __all__ = [
     "GraphQLParser",
     "YAMLComment",
     "YAMLWithComments",
-    "calculate_bytes_or_file_hash",
     "calculate_directory_hash",
+    "calculate_hash",
     "calculate_secure_hash",
-    "calculate_str_or_file_hash",
     "find_directory_with_subdirectories",
     "flatten_dict",
     "get_cicd_environment",

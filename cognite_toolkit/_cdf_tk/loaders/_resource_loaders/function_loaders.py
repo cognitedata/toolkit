@@ -40,8 +40,8 @@ from cognite_toolkit._cdf_tk.resource_classes import FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
+    calculate_hash,
     calculate_secure_hash,
-    calculate_str_or_file_hash,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
 
@@ -156,7 +156,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     continue
                 elif file.is_file() and file.name == ".DS_Store":
                     continue
-                file_hash = calculate_str_or_file_hash(file, shorten=True)
+                file_hash = calculate_hash(file, shorten=True)
                 new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
                 if len(hash_value) + len(new_entry) > (cls.metadata_value_limit - 1):
                     break
