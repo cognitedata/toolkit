@@ -1,83 +1,56 @@
-from cognite.client import data_modeling as dm
-from cognite.client.data_classes.data_modeling.containers import BTreeIndex
+from rich import print
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
-
-SPACE = dm.SpaceApply(
-    "cognite_migration", description="Space for the asset-centric to data modeling migration", name="cdf_migration"
-)
-MAPPING_CONTAINER = dm.ContainerApply(
-    space=SPACE.space,
-    external_id="Mapping",
-    used_for="node",
-    properties={
-        "resourceType": dm.ContainerProperty(
-            type=dm.data_types.Enum(
-                values={
-                    "timeseries": dm.data_types.EnumValue(),
-                    "asset": dm.data_types.EnumValue(),
-                    "file": dm.data_types.EnumValue(),
-                    "event": dm.data_types.EnumValue(),
-                    "sequence": dm.data_types.EnumValue(),
-                }
-            ),
-            nullable=False,
-        ),
-        "id": dm.ContainerProperty(
-            type=dm.data_types.Int64(),
-            nullable=False,
-        ),
-        "dataSetId": dm.ContainerProperty(
-            type=dm.data_types.Int64(),
-            nullable=True,
-        ),
-        "classicExternalId": dm.ContainerProperty(
-            type=dm.data_types.Text(),
-            nullable=True,
-        ),
-    },
-    indexes={
-        "id": BTreeIndex(["id"], cursorable=True),
-        "resourceType": BTreeIndex(["resourceType", "id"], cursorable=False),
-    },
+from cognite_toolkit._cdf_tk.commands.deploy import DeployCommand
+from cognite_toolkit._cdf_tk.data_classes import DeployResults
+from cognite_toolkit._cdf_tk.loaders import (
+    ContainerLoader,
+    DataModelLoader,
+    ResourceWorker,
+    SpaceLoader,
+    ViewLoader,
 )
 
-MAPPING_VIEW = dm.ViewApply(
-    space=SPACE.space,
-    external_id="Mapping",
-    version="v1",
-    name="Mapping",
-    description="The mapping between asset-centric and data modeling resources",
-    properties={
-        "resourceType": dm.MappedPropertyApply(
-            container=MAPPING_CONTAINER.as_id(),
-            container_property_identifier="resourceType",
-        ),
-        "id": dm.MappedPropertyApply(
-            container=MAPPING_CONTAINER.as_id(),
-            container_property_identifier="id",
-        ),
-        "dataSetId": dm.MappedPropertyApply(
-            container=MAPPING_CONTAINER.as_id(),
-            container_property_identifier="dataSetId",
-        ),
-        "classicExternalId": dm.MappedPropertyApply(
-            container=MAPPING_CONTAINER.as_id(),
-            container_property_identifier="classicExternalId",
-        ),
-    },
-)
-
-COGNITE_MIGRATION_MODEL = dm.DataModelApply(
-    space=SPACE.space,
-    external_id="CogniteMigration",
-    version="v1",
-    name="CDF Migration Model",
-    description="Data model for migrating asset-centric resources to data modeling resources in CDF.",
-    views=[MAPPING_VIEW.as_id()],
-)
+from .data_model import COGNITE_MIGRATION_MODEL, MAPPING_CONTAINER, MAPPING_VIEW, SPACE
 
 
 class MigrateTimeseriesCommand(ToolkitCommand):
-    def deploy_cognite_migration(self, client: ToolkitClient, dry_run: bool, verbose: bool = False) -> None: ...
+    def deploy_cognite_migration(self, client: ToolkitClient, dry_run: bool, verbose: bool = False) -> None:
+        """Deploys the Cognite Migration Data Model"""
+
+        deploy_cmd = DeployCommand(self.print_warning, silent=self.silent)
+        deploy_cmd.tracker = self.tracker
+
+        results = DeployResults([], "deploy", dry_run=dry_run)
+        for loader_cls, resources in [
+            (SpaceLoader, [SPACE]),
+            (ContainerLoader, [MAPPING_CONTAINER]),
+            (ViewLoader, [MAPPING_VIEW]),
+            (DataModelLoader, [COGNITE_MIGRATION_MODEL]),
+        ]:
+            # MyPy does not understand that `loader_cls` has a `create_loader` method.
+            loader = loader_cls.create_loader(client)  # type: ignore[attr-defined]
+            worker = ResourceWorker(loader)
+            # MyPy does not understand that `loader` has a `get_id` method.
+            local_by_id = {loader.get_id(item): (item.dump(), item) for item in resources}  # type: ignore[attr-defined]
+            worker.validate_access(local_by_id, is_dry_run=dry_run)
+            cdf_resources = loader.retrieve(list(local_by_id.keys()))
+            to_create, to_update, to_delete, unchanged = worker.categorize_resources(
+                local_by_id, cdf_resources, False, verbose
+            )
+
+            if dry_run:
+                result = deploy_cmd.dry_run_deploy(to_create, to_update, to_delete, unchanged, loader, False, False)
+            else:
+                result = deploy_cmd.actual_deploy(
+                    to_create,
+                    to_update,
+                    to_delete,
+                    unchanged,
+                    loader,
+                )
+            if result:
+                results[result.name] = result
+        if results.has_counts:
+            print(results.counts_table())
