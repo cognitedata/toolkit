@@ -11,7 +11,6 @@ from rich import print
 from rich.markup import escape
 from rich.panel import Panel
 
-from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.clean import CleanCommand
 from cognite_toolkit._cdf_tk.constants import (
@@ -75,62 +74,49 @@ class DeployCommand(ToolkitCommand):
         include: list[str] | None,
         verbose: bool,
     ) -> None:
-        include = self._clean_command.validate_include(include)
-
-        build = self._load_build(build_dir, build_env_name)
-        client = env_vars.get_client(build.is_strict_validation)
-        selected_loaders = self._clean_command.get_selected_loaders(build_dir, build.read_resource_folders, include)
-        ordered_loaders = self._order_loaders(selected_loaders, build_dir)
-        self._start_message(build_dir, dry_run, env_vars)
-        results = DeployResults([], "deploy", dry_run=dry_run)
-        if drop or drop_data:
-            self._clean(client, results, build, build_dir, drop, drop_data, dry_run, env_vars, ordered_loaders, verbose)
-
-        self._deploy(
-            client,
-            results,
-            build,
-            build_dir,
-            drop,
-            drop_data,
-            dry_run,
-            env_vars,
-            force_update,
-            ordered_loaders,
-            verbose,
-        )
-
-        if results.has_counts:
-            print(results.counts_table())
-        if results.has_uploads:
-            print(results.uploads_table())
-
-    def _load_build(self, build_dir: Path, build_env_name: str | None) -> BuildEnvironment:
         if not build_dir.is_dir():
             raise ToolkitNotADirectoryError(
                 "The build directory does not exists. Did you forget to run `cdf build` first?"
             )
+        include = self._clean_command._process_include(include)
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         if not build_environment_file_path.is_file():
             raise ToolkitFileNotFoundError(
                 f"Could not find build environment file '{BUILD_ENVIRONMENT_FILE}' in '{build_dir}'. "
                 "Did you forget to run `cdf build` first?"
             )
-        build = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
-        build.set_environment_variables()
-        errors = build.check_source_files_changed()
+
+        deploy_state = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "deploy")
+
+        deploy_state.set_environment_variables()
+
+        errors = deploy_state.check_source_files_changed()
         for error in errors:
             self.warn(error)
         if errors:
             raise ToolkitDeployResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-        return build
+        client = env_vars.get_client(deploy_state.is_strict_validation)
+        environment_vars = ""
+        if not _RUNNING_IN_BROWSER:
+            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
 
-    def _order_loaders(
-        self, selected_loaders: dict[type[Loader], frozenset[type[Loader]]], build_dir: Path
-    ) -> list[type[Loader]]:
-        """The loaders must be topological sorted to ensure that dependencies are deployed in the correct order."""
+        verb = "Checking" if dry_run else "Deploying"
+
+        print(
+            Panel(
+                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
+                expand=False,
+            )
+        )
+
+        selected_loaders = self._clean_command.get_selected_loaders(
+            build_dir, deploy_state.read_resource_folders, include
+        )
+
+        results = DeployResults([], "deploy", dry_run=dry_run)
+
         ordered_loaders: list[type[Loader]] = []
         should_include: list[type[Loader]] = []
         # The topological sort can include loaders that are not selected, so we need to check for that.
@@ -143,103 +129,65 @@ class DeployCommand(ToolkitCommand):
             # There should be a warning in the build step if it is missing.
         if should_include:
             self.warn(ToolkitDependenciesIncludedWarning(list({item.folder_name for item in should_include})))
-        return ordered_loaders
 
-    @staticmethod
-    def _start_message(build_dir: Path, dry_run: bool, env_vars: EnvironmentVariables) -> None:
-        environment_vars = ""
-        if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
-        verb = "Checking" if dry_run else "Deploying"
-        print(
-            Panel(
-                f"[bold]{verb}[/]resource files from {build_dir} directory.{environment_vars}",
-                expand=False,
-            )
-        )
+        result: DeployResult | None
+        if drop or drop_data:
+            # Drop has to be done in the reverse order of deploy.
+            if drop and drop_data:
+                print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
+            elif drop:
+                print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
+            elif drop_data:
+                print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
 
-    def _clean(
-        self,
-        client: ToolkitClient,
-        results: DeployResults,
-        build: BuildEnvironment,
-        build_dir: Path,
-        drop: bool,
-        drop_data: bool,
-        dry_run: bool,
-        env_vars: EnvironmentVariables,
-        ordered_loaders: list[type[Loader]],
-        verbose: bool,
-    ) -> None:
-        # Drop has to be done in the reverse order of deploy.
-        if drop and drop_data:
-            print(Panel("[bold] Cleaning resources as --drop and --drop-data are passed[/]"))
-        elif drop:
-            print(Panel("[bold] Cleaning resources as --drop is passed[/]"))
-        elif drop_data:
-            print(Panel("[bold] Cleaning resources as --drop-data is passed[/]"))
-        else:
-            return None
+            for loader_cls in reversed(ordered_loaders):
+                if not issubclass(loader_cls, ResourceLoader):
+                    continue
+                loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
+                result = self._clean_command.clean_resources(
+                    loader,
+                    env_vars=env_vars,
+                    read_modules=deploy_state.read_modules,
+                    drop=drop,
+                    dry_run=dry_run,
+                    drop_data=drop_data,
+                    verbose=verbose,
+                )
+                if result:
+                    results[result.name] = result
+            print("[bold]...cleaning complete![/]")
 
-        for loader_cls in reversed(ordered_loaders):
-            if not issubclass(loader_cls, ResourceLoader):
-                continue
-            loader: ResourceLoader = loader_cls.create_loader(client, build_dir)
-            result = self._clean_command.clean_resources(
-                loader,
-                env_vars=env_vars,
-                read_modules=build.read_modules,
-                drop=drop,
-                dry_run=dry_run,
-                drop_data=drop_data,
-                verbose=verbose,
-            )
-            if result:
-                results[result.name] = result
-        print("[bold]...cleaning complete![/]")
-        return None
-
-    def _deploy(
-        self,
-        client: ToolkitClient,
-        results: DeployResults,
-        build: BuildEnvironment,
-        build_dir: Path,
-        drop: bool,
-        drop_data: bool,
-        dry_run: bool,
-        env_vars: EnvironmentVariables,
-        force_update: bool,
-        ordered_loaders: list[type[Loader]],
-        verbose: bool,
-    ) -> None:
-        if verbose:
+        if drop or drop_data:
             print(Panel("[bold]DEPLOYING resources...[/]"))
 
         for loader_cls in ordered_loaders:
-            loader = loader_cls.create_loader(client, build_dir)
-            resource_result: DeployResult | None
-            if isinstance(loader, ResourceLoader):
-                resource_result = self.deploy_resources(
-                    loader,
+            loader_instance = loader_cls.create_loader(client, build_dir)
+            cdf_result: DeployResult | None
+            if isinstance(loader_instance, ResourceLoader):
+                cdf_result = self.deploy_resources(
+                    loader_instance,
                     env_vars,
-                    build.read_modules,
+                    deploy_state.read_modules,
                     dry_run,
                     drop,
                     drop_data,
                     force_update,
                     verbose,
                 )
-            elif isinstance(loader, DataLoader):
-                resource_result = self.upload_data(loader, build, dry_run, verbose)
+            elif isinstance(loader_instance, DataLoader):
+                cdf_result = self.upload_data(loader_instance, deploy_state, dry_run, verbose)
             else:
                 raise ValueError(f"Unsupported loader type {type(loader)}.")
 
-            if resource_result:
-                results[resource_result.name] = resource_result
+            if cdf_result:
+                results[cdf_result.name] = cdf_result
             if verbose:
                 print("")  # Extra newline
-        return None
+
+        if results.has_counts:
+            print(results.counts_table())
+        if results.has_uploads:
+            print(results.uploads_table())
 
     def deploy_resources(
         self,
@@ -357,8 +305,8 @@ class DeployCommand(ToolkitCommand):
                 total=nr_of_items,
             )
 
-    @staticmethod
     def _verbose_print(
+        self,
         to_create: T_CogniteResourceList,
         to_update: T_CogniteResourceList,
         unchanged: T_CogniteResourceList,
@@ -439,8 +387,8 @@ class DeployCommand(ToolkitCommand):
             return f"\n  {HINT_LEAD_TEXT}This is likely due to missing environment variable{suffix}: {variables_str}"
         return ""
 
-    @staticmethod
     def upload_data(
+        self,
         loader: DataLoader,
         state: BuildEnvironment,
         dry_run: bool = False,
