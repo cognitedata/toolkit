@@ -32,6 +32,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
+    COMPLETE_ORG_ONLY_IDENTIFIER,
     NAUGHTY_PROJECT,
     PROJECT_FOR_TEST,
     PROJECT_NO_COGNITE_MODULES,
@@ -703,3 +704,23 @@ def test_build_deploy_keep_special_characters(
     assert len(transformations) == 2
     transformation = next(t for t in transformations if t.external_id.endswith(encoding))
     assert transformation.query == expected_query
+
+
+def test_build_project_with_only_identifiers(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+) -> None:
+    """In the cdf modules pull command, we have to be able to build a project that only has identifiers
+    without raising any errors.
+    """
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
+        organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
+        build_dir=build_tmp_path,
+        selected=None,
+        build_env_name="dev",
+        no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+    )
