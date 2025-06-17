@@ -260,7 +260,7 @@ class DeployCommand(ToolkitCommand):
             return None
 
         with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
-            to_create, to_update, to_delete, unchanged, duplicated = worker.load_resources(
+            to_create, to_update, to_delete, unchanged = worker.prepare_resources(
                 files,
                 environment_variables=env_vars.dump(include_os=True),
                 is_dry_run=dry_run,
@@ -281,7 +281,7 @@ class DeployCommand(ToolkitCommand):
         print(f"[bold]{prefix} {nr_of_items} {loader.display_name} to CDF...[/]")
         # Moved here to avoid printing before the above message.
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicated:
+            for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Skipping duplicate {loader.display_name} {duplicate}."))
 
         nr_of_created = nr_of_changed = nr_of_unchanged = nr_of_deleted = 0
