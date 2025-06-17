@@ -136,7 +136,6 @@ class ResourceWorker(
                 else:
                     warning.print_warning()
 
-        capabilities = []
         if isinstance(self.loader, FunctionLoader):
             capabilities = self.loader.get_function_required_capabilities(  # type: ignore[attr-defined]
                 [item for _, item in local_by_id.values()], read_only=is_dry_run
