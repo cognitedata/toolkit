@@ -1,5 +1,3 @@
-import csv
-from collections.abc import Iterator
 from pathlib import Path
 
 import questionary
@@ -11,7 +9,7 @@ from cognite.client.data_classes.capabilities import (
     SpaceIDScope,
     TimeSeriesAcl,
 )
-from cognite.client.data_classes.data_modeling import DirectRelationReference, NodeId, ViewId
+from cognite.client.data_classes.data_modeling import DirectRelationReference, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -24,14 +22,13 @@ from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.constants import DMS_INSTANCE_LIMIT_MARGIN
 from cognite_toolkit._cdf_tk.exceptions import (
     AuthenticationError,
-    ToolkitFileNotFoundError,
     ToolkitValueError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.collection import chunker_sequence
 
-from .data_classes import ExternalIdMigrationMapping, IdMigrationMapping, MigrationMappingList
+from .data_classes import MigrationMappingList
 
 
 class MigrateTimeseriesCommand(ToolkitCommand):
@@ -50,7 +47,7 @@ class MigrateTimeseriesCommand(ToolkitCommand):
         auto_yes: bool = False,
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
-        mappings = self.read_mapping_file(mapping_file)
+        mappings = MigrationMappingList.read_mapping_file(mapping_file)
 
         self._validate_access(client, mappings)
         self._validate_timeseries_existence(client, mappings)
@@ -190,77 +187,6 @@ class MigrateTimeseriesCommand(ToolkitCommand):
                 print(f"Created {len(created):,} CogniteTimeSeries.")
             total_migrated += len(created)
         print(f"Successfully migrated {total_migrated:,} TimeSeries to CogniteTimeSeries.")
-
-    @classmethod
-    def read_mapping_file(cls, mapping_file: Path) -> MigrationMappingList:
-        if not mapping_file.exists():
-            raise ToolkitFileNotFoundError(f"Mapping file {mapping_file} does not exist.")
-        if mapping_file.suffix != ".csv":
-            raise ToolkitValueError(f"Mapping file {mapping_file} must be a CSV file.")
-        with mapping_file.open(mode="r") as f:
-            csv_file = csv.reader(f)
-            header = next(csv_file, None)
-            header = cls._validate_csv_header(header)
-            if header[0] == "id":
-                return cls._read_id_mapping(csv_file)
-            else:  # header[0] == "externalId":
-                return cls._read_external_id_mapping(csv_file)
-
-    @classmethod
-    def _validate_csv_header(cls, header: list[str] | None) -> list[str]:
-        if header is None:
-            raise ToolkitValueError("Mapping file is empty")
-        errors: list[str] = []
-        if len(header) < 3:
-            errors.append("Mapping file must have at least 3 columns: id/externalId, space, externalId.")
-        if len(header) >= 5:
-            errors.append("Mapping file must have at most 4 columns: id/externalId, dataSetId, space, externalId.")
-        if header[0] not in {"id", "externalId"}:
-            errors.append("First column must be 'id' or 'externalId'.")
-        if len(header) == 4 and header[1] != "dataSetId":
-            errors.append("If there are 4 columns, the second column must be 'dataSetId'.")
-        if header[-2:] != ["space", "externalId"]:
-            errors.append("Last two columns must be 'space' and 'externalId'.")
-        if errors:
-            error_str = "\n - ".join(errors)
-            raise ToolkitValueError(f"Invalid mapping file header:\n - {error_str}")
-        return header
-
-    @classmethod
-    def _read_id_mapping(cls, csv_file: Iterator[list[str]]) -> MigrationMappingList:
-        """Read a CSV file with ID mappings."""
-        mappings = MigrationMappingList()
-        for no, row in enumerate(csv_file, 1):
-            try:
-                id_ = int(row[0])
-                data_set_id = int(row[1]) if len(row) == 4 and row[1] else None
-            except ValueError as e:
-                raise ToolkitValueError(
-                    f"Invalid ID or dataSetId in row {no}: {row}. ID and dataSetId must be integers."
-                ) from e
-            instance_id = NodeId(*row[-2:])
-            mappings.append(
-                IdMigrationMapping(resource_type="timeseries", id=id_, instance_id=instance_id, data_set_id=data_set_id)
-            )
-        return mappings
-
-    @classmethod
-    def _read_external_id_mapping(cls, csv_file: Iterator[list[str]]) -> MigrationMappingList:
-        """Read a CSV file with external ID mappings."""
-        mappings = MigrationMappingList()
-        for row in csv_file:
-            external_id = row[0]
-            data_set_id = int(row[1]) if len(row) == 4 and row[1] else None
-            instance_id = NodeId(*row[-2:])
-            mappings.append(
-                ExternalIdMigrationMapping(
-                    resource_type="timeseries",
-                    external_id=external_id,
-                    instance_id=instance_id,
-                    data_set_id=data_set_id,
-                )
-            )
-        return mappings
 
     @classmethod
     def as_cognite_timeseries(cls, ts: ExtendedTimeSeries) -> CogniteTimeSeriesApply:
