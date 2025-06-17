@@ -399,7 +399,7 @@ class BuildCommand(ToolkitCommand):
 
     def _get_builder(self, build_dir: Path, resource_name: str) -> Builder:
         if resource_name not in self._builder_by_resource_folder:
-            self._builder_by_resource_folder[resource_name] = create_builder(resource_name, build_dir)
+            self._builder_by_resource_folder[resource_name] = create_builder(resource_name, build_dir, self.warn)
         builder = self._builder_by_resource_folder[resource_name]
         return builder
 
