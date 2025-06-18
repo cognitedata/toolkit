@@ -180,6 +180,16 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"The key {key!r} should be a valid string. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
         elif error_type == "string_type":
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
+        elif error_type in {
+            "int_type",
+            "bool_type",
+            "datetime_type",
+            "decimal_type",
+            "float_type",
+            "time_type",
+            "timedelta_type",
+        }:
+            msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}."
         else:
             # Default to the Pydantic error message
             msg = item["msg"]

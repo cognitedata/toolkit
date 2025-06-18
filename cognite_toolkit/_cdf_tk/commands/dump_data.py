@@ -459,7 +459,7 @@ class DumpDataCommand(ToolkitCommand):
                     executor = ProducerWorkerExecutor(
                         download_iterable=resource_iterator,
                         process=resource_processor,
-                        write_to_file=writer.write_rows,
+                        write=writer.write_rows,
                         iteration_count=iteration_count,
                         max_queue_size=max_queue_size,
                     )

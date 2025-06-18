@@ -418,6 +418,7 @@ class PullCommand(ToolkitCommand):
         env_vars: EnvironmentVariables,
     ) -> None:
         client = env_vars.get_client()
+        client.config.is_strict_validation = False
         if not module_name_or_path:
             modules = ModuleDirectories.load(organization_dir, None)
             if not modules:
