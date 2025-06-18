@@ -150,6 +150,10 @@ description = "start with an empty module"
 name = "my_module"
 description = "Empty module"
 
+[[packages.custom.modules]]
+name = "cdf_auth_readwrite_all"
+description = "Admin group for CI/CD"
+
 # Industrial tools
 [packages.industrial_tools]
 title = "Industrial Tools"
@@ -245,11 +249,11 @@ name = "cdf_process_industry_extension_full"
 description = "Example of Full Extension of the Cognite Process Industry Model"
 
 # Source systems
-[packages.source_systems]
+[packages.sourcesystem]
 title = "Source Systems"
 description = "Module templates for source systems"
 
-[[packages.source_systems.modules]]
+[[packages.sourcesystem.modules]]
 name = "cdf_pi"
 description = "OSIsoft/AVEVA PI Data Source"
 data = [
@@ -262,7 +266,7 @@ extra_resources = [
     { location = "models/cdf_process_industry_extension/data_models" }
 ]
 
-[[packages.source_systems.modules]]
+[[packages.sourcesystem.modules]]
 name = "cdf_sap_assets"
 title = "SAP Source System Asset/Equipment Metadata"
 data = [
@@ -275,7 +279,7 @@ extra_resources = [
     { location = "models/cdf_process_industry_extension/data_models" }
 ]
 
-[[packages.source_systems.modules]]
+[[packages.sourcesystem.modules]]
 name = "cdf_sap_events"
 description = "SAP Source System Events"
 data = [
@@ -288,7 +292,7 @@ extra_resources = [
     { location = "models/cdf_process_industry_extension/data_models" }
 ]
 
-[[packages.source_systems.modules]]
+[[packages.sourcesystem.modules]]
 name = "cdf_sharepoint"
 description = "SharePoint Files"
 data = [
