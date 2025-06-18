@@ -105,8 +105,6 @@ extra_resources = [
     { location = "models/cdf_process_industry_extension/data_models" }
 ]
 
-
-
 # Contextualization
 [packages.contextualization]
 title = "Contextualization"

@@ -71,7 +71,6 @@ class Packages(dict, MutableMapping[str, Package]):
             raise ToolkitFileNotFoundError(f"Package manifest not found at {package_definition_path}")
 
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
-        # library_title = library_definition.get("library", {}).get("title")
         package_definitions = library_definition.get("packages", {})
 
         module_directory_by_name = {
