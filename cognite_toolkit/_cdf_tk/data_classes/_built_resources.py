@@ -13,7 +13,7 @@ from cognite_toolkit._cdf_tk.loaders import get_loader
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, ResourceLoader
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
-    calculate_str_or_file_hash,
+    calculate_hash,
     load_yaml_inject_variables,
     safe_read,
 )
@@ -63,7 +63,7 @@ class SourceLocationLazy(SourceLocation):
         if self.absolute_path.is_dir():
             return calculate_directory_hash(self.absolute_path, shorten=True)
         else:
-            return calculate_str_or_file_hash(self.absolute_path, shorten=True)
+            return calculate_hash(self.absolute_path, shorten=True)
 
 
 @dataclass

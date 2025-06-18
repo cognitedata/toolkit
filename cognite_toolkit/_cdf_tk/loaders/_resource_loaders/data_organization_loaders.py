@@ -41,6 +41,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import DataSetYAML, LabelsYAML
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -53,6 +54,7 @@ class DataSetsLoader(ResourceLoader[str, DataSetWrite, DataSet, DataSetWriteList
     resource_write_cls = DataSetWrite
     list_cls = DataSetList
     list_write_cls = DataSetWriteList
+    yaml_cls = DataSetYAML
     kind = "DataSet"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Data-sets/operation/createDataSets"
@@ -181,6 +183,7 @@ class LabelLoader(
     resource_write_cls = LabelDefinitionWrite
     list_cls = LabelDefinitionList
     list_write_cls = LabelDefinitionWriteList
+    yaml_cls = LabelsYAML
     kind = "Label"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Labels/operation/createLabelDefinitions"
