@@ -18,7 +18,7 @@ def setup_executor() -> tuple[
     executor: ProducerWorkerExecutor = ProducerWorkerExecutor(
         download_iterable=download_iterable,
         process=process,
-        write_to_file=write_to_file,
+        write=write_to_file,
         iteration_count=len(download_iterable),
         max_queue_size=2,
     )
