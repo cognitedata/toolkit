@@ -89,7 +89,7 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Assets to CogniteAssets."""
-        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        client = EnvironmentVariables.create_from_environment().get_client()
         cmd = MigrateAssetsCommand()
         cmd.run(
             lambda: cmd.migrate_assets(
