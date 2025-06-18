@@ -1,5 +1,6 @@
 import csv
 import sys
+from abc import abstractmethod
 from collections.abc import Collection, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,17 +25,27 @@ class MigrationMapping:
     resource_type: str
     instance_id: NodeId
 
+    @abstractmethod
+    def get_id(self) -> int | str:
+        raise NotImplementedError()
+
 
 @dataclass
 class IdMigrationMapping(MigrationMapping):
     id: int
     data_set_id: int | None = None
 
+    def get_id(self) -> int:
+        return self.id
+
 
 @dataclass
 class ExternalIdMigrationMapping(MigrationMapping):
     external_id: str
     data_set_id: int | None = None
+
+    def get_id(self) -> str:
+        return self.external_id
 
 
 class MigrationMappingList(list, Sequence[MigrationMapping]):
@@ -89,6 +100,10 @@ class MigrationMappingList(list, Sequence[MigrationMapping]):
             for mapping in self
             if isinstance(mapping, IdMigrationMapping | ExternalIdMigrationMapping) and mapping.data_set_id is not None
         }
+
+    def as_mapping_by_id(self) -> dict[int | str, MigrationMapping]:
+        """Return a mapping of IDs to MigrationMapping objects."""
+        return {mapping.get_id(): mapping for mapping in self}
 
     @classmethod
     def read_mapping_file(cls, mapping_file: Path) -> Self:
