@@ -136,7 +136,7 @@ class StringProfile(CogniteObject):
 class NumberProfile(CogniteObject):
     value_range: tuple[float, float]
     distinct_count: int
-    value_counts: dict[float, int]
+    value_counts: dict[str, int]
     histogram: tuple[tuple[float, int], ...]
     count: int
     mean: float
