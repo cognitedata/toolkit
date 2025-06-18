@@ -115,7 +115,7 @@ def invalid_transformation_test_cases() -> Iterable:
             "name": "Invalid ignore_null_fields",
             "ignoreNullFields": "yes",
         },
-        {"In field ignoreNullFields input should be a valid boolean"},
+        {"In field ignoreNullFields input should be a valid boolean. Got 'yes' of type str."},
         id="Invalid ignore_null_fields type",
     )
     yield pytest.param(
