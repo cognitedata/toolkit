@@ -1,31 +1,52 @@
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch
-
-from pytest import raises
+import pytest
 
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
-from cognite_toolkit._cdf_tk.data_classes._module_toml import ModuleToml
 from cognite_toolkit._cdf_tk.data_classes._packages import Packages
 
 
 class TestPackages:
-    def test_load(self) -> None:
-        packages = Packages.load(BUILTIN_MODULES_PATH)
-        assert packages is not None
-        assert len(packages) >= 5
-        assert "infield" in packages
-        infield = packages["infield"]
+    @pytest.fixture(autouse=True)
+    def builtin_packages(self) -> Packages:
+        res = Packages.load(BUILTIN_MODULES_PATH)
+        return res
+
+    def test_load(self, builtin_packages) -> None:
+        assert builtin_packages is not None
+        assert len(builtin_packages) >= 5
+        assert "infield" in builtin_packages
+        infield = builtin_packages["infield"]
         assert len(infield.modules) > 0
-        assert "cdf_infield_common" in infield.module_names
-        assert "cdf_infield_location" in infield.module_names
 
-    def test_fail_on_invalid_tag(self) -> None:
-        def mock_toml_load(path: Path) -> ModuleToml:
-            return ModuleToml("description", frozenset(["invalid_tag", "tag2"]))
+    @pytest.mark.parametrize(
+        "package_name, expected_module_names",
+        [
+            ("infield", {"cdf_apm_base", "cdf_infield_common", "cdf_infield_location", "cdf_infield_second_location"}),
+            ("inrobot", {"cdf_apm_base", "cdf_inrobot_common", "cdf_inrobot_location"}),
+            (
+                "quickstart",
+                {
+                    "cdf_ingestion",
+                    "cdf_connection_sql",
+                    "cdf_search",
+                    "cdf_process_industry_extension",
+                    "cdf_pi",
+                    "cdf_sap_assets",
+                    "cdf_sap_events",
+                    "cdf_sharepoint",
+                },
+            ),
+        ],
+    )
+    def test_load_module_duplication(
+        self, builtin_packages, package_name: str, expected_module_names: list[str]
+    ) -> None:
+        # Assert that the fixture provided packages (basic sanity check)
+        assert builtin_packages is not None
 
-        with patch("cognite_toolkit._cdf_tk.data_classes._module_toml.ModuleToml.load", side_effect=mock_toml_load):
-            # Test the overridden behavior
-            with raises(ValueError):
-                Packages.load(BUILTIN_MODULES_PATH)
+        # Access the specific package using the parameterized package_name
+        package = builtin_packages[package_name]
+
+        assert package is not None
+        assert package.module_names == expected_module_names

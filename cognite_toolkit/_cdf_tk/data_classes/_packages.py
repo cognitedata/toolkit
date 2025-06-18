@@ -66,29 +66,29 @@ class Packages(dict, MutableMapping[str, Package]):
             root_module_dir: The module directories to load the packages from.
         """
 
-        package_definition_path = root_module_dir / "package.toml"
+        package_definition_path = root_module_dir / "packages.toml"
         if not package_definition_path.exists():
-            raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
-        package_definitions = toml.loads(package_definition_path.read_text(encoding="utf-8"))["packages"]
+            raise ToolkitFileNotFoundError(f"Package manifest not found at {package_definition_path}")
 
-        collected: dict[str, Package] = {
-            package_name: Package.load(package_name, package_definition)
-            for package_name, package_definition in package_definitions.items()
-            if isinstance(package_definition, dict)
+        library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
+        # library_title = library_definition.get("library", {}).get("title")
+        package_definitions = library_definition.get("packages", {})
+
+        module_directory_by_name = {
+            module_location.name: module_location for module_location in ModuleDirectories.load(root_module_dir)
         }
 
-        module_directories = ModuleDirectories.load(root_module_dir)
-        for module in module_directories:
-            if module.definition is None:
-                continue
+        packages_with_modules: dict[str, Package] = {}
 
-            for tag in module.definition.tags:
-                if tag in collected:
-                    collected[tag].modules.append(module)
-                else:
-                    raise ToolkitValueError(f"Module {module.name} has an unknown tag {tag}")
+        for package_name, package_definition in package_definitions.items():
+            packages_with_modules[package_name] = Package.load(package_name, package_definition)
+            for module in package_definition.get("modules", []):
+                module_name = module.get("name")
+                if module_name not in module_directory_by_name:
+                    raise ToolkitValueError(f"Module {module_name} not found in the module directories.")
+                packages_with_modules[package_name].modules.append(module_directory_by_name[module_name])
 
-        return cls(collected)
+        return cls(packages_with_modules)
 
     # The methods are overloads to provide type hints for the methods.
     def items(self) -> ItemsView[str, Package]:  # type: ignore[override]
