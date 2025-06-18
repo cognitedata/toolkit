@@ -12,6 +12,7 @@ class MigrateApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
+        self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
 
     def main(self, ctx: typer.Context) -> None:
@@ -56,6 +57,40 @@ class MigrateApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @staticmethod
+    def assets(
+        ctx: typer.Context,
+        mapping_file: Annotated[
+            Path,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to the mapping file that contains the mapping from Assets to CogniteAssets. "
+                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId, type]."
+                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset."
+                "The type column is also optional, it can be used to specify asset or equipment type.",
+            ),
+        ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Assets to CogniteAssets."""
+        raise NotImplementedError()
 
     @staticmethod
     def timeseries(
