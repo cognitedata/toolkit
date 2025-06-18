@@ -3,7 +3,7 @@ from typing import Annotated, Any
 
 import typer
 
-from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand, MigrationPrepareCommand
+from cognite_toolkit._cdf_tk.commands import MigrateAssetsCommand, MigrateTimeseriesCommand, MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -67,9 +67,8 @@ class MigrateApp(typer.Typer):
                 "--mapping-file",
                 "-m",
                 help="Path to the mapping file that contains the mapping from Assets to CogniteAssets. "
-                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId, type]."
-                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset."
-                "The type column is also optional, it can be used to specify asset or equipment type.",
+                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
             ),
         ],
         dry_run: Annotated[
@@ -90,7 +89,16 @@ class MigrateApp(typer.Typer):
         ] = False,
     ) -> None:
         """Migrate Assets to CogniteAssets."""
-        raise NotImplementedError()
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
+        cmd = MigrateAssetsCommand()
+        cmd.run(
+            lambda: cmd.migrate_assets(
+                client,
+                mapping_file=mapping_file,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
 
     @staticmethod
     def timeseries(
