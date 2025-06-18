@@ -26,6 +26,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         tools (list[AgentTool] | None): List of tools for the agent.
+        labels (list[str] | None): List of labels for the agent.
 
     """
 
@@ -35,6 +36,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
     instructions: Optional[str] = None
     model: Optional[str] = None
     tools: Optional[list[AgentTool]] = None
+    labels: Optional[list[str]] = None
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         result = super().dump(camel_case=camel_case)
@@ -52,6 +54,7 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
             instructions=self.instructions,
             model=self.model,
             tools=self.tools,
+            labels=self.labels,
         )
 
 
@@ -67,6 +70,7 @@ class Agent(AgentCore):
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         tools (list[AgentTool] | None): List of tools for the agent.
+        labels (list[str] | None): List of labels for the agent.
     """
 
     @classmethod
@@ -84,6 +88,7 @@ class Agent(AgentCore):
             instructions=resource.get("instructions"),
             model=resource.get("model"),
             tools=tools,
+            labels=resource.get("labels"),
         )
 
 
@@ -99,7 +104,7 @@ class AgentWrite(AgentCore):
         instructions (str | None): Instructions for the agent.
         model (str | None): Name of the language model to use.
         tools (list[AgentTool] | None): List of tools for the agent.
-
+        labels (list[str] | None): List of labels for the agent.
     """
 
     @classmethod
@@ -117,6 +122,7 @@ class AgentWrite(AgentCore):
             instructions=resource.get("instructions", ""),
             model=resource.get("model"),
             tools=tools,
+            labels=resource.get("labels", []),
         )
 
 
