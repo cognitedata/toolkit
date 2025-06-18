@@ -322,7 +322,7 @@ class CleanCommand(ToolkitCommand):
         return selected_loaders
 
     @staticmethod
-    def _process_include(include: list[str] | None) -> list[str]:
+    def validate_include(include: list[str] | None) -> list[str]:
         if include and (invalid_types := set(include).difference(AVAILABLE_DATA_TYPES)):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {invalid_types}, available types: {AVAILABLE_DATA_TYPES}"
