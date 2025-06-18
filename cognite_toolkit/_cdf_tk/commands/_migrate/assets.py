@@ -37,7 +37,6 @@ from .data_model import MAPPING_VIEW_ID
 class MigrateAssetsCommand(ToolkitCommand):
     cdf_cdm = "cdf_cdm"
     asset_id = ViewId(cdf_cdm, "CogniteAsset", "v1")
-    equipment_id = ViewId(cdf_cdm, "CogniteEquipment", "v1")
 
     # This is the number of timeseries that can be written in parallel.
     chunk_size = 1000 * DATA_MODELING_MAX_WRITE_WORKERS
@@ -52,6 +51,7 @@ class MigrateAssetsCommand(ToolkitCommand):
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file)
         self._validate_access(client, mappings)
+        self._validate_migration_mappings_exists(client)
         self._validate_available_capacity(client, mappings)
         iteration_count = len(mappings) // self.chunk_size + 1
         executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[NodeApply]](
