@@ -449,6 +449,17 @@ INNER JOIN _cdf.assets asset on ext_id = asset.externalId
         id="Query with UNION and multiple sources including CDF assets and a comment in the Select clause",
     )
 
+    yield pytest.param(
+        """
+        select identifier as externalId,
+            /* This is a comment */
+               name       as name
+        from my_db.my_table""",
+        [RawTable(db_name="my_db", table_name="my_table")],
+        ["externalId", "name"],
+        id="Simple query with comment",
+    )
+
 
 class TestGetTransformationSource:
     @pytest.mark.parametrize(
