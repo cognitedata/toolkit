@@ -243,7 +243,6 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             tags: set[str] = set()
             if (module / ModuleToml.filename).exists():
                 module_toml = ModuleToml.load(module / ModuleToml.filename)
-                tags = set(module_toml.tags)
 
             module_locations.append(
                 ModuleLocation(
