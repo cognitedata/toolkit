@@ -91,7 +91,7 @@ class TestModulesCommand:
         filepath.write_text(dummy_resource)
 
         def select_source_system(choices: list[Choice]) -> Package:
-            selected_package = next((c for c in choices if "sourcesystem" in c.title.lower()), None)
+            selected_package = next((c for c in choices if "source system" in c.title.lower()), None)
             assert selected_package is not None
             return selected_package.value
 

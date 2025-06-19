@@ -280,9 +280,6 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
             relative_module_dir.name in user_selected
             or relative_module_dir in user_selected
             or any(parent in user_selected for parent in relative_module_dir.parents)
-            # Check if the module has any tags that the user has selected,
-            # i.e., that the intersection of the module tags and the user selected tags is not empty.
-            or bool(module_tags & user_selected)
         )
 
     def as_path_by_name(self) -> dict[str, list[Path]]:
