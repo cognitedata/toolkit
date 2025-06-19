@@ -180,6 +180,9 @@ def _humanize_validation_error(error: ValidationError) -> list[str]:
             msg = f"The key {key!r} should be a valid string. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
         elif error_type == "string_type":
             msg = f"{item['msg']}. Got {item['input']!r} of type {type(item['input']).__name__}. Hint: Use double quotes to force string."
+        elif error_type == "model_type":
+            model_name = item["ctx"].get("model_name", "unknown")
+            msg = f"Input should be must be an object of type {model_name}. Got {item['input']!r} of type {type(item['input']).__name__}."
         elif error_type in {
             "int_type",
             "bool_type",
