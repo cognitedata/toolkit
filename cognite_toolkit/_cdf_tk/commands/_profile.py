@@ -15,6 +15,7 @@ from cognite.client.data_classes import (
     SequenceFilter,
     TimeSeriesFilter,
     Transformation,
+    filters,
 )
 from cognite.client.data_classes.assets import AssetProperty
 from cognite.client.data_classes.documents import SourceFileProperty
@@ -206,11 +207,22 @@ class FileAggregator(LabelAggregator):
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
         """Returns a list of data sets used by the resource."""
-        filter_ = self._create_hierarchy_filter(hierarchy)
+        filter_: filters.Filter | None = None
+        if hierarchy is not None:
+            filter_ = filters.InAssetSubtree("assetExternalIds", [hierarchy])
         results = self.client.documents.aggregate_unique_values(
-            property=SourceFileProperty.data_set_id, filter=filter_.dump() if filter_ else None
+            property=SourceFileProperty.data_set_id, filter=filter_, limit=1000
         )
-        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
+        ids: set[int] = set()
+        for id_ in results.unique:
+            if isinstance(id_, int):
+                ids.add(id_)
+            try:
+                int_id = int(id_)  # type: ignore[arg-type]
+            except (ValueError, TypeError):
+                continue
+            ids.add(int_id)
+        return self.client.lookup.data_sets.external_id(list(ids))
 
 
 class TimeSeriesAggregator(MetadataAggregator):
@@ -244,7 +256,16 @@ class TimeSeriesAggregator(MetadataAggregator):
         results = self.client.time_series.aggregate_unique_values(
             property=TimeSeriesProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
         )
-        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
+        ids: list[int] = []
+        for id_ in results.unique:
+            if isinstance(id_, int):
+                ids.append(id_)
+            try:
+                int_id = int(id_)  # type: ignore[arg-type]
+            except (ValueError, TypeError):
+                continue
+            ids.append(int_id)
+        return self.client.lookup.data_sets.external_id(ids)
 
 
 class SequenceAggregator(MetadataAggregator):
