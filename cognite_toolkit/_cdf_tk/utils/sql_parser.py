@@ -45,6 +45,20 @@ class SQLParser:
             self.parse()
         return self._destination_columns
 
+    def is_using_data_set(
+        self, data_set_ids: list[int] | None = None, data_set_external_ids: list[str] | None = None
+    ) -> bool:
+        """Check if the SQL query uses any of the provided data set IDs or external IDs."""
+        for data_set_id in data_set_ids or []:
+            if str(data_set_id) in self.query:
+                return True
+        for data_set_external_id in data_set_external_ids or []:
+            if f'dataset_id("{data_set_external_id}")' in self.query:
+                return True
+            elif f"dataset_external_id('{data_set_external_id}')" in self.query:
+                return True
+        return False
+
     def parse(self) -> None:
         """Parse the SQL query and extract table names."""
         import sqlparse
