@@ -1,11 +1,6 @@
 [module]
 title = "Contextualization Entity Matching"
 
-[packages]
-tags = [
-    "contextualization",
-]
-
 [[extra_resources]]
 location = "cdf_common/data_sets/demo.DataSet.yaml"
 
