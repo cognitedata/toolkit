@@ -580,7 +580,6 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         dumped = resource.as_write().dump()
         local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
-            # All properties were removed, so we remove the properties key.
             if "properties" in local:
                 # In case the properties is an empty dict, we still want to keep it in the dump.
                 # such that the dumped evaluates to the same as the local.
