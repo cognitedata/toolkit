@@ -1,8 +1,11 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.test_unit.utils import find_resources
 
 
@@ -122,6 +125,22 @@ def location_yaml_cases() -> Iterable:
     yield from (pytest.param(next(iter(case.values())), id=next(iter(case.keys()))) for case in yaml_cases)
 
 
+def invalid_location_filters_test_cases() -> Iterable:
+    yield pytest.param(
+        {"name": "Location 1"}, {"Missing required field: 'externalId'"}, id="Missing required field: externalId"
+    )
+    yield pytest.param(
+        {"externalId": "my_location", "name": "Location 1", "dataModelingType": "ASSET_CENTRIC_ONLY"},
+        {"In field dataModelingType input should be 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."},
+        id="Invalid dataModelingType value",
+    )
+    yield pytest.param(
+        {"externalId": "location_1", "name": "Location 1", "dataModels": ["model-1", "model-2"]},
+        {"In dataModels input should be a valid dictionary or instance of DataModelID"},
+        id="Invalid list of dataModels.",
+    )
+
+
 class TestLocationYAML:
     @pytest.mark.parametrize("data", list(find_resources("Location")))
     def test_load_valid_location(self, data: dict[str, object]) -> None:
@@ -132,3 +151,12 @@ class TestLocationYAML:
     def test_valid_location_variants(self, test_input: dict) -> None:
         location = LocationYAML.model_validate(test_input)
         assert location.model_dump(by_alias=True, exclude_unset=True) == test_input
+
+    @pytest.mark.parametrize("data, expected_errors", list(invalid_location_filters_test_cases()))
+    def test_invalid_location_filters_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, LocationYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+
+        assert set(format_warning.errors) == expected_errors
