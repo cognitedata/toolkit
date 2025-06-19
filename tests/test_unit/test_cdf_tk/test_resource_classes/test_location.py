@@ -136,7 +136,10 @@ def invalid_location_filters_test_cases() -> Iterable:
     )
     yield pytest.param(
         {"externalId": "location_1", "name": "Location 1", "dataModels": ["model-1", "model-2"]},
-        {"In dataModels input should be a valid dictionary or instance of DataModelID"},
+        {
+            "In dataModels input should be must be an object of type unknown. Got 'model-1' of type str.",
+            "In dataModels input should be must be an object of type unknown. Got 'model-2' of type str.",
+        },
         id="Invalid list of dataModels.",
     )
 
