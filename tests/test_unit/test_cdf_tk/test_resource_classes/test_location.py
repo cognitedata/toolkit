@@ -71,7 +71,7 @@ def location_yaml_cases() -> Iterable:
                 "externalId": "loc-007",
                 "name": "Location with Asset Centric Resource",
                 "assetCentric": {
-                    "dataSetExternalId": ["dataset-001", "dataset-002"],
+                    "dataSetExternalIds": ["dataset-001", "dataset-002"],
                     "assetSubtreeExternalIds": [{"externalId": "asset-001"}, {"externalId": "asset-002"}],
                     "externalIdPrefix": "test-prefix",
                 },
@@ -84,16 +84,16 @@ def location_yaml_cases() -> Iterable:
                 "name": "Location with Full Asset Centric Resources",
                 "assetCentric": {
                     "assets": {
-                        "dataSetExternalId": ["dataset-001"],
+                        "dataSetExternalIds": ["dataset-001"],
                         "assetSubtreeExternalIds": [{"externalId": "asset-001"}],
                         "externalIdPrefix": "asset-prefix",
                     },
                     "events": {
-                        "dataSetExternalId": ["dataset-002"],
+                        "dataSetExternalIds": ["dataset-002"],
                         "assetSubtreeExternalIds": [{"externalId": "asset-002"}],
                         "externalIdPrefix": "event-prefix",
                     },
-                    "timeseries": {"dataSetExternalId": ["dataset-003"], "externalIdPrefix": "ts-prefix"},
+                    "timeseries": {"dataSetExternalIds": ["dataset-003"], "externalIdPrefix": "ts-prefix"},
                     "files": {
                         "assetSubtreeExternalIds": [{"externalId": "asset-003"}],
                     },
