@@ -55,7 +55,7 @@ class SQLParser:
         for data_set_external_id in data_set_external_ids or []:
             if f'dataset_id("{data_set_external_id}")' in self.query:
                 return True
-            elif f"dataset_external_id('{data_set_external_id}')" in self.query:
+            elif f"dataset_id('{data_set_external_id}')" in self.query:
                 return True
         return False
 

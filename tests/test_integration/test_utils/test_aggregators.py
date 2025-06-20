@@ -116,6 +116,7 @@ def upsert_transformation_with_run(
         )
         job = TransformationJob._load(response.json(), cognite_client=toolkit_client)
         job.wait()
+        assert job.error is None
     return created
 
 
@@ -144,7 +145,7 @@ def assets(toolkit_client: ToolkitClient, raw_db: str, root_asset: Asset) -> Tra
         external_id=ASSET_TRANSFORMATION,
         name="Toolkit Aggregators Test Asset Transformation",
         destination=TransformationDestination("assets"),
-        query=f"""SELECT name as name, externalId as externalId, dataset_external_id('{ASSET_DATASET}') as dataSetId, parentExternalId as parentExternalId
+        query=f"""SELECT name as name, externalId as externalId, dataset_id('{ASSET_DATASET}') as dataSetId, parentExternalId as parentExternalId
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
@@ -186,8 +187,8 @@ def events(toolkit_client: ToolkitClient, raw_db: str, asset_list: AssetList) ->
         external_id=EVENT_TRANSFORMATION,
         name="Toolkit Aggregators Test Event Transformation",
         destination=TransformationDestination("events"),
-        query=f"""SELECT externalId as externalId, name as name, startTime as startTime, endTime as endTime,
-assetExternalIds as assetExternalIds, dataset_external_id('{EVENT_DATASET}') as dataSetId
+        query=f"""SELECT externalId as externalId, name as name, timestamp_millis(startTime) as startTime, timestamp_millis(endTime) as endTime,
+assetIds as assetIds, dataset_id('{EVENT_DATASET}') as dataSetId
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
@@ -207,11 +208,16 @@ def files(
                 "externalId": f"file_00{i}",
                 "name": f"File 00{i}",
                 "assetIds": [asset_list[i % len(asset_list)].id],  # Assign to one of the assets
-                "mimeType": "application/plain",
+                "mimeType": "application/text",
             },
         )
         for i in range(1, FILE_COUNT + 1)  # +1 for inclusive range
     ]
+    # all_files = toolkit_client.files.list(limit=-1)
+    # to_delete = [file for file in all_files if file.external_id and file.external_id.startswith("file_00")]
+    # if to_delete:
+    #     toolkit_client.files.delete(id=[file.id for file in to_delete], ignore_unknown_ids=True)
+
     create_raw_table_with_data(
         toolkit_client,
         RawTable(db_name=raw_db, table_name=table_name),
@@ -222,7 +228,7 @@ def files(
         name="Toolkit Aggregators Test File Transformation",
         destination=TransformationDestination("files"),
         query=f"""SELECT externalId as externalId, name as name, assetIds as assetIds,
-dataset_external_id('{FILE_DATASET}') as dataSetId, mimeType as mimeType
+dataset_id('{FILE_DATASET}') as dataSetId, mimeType as mimeType
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
@@ -231,16 +237,15 @@ FROM `{raw_db}`.`{table_name}`""",
     # Upload content for the files
     external_ids = [row.columns["externalId"] for row in rows]
     filemetadata = toolkit_client.files.retrieve_multiple(external_ids=external_ids)
-    is_uploaded_by_name = {file.name: file.uploaded for file in filemetadata if file.name is not None}
+    is_uploaded_by_external_id = {
+        file.external_id: file.uploaded for file in filemetadata if file.external_id is not None
+    }
     for row in rows:
-        name = row.columns["name"]
-        if is_uploaded_by_name.get(name):
+        external_id = row.columns["externalId"]
+        if is_uploaded_by_external_id.get(external_id):
             continue
-        file_content = f"Content of {name}"
-        toolkit_client.files.upload_bytes(
-            file_content,
-            name=name,
-        )
+        file_content = f"Content of {external_id}"
+        toolkit_client.files.upload_content_bytes(file_content, external_id=external_id)
 
     return created
 
@@ -273,7 +278,7 @@ def time_series(
         name="Toolkit Aggregators Test Time Series Transformation",
         destination=TransformationDestination("timeseries"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, isString as isString, isStep as isStep,
-dataset_external_id('{TIMESERIES_DATASET}') as dataSetId
+dataset_id('{TIMESERIES_DATASET}') as dataSetId
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
@@ -309,7 +314,7 @@ def sequences(
         external_id=SEQUENCE_TRANSFORMATION,
         name="Toolkit Aggregators Test Sequence Transformation",
         destination=TransformationDestination("sequences"),
-        query=f"""SELECT externalId as externalId, name as name, assetId as assetId, columns as columns,
+        query=f"""SELECT externalId as externalId, name as name, assetId as assetId, columns as columns, dataset_id('{SEQUENCE_DATASET}') as dataSetId
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
