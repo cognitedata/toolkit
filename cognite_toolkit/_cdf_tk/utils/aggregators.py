@@ -67,6 +67,30 @@ class AssetCentricAggregator(ABC):
                         found_transformations.append(transformation)
         return found_transformations
 
+    @staticmethod
+    def _to_unique_int_list(results: list) -> list[int]:
+        """Converts a list of results to a list of integers, ignoring non-integer values.
+
+        This is used as the aggregation results are inconsistently implemented for the different resources,
+        when aggregating dataSetIds, Sequences, TimeSeries, and Files return a list of strings, while
+        Assets and Events return a list of integers. In addition, the files aggregation can return
+        duplicated values.
+        """
+        seen: set[int] = set()
+        ids: list[int] = []
+        for id_ in results:
+            if isinstance(id_, int) and id_ not in seen:
+                ids.append(id_)
+                seen.add(id_)
+            try:
+                int_id = int(id_)  # type: ignore[arg-type]
+            except (ValueError, TypeError):
+                continue
+            if int_id not in seen:
+                ids.append(int_id)
+                seen.add(int_id)
+        return ids
+
 
 class MetadataAggregator(AssetCentricAggregator, ABC):
     def __init__(
@@ -184,15 +208,7 @@ class FileAggregator(LabelAggregator):
         results = self.client.documents.aggregate_unique_values(
             property=SourceFileProperty.data_set_id, filter=filter_, limit=1000
         )
-        ids: set[int] = set()
-        for id_ in results.unique:
-            if isinstance(id_, int):
-                ids.add(id_)
-            try:
-                int_id = int(id_)  # type: ignore[arg-type]
-            except (ValueError, TypeError):
-                continue
-            ids.add(int_id)
+        ids = self._to_unique_int_list(results.unique)
         return self.client.lookup.data_sets.external_id(list(ids))
 
 
@@ -227,15 +243,7 @@ class TimeSeriesAggregator(MetadataAggregator):
         results = self.client.time_series.aggregate_unique_values(
             property=TimeSeriesProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
         )
-        ids: list[int] = []
-        for id_ in results.unique:
-            if isinstance(id_, int):
-                ids.append(id_)
-            try:
-                int_id = int(id_)  # type: ignore[arg-type]
-            except (ValueError, TypeError):
-                continue
-            ids.append(int_id)
+        ids = self._to_unique_int_list(results.unique)
         return self.client.lookup.data_sets.external_id(ids)
 
 
@@ -270,8 +278,8 @@ class SequenceAggregator(MetadataAggregator):
         results = self.client.sequences.aggregate_unique_values(
             property=SequenceProperty.data_set_id, filter=self._create_hierarchy_filter(hierarchy)
         )
-
-        return self.client.lookup.data_sets.external_id([id_ for id_ in results.unique if isinstance(id_, int)])
+        ids = self._to_unique_int_list(results.unique)
+        return self.client.lookup.data_sets.external_id(ids)
 
 
 class RelationshipAggregator(AssetCentricAggregator):
