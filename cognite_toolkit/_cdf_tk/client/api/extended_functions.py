@@ -1,6 +1,6 @@
 from cognite.client._api.functions import FunctionsAPI, FunctionSchedulesAPI
 from cognite.client._cognite_client import ClientConfig, CogniteClient
-from cognite.client.data_classes import FunctionSchedule, FunctionScheduleWrite
+from cognite.client.data_classes import FunctionSchedule, FunctionSchedulesList, FunctionScheduleWrite
 
 
 class ExtendedFunctionsAPI(FunctionsAPI):
@@ -14,12 +14,11 @@ class ExtendedFunctionsAPI(FunctionsAPI):
 class ExtendedFunctionSchedulesAPI(FunctionSchedulesAPI):
     """This class extends the FunctionSchedulesAPI to include additional functionality."""
 
-    def create_api(self, item: FunctionScheduleWrite, nonce: str) -> FunctionSchedule:
+    def create_api(self, item: FunctionScheduleWrite, nonce: str) -> FunctionSchedule | None:
         """Create a schedule associated with a specific project. <https://developer.cognite.com/api#tag/Function-schedules/operation/postFunctionSchedules>`_
 
         The difference between this method and the original create method is
         1. It allows you to pass the nonce directly.
-        2. It does not mutate the FunctionScheduleWrite object and always use the functionId instead of the functionExternalId.
 
         Args:
             item (FunctionScheduleWrite): The schedule to create.
@@ -35,8 +34,16 @@ class ExtendedFunctionSchedulesAPI(FunctionSchedulesAPI):
         body = item.dump(camel_case=True)
         body["nonce"] = nonce
 
-        response = self._post(
-            url_path="/functions/schedules",
-            json=body,
+        result = self._create_multiple(
+            items=body,
+            resource_cls=FunctionSchedule,
+            input_resource_cls=FunctionScheduleWrite,
+            list_cls=FunctionSchedulesList,
         )
-        return FunctionSchedule._load(response.json(), cognite_client=self._cognite_client)
+        if isinstance(result, FunctionSchedulesList):
+            if len(result) == 0:
+                return None
+            return result[0]
+        if isinstance(result, FunctionSchedule):
+            return result
+        raise TypeError(f"Expected FunctionSchedule or FunctionSchedulesList, got {type(result)}")
