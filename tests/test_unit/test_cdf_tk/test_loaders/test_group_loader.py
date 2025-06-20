@@ -112,7 +112,7 @@ class TestGroupLoader:
             name="new_group", source_id="123", capabilities=loaded.capabilities
         ).dump_yaml()
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources(
             [
                 LOAD_DATA / "auth" / "1.my_group_scoped.yaml",
                 new_file,
@@ -153,7 +153,7 @@ class TestGroupLoader:
 
         # group exists, no changes
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources(
             [LOAD_DATA / "auth" / "1.my_group_scoped.yaml"]
         )
 
@@ -258,7 +258,7 @@ deletedTime: -1
         filepath.read_text.return_value = local_group
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources([filepath])
         assert {
             "create": len(to_create),
             "change": len(to_change),
@@ -312,7 +312,7 @@ deletedTime: -1
         filepath.read_text.return_value = local_group
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources([filepath])
         assert {
             "create": len(to_create),
             "change": len(to_change),

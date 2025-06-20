@@ -25,7 +25,7 @@ class TestDataSetsLoader:
         toolkit_client_approval.append(DataSet, first)
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources(
             [LOAD_DATA / "data_sets" / "1.my_datasets.yaml"]
         )
 

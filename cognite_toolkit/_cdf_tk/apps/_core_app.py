@@ -301,7 +301,7 @@ class CoreApp(typer.Typer):
         cmd = DeployCommand(print_warning=True)
         env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
-            lambda: cmd.execute(
+            lambda: cmd.deploy_build_directory(
                 env_vars=env_vars,
                 build_dir=build_dir,
                 build_env_name=build_env_name,

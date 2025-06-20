@@ -78,7 +78,7 @@ def test_build_deploy_module(
         on_error="raise",
     )
 
-    DeployCommand(skip_tracking=True, silent=True).execute(
+    DeployCommand(skip_tracking=True, silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
@@ -127,7 +127,7 @@ def test_build_deploy_with_dry_run(
         on_error="raise",
         verbose=False,
     )
-    DeployCommand(skip_tracking=True, silent=True).execute(
+    DeployCommand(skip_tracking=True, silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
@@ -209,7 +209,7 @@ def test_build_deploy_complete_org(
         client=env_vars_with_client.get_client(),
         on_error="raise",
     )
-    DeployCommand(silent=True, skip_tracking=True).execute(
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",

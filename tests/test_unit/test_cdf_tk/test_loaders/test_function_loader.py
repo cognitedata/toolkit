@@ -72,7 +72,7 @@ secrets:
         filepath.parent.name = FunctionLoader.folder_name
 
         worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path))
-        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_update, to_delete, unchanged = worker.prepare_resources([filepath])
 
         assert {
             "create": len(to_create),
@@ -89,7 +89,7 @@ secrets:
             }
         )
         toolkit_client_approval.append(Function, cdf_function)
-        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_update, to_delete, unchanged = worker.prepare_resources([filepath])
 
         assert {
             "create": len(to_create),
