@@ -580,10 +580,19 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         dumped = resource.as_write().dump()
         local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
-            # All properties were removed, so we remove the properties key.
-            dumped.pop("properties", None)
+            if "properties" in local:
+                # In case the properties is an empty dict, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["properties"] = local["properties"]
+            else:
+                dumped.pop("properties", None)
         if not dumped.get("implements") and not local.get("implements"):
-            dumped.pop("implements", None)
+            if "implements" in local:
+                # In case the implements is an empty list, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["implements"] = local["implements"]
+            else:
+                dumped.pop("implements", None)
         if resource.implements and len(resource.implements) > 1 and self._topological_sort_implements:
             # This is a special case that we want to do when we run the cdf dump datamodel command.
             # The issue is as follows:

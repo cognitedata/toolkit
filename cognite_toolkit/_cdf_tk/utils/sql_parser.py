@@ -21,6 +21,7 @@ class SQLParser:
         self.query = query
         self._seen_sources: set[SQLTable] = set()
         self._sources: list[SQLTable] = []
+        self._destination_columns: list[str] = []
         self._is_parsed = False
 
     @staticmethod
@@ -37,6 +38,13 @@ class SQLParser:
             self.parse()
         return self._sources
 
+    @property
+    def destination_columns(self) -> list[str]:
+        """Returns a list of destination columns found in the SQL query."""
+        if not self._is_parsed:
+            self.parse()
+        return self._destination_columns
+
     def parse(self) -> None:
         """Parse the SQL query and extract table names."""
         import sqlparse
@@ -48,8 +56,48 @@ class SQLParser:
 
         for statement in parsed:
             self._find_tables(statement.tokens)
+            self._find_destination_columns(statement.tokens)
         self._is_parsed = True
         return
+
+    def _find_destination_columns(self, tokens: "list[Token]") -> None:
+        from sqlparse.sql import Comment, Identifier, IdentifierList
+        from sqlparse.tokens import DML, Wildcard
+
+        content_tokens = [
+            token
+            for token in tokens
+            if not token.is_whitespace and not token.is_newline and not isinstance(token, Comment)
+        ]
+        is_next: bool = False
+        for token in content_tokens:
+            if is_next and isinstance(token, IdentifierList):
+                self._add_destination_columns(*token.get_identifiers())
+                break
+            elif is_next and isinstance(token, Identifier):
+                self._add_destination_columns(token)
+            elif is_next and token.ttype is Wildcard and token.normalized == "*":
+                self._destination_columns.append("*")
+                break
+            elif is_next and token.is_keyword:
+                break
+            if token.ttype is DML and token.normalized == "SELECT":
+                is_next = True
+
+    def _add_destination_columns(self, *identifiers: "Identifier") -> None:
+        from sqlparse.sql import Comment, Identifier
+
+        for identifier in identifiers:
+            # The identifier is either a `column_name` or `some expression AS column_name`.
+            # Thus, we simply take the last token in the identifier.
+            if isinstance(identifier, Identifier) and identifier.tokens:
+                content_tokens = [
+                    token
+                    for token in identifier.tokens
+                    if not token.is_whitespace and not token.is_newline and not isinstance(token, Comment)
+                ]
+                if content_tokens:
+                    self._destination_columns.append(content_tokens[-1].value)
 
     def _find_tables(self, tokens: "list[Token]") -> None:
         from sqlparse.sql import Identifier, TokenList
