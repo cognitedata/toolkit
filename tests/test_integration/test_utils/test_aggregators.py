@@ -21,7 +21,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetCentricAggregator,
     EventAggregator,
     FileAggregator,
-    SequenceFilter,
+    SequenceAggregator,
     TimeSeriesAggregator,
 )
 
@@ -328,7 +328,7 @@ class TestAggregators:
         (TimeSeriesAggregator, TIMESERIES_TRANSFORMATION, TIMESERIES_DATASET, TIMESERIES_COUNT),
         (EventAggregator, EVENT_TRANSFORMATION, EVENT_DATASET, EVENT_COUNT),
         (FileAggregator, FILE_TRANSFORMATION, FILE_DATASET, FILE_COUNT),
-        (SequenceFilter, SEQUENCE_TRANSFORMATION, SEQUENCE_DATASET, SEQUENCE_COUNT),
+        (SequenceAggregator, SEQUENCE_TRANSFORMATION, SEQUENCE_DATASET, SEQUENCE_COUNT),
     )
 
     @pytest.mark.usefixtures("assets", "events", "files", "time_series", "sequences")
