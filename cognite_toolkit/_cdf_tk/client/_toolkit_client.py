@@ -13,7 +13,6 @@ from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
 from .api.robotics import RoboticsAPI
-from .api.seach_config import SearchConfigurationsAPI
 from .api.verify import VerifyAPI
 
 
@@ -77,7 +76,6 @@ class ToolkitClient(CogniteClient):
     def __init__(self, config: ToolkitClientConfig | None = None, enable_set_pending_ids: bool = False) -> None:
         super().__init__(config=config)
         self.location_filters = LocationFiltersAPI(self._config, self._API_VERSION, self)
-        self.search_configurations = SearchConfigurationsAPI(self._config, self._API_VERSION, self)
         self.robotics = RoboticsAPI(self._config, self._API_VERSION, self)
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
