@@ -34,6 +34,15 @@ class SearchConfigViewProperty(CogniteObject):
     selected: bool | None = None
     hidden: bool | None = None
 
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
+        return cls(
+            property=resource["property"],
+            disabled=resource.get("disabled"),
+            selected=resource.get("selected"),
+            hidden=resource.get("hidden"),
+        )
+
 
 class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     """
