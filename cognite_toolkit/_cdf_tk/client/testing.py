@@ -3,11 +3,13 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
+from cognite.client._api.functions import FunctionCallsAPI
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
 from .api.dml import DMLAPI
+from .api.extended_functions import ExtendedFunctionsAPI, ExtendedFunctionSchedulesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -48,6 +50,10 @@ class ToolkitClientMock(CogniteClientMock):
 
         self.dml = MagicMock(spec_set=DMLAPI)
         self.location_filters = MagicMock(spec_set=LocationFiltersAPI)
+        self.functions = MagicMock(spec=ExtendedFunctionsAPI)
+        self.functions.calls = MagicMock(spec_set=FunctionCallsAPI)
+        self.functions.schedules = MagicMock(spec_set=ExtendedFunctionSchedulesAPI)
+
         self.lookup = MagicMock(spec=LookUpGroup)
         self.lookup.data_sets = MagicMock(spec_set=DataSetLookUpAPI)
         self.lookup.assets = MagicMock(spec_set=AssetLookUpAPI)
