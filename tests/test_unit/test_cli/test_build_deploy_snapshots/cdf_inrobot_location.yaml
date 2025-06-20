@@ -1,6 +1,4 @@
 Frame:
-- externalId: <change_me>
-  name: Root frame at the origin of location <change_me>
 - externalId: frame_<change_me>
   name: Frame <change_me>
   transform:
@@ -9,11 +7,13 @@ Frame:
       x: 0.0
       y: 0.0
       z: 0.0
-    parentFrameExternalId: <change_me>
+    parentFrameExternalId: my_root_asset
     translation:
       x: 0.0
       y: 0.0
       z: 0.0
+- externalId: my_root_asset
+  name: Root frame at the origin of location my_root_asset
 Group:
 - capabilities:
   - assetsAcl:
@@ -44,8 +44,8 @@ Group:
           spaceIds:
           - cdf_apm
           - cognite_app_data
-          - sp_<change_me>_source_data
-          - sp_<change_me>_app_data
+          - sp_my_location_source_data
+          - sp_my_location_app_data
   - eventsAcl:
       actions:
       - READ
@@ -120,7 +120,7 @@ Group:
         all: {}
   metadata:
     origin: cdf-project-templates
-  name: gp_InRobot_Admin_<change_me>
+  name: gp_InRobot_Admin_my_location
   sourceId: <change_me>
 - capabilities:
   - assetsAcl:
@@ -148,8 +148,8 @@ Group:
           - APM_Config
           - cdf_apm
           - cognite_app_data
-          - sp_<change_me>_source_data
-          - sp_<change_me>_app_data
+          - sp_my_location_source_data
+          - sp_my_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -213,7 +213,7 @@ Group:
           - 2501680716255129079
   metadata:
     origin: cdf-project-templates
-  name: gp_InRobot_Users_<change_me>
+  name: gp_InRobot_Users_my_location
   sourceId: <change_me>
 - capabilities:
   - assetsAcl:
@@ -241,8 +241,8 @@ Group:
           - APM_Config
           - cognite_app_data
           - cdf_apm
-          - sp_<change_me>_source_data
-          - sp_<change_me>_app_data
+          - sp_my_location_source_data
+          - sp_my_location_app_data
   - dataModelInstancesAcl:
       actions:
       - WRITE
@@ -251,8 +251,8 @@ Group:
           spaceIds:
           - cognite_app_data
           - cdf_apm
-          - sp_<change_me>_source_data
-          - sp_<change_me>_app_data
+          - sp_my_location_source_data
+          - sp_my_location_app_data
   - filesAcl:
       actions:
       - READ
@@ -290,12 +290,12 @@ Group:
           - 2501680716255129079
   metadata:
     origin: cdf-project-templates
-  name: gp_Robot_<change_me>
+  name: gp_Robot_my_location
   sourceId: <change_me>
 Location:
 - description: Robot location
-  externalId: <change_me>
-  name: <change_me>
+  externalId: my_root_asset
+  name: my_root_asset
 Map:
 - data:
     modelId: <change_me>
@@ -303,14 +303,14 @@ Map:
   description: <change_me> <change_me>
   externalId: <change_me>
   frameExternalId: frame_<change_me>
-  locationExternalId: <change_me>
+  locationExternalId: my_root_asset
   mapType: <change_me>
   name: <change_me>
   scale: 1.0
 Space:
-- description: Space for <change_me> App Data
-  name: sp:inrobot:<change_me>:app_data
-  space: sp_<change_me>_app_data
-- description: Space for InRobot <change_me> Source Data
-  name: sp:inrobot:<change_me>:source
-  space: sp_<change_me>_source_data
+- description: Space for my_location App Data
+  name: sp:inrobot:my_location:app_data
+  space: sp_my_location_app_data
+- description: Space for InRobot my_location Source Data
+  name: sp:inrobot:my_location:source
+  space: sp_my_location_source_data

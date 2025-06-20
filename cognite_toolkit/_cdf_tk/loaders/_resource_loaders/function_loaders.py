@@ -36,7 +36,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import FunctionsYAML
+from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
@@ -351,6 +351,7 @@ class FunctionScheduleLoader(
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
+    yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionLoader})
