@@ -290,6 +290,8 @@ class RelationshipAggregator(AssetCentricAggregator):
         return "Relationships"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+        if hierarchy is not None or data_set_external_id is not None:
+            raise NotImplementedError()
         results = relationship_aggregate_count(self.client)
         return sum(result.count for result in results)
 
@@ -305,6 +307,8 @@ class LabelCountAggregator(AssetCentricAggregator):
         return "Labels"
 
     def count(self, hierarchy: str | None = None, data_set_external_id: str | None = None) -> int:
+        if hierarchy is not None or data_set_external_id is not None:
+            raise NotImplementedError()
         return label_aggregate_count(self.client)
 
     def used_data_sets(self, hierarchy: str | None = None) -> list[str]:
