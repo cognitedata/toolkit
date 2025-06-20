@@ -59,6 +59,7 @@ dev = [
 [project.optional-dependencies]
 table = [
     "pyarrow>=20.0.0",
+    "openpyxl>=3.1.5",
 ]
 sql = [
     "sqlparse >=0.5.3",
