@@ -121,7 +121,7 @@ def dev_cluster_client() -> ToolkitClient | None:
     return ToolkitClient(config, enable_set_pending_ids=True)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def dummy_function(cognite_client: CogniteClient) -> Function:
     external_id = "integration_test_function_dummy"
 
