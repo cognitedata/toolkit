@@ -1,9 +1,11 @@
+import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 from typing import ClassVar, Literal, TypeAlias, overload
 
+from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
 from rich.console import Console
@@ -24,6 +26,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
+from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
 
@@ -237,3 +240,54 @@ class ProfileAssetCentricCommand(ProfileCommand):
         elif col == self.Columns.Transformation:
             return aggregator.transformation_count
         raise ValueError(f"Unknown column: {col} for row: {row}")
+
+
+class TransformationProfileCommand(ProfileCommand):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.table_title = "Transformation Profile"
+        self.destination_type: str | None = None
+
+    class Columns:
+        Transformation = "Transformation"
+        Source = "Sources"
+        DestinationColumns = "Destination Columns"
+        Destination = "Destination"
+        ConflictMode = "Conflict Mode"
+        IsPaused = "Is Paused"
+
+    def transformation(
+        self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
+    ) -> list[dict[str, CellValue]]:
+        self.destination_type = destination_type
+        return self.create_profile_table(client)
+
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+        iterable: Iterable[Transformation] = client.transformations.list(destination_type=self.destination_type)
+        if self.destination_type == "assets":
+            iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy"))
+        table: dict[tuple[str, str], PendingCellValue] = {}
+        for transformation in iterable:
+            sources: list[SQLTable] = []
+            destination_columns: list[str] = []
+            if transformation.query:
+                parser = SQLParser(transformation.query, operation="Profile transformations")
+                sources = parser.sources
+                destination_columns = parser.destination_columns
+            index = str(transformation.id)
+            table[(index, self.Columns.Transformation)] = transformation.name or transformation.external_id or "Unknown"
+            table[(index, self.Columns.Source)] = ", ".join(map(str, sources))
+            table[(index, self.Columns.DestinationColumns)] = (
+                ", ".join(destination_columns) or None if destination_columns else None
+            )
+            table[(index, self.Columns.Destination)] = (
+                transformation.destination.type or "Unknown" if transformation.destination else "Unknown"
+            )
+            table[(index, self.Columns.ConflictMode)] = transformation.conflict_mode or "Unknown"
+            table[(index, self.Columns.IsPaused)] = (
+                str(transformation.schedule.is_paused) if transformation.schedule else "No schedule"
+            )
+        return table
+
+    def call_api(self, row: str, col: str) -> Callable:
+        raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
