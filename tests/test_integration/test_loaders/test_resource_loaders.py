@@ -130,6 +130,35 @@ class TestFunctionScheduleLoader:
             if created:
                 toolkit_client.functions.schedules.delete(created[0].id)
 
+    def test_no_redeploy_schedule(self, toolkit_client: ToolkitClient, dummy_function: Function) -> None:
+        definition_yaml = f"""name: test_create_no_redeploy_schedule
+cronExpression: "0 7 * * MON"
+functionExternalId: {dummy_function.external_id}
+data:
+  key: value
+"""
+        loader = FunctionScheduleLoader.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, FunctionScheduleWrite)
+        if not loader.retrieve([loader.get_id(resource)]):
+            _ = loader.create(FunctionScheduleWriteList([resource]))
+
+        worker = ResourceWorker(loader)
+        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
+
 
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
