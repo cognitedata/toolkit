@@ -16,12 +16,12 @@ class TestDumpResource:
             "Relationships",
             "Labels",
         }
-        total_count = sum(int(item["Count"].replace(",", "")) for item in results)
+        total_count = sum(item["Count"] for item in results)
         assert total_count > 0
         total_metadata_count = 0
         for item in results:
-            metadata_count = item.get(ProfileAssetCentricCommand.Columns.MetadataKeyCount, "")
-            if "-" in metadata_count or not metadata_count:
+            metadata_count = item.get(ProfileAssetCentricCommand.Columns.MetadataKeyCount)
+            if not metadata_count:
                 continue
-            total_metadata_count += int(metadata_count.replace("-", ""))
+            total_metadata_count += metadata_count
         assert total_metadata_count > 0
