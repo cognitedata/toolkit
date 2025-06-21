@@ -382,15 +382,13 @@ class DatapointSubscriptionLoader(
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
-        if "timeSeriesIds" not in dumped:
-            return dumped
-        # Sorting the timeSeriesIds in the local order
-        # Sorting in the same order as the local file.
-        ts_order_by_id = {ts_id: no for no, ts_id in enumerate(local.get("timeSeriesIds", []))}
-        end_of_list = len(ts_order_by_id)
-        dumped["timeSeriesIds"] = sorted(
-            dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list)
-        )
+        # timeSeriesIds and instanceIds are not returned in the response, so we need to add them
+        # to the dumped resource if they are set in the local resource. If there is a discrepancy between
+        # the local and dumped resource, th hash added to the description will change.
+        if "timeSeriesIds" in local:
+            dumped["timeSeriesIds"] = local["timeSeriesIds"]
+        if "instanceIds" in local:
+            dumped["instanceIds"] = local["instanceIds"]
         return dumped
 
     def diff_list(
