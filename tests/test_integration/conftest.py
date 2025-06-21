@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import DataSet, DataSetWrite
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
@@ -78,6 +79,18 @@ def env_vars(toolkit_client: ToolkitClient) -> EnvironmentVariables:
 @pytest.fixture(scope="session")
 def toolkit_space(cognite_client: CogniteClient) -> Space:
     return cognite_client.data_modeling.spaces.apply(SpaceApply(space="toolkit_test_space"))
+
+
+@pytest.fixture(scope="session")
+def toolkit_dataset(cognite_client: CogniteClient) -> DataSet:
+    """Returns the dataset name used for toolkit tests."""
+    dataset = DataSetWrite(
+        external_id="toolkit_tests_dataset", name="Toolkit Test DataSet", description="Toolkit DataSet used in tests"
+    )
+    retrieved = cognite_client.data_sets.retrieve(external_id=dataset.external_id)
+    if retrieved is None:
+        return cognite_client.data_sets.create(dataset)
+    return retrieved
 
 
 @pytest.fixture
