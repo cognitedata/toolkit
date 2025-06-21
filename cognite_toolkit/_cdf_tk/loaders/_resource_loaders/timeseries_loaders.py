@@ -30,9 +30,9 @@ from cognite_toolkit._cdf_tk.exceptions import (
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
 from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
@@ -347,21 +347,16 @@ class DatapointSubscriptionLoader(
             if "instanceIds" in resource:
                 content["instanceIds"] = resource["instanceIds"]
             timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
-            extra_str = f" {self._hash_key}: {timeseries_hash}"
-            if "description" not in resource:
-                resource["description"] = extra_str[1:]
-            elif resource["description"].endswith(extra_str[1:]):
-                # The hash is already in the description
-                ...
-            elif len(resource["description"]) + len(extra_str) < self._description_character_limit:
-                resource["description"] += f"{extra_str}"
-            else:
-                identifier = self.get_id(resource)
-                LowSeverityWarning(
-                    f"Description is too long for datapoint subscription {identifier!r}. Truncating..."
-                ).print_warning(console=self.console)
-                truncation = self._description_character_limit - len(extra_str) - 3
-                resource["description"] = f"{resource['description'][:truncation]}...{extra_str}"
+            extra_str = f"{self._hash_key}: {timeseries_hash}"
+            resource["description"] = suffix_description(
+                extra_str,
+                resource.get("description"),
+                self._description_character_limit,
+                self.get_id(resource),
+                self.display_name,
+                self.console,
+            )
+
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
