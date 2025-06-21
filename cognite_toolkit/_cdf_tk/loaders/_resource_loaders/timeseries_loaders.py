@@ -331,7 +331,15 @@ class DatapointSubscriptionLoader(
         return DataPointSubscriptionWrite._load(resource)
 
     def dump_resource(self, resource: DatapointSubscription, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+        if resource.filter is not None:
+            dumped = resource.as_write().dump()
+        else:
+            # If filter is not set, the subscription uses explicit timeSeriesIds, which are not returned in the
+            # response. Calling .as_write() in this case raises ValueError because either filter or
+            # timeSeriesIds must be set.
+            dumped = resource.dump()
+            for server_prop in ("createdTime", "lastUpdatedTime", "timeSeriesCount"):
+                dumped.pop(server_prop, None)
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
