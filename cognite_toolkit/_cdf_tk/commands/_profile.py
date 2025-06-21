@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import ClassVar, Literal, TypeAlias, overload
 
 from cognite.client.exceptions import CogniteException
+from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.table import Table
@@ -58,10 +59,12 @@ class ProfileCommand(ToolkitCommand, ABC):
             else tuple()
         )
 
-    def create_profile_table(self) -> list[dict[str, CellValue]]:
-        table = self.create_initial_table()
+    def create_profile_table(self, client: ToolkitClient) -> list[dict[str, CellValue]]:
+        console = Console()
+        with console.status("Setting up", spinner="aesthetic", speed=0.4) as _:
+            table = self.create_initial_table(client)
         with (
-            Live(self.draw_table(table), refresh_per_second=4) as live,
+            Live(self.draw_table(table), refresh_per_second=4, console=console) as live,
             ThreadPoolExecutor(max_workers=self.max_workers) as executor,
         ):
             while True:
@@ -85,7 +88,7 @@ class ProfileCommand(ToolkitCommand, ABC):
         return self.as_record_format(table, allow_waiting_api_call=False)
 
     @abstractmethod
-    def create_initial_table(self) -> dict[tuple[str, str], PendingCellValue]:
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
         """
         Create the initial table with placeholders for API calls.
         Each cell that requires an API call should be initialized with WaitingAPICall.
@@ -202,9 +205,9 @@ class ProfileAssetCentricCommand(ProfileCommand):
                 ]
             }
         )
-        return self.create_profile_table()
+        return self.create_profile_table(client)
 
-    def create_initial_table(self) -> dict[tuple[str, str], PendingCellValue]:
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
         table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
         for index, aggregator in self.aggregators.items():
             table[(index, self.Columns.Resource)] = aggregator.display_name
