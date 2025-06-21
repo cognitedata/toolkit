@@ -231,8 +231,8 @@ class ProfileAssetCommand(ProfileCommand):
         }
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
-        table: dict[tuple[str, str], PendingCellValue] = {}
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+        table: PendingTable = {}
         for index, aggregator in self.aggregators.items():
             table[(index, self.Columns.Resource)] = aggregator.display_name
             table[(index, self.Columns.Count)] = WaitingAPICall
@@ -292,85 +292,133 @@ class ProfileAssetCommand(ProfileCommand):
 
     def update_table(
         self,
-        current_table: dict[tuple[str, str], PendingCellValue],
+        current_table: PendingTable,
         result: object,
         row: str,
         col: str,
-    ) -> dict[tuple[str, str], PendingCellValue]:
-        new_table: dict[tuple[str, str], PendingCellValue]
-        if col == self.Columns.Count:
-            new_table = {}
-            for (r, c), value in current_table.items():
-                if r == row and c == self.Columns.DataSets:
-                    new_table[(r, c)] = WaitingAPICall
+    ) -> PendingTable:
+        handlers = {
+            self.Columns.Count: self._update_count,
+            self.Columns.DataSets: self._update_datasets,
+            self.Columns.DataSetCount: self._update_dataset_count,
+            self.Columns.Transformations: self._update_transformations,
+            self.Columns.RowCount: self._update_row_count,
+        }
+        handler = handlers.get(col)
+        if handler:
+            return handler(current_table, result, row)
+        return current_table
+
+    def _update_count(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+    ) -> PendingTable:
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r == row and c == self.Columns.DataSets:
+                new_table[(r, c)] = WaitingAPICall
+            else:
+                new_table[(r, c)] = value
+        return new_table
+
+    def _update_datasets(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+    ) -> PendingTable:
+        if not (isinstance(result, list) and len(result) > 0 and all(isinstance(item, str) for item in result)):
+            return current_table
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r != row:
+                new_table[(r, c)] = value
+                continue
+            for data_set in result:
+                new_index = f"{r}{self._index_split}{data_set}"
+                if c == self.Columns.DataSetCount:
+                    new_table[(new_index, c)] = WaitingAPICall
                 else:
-                    new_table[(r, c)] = value
-            return new_table
-        elif col == self.Columns.DataSets and isinstance(result, list) and len(result) > 0:
-            new_table = {}
-            for (r, c), value in current_table.items():
-                if r != row:
+                    new_table[(new_index, c)] = value
+        return new_table
+
+    def _update_dataset_count(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+    ) -> PendingTable:
+        if not isinstance(result, int):
+            return current_table
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r != row:
+                new_table[(r, c)] = value
+                continue
+            if c == self.Columns.Transformations:
+                new_table[(r, c)] = WaitingAPICall
+            else:
+                new_table[(r, c)] = value
+        return new_table
+
+    def _update_transformations(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+    ) -> PendingTable:
+        if not (
+            isinstance(result, list) and len(result) > 0 and all(isinstance(item, Transformation) for item in result)
+        ):
+            return current_table
+        sources_by_transformation_id = {
+            transformation.id: get_transformation_sources(transformation.query or "") for transformation in result
+        }
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r != row:
+                new_table[(r, c)] = value
+                continue
+            for transformation in result:
+                sources = sources_by_transformation_id[transformation.id]
+                if not sources:
                     new_table[(r, c)] = value
                     continue
-                for data_set in result:
-                    new_index = f"{r}{self._index_split}{data_set}"
-                    if c == self.Columns.DataSetCount:
+                for source in sources:
+                    new_index = f"{r}{self._index_split}{source!s}"
+                    if c == self.Columns.RawTable:
+                        new_table[(new_index, c)] = str(source)
+                    elif c == self.Columns.RowCount:
                         new_table[(new_index, c)] = WaitingAPICall
+                    elif c == self.Columns.ColumnCount:
+                        new_table[(new_index, c)] = None
                     else:
                         new_table[(new_index, c)] = value
-            return new_table
-        elif col == self.Columns.DataSetCount and isinstance(result, int):
-            new_table = {}
-            for (r, c), value in current_table.items():
-                if r != row:
-                    new_table[(r, c)] = value
-                    continue
-                if c == self.Columns.Transformations:
-                    new_table[(r, c)] = WaitingAPICall
-                else:
-                    new_table[(r, c)] = value
-            return new_table
-        elif col == self.Columns.Transformations and isinstance(result, list) and len(result) > 0:
-            transformation: Transformation
-            sources_by_transformation_id = {
-                transformation.id: get_transformation_sources(transformation.query or "") for transformation in result
-            }
-            new_table = {}
-            for (r, c), value in current_table.items():
-                if r != row:
-                    new_table[(r, c)] = value
-                    continue
-                for transformation in result:
-                    sources = sources_by_transformation_id[transformation.id]
-                    if not sources:
-                        new_table[(r, c)] = None
-                        continue
-                    for source in sources:
-                        new_index = f"{r}{self._index_split}{source!s}"
-                        if c == self.Columns.RawTable:
-                            new_table[(new_index, c)] = str(source)
-                        elif c == self.Columns.RowCount:
-                            new_table[(new_index, c)] = WaitingAPICall
-                        elif c == self.Columns.ColumnCount:
-                            new_table[(new_index, c)] = None
-                        else:
-                            new_table[(new_index, c)] = value
-            return new_table
-        elif col in self.Columns.RowCount and isinstance(result, RawProfileResults):
-            new_table = {}
-            for (r, c), value in current_table.items():
-                if r != row:
-                    new_table[(r, c)] = value
-                    continue
-                is_complete = result.is_complete and result.row_count < self.profile_row_limit
-                if c == self.Columns.RowCount:
-                    new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count}"
-                elif c == self.Columns.ColumnCount:
-                    new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count}"
-                else:
-                    new_table[(r, c)] = value
-            return new_table
-        return current_table
+        return new_table
+
+    def _update_row_count(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+    ) -> PendingTable:
+        if not isinstance(result, RawProfileResults):
+            return current_table
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r != row:
+                new_table[(r, c)] = value
+                continue
+            is_complete = result.is_complete and result.row_count < self.profile_row_limit
+            if c == self.Columns.RowCount:
+                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count}"
+            elif c == self.Columns.ColumnCount:
+                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count}"
+            else:
+                new_table[(r, c)] = value
+        return new_table
 
 
 class ProfileAssetCentricCommand(ProfileCommand):
