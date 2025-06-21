@@ -242,7 +242,7 @@ class ProfileAssetCentricCommand(ProfileCommand):
         raise ValueError(f"Unknown column: {col} for row: {row}")
 
 
-class TransformationProfileCommand(ProfileCommand):
+class ProfileTransformationCommand(ProfileCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "Transformation Profile"
