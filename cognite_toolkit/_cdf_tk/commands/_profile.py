@@ -13,7 +13,7 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -264,7 +264,7 @@ class ProfileAssetCommand(ProfileCommand):
         elif col == self.Columns.RowCount:
             db_table = rest[-1] if len(rest) > 0 else None
             if not isinstance(db_table, str) or "." not in db_table:
-                raise ValueError(f"Database and table name are required for {row} in column {col}.")
+                raise ValueError(f"Database and table name are required for {row} in column {col} in {rest}.")
             db_name, table_name = db_table.split(".")
             return partial(
                 aggregator.client.raw.profile,
@@ -297,7 +297,7 @@ class ProfileAssetCommand(ProfileCommand):
         row: str,
         col: str,
     ) -> PendingTable:
-        handlers = {
+        handlers: Mapping[str, Callable[[PendingTable, object, str], PendingTable]] = {
             self.Columns.Count: self._update_count,
             self.Columns.DataSets: self._update_datasets,
             self.Columns.DataSetCount: self._update_dataset_count,
@@ -340,6 +340,8 @@ class ProfileAssetCommand(ProfileCommand):
                 new_index = f"{r}{self._index_split}{data_set}"
                 if c == self.Columns.DataSetCount:
                     new_table[(new_index, c)] = WaitingAPICall
+                elif c == self.Columns.DataSets:
+                    new_table[(new_index, c)] = data_set
                 else:
                     new_table[(new_index, c)] = value
         return new_table
@@ -374,7 +376,10 @@ class ProfileAssetCommand(ProfileCommand):
         ):
             return current_table
         sources_by_transformation_id = {
-            transformation.id: get_transformation_sources(transformation.query or "") for transformation in result
+            transformation.id: [
+                s for s in get_transformation_sources(transformation.query or "") if isinstance(s, RawTable)
+            ]
+            for transformation in result
         }
         new_table: PendingTable = {}
         for (r, c), value in current_table.items():
@@ -394,6 +399,8 @@ class ProfileAssetCommand(ProfileCommand):
                         new_table[(new_index, c)] = WaitingAPICall
                     elif c == self.Columns.ColumnCount:
                         new_table[(new_index, c)] = None
+                    elif c == self.Columns.Transformations:
+                        new_table[(new_index, c)] = f"{transformation.name} ({transformation.external_id})"
                     else:
                         new_table[(new_index, c)] = value
         return new_table
@@ -413,9 +420,9 @@ class ProfileAssetCommand(ProfileCommand):
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if c == self.Columns.RowCount:
-                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count}"
+                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"
             elif c == self.Columns.ColumnCount:
-                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count}"
+                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
                 new_table[(r, c)] = value
         return new_table
