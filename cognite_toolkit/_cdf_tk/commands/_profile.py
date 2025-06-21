@@ -263,9 +263,11 @@ class ProfileTransformationCommand(ProfileCommand):
         return self.create_profile_table(client)
 
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
-        iterable: Iterable[Transformation] = client.transformations.list(destination_type=self.destination_type)
+        iterable: Iterable[Transformation] = client.transformations.list(
+            destination_type=self.destination_type, limit=-1
+        )
         if self.destination_type == "assets":
-            iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy"))
+            iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy", limit=-1))
         table: dict[tuple[str, str], PendingCellValue] = {}
         for transformation in iterable:
             sources: list[SQLTable] = []
