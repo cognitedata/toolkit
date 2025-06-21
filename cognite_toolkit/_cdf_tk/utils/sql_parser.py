@@ -14,6 +14,10 @@ class SQLTable:
     schema: str
     name: str
 
+    def __str__(self) -> str:
+        """Return the table name in the format 'schema.table'."""
+        return f"{self.schema}.{self.name}"
+
 
 class SQLParser:
     def __init__(self, query: str, operation: str) -> None:
