@@ -23,7 +23,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
 from ._base import ToolkitCommand
 
 
-class ProfileCommand(ToolkitCommand):
+class ProfileAssetCentricCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
         Count = "Count"
