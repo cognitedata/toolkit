@@ -2,6 +2,7 @@ from cognite.client.data_classes import Transformation
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ProfileAssetCentricCommand, ProfileTransformationCommand
+from tests.test_integration.constants import ASSET_TABLE
 
 
 class TestDumpResource:
@@ -40,7 +41,7 @@ class TestProfileTransformationCommand:
         actual_row = search_rows[0]
         assert actual_row == {
             columns.Transformation: aggregator_assets.name,
-            columns.Source: f"{aggregator_raw_db}.toolkit_aggregators_test_table_assets",
+            columns.Source: f"{aggregator_raw_db}.{ASSET_TABLE}",
             columns.DestinationColumns: "name, externalId, dataSetId, parentExternalId",
             columns.Destination: "assets",
             columns.ConflictMode: aggregator_assets.conflict_mode,
