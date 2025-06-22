@@ -153,7 +153,7 @@ def dev_cluster_client() -> ToolkitClient | None:
 
 
 @pytest.fixture(scope="session")
-def raw_db(toolkit_client: ToolkitClient) -> str:
+def aggregator_raw_db(toolkit_client: ToolkitClient) -> str:
     loader = RawDatabaseLoader.create_loader(toolkit_client)
     db_name = "toolkit_aggregators_test_db"
     if not loader.retrieve([RawDatabase(db_name=db_name)]):
@@ -162,7 +162,7 @@ def raw_db(toolkit_client: ToolkitClient) -> str:
 
 
 @pytest.fixture(scope="session")
-def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
+def aggregator_two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
     datasets = DataSetWriteList(
         [
             DataSetWrite(external_id="toolkit_aggregators_test_dataset_1", name="Toolkit Aggregators Test Dataset 1"),
@@ -179,11 +179,11 @@ def two_datasets(toolkit_client: ToolkitClient) -> DataSetList:
 
 
 @pytest.fixture(scope="session")
-def root_asset(toolkit_client: ToolkitClient, two_datasets: DataSetList) -> Asset:
+def aggregator_root_asset(toolkit_client: ToolkitClient, aggregator_two_datasets: DataSetList) -> Asset:
     root_asset = AssetWrite(
         name="Toolkit Aggregators Test Root Asset",
         external_id="toolkit_aggregators_test_root_asset",
-        data_set_id=two_datasets[0].id,
+        data_set_id=aggregator_two_datasets[0].id,
     )
     retrieved = toolkit_client.assets.retrieve(external_id=root_asset.external_id)
     if retrieved is None:
@@ -228,9 +228,11 @@ def upsert_transformation_with_run(
     return created
 
 
-@pytest.mark.usefixtures("two_datasets")
+@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
-def assets(toolkit_client: ToolkitClient, raw_db: str, root_asset: Asset) -> Transformation:
+def aggregator_assets(
+    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
+) -> Transformation:
     table_name = "toolkit_aggregators_test_table_assets"
     rows = [
         RowWrite(
@@ -238,14 +240,14 @@ def assets(toolkit_client: ToolkitClient, raw_db: str, root_asset: Asset) -> Tra
             columns={
                 "name": f"Asset 00{i}",
                 "externalId": f"asset_00{i}",
-                "parentExternalId": root_asset.external_id,
+                "parentExternalId": aggregator_root_asset.external_id,
             },
         )
         for i in range(1, ASSET_COUNT - 1 + 1)  # -1 for root asset, +1 for inclusive range
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RawTable(db_name=raw_db, table_name=table_name),
+        RawTable(db_name=aggregator_raw_db, table_name=table_name),
         rows,
     )
 
@@ -254,25 +256,28 @@ def assets(toolkit_client: ToolkitClient, raw_db: str, root_asset: Asset) -> Tra
         name="Toolkit Aggregators Test Asset Transformation",
         destination=TransformationDestination("assets"),
         query=f"""SELECT name as name, externalId as externalId, dataset_id('{ASSET_DATASET}') as dataSetId, parentExternalId as parentExternalId
-FROM `{raw_db}`.`{table_name}`""",
+FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
     return created
 
 
-@pytest.mark.usefixtures("assets")
+@pytest.mark.usefixtures("aggregator_assets")
 @pytest.fixture(scope="session")
-def asset_list(toolkit_client: ToolkitClient, root_asset: Asset) -> AssetList:
+def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: Asset) -> AssetList:
     return toolkit_client.assets.list(
-        asset_subtree_ids=[root_asset.id],
+        asset_subtree_ids=[aggregator_root_asset.id],
     )
 
 
-@pytest.mark.usefixtures("two_datasets")
+@pytest.mark.usefixtures("aggregator_two_datasets")
 @pytest.fixture(scope="session")
-def events(toolkit_client: ToolkitClient, raw_db: str, asset_list: AssetList) -> Transformation:
+def aggregator_events(
+    toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_asset_list: AssetList
+) -> Transformation:
     table_name = "toolkit_aggregators_test_table_events"
+    assets = aggregator_asset_list
     rows = [
         RowWrite(
             key=f"event_00{i}",
@@ -281,14 +286,14 @@ def events(toolkit_client: ToolkitClient, raw_db: str, asset_list: AssetList) ->
                 "name": f"Event 00{i}",
                 "startTime": 1000000000 + i * 1000,  # Staggered start times
                 "endTime": 1000000000 + i * 1000 + 500,  # 500ms duration
-                "assetIds": [asset_list[i % len(asset_list)].id],
+                "assetIds": [assets[i % len(assets)].id],
             },
         )
         for i in range(1, EVENT_COUNT + 1)  # +1 for inclusive range
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RawTable(db_name=raw_db, table_name=table_name),
+        RawTable(db_name=aggregator_raw_db, table_name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -297,7 +302,7 @@ def events(toolkit_client: ToolkitClient, raw_db: str, asset_list: AssetList) ->
         destination=TransformationDestination("events"),
         query=f"""SELECT externalId as externalId, name as name, timestamp_millis(startTime) as startTime, timestamp_millis(endTime) as endTime,
 assetIds as assetIds, dataset_id('{EVENT_DATASET}') as dataSetId
-FROM `{raw_db}`.`{table_name}`""",
+FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
@@ -305,17 +310,21 @@ FROM `{raw_db}`.`{table_name}`""",
 
 
 @pytest.fixture(scope="session")
-def files(
-    toolkit_client: ToolkitClient, raw_db: str, two_datasets: DataSetList, asset_list: AssetList
+def aggregator_files(
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_two_datasets: DataSetList,
+    aggregator_asset_list: AssetList,
 ) -> Transformation:
     table_name = "toolkit_aggregators_test_table_files"
+    assets = aggregator_asset_list
     rows = [
         RowWrite(
             key=f"file_00{i}",
             columns={
                 "externalId": f"file_00{i}",
                 "name": f"File 00{i}",
-                "assetIds": [asset_list[i % len(asset_list)].id],  # Assign to one of the assets
+                "assetIds": [assets[i % len(assets)].id],  # Assign to one of the assets
                 "mimeType": "application/text",
             },
         )
@@ -328,7 +337,7 @@ def files(
 
     create_raw_table_with_data(
         toolkit_client,
-        RawTable(db_name=raw_db, table_name=table_name),
+        RawTable(db_name=aggregator_raw_db, table_name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -337,7 +346,7 @@ def files(
         destination=TransformationDestination("files"),
         query=f"""SELECT externalId as externalId, name as name, assetIds as assetIds,
 dataset_id('{FILE_DATASET}') as dataSetId, mimeType as mimeType
-FROM `{raw_db}`.`{table_name}`""",
+FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
@@ -359,17 +368,21 @@ FROM `{raw_db}`.`{table_name}`""",
 
 
 @pytest.fixture(scope="session")
-def time_series(
-    toolkit_client: ToolkitClient, raw_db: str, two_datasets: DataSetList, asset_list: AssetList
+def aggregator_time_series(
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_two_datasets: DataSetList,
+    aggregator_asset_list: AssetList,
 ) -> Transformation:
     table_name = "toolkit_aggregators_test_table_time_series"
+    assets = aggregator_asset_list
     rows = [
         RowWrite(
             key=f"timeseries_00{i}",
             columns={
                 "externalId": f"timeseries_00{i}",
                 "name": f"Time Series 00{i}",
-                "assetId": asset_list[i % len(asset_list)].id,  # Assign to one of the assets
+                "assetId": assets[i % len(assets)].id,  # Assign to one of the assets
                 "isString": False,
                 "isStep": False,
             },
@@ -378,7 +391,7 @@ def time_series(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RawTable(db_name=raw_db, table_name=table_name),
+        RawTable(db_name=aggregator_raw_db, table_name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -387,7 +400,7 @@ def time_series(
         destination=TransformationDestination("timeseries"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, isString as isString, isStep as isStep,
 dataset_id('{TIMESERIES_DATASET}') as dataSetId
-FROM `{raw_db}`.`{table_name}`""",
+FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)
@@ -395,17 +408,21 @@ FROM `{raw_db}`.`{table_name}`""",
 
 
 @pytest.fixture(scope="session")
-def sequences(
-    toolkit_client: ToolkitClient, raw_db: str, two_datasets: DataSetList, asset_list: AssetList
+def aggregator_sequences(
+    toolkit_client: ToolkitClient,
+    aggregator_raw_db: str,
+    aggregator_two_datasets: DataSetList,
+    aggregator_asset_list: AssetList,
 ) -> Transformation:
     table_name = "toolkit_aggregators_test_table_sequences"
+    assets = aggregator_asset_list
     rows = [
         RowWrite(
             key=f"sequence_00{i}",
             columns={
                 "externalId": f"sequence_00{i}",
                 "name": f"Sequence 00{i}",
-                "assetId": asset_list[i % len(asset_list)].id,  # Assign to one of the assets
+                "assetId": assets[i % len(assets)].id,  # Assign to one of the assets
                 "columns": [
                     {"name": f"Column {j}", "valueType": "STRING", "externalId": f"column_{j}"} for j in range(1, 4)
                 ],
@@ -415,7 +432,7 @@ def sequences(
     ]
     create_raw_table_with_data(
         toolkit_client,
-        RawTable(db_name=raw_db, table_name=table_name),
+        RawTable(db_name=aggregator_raw_db, table_name=table_name),
         rows,
     )
     transformation = TransformationWrite(
@@ -423,7 +440,7 @@ def sequences(
         name="Toolkit Aggregators Test Sequence Transformation",
         destination=TransformationDestination("sequences"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, columns as columns, dataset_id('{SEQUENCE_DATASET}') as dataSetId
-FROM `{raw_db}`.`{table_name}`""",
+FROM `{aggregator_raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
     created = upsert_transformation_with_run(toolkit_client, transformation)

@@ -40,7 +40,9 @@ class TestAggregators:
         (SequenceAggregator, SEQUENCE_TRANSFORMATION, SEQUENCE_DATASET, SEQUENCE_COUNT),
     )
 
-    @pytest.mark.usefixtures("assets", "events", "files", "time_series", "sequences")
+    @pytest.mark.usefixtures(
+        "aggregator_assets", "aggregator_events", "aggregator_files", "aggregator_time_series", "aggregator_sequences"
+    )
     @pytest.mark.parametrize(
         "aggregator_class, expected_transformation_external_id, expected_dataset_external_id, expected_count",
         aggregators,
@@ -52,9 +54,9 @@ class TestAggregators:
         expected_transformation_external_id: str,
         expected_dataset_external_id: str,
         expected_count: int,
-        root_asset: Asset,
+        aggregator_root_asset: Asset,
     ) -> None:
-        root = root_asset.external_id
+        root = aggregator_root_asset.external_id
         aggregator = aggregator_class(toolkit_client)
 
         actual_count = aggregator.count(root)
