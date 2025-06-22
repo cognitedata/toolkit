@@ -12,7 +12,7 @@ RUN_UNIQUE_ID = f"{platform.system()}_{sys.version_info.major}_{sys.version_info
 ASSET_TABLE = "toolkit_aggregators_test_table_assets"
 EVENT_TABLE = "toolkit_aggregators_test_table_events"
 FILE_TABLE = "toolkit_aggregators_test_table_files"
-TIMESERIES_TABLE = "toolkit_aggregators_test_table_timeseries"
+TIMESERIES_TABLE = "toolkit_aggregators_test_table_time_series"
 SEQUENCE_TABLE = "toolkit_aggregators_test_table_sequences"
 
 ASSET_TRANSFORMATION = "toolkit_aggregators_test_asset_transformation"
