@@ -30,18 +30,23 @@ from tests.constants import REPO_ROOT
 from tests.test_integration.constants import (
     ASSET_COUNT,
     ASSET_DATASET,
+    ASSET_TABLE,
     ASSET_TRANSFORMATION,
     EVENT_COUNT,
     EVENT_DATASET,
+    EVENT_TABLE,
     EVENT_TRANSFORMATION,
     FILE_COUNT,
     FILE_DATASET,
+    FILE_TABLE,
     FILE_TRANSFORMATION,
     SEQUENCE_COUNT,
     SEQUENCE_DATASET,
+    SEQUENCE_TABLE,
     SEQUENCE_TRANSFORMATION,
     TIMESERIES_COUNT,
     TIMESERIES_DATASET,
+    TIMESERIES_TABLE,
     TIMESERIES_TRANSFORMATION,
 )
 
@@ -233,7 +238,7 @@ def upsert_transformation_with_run(
 def aggregator_assets(
     toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_root_asset: Asset
 ) -> Transformation:
-    table_name = "toolkit_aggregators_test_table_assets"
+    table_name = ASSET_TABLE
     rows = [
         RowWrite(
             key=f"asset_00{i}",
@@ -276,7 +281,7 @@ def aggregator_asset_list(toolkit_client: ToolkitClient, aggregator_root_asset: 
 def aggregator_events(
     toolkit_client: ToolkitClient, aggregator_raw_db: str, aggregator_asset_list: AssetList
 ) -> Transformation:
-    table_name = "toolkit_aggregators_test_table_events"
+    table_name = EVENT_TABLE
     assets = aggregator_asset_list
     rows = [
         RowWrite(
@@ -316,7 +321,7 @@ def aggregator_files(
     aggregator_two_datasets: DataSetList,
     aggregator_asset_list: AssetList,
 ) -> Transformation:
-    table_name = "toolkit_aggregators_test_table_files"
+    table_name = FILE_TABLE
     assets = aggregator_asset_list
     rows = [
         RowWrite(
@@ -374,7 +379,7 @@ def aggregator_time_series(
     aggregator_two_datasets: DataSetList,
     aggregator_asset_list: AssetList,
 ) -> Transformation:
-    table_name = "toolkit_aggregators_test_table_time_series"
+    table_name = TIMESERIES_TABLE
     assets = aggregator_asset_list
     rows = [
         RowWrite(
@@ -414,7 +419,7 @@ def aggregator_sequences(
     aggregator_two_datasets: DataSetList,
     aggregator_asset_list: AssetList,
 ) -> Transformation:
-    table_name = "toolkit_aggregators_test_table_sequences"
+    table_name = SEQUENCE_TABLE
     assets = aggregator_asset_list
     rows = [
         RowWrite(

@@ -9,6 +9,12 @@ RUN_UNIQUE_ID = f"{platform.system()}_{sys.version_info.major}_{sys.version_info
 
 # These constants are used to set up a raw database and tables with transformations and datasets
 # to populate the asset-centric resources in CDF.
+ASSET_TABLE = "toolkit_aggregators_test_table_assets"
+EVENT_TABLE = "toolkit_aggregators_test_table_events"
+FILE_TABLE = "toolkit_aggregators_test_table_files"
+TIMESERIES_TABLE = "toolkit_aggregators_test_table_timeseries"
+SEQUENCE_TABLE = "toolkit_aggregators_test_table_sequences"
+
 ASSET_TRANSFORMATION = "toolkit_aggregators_test_asset_transformation"
 EVENT_TRANSFORMATION = "toolkit_aggregators_test_event_transformation"
 FILE_TRANSFORMATION = "toolkit_aggregators_test_file_transformation"
