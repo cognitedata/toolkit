@@ -1,29 +1,37 @@
-from cognite.client.data_classes import Asset
+from cognite.client.data_classes import Asset, Transformation
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import ProfileAssetCentricCommand, ProfileAssetCommand
 from tests.test_integration.constants import (
     ASSET_COUNT,
     ASSET_DATASET,
-    ASSET_TRANSFORMATION,
+    ASSET_TABLE,
     EVENT_COUNT,
     EVENT_DATASET,
-    EVENT_TRANSFORMATION,
+    EVENT_TABLE,
     FILE_COUNT,
     FILE_DATASET,
-    FILE_TRANSFORMATION,
+    FILE_TABLE,
     SEQUENCE_COUNT,
     SEQUENCE_DATASET,
-    SEQUENCE_TRANSFORMATION,
+    SEQUENCE_TABLE,
     TIMESERIES_COUNT,
     TIMESERIES_DATASET,
-    TIMESERIES_TRANSFORMATION,
+    TIMESERIES_TABLE,
 )
 
 
 class TestProfileAssetCommand:
     def test_profile_asset_hierarchy(
-        self, toolkit_client: ToolkitClient, aggregator_root_asset: Asset, aggregator_raw_db: str
+        self,
+        toolkit_client: ToolkitClient,
+        aggregator_root_asset: Asset,
+        aggregator_raw_db: str,
+        aggregator_assets: Transformation,
+        aggregator_events: Transformation,
+        aggregator_files: Transformation,
+        aggregator_time_series: Transformation,
+        aggregator_sequences: Transformation,
     ) -> None:
         results = ProfileAssetCommand().assets(toolkit_client, aggregator_root_asset.external_id)
         columns = ProfileAssetCommand.Columns
@@ -33,7 +41,7 @@ class TestProfileAssetCommand:
                 columns.Count: count,
                 columns.DataSets: dataset,
                 columns.DataSetCount: count,
-                columns.Transformations: transformation,
+                columns.Transformations: f"{transformation.name} ({transformation.external_id})",
                 columns.RawTable: f"{aggregator_raw_db}.{raw_table}",
                 columns.RowCount: row_count,
                 columns.ColumnCount: column_count,
@@ -43,8 +51,8 @@ class TestProfileAssetCommand:
                     "Assets",
                     ASSET_COUNT,
                     ASSET_DATASET,
-                    ASSET_TRANSFORMATION,
-                    "toolkit_aggregators_test_asset_transformation",
+                    aggregator_assets,
+                    ASSET_TABLE,
                     ASSET_COUNT - 1,
                     4,
                 ),  # -1 root asset is not in the table
@@ -52,37 +60,37 @@ class TestProfileAssetCommand:
                     "Events",
                     EVENT_COUNT,
                     EVENT_DATASET,
-                    EVENT_TRANSFORMATION,
-                    "toolkit_aggregators_test_event_transformation",
+                    aggregator_events,
+                    EVENT_TABLE,
                     EVENT_COUNT,
-                    2,
+                    5,
                 ),
                 (
                     "Files",
                     FILE_COUNT,
                     FILE_DATASET,
-                    FILE_TRANSFORMATION,
-                    "toolkit_aggregators_test_file_transformation",
+                    aggregator_files,
+                    FILE_TABLE,
                     FILE_COUNT,
-                    2,
+                    4,
                 ),
                 (
                     "TimeSeries",
                     TIMESERIES_COUNT,
                     TIMESERIES_DATASET,
-                    TIMESERIES_TRANSFORMATION,
-                    "toolkit_aggregators_test_timeseries_transformation",
+                    aggregator_time_series,
+                    TIMESERIES_TABLE,
                     TIMESERIES_COUNT,
-                    2,
+                    5,
                 ),
                 (
                     "Sequences",
                     SEQUENCE_COUNT,
                     SEQUENCE_DATASET,
-                    SEQUENCE_TRANSFORMATION,
-                    "toolkit_aggregators_test_sequence_transformation",
+                    aggregator_sequences,
+                    SEQUENCE_TABLE,
                     SEQUENCE_COUNT,
-                    2,
+                    4,
                 ),
             ]
         ]
