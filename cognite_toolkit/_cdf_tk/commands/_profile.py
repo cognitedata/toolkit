@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cached_property
+from functools import cached_property, partial
 from typing import ClassVar, Literal, TypeAlias, overload
 
+from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
 from rich import box
 from rich.console import Console
@@ -12,6 +14,7 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -24,6 +27,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     SequenceAggregator,
     TimeSeriesAggregator,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
 
 from ._base import ToolkitCommand
 
@@ -240,16 +244,131 @@ class ProfileAssetCentricCommand(ProfileCommand):
 
 
 class ProfileRawCommand(ProfileCommand):
+    class Columns:
+        RAW = "Raw"
+        Rows = "Rows"
+        Columns = "Columns"
+        Transformation = "Transformation"
+        Destination = "Destination"
+        ConflictMode = "ConflictMode"
+
+    profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
+    # The actual limit is 1 million, we typically run this against 30 tables and that high limit
+    # will cause 504 errors.
+    profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
+    # This is the same ase the run/query maximum timeout.
+    _index_split = "-"
+    is_dynamic_table = True
+
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.table_title = "RAW Profile"
+        self.destination_type = ""
+        self.client: ToolkitClient | None = None
+
     def raw(
         self,
         client: ToolkitClient,
         destination_type: str,
         verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
-        raise NotImplementedError()
+        self.table_title = f"RAW Profile destination: {destination_type}"
+        self.destination_type = destination_type
+        return self.create_profile_table(client)
 
     def create_initial_table(self, client: ToolkitClient) -> PendingTable:
-        raise NotImplementedError()
+        table: PendingTable = {}
+        existing_tables = self._get_existing_tables(client)
+        transformations_by_raw_table = self._get_transformations_by_raw_table(client, self.destination_type)
+        for raw_id, transformations in transformations_by_raw_table.items():
+            is_missing = raw_id not in existing_tables
+            missing_str = " (missing)" if is_missing else ""
+            for transformation in transformations:
+                index = f"{raw_id!s}{self._index_split}{transformation.id}"
+                table[(index, self.Columns.RAW)] = f"{raw_id!s}{missing_str}"
+                if is_missing:
+                    table[(index, self.Columns.Rows)] = "N/A"
+                    table[(index, self.Columns.Columns)] = "N/A"
+                else:
+                    table[(index, self.Columns.Rows)] = WaitingAPICall
+                    table[(index, self.Columns.Columns)] = None
+                table[(index, self.Columns.Transformation)] = f"{transformation.name} ({transformation.external_id})"
+                table[(index, self.Columns.Destination)] = (
+                    transformation.destination.type if transformation.destination else "Unknown"
+                )
+                table[(index, self.Columns.ConflictMode)] = transformation.conflict_mode
+        return table
 
-    def call_api(self, row: str, col: str) -> Callable:
-        raise NotImplementedError()
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+        if col == self.Columns.Rows:
+            raw_id = row.split(self._index_split)[0]
+            if "." not in raw_id:
+                raise ValueError(f"Database and table name are required for {row} in column {col}.")
+            db_name, table_name = raw_id.split(".", 1)
+            return partial(
+                client.raw.profile,
+                database=db_name,
+                table=table_name,
+                limit=self.profile_row_limit,
+                timeout_seconds=self.profile_timeout_seconds,
+            )
+        raise ValueError(f"There are no API calls for {row} in column {col}.")
+
+    def format_result(self, result: object, row: str, col: str) -> CellValue:
+        if isinstance(result, int | float | bool | str) or result is None:
+            return result
+        elif isinstance(result, RawProfileResults):
+            return result.row_count
+        raise ValueError(f"Unknown result type: {type(result)} for {row} in column {col}.")
+
+    def update_table(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+        col: str,
+    ) -> PendingTable:
+        if not isinstance(result, RawProfileResults) or col != self.Columns.Rows:
+            return current_table
+        is_complete = result.is_complete and result.row_count < self.profile_row_limit
+        new_table: PendingTable = {}
+        for (r, c), value in current_table.items():
+            if r == row and c == self.Columns.Rows:
+                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+            elif r == row and c == self.Columns.Columns:
+                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count:,}"
+            else:
+                new_table[(r, c)] = value
+        return new_table
+
+    @classmethod
+    def _get_existing_tables(cls, client: ToolkitClient) -> set[RawTable]:
+        existing_tables: set[RawTable] = set()
+        databases = client.raw.databases.list(limit=-1)
+        for database in databases:
+            if database.name is None:
+                continue
+            tables = client.raw.tables.list(db_name=database.name, limit=-1)
+            for table in tables:
+                if table.name is None:
+                    continue
+                existing_tables.add(RawTable(db_name=database.name, table_name=table.name))
+        return existing_tables
+
+    @classmethod
+    def _get_transformations_by_raw_table(
+        cls, client: ToolkitClient, destination_type: str
+    ) -> dict[RawTable, list[Transformation]]:
+        transformations = client.transformations.list(destination_type=destination_type)
+        if destination_type == "assets":
+            transformations.extend(client.transformations.list(destination_type="asset_hierarchy"))
+        transformations_by_raw_table: dict[RawTable, list[Transformation]] = defaultdict(list)
+        for transformation in transformations:
+            if transformation.query is None:
+                # No query means no source table.
+                continue
+            sources = get_transformation_sources(transformation.query)
+            for source in sources:
+                if isinstance(source, RawTable):
+                    transformations_by_raw_table[source].append(transformation)
+        return transformations_by_raw_table
