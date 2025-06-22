@@ -244,7 +244,7 @@ class ProfileAssetCommand(ProfileCommand):
             table[(index, self.Columns.ColumnCount)] = None
         return table
 
-    def call_api(self, row: str, col: str) -> Callable:
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
         agg_name, *rest = row.split(self._index_split)
         aggregator = self.aggregators[agg_name]
         if col == self.Columns.Count:
@@ -267,7 +267,7 @@ class ProfileAssetCommand(ProfileCommand):
                 raise ValueError(f"Database and table name are required for {row} in column {col} in {rest}.")
             db_name, table_name = db_table.split(".")
             return partial(
-                aggregator.client.raw.profile,
+                client.raw.profile,
                 database=db_name,
                 table=table_name,
                 limit=self.profile_row_limit,
