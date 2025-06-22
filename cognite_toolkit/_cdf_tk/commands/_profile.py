@@ -237,3 +237,19 @@ class ProfileAssetCentricCommand(ProfileCommand):
         elif col == self.Columns.Transformation:
             return aggregator.transformation_count
         raise ValueError(f"Unknown column: {col} for row: {row}")
+
+
+class ProfileRawCommand(ProfileCommand):
+    def raw(
+        self,
+        client: ToolkitClient,
+        destination_type: str,
+        verbose: bool = False,
+    ) -> list[dict[str, CellValue]]:
+        raise NotImplementedError()
+
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+        raise NotImplementedError()
+
+    def call_api(self, row: str, col: str) -> Callable:
+        raise NotImplementedError()
