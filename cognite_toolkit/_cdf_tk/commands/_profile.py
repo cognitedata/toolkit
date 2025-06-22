@@ -291,5 +291,5 @@ class ProfileTransformationCommand(ProfileCommand):
             )
         return table
 
-    def call_api(self, row: str, col: str) -> Callable:
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
         raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
