@@ -5,6 +5,7 @@ from functools import cached_property
 from typing import ClassVar, Literal, TypeAlias, overload
 
 from cognite.client.exceptions import CogniteException
+from rich import box
 from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
@@ -36,6 +37,7 @@ WaitingAPICall = WaitingAPICallClass()
 
 PendingCellValue: TypeAlias = int | float | str | bool | None | WaitingAPICallClass
 CellValue: TypeAlias = int | float | str | bool | None
+PendingTable: TypeAlias = dict[tuple[str, str], PendingCellValue]
 
 
 class ProfileCommand(ToolkitCommand, ABC):
@@ -88,7 +90,7 @@ class ProfileCommand(ToolkitCommand, ABC):
         return self.as_record_format(table, allow_waiting_api_call=False)
 
     @abstractmethod
-    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
         """
         Create the initial table with placeholders for API calls.
         Each cell that requires an API call should be initialized with WaitingAPICall.
@@ -99,7 +101,7 @@ class ProfileCommand(ToolkitCommand, ABC):
     def call_api(self, row: str, col: str) -> Callable:
         raise NotImplementedError("Subclasses must implement call_api.")
 
-    def format_result(self, result: object, row: str, col: str) -> str | int | float | bool:
+    def format_result(self, result: object, row: str, col: str) -> CellValue:
         """
         Format the result of an API call for display in the table.
         This can be overridden by subclasses to customize formatting.
@@ -110,19 +112,20 @@ class ProfileCommand(ToolkitCommand, ABC):
 
     def update_table(
         self,
-        current_table: dict[tuple[str, str], PendingCellValue],
+        current_table: PendingTable,
         result: object,
         row: str,
         col: str,
-    ) -> dict[tuple[str, str], PendingCellValue]:
+    ) -> PendingTable:
         raise NotImplementedError("Subclasses must implement update_table.")
 
-    def draw_table(self, table: dict[tuple[str, str], PendingCellValue]) -> Table:
+    def draw_table(self, table: PendingTable) -> Table:
         rich_table = Table(
             title=self.table_title,
             title_justify="left",
             show_header=True,
             header_style="bold magenta",
+            box=box.MINIMAL,
         )
         for col in self.columns:
             rich_table.add_column(col)
@@ -136,21 +139,21 @@ class ProfileCommand(ToolkitCommand, ABC):
     @classmethod
     @overload
     def as_record_format(
-        cls, table: dict[tuple[str, str], PendingCellValue], allow_waiting_api_call: Literal[True] = True
+        cls, table: PendingTable, allow_waiting_api_call: Literal[True] = True
     ) -> list[dict[str, PendingCellValue]]: ...
 
     @classmethod
     @overload
     def as_record_format(
         cls,
-        table: dict[tuple[str, str], PendingCellValue],
+        table: PendingTable,
         allow_waiting_api_call: Literal[False],
     ) -> list[dict[str, CellValue]]: ...
 
     @classmethod
     def as_record_format(
         cls,
-        table: dict[tuple[str, str], PendingCellValue],
+        table: PendingTable,
         allow_waiting_api_call: bool = True,
     ) -> list[dict[str, PendingCellValue]] | list[dict[str, CellValue]]:
         rows: list[dict[str, PendingCellValue]] = []
@@ -207,7 +210,7 @@ class ProfileAssetCentricCommand(ProfileCommand):
         )
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
         table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
         for index, aggregator in self.aggregators.items():
             table[(index, self.Columns.Resource)] = aggregator.display_name
