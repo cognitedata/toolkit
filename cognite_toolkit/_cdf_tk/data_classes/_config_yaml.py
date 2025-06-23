@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
-    calculate_str_or_file_hash,
+    calculate_hash,
     flatten_dict,
     read_yaml_content,
     safe_read,
@@ -320,7 +320,7 @@ class BuildEnvironment(Environment):
                         warning_list.append(
                             MissingFileWarning(source_filepath, attempted_check="source file has changed")
                         )
-                    elif source.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
+                    elif source.hash != calculate_hash(source_filepath, shorten=True):
                         warning_list.append(SourceFileModifiedWarning(source_filepath))
         return warning_list
 

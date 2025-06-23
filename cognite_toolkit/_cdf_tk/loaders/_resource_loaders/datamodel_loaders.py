@@ -93,7 +93,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
-    calculate_str_or_file_hash,
+    calculate_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -580,10 +580,19 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         dumped = resource.as_write().dump()
         local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
-            # All properties were removed, so we remove the properties key.
-            dumped.pop("properties", None)
+            if "properties" in local:
+                # In case the properties is an empty dict, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["properties"] = local["properties"]
+            else:
+                dumped.pop("properties", None)
         if not dumped.get("implements") and not local.get("implements"):
-            dumped.pop("implements", None)
+            if "implements" in local:
+                # In case the implements is an empty list, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["implements"] = local["implements"]
+            else:
+                dumped.pop("implements", None)
         if resource.implements and len(resource.implements) > 1 and self._topological_sort_implements:
             # This is a special case that we want to do when we run the cdf dump datamodel command.
             # The issue is as follows:
@@ -1294,7 +1303,7 @@ class GraphQLLoader(
 
             # Add hash to description
             description = item.get("description", "")
-            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
                 LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()

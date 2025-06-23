@@ -79,7 +79,7 @@ def group_yaml_test_cases() -> Iterable:
             }
         ],
         {
-            "In [1].capabilities[1] invalid scope name 'notExisting'. Expected all or spaceIdScope",
+            "In item [1].capabilities[1] invalid scope name 'notExisting'. Expected all or spaceIdScope",
         },
         id="Invalid scope name",
     )
