@@ -31,23 +31,23 @@ class TestSearchConfigView:
 
 
 class TestSearchConfigViewProperty:
-    def test_init(self):
+    def test_search_config_view_property(self):
+        # Test initialization
         prop = SearchConfigViewProperty(property="test-prop", disabled=True, selected=False, hidden=True)
         assert prop.property == "test-prop"
         assert prop.disabled is True
         assert prop.selected is False
         assert prop.hidden is True
 
-    def test_load(self):
+        # Test loading from dictionary
         data = {"property": "test-prop", "disabled": True, "selected": False, "hidden": True}
-        prop = SearchConfigViewProperty.load(data)
-        assert prop.property == "test-prop"
-        assert prop.disabled is True
-        assert prop.selected is False
-        assert prop.hidden is True
+        loaded_prop = SearchConfigViewProperty.load(data)
+        assert loaded_prop.property == "test-prop"
+        assert loaded_prop.disabled is True
+        assert loaded_prop.selected is False
+        assert loaded_prop.hidden is True
 
-    def test_dump(self):
-        prop = SearchConfigViewProperty(property="test-prop", disabled=True, selected=False, hidden=True)
+        # Test dumping to dictionary
         dumped = prop.dump()
         assert dumped == {"property": "test-prop", "disabled": True, "selected": False, "hidden": True}
 
