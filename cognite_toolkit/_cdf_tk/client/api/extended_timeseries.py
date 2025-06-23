@@ -1,6 +1,7 @@
 from collections.abc import Sequence
-from typing import Any, overload
+from typing import Any, cast, overload
 
+from cognite.client import ClientConfig, CogniteClient
 from cognite.client._api.time_series import SortSpec, TimeSeriesAPI
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import NodeId
@@ -18,6 +19,11 @@ from cognite_toolkit._cdf_tk.client.data_classes.pending_instances_ids import Pe
 
 class ExtendedTimeSeriesAPI(TimeSeriesAPI):
     """Extended TimeSeriesAPI to include pending ID methods."""
+
+    def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
+        super().__init__(config, api_version, cognite_client)
+        self._PENDING_IDS_LIMIT = 1000
+        self._UNLINK_LIMIT = 1000
 
     @overload
     def set_pending_ids(
@@ -74,7 +80,7 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
                 },
                 "api_subversion": "alpha",
             }
-            for id_chunk in split_into_chunks(list(identifiers), 1000)
+            for id_chunk in split_into_chunks(list(identifiers), self._PENDING_IDS_LIMIT)
         ]
         tasks_summary = execute_tasks(
             self._post,
@@ -89,6 +95,68 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         retrieved_items = tasks_summary.joined_results(lambda res: res.json()["items"])
 
         return ExtendedTimeSeriesList._load(retrieved_items, cognite_client=self._cognite_client)
+
+    @overload
+    def unlink_instance_ids(
+        self,
+        id: int | None = None,
+        external_id: str | None = None,
+    ) -> ExtendedTimeSeries | None: ...
+
+    @overload
+    def unlink_instance_ids(
+        self,
+        id: Sequence[int] | None = None,
+        external_id: SequenceNotStr[str] | None = None,
+    ) -> ExtendedTimeSeriesList: ...
+
+    def unlink_instance_ids(
+        self,
+        id: int | Sequence[int] | None = None,
+        external_id: str | SequenceNotStr[str] | None = None,
+    ) -> ExtendedTimeSeries | ExtendedTimeSeriesList | None:
+        """Unlink pending instance IDs from time series.
+
+        Args:
+            id (int | Sequence[int] | None): The ID(s) of the time series.
+            external_id (str | SequenceNotStr[str] | None): The external ID(s) of the time series.
+
+        """
+        if id is None and external_id is None:
+            return None
+        if isinstance(id, int) and isinstance(external_id, str):
+            raise ValueError("Either id or external_id must be provided, or both as a sequence.")
+        is_single = isinstance(id, int) or isinstance(external_id, str)
+        identifiers = IdentifierSequence.load(id, external_id)
+
+        tasks = [
+            {
+                "url_path": f"{self._RESOURCE_PATH}/unlink-instance-ids",
+                "json": {"items": id_chunk},
+                "api_subversion": "alpha",
+            }
+            for id_chunk in split_into_chunks(identifiers.as_dicts(), self._UNLINK_LIMIT)
+        ]
+        tasks_summary = execute_tasks(
+            self._post,
+            tasks,
+            max_workers=self._config.max_workers,
+            fail_fast=True,
+        )
+        tasks_summary.raise_compound_exception_if_failed_tasks(
+            task_unwrap_fn=unpack_items_in_payload,
+        )
+
+        retrieved_items = tasks_summary.joined_results(lambda res: res.json()["items"])
+
+        result = ExtendedTimeSeriesList._load(retrieved_items, cognite_client=self._cognite_client)
+        if is_single:
+            if len(result) == 0:
+                return None
+            if len(result) > 1:
+                raise ValueError("Expected a single time series, but multiple were returned.")
+            return cast(ExtendedTimeSeries, result[0])
+        return cast(ExtendedTimeSeriesList, result)
 
     def retrieve(
         self, id: int | None = None, external_id: str | None = None, instance_id: NodeId | None = None
