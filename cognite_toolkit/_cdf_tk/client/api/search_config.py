@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
-from typing import overload
-
 from cognite.client import CogniteClient
 from cognite.client._api_client import APIClient
 from cognite.client.config import ClientConfig
@@ -18,27 +15,7 @@ class SearchConfigurationsAPI(APIClient):
             f"/apps/v1/projects/{self._cognite_client.config.project}/storage/config/apps/search/views"
         )
 
-    @overload
-    def __call__(self) -> Iterator[SearchConfig]: ...
-
-    @overload
-    def __call__(self, chunk_size: int) -> Iterator[SearchConfigList]: ...
-
-    def __call__(self, chunk_size: int | None = None) -> Iterator[SearchConfig] | Iterator[SearchConfigList]:
-        """Iterate over configurations.
-        Args:
-            chunk_size: The number of configurations to return in each chunk. None will return all configurations.
-
-        Yields:
-            SearchConfig or SearchConfigList
-
-        """
-        return iter(self.list())
-
-    def __iter__(self) -> Iterator[SearchConfig]:
-        return self.__call__()
-
-    def update(self, configuration_update: SearchConfigWrite) -> SearchConfig:
+    def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig:
         """Update/Create a Configuration.
 
         Args:
@@ -48,7 +25,6 @@ class SearchConfigurationsAPI(APIClient):
             SearchConfig
 
         """
-
         res = self._post(
             url_path=self._RESOURCE_PATH + "/upsert",
             json=configuration_update.dump(),
@@ -56,5 +32,11 @@ class SearchConfigurationsAPI(APIClient):
         return SearchConfig._load(res.json(), cognite_client=self._cognite_client)
 
     def list(self) -> SearchConfigList:
+        """List all Configuration.
+
+        Returns:
+            SearchConfigList
+
+        """
         res = self._post(url_path=self._RESOURCE_PATH + "/list")
         return SearchConfigList._load(res.json()["items"], cognite_client=self._cognite_client)
