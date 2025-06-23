@@ -9,22 +9,23 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import (
 
 
 class TestSearchConfigView:
-    def test_init(self):
+    def test_search_config_view(self):
+        # Test initialization
         view = SearchConfigView(external_id="test-view", space="test-space")
         assert view.external_id == "test-view"
         assert view.space == "test-space"
 
-    def test_load(self):
+        # Test loading from dictionary
         data = {"externalId": "test-view", "space": "test-space"}
-        view = SearchConfigView.load(data)
-        assert view.external_id == "test-view"
-        assert view.space == "test-space"
+        loaded_view = SearchConfigView.load(data)
+        assert loaded_view.external_id == "test-view"
+        assert loaded_view.space == "test-space"
 
-    def test_dump(self):
-        view = SearchConfigView(external_id="test-view", space="test-space")
+        # Test dumping to dictionary with camelCase
         dumped = view.dump()
         assert dumped == {"externalId": "test-view", "space": "test-space"}
 
+        # Test dumping to dictionary with snake_case
         dumped_snake = view.dump(camel_case=False)
         assert dumped_snake == {"external_id": "test-view", "space": "test-space"}
 
@@ -60,8 +61,6 @@ class TestSearchConfigWrite:
         config = SearchConfigWrite(
             view=view,
             id=123,
-            created_time=1000,
-            updated_time=2000,
             use_as_name="name-prop",
             use_as_description="desc-prop",
             column_layout=[property_1],
@@ -71,8 +70,6 @@ class TestSearchConfigWrite:
 
         assert config.view == view
         assert config.id == 123
-        assert config.created_time == 1000
-        assert config.updated_time == 2000
         assert config.use_as_name == "name-prop"
         assert config.use_as_description == "desc-prop"
         assert config.column_layout == [property_1]
@@ -82,8 +79,6 @@ class TestSearchConfigWrite:
     def test_load(self):
         data = {
             "id": 123,
-            "createdTime": 1000,
-            "lastUpdatedTime": 2000,
             "view": {"externalId": "test-view", "space": "test-space"},
             "useAsName": "name-prop",
             "useAsDescription": "desc-prop",
@@ -95,8 +90,6 @@ class TestSearchConfigWrite:
         config = SearchConfigWrite.load(data)
 
         assert config.id == 123
-        assert config.created_time == 1000
-        assert config.updated_time == 2000
         assert config.view.external_id == "test-view"
         assert config.view.space == "test-space"
         assert config.use_as_name == "name-prop"
