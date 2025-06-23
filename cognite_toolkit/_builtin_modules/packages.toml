@@ -6,302 +6,97 @@ title = "Built-in Cognite packages"
 title = "Bootcamp"
 description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
 canCherryPick = false
-
-[[packages.bootcamp.modules]]
-name = "ice_cream_api"
-description = "An example API for the Ice Cream Factory"
-
-[[packages.bootcamp.modules]]
-name = "oee"
-description = "An example OEE module for the Ice Cream Factory"
+modules = [ 
+    "ice_cream_api",
+    "oee"
+]
 
 # Quickstart
 [packages.quickstart]
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
 canCherryPick = false
-
-[[packages.quickstart.modules]]
-name = "cdf_ingestion"
-description = "Ingestion Workflow"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_connection_sql"
-description = "Contextualisation direct relation transformation"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.config.yaml" },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.ExtractionPipeline.yaml" },
-    { location = "cdf_common/functions/contextualization_connection_writer" },
-    { location = "cdf_common/functions/write.Function.yaml" },
-    { location = "cdf_common/raw/contextualization_state.DataBase.yaml" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_search"
-description = "Search configuration with location filter"
-extra_resources = [
-    { location = "cdf_common/data_models/demo.Space.yaml" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_process_industry_extension"
-description = "Example of Minimum Extension of the Cognite Process Industry Model"
-
-[[packages.quickstart.modules]]
-name = "cdf_pi"
-description = "OSIsoft/AVEVA PI Data Source"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/pi_timeseries.Table.csv", destination = "raw/timeseries.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_sap_assets"
-title = "SAP Source System Asset/Equipment Metadata"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/assets.Table.csv", destination = "raw/dump.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_sap_events"
-description = "SAP Source System Events"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata", source = "workitem.Table.csv;workorder.Table.csv;workpackage.Table.csv;worktask.Table.csv", destination = "raw/" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.quickstart.modules]]
-name = "cdf_sharepoint"
-description = "SharePoint Files"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata/files", source = "PH-25578-P-4110006-001.pdf;PH-25578-P-4110010-001.pdf;PH-25578-P-4110119-001.pdf;PH-ME-P-0003-001.pdf;PH-ME-P-0004-001.pdf;PH-ME-P-0151-001.pdf;PH-ME-P-0152-001.pdf;PH-ME-P-0153-001.pdf;PH-ME-P-0156-001.pdf;PH-ME-P-0156-002.pdf;PH-ME-P-0160-001.pdf", destination = "files/" },
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/valhall_file_metadata.csv", destination = "raw/files.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
+modules = [
+    "cdf_auth_readwrite_all",
+    "cdf_ingestion",
+    "cdf_connection_sql",
+    "cdf_search",
+    "cdf_process_industry_extension",
+    "cdf_pi",
+    "cdf_sap_assets",
+    "cdf_sap_events",
+    "cdf_sharepoint"
 ]
 
 # Contextualization
 [packages.contextualization]
 title = "Contextualization"
 description = "Module templates for data contextualization"
-
-[[packages.contextualization.modules]]
-name = "cdf_connection_sql"
-description = "Contextualisation direct relation transformation"
-is_selected_by_default = false
-
-[[packages.contextualization.modules]]
-name = "cdf_entity_matching"
-description = "Contextualization Entity Matching"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.config.yaml" },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.ExtractionPipeline.yaml" },
-    { location = "cdf_common/functions/contextualization_connection_writer" },
-    { location = "cdf_common/functions/write.Function.yaml" },
-    { location = "cdf_common/raw/contextualization_state.DataBase.yaml" }
-]
-
-[[packages.contextualization.modules]]
-name = "cdf_p_and_id_parser"
-description = "Contextualization P&ID Diagram Parser"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.config.yaml   " },
-    { location = "cdf_common/extraction_pipelines/ctx_files_direct_relation_write.ExtractionPipeline.yaml" },
-    { location = "cdf_common/functions/contextualization_connection_writer" },
-    { location = "cdf_common/functions/write.Function.yaml" },
-    { location = "cdf_common/raw/contextualization_state.DataBase.yaml" }
+modules = [
+    "cdf_connection_sql",
+    "cdf_entity_matching",
+    "cdf_p_and_id_parser"
 ]
 
 # Custom
 [packages.custom]
 title = "None"
 description = "start with an empty module"
-
-[[packages.custom.modules]]
-name = "my_module"
-description = "Empty module"
-
-[[packages.custom.modules]]
-name = "cdf_auth_readwrite_all"
-description = "Admin group for CI/CD"
+modules = [
+    "my_module",
+    "cdf_auth_readwrite_all"
+]
 
 # Industrial tools
 [packages.industrial_tools]
 title = "Industrial Tools"
 description = "Data exploration and analytics"
-
-[[packages.industrial_tools.modules]]
-name = "cdf_location_filter_asset_centric"
-description = "Example Location Filter, Asset Centric"
-
-[[packages.industrial_tools.modules]]
-name = "cdf_location_filter_datamodel_based"
-description = "Example Location Filter, Data Model Based"
-
-[[packages.industrial_tools.modules]]
-name = "cdf_search"
-description = "Search configuration with location filter"
-extra_resources = [
-    { location = "cdf_common/data_models/demo.Space.yaml" }
+modules = [
+    "cdf_search",
+    "cdf_location_filter_asset_centric",
+    "cdf_location_filter_datamodel_based"
 ]
 
 # InField
 [packages.infield]
 title = "InField"
 description = "Put real-time data into the hands of every field worker."
-
-[[packages.infield.modules]]
-name = "cdf_apm_base"
-description = "APM Base"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" }
+modules = [
+    "cdf_infield_common",
+    "cdf_infield_location",
+    "cdf_infield_second_location",
+    "cdf_apm_base"
 ]
-
-[[packages.infield.modules]]
-name = "cdf_infield_common"
-description = "InField Common"
-is_selected_by_default = true
-
-[[packages.infield.modules]]
-name = "cdf_infield_location"
-description = "InField Location"
-is_selected_by_default = true
-
-[[packages.infield.modules]]
-name = "cdf_infield_second_location"
-description = "InField Second Location"
-is_selected_by_default = false
 
 # InRobot
 [packages.inrobot]
 title = "InRobot"
 description = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
-
-[[packages.inrobot.modules]]
-name = "cdf_apm_base"
-description = "APM Base"
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" }
+modules = [
+    "cdf_inrobot_common",
+    "cdf_inrobot_location",
+    "cdf_apm_base"
 ]
-
-[[packages.inrobot.modules]]
-name = "cdf_inrobot_common"
-description = "InRobot Common"
-is_selected_by_default = true
-
-[[packages.inrobot.modules]]
-name = "cdf_inrobot_location"
-description = "InRobot Location"
-is_selected_by_default = true
 
 # Data Model Extensions
 [packages.models]
 title = "Data models"
 description = "Module templates for data models"
-
-[[packages.models.modules]]
-name = "cdf_scene"
-description = "(Alpha) Scene Data Model"
-
-[[packages.models.modules]]
-name = "cdf_cdm_extension"
-description = "Example of Minimum Extension of the Cognite Core Model"
-
-[[packages.models.modules]]
-name = "cdf_cdm_extension_full"
-description = "Example of Full Extension of the Cognite Core Model"
-
-[[packages.models.modules]]
-name = "cdf_process_industry_extension"
-description = "Example of Minimum Extension of the Cognite Process Industry Model"  
-
-[[packages.models.modules]]
-name = "cdf_process_industry_extension_full"
-description = "Example of Full Extension of the Cognite Process Industry Model"
+modules = [
+    "cdf_cdm_extension",
+    "cdf_cdm_extension_full",
+    "cdf_process_industry_extension",
+    "cdf_process_industry_extension_full",
+    "cdf_scene"
+]
 
 # Source systems
 [packages.sourcesystem]
 title = "Source Systems"
 description = "Module templates for source systems"
-
-[[packages.sourcesystem.modules]]
-name = "cdf_pi"
-description = "OSIsoft/AVEVA PI Data Source"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/pi_timeseries.Table.csv", destination = "raw/timeseries.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.sourcesystem.modules]]
-name = "cdf_sap_assets"
-title = "SAP Source System Asset/Equipment Metadata"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/assets.Table.csv", destination = "raw/dump.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.sourcesystem.modules]]
-name = "cdf_sap_events"
-description = "SAP Source System Events"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata", source = "workitem.Table.csv;workorder.Table.csv;workpackage.Table.csv;worktask.Table.csv", destination = "raw/" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
-]
-
-[[packages.sourcesystem.modules]]
-name = "cdf_sharepoint"
-description = "SharePoint Files"
-data = [
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata/files", source = "PH-25578-P-4110006-001.pdf;PH-25578-P-4110010-001.pdf;PH-25578-P-4110119-001.pdf;PH-ME-P-0003-001.pdf;PH-ME-P-0004-001.pdf;PH-ME-P-0151-001.pdf;PH-ME-P-0152-001.pdf;PH-ME-P-0153-001.pdf;PH-ME-P-0156-001.pdf;PH-ME-P-0156-002.pdf;PH-ME-P-0160-001.pdf", destination = "files/" },
-    { repoType = "http", repo = "https://apps-cdn.cogniteapp.com/toolkit", source = "publicdata/valhall_file_metadata.csv", destination = "raw/files.Table.csv" }
-]
-extra_resources = [
-    { location = "cdf_common/data_sets/demo.DataSet.yaml" },
-    { location = "cdf_common/data_models/demo.Space.yaml" },
-    { location = "cdf_common/raw/source.DataBase.yaml" },
-    { location = "models/cdf_process_industry_extension/data_models" }
+modules = [
+    "cdf_pi",
+    "cdf_sap_assets",
+    "cdf_sap_events",
+    "cdf_sharepoint"
 ]
