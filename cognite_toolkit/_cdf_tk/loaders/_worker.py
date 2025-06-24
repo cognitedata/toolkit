@@ -161,7 +161,7 @@ class ResourceWorker(
         force_update: bool,
         verbose: bool,
     ) -> CategorizedResources:
-        categorization = CategorizedResources(
+        resources: CategorizedResources[T_ID, T_CogniteResourceList] = CategorizedResources(
             to_create=self.loader.list_write_cls([]),
             to_update=self.loader.list_write_cls([]),
             to_delete=[],
@@ -171,17 +171,17 @@ class ResourceWorker(
         for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_resource_by_id.get(identifier)
             if cdf_resource is None:
-                categorization.to_create.append(local_resource)
+                resources.to_create.append(local_resource)
                 continue
             cdf_dict = self.loader.dump_resource(cdf_resource, local_dict)
             if not force_update and cdf_dict == local_dict:
-                categorization.unchanged.append(local_resource)
+                resources.unchanged.append(local_resource)
                 continue
             if self.loader.support_update:
-                categorization.to_update.append(local_resource)
+                resources.to_update.append(local_resource)
             else:
-                categorization.to_delete.append(identifier)
-                categorization.to_create.append(local_resource)
+                resources.to_delete.append(identifier)
+                resources.to_create.append(local_resource)
             if verbose:
                 diff_str = "\n".join(to_diff(cdf_dict, local_dict))
                 for sensitive in self.loader.sensitive_strings(local_resource):
@@ -193,4 +193,4 @@ class ResourceWorker(
                         expand=False,
                     )
                 )
-        return categorization
+        return resources
