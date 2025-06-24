@@ -1,11 +1,9 @@
 from pydantic import Field, field_validator
 
-from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.constants import FORBIDDEN_SPACES, SPACE_FORMAT_PATTERN
+from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-
-SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
-FORBIDDEN_SPACES = {"space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"}
 
 
 class SpaceYAML(ToolkitResource):
