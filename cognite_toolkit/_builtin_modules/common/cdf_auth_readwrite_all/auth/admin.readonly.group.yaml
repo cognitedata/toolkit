@@ -20,6 +20,11 @@ capabilities:
       - READ
       scope:
         all: {}
+  - appConfigAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
   - assetsAcl:
       actions:
       - READ
