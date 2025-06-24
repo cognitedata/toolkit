@@ -77,6 +77,21 @@ class ResourceContainerDeployResult(ResourceDeployResult):
             self.dropped_datapoints += other.dropped_datapoints
         return self
 
+    @classmethod
+    def from_resource_deploy_result(
+        cls, result: ResourceDeployResult, item_name: str = "", dropped_datapoints: int = 0
+    ) -> ResourceContainerDeployResult:
+        return cls(
+            name=result.name,
+            created=result.created,
+            deleted=result.deleted,
+            changed=result.changed,
+            unchanged=result.unchanged,
+            total=result.total,
+            item_name=item_name,
+            dropped_datapoints=dropped_datapoints,
+        )
+
 
 @dataclass
 class UploadDeployResult(DeployResult):
