@@ -27,6 +27,7 @@ from cognite.client.data_classes import (
     filters,
 )
 from cognite.client.data_classes.capabilities import IDScopeLowerCase, TimeSeriesAcl
+from cognite.client.data_classes.data_modeling import ViewApply, ViewApplyList
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteFileApply
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionProperty,
@@ -61,6 +62,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     RobotCapabilityLoader,
     RoboticsDataPostProcessingLoader,
     TransformationLoader,
+    ViewLoader,
     WorkflowVersionLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
@@ -801,3 +803,42 @@ class TestNodeLoader:
             }
         finally:
             loader.delete([existing_node.as_id()])
+
+
+class TestViewLoader:
+    def test_no_implement_not_redeployed(
+        self, toolkit_client: ToolkitClient, schema_space: dm.Space, a_container: dm.Container
+    ) -> None:
+        definition_yaml = f"""space: {schema_space.space}
+externalId: ToolkitTestNoImplementsNotRedeployed
+version: v1
+implements: []
+properties:
+  name:
+    container:
+      space: {a_container.space}
+      externalId: {a_container.external_id}
+      type: container
+    containerPropertyIdentifier: name
+        """
+        loader = ViewLoader.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, ViewApply)
+        if not loader.retrieve([resource.as_id()]):
+            _ = loader.create(ViewApplyList([resource]))
+
+        worker = ResourceWorker(loader)
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(to_create),
+            "change": len(to_change),
+            "delete": len(to_delete),
+            "unchanged": len(unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

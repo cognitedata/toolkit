@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, Work
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
+from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -714,7 +715,7 @@ def test_build_project_with_only_identifiers(
     """In the cdf modules pull command, we have to be able to build a project that only has identifiers
     without raising any errors.
     """
-    BuildCommand(silent=True, skip_tracking=True).execute(
+    built_modules = BuildCommand(silent=True, skip_tracking=True).execute(
         verbose=False,
         organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
         build_dir=build_tmp_path,
@@ -724,3 +725,13 @@ def test_build_project_with_only_identifiers(
         client=env_vars_with_client.get_client(),
         on_error="raise",
     )
+
+    # Loading the local resources as it is done in the PullCommand
+    for loader_cls in RESOURCE_LOADER_LIST:
+        loader = loader_cls.create_loader(env_vars_with_client.get_client())
+        built_resources = built_modules.get_resources(
+            None,
+            loader.folder_name,
+            loader.kind,
+        )
+        _ = PullCommand._get_local_resource_dict_by_id(built_resources, loader, {})
