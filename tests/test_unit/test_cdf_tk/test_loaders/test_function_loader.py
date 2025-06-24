@@ -76,7 +76,7 @@ secrets:
 
         assert {
             "create": len(resources.to_create),
-            "change": len(resources.to_update),
+            "update": len(resources.to_update),
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}

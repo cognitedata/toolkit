@@ -54,7 +54,7 @@ class TestExtractionPipelineDependencies:
         resources = worker.prepare_resources([local_file])
         assert {
             "create": len(resources.to_create),
-            "change": len(resources.to_update),
+            "changed": len(resources.to_update),
             "delete": len(resources.to_delete),
             "unchanged": len(resources.unchanged),
         } == {"create": 0, "changed": 1, "delete": 0, "unchanged": 0}
