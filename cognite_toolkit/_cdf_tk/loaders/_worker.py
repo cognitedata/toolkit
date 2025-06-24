@@ -4,6 +4,7 @@ import re
 import warnings
 from collections.abc import Hashable
 from copy import deepcopy
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic
 
@@ -25,6 +26,14 @@ from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
+
+
+@dataclass
+class CategorizedResources(Generic[T_ID, T_CogniteResourceList]):
+    to_create: T_CogniteResourceList
+    to_update: T_CogniteResourceList
+    to_delete: list[T_ID]
+    unchanged: T_CogniteResourceList
 
 
 class ResourceWorker(
@@ -72,7 +81,7 @@ class ResourceWorker(
         is_dry_run: bool = False,
         force_update: bool = False,
         verbose: bool = False,
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList]:
+    ) -> CategorizedResources:
         """Prepare resources for deployment by loading them from files, validating access, and categorizing them into create, update, delete, and unchanged lists.
 
         Args:
@@ -151,31 +160,28 @@ class ResourceWorker(
         cdf_resources: T_WritableCogniteResourceList,
         force_update: bool,
         verbose: bool,
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList]:
-        to_create: T_CogniteResourceList
-        to_update: T_CogniteResourceList
-        to_delete: list[T_ID] = []
-        unchanged: T_CogniteResourceList
-        to_create, to_update, unchanged = (
-            self.loader.list_write_cls([]),
-            self.loader.list_write_cls([]),
-            self.loader.list_write_cls([]),
+    ) -> CategorizedResources:
+        categorization = CategorizedResources(
+            to_create=self.loader.list_write_cls([]),
+            to_update=self.loader.list_write_cls([]),
+            to_delete=[],
+            unchanged=self.loader.list_write_cls([]),
         )
         cdf_resource_by_id = {self.loader.get_id(resource): resource for resource in cdf_resources}
         for identifier, (local_dict, local_resource) in local_by_id.items():
             cdf_resource = cdf_resource_by_id.get(identifier)
             if cdf_resource is None:
-                to_create.append(local_resource)
+                categorization.to_create.append(local_resource)
                 continue
             cdf_dict = self.loader.dump_resource(cdf_resource, local_dict)
             if not force_update and cdf_dict == local_dict:
-                unchanged.append(local_resource)
+                categorization.unchanged.append(local_resource)
                 continue
             if self.loader.support_update:
-                to_update.append(local_resource)
+                categorization.to_update.append(local_resource)
             else:
-                to_delete.append(identifier)
-                to_create.append(local_resource)
+                categorization.to_delete.append(identifier)
+                categorization.to_create.append(local_resource)
             if verbose:
                 diff_str = "\n".join(to_diff(cdf_dict, local_dict))
                 for sensitive in self.loader.sensitive_strings(local_resource):
@@ -187,4 +193,4 @@ class ResourceWorker(
                         expand=False,
                     )
                 )
-        return to_create, to_update, to_delete, unchanged
+        return categorization
