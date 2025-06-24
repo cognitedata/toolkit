@@ -318,11 +318,11 @@ class DeployCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        env_var_warnings: WarningList,
+        env_var_warnings: WarningList | None = None,
     ) -> ResourceDeployResult:
         environment_variable_warning_by_id = {
             identifier: warning
-            for warning in env_var_warnings
+            for warning in env_var_warnings or []
             if isinstance(warning, EnvironmentVariableMissingWarning)
             for identifier in warning.identifiers or []
         }
