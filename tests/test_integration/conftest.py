@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from cognite.client import CogniteClient, global_config
 from cognite.client.credentials import OAuthClientCredentials
+from cognite.client.data_classes import Function, FunctionSchedule
 from cognite.client.data_classes.data_modeling import Space, SpaceApply
 from dotenv import load_dotenv
 
@@ -118,3 +119,52 @@ def dev_cluster_client() -> ToolkitClient | None:
         is_strict_validation=False,
     )
     return ToolkitClient(config, enable_set_pending_ids=True)
+
+
+@pytest.fixture
+def dummy_function(cognite_client: CogniteClient) -> Function:
+    external_id = "integration_test_function_dummy"
+
+    if existing := cognite_client.functions.retrieve(external_id=external_id):
+        return existing
+
+    def handle(client: CogniteClient, data: dict, function_call_info: dict) -> str:
+        """
+        [requirements]
+        cognite-sdk>=7.37.0
+        [/requirements]
+        """
+        print("Print statements will be shown in the logs.")
+        print("Running with the following configuration:\n")
+        return {
+            "data": data,
+            "functionInfo": function_call_info,
+        }
+
+    return cognite_client.functions.create(
+        name="integration_test_function_dummy",
+        function_handle=handle,
+        external_id="integration_test_function_dummy",
+    )
+
+
+@pytest.fixture
+def dummy_schedule(cognite_client: CogniteClient, dummy_function: Function) -> FunctionSchedule:
+    name = "integration_test_schedule_dummy"
+    if existing_list := cognite_client.functions.schedules.list(name=name):
+        if len(existing_list) > 1:
+            for existing in existing_list[1:]:
+                cognite_client.functions.schedules.delete(existing.id)
+        schedule = existing_list[0]
+    else:
+        schedule = cognite_client.functions.schedules.create(
+            name=name,
+            cron_expression="0 7 * * MON",
+            description="Original description.",
+            function_external_id=dummy_function.external_id,
+        )
+    if schedule.function_external_id is None:
+        schedule.function_external_id = dummy_function.external_id
+    if schedule.function_id is not None:
+        schedule.function_id = None
+    return schedule
