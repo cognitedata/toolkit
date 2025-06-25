@@ -5,13 +5,15 @@ import warnings
 from collections.abc import Hashable
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
 
+from cognite.client.data_classes import FunctionWrite
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
 )
+from cognite.client.data_classes.capabilities import Capability
 from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
@@ -136,12 +138,13 @@ class ResourceWorker(
                 else:
                     warning.print_warning()
 
+        capabilities: Capability | list[Capability]
         if isinstance(self.loader, FunctionLoader):
-            capabilities = self.loader.get_function_required_capabilities(  # type: ignore[attr-defined]
-                [item for _, item in local_by_id.values()], read_only=is_dry_run
-            )
+            function_loader: FunctionLoader = self.loader
+            function_items = cast(list[FunctionWrite], [item for _, item in local_by_id.values()])
+            capabilities = function_loader.get_function_required_capabilities(function_items, read_only=is_dry_run)
         else:
-            capabilities = self.loader.get_required_capability(  # type: ignore[assignment]
+            capabilities = self.loader.get_required_capability(
                 [item for _, item in local_by_id.values()], read_only=is_dry_run
             )
         if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):

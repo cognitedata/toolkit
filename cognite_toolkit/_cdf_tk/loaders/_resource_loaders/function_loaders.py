@@ -167,7 +167,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
     def get_function_required_capabilities(
         self, items: Sequence[FunctionWrite] | None, read_only: bool
-    ) -> list[Capability] | list[Capability]:
+    ) -> list[Capability]:
         """
         Get required capabilities for working with CDF Functions and their associated files.
 
@@ -176,7 +176,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
         specific datasets, it will request file permissions only for those datasets
         rather than requiring all-scope file access.
         """
-        if not items and items is not None:
+        if items is not None and not items:
             return []
 
         function_actions = (
