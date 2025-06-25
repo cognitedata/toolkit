@@ -17,7 +17,9 @@ from cognite.client.data_classes import (
     FunctionWriteList,
 )
 from cognite.client.data_classes.capabilities import (
+    AllScope,
     Capability,
+    DataSetScope,
     FilesAcl,
     FunctionsAcl,
     SessionsAcl,
@@ -162,6 +164,41 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     break
                 hash_value += f";{new_entry}"
         return hash_value
+
+    def get_function_required_capabilities(
+        self, items: Sequence[FunctionWrite] | None, read_only: bool
+    ) -> list[Capability]:
+        """
+        Get required capabilities for working with CDF Functions and their associated files.
+
+        This method determines the necessary permissions needed for function operations,
+        with dataset-scoped file access when possible. When functions are associated with
+        specific datasets, it will request file permissions only for those datasets
+        rather than requiring all-scope file access.
+        """
+        if items is not None and not items:
+            return []
+
+        function_actions = (
+            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        )
+        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+
+        file_scope: AllScope | DataSetScope = FilesAcl.Scope.All()
+
+        if items and self.data_set_id_by_external_id:
+            dataset_ids = [
+                self.data_set_id_by_external_id[item.external_id]
+                for item in items
+                if item.external_id and item.external_id in self.data_set_id_by_external_id
+            ]
+            if dataset_ids:
+                file_scope = FilesAcl.Scope.DataSet(dataset_ids)
+
+        return [
+            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+            FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
+        ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
         item_id = self.get_id(resource)
