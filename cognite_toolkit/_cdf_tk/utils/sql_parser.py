@@ -50,7 +50,7 @@ class SQLParser:
     ) -> bool:
         """Check if the SQL query uses any of the provided data set IDs or external IDs."""
         for data_set_id in data_set_ids or []:
-            if str(data_set_id) in self.query:
+            if f" {data_set_id} " in self.query:
                 return True
         for data_set_external_id in data_set_external_ids or []:
             if f'dataset_id("{data_set_external_id}")' in self.query:
