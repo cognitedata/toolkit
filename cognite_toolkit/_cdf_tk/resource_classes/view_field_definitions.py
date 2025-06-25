@@ -102,6 +102,7 @@ class ViewProperty(BaseModelResource):
                 data_copy.pop("connectionType", None)
             return handler(data_copy)
 
+        cls_: type[CreateViewProperty] | type[ConnectionDefinition]
         if "container" in data:
             cls_ = CreateViewProperty
         elif "connectionType" in data:
