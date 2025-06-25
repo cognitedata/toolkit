@@ -40,9 +40,7 @@ authentication:
 """
         output_capture = io.StringIO()
         with contextlib.redirect_stdout(output_capture):
-            _ = worker.load_resources(
-                [local_file], return_existing=False, environment_variables={}, is_dry_run=False, verbose=True
-            )
+            _ = worker.prepare_resources([local_file], environment_variables={}, is_dry_run=False, verbose=True)
 
         terminal_output = output_capture.getvalue()
         assert "my_super_secret_42" not in terminal_output

@@ -5,7 +5,7 @@ import warnings
 from collections.abc import Hashable
 from copy import deepcopy
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic, Literal, cast, overload
+from typing import TYPE_CHECKING, Any, Generic, cast
 
 from cognite.client.data_classes import FunctionWrite
 from cognite.client.data_classes._base import (
@@ -40,6 +40,7 @@ class ResourceWorker(
         ],
     ):
         self.loader = loader
+        self.duplicates: list[T_ID] = []
 
     def load_files(
         self, sort: bool = True, directory: Path | None = None, read_modules: list[ReadModule] | None = None
@@ -67,45 +68,46 @@ class ResourceWorker(
         # sort.
         return sorted(filepaths, key=sort_key)
 
-    @overload
-    def load_resources(
+    def prepare_resources(
         self,
         filepaths: list[Path],
-        return_existing: Literal[True],
         environment_variables: dict[str, str | None] | None = None,
         is_dry_run: bool = False,
         force_update: bool = False,
         verbose: bool = False,
-    ) -> tuple[T_WritableCogniteResourceList, list[T_ID]]: ...
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList]:
+        """Prepare resources for deployment by loading them from files, validating access, and categorizing them into create, update, delete, and unchanged lists.
 
-    @overload
-    def load_resources(
-        self,
-        filepaths: list[Path],
-        return_existing: Literal[False] = False,
-        environment_variables: dict[str, str | None] | None = None,
-        is_dry_run: bool = False,
-        force_update: bool = False,
-        verbose: bool = False,
-    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList, list[T_ID]]: ...
+        Args:
+            filepaths: The list of file paths to load resources from.
+            environment_variables: Environment variables to use for variable replacement in the resource files.
+            is_dry_run: Whether to perform a dry run (no actual changes made).
+            force_update: Whether to force update existing resources even if they are unchanged.
+            verbose: Whether to print detailed information about the resources being processed.
+
+        Returns:
+            A tuple containing:
+                - to_create: List of resources to create.
+                - to_update: List of resources to update.
+                - to_delete: List of resource IDs to delete.
+                - unchanged: List of resources that are unchanged.
+
+        """
+        local_by_id = self.load_resources(filepaths, environment_variables, is_dry_run)
+
+        self.validate_access(local_by_id, is_dry_run)
+
+        # Lookup the existing resources in CDF
+        cdf_resources: T_WritableCogniteResourceList
+        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
+        return self.categorize_resources(local_by_id, cdf_resources, force_update, verbose)
 
     def load_resources(
-        self,
-        filepaths: list[Path],
-        return_existing: bool = False,
-        environment_variables: dict[str, str | None] | None = None,
-        is_dry_run: bool = False,
-        force_update: bool = False,
-        verbose: bool = False,
-    ) -> (
-        tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList, list[T_ID]]
-        | tuple[T_WritableCogniteResourceList, list[T_ID]]
-    ):
-        duplicates: list[T_ID] = []
+        self, filepaths: list[Path], environment_variables: dict[str, str | None] | None, is_dry_run: bool
+    ) -> dict[T_ID, tuple[dict[str, Any], T_WriteClass]]:
         local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]] = {}  # type: ignore[assignment]
         # Load all resources from files, get ids, and remove duplicates.
         environment_variables = environment_variables or {}
-
         for filepath in filepaths:
             with catch_warnings(EnvironmentVariableMissingWarning) as warning_list:
                 try:
@@ -125,7 +127,7 @@ class ResourceWorker(
                     # should be handled by the other loader.
                     continue
                 if identifier in local_by_id:
-                    duplicates.append(identifier)
+                    self.duplicates.append(identifier)
                 else:
                     local_by_id[identifier] = resource_dict, loaded
 
@@ -137,7 +139,9 @@ class ResourceWorker(
                     warnings.warn(warning, stacklevel=2)
                 else:
                     warning.print_warning()
+        return local_by_id
 
+    def validate_access(self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]], is_dry_run: bool) -> None:
         capabilities: Capability | list[Capability]
         if isinstance(self.loader, FunctionLoader):
             function_loader: FunctionLoader = self.loader
@@ -150,12 +154,13 @@ class ResourceWorker(
         if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):
             raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
 
-        # Lookup the existing resources in CDF
-        cdf_resources: T_WritableCogniteResourceList
-        cdf_resources = self.loader.retrieve(list(local_by_id.keys()))
-        if return_existing:
-            return cdf_resources, duplicates
-
+    def categorize_resources(
+        self,
+        local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]],
+        cdf_resources: T_WritableCogniteResourceList,
+        force_update: bool,
+        verbose: bool,
+    ) -> tuple[T_CogniteResourceList, T_CogniteResourceList, list[T_ID], T_CogniteResourceList]:
         to_create: T_CogniteResourceList
         to_update: T_CogniteResourceList
         to_delete: list[T_ID] = []
@@ -191,4 +196,4 @@ class ResourceWorker(
                         expand=False,
                     )
                 )
-        return to_create, to_update, to_delete, unchanged, duplicates
+        return to_create, to_update, to_delete, unchanged

@@ -86,7 +86,7 @@ class DataSetScope(Scope):
 
 class TableScope(Scope):
     _scope_name = "tableScope"
-    dbs_to_tables: dict[str, list[str] | dict[Literal["tables"], list[str]]]
+    dbs_to_tables: dict[str, list[str]]
 
 
 class AssetRootIDScope(Scope):
