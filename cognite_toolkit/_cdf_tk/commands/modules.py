@@ -756,7 +756,7 @@ default_organization_dir = "{organization_dir.name}"''',
                         progress.update(task, advance=len(chunk))
 
                 if checksum:
-                    task = progress.add_task("Verifying checksum", total=1)
+                    print("Verifying checksum", total=1)
                     calculated_checksum = self._calculate_sha256_checksum(output_path)
                     if calculated_checksum != checksum:
                         raise ToolkitError(
