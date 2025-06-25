@@ -68,7 +68,8 @@ authentication:
             local_file.parent.name = FunctionLoader.folder_name
 
             worker = ResourceWorker(loader)
-            worker.load_resources([local_file], return_existing=False)
+            local_by_id = worker.load_resources([local_file], None, False)
+            worker.validate_access(local_by_id, is_dry_run=False)
             mock_authorization.assert_called_once()
 
             capabilities_arg = mock_authorization.call_args[0][0]
