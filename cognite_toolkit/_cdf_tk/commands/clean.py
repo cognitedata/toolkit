@@ -88,13 +88,12 @@ class CleanCommand(ToolkitCommand):
         if not files:
             return None
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        existing_resources, duplicated = worker.load_resources(
+        local_resources = worker.load_resources(
             filepaths=files,
-            return_existing=True,
             environment_variables=env_vars.dump(include_os=True),
             is_dry_run=True,
-            verbose=verbose,
         )
+        existing_resources = loader.retrieve(list(local_resources.keys()))
         nr_of_existing = len(existing_resources)
 
         if drop:
@@ -105,7 +104,7 @@ class CleanCommand(ToolkitCommand):
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicated:
+            for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
@@ -322,7 +321,7 @@ class CleanCommand(ToolkitCommand):
         return selected_loaders
 
     @staticmethod
-    def _process_include(include: list[str] | None) -> list[str]:
+    def validate_include(include: list[str] | None) -> list[str]:
         if include and (invalid_types := set(include).difference(AVAILABLE_DATA_TYPES)):
             raise ToolkitValidationError(
                 f"Invalid resource types specified: {invalid_types}, available types: {AVAILABLE_DATA_TYPES}"

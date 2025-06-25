@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -54,6 +55,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     resource_write_cls = AssetWrite
     list_cls = AssetList
     list_write_cls = AssetWriteList
+    yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsLoader, LabelLoader})
     _doc_url = "Assets/operation/createAssets"
@@ -522,6 +524,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
     resource_write_cls = EventWrite
     list_cls = EventList
     list_write_cls = EventWriteList
+    yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsLoader, AssetLoader})
     _doc_url = "Events/operation/createEvents"

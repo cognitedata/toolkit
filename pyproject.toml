@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "python-dotenv >=1.0.0",
-    "cognite-sdk >=7.74.2, <8.0.0",
+    "cognite-sdk >=7.75.3, <8.0.0",
     "pandas >=1.5.3, <3.0.0",
     "pyyaml >=6.0.1",
     "typer >=0.12.0, <1.0.0",
@@ -59,6 +59,7 @@ dev = [
 [project.optional-dependencies]
 table = [
     "pyarrow>=20.0.0",
+    "openpyxl>=3.1.5",
 ]
 sql = [
     "sqlparse >=0.5.3",

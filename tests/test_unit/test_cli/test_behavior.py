@@ -29,6 +29,7 @@ from cognite_toolkit._cdf_tk.commands.dump_resource import DataModelFinder, Work
 from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
+from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
@@ -71,7 +72,7 @@ def test_inject_custom_environmental_variables(
         on_error="raise",
         verbose=False,
     )
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
@@ -550,7 +551,7 @@ def test_deploy_group_with_unknown_acl(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
@@ -650,7 +651,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         "raise",
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_tmp_path,
         None,
@@ -687,7 +688,7 @@ def test_build_deploy_keep_special_characters(
         False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_dir,
         None,
@@ -714,7 +715,7 @@ def test_build_project_with_only_identifiers(
     """In the cdf modules pull command, we have to be able to build a project that only has identifiers
     without raising any errors.
     """
-    BuildCommand(silent=True, skip_tracking=True).execute(
+    built_modules = BuildCommand(silent=True, skip_tracking=True).execute(
         verbose=False,
         organization_dir=COMPLETE_ORG_ONLY_IDENTIFIER,
         build_dir=build_tmp_path,
@@ -724,3 +725,13 @@ def test_build_project_with_only_identifiers(
         client=env_vars_with_client.get_client(),
         on_error="raise",
     )
+
+    # Loading the local resources as it is done in the PullCommand
+    for loader_cls in RESOURCE_LOADER_LIST:
+        loader = loader_cls.create_loader(env_vars_with_client.get_client())
+        built_resources = built_modules.get_resources(
+            None,
+            loader.folder_name,
+            loader.kind,
+        )
+        _ = PullCommand._get_local_resource_dict_by_id(built_resources, loader, {})

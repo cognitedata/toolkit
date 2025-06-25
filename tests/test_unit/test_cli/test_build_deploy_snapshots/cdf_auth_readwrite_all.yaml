@@ -22,6 +22,12 @@ Group:
       - SUGGEST
       scope:
         all: {}
+  - appConfigAcl:
+      actions:
+      - WRITE
+      - READ
+      scope:
+        all: {}
   - assetsAcl:
       actions:
       - WRITE
@@ -336,6 +342,11 @@ Group:
       scope:
         all: {}
   - annotationsAcl:
+      actions:
+      - READ
+      scope:
+        all: {}
+  - appConfigAcl:
       actions:
       - READ
       scope:

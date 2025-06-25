@@ -29,7 +29,6 @@ from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildEnvironment,
 )
 from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
@@ -78,7 +77,7 @@ def test_loader_class(
 ):
     cmd = DeployCommand(print_warning=False)
     loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
-    cmd.deploy_resources(loader, env_vars_with_client, BuildEnvironment(), dry_run=False)
+    cmd.deploy_resource_type(loader, env_vars_with_client, [], dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
@@ -99,10 +98,10 @@ class TestDeployResources:
         expected_order = ["MyView", "MyOtherView"]
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(
+        cmd.deploy_resource_type(
             ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
             env_vars_with_client,
-            BuildEnvironment(),
+            [],
             dry_run=False,
         )
 
