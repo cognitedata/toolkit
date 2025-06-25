@@ -79,7 +79,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import TransformationYAML
+from cognite_toolkit._cdf_tk.resource_classes import TransformationScheduleYAML, TransformationYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
@@ -530,6 +530,7 @@ class TransformationScheduleLoader(
     list_cls = TransformationScheduleList
     list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
+    yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
     parent_resource = frozenset({TransformationLoader})
