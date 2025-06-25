@@ -3,7 +3,7 @@ from typing import Annotated, Any, Optional
 
 import typer
 
-from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand, MigrationPrepareCommand
+from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand, MigrationCanvasCommand, MigrationPrepareCommand
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -110,7 +110,7 @@ class MigrateApp(typer.Typer):
                 help="The name of the Canvas to migrate. If not provided, and interactive selection will be "
                 "performed to select the Canvas to migrate."
             ),
-        ],
+        ] = None,
         dry_run: Annotated[
             bool,
             typer.Option(
@@ -135,4 +135,14 @@ class MigrateApp(typer.Typer):
         This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
         is populated with the mapping from Asset-Centric resources to the new data modeling resources.
         """
-        raise NotImplementedError("Canvas migration is not yet implemented.")
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCanvasCommand()
+        cmd.run(
+            lambda: cmd.migrate_canvas(
+                client,
+                names=name,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
