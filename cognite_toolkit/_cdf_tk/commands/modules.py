@@ -731,8 +731,7 @@ default_organization_dir = "{organization_dir.name}"''',
                     self._download_and_unpack(library.url, output_path, library.checksum if library.checksum else None)
                     return Packages().load(output_path.parent)
                 except Exception as e:
-                    print(f"[red]Failed to add library {library_name}: {e}[/red]")
-                    raise
+                    raise ToolkitError(f"Failed to add library {library_name}, {e}")
             # If no libraries are specified or the flag is not enabled, load the built-in modules
             raise ValueError("No valid libraries found.")
         else:
@@ -778,12 +777,13 @@ default_organization_dir = "{organization_dir.name}"''',
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
         except zipfile.BadZipFile as e:
             raise ToolkitError(f"Error unpacking zip file {output_path}: {e}") from e
-        except ToolkitError as e:
-            raise e
         except Exception as e:
-            raise ToolkitError(
-                f"An unexpected error occurred during download/unpack of {url} to {output_path}: {e}"
-            ) from e
+            if isinstance(e, ToolkitError):
+                raise e
+            else:
+                raise ToolkitError(
+                    f"An unexpected error occurred during download/unpack of {url} to {output_path}: {e}"
+                ) from e
 
     def _calculate_sha256_checksum(self, file_path: Path, chunk_size: int = 8192) -> str:
         """
