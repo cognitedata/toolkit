@@ -6,7 +6,7 @@ import urllib
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Optional
 
 from rich import print
 
@@ -74,6 +74,7 @@ class ModulesConfig:
 @dataclass
 class Library:
     url: str
+    checksum: Optional[str] = None
 
     @classmethod
     def load(cls, raw: dict[str, Any]) -> Library:

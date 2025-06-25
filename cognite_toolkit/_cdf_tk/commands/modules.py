@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import zipfile
 from collections import Counter
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
@@ -727,7 +728,7 @@ default_organization_dir = "{organization_dir.name}"''',
                 try:
                     print(f"[green]Adding library {library_name}[/]")
                     output_path = self._temp_download_dir / f"{library_name}.zip"
-                    self._download_and_unpack(library.url, output_path)
+                    self._download_and_unpack(library.url, output_path, library.checksum if library.checksum else None)
                     return Packages().load(output_path.parent)
                 except Exception as e:
                     print(f"[red]Failed to add library {library_name}: {e}[/red]")
@@ -737,7 +738,7 @@ default_organization_dir = "{organization_dir.name}"''',
         else:
             return Packages.load(self._builtin_modules_path)
 
-    def _download_and_unpack(self, url: str, output_path: Path) -> None:
+    def _download_and_unpack(self, url: str, output_path: Path, checksum: str | None = None) -> None:
         """
         Downloads and unzips a file from a URL with a progress bar.
         """
@@ -755,6 +756,16 @@ default_organization_dir = "{organization_dir.name}"''',
                         f.write(chunk)
                         progress.update(task, advance=len(chunk))
 
+                if checksum:
+                    task = progress.add_task("Verifying checksum", total=1)
+                    calculated_checksum = self._calculate_sha256_checksum(output_path)
+                    if calculated_checksum != checksum:
+                        raise ToolkitError(
+                            f"Checksum mismatch for {url}. Expected {checksum}, got {calculated_checksum}."
+                        )
+                else:
+                    self.warn(MediumSeverityWarning(f"No checksum provided for {url}. Skipping verification."))
+
                 unzip = progress.add_task("Unzipping", total=total_size)
                 if output_path.suffix == ".zip":
                     with zipfile.ZipFile(output_path, "r") as zip_ref:
@@ -767,7 +778,30 @@ default_organization_dir = "{organization_dir.name}"''',
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
         except zipfile.BadZipFile as e:
             raise ToolkitError(f"Error unpacking zip file {output_path}: {e}") from e
-        except Exception as e:  # This is your catch-all
+        except ToolkitError as e:
+            raise e
+        except Exception as e:
             raise ToolkitError(
                 f"An unexpected error occurred during download/unpack of {url} to {output_path}: {e}"
             ) from e
+
+    def _calculate_sha256_checksum(self, file_path: Path, chunk_size: int = 8192) -> str:
+        """
+        Calculates the SHA256 checksum of a file.
+
+        Args:
+            file_path: The path to the file (e.g., a zip file).
+            chunk_size: The size of chunks to read the file in (in bytes).
+
+        Returns:
+            The SHA256 checksum as a hexadecimal string.
+        """
+        sha256_hash = sha256()
+        try:
+            with open(file_path, "rb") as f:
+                # Read the file in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(chunk_size), b""):
+                    sha256_hash.update(chunk)
+            return sha256_hash.hexdigest()
+        except Exception as e:
+            raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e

@@ -290,3 +290,25 @@ class TestModulesCommand:
         with ModulesCommand() as cmd:
             packs = cmd._get_available_packages()
             assert "quickstart" in packs
+
+    def test_library_invalid_checksum_raises(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        test_url = "[http://example.com/](http://example.com/)corrupt_checksum.zip"
+        output_path = tmp_path / "corrupt_checksum.zip"
+
+        dummy_zip_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        mock_response = MockResponse(dummy_zip_content, status_code=200)
+        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
+
+        mock_zip_file_instance = MagicMock(spec=zipfile.ZipFile)
+        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zip_file_instance))
+        mock_zip_file_instance.__enter__.return_value.extractall.side_effect = lambda path: (
+            Path(path) / "extracted_content.txt"
+        ).touch()
+
+        with ModulesCommand() as cmd:
+            with pytest.raises(ToolkitError, match="Checksum mismatch"):
+                cmd._download_and_unpack(
+                    test_url,
+                    output_path,
+                    checksum="abc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+                )
