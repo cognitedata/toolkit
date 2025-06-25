@@ -240,7 +240,6 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
         for module, source_paths in iterate_modules(organization_dir):
             relative_module_dir = module.relative_to(organization_dir)
             module_toml: ModuleToml | None = None
-            tags: set[str] = set()
             if (module / ModuleToml.filename).exists():
                 module_toml = ModuleToml.load(module / ModuleToml.filename)
 
@@ -249,7 +248,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                     module,
                     organization_dir,
                     source_paths,
-                    cls._is_selected_module(relative_module_dir, user_selected_modules, tags),
+                    cls._is_selected_module(relative_module_dir, user_selected_modules),
                     module_toml,
                 )
             )
@@ -272,9 +271,7 @@ class ModuleDirectories(tuple, Sequence[ModuleLocation]):
                 shutil.copy(source_file, absolute_file_path)
 
     @classmethod
-    def _is_selected_module(
-        cls, relative_module_dir: Path, user_selected: set[str | Path], module_tags: set[str]
-    ) -> bool:
+    def _is_selected_module(cls, relative_module_dir: Path, user_selected: set[str | Path]) -> bool:
         """Checks whether a module is selected by the user."""
         return (
             relative_module_dir.name in user_selected

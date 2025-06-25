@@ -81,8 +81,14 @@ class Packages(dict, MutableMapping[str, Package]):
 
         for package_name, package_definition in package_definitions.items():
             packages_with_modules[package_name] = Package.load(package_name, package_definition)
-            for module in package_definition.get("modules", []):
-                module_name = module.get("name")
+            if (
+                "modules" not in package_definition
+                or not isinstance(package_definition["modules"], list)
+                or len(package_definition["modules"]) == 0
+            ):
+                continue
+
+            for module_name in package_definition["modules"]:
                 if module_name not in module_directory_by_name:
                     raise ToolkitValueError(f"Module {module_name} not found in the module directories.")
                 packages_with_modules[package_name].modules.append(module_directory_by_name[module_name])
