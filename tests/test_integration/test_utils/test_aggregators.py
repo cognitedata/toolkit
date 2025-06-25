@@ -273,12 +273,15 @@ def time_series(
         RawTable(db_name=raw_db, table_name=table_name),
         rows,
     )
+    dataset = next((ds for ds in two_datasets if ds.external_id == TIMESERIES_DATASET), None)
+    assert dataset is not None, f"Dataset {TIMESERIES_DATASET} not found in two_datasets"
+    data_set_id = dataset.id
     transformation = TransformationWrite(
         external_id=TIMESERIES_TRANSFORMATION,
         name="Toolkit Aggregators Test Time Series Transformation",
         destination=TransformationDestination("timeseries"),
         query=f"""SELECT externalId as externalId, name as name, assetId as assetId, isString as isString, isStep as isStep,
-dataset_id('{TIMESERIES_DATASET}') as dataSetId
+{data_set_id} as dataSetId
 FROM `{raw_db}`.`{table_name}`""",
         ignore_null_fields=True,
     )
