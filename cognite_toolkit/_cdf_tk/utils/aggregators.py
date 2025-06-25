@@ -133,7 +133,7 @@ class AssetAggregator(LabelAggregator):
         if hierarchy is None and data_set_external_id is None:
             return None
         return AssetFilter(
-            asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
+            asset_subtree_ids=[{"externalId": hierarchy}],
             data_set_ids=[{"externalId": data_set_external_id}] if data_set_external_id else None,
         )
 
