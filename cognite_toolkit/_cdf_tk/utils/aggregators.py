@@ -69,7 +69,12 @@ class AssetCentricAggregator(ABC):
 
     @staticmethod
     def _to_unique_int_list(results: list) -> list[int]:
-        """Converts a list of results to a list of integers, ignoring non-integer values.
+        """Converts a list of results to a unique list of integers.
+
+        This method does the following:
+        * Converts each item in the results to an integer, if possible.
+        * Filters out None.
+        * Removes duplicates
 
         This is used as the aggregation results are inconsistently implemented for the different resources,
         when aggregating dataSetIds, Sequences, TimeSeries, and Files return a list of strings, while
@@ -125,7 +130,7 @@ class AssetAggregator(LabelAggregator):
     def _create_hierarchy_filter(
         cls, hierarchy: str | None, data_set_external_id: str | None = None
     ) -> AssetFilter | None:
-        if hierarchy is None:
+        if hierarchy is None and data_set_external_id is None:
             return None
         return AssetFilter(
             asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
@@ -157,7 +162,7 @@ class EventAggregator(MetadataAggregator):
     def _create_hierarchy_filter(
         cls, hierarchy: str | None, data_set_external_id: str | None = None
     ) -> EventFilter | None:
-        if hierarchy is None:
+        if hierarchy is None and data_set_external_id is None:
             return None
         return EventFilter(
             asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
@@ -193,7 +198,7 @@ class FileAggregator(LabelAggregator):
     def _create_hierarchy_filter(
         cls, hierarchy: str | None, data_set_external_id: str | None = None
     ) -> FileMetadataFilter | None:
-        if hierarchy is None:
+        if hierarchy is None and data_set_external_id is None:
             return None
         return FileMetadataFilter(
             asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
@@ -231,7 +236,7 @@ class TimeSeriesAggregator(MetadataAggregator):
     def _create_hierarchy_filter(
         cls, hierarchy: str | None, data_set_external_id: str | None = None
     ) -> TimeSeriesFilter | None:
-        if hierarchy is None:
+        if hierarchy is None and data_set_external_id is None:
             return None
         return TimeSeriesFilter(
             asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
@@ -266,7 +271,7 @@ class SequenceAggregator(MetadataAggregator):
     def _create_hierarchy_filter(
         cls, hierarchy: str | None, data_set_external_id: str | None = None
     ) -> SequenceFilter | None:
-        if hierarchy is None:
+        if hierarchy is None and data_set_external_id is None:
             return None
         return SequenceFilter(
             asset_subtree_ids=[{"externalId": hierarchy}] if hierarchy else None,
