@@ -148,4 +148,4 @@ DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
 # This is the maximum number of rows that can be iterated over in a single query
 # agreed upon with the transformations team.
 MAX_ROW_ITERATION_RUN_QUERY = 500_000
-MAX_ROW_COUNT_FREQUENCY_MIN = 10
+MAX_RUN_QUERY_FREQUENCY_MIN = 10
