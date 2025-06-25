@@ -153,3 +153,16 @@ class EventInteractiveSelect(AssetCentricInteractiveSelect):
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )
         )
+
+
+class InteractiveCanvasSelection:
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def select_names(self) -> list[str]:
+        raise NotImplementedError()
+        # Dimensions to select
+        # All public
+        # Selected public
+        # Selected private
+        # From user
