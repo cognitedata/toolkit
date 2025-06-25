@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Optional
 
 import typer
 
@@ -99,3 +99,39 @@ class MigrateApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @staticmethod
+    def canvas(
+        ctx: typer.Context,
+        name: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="The name of the Canvas to migrate. If not provided, and interactive selection will be "
+                "performed to select the Canvas to migrate."
+            ),
+        ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of "
+                "what would be done is printed. This is useful for checking that all resources referenced by the Canvas"
+                "has been migrated to the new data modeling resources in CDF.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Canvas applications from Asset-Centric to data modeling in CDF.
+
+        This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
+        is populated with the mapping from Asset-Centric resources to the new data modeling resources.
+        """
+        raise NotImplementedError("Canvas migration is not yet implemented.")
