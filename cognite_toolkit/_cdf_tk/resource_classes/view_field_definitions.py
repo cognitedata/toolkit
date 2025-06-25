@@ -83,10 +83,6 @@ class ViewProperty(BaseModelResource):
         description="Description of the content and suggested use for this property..",
         max_length=1024,
     )
-    source: ViewReference | None = Field(
-        default=None,
-        description="Reference to the view from where this property is inherited.",
-    )
 
     @model_validator(mode="wrap")
     @classmethod
@@ -102,9 +98,9 @@ class ViewProperty(BaseModelResource):
                 data_copy.pop("connectionType", None)
             return handler(data_copy)
 
-        cls_: type[CreateViewProperty] | type[ConnectionDefinition]
+        cls_: type[ContainerViewProperty] | type[ConnectionDefinition]
         if "container" in data:
-            cls_ = CreateViewProperty
+            cls_ = ContainerViewProperty
         elif "connectionType" in data:
             connection_type = data.get("connectionType")
             if connection_type is None:
@@ -131,7 +127,7 @@ class ViewProperty(BaseModelResource):
         return serialized_data
 
 
-class CreateViewProperty(ViewProperty):
+class ContainerViewProperty(ViewProperty):
     container: ContainerReference = Field(
         description="Reference to the container where this property is defined.",
     )
@@ -141,11 +137,17 @@ class CreateViewProperty(ViewProperty):
         max_length=255,
         pattern=CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
     )
+    source: ViewReference | None = Field(
+        default=None,
+        description="Indicates on what type a referenced direct relation is expected to be. Only applicable for direct relation properties.",
+    )
 
 
 class ConnectionDefinition(ViewProperty):
     connection_type: ClassVar[str]
-    source: ViewReference = Field(description="Reference to the view from where this property is inherited.")
+    source: ViewReference = Field(
+        description="Indicates the view which is either the target node(s) or the node(s) containing the direct relation property."
+    )
 
 
 class EdgeConnectionDefinition(ConnectionDefinition):
