@@ -181,7 +181,7 @@ class CanvasFilter:
         return filters.And(*leaf_filters)
 
 
-class InteractiveCanvasSelection:
+class InteractiveCanvasSelect:
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
