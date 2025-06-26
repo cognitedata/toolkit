@@ -15,7 +15,7 @@ class TestDeployCommand:
         worker = ResourceWorker(ViewLoader.create_loader(env_vars_with_client.get_client()))
 
         with pytest.raises(TypeError) as e:
-            worker.load_resources([path], environment_variables={}, is_dry_run=True, verbose=False)
+            worker.prepare_resources([path], environment_variables={}, is_dry_run=True, verbose=False)
 
         assert e.value
 

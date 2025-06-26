@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
+from rich.markup import escape
+
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 
 from .base import SeverityLevel, ToolkitWarning
@@ -277,6 +279,6 @@ class ResourceFormatWarning(FileReadWarning):
 
     def get_message(self) -> str:
         sep = "\n     * "
-        errors = sep.join(self.errors)
+        errors = sep.join(map(escape, self.errors))
         s = "s" if len(self.errors) > 1 else ""
         return f"{type(self).__name__} {len(self.errors)} error{s}:{sep}{errors}"
