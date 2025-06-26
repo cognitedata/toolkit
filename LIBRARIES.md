@@ -13,7 +13,7 @@ external-libraries = true
 
 [library.package_1]
 url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtins.zip"
-checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+checksum = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
 ```
 

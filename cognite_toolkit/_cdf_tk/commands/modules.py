@@ -737,7 +737,7 @@ default_organization_dir = "{organization_dir.name}"''',
                         raise e
                     else:
                         raise ToolkitError(
-                            f"An unexpected error occurred during download/unpack of {library.url} to {file_path}: {e}"
+                            f"An unexpected error occurred during downloading {library.url} to {file_path}: {e}"
                         ) from e
 
                     raise ToolkitError(f"Failed to add library {library_name}, {e}")
@@ -787,6 +787,8 @@ default_organization_dir = "{organization_dir.name}"''',
             calculated = sha256_hash.hexdigest()
             if calculated != checksum:
                 raise ToolkitError(f"Checksum mismatch. Expected {checksum}, got {calculated}.")
+            else:
+                print("Checksum verified")
         except Exception as e:
             raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
 
