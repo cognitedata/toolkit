@@ -20,6 +20,7 @@ from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class AssetCentricInteractiveSelect:
@@ -168,10 +169,7 @@ class CanvasFilter:
     select_all: bool = False
 
     def as_dms_filter(self) -> filters.Filter:
-        if self.created_by is not None:
-            raise ValueError("You need to lookup the user ID for the created_by field.")
         canvas_id = Canvas.get_source()
-
         leaf_filters: list[filters.Filter] = [
             filters.Not(filters.Equals(canvas_id.as_property_ref("isArchived"), True)),
             # When sourceCanvasId is not set, we get the newest version of the canvas
@@ -194,7 +192,7 @@ class InteractiveCanvasSelection:
 
     @staticmethod
     def _select_filter() -> CanvasFilter:
-        return questionary.select(
+        user_response = questionary.select(
             "Which Canvases do you want to select?",
             choices=[
                 questionary.Choice(
@@ -210,6 +208,9 @@ class InteractiveCanvasSelection:
                 questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
             ],
         ).ask()
+        if user_response is None:
+            raise ToolkitValueError("No Canvas selection made. Aborting.")
+        return user_response
 
     def _select_names(self, select_filter: CanvasFilter) -> list[str]:
         available_canvases = self.client.canvas.list(filter=select_filter.as_dms_filter(), limit=-1)
