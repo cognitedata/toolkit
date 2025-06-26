@@ -187,41 +187,18 @@ class TestInteractiveCanvasSelect:
         self, selected_cdf: set[str], answers: list, expected_selected: list[str], monkeypatch
     ) -> None:
         default_args = dict(
-            version=1, last_updated_time=1, created_time=1, updated_by="Irrelevant", updated_at=datetime.now()
+            space=CANVAS_INSTANCE_SPACE,
+            version=1,
+            last_updated_time=1,
+            created_time=1,
+            updated_by="Irrelevant",
+            updated_at=datetime.now(),
         )
         cdf_canvases = [
-            Canvas(
-                CANVAS_INSTANCE_SPACE,
-                "Public1",
-                name="Canvas 1",
-                visibility="public",
-                created_by="Homer",
-                **default_args,
-            ),
-            Canvas(
-                CANVAS_INSTANCE_SPACE,
-                "Public2",
-                name="Canvas 2",
-                visibility="public",
-                created_by="Marge",
-                **default_args,
-            ),
-            Canvas(
-                CANVAS_INSTANCE_SPACE,
-                "Private1",
-                name="Private 1",
-                visibility="private",
-                created_by="Marge",
-                **default_args,
-            ),
-            Canvas(
-                CANVAS_INSTANCE_SPACE,
-                "Private2",
-                name="Private 2",
-                visibility="private",
-                created_by="Homer",
-                **default_args,
-            ),
+            Canvas(external_id="Public1", name="Canvas 1", visibility="public", created_by="Homer", **default_args),
+            Canvas(external_id="Public2", name="Canvas 2", visibility="public", created_by="Marge", **default_args),
+            Canvas(external_id="Private1", name="Private 1", visibility="private", created_by="Marge", **default_args),
+            Canvas(external_id="Private2", name="Private 2", visibility="private", created_by="Homer", **default_args),
         ]
         first_answer_by_title = {c.title: c.value for c in InteractiveCanvasSelect.opening_choices}
         assert len(answers) >= 1, "At least one answer is required to select a canvas"
