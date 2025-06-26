@@ -6,7 +6,7 @@ from cognite.client.data_classes.data_modeling import InstanceSort, NodeApplyRes
 from cognite.client.data_classes.filters import Filter
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas, CanvasApply
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas, CanvasApply
 
 from .extended_data_modeling import ExtendedInstancesAPI
 
@@ -14,7 +14,7 @@ from .extended_data_modeling import ExtendedInstancesAPI
 class CanvasAPI:
     def __init__(self, instance_api: ExtendedInstancesAPI) -> None:
         self._instance_api = instance_api
-        self.instance_space: str = "IndustrialCanvasInstanceSpace"
+        self.instance_space = CANVAS_INSTANCE_SPACE
 
     def upsert(self, canvas: CanvasApply | Sequence[CanvasApply]) -> NodeApplyResultList:
         return self._instance_api.apply(canvas).nodes
