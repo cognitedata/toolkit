@@ -119,7 +119,7 @@ class MigrateApp(typer.Typer):
                 "-d",
                 help="If set, the migration will not be executed, but only a report of "
                 "what would be done is printed. This is useful for checking that all resources referenced by the Canvas"
-                "has been migrated to the new data modeling resources in CDF.",
+                "have been migrated to the new data modeling resources in CDF.",
             ),
         ] = False,
         verbose: Annotated[
