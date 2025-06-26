@@ -2,7 +2,7 @@ from abc import abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Literal
+from typing import ClassVar, Literal
 
 import questionary
 from cognite.client.data_classes import (
@@ -182,6 +182,14 @@ class CanvasFilter:
 
 
 class InteractiveCanvasSelect:
+    opening_choices: ClassVar[list[questionary.Choice]] = [
+        questionary.Choice(title="All public Canvases", value=CanvasFilter(visibility="public", select_all=True)),
+        questionary.Choice(title="Selected public Canvases", value=CanvasFilter(visibility="public", select_all=False)),
+        questionary.Choice(title="All by given user", value=CanvasFilter(created_by="user", select_all=True)),
+        questionary.Choice(title="Selected by given user", value=CanvasFilter(created_by="user", select_all=False)),
+        questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
+    ]
+
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
@@ -190,23 +198,11 @@ class InteractiveCanvasSelect:
 
         return self._select_external_ids(select_filter)
 
-    @staticmethod
-    def _select_filter() -> CanvasFilter:
+    @classmethod
+    def _select_filter(cls) -> CanvasFilter:
         user_response = questionary.select(
             "Which Canvases do you want to select?",
-            choices=[
-                questionary.Choice(
-                    title="All public Canvases", value=CanvasFilter(visibility="public", select_all=True)
-                ),
-                questionary.Choice(
-                    title="Selected public Canvases", value=CanvasFilter(visibility="public", select_all=False)
-                ),
-                questionary.Choice(title="All by given user", value=CanvasFilter(created_by="user", select_all=True)),
-                questionary.Choice(
-                    title="Selected by given user", value=CanvasFilter(created_by="user", select_all=False)
-                ),
-                questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
-            ],
+            choices=cls.opening_choices,
         ).ask()
         if user_response is None:
             raise ToolkitValueError("No Canvas selection made. Aborting.")
