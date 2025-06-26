@@ -214,11 +214,15 @@ class InteractiveCanvasSelection:
 
     def _select_names(self, select_filter: CanvasFilter) -> list[str]:
         available_canvases = self.client.canvas.list(filter=select_filter.as_dms_filter(), limit=-1)
+        if select_filter.select_all and select_filter.created_by is None:
+            return [canvas.name for canvas in available_canvases]
+        users = self.client.iam.user_profiles.list(limit=-1)
+        display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
-            users = self.client.iam.user_profiles.list(limit=-1)
             canvas_by_user: dict[str, list[Canvas]] = defaultdict(list)
             for canvas in available_canvases:
                 canvas_by_user[canvas.created_by].append(canvas)
+
             user_response = questionary.select(
                 "Which user do you want to select Canvases for?",
                 choices=[
@@ -237,7 +241,13 @@ class InteractiveCanvasSelection:
 
         selected_canvases = questionary.checkbox(
             "Select Canvases",
-            choices=[questionary.Choice(title=canvas.name, value=canvas.name) for canvas in available_canvases],
+            choices=[
+                questionary.Choice(
+                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r})",
+                    value=canvas.external_id,
+                )
+                for canvas in available_canvases
+            ],
         ).ask()
 
         return selected_canvases or []
