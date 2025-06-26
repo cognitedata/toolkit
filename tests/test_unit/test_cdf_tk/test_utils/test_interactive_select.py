@@ -1,3 +1,6 @@
+from datetime import datetime
+
+import pytest
 from cognite.client.data_classes import (
     Asset,
     CountAggregate,
@@ -6,11 +9,10 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.data_modeling import NodeList
 from questionary import Choice
 
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
-    CanvasFilter,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
     InteractiveCanvasSelect,
@@ -163,14 +165,76 @@ class TestInteractiveSelect:
 
 
 class TestInteractiveCanvasSelect:
-    def test_interactive_selection(self, monkeypatch) -> None:
-        answers = [CanvasFilter(select_all=True)]
+    @pytest.mark.parametrize(
+        "selected_cdf, answers, expected_selected",
+        [
+            pytest.param({}, ["All Canvases"], [], id="No canvases in CDF"),
+            pytest.param(
+                {"Public1", "Public2", "Private1", "Private2"},
+                ["All Canvases"],
+                ["Public1", "Public2", "Private1", "Private2"],
+                id="All canvases selected",
+            ),
+            pytest.param(
+                {"Public1", "Public2"},
+                ["All public Canvases"],
+                ["Public1", "Public2"],
+                id="All public canvases selected",
+            ),
+        ],
+    )
+    def test_interactive_selection(
+        self, selected_cdf: set[str], answers: list, expected_selected: list[str], monkeypatch
+    ) -> None:
+        default_args = dict(
+            version=1, last_updated_time=1, created_time=1, updated_by="Irrelevant", updated_at=datetime.now()
+        )
+        cdf_canvases = [
+            Canvas(
+                CANVAS_INSTANCE_SPACE,
+                "Public1",
+                name="Canvas 1",
+                visibility="public",
+                created_by="Homer",
+                **default_args,
+            ),
+            Canvas(
+                CANVAS_INSTANCE_SPACE,
+                "Public2",
+                name="Canvas 2",
+                visibility="public",
+                created_by="Marge",
+                **default_args,
+            ),
+            Canvas(
+                CANVAS_INSTANCE_SPACE,
+                "Private1",
+                name="Private 1",
+                visibility="private",
+                created_by="Marge",
+                **default_args,
+            ),
+            Canvas(
+                CANVAS_INSTANCE_SPACE,
+                "Private2",
+                name="Private 2",
+                visibility="private",
+                created_by="Homer",
+                **default_args,
+            ),
+        ]
+        first_answer_by_title = {c.title: c.value for c in InteractiveCanvasSelect.opening_choices}
+        assert len(answers) >= 1, "At least one answer is required to select a canvas"
+        answers = [first_answer_by_title[answers[0]], *answers[1:]]
+
         with (
             monkeypatch_toolkit_client() as client,
             MockQuestionary(InteractiveCanvasSelect.__module__, monkeypatch, answers),
         ):
-            client.canvas.list.return_value = NodeList[Canvas]([])
+            client.canvas.list.return_value = NodeList[Canvas](
+                [canvas for canvas in cdf_canvases if canvas.external_id in selected_cdf]
+            )
             selector = InteractiveCanvasSelect(client)
             selected_external_ids = selector.select_external_ids()
 
-        assert selected_external_ids == []
+        assert selected_external_ids == expected_selected
