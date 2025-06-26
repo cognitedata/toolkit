@@ -185,10 +185,10 @@ class InteractiveCanvasSelection:
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
-    def select_names(self) -> list[str]:
+    def select_external_ids(self) -> list[str]:
         select_filter = self._select_filter()
 
-        return self._select_names(select_filter)
+        return self._select_external_ids(select_filter)
 
     @staticmethod
     def _select_filter() -> CanvasFilter:
@@ -212,10 +212,10 @@ class InteractiveCanvasSelection:
             raise ToolkitValueError("No Canvas selection made. Aborting.")
         return user_response
 
-    def _select_names(self, select_filter: CanvasFilter) -> list[str]:
+    def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
         available_canvases = self.client.canvas.list(filter=select_filter.as_dms_filter(), limit=-1)
         if select_filter.select_all and select_filter.created_by is None:
-            return [canvas.name for canvas in available_canvases]
+            return [canvas.external_id for canvas in available_canvases]
         users = self.client.iam.user_profiles.list(limit=-1)
         display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
         if select_filter.created_by == "user":
@@ -237,13 +237,13 @@ class InteractiveCanvasSelection:
             available_canvases = NodeList[Canvas](user_response)
 
         if select_filter.select_all:
-            return [canvas.name for canvas in available_canvases]
+            return [canvas.external_id for canvas in available_canvases]
 
         selected_canvases = questionary.checkbox(
             "Select Canvases",
             choices=[
                 questionary.Choice(
-                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r})",
+                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r}, last updated {canvas.last_updated_time})",
                     value=canvas.external_id,
                 )
                 for canvas in available_canvases
