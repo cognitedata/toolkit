@@ -26,8 +26,8 @@ The library must be available over https. Authentication is not currently suppor
 To publish a library, create a repository that contains one or more downloadable zip files.
 The zip file must have the structure and content described below.
 
-The checksum is optional, but strongly recommended. It can be used to verify the integrity of the downloaded zip file.
-If provided, it must be a SHA-256 checksum of the zip file.
+The checksum is mandatory. It is used to verify the integrity of the downloaded zip file.
+It must be a SHA-256 checksum of the zip file.
 
 ### <package_1>.zip
 

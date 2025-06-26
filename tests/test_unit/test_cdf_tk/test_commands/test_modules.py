@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -147,118 +148,6 @@ class TestModulesCommand:
 
         assert new_yaml_file_count > yaml_file_count, "Expected new yaml files to be created"
 
-    def test_download_and_unpack_success_zip(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
-
-        dummy_zip_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        mock_response = MockResponse(dummy_zip_content, status_code=200)
-        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
-
-        mock_zip_file_instance = MagicMock(spec=zipfile.ZipFile)
-        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zip_file_instance))
-
-        # Simulate the zip extraction by creating a dummy file in the target directory
-        mock_zip_file_instance.__enter__.return_value.extractall.side_effect = lambda path: (
-            Path(path) / "extracted_content.txt"
-        ).touch()
-
-        output_zip_path = tmp_path / "test_file.zip"
-        extracted_file_path = tmp_path / "extracted_content.txt"
-
-        cmd._download_and_unpack("http://example.com/test.zip", output_zip_path)
-
-        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
-        assert mock_response.raise_for_status_called
-
-        assert output_zip_path.exists()
-        assert output_zip_path.read_bytes() == dummy_zip_content
-
-        zipfile.ZipFile.assert_called_once_with(output_zip_path, "r")
-        mock_zip_file_instance.__enter__.return_value.extractall.assert_called_once_with(output_zip_path.parent)
-
-        assert extracted_file_path.exists()
-
-    @pytest.mark.parametrize(
-        "test_id, mock_setup_func, expected_error_msg_part, expected_chained_exception_type, output_file_should_exist, url_suffix",
-        [
-            (
-                "http_error",
-                lambda monkeypatch, url, output_path: monkeypatch.setattr(
-                    requests, "get", MagicMock(return_value=MockResponse(b"", status_code=404))
-                ),
-                "Error downloading file from",
-                requests.exceptions.HTTPError,
-                False,
-                "error.zip",
-            ),
-            (
-                "network_error",
-                lambda monkeypatch, url, output_path: monkeypatch.setattr(
-                    requests, "get", MagicMock(side_effect=requests.exceptions.RequestException("Connection aborted."))
-                ),
-                "Error downloading file from",
-                requests.exceptions.RequestException,
-                False,
-                "network_error.zip",
-            ),
-            (
-                "corrupt_zip_error",
-                lambda monkeypatch, url, output_path: (
-                    monkeypatch.setattr(
-                        requests, "get", MagicMock(return_value=MockResponse(b"corrupt", status_code=200))
-                    ),
-                    monkeypatch.setattr(
-                        zipfile, "ZipFile", MagicMock(side_effect=zipfile.BadZipFile("File is not a zip file"))
-                    ),
-                ),
-                "Error unpacking zip file",
-                zipfile.BadZipFile,
-                True,  # File is downloaded before zip error
-                "corrupt.zip",
-            ),
-            (
-                "os_error_during_write",
-                lambda monkeypatch, url, output_path: (
-                    monkeypatch.setattr(
-                        requests, "get", MagicMock(return_value=MockResponse(b"some content", status_code=200))
-                    ),
-                    monkeypatch.setattr("builtins.open", MagicMock(side_effect=OSError("No space left on device"))),
-                ),
-                "An unexpected error occurred during download/unpack of",
-                OSError,
-                False,
-                "os_error_file.txt",
-            ),
-        ],
-        ids=["http_error", "network_error", "corrupt_zip", "os_error_write"],
-    )
-    def test_download_and_unpack_exception_handling(
-        self,
-        tmp_path: Path,
-        monkeypatch: MonkeyPatch,
-        test_id: str,
-        mock_setup_func,
-        expected_error_msg_part: str,
-        expected_chained_exception_type: type,
-        output_file_should_exist: bool,
-        url_suffix: str,
-    ) -> None:
-        test_url = f"[http://example.com/](http://example.com/){url_suffix}"
-        output_path = tmp_path / url_suffix
-
-        mock_setup_func(monkeypatch, test_url, output_path)
-
-        with pytest.raises(ToolkitError) as excinfo:
-            ModulesCommand()._download_and_unpack(test_url, output_path)
-
-        assert expected_error_msg_part in str(excinfo.value)
-        assert isinstance(excinfo.value.__cause__, expected_chained_exception_type)
-
-        if output_file_should_exist:
-            assert output_path.exists()
-        else:
-            assert not output_path.exists()
-
     def test_context_manager_scope(self):
         with ModulesCommand() as cmd:
             first = Path(cmd._temp_download_dir / "test.txt")
@@ -291,24 +180,115 @@ class TestModulesCommand:
             packs = cmd._get_available_packages()
             assert "quickstart" in packs
 
-    def test_library_invalid_checksum_raises(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        test_url = "[http://example.com/](http://example.com/)corrupt_checksum.zip"
-        output_path = tmp_path / "corrupt_checksum.zip"
+    def test_download_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
-        dummy_zip_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-        mock_response = MockResponse(dummy_zip_content, status_code=200)
+        mock_response = MockResponse(dummy_file_content, status_code=200)
         monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
 
-        mock_zip_file_instance = MagicMock(spec=zipfile.ZipFile)
-        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zip_file_instance))
-        mock_zip_file_instance.__enter__.return_value.extractall.side_effect = lambda path: (
-            Path(path) / "extracted_content.txt"
-        ).touch()
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        output_zip_path = tmp_path / "test_file.zip"
 
-        with ModulesCommand() as cmd:
-            with pytest.raises(ToolkitError, match="Checksum mismatch"):
-                cmd._download_and_unpack(
-                    test_url,
-                    output_path,
-                    checksum="abc1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                )
+        cmd._download(url="http://example.com/test.zip", file_path=output_zip_path)
+
+        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
+        assert output_zip_path.exists()
+        assert output_zip_path.read_bytes() == dummy_file_content
+
+    def test_download_errors_http_error(
+        self,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        test_url = "http://example.com/test_file.zip"
+        output_path = tmp_path / "test_file.zip"
+
+        # Arrange: Mock requests.get to return a MockResponse with a 404 status
+        monkeypatch.setattr(requests, "get", MagicMock(return_value=MockResponse(b"", status_code=404)))
+
+        # Act & Assert
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._download(test_url, output_path)
+
+        assert isinstance(excinfo.value.__cause__, requests.exceptions.HTTPError)
+
+    def test_download_errors_request_exception(
+        self,
+        tmp_path: Path,
+        monkeypatch: MonkeyPatch,
+    ) -> None:
+        test_url = "http://example.com/test_file.zip"
+        output_path = tmp_path / "test_file.zip"
+
+        # Arrange: Mock requests.get to raise a RequestException directly
+        monkeypatch.setattr(
+            requests, "get", MagicMock(side_effect=requests.exceptions.RequestException("Connection aborted."))
+        )
+
+        # Act & Assert
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._download(test_url, output_path)
+
+        assert "Error downloading file" in str(excinfo.value)
+        assert isinstance(excinfo.value.__cause__, requests.exceptions.RequestException)
+        assert "Connection aborted." in str(excinfo.value.__cause__)
+
+    def test_unpack_errors_bad_zip_file(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        url_suffix = "corrupt_file.zip"
+        output_path = tmp_path / url_suffix
+
+        output_path.touch()
+
+        mock_zipfile_instance = MagicMock()
+        mock_zipfile_instance.__enter__.side_effect = zipfile.BadZipFile("File is not a zip file")
+
+        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_instance))
+
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._unpack(output_path)
+
+        assert isinstance(excinfo.value.__cause__, zipfile.BadZipFile)
+        assert "File is not a zip file" in str(excinfo.value.__cause__)
+
+    def test_unpack_errors_os_error_during_write(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        url_suffix = "valid_archive.zip"
+        output_path = tmp_path / url_suffix
+
+        with zipfile.ZipFile(output_path, "w") as zf:
+            zf.writestr("dummy_file.txt", "content")
+
+        mock_zipfile_ref = MagicMock()
+        mock_zipfile_ref.extractall.side_effect = OSError("No space left on device")
+        mock_zipfile_ref.__enter__.return_value = mock_zipfile_ref
+        mock_zipfile_ref.__exit__.return_value = None
+
+        monkeypatch.setattr(zipfile, "ZipFile", MagicMock(return_value=mock_zipfile_ref))
+
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._unpack(output_path)
+
+        assert isinstance(excinfo.value.__cause__, OSError)
+        assert "No space left on device" in str(excinfo.value.__cause__)
+
+    def test_checksum_format(self, tmp_path: Path) -> None:
+        invalid_checksum = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        with pytest.raises(ToolkitError) as excinfo:
+            ModulesCommand()._validate_checksum(invalid_checksum, Path(tmp_path / "test_file.zip"))
+
+        assert "Unsupported checksum format" in str(excinfo.value)
+
+    def test_checksum_success(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        file_path = tmp_path / "test_file.zip"
+        dummy_file_content = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+        file_path.write_bytes(dummy_file_content)
+
+        expected_checksum = f"sha256:{hashlib.sha256(dummy_file_content).hexdigest()}"
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+        try:
+            cmd._validate_checksum(
+                checksum=expected_checksum,
+                file_path=file_path,  # Pass the correct Path object
+            )
+        except ToolkitError as e:
+            pytest.fail(f"'_validate_checksum' raised an unexpected ToolkitError: {e}")

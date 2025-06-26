@@ -6,7 +6,7 @@ import urllib
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from rich import print
 
@@ -74,12 +74,15 @@ class ModulesConfig:
 @dataclass
 class Library:
     url: str
-    checksum: Optional[str] = None
+    checksum: str
 
     @classmethod
     def load(cls, raw: dict[str, Any]) -> Library:
         if "url" not in raw:
             raise ValueError("Library configuration must contain 'url' field.")
+
+        if "checksum" not in raw:
+            raise ValueError("Library configuration must contain 'checksum' field.")
 
         parsed_url = urllib.parse.urlparse(raw["url"])
 

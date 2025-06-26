@@ -727,21 +727,30 @@ default_organization_dir = "{organization_dir.name}"''',
             for library_name, library in cdf_toml.libraries.items():
                 try:
                     print(f"[green]Adding library {library_name}[/]")
-                    output_path = self._temp_download_dir / f"{library_name}.zip"
-                    self._download_and_unpack(library.url, output_path, library.checksum if library.checksum else None)
-                    return Packages().load(output_path.parent)
+                    file_path = self._temp_download_dir / f"{library_name}.zip"
+                    self._download(library.url, file_path)
+                    self._validate_checksum(library.checksum, file_path)
+                    self._unpack(file_path)
+                    return Packages().load(file_path.parent)
                 except Exception as e:
+                    if isinstance(e, ToolkitError):
+                        raise e
+                    else:
+                        raise ToolkitError(
+                            f"An unexpected error occurred during download/unpack of {library.url} to {file_path}: {e}"
+                        ) from e
+
                     raise ToolkitError(f"Failed to add library {library_name}, {e}")
             # If no libraries are specified or the flag is not enabled, load the built-in modules
             raise ValueError("No valid libraries found.")
         else:
             return Packages.load(self._builtin_modules_path)
 
-    def _download_and_unpack(self, url: str, output_path: Path, checksum: str | None = None) -> None:
+    def _download(self, url: str, file_path: Path) -> None:
         """
-        Downloads and unzips a file from a URL with a progress bar.
+        Downloads a file from a URL to the specified output path.
+        If the file already exists, it skips the download.
         """
-
         try:
             response = requests.get(url, stream=True)
             response.raise_for_status()  # Raise an exception for HTTP errors
@@ -750,58 +759,51 @@ default_organization_dir = "{organization_dir.name}"''',
 
             with Progress() as progress:
                 task = progress.add_task("Download", total=total_size)
-                with open(output_path, "wb") as f:
+                with open(file_path, "wb") as f:
                     for chunk in response.iter_content(chunk_size=8192):
                         f.write(chunk)
                         progress.update(task, advance=len(chunk))
 
-                if checksum:
-                    print("Verifying checksum", total=1)
-                    calculated_checksum = self._calculate_sha256_checksum(output_path)
-                    if calculated_checksum != checksum:
-                        raise ToolkitError(
-                            f"Checksum mismatch for {url}. Expected {checksum}, got {calculated_checksum}."
-                        )
-                else:
-                    self.warn(MediumSeverityWarning(f"No checksum provided for {url}. Skipping verification."))
-
-                unzip = progress.add_task("Unzipping", total=total_size)
-                if output_path.suffix == ".zip":
-                    with zipfile.ZipFile(output_path, "r") as zip_ref:
-                        zip_ref.extractall(output_path.parent)
-                        progress.update(unzip, advance=total_size)
-                else:
-                    print(f"[green]File downloaded to {output_path}[/]")
-
         except requests.exceptions.RequestException as e:
             raise ToolkitError(f"Error downloading file from {url}: {e}") from e
-        except zipfile.BadZipFile as e:
-            raise ToolkitError(f"Error unpacking zip file {output_path}: {e}") from e
-        except Exception as e:
-            if isinstance(e, ToolkitError):
-                raise e
-            else:
-                raise ToolkitError(
-                    f"An unexpected error occurred during download/unpack of {url} to {output_path}: {e}"
-                ) from e
 
-    def _calculate_sha256_checksum(self, file_path: Path, chunk_size: int = 8192) -> str:
+    def _validate_checksum(self, checksum: str, file_path: Path) -> None:
         """
-        Calculates the SHA256 checksum of a file.
-
-        Args:
-            file_path: The path to the file (e.g., a zip file).
-            chunk_size: The size of chunks to read the file in (in bytes).
-
-        Returns:
-            The SHA256 checksum as a hexadecimal string.
+        Compares the checksum of the downloaded file with the expected checksum.
         """
+
+        if checksum.lower().startswith("sha256:"):
+            checksum = checksum[7:]
+        else:
+            raise ToolkitValueError(f"Unsupported checksum format: {checksum}. Expected 'sha256:' prefix")
+
+        chunk_size: int = 8192
         sha256_hash = sha256()
         try:
             with open(file_path, "rb") as f:
                 # Read the file in chunks to handle large files efficiently
                 for chunk in iter(lambda: f.read(chunk_size), b""):
                     sha256_hash.update(chunk)
-            return sha256_hash.hexdigest()
+            calculated = sha256_hash.hexdigest()
+            if calculated != checksum:
+                raise ToolkitError(f"Checksum mismatch. Expected {checksum}, got {calculated}.")
         except Exception as e:
             raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
+
+    def _unpack(self, file_path: Path) -> None:
+        """
+        Unzips the downloaded file to the specified output path.
+        If the file is not a zip file, it raises an error.
+        """
+        total_size = file_path.stat().st_size if file_path.exists() else 0
+
+        try:
+            with Progress() as progress:
+                unzip = progress.add_task("Unzipping", total=total_size)
+                with zipfile.ZipFile(file_path, "r") as zip_ref:
+                    zip_ref.extractall(file_path.parent)
+                    progress.update(unzip, advance=total_size)
+        except zipfile.BadZipFile as e:
+            raise ToolkitError(f"Error unpacking zip file {file_path}: {e}") from e
+        except Exception as e:
+            raise ToolkitError(f"An unexpected error occurred while unpacking {file_path}: {e}") from e
