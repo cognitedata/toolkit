@@ -35,6 +35,7 @@ class TestCDFToml:
                 version = "0.0.0"
                 [library.bad_lib]
                 url = "ftp://bad.com"
+                checksum = "1234567890abcdef"
                 """,
                 "Invalid library configuration for 'bad_lib': URL must start with 'https'",
             ),
@@ -45,7 +46,7 @@ class TestCDFToml:
                 [modules]
                 version = "0.0.0"
                 [library.missing_url]
-                type = "https"
+                checksum = "1234567890abcdef"
                 """,
                 "Invalid library configuration for 'missing_url': Library configuration must contain 'url' field.",
             ),
@@ -56,8 +57,8 @@ class TestCDFToml:
                 [modules]
                 version = "0.0.0"
                 [library.invalid_url]
-                type = "https"
                 url = "bad.com"
+                checksum = "1234567890abcdef"
                 """,
                 "Invalid library configuration for 'invalid_url': URL is missing scheme or network location (e.g., 'https://domain.com')",
             ),
@@ -68,11 +69,29 @@ class TestCDFToml:
                 [modules]
                 version = "0.0.0"
                 [library.invalid_zip]
-                type = "https"
                 url = "https://example.com/my-package/my-package.txt"
+                checksum = "1234567890abcdef"
                 """,
                 "Invalid library configuration for 'invalid_zip': URL must point to a .zip file.",
             ),
+            # Invalid: library checksum is not a valid hex string
+            (
+                """
+                [cdf]
+                [modules]
+                version = "0.0.0"
+                [library.invalid_checksum]
+                url = "https://example.com/my-package/my-package.zip"
+                """,
+                "Library configuration must contain 'checksum' field",
+            ),
+        ],
+        ids=[
+            "unknown_package_type",
+            "missing_url",
+            "invalid_url",
+            "invalid_zip",
+            "invalid_checksum",
         ],
     )
     def test_load_invalid_toml_content(self, tmp_path: Path, invalid_toml_content: str, expected_error_message: str):
@@ -89,6 +108,7 @@ class TestCDFToml:
         version = "0.0.0"
         [library.valid_url]
         url = "https://github.com/cognitedata/package/archive/refs/tags/0.0.1.zip"
+        checksum = "1234567890abcdef"
         """
         file_path = tmp_path / CDFToml.file_name
         file_path.write_text(valid_toml_content)
