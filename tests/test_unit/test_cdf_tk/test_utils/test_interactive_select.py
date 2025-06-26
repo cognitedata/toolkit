@@ -3,13 +3,17 @@ from cognite.client.data_classes import (
     CountAggregate,
     DataSet,
 )
+from cognite.client.data_classes.data_modeling import NodeList
 from questionary import Choice
 
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.utils.interactive_select import (
     AssetInteractiveSelect,
+    CanvasFilter,
     EventInteractiveSelect,
     FileMetadataInteractiveSelect,
+    InteractiveCanvasSelect,
     TimeSeriesInteractiveSelect,
 )
 from tests.test_unit.utils import MockQuestionary
@@ -156,3 +160,17 @@ class TestInteractiveSelect:
 
         assert selected_hierarchy == ["Root2"]
         assert selected_dataset == ["dataset3"]
+
+
+class TestInteractiveCanvasSelect:
+    def test_interactive_selection(self, monkeypatch) -> None:
+        answers = [CanvasFilter(select_all=True)]
+        with (
+            monkeypatch_toolkit_client() as client,
+            MockQuestionary(InteractiveCanvasSelect.__module__, monkeypatch, answers),
+        ):
+            client.canvas.list.return_value = NodeList[Canvas]([])
+            selector = InteractiveCanvasSelect(client)
+            selected_external_ids = selector.select_external_ids()
+
+        assert selected_external_ids == []
