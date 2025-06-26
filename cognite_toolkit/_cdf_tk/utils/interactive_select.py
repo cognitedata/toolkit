@@ -239,7 +239,7 @@ class InteractiveCanvasSelect:
             "Select Canvases",
             choices=[
                 questionary.Choice(
-                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r}, last updated {canvas.last_updated_time})",
+                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r}, last updated {canvas.updated_at!r})",
                     value=canvas.external_id,
                 )
                 for canvas in available_canvases
