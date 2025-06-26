@@ -112,7 +112,7 @@ class MetadataAggregator(AssetCentricAggregator, ABC, Generic[T_CogniteFilter]):
         super().__init__(client)
         self.resource_name = resource_name
 
-    def metadata_key_count(self, hierarchy: str | None = None, data_set_external_ids: str | None = None) -> int:
+    def metadata_key_count(self) -> int:
         return len(metadata_key_counts(self.client, self.resource_name))
 
     @classmethod
