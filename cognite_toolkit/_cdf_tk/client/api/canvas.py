@@ -46,4 +46,6 @@ class CanvasAPI:
         sort: Sequence[InstanceSort] | InstanceSort | None = None,
         filter: Filter | dict[str, Any] | None = None,
     ) -> NodeList[Canvas]:
-        return self._instance_api.list(Canvas, space=self.instance_space, limit=limit, sort=sort, filter=filter)
+        return self._instance_api.list(
+            instance_type=Canvas, space=self.instance_space, limit=limit, sort=sort, filter=filter
+        )
