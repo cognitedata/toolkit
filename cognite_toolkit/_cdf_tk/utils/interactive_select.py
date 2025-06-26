@@ -1,5 +1,7 @@
+from dataclasses import dataclass
 from abc import abstractmethod
 from functools import lru_cache
+from typing import Literal
 
 import questionary
 from cognite.client.data_classes import (
@@ -155,14 +157,47 @@ class EventInteractiveSelect(AssetCentricInteractiveSelect):
         )
 
 
+@dataclass
+class CanvasFilter:
+    visibility: bool | None = None
+    created_by: Literal["user", "me"] | None = None
+    select_all: bool = False
+
 class InteractiveCanvasSelection:
     def __init__(self, client: ToolkitClient) -> None:
         self.client = client
 
     def select_names(self) -> list[str]:
-        raise NotImplementedError()
-        # Dimensions to select
-        # All public
-        # Selected public
-        # Selected private
-        # From user
+        select_filter = self._select_filter()
+
+        return self._select_names(select_filter)
+
+    @staticmethod
+    def _select_filter() -> CanvasFilter:
+        return questionary.select(
+            "Which Canvases do you want to select?",
+            choices=[
+                questionary.Choice(title="All public Canvases", value=CanvasFilter(visibility=True, select_all=True)),
+                questionary.Choice(title="Selected public Canvases", value=CanvasFilter(visibility=True, select_all=False)),
+                questionary.Choice(title="All by given user", value=CanvasFilter(created_by="user", select_all=True)),
+                questionary.Choice(title="Selected by given user", value=CanvasFilter(created_by="user", select_all=False)),
+                questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
+            ],
+        ).ask()
+
+
+    def _select_names(self, select_filter: CanvasFilter) -> list[str]:
+        available_canvases = self.client.data_modeling.instances.list(
+            space="",
+            sources=[],
+            filter=select_filter.as_dms_filter(),
+            limit=-1,
+        )
+        if select_filter.select_all:
+            return [canvas.properties[]["name"] for canvas in available_canvases]
+        if select_filter.created_by == "me":
+            me = self.client.iam.user_profiles.me().user_identifier
+        elif select_filter.created_by == "user":
+            users = self.client.iam.user_profiles.list(limit=-1)
+            
+
