@@ -104,10 +104,10 @@ class MigrateApp(typer.Typer):
     @staticmethod
     def canvas(
         ctx: typer.Context,
-        name: Annotated[
+        external_id: Annotated[
             Optional[list[str]],
             typer.Argument(
-                help="The name of the Canvas to migrate. If not provided, and interactive selection will be "
+                help="The external ID of the Canvas to migrate. If not provided, and interactive selection will be "
                 "performed to select the Canvas to migrate."
             ),
         ] = None,
@@ -141,7 +141,7 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.migrate_canvas(
                 client,
-                names=name,
+                external_ids=external_id,
                 dry_run=dry_run,
                 verbose=verbose,
             )

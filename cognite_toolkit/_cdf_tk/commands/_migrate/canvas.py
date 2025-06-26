@@ -10,9 +10,9 @@ class MigrationCanvasCommand(ToolkitCommand):
     def migrate_canvas(
         self,
         client: ToolkitClient,
-        names: list[str] | None = None,
+        external_ids: list[str] | None = None,
         dry_run: bool = False,
         verbose: bool = False,
     ) -> None:
-        names = names or InteractiveCanvasSelection(client).select_external_ids()
-        print(f"Would migrate {len(names)} canvases: {humanize_collection(names)}")
+        external_ids = external_ids or InteractiveCanvasSelection(client).select_external_ids()
+        print(f"Would migrate {len(external_ids)} canvases: {humanize_collection(external_ids)}")
