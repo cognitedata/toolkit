@@ -1,0 +1,59 @@
+- constraints: {}
+  description: Container for file contextualization pipeline annotation data
+  externalId: {{ annotationStateExternalId }}
+  indexes: {}
+  name: {{ annotationStateExternalId }}
+  properties:
+    annotatedPageCount:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: false
+        type: int64
+    annotationMessage:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    annotationStatus:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        collation: ucs_basic
+        list: false
+        type: text
+    attemptCount:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: false
+        type: int64
+    diagramDetectJobId:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: false
+        type: int64
+    linkedFile:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: false
+        type: direct
+    pageCount:
+      autoIncrement: false
+      immutable: false
+      nullable: true
+      type:
+        list: false
+        type: int64
+  space: {{ annotationStateSchemaSpace }}
+  usedFor: node

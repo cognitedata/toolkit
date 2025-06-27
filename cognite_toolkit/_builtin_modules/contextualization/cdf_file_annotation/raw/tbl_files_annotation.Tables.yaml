@@ -1,0 +1,8 @@
+- dbName: {{ rawDb }}  
+  tableName: {{ rawTableDocTag }}
+
+- dbName: {{ rawDb }}  
+  tableName: {{ rawTableDocDoc }}
+
+- dbName: {{ rawDb }}  
+  tableName: {{ rawTableCache }}

@@ -1,0 +1,36 @@
+# used in /data_sets, /data_models, /functions, /extraction_pipelines, and /workflows
+annotationDatasetExternalId: ds_annotation_files
+
+# used in /data_models and /extraction_pipelines
+annotationStateExternalId: FileAnnotationState
+annotationStateInstanceSpace: sp_dat_cdf_annotation_states
+annotationStateSchemaSpace: sp_hdm #NOTE: stands for space helper data model
+annotationStateVersion: v1.0.0
+fileExternalId: <insert>
+fileSchemaSpace: <insert>
+fileVersion: <insert>
+
+# used in /raw and /extraction_pipelines
+rawDb: db_files_annotation
+rawTableDocTag: annotation_documents_tags
+rawTableDocDoc: annotation_documents_docs
+rawTableCache: annotation_entities_cache
+
+# used in /extraction_pipelines
+extractionPipelineExternalId: ep_ctx_files_annotation
+targetEntitySchemaSpace: <insert>
+targetEntityExternalId: <insert>
+targetEntityVersion: <insert>
+
+# used in /functions and /workflows
+launchFunctionExternalId: fn_dm_context_annotation_launch #NOTE: if this is changed, then the folder holding the launch function must be named the same as the new external ID
+launchFunctionVersion: v1.0.0
+finalizeFunctionExternalId: fn_dm_context_annotation_finalize #NOTE: if this is changed, then the folder holding the finalize function must be named the same as the new external ID
+finalizeFunctionVersion: v1.0.0
+functionClientId: ${IDP_CLIENT_ID}
+functionClientSecret: ${IDP_CLIENT_SECRET}
+
+# used in /workflows
+workflowSchedule: "*/10 * * * *"
+workflowExternalId: wf_annotation_functions
+workflowVersion: v1

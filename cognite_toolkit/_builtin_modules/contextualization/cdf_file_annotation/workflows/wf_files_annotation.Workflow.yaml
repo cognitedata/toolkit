@@ -1,0 +1,3 @@
+externalId: {{ workflowExternalId }}
+description: A workflow for annotating files - spins up one instance of launch function and multiple instances of finalize function
+dataSetExternalId: {{ annotationDatasetExternalId }}

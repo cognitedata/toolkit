@@ -1,0 +1,10 @@
+description: Helper Data Model
+externalId: helper_datamodel
+name: CDF helper data model
+space: {{ annotationStateSchemaSpace }}
+version: {{ annotationStateVersion }}
+views:
+  - externalId: {{ annotationStateExternalId }}
+    space: {{ annotationStateSchemaSpace }}
+    type: view
+    version: {{ annotationStateVersion }}

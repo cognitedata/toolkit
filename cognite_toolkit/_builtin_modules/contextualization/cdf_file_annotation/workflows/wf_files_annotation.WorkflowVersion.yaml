@@ -1,0 +1,191 @@
+workflowExternalId: {{ workflowExternalId }}
+version: "v1"
+workflowDefinition:
+  description: "A workflow for file annotations"
+  tasks:
+    - externalId: fn_launch
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ launchFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_launch
+      description: Launch
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_1
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_1
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_2
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_2
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_3
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_3
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_4
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_4
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_5
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_5
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_6
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_6
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_7
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_7
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_8
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_8
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_9
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_9
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"
+
+    - externalId: fn_finailze_thread_10
+      type: "function"
+      parameters:
+        function:
+          externalId: {{ finalizeFunctionExternalId }}
+          data:
+            {
+              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
+              "logLevel": "INFO",
+            }
+        isAsyncComplete: false
+      name: fn_finailze_thread_10
+      description: Finalize
+      retries: 0
+      timeout: 600
+      onFailure: "abortWorkflow"

@@ -1,0 +1,9 @@
+externalId: {{workflowExternalId}}
+triggerRule:
+  triggerType: schedule
+  cronExpression: "{{workflowSchedule}}"
+workflowExternalId: {{workflowExternalId}}
+workflowVersion: {{workflowVersion}}
+authentication:
+  clientId: {{functionClientId}}
+  clientSecret: {{functionClientSecret}}

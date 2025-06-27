@@ -1,0 +1,100 @@
+- description: File Annotation State
+  externalId: {{ annotationStateExternalId }}
+  implements:
+    - externalId: CogniteDescribable
+      space: cdf_cdm
+      type: view
+      version: v1
+    - externalId: CogniteSourceable
+      space: cdf_cdm
+      type: view
+      version: v1
+  name: Annotation State
+  properties:
+    annotatedPageCount:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: annotatedPageCount
+      description: Number of annotated pages
+      name: Annotated page count
+    annotationMessage:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: annotationMessage
+      description: Annotation message
+      name: Annotation message
+    annotationStatus:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: annotationStatus
+      description: Annotation status
+      name: Annotation status
+    attemptCount:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: attemptCount
+      description: Attempt count
+      name: Attempt count
+    diagramDetectJobId:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: diagramDetectJobId
+      description: Diagram detect job ID
+      name: Diagram detect job ID
+    linkedFile:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: linkedFile
+      description: File linked to annotation
+      name: Linked file
+      source:
+        externalId: {{ fileExternalId }}
+        space: {{ fileSchemaSpace }}
+        type: view
+        version: {{ fileVersion }}
+    name:
+      container:
+        externalId: CogniteDescribable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: name
+      description: Name
+      name: Name
+    pageCount:
+      container:
+        externalId: {{ annotationStateExternalId }}
+        space: {{ annotationStateSchemaSpace }}
+        type: container
+      containerPropertyIdentifier: pageCount
+      description: Total number of file pages
+      name: Page count
+    sourceCreatedTime:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: sourceCreatedTime
+      description: Created time
+      name: Created time
+    sourceUpdatedTime:
+      container:
+        externalId: CogniteSourceable
+        space: cdf_cdm
+        type: container
+      containerPropertyIdentifier: sourceUpdatedTime
+      description: Last updated time
+      name: Last updated time
+  space: {{ annotationStateSchemaSpace }}
+  version: {{ annotationStateVersion }}

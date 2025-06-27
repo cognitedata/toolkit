@@ -1,0 +1,6 @@
+- description: Helper data model space
+  name: {{ annotationStateSchemaSpace }}
+  space: {{ annotationStateSchemaSpace }}
+- description: Instance space for contextualization pipeline annotation states
+  name: {{ annotationStateInstanceSpace }}
+  space: {{ annotationStateInstanceSpace }}

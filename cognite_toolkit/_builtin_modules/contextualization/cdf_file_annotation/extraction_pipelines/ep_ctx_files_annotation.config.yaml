@@ -1,0 +1,130 @@
+externalId: {{ extractionPipelineExternalId }}
+config:
+  dataModelViews:
+    coreAnnotationView:
+      schemaSpace: cdf_cdm
+      externalId: CogniteDiagramAnnotation
+      version: v1
+    annotationStateView:
+      schemaSpace: {{ annotationStateSchemaSpace }}
+      instanceSpace: {{annotationStateInstanceSpace}}
+      externalId: {{ annotationStateExternalId }}
+      version: {{ annotationStateVersion }}
+    fileView:
+      schemaSpace: {{ fileSchemaSpace }}
+      externalId: {{ fileExternalId }}
+      version: {{ fileVersion }}
+      annotationType: diagrams.FileLink
+    targetEntitiesView:
+      schemaSpace: {{ targetEntitySchemaSpace }}
+      externalId: {{ targetEntityExternalId }}
+      version: {{ targetEntityVersion }}
+      annotationType: diagrams.AssetLink
+  prepareFunction:
+    # getFilesForAnnotationResetQuery:
+    #   targetView:
+    #     schemaSpace: {{fileSchemaSpace}}
+    #     externalId: {{fileExternalId}}
+    #     version: {{fileVersion}}
+    #   filters:
+    #     - values:
+    #       negate:
+    #       operator:
+    #       targetProperty:
+    getFilesToAnnotateQuery:
+      targetView:
+        schemaSpace: {{ fileSchemaSpace }}
+        externalId: {{ fileExternalId }}
+        version: {{ fileVersion }}
+      filters:
+        - values: ["ToAnnotate"] # NOTE: Do not change unless there's a good reason
+          negate: False
+          operator: In
+          targetProperty: tags
+        - values: ["AnnotationInProcess", "Annotated", "AnnotationFailed"] # NOTE: Do not change unless there's a good reason
+          negate: True
+          operator: In
+          targetProperty: tags
+      limit: 10000
+  launchFunction:
+    batchSize: 50
+    fileSearchProperty: aliases
+    targetEntitiesSearchProperty: aliases
+    primaryScopeProperty: site
+    secondaryScopeProperty:
+    dataModelService:
+      getFilesToProcessQuery:
+        targetView:
+          schemaSpace: {{ annotationStateSchemaSpace }}
+          externalId: {{ annotationStateExternalId }}
+          version: {{ annotationStateVersion }}
+        filters:
+          - values: ["New", "Retry"] # NOTE: Do not change unless there's a good reason
+            negate: False
+            operator: In
+            targetProperty: annotationStatus
+        limit: 1000
+      getTargetEntitiesQuery:
+        targetView:
+          schemaSpace: {{ targetEntitySchemaSpace }}
+          externalId: {{ targetEntityExternalId }}
+          version: {{ targetEntityVersion }}
+        filters:
+          - values: ["DetectInDiagrams"] # NOTE: Do not change unless there's a good reason
+            negate: False
+            operator: In
+            targetProperty: tags
+      getFileEntitiesQuery:
+        targetView:
+          schemaSpace: {{ fileSchemaSpace }}
+          externalId: {{ fileExternalId }}
+          version: {{ fileVersion }}
+        filters:
+          - values: ["DetectInDiagrams"] # NOTE: Do not change unless there's a good reason
+            negate: False
+            operator: In
+            targetProperty: tags
+    cacheService:
+      cacheTimeLimit: 24 # hours
+      rawDb: {{ rawDb }}
+      rawTableCache: {{ rawTableCache }}
+    annotationService:
+      pageRange: 50
+      partialMatch: True
+      minTokens: 2
+      diagramDetectConfig:
+        connectionFlags:
+          noTextInbetween: True
+          naturalReadingOrder: True
+        customizeFuzziness:
+          fuzzyScore: 0.93
+          maxBoxes:
+          minChars: 10
+        minFuzzyScore: 0.915
+        readEmbeddedText: True
+        removeLeadingZeros: True
+  finalizeFunction:
+    cleanOldAnnotations: True
+    maxRetryAttempts: 3
+    retrieveService:
+      getJobIdQuery:
+        targetView:
+          schemaSpace: {{ annotationStateSchemaSpace }}
+          externalId: {{ annotationStateExternalId }}
+          version: {{ annotationStateVersion }}
+        filters:
+          - values: "Processing" # NOTE: Do not change unless there's a good reason
+            negate: False
+            operator: Equals
+            targetProperty: annotationStatus
+          - negate: False # # NOTE: Do not change unless there's a good reason
+            operator: Exists
+            targetProperty: diagramDetectJobId
+    applyService:
+      autoApprovalThreshold: 1.0
+      autoSuggestThreshold: 1.0
+    reportService:
+      rawDb: {{ rawDb }}
+      rawTableDocTag: {{ rawTableDocTag }}
+      rawTableDocDoc: {{ rawTableDocDoc }}
+      rawBatchSize: 10000
