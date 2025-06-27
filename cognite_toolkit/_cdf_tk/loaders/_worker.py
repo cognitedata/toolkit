@@ -92,12 +92,7 @@ class ResourceWorker(
             verbose: Whether to print detailed information about the resources being processed.
 
         Returns:
-            A tuple containing:
-                - to_create: List of resources to create.
-                - to_update: List of resources to update.
-                - to_delete: List of resource IDs to delete.
-                - unchanged: List of resources that are unchanged.
-
+            CategorizedResources: A categorized list of resources to create, update, delete, and unchanged.
         """
         local_by_id = self.load_resources(filepaths, environment_variables, is_dry_run)
 
