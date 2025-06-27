@@ -6,13 +6,15 @@ from collections.abc import Hashable
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Any, Generic, cast
 
+from cognite.client.data_classes import FunctionWrite
 from cognite.client.data_classes._base import (
     T_CogniteResourceList,
     T_WritableCogniteResource,
     T_WriteClass,
 )
+from cognite.client.data_classes.capabilities import Capability
 from rich import print
 from rich.panel import Panel
 from yaml import YAMLError
@@ -22,6 +24,7 @@ from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError, Toolki
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, catch_warnings
 from cognite_toolkit._cdf_tk.utils import to_diff
 
+from . import FunctionLoader
 from ._base_loaders import T_ID, ResourceLoader, T_WritableCogniteResourceList
 
 if TYPE_CHECKING:
@@ -143,9 +146,15 @@ class ResourceWorker(
         return local_by_id
 
     def validate_access(self, local_by_id: dict[T_ID, tuple[dict[str, Any], T_WriteClass]], is_dry_run: bool) -> None:
-        capabilities = self.loader.get_required_capability(
-            [item for _, item in local_by_id.values()], read_only=is_dry_run
-        )
+        capabilities: Capability | list[Capability]
+        if isinstance(self.loader, FunctionLoader):
+            function_loader: FunctionLoader = self.loader
+            function_items = cast(list[FunctionWrite], [item for _, item in local_by_id.values()])
+            capabilities = function_loader.get_function_required_capabilities(function_items, read_only=is_dry_run)
+        else:
+            capabilities = self.loader.get_required_capability(
+                [item for _, item in local_by_id.values()], read_only=is_dry_run
+            )
         if capabilities and (missing := self.loader.client.verify.authorization(capabilities)):
             raise self.loader.client.verify.create_error(missing, action=f"clean {self.loader.display_name}")
 
