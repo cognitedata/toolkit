@@ -1,6 +1,6 @@
 from ._migrate import MigrateTimeseriesCommand, MigrationPrepareCommand
 from ._populate import PopulateCommand
-from ._profile import ProfileAssetCentricCommand
+from ._profile import ProfileAssetCentricCommand, ProfileRawCommand
 from ._purge import PurgeCommand
 from .auth import AuthCommand
 from .build_cmd import BuildCommand
@@ -31,6 +31,7 @@ __all__ = [
     "ModulesCommand",
     "PopulateCommand",
     "ProfileAssetCentricCommand",
+    "ProfileRawCommand",
     "PullCommand",
     "PurgeCommand",
     "RepoCommand",
