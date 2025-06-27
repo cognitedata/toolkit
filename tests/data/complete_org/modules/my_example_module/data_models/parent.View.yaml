@@ -18,6 +18,7 @@ properties:
       space: cdf_cdm
       externalId: CogniteFile
       version: v1
+    direction: outwards
   directFile:
     container:
       externalId: NameContainer
