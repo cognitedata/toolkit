@@ -27,5 +27,4 @@ variables:
     scheduleDaily: 35 1 * * *
 
     example_variable: foo
-    workflow_external_id: baz
     example_secret: '${ENVIRONMENT_SECRET}'
