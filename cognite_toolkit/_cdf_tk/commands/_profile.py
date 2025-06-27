@@ -199,7 +199,7 @@ class ProfileCommand(ToolkitCommand, ABC):
 
         workbook = Workbook()
         worksheet = workbook.active
-        worksheet.title = sheet or self.table_title
+        worksheet.title = (sheet or self.table_title)[:31]  # Limit title to 31 characters for Excel compatibility
 
         worksheet.append(self.columns)
 
