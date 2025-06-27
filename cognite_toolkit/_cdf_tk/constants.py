@@ -77,6 +77,49 @@ HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
+SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
+CONTAINER_EXTERNAL_ID_PATTERN = r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$"
+FORBIDDEN_SPACES = frozenset(["space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"])
+FORBIDDEN_CONTAINER_EXTERNAL_IDS = frozenset(
+    [
+        "Query",
+        "Mutation",
+        "Subscription",
+        "String",
+        "Int32",
+        "Int64",
+        "Int",
+        "Float32",
+        "Float64",
+        "Float",
+        "Timestamp",
+        "JSONObject",
+        "Date",
+        "Numeric",
+        "Boolean",
+        "PageInfo",
+        "File",
+        "Sequence",
+        "TimeSeries",
+    ]
+)
+FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER = frozenset(
+    [
+        "space",
+        "externalId",
+        "createdTime",
+        "lastUpdatedTime",
+        "deletedTime",
+        "edge_id",
+        "node_id",
+        "project_id",
+        "property_group",
+        "seq",
+        "tg_table_name",
+        "extensions",
+    ]
+)
+CONTAINER_PROPERTIES_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
 
 
 def clean_name(name: str) -> str:
@@ -101,3 +144,8 @@ class URL:
 # applications will experience data loss. The limit of 1 million is chosen such that it will trigger alarms in the
 # CDF projects, such that admins can take action to increase or clean up the capacity before it is too late.
 DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
+
+# This is the maximum number of rows that can be iterated over in a single query
+# agreed upon with the transformations team.
+MAX_ROW_ITERATION_RUN_QUERY = 500_000
+MAX_RUN_QUERY_FREQUENCY_MIN = 10

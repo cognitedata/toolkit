@@ -48,6 +48,11 @@ class AllScope(Scope):
     _scope_name = "all"
 
 
+class AppConfigScope(Scope):
+    _scope_name = "appScope"
+    apps: list[Literal["SEARCH"]]
+
+
 class CurrentUserScope(Scope):
     _scope_name = "currentuserscope"
 
@@ -173,6 +178,12 @@ class AnnotationsAcl(Capability):
     _capability_name = "annotationsAcl"
     actions: list[Literal["READ", "WRITE", "SUGGEST", "REVIEW"]]
     scope: AllScope
+
+
+class AppConfigAcl(Capability):
+    _capability_name = "appConfigAcl"
+    actions: list[Literal["READ", "WRITE"]]
+    scope: AllScope | AppConfigScope
 
 
 class AssetsAcl(Capability):
