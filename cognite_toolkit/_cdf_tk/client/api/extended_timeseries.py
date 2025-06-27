@@ -125,7 +125,7 @@ class ExtendedTimeSeriesAPI(TimeSeriesAPI):
         if id is None and external_id is None:
             return None
         if isinstance(id, int) and isinstance(external_id, str):
-            raise ValueError("Either id or external_id must be provided, or both as a sequence.")
+            raise ValueError("Cannot specify both id and external_id as single values. Use one or the other.")
         is_single = isinstance(id, int) or isinstance(external_id, str)
         identifiers = IdentifierSequence.load(id, external_id)
 
