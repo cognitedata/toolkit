@@ -62,14 +62,14 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        cmd = ModulesCommand()
-        cmd.run(
-            lambda: cmd.init(
-                organization_dir=organization_dir,
-                select_all=all,
-                clean=clean,
+        with ModulesCommand() as cmd:
+            cmd.run(
+                lambda: cmd.init(
+                    organization_dir=organization_dir,
+                    select_all=all,
+                    clean=clean,
+                )
             )
-        )
 
     def upgrade(
         self,
@@ -116,8 +116,8 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Add one or more new module(s) to the project."""
-        cmd = ModulesCommand()
-        cmd.run(lambda: cmd.add(organization_dir=organization_dir))
+        with ModulesCommand() as cmd:
+            cmd.run(lambda: cmd.add(organization_dir=organization_dir))
 
     def pull(
         self,
