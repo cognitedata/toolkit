@@ -3,12 +3,14 @@ from contextlib import contextmanager
 from typing import Any
 from unittest.mock import MagicMock
 
+from cognite.client._api.raw import RawDatabasesAPI, RawRowsAPI, RawTablesAPI
 from cognite.client.testing import CogniteClientMock
 
 from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
 
 from .api.canvas import CanvasAPI
 from .api.dml import DMLAPI
+from .api.extended_raw import ExtendedRawAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import (
     AssetLookUpAPI,
@@ -64,6 +66,10 @@ class ToolkitClientMock(CogniteClientMock):
         self.lookup.extraction_pipelines = MagicMock(spec_set=ExtractionPipelineLookUpAPI)
         self.migration = MagicMock(spec=MigrationAPI)
         self.migration.instance_source = MagicMock(spec_set=InstanceSourceAPI)
+        self.raw = MagicMock(spec=ExtendedRawAPI)
+        self.raw.databases = MagicMock(spec_set=RawDatabasesAPI)
+        self.raw.rows = MagicMock(spec_set=RawRowsAPI)
+        self.raw.tables = MagicMock(spec_set=RawTablesAPI)
 
         self.robotics = MagicMock()
         self.robotics.robots = MagicMock(spec=RoboticsAPI)
