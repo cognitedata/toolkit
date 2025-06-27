@@ -1,8 +1,11 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import pytest
 
 from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
+from cognite_toolkit._cdf_tk.tk_warnings.fileread import ResourceFormatWarning
+from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 from tests.test_unit.utils import find_resources
 
 
@@ -68,7 +71,7 @@ def location_yaml_cases() -> Iterable:
                 "externalId": "loc-007",
                 "name": "Location with Asset Centric Resource",
                 "assetCentric": {
-                    "dataSetExternalId": ["dataset-001", "dataset-002"],
+                    "dataSetExternalIds": ["dataset-001", "dataset-002"],
                     "assetSubtreeExternalIds": [{"externalId": "asset-001"}, {"externalId": "asset-002"}],
                     "externalIdPrefix": "test-prefix",
                 },
@@ -81,16 +84,16 @@ def location_yaml_cases() -> Iterable:
                 "name": "Location with Full Asset Centric Resources",
                 "assetCentric": {
                     "assets": {
-                        "dataSetExternalId": ["dataset-001"],
+                        "dataSetExternalIds": ["dataset-001"],
                         "assetSubtreeExternalIds": [{"externalId": "asset-001"}],
                         "externalIdPrefix": "asset-prefix",
                     },
                     "events": {
-                        "dataSetExternalId": ["dataset-002"],
+                        "dataSetExternalIds": ["dataset-002"],
                         "assetSubtreeExternalIds": [{"externalId": "asset-002"}],
                         "externalIdPrefix": "event-prefix",
                     },
-                    "timeseries": {"dataSetExternalId": ["dataset-003"], "externalIdPrefix": "ts-prefix"},
+                    "timeseries": {"dataSetExternalIds": ["dataset-003"], "externalIdPrefix": "ts-prefix"},
                     "files": {
                         "assetSubtreeExternalIds": [{"externalId": "asset-003"}],
                     },
@@ -122,6 +125,25 @@ def location_yaml_cases() -> Iterable:
     yield from (pytest.param(next(iter(case.values())), id=next(iter(case.keys()))) for case in yaml_cases)
 
 
+def invalid_location_filters_test_cases() -> Iterable:
+    yield pytest.param(
+        {"name": "Location 1"}, {"Missing required field: 'externalId'"}, id="Missing required field: externalId"
+    )
+    yield pytest.param(
+        {"externalId": "my_location", "name": "Location 1", "dataModelingType": "ASSET_CENTRIC_ONLY"},
+        {"In field dataModelingType input should be 'HYBRID' or 'DATA_MODELING_ONLY'. Got 'ASSET_CENTRIC_ONLY'."},
+        id="Invalid dataModelingType value",
+    )
+    yield pytest.param(
+        {"externalId": "location_1", "name": "Location 1", "dataModels": ["model-1", "model-2"]},
+        {
+            "In dataModels input must be an object of type DataModelID. Got 'model-1' of type str.",
+            "In dataModels input must be an object of type DataModelID. Got 'model-2' of type str.",
+        },
+        id="Invalid list of dataModels.",
+    )
+
+
 class TestLocationYAML:
     @pytest.mark.parametrize("data", list(find_resources("Location")))
     def test_load_valid_location(self, data: dict[str, object]) -> None:
@@ -132,3 +154,12 @@ class TestLocationYAML:
     def test_valid_location_variants(self, test_input: dict) -> None:
         location = LocationYAML.model_validate(test_input)
         assert location.model_dump(by_alias=True, exclude_unset=True) == test_input
+
+    @pytest.mark.parametrize("data, expected_errors", list(invalid_location_filters_test_cases()))
+    def test_invalid_location_filters_error_messages(self, data: dict | list, expected_errors: set[str]) -> None:
+        warning_list = validate_resource_yaml_pydantic(data, LocationYAML, Path("some_file.yaml"))
+        assert len(warning_list) == 1
+        format_warning = warning_list[0]
+        assert isinstance(format_warning, ResourceFormatWarning)
+
+        assert set(format_warning.errors) == expected_errors

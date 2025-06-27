@@ -4,7 +4,11 @@ from .base import ToolkitResource
 
 
 class DatabaseYAML(ToolkitResource):
-    db_name: str | list[str] = Field(description="The name or list of names of the database.")
+    db_name: str = Field(
+        description="The name of the database.",
+        min_length=1,
+        max_length=32,
+    )
 
 
 class TableYAML(ToolkitResource):

@@ -175,7 +175,7 @@ wheels = [
 
 [[package]]
 name = "cognite-sdk"
-version = "7.74.5"
+version = "7.75.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msal" },
@@ -185,9 +185,9 @@ dependencies = [
     { name = "requests-oauthlib" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6b/a8/3ea39eb71a163c7816735bedc3f94f399a96d02ba8ded1d51562d8fa7897/cognite_sdk-7.74.5.tar.gz", hash = "sha256:201b565113decaea946c9cfed02a7841104ab6bd8a6a7ff72b4814f6a492b323", size = 497644, upload-time = "2025-04-13T09:31:10.174Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ba/19/c0616c3dd70c2497d73f12138f849f5c5c8aa209b055258a10a489a80bd3/cognite_sdk-7.75.3.tar.gz", hash = "sha256:78b17cd58f1a49f33cdd766be2a03757a1c2d25cfa43882653f5b436f9fe3c84", size = 504345, upload-time = "2025-06-24T01:06:28.462Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/83/fcc97b65b7378ff43f072823d3c2432e4c9ab179e469458e408a6069d204/cognite_sdk-7.74.5-py3-none-any.whl", hash = "sha256:423d718c7bc51effa301c3920fc5c15c13fe499d20cb7fc0ea4a9451c73fc503", size = 619020, upload-time = "2025-04-13T09:31:07.355Z" },
+    { url = "https://files.pythonhosted.org/packages/75/80/792814f559321e6244482352f2eebecd4196dfd2b69520dc4dcd2f495cc0/cognite_sdk-7.75.3-py3-none-any.whl", hash = "sha256:48506c1a9cb999255ed98821a0c33030a3b12da11a17d1e8f75f79e88a54967a", size = 627479, upload-time = "2025-06-24T01:06:26.08Z" },
 ]
 
 [[package]]
@@ -246,7 +246,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "cognite-sdk", specifier = ">=7.74.2,<8.0.0" },
+    { name = "cognite-sdk", specifier = ">=7.75.3,<8.0.0" },
     { name = "mixpanel", specifier = ">=4.10.1" },
     { name = "openpyxl", marker = "extra == 'table'", specifier = ">=3.1.5" },
     { name = "packaging", specifier = ">=22.0,<25.0" },

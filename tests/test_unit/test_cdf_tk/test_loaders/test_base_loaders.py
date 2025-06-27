@@ -77,7 +77,7 @@ def test_loader_class(
 ):
     cmd = DeployCommand(print_warning=False)
     loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
-    cmd.deploy_resources(loader, env_vars_with_client, [], dry_run=False)
+    cmd.deploy_resource_type(loader, env_vars_with_client, [], dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
@@ -98,7 +98,7 @@ class TestDeployResources:
         expected_order = ["MyView", "MyOtherView"]
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(
+        cmd.deploy_resource_type(
             ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
             env_vars_with_client,
             [],

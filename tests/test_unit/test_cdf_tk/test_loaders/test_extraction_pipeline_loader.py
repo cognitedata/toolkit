@@ -51,7 +51,7 @@ class TestExtractionPipelineDependencies:
 
         loader = ExtractionPipelineConfigLoader.create_loader(toolkit_client_approval.mock_client)
         worker = ResourceWorker(loader)
-        to_create, changed, to_delete, unchanged, _ = worker.load_resources([local_file])
+        to_create, changed, to_delete, unchanged = worker.prepare_resources([local_file])
         assert {
             "create": len(to_create),
             "changed": len(changed),

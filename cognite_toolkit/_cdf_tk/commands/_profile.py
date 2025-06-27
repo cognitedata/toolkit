@@ -1,162 +1,191 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import ClassVar, Literal
+from functools import cached_property
+from typing import ClassVar, Literal, TypeAlias, overload
 
 from cognite.client.exceptions import CogniteException
+from rich import box
+from rich.console import Console
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils.cdf import (
-    label_aggregate_count,
-    label_count,
-    metadata_key_counts,
-    relationship_aggregate_count,
+from cognite_toolkit._cdf_tk.utils.aggregators import (
+    AssetAggregator,
+    AssetCentricAggregator,
+    EventAggregator,
+    FileAggregator,
+    LabelAggregator,
+    LabelCountAggregator,
+    MetadataAggregator,
+    RelationshipAggregator,
+    SequenceAggregator,
+    TimeSeriesAggregator,
 )
 
 from ._base import ToolkitCommand
 
 
-class AssetCentricAggregator(ABC):
-    _transformation_destination: ClassVar[tuple[str, ...]]
+class WaitingAPICallClass:
+    def __bool__(self) -> bool:
+        return False
 
-    def __init__(self, client: ToolkitClient) -> None:
-        self.client = client
 
-    @property
+WaitingAPICall = WaitingAPICallClass()
+
+PendingCellValue: TypeAlias = int | float | str | bool | None | WaitingAPICallClass
+CellValue: TypeAlias = int | float | str | bool | None
+PendingTable: TypeAlias = dict[tuple[str, str], PendingCellValue]
+
+
+class ProfileCommand(ToolkitCommand, ABC):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.table_title = self.__class__.__name__.removesuffix("Command")
+
+    class Columns:  # Placeholder for columns, subclasses should define their own Columns class
+        ...
+
+    spinner_args: ClassVar[Mapping] = dict(name="arc", text="loading...", style="bold green", speed=1.0)
+
+    max_workers = 8
+    is_dynamic_table = False
+
+    @cached_property
+    def columns(self) -> tuple[str, ...]:
+        return (
+            tuple([attr for attr in self.Columns.__dict__.keys() if not attr.startswith("_")])
+            if hasattr(self, "Columns")
+            else tuple()
+        )
+
+    def create_profile_table(self, client: ToolkitClient) -> list[dict[str, CellValue]]:
+        console = Console()
+        with console.status("Setting up", spinner="aesthetic", speed=0.4) as _:
+            table = self.create_initial_table(client)
+        with (
+            Live(self.draw_table(table), refresh_per_second=4, console=console) as live,
+            ThreadPoolExecutor(max_workers=self.max_workers) as executor,
+        ):
+            while True:
+                current_calls = {
+                    executor.submit(self.call_api(row, col, client)): (row, col)
+                    for (row, col), cell in table.items()
+                    if cell is WaitingAPICall
+                }
+                if not current_calls:
+                    break
+                for future in as_completed(current_calls):
+                    row, col = current_calls[future]
+                    try:
+                        result = future.result()
+                    except CogniteException as e:
+                        result = type(e).__name__
+                    table[(row, col)] = self.format_result(result, row, col)
+                    if self.is_dynamic_table:
+                        table = self.update_table(table, result, row, col)
+                    live.update(self.draw_table(table))
+        return self.as_record_format(table, allow_waiting_api_call=False)
+
     @abstractmethod
-    def display_name(self) -> str:
-        raise NotImplementedError()
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+        """
+        Create the initial table with placeholders for API calls.
+        Each cell that requires an API call should be initialized with WaitingAPICall.
+        """
+        raise NotImplementedError("Subclasses must implement create_initial_table.")
 
     @abstractmethod
-    def count(self) -> int:
-        raise NotImplementedError
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+        raise NotImplementedError("Subclasses must implement call_api.")
 
-    def transformation_count(self) -> int:
-        """Returns the number of transformations associated with the resource."""
-        transformation_count = 0
-        for destination in self._transformation_destination:
-            for chunk in self.client.transformations(chunk_size=1000, destination_type=destination, limit=None):
-                transformation_count += len(chunk)
-        return transformation_count
+    def format_result(self, result: object, row: str, col: str) -> CellValue:
+        """
+        Format the result of an API call for display in the table.
+        This can be overridden by subclasses to customize formatting.
+        """
+        if isinstance(result, int | float | bool | str):
+            return result
+        raise NotImplementedError("Subclasses must implement format_result.")
 
+    def update_table(
+        self,
+        current_table: PendingTable,
+        result: object,
+        row: str,
+        col: str,
+    ) -> PendingTable:
+        raise NotImplementedError("Subclasses must implement update_table.")
 
-class MetadataAggregator(AssetCentricAggregator, ABC):
-    def __init__(
-        self, client: ToolkitClient, resource_name: Literal["assets", "events", "files", "timeseries", "sequences"]
-    ) -> None:
-        super().__init__(client)
-        self.resource_name = resource_name
+    def draw_table(self, table: PendingTable) -> Table:
+        rich_table = Table(
+            title=self.table_title,
+            title_justify="left",
+            show_header=True,
+            header_style="bold magenta",
+            box=box.MINIMAL,
+        )
+        for col in self.columns:
+            rich_table.add_column(col)
 
-    def metadata_key_count(self) -> int:
-        return len(metadata_key_counts(self.client, self.resource_name))
+        rows = self.as_record_format(table)
 
+        for row in rows:
+            rich_table.add_row(*[self._as_cell(value) for value in row.values()])
+        return rich_table
 
-class LabelAggregator(MetadataAggregator, ABC):
-    def label_count(self) -> int:
-        return len(label_count(self.client, self.resource_name))
+    @classmethod
+    @overload
+    def as_record_format(
+        cls, table: PendingTable, allow_waiting_api_call: Literal[True] = True
+    ) -> list[dict[str, PendingCellValue]]: ...
 
+    @classmethod
+    @overload
+    def as_record_format(
+        cls,
+        table: PendingTable,
+        allow_waiting_api_call: Literal[False],
+    ) -> list[dict[str, CellValue]]: ...
 
-class AssetAggregator(LabelAggregator):
-    _transformation_destination = ("assets", "asset_hierarchy")
+    @classmethod
+    def as_record_format(
+        cls,
+        table: PendingTable,
+        allow_waiting_api_call: bool = True,
+    ) -> list[dict[str, PendingCellValue]] | list[dict[str, CellValue]]:
+        rows: list[dict[str, PendingCellValue]] = []
+        row_indices: dict[str, int] = {}
+        for (row, col), value in table.items():
+            if value is WaitingAPICall and not allow_waiting_api_call:
+                value = None
+            if row not in row_indices:
+                row_indices[row] = len(rows)
+                rows.append({col: value})
+            else:
+                rows[row_indices[row]][col] = value
+        return rows
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, "assets")
-
-    @property
-    def display_name(self) -> str:
-        return "Assets"
-
-    def count(self) -> int:
-        return self.client.assets.aggregate_count()
-
-
-class EventAggregator(MetadataAggregator):
-    _transformation_destination = ("events",)
-
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, "events")
-
-    @property
-    def display_name(self) -> str:
-        return "Events"
-
-    def count(self) -> int:
-        return self.client.events.aggregate_count()
-
-
-class FileAggregator(LabelAggregator):
-    _transformation_destination = ("files",)
-
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, "files")
-
-    @property
-    def display_name(self) -> str:
-        return "Files"
-
-    def count(self) -> int:
-        response = self.client.files.aggregate()
-        if response:
-            return response[0].count
-        else:
-            return 0
-
-
-class TimeSeriesAggregator(MetadataAggregator):
-    _transformation_destination = ("timeseries",)
-
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, "timeseries")
-
-    @property
-    def display_name(self) -> str:
-        return "TimeSeries"
-
-    def count(self) -> int:
-        return self.client.time_series.aggregate_count()
+    def _as_cell(self, value: PendingCellValue) -> str | Spinner:
+        if isinstance(value, WaitingAPICallClass):
+            return Spinner(**self.spinner_args)
+        elif isinstance(value, int):
+            return f"{value:,}"
+        elif isinstance(value, float):
+            return f"{value:.2f}"
+        elif value is None:
+            return "-"
+        return str(value)
 
 
-class SequenceAggregator(MetadataAggregator):
-    _transformation_destination = ("sequences",)
+class ProfileAssetCentricCommand(ProfileCommand):
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.table_title = "Asset Centric Profile"
+        self.aggregators: dict[str, AssetCentricAggregator] = {}
 
-    def __init__(self, client: ToolkitClient) -> None:
-        super().__init__(client, "sequences")
-
-    @property
-    def display_name(self) -> str:
-        return "Sequences"
-
-    def count(self) -> int:
-        return self.client.sequences.aggregate_count()
-
-
-class RelationshipAggregator(AssetCentricAggregator):
-    _transformation_destination = ("relationships",)
-
-    @property
-    def display_name(self) -> str:
-        return "Relationships"
-
-    def count(self) -> int:
-        results = relationship_aggregate_count(self.client)
-        return sum(result.count for result in results)
-
-
-class LabelCountAggregator(AssetCentricAggregator):
-    _transformation_destination = ("labels",)
-
-    @property
-    def display_name(self) -> str:
-        return "Labels"
-
-    def count(self) -> int:
-        return label_aggregate_count(self.client)
-
-
-class ProfileCommand(ToolkitCommand):
     class Columns:
         Resource = "Resource"
         Count = "Count"
@@ -164,100 +193,47 @@ class ProfileCommand(ToolkitCommand):
         LabelCount = "Label Count"
         Transformation = "Transformations"
 
-    columns = (
-        Columns.Resource,
-        Columns.Count,
-        Columns.MetadataKeyCount,
-        Columns.LabelCount,
-        Columns.Transformation,
-    )
-    spinner_speed = 1.0
-
-    @classmethod
-    def asset_centric(
-        cls,
-        client: ToolkitClient,
-        verbose: bool = False,
-    ) -> list[dict[str, str]]:
-        aggregators: list[AssetCentricAggregator] = [
-            AssetAggregator(client),
-            EventAggregator(client),
-            FileAggregator(client),
-            TimeSeriesAggregator(client),
-            SequenceAggregator(client),
-            RelationshipAggregator(client),
-            LabelCountAggregator(client),
-        ]
-        results, api_calls = cls._create_initial_table(aggregators)
-        with Live(cls.create_profile_table(results), refresh_per_second=4) as live:
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                future_to_cell = {
-                    executor.submit(api_calls[(index, col)]): (index, col)
-                    for index in range(len(aggregators))
-                    for col in cls.columns
-                    if (index, col) in api_calls
-                }
-                for future in as_completed(future_to_cell):
-                    index, col = future_to_cell[future]
-                    results[index][col] = future.result()
-                    live.update(cls.create_profile_table(results))
-        return [{col: str(value) for col, value in row.items()} for row in results]
-
-    @classmethod
-    def _create_initial_table(
-        cls, aggregators: list[AssetCentricAggregator]
-    ) -> tuple[list[dict[str, str | Spinner]], dict[tuple[int, str], Callable[[], str]]]:
-        rows: list[dict[str, str | Spinner]] = []
-        api_calls: dict[tuple[int, str], Callable[[], str]] = {}
-        for index, aggregator in enumerate(aggregators):
-            row: dict[str, str | Spinner] = {
-                cls.Columns.Resource: aggregator.display_name,
-                cls.Columns.Count: Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed),
+    def asset_centric(self, client: ToolkitClient, verbose: bool = False) -> list[dict[str, CellValue]]:
+        self.aggregators.update(
+            {
+                agg.display_name: agg
+                for agg in [
+                    AssetAggregator(client),
+                    EventAggregator(client),
+                    FileAggregator(client),
+                    TimeSeriesAggregator(client),
+                    SequenceAggregator(client),
+                    RelationshipAggregator(client),
+                    LabelCountAggregator(client),
+                ]
             }
-            api_calls[(index, cls.Columns.Count)] = cls._call_api(aggregator.count)
-            count: str | Spinner = "-"
-            if isinstance(aggregator, MetadataAggregator):
-                count = Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed)
-                api_calls[(index, cls.Columns.MetadataKeyCount)] = cls._call_api(aggregator.metadata_key_count)
-            row[cls.Columns.MetadataKeyCount] = count
-
-            count = "-"
-            if isinstance(aggregator, LabelAggregator):
-                count = Spinner("arc", text="loading...", style="bold green", speed=cls.spinner_speed)
-                api_calls[(index, cls.Columns.LabelCount)] = cls._call_api(aggregator.label_count)
-            row[cls.Columns.LabelCount] = count
-
-            row[cls.Columns.Transformation] = Spinner(
-                "arc", text="loading...", style="bold green", speed=cls.spinner_speed
-            )
-            api_calls[(index, cls.Columns.Transformation)] = cls._call_api(aggregator.transformation_count)
-
-            rows.append(row)
-        return rows, api_calls
-
-    @classmethod
-    def create_profile_table(cls, rows: list[dict[str, str | Spinner]]) -> Table:
-        table = Table(
-            title="Asset Centric Profile",
-            title_justify="left",
-            show_header=True,
-            header_style="bold magenta",
         )
-        for col in cls.columns:
-            table.add_column(col)
+        return self.create_profile_table(client)
 
-        for row in rows:
-            table.add_row(*row.values())
+    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+        table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
+        for index, aggregator in self.aggregators.items():
+            table[(index, self.Columns.Resource)] = aggregator.display_name
+            table[(index, self.Columns.Count)] = WaitingAPICall
+            if isinstance(aggregator, MetadataAggregator):
+                table[(index, self.Columns.MetadataKeyCount)] = WaitingAPICall
+            else:
+                table[(index, self.Columns.MetadataKeyCount)] = None
+            if isinstance(aggregator, LabelAggregator):
+                table[(index, self.Columns.LabelCount)] = WaitingAPICall
+            else:
+                table[(index, self.Columns.LabelCount)] = None
+            table[(index, self.Columns.Transformation)] = WaitingAPICall
         return table
 
-    @staticmethod
-    def _call_api(call_fun: Callable[[], int]) -> Callable[[], str]:
-        def styled_callable() -> str:
-            try:
-                value = call_fun()
-            except CogniteException as e:
-                return type(e).__name__
-            else:
-                return f"{value:,}"
-
-        return styled_callable
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+        aggregator = self.aggregators[row]
+        if col == self.Columns.Count:
+            return aggregator.count
+        elif col == self.Columns.MetadataKeyCount and isinstance(aggregator, MetadataAggregator):
+            return aggregator.metadata_key_count
+        elif col == self.Columns.LabelCount and isinstance(aggregator, LabelAggregator):
+            return aggregator.label_count
+        elif col == self.Columns.Transformation:
+            return aggregator.transformation_count
+        raise ValueError(f"Unknown column: {col} for row: {row}")
