@@ -296,9 +296,9 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             if isinstance(result, list) and len(result) > 0 and isinstance(result[0], Transformation):
                 return f"{result[0].name} ({result[0].external_id})"
             return None
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
-                return result.row_count
+                return result.column_count
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
 
@@ -320,7 +320,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
             self.Columns.DataSets: self._update_datasets,
             self.Columns.DataSetCount: self._update_dataset_count,
             self.Columns.Transformations: self._update_transformations,
-            self.Columns.RowCount: self._update_row_count,
+            self.Columns.ColumnCount: self._update_column_count,
         }
         handler = handlers.get(selected_col)
         if handler:
@@ -420,16 +420,16 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                     if col == self.Columns.RawTable:
                         new_table[(new_index, col)] = str(source)
                     elif col == self.Columns.RowCount:
-                        new_table[(new_index, col)] = WaitingAPICall
-                    elif col == self.Columns.ColumnCount:
                         new_table[(new_index, col)] = None
+                    elif col == self.Columns.ColumnCount:
+                        new_table[(new_index, col)] = WaitingAPICall
                     elif col == self.Columns.Transformations:
                         new_table[(new_index, col)] = f"{transformation.name} ({transformation.external_id})"
                     else:
                         new_table[(new_index, col)] = value
         return new_table
 
-    def _update_row_count(
+    def _update_column_count(
         self,
         current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
@@ -444,7 +444,7 @@ class ProfileAssetCommand(ProfileCommand[AssetIndex]):
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if col == self.Columns.RowCount:
-                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+                new_table[(row, col)] = result.row_count if is_complete else WaitingAPICall
             elif col == self.Columns.ColumnCount:
                 new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
