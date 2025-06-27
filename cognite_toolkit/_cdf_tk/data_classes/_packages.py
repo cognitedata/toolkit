@@ -58,7 +58,7 @@ class Packages(dict, MutableMapping[str, Package]):
     @classmethod
     def load(
         cls,
-        root_module_dir: Path,  # todo: relative to org dir
+        root_module_dir: Path,
     ) -> Packages:
         """Loads the packages in the source directory.
 
@@ -69,30 +69,30 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definition_path = next(root_module_dir.rglob("packages.toml"), None)
         if not package_definition_path or not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
-        package_definitions = toml.loads(package_definition_path.read_text(encoding="utf-8"))["packages"]
 
         library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
         package_definitions = library_definition.get("packages", {})
 
-        module_directory_by_name = {
-            module_location.name: module_location for module_location in ModuleDirectories.load(root_module_dir)
-        }
+        # Load all available modules
+        module_directories = ModuleDirectories.load(root_module_dir)
+
+        # Create lookup dictionaries for efficient module discovery
+        module_by_relative_path = {module.relative_path: module for module in module_directories}
 
         packages_with_modules: dict[str, Package] = {}
 
         for package_name, package_definition in package_definitions.items():
             packages_with_modules[package_name] = Package.load(package_name, package_definition)
-            if (
-                "modules" not in package_definition
-                or not isinstance(package_definition["modules"], list)
-                or len(package_definition["modules"]) == 0
-            ):
-                continue
-
-            for module_name in package_definition["modules"]:
-                if module_name not in module_directory_by_name:
-                    raise ToolkitValueError(f"Module {module_name} not found in the module directories.")
-                packages_with_modules[package_name].modules.append(module_directory_by_name[module_name])
+            if modules := package_definition.get("modules"):
+                if isinstance(modules, list) and modules:
+                    for module_path in modules:
+                        if (module := module_by_relative_path.get(Path(module_path))) is None:
+                            available = sorted(str(m.relative_path) for m in module_directories)
+                            raise ToolkitValueError(
+                                f"Module '{module_path}' not found in the module directories.\n"
+                                f"Available modules: {available}"
+                            )
+                        packages_with_modules[package_name].modules.append(module)
 
         return cls(packages_with_modules)
 

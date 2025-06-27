@@ -29,6 +29,7 @@ class TestPackages:
                 {
                     "cdf_ingestion",
                     "cdf_connection_sql",
+                    "cdf_p_and_id_parser",
                     "cdf_search",
                     "cdf_process_industry_extension",
                     "cdf_pi",
