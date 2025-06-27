@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property, partial
+from pathlib import Path
 from typing import ClassVar, Literal, TypeAlias, overload
 
 from cognite.client.data_classes import Transformation
@@ -64,7 +65,9 @@ class ProfileCommand(ToolkitCommand, ABC):
             else tuple()
         )
 
-    def create_profile_table(self, client: ToolkitClient) -> list[dict[str, CellValue]]:
+    def create_profile_table(
+        self, client: ToolkitClient, output_spreadsheet: Path | None = None, sheet: str | None = None
+    ) -> list[dict[str, CellValue]]:
         console = Console()
         with console.status("Setting up", spinner="aesthetic", speed=0.4) as _:
             table = self.create_initial_table(client)
@@ -90,7 +93,10 @@ class ProfileCommand(ToolkitCommand, ABC):
                     if self.is_dynamic_table:
                         table = self.update_table(table, result, row, col)
                     live.update(self.draw_table(table))
-        return self.as_record_format(table, allow_waiting_api_call=False)
+        result = self.as_record_format(table, allow_waiting_api_call=False)
+        if output_spreadsheet is not None:
+            self._write_to_spreadsheet(result, output_spreadsheet, sheet)
+        return result
 
     @abstractmethod
     def create_initial_table(self, client: ToolkitClient) -> PendingTable:
@@ -182,6 +188,26 @@ class ProfileCommand(ToolkitCommand, ABC):
             return "-"
         return str(value)
 
+    def _write_to_spreadsheet(
+        self, data: list[dict[str, CellValue]], output_spreadsheet: Path, sheet: str | None = None
+    ) -> None:
+        """
+        Write the profile data to a spreadsheet.
+        This method can be overridden by subclasses to customize the output format.
+        """
+        from openpyxl import Workbook
+
+        workbook = Workbook()
+        worksheet = workbook.active
+        worksheet.title = sheet or self.table_title
+
+        worksheet.append(self.columns)
+
+        for row in data:
+            worksheet.append(list(row.values()))
+
+        workbook.save(output_spreadsheet)
+
 
 class ProfileAssetCommand(ProfileCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
@@ -208,7 +234,11 @@ class ProfileAssetCommand(ProfileCommand):
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
 
     def assets(
-        self, client: ToolkitClient, hierarchy: str | None = None, verbose: bool = False
+        self,
+        client: ToolkitClient,
+        hierarchy: str | None = None,
+        output_spreadsheet: Path | None = None,
+        verbose: bool = False,
     ) -> list[dict[str, CellValue]]:
         """
         Profile assets in the given hierarchy.
@@ -229,7 +259,7 @@ class ProfileAssetCommand(ProfileCommand):
                 SequenceAggregator(client),
             ]
         }
-        return self.create_profile_table(client)
+        return self.create_profile_table(client, output_spreadsheet, sheet=hierarchy)
 
     def create_initial_table(self, client: ToolkitClient) -> PendingTable:
         table: PendingTable = {}
