@@ -31,6 +31,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawDatabaseList, RawTable, RawTableList
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import DatabaseYAML, TableYAML
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -47,6 +48,7 @@ class RawDatabaseLoader(
     list_cls = RawDatabaseList
     list_write_cls = RawDatabaseList
     kind = "Database"
+    yaml_cls = DatabaseYAML
     dependencies = frozenset({GroupAllScopedLoader})
     support_update = False
     _doc_url = "Raw/operation/createDBs"
@@ -160,6 +162,7 @@ class RawTableLoader(ResourceContainerLoader[RawTable, RawTable, RawTable, RawTa
     list_cls = RawTableList
     list_write_cls = RawTableList
     kind = "Table"
+    yaml_cls = TableYAML
     support_update = False
     dependencies = frozenset({RawDatabaseLoader, GroupAllScopedLoader})
     _doc_url = "Raw/operation/createTables"
