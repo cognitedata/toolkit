@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
 from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
@@ -39,6 +40,7 @@ class LocationFilterLoader(
     resource_write_cls = LocationFilterWrite
     list_cls = LocationFilterList
     list_write_cls = LocationFilterWriteList
+    yaml_cls = LocationYAML
     dependencies = frozenset(
         {
             AssetLoader,

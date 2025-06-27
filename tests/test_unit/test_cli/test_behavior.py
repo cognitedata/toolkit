@@ -72,7 +72,7 @@ def test_inject_custom_environmental_variables(
         on_error="raise",
         verbose=False,
     )
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
@@ -551,7 +551,7 @@ def test_deploy_group_with_unknown_acl(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
@@ -651,7 +651,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         "raise",
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_tmp_path,
         None,
@@ -688,7 +688,7 @@ def test_build_deploy_keep_special_characters(
         False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_dir,
         None,

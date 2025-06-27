@@ -90,6 +90,7 @@ from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
+from cognite_toolkit._cdf_tk.resource_classes import SpaceYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
@@ -118,6 +119,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
     kind = "Space"
+    yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10

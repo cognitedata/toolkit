@@ -51,8 +51,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     Args:
         view: The configuration for one specific view.
         id: A server-generated ID for the object.
-        created_time: The time when the search config was created.
-        updated_time: The time when the search config was last updated.
         use_as_name: The name of property to use for the name column in the UI.
         use_as_description: The name of property to use for the description column in the UI.
         column_layout: Array of column configurations per property.
@@ -64,8 +62,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         self,
         view: SearchConfigView,
         id: int | None = None,
-        created_time: int | None = None,
-        updated_time: int | None = None,
         use_as_name: str | None = None,
         use_as_description: str | None = None,
         column_layout: list[SearchConfigViewProperty] | None = None,
@@ -74,8 +70,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
     ) -> None:
         self.view = view
         self.id = id
-        self.created_time = created_time
-        self.updated_time = updated_time
         self.use_as_name = use_as_name
         self.use_as_description = use_as_description
         self.column_layout = column_layout
@@ -86,8 +80,6 @@ class SearchConfigCore(WriteableCogniteResource["SearchConfigWrite"], ABC):
         return SearchConfigWrite(
             view=self.view,
             id=self.id,
-            created_time=self.created_time,
-            updated_time=self.updated_time,
             use_as_name=self.use_as_name,
             use_as_description=self.use_as_description,
             column_layout=self.column_layout,
@@ -120,8 +112,6 @@ class SearchConfigWrite(SearchConfigCore):
         return cls(
             id=resource.get("id"),
             view=SearchConfigView.load(resource["view"]),
-            created_time=resource.get("createdTime"),
-            updated_time=resource.get("lastUpdatedTime"),
             use_as_name=resource.get("useAsName"),
             use_as_description=resource.get("useAsDescription"),
             column_layout=[SearchConfigViewProperty.load(item) for item in resource.get("columnLayout", [])]
@@ -167,14 +157,14 @@ class SearchConfig(SearchConfigCore):
         super().__init__(
             view,
             id,
-            created_time,
-            updated_time,
             use_as_name,
             use_as_description,
             column_layout,
             filter_layout,
             properties_layout,
         )
+        self.created_time = created_time
+        self.updated_time = updated_time
 
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Self:
