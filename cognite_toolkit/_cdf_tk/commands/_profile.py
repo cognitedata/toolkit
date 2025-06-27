@@ -14,6 +14,7 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.constants import MAX_ROW_ITERATION_RUN_QUERY
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -273,7 +274,7 @@ class ProfileAssetCommand(ProfileCommand):
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
-        elif col == self.Columns.RawTable:
+        elif col == self.Columns.RowCount:
             db_table = rest[-1] if len(rest) > 0 else None
             if not isinstance(db_table, str) or "." not in db_table:
                 raise ValueError(f"Database and table name are required for {row} in column {col} in {rest}.")
@@ -286,7 +287,13 @@ class ProfileAssetCommand(ProfileCommand):
         raise ValueError(f"Unexpected API Call for row {row} and column {col}.")
 
     def format_result(self, result: object, row: str, col: str) -> CellValue:
-        if isinstance(result, int | float | bool | str):
+        if col == self.Columns.RawTable:
+            if isinstance(result, int) and result == MAX_ROW_ITERATION_RUN_QUERY:
+                return f"≥{result:,}"
+            if isinstance(result, int):
+                return result
+            return None
+        elif isinstance(result, int | float | bool | str):
             return result
         elif col == self.Columns.DataSets:
             return result[0] if isinstance(result, list) and result and isinstance(result[0], str) else None
@@ -297,10 +304,6 @@ class ProfileAssetCommand(ProfileCommand):
         elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
                 return result.column_count
-            return None
-        elif col == self.Columns.RawTable:
-            if isinstance(result, int):
-                return result
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row} and column {col}.")
 
