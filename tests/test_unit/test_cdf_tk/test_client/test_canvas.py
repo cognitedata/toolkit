@@ -8,6 +8,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     CanvasApply,
     CogniteSolutionTag,
     CogniteSolutionTagApply,
+    ContainerReference,
+    ContainerReferenceApply,
+    FdmInstanceContainerReference,
+    FdmInstanceContainerReferenceApply,
 )
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -22,6 +26,10 @@ class TestLoadDump:
             CanvasAnnotationApply,
             CogniteSolutionTag,
             CogniteSolutionTagApply,
+            FdmInstanceContainerReference,
+            FdmInstanceContainerReferenceApply,
+            ContainerReference,
+            ContainerReferenceApply,
         ],
     )
     def test_dump_reload(self, node_cls: type[CogniteResource]) -> None:
