@@ -36,12 +36,14 @@ Zip file content must be structured like this:
 ```shell
 
 <package_1>.zip
-├── package.toml
+├── packages.toml
 └── module_1
     ├── <module content>
+    ├── module.toml
     └── default.config.yaml
 └── module_2
     ├── <module content>
+    ├── module.toml
     └── default.config.yaml
 ```
 
@@ -54,25 +56,51 @@ The **packages.toml** file should contain the following information:
 
 ```toml
 
-[package]
+[library]
 description = "<Description for the end user>"
 toolkit-version = ">=0.6.0" # Recommended version of the Toolkit required to use this library
 canCherryPick = true # Set to false if the user should not be able to pick individual modules in this package
 
-# Package definition
 [packages.quickstart]
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
 canCherryPick = false
+modules = [
+    "cdf_ingestion",
+    "sourcesystem/cdf_pi",
+    "sourcesystem/cdf_sap_assets",
+    "sourcesystem/cdf_sap_events",
+    "sourcesystem/cdf_sharepoint",
+    "models/cdf_process_industry_extension",
+    "contextualization/cdf_connection_sql",
+    "contextualization/cdf_p_and_id_parser",
+    "industrial_tools/cdf_search"
+]
 
-# modules that belong to this package
-[[packages.quickstart.modules]]
-name = "timeseries_and_assets"
-description = "Create basic time series and assets."
+[packages.infield]
+title = "InField"
+description = "Put real-time data into the hands of every field worker."
+modules = [
+    "infield/cdf_infield_location",
+    "infield/cdf_infield_second_location",
+    "infield/cdf_infield_common",
+    "common/cdf_apm_base"
+]
+```
 
-[[packages.quickstart.modules]]
-name = "transformations_and_dms"
-description = "Set up simple transformations and data models."
+#### module.toml
+
+Each module must have a **module.toml** file in its root folder. This file describes the module and its content.
+
+The **module.toml** file should contain the following information:
+
+```toml
+[module]
+title = "OSIsoft/AVEVA PI Data Source" # Title displayed to the user
+is_selected_by_default = false # If true, the checkbox is selected by default
+
+[dependencies]
+modules = [] # List of modules that this module depends on
 ```
 
 #### default.config.yaml

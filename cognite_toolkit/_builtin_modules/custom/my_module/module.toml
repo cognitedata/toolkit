@@ -1,7 +1,2 @@
 [module]
 title = "Empty module"
-
-[packages]
-tags = [
-    "custom",
-]

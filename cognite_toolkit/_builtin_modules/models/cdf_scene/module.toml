@@ -1,5 +1,2 @@
 [module]
 title = "(Alpha) Scene Data Model"
-
-[packages]
-tags = ["models"]

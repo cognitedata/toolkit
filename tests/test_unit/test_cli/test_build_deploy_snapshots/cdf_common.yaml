@@ -56,4 +56,7 @@ Space:
 - description: This space contains data
   name: Instance space
   space: springfield_instances
+Table:
+- createdTime: 1
+  name: diagramParsing
 deleted: {}

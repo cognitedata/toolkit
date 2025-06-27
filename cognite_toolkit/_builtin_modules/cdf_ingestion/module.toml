@@ -2,11 +2,6 @@
 title = "Ingestion Workflow"
 is_selected_by_default = true
 
-[packages]
-tags = [
-    "quickstart",
-]
-
 [dependencies]
 modules = []
 
