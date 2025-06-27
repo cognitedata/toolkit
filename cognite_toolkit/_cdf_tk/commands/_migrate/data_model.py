@@ -66,6 +66,10 @@ MAPPING_VIEW = dm.ViewApply(
     },
 )
 
+
+MAPPING_VIEW_ID = MAPPING_VIEW.as_id()
+
+
 COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     space=SPACE.space,
     external_id="CogniteMigration",
