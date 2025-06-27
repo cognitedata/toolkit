@@ -261,7 +261,7 @@ class ProfileAssetCommand(ProfileCommand):
             if not data_set_external_id:
                 raise ValueError(f"DataSet external ID is required for {row} in column {col}.")
             return partial(aggregator.used_transformations, data_set_external_ids=[data_set_external_id])
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             db_table = rest[-1] if len(rest) > 0 else None
             if not isinstance(db_table, str) or "." not in db_table:
                 raise ValueError(f"Database and table name are required for {row} in column {col} in {rest}.")
@@ -284,9 +284,9 @@ class ProfileAssetCommand(ProfileCommand):
             if isinstance(result, list) and len(result) > 0 and isinstance(result[0], Transformation):
                 return f"{result[0].name} ({result[0].external_id})"
             return None
-        elif col == self.Columns.RowCount:
+        elif col == self.Columns.ColumnCount:
             if isinstance(result, RawProfileResults):
-                return result.row_count
+                return result.column_count
             return None
         raise ValueError(f"unexpected result type {type(result)} for row {row} and column {col}.")
 
@@ -302,7 +302,7 @@ class ProfileAssetCommand(ProfileCommand):
             self.Columns.DataSets: self._update_datasets,
             self.Columns.DataSetCount: self._update_dataset_count,
             self.Columns.Transformations: self._update_transformations,
-            self.Columns.RowCount: self._update_row_count,
+            self.Columns.ColumnCount: self._update_column_count,
         }
         handler = handlers.get(col)
         if handler:
@@ -396,16 +396,16 @@ class ProfileAssetCommand(ProfileCommand):
                     if c == self.Columns.RawTable:
                         new_table[(new_index, c)] = str(source)
                     elif c == self.Columns.RowCount:
-                        new_table[(new_index, c)] = WaitingAPICall
-                    elif c == self.Columns.ColumnCount:
                         new_table[(new_index, c)] = None
+                    elif c == self.Columns.ColumnCount:
+                        new_table[(new_index, c)] = WaitingAPICall
                     elif c == self.Columns.Transformations:
                         new_table[(new_index, c)] = f"{transformation.name} ({transformation.external_id})"
                     else:
                         new_table[(new_index, c)] = value
         return new_table
 
-    def _update_row_count(
+    def _update_column_count(
         self,
         current_table: PendingTable,
         result: object,
@@ -420,7 +420,7 @@ class ProfileAssetCommand(ProfileCommand):
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
             if c == self.Columns.RowCount:
-                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+                new_table[(r, c)] = result.row_count if is_complete else WaitingAPICall
             elif c == self.Columns.ColumnCount:
                 new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
