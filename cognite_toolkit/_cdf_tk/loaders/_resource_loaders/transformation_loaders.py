@@ -79,7 +79,8 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import TransformationYAML
+from cognite_toolkit._cdf_tk.resource_classes import TransformationScheduleYAML, TransformationYAML
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
     humanize_collection,
@@ -231,10 +232,10 @@ class TransformationLoader(
             if query_file is None and "query" not in item:
                 if filepath is None:
                     raise ValueError("filepath must be set if query is not set")
-                raise ToolkitYAMLFormatError(
-                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
-                    filepath,
+                warning = HighSeverityWarning(
+                    f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                 )
+                warning.print_warning(console=self.console)
             elif query_file and not query_file.exists():
                 # We checked above that filepath is not None
                 raise ToolkitFileNotFoundError(f"Query file {query_file.as_posix()} not found", filepath)  # type: ignore[union-attr]
@@ -529,6 +530,7 @@ class TransformationScheduleLoader(
     list_cls = TransformationScheduleList
     list_write_cls = TransformationScheduleWriteList
     kind = "Schedule"
+    yaml_cls = TransformationScheduleYAML
     dependencies = frozenset({TransformationLoader})
     _doc_url = "Transformation-Schedules/operation/createTransformationSchedules"
     parent_resource = frozenset({TransformationLoader})

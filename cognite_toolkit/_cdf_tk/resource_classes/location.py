@@ -26,7 +26,7 @@ class LocationFilterViewId(BaseModelResource):
 
 
 class AssetCentricFields(BaseModelResource):
-    data_set_external_id: list[str] | None = Field(default=None, description="The list of data set external IDs")
+    data_set_external_ids: list[str] | None = Field(default=None, description="The list of data set external IDs")
     asset_subtree_external_ids: list[dict[Literal["externalId"], str]] | None = Field(
         default=None, description="External IDs of the asset."
     )

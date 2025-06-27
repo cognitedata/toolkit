@@ -18,6 +18,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import ThreeDModelYAML
 
 from .data_organization_loaders import DataSetsLoader
 
@@ -33,6 +34,7 @@ class ThreeDModelLoader(
     list_cls = ThreeDModelList
     list_write_cls = ThreeDModelWriteList
     kind = "3DModel"
+    yaml_cls = ThreeDModelYAML
     dependencies = frozenset({DataSetsLoader})
     _doc_url = "3D-Models/operation/create3DModels"
     item_name = "revisions"

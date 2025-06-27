@@ -1,102 +1,41 @@
-[library]
+[packages]
 title = "Built-in Cognite packages"
 
-# Bootcamp
-[packages.bootcamp]
-title = "Bootcamp"
-description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
-canCherryPick = false
-modules = [ 
-    "ice_cream_api",
-    "oee"
-]
-
-# Quickstart
 [packages.quickstart]
 title = "Quickstart"
 description = "Get started with Cognite Data Fusion in minutes."
 canCherryPick = false
-modules = [
-    "cdf_auth_readwrite_all",
-    "cdf_ingestion",
-    "cdf_connection_sql",
-    "cdf_search",
-    "cdf_process_industry_extension",
-    "cdf_pi",
-    "cdf_sap_assets",
-    "cdf_sap_events",
-    "cdf_sharepoint"
-]
 
-# Contextualization
-[packages.contextualization]
-title = "Contextualization"
-description = "Module templates for data contextualization"
-modules = [
-    "cdf_connection_sql",
-    "cdf_entity_matching",
-    "cdf_p_and_id_parser"
-]
-
-# Custom
-[packages.custom]
-title = "None"
-description = "start with an empty module"
-modules = [
-    "my_module",
-    "cdf_auth_readwrite_all"
-]
-
-# Industrial tools
-[packages.industrial_tools]
-title = "Industrial Tools"
-description = "Data exploration and analytics"
-modules = [
-    "cdf_search",
-    "cdf_location_filter_asset_centric",
-    "cdf_location_filter_datamodel_based"
-]
-
-# InField
 [packages.infield]
 title = "InField"
 description = "Put real-time data into the hands of every field worker."
-modules = [
-    "cdf_infield_common",
-    "cdf_infield_location",
-    "cdf_infield_second_location",
-    "cdf_apm_base"
-]
 
-# InRobot
 [packages.inrobot]
 title = "InRobot"
 description = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
-modules = [
-    "cdf_inrobot_common",
-    "cdf_inrobot_location",
-    "cdf_apm_base"
-]
 
-# Data Model Extensions
-[packages.models]
-title = "Data models"
-description = "Module templates for data models"
-modules = [
-    "cdf_cdm_extension",
-    "cdf_cdm_extension_full",
-    "cdf_process_industry_extension",
-    "cdf_process_industry_extension_full",
-    "cdf_scene"
-]
+[packages.industrial_tools]
+title = "Industrial Tools"
+description = "Data exploration and analytics"
 
-# Source systems
+[packages.bootcamp]
+title = "Bootcamp"
+description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
+canCherryPick = false
+
 [packages.sourcesystem]
-title = "Source Systems"
-description = "Module templates for source systems"
-modules = [
-    "cdf_pi",
-    "cdf_sap_assets",
-    "cdf_sap_events",
-    "cdf_sharepoint"
-]
+title = "SourceSystem"
+description = "Module templates for setting up a data pipeline from a source system"
+
+[packages.contextualization]
+title = "Contextualization"
+description = "Module templates for data contextualization"
+
+[packages.models]
+title = "Models"
+description = "Module templates for data models"
+
+[packages.custom]
+title = "None"
+description = "start with an empty module"
+

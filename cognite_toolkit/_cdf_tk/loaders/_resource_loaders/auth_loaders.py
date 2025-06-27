@@ -48,7 +48,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
 from cognite_toolkit._cdf_tk.exceptions import ToolkitWrongResourceError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.resource_classes import GroupYAML
+from cognite_toolkit._cdf_tk.resource_classes import GroupYAML, SecurityCategoriesYAML
 from cognite_toolkit._cdf_tk.tk_warnings import (
     HighSeverityWarning,
     MediumSeverityWarning,
@@ -516,6 +516,7 @@ class SecurityCategoryLoader(
     list_cls = SecurityCategoryList
     list_write_cls = SecurityCategoryWriteList
     kind = "SecurityCategory"
+    yaml_cls = SecurityCategoriesYAML
     folder_name = "auth"
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Security-categories/operation/createSecurityCategories"
