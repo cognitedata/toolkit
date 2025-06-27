@@ -249,7 +249,7 @@ def run_modules_upgrade(
         build.execute(False, project_path, build_path, selected=None, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
-        deploy.execute(
+        deploy.deploy_build_directory(
             env_vars,
             build_path,
             build_env_name="dev",
