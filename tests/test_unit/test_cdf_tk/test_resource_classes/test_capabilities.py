@@ -11,6 +11,8 @@ from cognite_toolkit._cdf_tk.validation import validate_resource_yaml_pydantic
 def all_acls() -> Iterable:
     acl_list = [
         {"annotationsAcl": {"actions": ["WRITE", "READ", "SUGGEST", "REVIEW"], "scope": {"all": {}}}},
+        {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
+        {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["SEARCH"]}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"all": {}}}},
         {"assetsAcl": {"actions": ["READ", "WRITE"], "scope": {"datasetScope": {"ids": ["myDataSet"]}}}},
         {"auditlogAcl": {"actions": ["READ"], "scope": {"all": {}}}},
@@ -191,6 +193,11 @@ class TestCapabilities:
                     "In actions input should be 'READ' or 'WRITE'. Got 'OWNER'.",
                 ],
                 id="Wrong case for extractionPipelinesAcl idScope",
+            ),
+            pytest.param(
+                {"appConfigAcl": {"actions": ["READ", "WRITE"], "scope": {"appScope": {"apps": ["UNKNOWN_APP"]}}}},
+                ["In scope.apps input should be 'SEARCH'. Got 'UNKNOWN_APP'."],
+                id="Invalid app name in appConfigAcl",
             ),
         ],
     )
