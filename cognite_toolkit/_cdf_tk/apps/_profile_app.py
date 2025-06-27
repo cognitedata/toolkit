@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Annotated, Any, Optional
 
 import typer
@@ -31,6 +32,14 @@ class ProfileApp(typer.Typer):
                 " ",
             ),
         ] = None,
+        output_spreadsheet: Annotated[
+            Optional[Path],
+            typer.Option(
+                "--output-spreadsheet",
+                "-o",
+                help="The path to the output spreadsheet. If not provided, the output will only be printed to the console.",
+            ),
+        ] = None,
         verbose: bool = False,
     ) -> None:
         """This command gives an overview over the assets in the given hierarchy.
@@ -44,6 +53,7 @@ class ProfileApp(typer.Typer):
             lambda: cmd.assets(
                 client,
                 hierarchy,
+                output_spreadsheet,
                 verbose,
             )
         )

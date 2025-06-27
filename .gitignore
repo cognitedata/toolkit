@@ -311,3 +311,4 @@ my_*/
 function_local_venvs*/
 qa_pending_id/
 tests/**/cdf.toml
+*.xlsx
