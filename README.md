@@ -18,7 +18,7 @@ It supports three different modes of operation:
 1. As an **interactive command-line tool** used alongside the Cognite Data Fusion web application to retrieve and
    push configuration of the different Cognite Data Fusion services like data sets, data models, transformations,
    and more. This mode also supports configuration of new Cognite Data Fusion projects to quickly get started.
-2. As tool to support the **project life-cyle by scripting and automating** configuration and management of Cognite Data
+2. As tool to support the **project life-cycle by scripting and automating** configuration and management of Cognite Data
    Fusion projects where CDF configurations are kept as yaml-files that can be checked into version
    control. This mode also supports DevOps workflows with development, staging, and production projects.
 3. As a **tool to deploy official Cognite project templates** to your Cognite Data Fusion project. The tool comes
