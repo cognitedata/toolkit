@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from tests.constants import chdir
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
     COMPLETE_ORG_ONLY_IDENTIFIER,
@@ -129,6 +130,33 @@ def test_pull_dataset(
         verbose=False,
         env_vars=env_vars_with_client,
     )
+
+    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    assert reloaded.description == "New description"
+
+
+def test_pull_dataset_relative_path(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected dataset to be pulled
+    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    dataset.description = "New description"
+    toolkit_client_approval.append(DataSet, dataset)
+
+    with chdir(organization_dir_mutable):
+        cmd = PullCommand(silent=True)
+        cmd.pull_module(
+            module_name_or_path=f"{MODULES}/cdf_common/data_sets/demo.DataSet.yaml",
+            organization_dir=organization_dir_mutable,
+            env="dev",
+            dry_run=False,
+            verbose=False,
+            env_vars=env_vars_with_client,
+        )
 
     reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
     assert reloaded.description == "New description"
