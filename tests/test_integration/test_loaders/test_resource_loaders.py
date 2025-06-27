@@ -264,7 +264,7 @@ timeSeriesIds:
             _ = loader.create(DatapointSubscriptionWriteList([resource]))
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        to_create, to_change, to_delete, unchanged = worker.prepare_resources([filepath])
 
         assert {
             "create": len(to_create),
