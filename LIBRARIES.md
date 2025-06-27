@@ -13,6 +13,7 @@ external-libraries = true
 
 [library.package_1]
 url = "https://raw.githubusercontent.com/cognitedata/toolkit-data/librarian/builtins.zip"
+checksum = "sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 
 ```
 
@@ -24,6 +25,9 @@ The library must be available over https. Authentication is not currently suppor
 
 To publish a library, create a repository that contains one or more downloadable zip files.
 The zip file must have the structure and content described below.
+
+The checksum is mandatory. It is used to verify the integrity of the downloaded zip file.
+It must be a SHA-256 checksum of the zip file.
 
 ### <package_1>.zip
 
