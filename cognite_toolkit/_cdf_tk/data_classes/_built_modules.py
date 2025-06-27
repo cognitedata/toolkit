@@ -96,7 +96,7 @@ class BuiltModuleList(list, MutableSequence[BuiltModule]):
             resources = (
                 resource
                 for resource in resources
-                if (resource.source.path == selected or resource.source.path.is_relative_to(selected))
+                if (resource.source.path == selected or resource.source.path.is_relative_to(selected.absolute()))
             )
         if is_supported_file:
             # This is necessary as the destination file can be created from a source file that is not supported.
