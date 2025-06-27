@@ -14,6 +14,8 @@ from rich.spinner import Spinner
 from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -243,10 +245,12 @@ class ProfileAssetCentricCommand(ProfileCommand):
 
 
 class ProfileTransformationCommand(ProfileCommand):
+    valid_destinations: frozenset[str] = frozenset({"assets", "files", "events", "timeseries", "sequences"})
+
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "Transformation Profile"
-        self.destination_type: str | None = None
+        self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
 
     class Columns:
         Transformation = "Transformation"
@@ -259,10 +263,23 @@ class ProfileTransformationCommand(ProfileCommand):
     def transformation(
         self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
     ) -> list[dict[str, CellValue]]:
-        self.destination_type = destination_type
+        self.destination_type = self._validate_destination_type(destination_type)
         return self.create_profile_table(client)
 
+    @classmethod
+    def _validate_destination_type(
+        cls, destination_type: str | None
+    ) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
+        if destination_type is None or destination_type not in cls.valid_destinations:
+            raise ToolkitValueError(
+                f"Invalid destination type: {destination_type}. Must be one of {humanize_collection(cls.valid_destinations)}."
+            )
+        # We validated the destination type above
+        return destination_type  # type: ignore[return-value]
+
     def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+        if self.valid_destinations is None:
+            raise ToolkitValueError("Destination type must be set before calling create_initial_table.")
         iterable: Iterable[Transformation] = client.transformations.list(
             destination_type=self.destination_type, limit=-1
         )

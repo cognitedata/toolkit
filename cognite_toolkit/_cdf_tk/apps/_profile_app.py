@@ -38,7 +38,6 @@ class ProfileApp(typer.Typer):
 
     @staticmethod
     def transformations(
-        ctx: typer.Context,
         destination: Annotated[
             str,
             typer.Option(
