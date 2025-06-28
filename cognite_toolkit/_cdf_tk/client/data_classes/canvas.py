@@ -17,6 +17,8 @@ from cognite.client.data_classes.data_modeling.instances import (
 )
 from cognite.client.data_classes.data_modeling.query import QueryResult
 
+from .migration import AssetCentricId
+
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
 CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
@@ -574,6 +576,16 @@ class ContainerReference(_ContainerReferenceProperties, TypedNode):
             max_height=self.max_height,
             existing_version=self.version,
             type=self.type,
+        )
+
+    def as_asset_centric_id(self) -> AssetCentricId:
+        if self.container_reference_type not in {"asset", "event", "file", "sequence", "timeseries"}:
+            raise ValueError(
+                f"Cannot convert ContainerReference of type {self.container_reference_type} to AssetCentricId."
+            )
+        return AssetCentricId(
+            resource_type=self.container_reference_type,
+            id_=self.resource_id,
         )
 
 
