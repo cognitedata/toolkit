@@ -1,5 +1,5 @@
 from collections.abc import Iterable, Sequence
-from typing import Any, overload
+from typing import Any, Literal, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import InstanceSort, NodeApplyResultList, NodeId, NodeList
@@ -25,12 +25,32 @@ class CanvasAPI:
         return [item.external_id for item in result.nodes]
 
     @overload
-    def retrieve(self, external_id: str | None = None) -> Canvas | None: ...
+    def retrieve(
+        self, external_id: str | None = None, retrieve_connections: Literal["skip", "full"] = "skip"
+    ) -> Canvas | None: ...
 
     @overload
-    def retrieve(self, external_id: SequenceNotStr[str]) -> NodeList[Canvas]: ...
+    def retrieve(
+        self, external_id: SequenceNotStr[str], retrieve_connections: Literal["skip", "full"] = "skip"
+    ) -> NodeList[Canvas]: ...
 
-    def retrieve(self, external_id: str | SequenceNotStr[str] | None = None) -> Canvas | NodeList[Canvas] | None:
+    def retrieve(
+        self,
+        external_id: str | SequenceNotStr[str] | None = None,
+        retrieve_connections: Literal["skip", "full"] = "skip",
+    ) -> Canvas | NodeList[Canvas] | None:
+        """Retrieve a canvas or a list of canvases by their external IDs.
+
+        If the retrieve connections parameter is set to 'full', it will retrieve all connections associated with the canvases.
+
+        Args:
+            external_id (str | SequenceNotStr[str] | None): The external ID of the canvas or a sequence of external IDs.
+            retrieve_connections (Literal["skip", "full"]): Whether to skip or retrieve full connections. Defaults to 'skip'.
+
+        Returns:
+            Canvas | NodeList[Canvas] | None: A single Canvas object if a single external ID is provided, a NodeList of Canvas objects if multiple external IDs are provided, or None if no external ID is provided.
+
+        """
         if isinstance(external_id, str):
             return self._instance_api.retrieve_nodes(NodeId(self.instance_space, external_id), node_cls=Canvas)
         elif isinstance(external_id, Iterable):
