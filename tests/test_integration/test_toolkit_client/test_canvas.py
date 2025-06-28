@@ -1,7 +1,17 @@
+from datetime import datetime
+
 import pytest
 from cognite.client.data_classes import EventList, EventWrite, EventWriteList
+from cognite.client.data_classes.data_modeling import EdgeId, NodeId
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    CanvasAnnotationApply,
+    CanvasApply,
+    ContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
+)
 
 
 @pytest.fixture(scope="session")
@@ -25,6 +35,79 @@ def three_events(toolkit_client: ToolkitClient) -> EventList:
     return existing
 
 
+def create_canvas(three_events: EventList) -> IndustrialCanvasApply:
+    return IndustrialCanvasApply(
+        canvas=CanvasApply(
+            external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
+            name="ToolkitTestData",
+            created_by="ndTFZh9K9-m2W9WBKc30-Q",
+            updated_at=datetime(2025, 6, 28, 10, 24, 34),
+            updated_by="ndTFZh9K9-m2W9WBKc30-Q",
+            visibility="private",
+            context=[{"type": "FILTERS", "payload": {"filters": []}}],
+        ),
+        annotations=[
+            CanvasAnnotationApply(
+                external_id="efc2de9d-27a5-4a3b-9779-dff11c572610_4fba01d2-bcb7-4871-934f-0ab7e754bce9",
+                id_="4fba01d2-bcb7-4871-934f-0ab7e754bce9",
+                annotation_type="polylineAnnotation",
+                container_id="08ed536d-3d77-4692-80b2-d4a9ec6a3aea",
+                is_selectable=True,
+                is_draggable=True,
+                is_resizable=True,
+                properties_={
+                    "style": {
+                        "fill": "rgba(164,178,252,0.9)",
+                        "stroke": "rgb(66, 85, 187)",
+                        "opacity": 1,
+                        "strokeWidth": 12,
+                        "shouldEnableStrokeScale": True,
+                    },
+                    "zIndex": 3,
+                    "vertices": [
+                        {"x": -0.16666666666666666, "y": -0.27297185430463594},
+                        {"x": 0.005, "y": 0.022971854304635456},
+                    ],
+                    "endEndType": "none",
+                    "startEndType": "none",
+                },
+            ),
+        ],
+        container_references=[
+            ContainerReferenceApply(
+                external_id="efc2de9d-27a5-4a3b-9779-dff11c572610_5befa8e5-cdcf-4292-a6f9-ed176f9fb73c",
+                container_reference_type="event",
+                resource_id=three_events[0].id,
+                id_="5befa8e5-cdcf-4292-a6f9-ed176f9fb73c",
+                resource_sub_id=None,
+                charts_id=None,
+                label=three_events[0].external_id,
+                properties_={"zIndex": 0, "unscaledWidth": 600, "unscaledHeight": 500},
+                x=-287,
+                y=-303,
+                width=600,
+                height=500,
+                max_width=None,
+                max_height=None,
+            )
+        ],
+    )
+
+
 class TestIndustrialCanvasAPI:
     def test_create_retrieve_delete(self, toolkit_client: ToolkitClient, three_events: EventList) -> None:
-        assert True
+        canvas = create_canvas(three_events)
+
+        created: IndustrialCanvas | None = None
+        deleted: list[NodeId | EdgeId] | None = None
+        try:
+            created = toolkit_client.canvas.industrial.upsert(canvas)
+
+            retrieved = toolkit_client.canvas.industrial.retrieve(canvas.as_id())
+
+            assert retrieved.dump() == created.dump()
+
+            deleted = toolkit_client.canvas.industrial.delete(canvas)
+        finally:
+            if created is not None and deleted is None:
+                toolkit_client.data_modeling.instances.delete_fast(canvas.as_ids())
