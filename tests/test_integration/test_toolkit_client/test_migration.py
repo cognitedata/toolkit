@@ -1,5 +1,3 @@
-from collections.abc import Iterator
-
 import pytest
 from cognite.client.data_classes.data_modeling import NodeApply, NodeApplyList, NodeList, NodeOrEdgeData, Space
 
@@ -8,7 +6,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping
 
 
 @pytest.fixture(scope="session")
-def three_mappings(toolkit_client: ToolkitClient, toolkit_space: Space) -> Iterator[NodeList[Mapping]]:
+def three_mappings(toolkit_client: ToolkitClient, toolkit_space: Space) -> NodeList[Mapping]:
     nodes = NodeApplyList(
         [
             NodeApply(
@@ -32,9 +30,7 @@ def three_mappings(toolkit_client: ToolkitClient, toolkit_space: Space) -> Itera
 
     created = toolkit_client.data_modeling.instances.retrieve_nodes(nodes.as_ids(), node_cls=Mapping)
     assert len(created) == 3, "Expected 3 mappings to be created"
-    yield created
-
-    toolkit_client.data_modeling.instances.delete(nodes.as_ids())
+    return created
 
 
 class TestMappingAPI:
