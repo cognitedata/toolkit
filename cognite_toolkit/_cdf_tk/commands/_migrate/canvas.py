@@ -117,11 +117,7 @@ class MigrationCanvasCommand(ToolkitCommand):
             self._migrate_container_reference(ref, mapping_by_reference_id) for ref in new_canvas.container_references
         ]
         new_canvas.container_references = []
-        try:
-            _ = client.canvas.industrial.new_version(new_canvas, canvas)
-        except CogniteAPIError as e:
-            client.canvas.industrial.delete(new_canvas)
-            self.warn(HighSeverityWarning(f"Failed to create new version of canvas '{canvas.canvas.name}': {e}"))
+        _ = client.canvas.industrial.new_version(new_canvas, canvas)
         self.console(
             f'Canvas "{canvas.canvas.name}" migrated successfully with {len(new_canvas.fdm_instance_container_references)} references to data model instances.'
         )
