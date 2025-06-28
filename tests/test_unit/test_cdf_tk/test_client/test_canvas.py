@@ -52,10 +52,16 @@ class TestLoadDump:
 
         duplicated = instance.duplicate()
 
-        original_ids = set(instance.as_instance_ids())
-        duplicated_ids = set(duplicated.as_instance_ids())
+        original_ids = set(instance.as_instance_ids(include_solution_tags=False))
+        duplicated_ids = set(duplicated.as_instance_ids(include_solution_tags=False))
         overlapping_ids = original_ids.intersection(duplicated_ids)
         assert not overlapping_ids
+
+        original_ids = set(instance.as_instance_ids(include_solution_tags=True))
+        duplicated_ids = set(duplicated.as_instance_ids(include_solution_tags=True))
+        overlapping_ids = original_ids.intersection(duplicated_ids)
+        solution_tags_ids = {tag.as_id() for tag in instance.solution_tags}
+        assert solution_tags_ids == overlapping_ids, "Expected original IDs to match solution tags IDs"
 
 
 @pytest.fixture()
