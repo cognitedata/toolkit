@@ -78,4 +78,5 @@ class IndustrialCanvasAPI:
         return self._instance_api.apply_fast(canvas.as_instances())
 
     def delete(self, canvas: IndustrialCanvasApply) -> list[NodeId | EdgeId]:
-        return self._instance_api.delete_fast(canvas.as_instance_ids())
+        # Solution tags are used by multiple canvases, so we do not include them in the deletion.
+        return self._instance_api.delete_fast(canvas.as_instance_ids(include_solution_tags=False))
