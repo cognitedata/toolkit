@@ -12,163 +12,6 @@ CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
 
 
-class _CanvasProperties:
-    created_by = PropertyOptions("createdBy")
-    updated_at = PropertyOptions("updatedAt")
-    updated_by = PropertyOptions("updatedBy")
-    is_locked = PropertyOptions("isLocked")
-    source_canvas_id = PropertyOptions("sourceCanvasId")
-    is_archived = PropertyOptions("isArchived")
-    solution_tags = PropertyOptions("solutionTags")
-
-    @classmethod
-    def get_source(cls) -> ViewId:
-        return ViewId("cdf_industrial_canvas", "Canvas", "v7")
-
-
-class CanvasApply(_CanvasProperties, TypedNodeApply):
-    """This represents the writing format of canvas.
-
-    It is used to when data is written to CDF.
-
-    Args:
-        external_id: The external id of the canva.
-        name: The name or title of the canvas.
-        created_by: The user identifier of the user that created the canvas.
-        updated_at: The timestamp when the canvas was last updated.
-        updated_by: The user identifier of the user that last updated the canvas.
-        is_locked: The boolean state for handling canvas locking which is one-way operation from the user perspective
-        visibility: The application-level visibility of the canvas. Must be either 'public' or 'private' and, if not
-            set, the canvas is expected to be public.
-        source_canvas_id: The property for handling versioning. Example sourceCanvasId === selectedCanvas -> query all
-            versions of such canvas
-        is_archived: Boolean that indicates whether the canvas is archived.
-        context: Stores contextual data attached to the canvas, such as rules and pinned values.
-        solution_tags: The list of solution tags associated with the canvas.
-        existing_version: Fail the ingestion request if the node's version is greater than or equal to this value.
-            If no existingVersion is specified, the ingestion will always overwrite any existing data for the node
-            (for the specified container or node). If existingVersion is set to 0, the upsert will behave as an insert,
-            so it will fail the bulk if the item already exists. If skipOnVersionConflict is set on the ingestion
-            request, then the item will be skipped instead of failing the ingestion request.
-        type: Direct relation pointing to the type node.
-    """
-
-    def __init__(
-        self,
-        external_id: str,
-        *,
-        name: str,
-        created_by: str,
-        updated_at: datetime,
-        updated_by: str,
-        is_locked: bool | None = None,
-        visibility: str | None = None,
-        source_canvas_id: str | None = None,
-        is_archived: bool | None = None,
-        context: list[dict] | None = None,
-        solution_tags: list[DirectRelationReference | tuple[str, str]] | None = None,
-        existing_version: int | None = None,
-        type: DirectRelationReference | tuple[str, str] | None = None,
-    ) -> None:
-        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
-        self.name = name
-        self.created_by = created_by
-        self.updated_at = updated_at
-        self.updated_by = updated_by
-        self.is_locked = is_locked
-        self.visibility = visibility
-        self.source_canvas_id = source_canvas_id
-        self.is_archived = is_archived
-        self.context = context
-        self.solution_tags = (
-            [DirectRelationReference.load(solution_tag) for solution_tag in solution_tags] if solution_tags else None
-        )
-
-
-class Canvas(_CanvasProperties, TypedNode):
-    """This represents the reading format of canva.
-
-    It is used to when data is read from CDF.
-
-    Args:
-        space: The space where the node is located.
-        external_id: The external id of the canva.
-        version (int): DMS version.
-        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
-            Coordinated Universal Time (UTC), minus leap seconds.
-        name: The name or title of the canvas.
-        created_by: The user identifier of the user that created the canvas.
-        updated_at: The timestamp when the canvas was last updated.
-        updated_by: The user identifier of the user that last updated the canvas.
-        is_locked: The boolean state for handling canvas locking which is one-way operation from the user perspective
-        visibility: The application-level visibility of the canvas. Must be either 'public' or 'private' and, if not
-            set, the canvas is expected to be public.
-        source_canvas_id: The property for handling versioning. Example sourceCanvasId === selectedCanvas -> query all
-            versions of such canvas
-        is_archived: Boolean that indicates whether the canvas is archived.
-        context: Stores contextual data attached to the canvas, such as rules and pinned values.
-        solution_tags: The list of solution tags associated with the canvas.
-        type: Direct relation pointing to the type node.
-        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
-            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
-            are filtered out of query results, but present in sync results
-    """
-
-    def __init__(
-        self,
-        space: str,
-        external_id: str,
-        version: int,
-        last_updated_time: int,
-        created_time: int,
-        *,
-        name: str,
-        created_by: str,
-        updated_at: datetime,
-        updated_by: str,
-        is_locked: bool | None = None,
-        visibility: str | None = None,
-        source_canvas_id: str | None = None,
-        is_archived: bool | None = None,
-        context: list[dict] | None = None,
-        solution_tags: list[DirectRelationReference] | None = None,
-        type: DirectRelationReference | None = None,
-        deleted_time: int | None = None,
-    ) -> None:
-        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
-        self.name = name
-        self.created_by = created_by
-        self.updated_at = updated_at
-        self.updated_by = updated_by
-        self.is_locked = is_locked
-        self.visibility = visibility
-        self.source_canvas_id = source_canvas_id
-        self.is_archived = is_archived
-        self.context = context
-        self.solution_tags = (
-            [DirectRelationReference.load(solution_tag) for solution_tag in solution_tags] if solution_tags else None
-        )
-
-    def as_write(self) -> CanvasApply:
-        return CanvasApply(
-            self.external_id,
-            name=self.name,
-            created_by=self.created_by,
-            updated_at=self.updated_at,
-            updated_by=self.updated_by,
-            is_locked=self.is_locked,
-            visibility=self.visibility,
-            source_canvas_id=self.source_canvas_id,
-            is_archived=self.is_archived,
-            context=self.context,
-            solution_tags=self.solution_tags,  # type: ignore[arg-type]
-            existing_version=self.version,
-            type=self.type,
-        )
-
-
 class _CanvasAnnotationProperties:
     id_ = PropertyOptions("id")
     annotation_type = PropertyOptions("annotationType")
@@ -746,6 +589,163 @@ class FdmInstanceContainerReference(_FdmInstanceContainerReferenceProperties, Ty
             height=self.height,
             max_width=self.max_width,
             max_height=self.max_height,
+            existing_version=self.version,
+            type=self.type,
+        )
+
+
+class _CanvasProperties:
+    created_by = PropertyOptions("createdBy")
+    updated_at = PropertyOptions("updatedAt")
+    updated_by = PropertyOptions("updatedBy")
+    is_locked = PropertyOptions("isLocked")
+    source_canvas_id = PropertyOptions("sourceCanvasId")
+    is_archived = PropertyOptions("isArchived")
+    solution_tags = PropertyOptions("solutionTags")
+
+    @classmethod
+    def get_source(cls) -> ViewId:
+        return ViewId("cdf_industrial_canvas", "Canvas", "v7")
+
+
+class CanvasApply(_CanvasProperties, TypedNodeApply):
+    """This represents the writing format of canvas.
+
+    It is used to when data is written to CDF.
+
+    Args:
+        external_id: The external id of the canva.
+        name: The name or title of the canvas.
+        created_by: The user identifier of the user that created the canvas.
+        updated_at: The timestamp when the canvas was last updated.
+        updated_by: The user identifier of the user that last updated the canvas.
+        is_locked: The boolean state for handling canvas locking which is one-way operation from the user perspective
+        visibility: The application-level visibility of the canvas. Must be either 'public' or 'private' and, if not
+            set, the canvas is expected to be public.
+        source_canvas_id: The property for handling versioning. Example sourceCanvasId === selectedCanvas -> query all
+            versions of such canvas
+        is_archived: Boolean that indicates whether the canvas is archived.
+        context: Stores contextual data attached to the canvas, such as rules and pinned values.
+        solution_tags: The list of solution tags associated with the canvas.
+        existing_version: Fail the ingestion request if the node's version is greater than or equal to this value.
+            If no existingVersion is specified, the ingestion will always overwrite any existing data for the node
+            (for the specified container or node). If existingVersion is set to 0, the upsert will behave as an insert,
+            so it will fail the bulk if the item already exists. If skipOnVersionConflict is set on the ingestion
+            request, then the item will be skipped instead of failing the ingestion request.
+        type: Direct relation pointing to the type node.
+    """
+
+    def __init__(
+        self,
+        external_id: str,
+        *,
+        name: str,
+        created_by: str,
+        updated_at: datetime,
+        updated_by: str,
+        is_locked: bool | None = None,
+        visibility: str | None = None,
+        source_canvas_id: str | None = None,
+        is_archived: bool | None = None,
+        context: list[dict] | None = None,
+        solution_tags: list[DirectRelationReference | tuple[str, str]] | None = None,
+        existing_version: int | None = None,
+        type: DirectRelationReference | tuple[str, str] | None = None,
+    ) -> None:
+        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
+        self.name = name
+        self.created_by = created_by
+        self.updated_at = updated_at
+        self.updated_by = updated_by
+        self.is_locked = is_locked
+        self.visibility = visibility
+        self.source_canvas_id = source_canvas_id
+        self.is_archived = is_archived
+        self.context = context
+        self.solution_tags = (
+            [DirectRelationReference.load(solution_tag) for solution_tag in solution_tags] if solution_tags else None
+        )
+
+
+class Canvas(_CanvasProperties, TypedNode):
+    """This represents the reading format of canva.
+
+    It is used to when data is read from CDF.
+
+    Args:
+        space: The space where the node is located.
+        external_id: The external id of the canva.
+        version (int): DMS version.
+        last_updated_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        created_time (int): The number of milliseconds since 00:00:00 Thursday, 1 January 1970,
+            Coordinated Universal Time (UTC), minus leap seconds.
+        name: The name or title of the canvas.
+        created_by: The user identifier of the user that created the canvas.
+        updated_at: The timestamp when the canvas was last updated.
+        updated_by: The user identifier of the user that last updated the canvas.
+        is_locked: The boolean state for handling canvas locking which is one-way operation from the user perspective
+        visibility: The application-level visibility of the canvas. Must be either 'public' or 'private' and, if not
+            set, the canvas is expected to be public.
+        source_canvas_id: The property for handling versioning. Example sourceCanvasId === selectedCanvas -> query all
+            versions of such canvas
+        is_archived: Boolean that indicates whether the canvas is archived.
+        context: Stores contextual data attached to the canvas, such as rules and pinned values.
+        solution_tags: The list of solution tags associated with the canvas.
+        type: Direct relation pointing to the type node.
+        deleted_time: The number of milliseconds since 00:00:00 Thursday, 1 January 1970, Coordinated Universal Time
+            (UTC), minus leap seconds. Timestamp when the instance was soft deleted. Note that deleted instances
+            are filtered out of query results, but present in sync results
+    """
+
+    def __init__(
+        self,
+        space: str,
+        external_id: str,
+        version: int,
+        last_updated_time: int,
+        created_time: int,
+        *,
+        name: str,
+        created_by: str,
+        updated_at: datetime,
+        updated_by: str,
+        is_locked: bool | None = None,
+        visibility: str | None = None,
+        source_canvas_id: str | None = None,
+        is_archived: bool | None = None,
+        context: list[dict] | None = None,
+        solution_tags: list[DirectRelationReference] | None = None,
+        type: DirectRelationReference | None = None,
+        deleted_time: int | None = None,
+    ) -> None:
+        TypedNode.__init__(self, space, external_id, version, last_updated_time, created_time, deleted_time, type)
+        self.name = name
+        self.created_by = created_by
+        self.updated_at = updated_at
+        self.updated_by = updated_by
+        self.is_locked = is_locked
+        self.visibility = visibility
+        self.source_canvas_id = source_canvas_id
+        self.is_archived = is_archived
+        self.context = context
+        self.solution_tags = (
+            [DirectRelationReference.load(solution_tag) for solution_tag in solution_tags] if solution_tags else None
+        )
+
+    def as_write(self) -> CanvasApply:
+        return CanvasApply(
+            self.external_id,
+            name=self.name,
+            created_by=self.created_by,
+            updated_at=self.updated_at,
+            updated_by=self.updated_by,
+            is_locked=self.is_locked,
+            visibility=self.visibility,
+            source_canvas_id=self.source_canvas_id,
+            is_archived=self.is_archived,
+            context=self.context,
+            solution_tags=self.solution_tags,  # type: ignore[arg-type]
             existing_version=self.version,
             type=self.type,
         )
