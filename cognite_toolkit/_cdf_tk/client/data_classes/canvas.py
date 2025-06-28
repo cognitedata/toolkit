@@ -2,11 +2,12 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from cognite.client.data_classes.data_modeling import DirectRelationReference, filters, query
-from cognite.client.data_classes.data_modeling.ids import ViewId
+from cognite.client.data_classes.data_modeling.ids import EdgeId, NodeId, ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     EdgeApply,
     InstanceApply,
     Node,
+    NodeApply,
     NodeListWithCursor,
     PropertyOptions,
     T_Node,
@@ -924,6 +925,19 @@ class IndustrialCanvasApply:
                 )
 
         return instances
+
+    def as_ids(self) -> list[NodeId | EdgeId]:
+        """Return a list of IDs for the instances in the IndustrialCanvasApply."""
+        instances = self.as_instances()
+        ids: list[NodeId | EdgeId] = []
+        for instance in instances:
+            if isinstance(instance, NodeApply):
+                ids.append(NodeId(instance.space, instance.external_id))
+            elif isinstance(instance, EdgeApply):
+                ids.append(EdgeId(instance.space, instance.external_id))
+            else:
+                raise TypeError(f"Unexpected instance type: {type(instance)}")
+        return ids
 
     def dump(self) -> dict[str, object]:
         """Dump the IndustrialCanvasApply to a dictionary."""

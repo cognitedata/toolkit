@@ -77,5 +77,5 @@ class IndustrialCanvasAPI:
     def upsert(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
         return self._instance_api.apply_fast(canvas.as_instances())
 
-    def delete(self, canvas: IndustrialCanvasApply | IndustrialCanvas) -> InstancesDeleteResult:
-        raise NotImplementedError()
+    def delete(self, canvas: IndustrialCanvasApply) -> InstancesDeleteResult:
+        return self._instance_api.delete_fast(canvas.as_ids())
