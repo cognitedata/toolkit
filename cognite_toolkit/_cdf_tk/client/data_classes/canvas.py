@@ -4,8 +4,12 @@ from datetime import datetime
 from cognite.client.data_classes.data_modeling import DirectRelationReference, filters, query
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
+    EdgeApply,
     InstanceApply,
+    Node,
+    NodeListWithCursor,
     PropertyOptions,
+    T_Node,
     TypedNode,
     TypedNodeApply,
 )
@@ -13,6 +17,12 @@ from cognite.client.data_classes.data_modeling.query import QueryResult
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
+CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
+ANNOTATION_EDGE_TYPE = DirectRelationReference(CANVAS_SCHEMA_SPACE, "referencesCanvasAnnotation")
+CONTAINER_REFERENCE_EDGE_TYPE = DirectRelationReference(CANVAS_SCHEMA_SPACE, "referencesContainerReference")
+FDM_CONTAINER_REFERENCE_EDGE_TYPE = DirectRelationReference(
+    CANVAS_SCHEMA_SPACE, "referencesFdmInstanceContainerReference"
+)
 
 
 class _CanvasProperties:
@@ -760,25 +770,45 @@ class IndustrialCanvas:
     def __init__(
         self,
         canvas: Canvas,
-        annotations: list[CanvasAnnotation] | None = None,
-        container_references: list[ContainerReference] | None = None,
-        fdm_instance_container_references: list[FdmInstanceContainerReference] | None = None,
-        solution_tags: list[CogniteSolutionTag] | None = None,
+        annotations: NodeListWithCursor[CanvasAnnotation] | None = None,
+        container_references: NodeListWithCursor[ContainerReference] | None = None,
+        fdm_instance_container_references: NodeListWithCursor[FdmInstanceContainerReference] | None = None,
+        solution_tags: NodeListWithCursor[CogniteSolutionTag] | None = None,
     ) -> None:
         self.canvas = canvas
-        self.annotations = annotations or []
-        self.container_references = container_references or []
-        self.fdm_instance_container_references = fdm_instance_container_references or []
-        self.solution_tags = solution_tags or []
+        self.annotations = annotations or NodeListWithCursor[CanvasAnnotation]([], None)
+        self.container_references = container_references or NodeListWithCursor[ContainerReference]([], None)
+        self.fdm_instance_container_references = fdm_instance_container_references or NodeListWithCursor[
+            FdmInstanceContainerReference
+        ]([], None)
+        self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
 
     @classmethod
-    def load(cls, result: QueryResult) -> "IndustrialCanvas":
+    def _load(cls, result: QueryResult) -> "IndustrialCanvas":
         """Load an IndustrialCanvas instance from a QueryResult."""
-        raise NotImplementedError()
+        if not ("canvas" in result and isinstance(result["canvas"], NodeListWithCursor) and len(result["canvas"]) == 1):
+            raise ValueError("QueryResult does not contain a canvas node.")
+        canvas = Canvas._load(result["canvas"][0].dump())
+        return cls(
+            canvas=canvas,
+            annotations=cls._load_items(result.get("annotations"), CanvasAnnotation),
+            container_references=cls._load_items(result.get("containerReferences"), ContainerReference),
+            fdm_instance_container_references=cls._load_items(
+                result.get("fdmInstanceContainerReferences"), FdmInstanceContainerReference
+            ),
+            solution_tags=cls._load_items(result.get("solutionTags"), CogniteSolutionTag),
+        )
+
+    @classmethod
+    def _load_items(
+        cls, response: NodeListWithCursor[Node] | None, node_cls: type[T_Node]
+    ) -> NodeListWithCursor[T_Node]:
+        if response is None:
+            return NodeListWithCursor[T_Node]([], None)
+        return NodeListWithCursor[T_Node]([node_cls._load(node.dump()) for node in response], response.cursor)
 
     @classmethod
     def create_query(cls, external_id: str) -> query.Query:
-        schema_space = Canvas.get_source().space
         return query.Query(
             with_={
                 "canvas": query.NodeResultSetExpression(
@@ -791,17 +821,13 @@ class IndustrialCanvas:
                 ),
                 "annotationEdges": query.EdgeResultSetExpression(
                     from_="canvas",
-                    filter=filters.Equals(
-                        ["edge", "type"], {"space": schema_space, "externalId": "referencesCanvasAnnotation"}
-                    ),
+                    filter=filters.Equals(["edge", "type"], ANNOTATION_EDGE_TYPE.dump()),
                     node_filter=filters.HasData(views=[CanvasAnnotation.get_source()]),
                     direction="outwards",
                 ),
                 "containerReferenceEdges": query.EdgeResultSetExpression(
                     from_="canvas",
-                    filter=filters.Equals(
-                        ["edge", "type"], {"space": schema_space, "externalId": "referencesContainerReference"}
-                    ),
+                    filter=filters.Equals(["edge", "type"], CONTAINER_REFERENCE_EDGE_TYPE.dump()),
                     node_filter=filters.HasData(views=[ContainerReference.get_source()]),
                     direction="outwards",
                 ),
@@ -809,7 +835,7 @@ class IndustrialCanvas:
                     from_="canvas",
                     filter=filters.Equals(
                         ["edge", "type"],
-                        {"space": schema_space, "externalId": "referencesFdmInstanceContainerReference"},
+                        FDM_CONTAINER_REFERENCE_EDGE_TYPE.dump(),
                     ),
                     node_filter=filters.HasData(views=[FdmInstanceContainerReference.get_source()]),
                     direction="outwards",
@@ -848,7 +874,7 @@ class IndustrialCanvasApply:
     def __init__(
         self,
         canvas: CanvasApply,
-        annotations: Sequence[CanvasAnnotation] | None = None,
+        annotations: Sequence[CanvasAnnotationApply] | None = None,
         container_references: Sequence[ContainerReferenceApply] | None = None,
         fdm_instance_container_references: Sequence[FdmInstanceContainerReferenceApply] | None = None,
         solution_tags: Sequence[CogniteSolutionTagApply] | None = None,
@@ -860,4 +886,28 @@ class IndustrialCanvasApply:
         self.solution_tags = solution_tags or []
 
     def as_instances(self) -> list[InstanceApply]:
-        raise NotImplementedError()
+        """Convert the IndustrialCanvasApply to a list of InstanceApply objects."""
+        instances: list[InstanceApply] = [self.canvas]
+        instances.extend(self.annotations)
+        instances.extend(self.container_references)
+        instances.extend(self.fdm_instance_container_references)
+        instances.extend(self.solution_tags)
+        for items, edge_type in [
+            (self.annotations, ANNOTATION_EDGE_TYPE),
+            (self.container_references, CONTAINER_REFERENCE_EDGE_TYPE),
+            (self.fdm_instance_container_references, FDM_CONTAINER_REFERENCE_EDGE_TYPE),
+        ]:
+            for item in items:
+                instances.append(
+                    EdgeApply(
+                        space=CANVAS_INSTANCE_SPACE,
+                        external_id=f"{self.canvas.external_id}_{item.external_id}",
+                        start_node=DirectRelationReference(
+                            space=self.canvas.space, external_id=self.canvas.external_id
+                        ),
+                        end_node=DirectRelationReference(space=item.space, external_id=item.external_id),
+                        type=edge_type,
+                    )
+                )
+
+        return instances
