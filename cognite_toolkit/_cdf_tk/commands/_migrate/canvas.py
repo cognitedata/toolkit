@@ -8,7 +8,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping
+from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping, AssetCentricId
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
@@ -127,7 +127,7 @@ class MigrationCanvasCommand(ToolkitCommand):
         )
 
     def _migrate_container_reference(
-        self, reference: ContainerReferenceApply, mapping_by_reference_id: dict[str, Mapping]
+        self, reference: ContainerReferenceApply, mapping_by_reference_id: dict[AssetCentricId, Mapping]
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
         raise NotImplementedError()
