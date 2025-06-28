@@ -1,11 +1,17 @@
-from cognite.client.data_classes import filters
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, SpaceIDScope
-from rich import print
+from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.client.data_classes.canvas import CANVAS_INSTANCE_SPACE, Canvas
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
+    CANVAS_INSTANCE_SPACE,
+    Canvas,
+    ContainerReferenceApply,
+    FdmInstanceContainerReferenceApply,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveCanvasSelect
 
@@ -26,10 +32,10 @@ class MigrationCanvasCommand(ToolkitCommand):
         self._validate_migration_mappings_exists(client)
         external_ids = external_ids or InteractiveCanvasSelect(client).select_external_ids()
         if external_ids is None or not external_ids:
-            print("No canvases selected for migration.")
+            self.console("No canvases selected for migration.")
             return
         action = "Would migrate" if dry_run else "Migrating"
-        print(f"{action} {len(external_ids)} canvases.")
+        self.console(f"{action} {len(external_ids)} canvases.")
         for external_id in external_ids:
             self._migrate_canvas(client, external_id, dry_run=dry_run, verbose=verbose)
 
@@ -74,14 +80,54 @@ class MigrationCanvasCommand(ToolkitCommand):
         # 3. If dry_run, log all good and go to next.
         # 4. If not dry_run, create a new canvas version with updated mappings and connections.
         # 5. Deploy new version of the canvas. (Include rollback if something goes wrong?)
-
-        canvas = client.canvas.retrieve(external_id=external_id)
+        canvas = client.canvas.industrial.retrieve(external_id=external_id)
         if not canvas:
-            # Todo Warning
-            print(f"Canvas with external ID '{external_id}' not found.")
+            self.warn(MediumSeverityWarning(f"Canvas with external ID '{external_id}' not found. Skipping.. "))
+            return
+        if canvas.fdm_instance_container_references:
+            self.warn(
+                MediumSeverityWarning(
+                    f"Canvas with name '{canvas.canvas.name}' already has references to data model instances. Skipping.. "
+                )
+            )
+        if verbose:
+            self.console(f"Found canvas: {canvas.canvas.name}")
+        reference_ids = [ref.as_asset_centric_id() for ref in canvas.container_references]
+        mappings = client.migration.mapping.retrieve(reference_ids)
+        mapping_by_reference_id = {mapping.as_asset_centric_id(): mapping for mapping in mappings}
+        missing = set(reference_ids) - set(mapping_by_reference_id.keys())
+        if missing:
+            self.warn(
+                MediumSeverityWarning(
+                    f"Canvas '{canvas.canvas.name}' has references to resources that are not been migrated: {humanize_collection(missing)}. Skipping.. "
+                )
+            )
+            return
+        if dry_run:
+            self.console(
+                f"Canvas '{canvas.canvas.name}' is ready for migration all {len(mappings)} references asset-centric resources found."
+            )
             return
         if verbose:
-            print(f"Found canvas: {canvas.name}")
-        node_id = canvas.as_id()
-        is_canvas = filters.Equals(["edge", "startNode"], node_id.dump(include_instance_type=False))
-        edges = client.data_modeling.instances.list(instance_type="edge", space=CANVAS_INSTANCE_SPACE, filter=is_canvas)
+            self.console(
+                f"Migrating canvas '{canvas.canvas.name}' with {len(mappings)} references to asset-centric resources."
+            )
+        new_canvas = canvas.as_write().duplicate()
+        new_canvas.fdm_instance_container_references = [
+            self._migrate_container_reference(ref, mapping_by_reference_id) for ref in new_canvas.container_references
+        ]
+        new_canvas.container_references = []
+        try:
+            _ = client.canvas.industrial.new_version(new_canvas, canvas)
+        except CogniteAPIError as e:
+            client.canvas.industrial.delete(new_canvas)
+            self.warn(HighSeverityWarning(f"Failed to create new version of canvas '{canvas.canvas.name}': {e}"))
+        self.console(
+            f'Canvas "{canvas.canvas.name}" migrated successfully with {len(new_canvas.fdm_instance_container_references)} references to data model instances.'
+        )
+
+    def _migrate_container_reference(
+        self, reference: ContainerReferenceApply, mapping_by_reference_id: dict[str, Mapping]
+    ) -> FdmInstanceContainerReferenceApply:
+        """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
+        raise NotImplementedError()
