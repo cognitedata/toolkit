@@ -110,4 +110,4 @@ class TestIndustrialCanvasAPI:
             deleted = toolkit_client.canvas.industrial.delete(canvas)
         finally:
             if created is not None and deleted is None:
-                toolkit_client.data_modeling.instances.delete_fast(canvas.as_ids())
+                toolkit_client.data_modeling.instances.delete_fast(canvas.as_instance_ids())
