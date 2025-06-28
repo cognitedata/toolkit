@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from typing import Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
+from cognite.client import CogniteClient
+from cognite.client.data_classes._base import CogniteObject
 from cognite.client.data_classes.data_modeling import DirectRelationReference
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
@@ -66,3 +69,24 @@ class Mapping(_MappingProperties, TypedNode):
         self.id_ = id_
         self.data_set_id = data_set_id
         self.classic_external_id = classic_external_id
+
+
+@dataclass(frozen=True)
+class AssetCentricId(CogniteObject):
+    resource_type: Literal["asset", "event", "file", "sequence", "timeseries"]
+    id_: int
+
+    @classmethod
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AssetCentricId:
+        """Load an AssetCentricId from a dictionary."""
+        return cls(
+            resource_type=resource["resourceType"],
+            id_=resource["id"],
+        )
+
+    def dump(self, camel_case: bool = True) -> dict[str, Any]:
+        """Dump the AssetCentricId to a dictionary."""
+        return {
+            "resourceType" if camel_case else "resource_type": self.resource_type,
+            "id" if camel_case else "id_": self.id_,
+        }
