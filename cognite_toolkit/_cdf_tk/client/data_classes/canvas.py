@@ -835,9 +835,9 @@ class IndustrialCanvasApply:
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
 
-    def dump(self) -> dict[str, object]:
+    def dump(self, exclude_existing_version: bool = False) -> dict[str, object]:
         """Dump the IndustrialCanvasApply to a dictionary."""
-        return {
+        output = {
             "canvas": self.canvas.dump(),
             "annotations": [annotation.dump() for annotation in self.annotations],
             "containerReferences": [container_ref.dump() for container_ref in self.container_references],
@@ -847,6 +847,15 @@ class IndustrialCanvasApply:
             ],
             "solutionTags": [solution_tag.dump() for solution_tag in self.solution_tags],
         }
+        if exclude_existing_version:
+            for key in list(output.keys()):
+                if isinstance(output[key], list):
+                    for item in output[key]:
+                        if isinstance(item, dict) and "existingVersion" in item:
+                            del item["existingVersion"]
+                elif isinstance(output[key], dict) and "existingVersion" in output[key]:
+                    del output[key]["existingVersion"]
+        return output
 
 
 class IndustrialCanvas:
