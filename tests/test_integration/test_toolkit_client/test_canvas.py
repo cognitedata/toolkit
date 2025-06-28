@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from cognite.client.data_classes import EventList, EventWrite, EventWriteList
@@ -41,7 +41,7 @@ def create_canvas(three_events: EventList) -> IndustrialCanvasApply:
             external_id="efc2de9d-27a5-4a3b-9779-dff11c572610",
             name="ToolkitTestData",
             created_by="ndTFZh9K9-m2W9WBKc30-Q",
-            updated_at=datetime(2025, 6, 28, 10, 24, 34),
+            updated_at=datetime(2025, 6, 28, 10, 24, 34, tzinfo=timezone.utc),
             updated_by="ndTFZh9K9-m2W9WBKc30-Q",
             visibility="private",
             context=[{"type": "FILTERS", "payload": {"filters": []}}],
@@ -105,7 +105,9 @@ class TestIndustrialCanvasAPI:
 
             retrieved = toolkit_client.canvas.industrial.retrieve(canvas.as_id())
 
-            assert retrieved.dump() == created.dump()
+            assert retrieved.as_write().dump(exclude_existing_version=True) == canvas.dump(
+                exclude_existing_version=True
+            )
 
             deleted = toolkit_client.canvas.industrial.delete(canvas)
         finally:

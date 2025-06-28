@@ -837,7 +837,7 @@ class IndustrialCanvasApply:
 
     def dump(self, exclude_existing_version: bool = False) -> dict[str, object]:
         """Dump the IndustrialCanvasApply to a dictionary."""
-        output = {
+        output: dict[str, object] = {
             "canvas": self.canvas.dump(),
             "annotations": [annotation.dump() for annotation in self.annotations],
             "containerReferences": [container_ref.dump() for container_ref in self.container_references],
@@ -849,12 +849,13 @@ class IndustrialCanvasApply:
         }
         if exclude_existing_version:
             for key in list(output.keys()):
-                if isinstance(output[key], list):
-                    for item in output[key]:
+                value = output[key]
+                if isinstance(value, list):
+                    for item in value:
                         if isinstance(item, dict) and "existingVersion" in item:
                             del item["existingVersion"]
-                elif isinstance(output[key], dict) and "existingVersion" in output[key]:
-                    del output[key]["existingVersion"]
+                elif isinstance(value, dict) and "existingVersion" in value:
+                    del value["existingVersion"]
         return output
 
 
