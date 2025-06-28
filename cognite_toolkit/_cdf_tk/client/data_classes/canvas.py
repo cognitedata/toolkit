@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from datetime import datetime
+from uuid import uuid4
 
 from cognite.client.data_classes.data_modeling import DirectRelationReference, filters, query
 from cognite.client.data_classes.data_modeling.ids import EdgeId, NodeId, ViewId
@@ -857,6 +858,32 @@ class IndustrialCanvasApply:
                 elif isinstance(value, dict) and "existingVersion" in value:
                     del value["existingVersion"]
         return output
+
+    def duplicate(self) -> "IndustrialCanvasApply":
+        """Create a duplicate of the IndustrialCanvasApply instance."""
+        new_canvas_id = str(uuid4())
+        new_canvas = CanvasApply._load(self.canvas.dump())
+        new_canvas.external_id = new_canvas_id
+        # Solution tags are not duplicated, they are reused
+        new_container = IndustrialCanvasApply(new_canvas, [], [], [], solution_tags=self.solution_tags)
+        items: list[ContainerReferenceApply] | list[CanvasAnnotationApply] | list[FdmInstanceContainerReferenceApply]
+        item_cls: type[CanvasAnnotationApply] | type[ContainerReferenceApply] | type[FdmInstanceContainerReferenceApply]
+        new_item_list: list[NodeApply]
+        for items, item_cls, new_item_list in [  # type: ignore[assignment]
+            (self.annotations, CanvasAnnotationApply, new_container.annotations),
+            (self.container_references, ContainerReferenceApply, new_container.container_references),
+            (
+                self.fdm_instance_container_references,
+                FdmInstanceContainerReferenceApply,
+                new_container.fdm_instance_container_references,
+            ),
+        ]:
+            for item in items:
+                new_item = item_cls._load(item.dump())
+                new_item.id_ = str(uuid4())
+                new_item.external_id = f"{new_canvas_id}_{new_item.external_id}"
+                new_item_list.append(new_item)
+        return new_container
 
 
 class IndustrialCanvas:
