@@ -15,8 +15,19 @@ def toolkit_client_create_limit_1(toolkit_client: ToolkitClient) -> ToolkitClien
     toolkit_client.data_modeling.instances._CREATE_LIMIT = before
 
 
+@pytest.fixture
+def toolkit_client_delete_limit_1(toolkit_client: ToolkitClient) -> ToolkitClient:
+    before = toolkit_client.data_modeling.instances._DELETE_LIMIT
+    toolkit_client.data_modeling.instances._DELETE_LIMIT = 1
+    yield toolkit_client
+    toolkit_client.data_modeling.instances._DELETE_LIMIT = before
+
+
 class TestExtendedInstancesAPI:
-    def test_apply_fast_instances(self, toolkit_client_create_limit_1: ToolkitClient, toolkit_space: Space) -> None:
+    @pytest.mark.usefixtures("toolkit_client_delete_limit_1")
+    def test_apply_delete_fast_instances(
+        self, toolkit_client_create_limit_1: ToolkitClient, toolkit_space: Space
+    ) -> None:
         client = toolkit_client_create_limit_1
         ts = [
             CogniteTimeSeriesApply(
@@ -29,9 +40,15 @@ class TestExtendedInstancesAPI:
             for i in range(4)
         ]
         created: InstancesApplyResultList | None = None
+        has_deleted: bool = False
         try:
             created = client.data_modeling.instances.apply_fast(ts)
             assert len(created) == 4
+
+            deleted = client.data_modeling.instances.delete_fast(created.as_ids())
+
+            assert len(deleted) == 4
+            has_deleted = True
         finally:
-            if created is not None:
+            if created is not None and not has_deleted:
                 client.data_modeling.instances.delete(created.as_ids())
