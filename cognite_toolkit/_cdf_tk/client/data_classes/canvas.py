@@ -826,10 +826,9 @@ class IndustrialCanvasApply:
         instances = self.as_instances()
         ids: list[NodeId | EdgeId] = []
         for instance in instances:
-            if isinstance(instance, NodeApply) and (
-                include_solution_tags or not isinstance(instance, CogniteSolutionTagApply)
-            ):
-                ids.append(NodeId(instance.space, instance.external_id))
+            if isinstance(instance, NodeApply):
+                if include_solution_tags or not isinstance(instance, CogniteSolutionTagApply):
+                    ids.append(NodeId(instance.space, instance.external_id))
             elif isinstance(instance, EdgeApply):
                 ids.append(EdgeId(instance.space, instance.external_id))
             else:
