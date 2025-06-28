@@ -70,10 +70,12 @@ class IndustrialCanvasAPI:
         self._instance_api = instance_api
 
     def retrieve(self, external_id: str) -> IndustrialCanvas:
-        raise NotImplementedError()
+        query = IndustrialCanvas.create_query(external_id)
+        result = self._instance_api.query(query)
+        return IndustrialCanvas._load(result)
 
     def upsert(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
-        raise NotImplementedError()
+        return self._instance_api.apply_fast(canvas.as_instances())
 
     def delete(self, canvas: IndustrialCanvasApply | IndustrialCanvas) -> InstancesDeleteResult:
         raise NotImplementedError()
