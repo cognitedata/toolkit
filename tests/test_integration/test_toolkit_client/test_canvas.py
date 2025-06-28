@@ -20,8 +20,7 @@ def three_events(toolkit_client: ToolkitClient) -> EventList:
     if len(existing) == len(events):
         return existing
     existing_ids = existing.as_external_ids()
-    missing = [e for e in existing if e.external_id not in existing_ids]
-    created = toolkit_client.events.create(missing)
+    created = toolkit_client.events.create([e for e in events if e.external_id not in existing_ids])
     existing.extend(created)
     return existing
 
