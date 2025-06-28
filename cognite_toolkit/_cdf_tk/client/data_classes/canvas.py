@@ -820,12 +820,14 @@ class IndustrialCanvasApply:
     def as_id(self) -> str:
         return self.canvas.external_id
 
-    def as_instance_ids(self) -> list[NodeId | EdgeId]:
+    def as_instance_ids(self, include_solution_tags: bool = False) -> list[NodeId | EdgeId]:
         """Return a list of IDs for the instances in the IndustrialCanvasApply."""
         instances = self.as_instances()
         ids: list[NodeId | EdgeId] = []
         for instance in instances:
-            if isinstance(instance, NodeApply):
+            if isinstance(instance, NodeApply) and (
+                include_solution_tags or not isinstance(instance, CogniteSolutionTagApply)
+            ):
                 ids.append(NodeId(instance.space, instance.external_id))
             elif isinstance(instance, EdgeApply):
                 ids.append(EdgeId(instance.space, instance.external_id))
