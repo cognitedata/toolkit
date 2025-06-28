@@ -859,6 +859,19 @@ class IndustrialCanvas:
             },
         )
 
+    def dump(self) -> dict[str, object]:
+        """Dump the IndustrialCanvas to a dictionary."""
+        return {
+            "canvas": self.canvas.dump(),
+            "annotations": [annotation.dump() for annotation in self.annotations],
+            "containerReferences": [container_ref.dump() for container_ref in self.container_references],
+            "fdmInstanceContainerReferences": [
+                fdm_instance_container_ref.dump()
+                for fdm_instance_container_ref in self.fdm_instance_container_references
+            ],
+            "solutionTags": [solution_tag.dump() for solution_tag in self.solution_tags],
+        }
+
 
 class IndustrialCanvasApply:
     """This class represents the writing format of IndustrialCanvas.
@@ -911,3 +924,16 @@ class IndustrialCanvasApply:
                 )
 
         return instances
+
+    def dump(self) -> dict[str, object]:
+        """Dump the IndustrialCanvasApply to a dictionary."""
+        return {
+            "canvas": self.canvas.dump(),
+            "annotations": [annotation.dump() for annotation in self.annotations],
+            "containerReferences": [container_ref.dump() for container_ref in self.container_references],
+            "fdmInstanceContainerReferences": [
+                fdm_instance_container_ref.dump()
+                for fdm_instance_container_ref in self.fdm_instance_container_references
+            ],
+            "solutionTags": [solution_tag.dump() for solution_tag in self.solution_tags],
+        }
