@@ -5,7 +5,7 @@ import pytest
 import responses
 from cognite.client import global_config
 from cognite.client.credentials import Token
-from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
+from cognite.client.data_classes.data_modeling import EdgeId, NodeApply, NodeId, NodeOrEdgeData, ViewId
 from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
@@ -200,3 +200,26 @@ class TestInstances:
         client = ToolkitClient(config=toolkit_config)
         result = client.data_modeling.instances.apply_fast([])
         assert len(result) == 0
+
+    @pytest.mark.usefixtures("disable_gzip")
+    def test_delete_fast_400(self, toolkit_config: ToolkitClientConfig) -> None:
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances/delete"
+        error_message = "This will trigger a 400 error. 287891n-unique"
+        ids = [NodeId("node-space", "node1"), EdgeId("edge-space", "edge1")]
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                url,
+                status=400,
+                json={"error": error_message},
+            )
+            client = ToolkitClient(config=toolkit_config)
+
+            with pytest.raises(CogniteAPIError) as exc_info:
+                _ = client.data_modeling.instances.delete_fast(ids)
+
+            error = exc_info.value
+            assert isinstance(error, CogniteAPIError)
+            assert error.code == 400
+            assert error.message == error_message
+            assert error.failed == ids
