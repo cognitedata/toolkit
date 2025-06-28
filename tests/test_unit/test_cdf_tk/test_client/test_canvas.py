@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReference,
     FdmInstanceContainerReferenceApply,
+    IndustrialCanvasApply,
 )
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -45,6 +46,16 @@ class TestLoadDump:
         reloaded = node_cls.load(dumped)
 
         assert reloaded == instance, f"Expected: {instance}, but got: {reloaded}"
+
+    def test_duplicate_industrial(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
+
+        duplicated = instance.duplicate()
+
+        original_ids = set(instance.as_instance_ids())
+        duplicated_ids = set(duplicated.as_instance_ids())
+        overlapping_ids = original_ids.intersection(duplicated_ids)
+        assert not overlapping_ids
 
 
 @pytest.fixture()
