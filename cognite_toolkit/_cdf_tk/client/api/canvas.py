@@ -3,7 +3,7 @@ from typing import Any, overload
 
 from cognite.client._constants import DEFAULT_LIMIT_READ
 from cognite.client.data_classes.data_modeling import (
-    InstancesDeleteResult,
+    EdgeId,
     InstanceSort,
     NodeApplyResultList,
     NodeId,
@@ -70,12 +70,12 @@ class IndustrialCanvasAPI:
         self._instance_api = instance_api
 
     def retrieve(self, external_id: str) -> IndustrialCanvas:
-        query = IndustrialCanvas.create_query(external_id)
+        query = IndustrialCanvas._create_query(external_id)
         result = self._instance_api.query(query)
         return IndustrialCanvas._load(result)
 
     def upsert(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
         return self._instance_api.apply_fast(canvas.as_instances())
 
-    def delete(self, canvas: IndustrialCanvasApply) -> InstancesDeleteResult:
-        return self._instance_api.delete_fast(canvas.as_ids())
+    def delete(self, canvas: IndustrialCanvasApply) -> list[NodeId | EdgeId]:
+        return self._instance_api.delete_fast(canvas.as_instance_ids())
