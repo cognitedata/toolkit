@@ -1,12 +1,15 @@
+from collections.abc import Sequence
 from datetime import datetime
 
-from cognite.client.data_classes.data_modeling import DirectRelationReference
+from cognite.client.data_classes.data_modeling import DirectRelationReference, filters, query
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
+    InstanceApply,
     PropertyOptions,
     TypedNode,
     TypedNodeApply,
 )
+from cognite.client.data_classes.data_modeling.query import QueryResult
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
@@ -749,3 +752,112 @@ class FdmInstanceContainerReference(_FdmInstanceContainerReferenceProperties, Ty
             existing_version=self.version,
             type=self.type,
         )
+
+
+class IndustrialCanvas:
+    """This class represents one instances of the Canvas with all connected data."""
+
+    def __init__(
+        self,
+        canvas: Canvas,
+        annotations: list[CanvasAnnotation] | None = None,
+        container_references: list[ContainerReference] | None = None,
+        fdm_instance_container_references: list[FdmInstanceContainerReference] | None = None,
+        solution_tags: list[CogniteSolutionTag] | None = None,
+    ) -> None:
+        self.canvas = canvas
+        self.annotations = annotations or []
+        self.container_references = container_references or []
+        self.fdm_instance_container_references = fdm_instance_container_references or []
+        self.solution_tags = solution_tags or []
+
+    @classmethod
+    def load(cls, result: QueryResult) -> "IndustrialCanvas":
+        """Load an IndustrialCanvas instance from a QueryResult."""
+        raise NotImplementedError()
+
+    @classmethod
+    def create_query(cls, external_id: str) -> query.Query:
+        schema_space = Canvas.get_source().space
+        return query.Query(
+            with_={
+                "canvas": query.NodeResultSetExpression(
+                    filter=filters.InstanceReferences([(CANVAS_INSTANCE_SPACE, external_id)]),
+                    limit=1,
+                ),
+                "solutionTags": query.NodeResultSetExpression(
+                    from_="canvas",
+                    through=Canvas.get_source().as_property_ref("solutionTags"),
+                ),
+                "annotationEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(
+                        ["edge", "type"], {"space": schema_space, "externalId": "referencesCanvasAnnotation"}
+                    ),
+                    node_filter=filters.HasData(views=[CanvasAnnotation.get_source()]),
+                    direction="outwards",
+                ),
+                "containerReferenceEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(
+                        ["edge", "type"], {"space": schema_space, "externalId": "referencesContainerReference"}
+                    ),
+                    node_filter=filters.HasData(views=[ContainerReference.get_source()]),
+                    direction="outwards",
+                ),
+                "fdmInstanceContainerReferenceEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(
+                        ["edge", "type"],
+                        {"space": schema_space, "externalId": "referencesFdmInstanceContainerReference"},
+                    ),
+                    node_filter=filters.HasData(views=[FdmInstanceContainerReference.get_source()]),
+                    direction="outwards",
+                ),
+                "annotations": query.NodeResultSetExpression(from_="annotationEdges"),
+                "containerReferences": query.NodeResultSetExpression(from_="containerReferenceEdges"),
+                "fdmInstanceContainerReferences": query.NodeResultSetExpression(
+                    from_="fdmInstanceContainerReferenceEdges"
+                ),
+            },
+            select={
+                "canvas": query.Select([query.SourceSelector(Canvas.get_source(), properties=["*"])]),
+                "solutionTags": query.Select([query.SourceSelector(CogniteSolutionTag.get_source(), properties=["*"])]),
+                "annotations": query.Select([query.SourceSelector(CanvasAnnotation.get_source(), properties=["*"])]),
+                "containerReferences": query.Select(
+                    [query.SourceSelector(ContainerReference.get_source(), properties=["*"])]
+                ),
+                "fdmInstanceContainerReferences": query.Select(
+                    [query.SourceSelector(FdmInstanceContainerReference.get_source(), properties=["*"])]
+                ),
+            },
+        )
+
+
+class IndustrialCanvasApply:
+    """This class represents the writing format of IndustrialCanvas.
+    It is used to when data is written to CDF.
+    Args:
+        canvas: The Canvas object.
+        annotations: A list of CanvasAnnotation objects.
+        container_references: A list of ContainerReference objects.
+        fdm_instance_container_references: A list of FdmInstanceContainerReference objects.
+        solution_tags: A list of CogniteSolutionTag objects.
+    """
+
+    def __init__(
+        self,
+        canvas: CanvasApply,
+        annotations: Sequence[CanvasAnnotation] | None = None,
+        container_references: Sequence[ContainerReferenceApply] | None = None,
+        fdm_instance_container_references: Sequence[FdmInstanceContainerReferenceApply] | None = None,
+        solution_tags: Sequence[CogniteSolutionTagApply] | None = None,
+    ) -> None:
+        self.canvas = canvas
+        self.annotations = annotations or []
+        self.container_references = container_references or []
+        self.fdm_instance_container_references = fdm_instance_container_references or []
+        self.solution_tags = solution_tags or []
+
+    def as_instances(self) -> list[InstanceApply]:
+        raise NotImplementedError()
