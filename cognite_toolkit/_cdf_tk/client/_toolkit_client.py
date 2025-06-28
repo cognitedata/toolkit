@@ -6,6 +6,7 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import CredentialProvider
 
 from .api.agents.agents import AgentsAPI
+from .api.canvas import CanvasAPI
 from .api.dml import DMLAPI
 from .api.extended_data_modeling import ExtendedDataModelingAPI
 from .api.extended_raw import ExtendedRawAPI
@@ -85,6 +86,7 @@ class ToolkitClient(CogniteClient):
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
+        self.canvas = CanvasAPI(self.data_modeling.instances)
 
     @property
     def config(self) -> ToolkitClientConfig:

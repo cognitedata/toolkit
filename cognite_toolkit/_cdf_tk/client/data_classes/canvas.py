@@ -8,6 +8,9 @@ from cognite.client.data_classes.data_modeling.instances import (
     TypedNodeApply,
 )
 
+CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
+SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
+
 
 class _CanvasProperties:
     created_by = PropertyOptions("createdBy")
@@ -29,7 +32,6 @@ class CanvasApply(_CanvasProperties, TypedNodeApply):
     It is used to when data is written to CDF.
 
     Args:
-        space: The space where the node is located.
         external_id: The external id of the canva.
         name: The name or title of the canvas.
         created_by: The user identifier of the user that created the canvas.
@@ -53,7 +55,6 @@ class CanvasApply(_CanvasProperties, TypedNodeApply):
 
     def __init__(
         self,
-        space: str,
         external_id: str,
         *,
         name: str,
@@ -69,7 +70,7 @@ class CanvasApply(_CanvasProperties, TypedNodeApply):
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
-        TypedNodeApply.__init__(self, space, external_id, existing_version, type)
+        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
         self.name = name
         self.created_by = created_by
         self.updated_at = updated_at
@@ -152,7 +153,6 @@ class Canvas(_CanvasProperties, TypedNode):
 
     def as_write(self) -> CanvasApply:
         return CanvasApply(
-            self.space,
             self.external_id,
             name=self.name,
             created_by=self.created_by,
@@ -189,7 +189,6 @@ class CanvasAnnotationApply(_CanvasAnnotationProperties, TypedNodeApply):
     It is used to when data is written to CDF.
 
     Args:
-        space: The space where the node is located.
         external_id: The external id of the canvas annotation.
         id_: The unique identifier of the canvas annotation.
         annotation_type: The type of the annotation. Must be one of rectangle, ellipse, polyline, text or sticky.
@@ -208,7 +207,6 @@ class CanvasAnnotationApply(_CanvasAnnotationProperties, TypedNodeApply):
 
     def __init__(
         self,
-        space: str,
         external_id: str,
         *,
         id_: str,
@@ -221,7 +219,7 @@ class CanvasAnnotationApply(_CanvasAnnotationProperties, TypedNodeApply):
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
-        TypedNodeApply.__init__(self, space, external_id, existing_version, type)
+        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
         self.id_ = id_
         self.annotation_type = annotation_type
         self.container_id = container_id
@@ -286,7 +284,6 @@ class CanvasAnnotation(_CanvasAnnotationProperties, TypedNode):
 
     def as_write(self) -> CanvasAnnotationApply:
         return CanvasAnnotationApply(
-            self.space,
             self.external_id,
             id_=self.id_,
             annotation_type=self.annotation_type,
@@ -312,7 +309,6 @@ class CogniteSolutionTagApply(_CogniteSolutionTagProperties, TypedNodeApply):
     It is used to when data is written to CDF.
 
     Args:
-        space: The space where the node is located.
         external_id: The external id of the Cognite solution tag.
         name: Name of the solution tag/label
         description: Description of the solution tag/label
@@ -327,7 +323,6 @@ class CogniteSolutionTagApply(_CogniteSolutionTagProperties, TypedNodeApply):
 
     def __init__(
         self,
-        space: str,
         external_id: str,
         *,
         name: str,
@@ -336,7 +331,7 @@ class CogniteSolutionTagApply(_CogniteSolutionTagProperties, TypedNodeApply):
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
-        TypedNodeApply.__init__(self, space, external_id, existing_version, type)
+        TypedNodeApply.__init__(self, SOLUTION_TAG_SPACE, external_id, existing_version, type)
         self.name = name
         self.description = description
         self.color = color
@@ -385,7 +380,6 @@ class CogniteSolutionTag(_CogniteSolutionTagProperties, TypedNode):
 
     def as_write(self) -> CogniteSolutionTagApply:
         return CogniteSolutionTagApply(
-            self.space,
             self.external_id,
             name=self.name,
             description=self.description,
@@ -416,7 +410,6 @@ class ContainerReferenceApply(_ContainerReferenceProperties, TypedNodeApply):
     It is used to when data is written to CDF.
 
     Args:
-        space: The space where the node is located.
         external_id: The external id of the container reference.
         container_reference_type: The type of the container. Must be one of file, timeseries, asset, event, threeD
         resource_id: The ID of the CDF resource associated with the container.
@@ -442,7 +435,6 @@ class ContainerReferenceApply(_ContainerReferenceProperties, TypedNodeApply):
 
     def __init__(
         self,
-        space: str,
         external_id: str,
         *,
         container_reference_type: str,
@@ -461,7 +453,7 @@ class ContainerReferenceApply(_ContainerReferenceProperties, TypedNodeApply):
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
-        TypedNodeApply.__init__(self, space, external_id, existing_version, type)
+        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
         self.container_reference_type = container_reference_type
         self.resource_id = resource_id
         self.id_ = id_
@@ -551,7 +543,6 @@ class ContainerReference(_ContainerReferenceProperties, TypedNode):
 
     def as_write(self) -> ContainerReferenceApply:
         return ContainerReferenceApply(
-            self.space,
             self.external_id,
             container_reference_type=self.container_reference_type,
             resource_id=self.resource_id,
@@ -594,7 +585,6 @@ class FdmInstanceContainerReferenceApply(_FdmInstanceContainerReferencePropertie
     It is used to when data is written to CDF.
 
     Args:
-        space: The space where the node is located.
         external_id: The external id of the fdm instance container reference.
         container_reference_type: The container type of the FDM instance container. Must be 'fdmInstance'
         instance_external_id: The external ID of the instance
@@ -622,7 +612,6 @@ class FdmInstanceContainerReferenceApply(_FdmInstanceContainerReferencePropertie
 
     def __init__(
         self,
-        space: str,
         external_id: str,
         *,
         container_reference_type: str,
@@ -643,7 +632,7 @@ class FdmInstanceContainerReferenceApply(_FdmInstanceContainerReferencePropertie
         existing_version: int | None = None,
         type: DirectRelationReference | tuple[str, str] | None = None,
     ) -> None:
-        TypedNodeApply.__init__(self, space, external_id, existing_version, type)
+        TypedNodeApply.__init__(self, CANVAS_INSTANCE_SPACE, external_id, existing_version, type)
         self.container_reference_type = container_reference_type
         self.instance_external_id = instance_external_id
         self.instance_space = instance_space
@@ -741,7 +730,6 @@ class FdmInstanceContainerReference(_FdmInstanceContainerReferenceProperties, Ty
 
     def as_write(self) -> FdmInstanceContainerReferenceApply:
         return FdmInstanceContainerReferenceApply(
-            self.space,
             self.external_id,
             container_reference_type=self.container_reference_type,
             instance_external_id=self.instance_external_id,
