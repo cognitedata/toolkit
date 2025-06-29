@@ -11,6 +11,7 @@ from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     EdgeApply,
     InstanceApply,
+    Node,
     NodeApply,
     NodeListWithCursor,
     PropertyOptions,
@@ -922,6 +923,8 @@ class IndustrialCanvas:
             canvas = Canvas._load(canvas_resource)
         elif isinstance(canvas_resource, Canvas):
             canvas = canvas_resource
+        elif isinstance(canvas_resource, Node):
+            canvas = Canvas._load(canvas_resource.dump())
         else:
             raise TypeError(f"Canvas resource {type(canvas_resource)} is not supported.")
         return cls(
@@ -946,6 +949,9 @@ class IndustrialCanvas:
                     nodes.append(node_cls._load(node))  # type: ignore[arg-type]
                 elif isinstance(node, node_cls):
                     nodes.append(node)
+                elif isinstance(node, Node):
+                    # Bug in PySDK, node_cls._load returns an instance of T_Node
+                    nodes.append(node_cls._load(node.dump()))  # type: ignore[arg-type]
                 else:
                     raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(node).__name__}")
             return NodeListWithCursor[T_Node](
