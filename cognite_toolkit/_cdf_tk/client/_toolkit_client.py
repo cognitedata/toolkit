@@ -12,6 +12,7 @@ from .api.extended_raw import ExtendedRawAPI
 from .api.extended_timeseries import ExtendedTimeSeriesAPI
 from .api.location_filters import LocationFiltersAPI
 from .api.lookup import LookUpGroup
+from .api.migration import MigrationAPI
 from .api.robotics import RoboticsAPI
 from .api.verify import VerifyAPI
 
@@ -85,6 +86,7 @@ class ToolkitClient(CogniteClient):
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
         self.raw: ExtendedRawAPI = ExtendedRawAPI(self._config, self._API_VERSION, self)
+        self.migration = MigrationAPI(self.data_modeling.instances)
 
     @property
     def config(self) -> ToolkitClientConfig:
