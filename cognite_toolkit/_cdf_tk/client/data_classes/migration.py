@@ -18,17 +18,6 @@ class AssetCentricId(CogniteObject):
     resource_type: Literal["asset", "event", "file", "sequence", "timeseries"]
     id_: int
 
-    @property
-    def core_view_external_id(self) -> str:
-        if self.resource_type == "sequence":
-            raise ValueError("Sequences do not have a core view external ID.")
-        return {
-            "asset": "CogniteAsset",
-            "event": "CogniteActivity",
-            "file": "CogniteFile",
-            "timeseries": "CogniteTimeSeries",
-        }[self.resource_type]
-
     @classmethod
     def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AssetCentricId:
         """Load an AssetCentricId from a dictionary."""
@@ -108,3 +97,14 @@ class Mapping(_MappingProperties, TypedNode):
             resource_type=self.resource_type,
             id_=self.id_,
         )
+
+    @property
+    def default_core_view_external_id(self) -> str:
+        if self.resource_type == "sequence":
+            raise ValueError("Sequences do not have a core view external ID.")
+        return {
+            "asset": "CogniteAsset",
+            "event": "CogniteActivity",
+            "file": "CogniteFile",
+            "timeseries": "CogniteTimeSeries",
+        }[self.resource_type]
