@@ -45,6 +45,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ResourceWorker,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_WritableCogniteResourceList
+from cognite_toolkit._cdf_tk.loaders._worker import CategorizedResources
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning
 from cognite_toolkit._cdf_tk.tk_warnings.base import WarningList, catch_warnings
 from cognite_toolkit._cdf_tk.tk_warnings.other import (
@@ -261,7 +262,7 @@ class DeployCommand(ToolkitCommand):
             return None
 
         with catch_warnings(EnvironmentVariableMissingWarning) as env_var_warnings:
-            to_create, to_update, to_delete, unchanged = worker.prepare_resources(
+            resources = worker.prepare_resources(
                 files,
                 environment_variables=env_vars.dump(include_os=True),
                 is_dry_run=dry_run,
@@ -274,7 +275,7 @@ class DeployCommand(ToolkitCommand):
 
         # We are not counting to_delete as these are captured by to_create.
         # (to_delete is used for resources that does not support update and instead needs to be deleted and recreated)
-        nr_of_items = len(to_create) + len(to_update) + len(unchanged)
+        nr_of_items = len(resources.to_create) + len(resources.to_update) + len(resources.unchanged)
         if nr_of_items == 0:
             return ResourceDeployResult(name=loader.display_name)
 
@@ -288,19 +289,16 @@ class DeployCommand(ToolkitCommand):
 
         if dry_run:
             result = self.dry_run_deploy(
-                to_create,
-                to_update,
-                to_delete,
-                unchanged,
+                resources,
                 loader,
                 has_done_drop,
                 has_dropped_data,
             )
         else:
-            result = self.actual_deploy(to_create, to_update, to_delete, unchanged, loader, env_var_warnings)
+            result = self.actual_deploy(resources, loader, env_var_warnings)
 
         if verbose:
-            self._verbose_print(to_create, to_update, unchanged, loader, dry_run)
+            self._verbose_print(resources, loader, dry_run)
 
         if isinstance(loader, ResourceContainerLoader):
             return ResourceContainerDeployResult.from_resource_deploy_result(
@@ -311,10 +309,7 @@ class DeployCommand(ToolkitCommand):
 
     def actual_deploy(
         self,
-        to_create: T_CogniteResourceList,
-        to_update: T_CogniteResourceList,
-        to_delete: list[T_ID],
-        unchanged: T_CogniteResourceList,
+        resources: CategorizedResources[T_ID, T_CogniteResourceList],
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
@@ -326,16 +321,16 @@ class DeployCommand(ToolkitCommand):
             if isinstance(warning, EnvironmentVariableMissingWarning)
             for identifier in warning.identifiers or []
         }
-        nr_of_unchanged = len(unchanged)
+        nr_of_unchanged = len(resources.unchanged)
         nr_of_deleted, nr_of_created, nr_of_changed = 0, 0, 0
-        if to_delete:
-            deleted = loader.delete(to_delete)
+        if resources.to_delete:
+            deleted = loader.delete(resources.to_delete)
             nr_of_deleted += deleted
-        if to_create:
-            created = self._create_resources(to_create, loader, environment_variable_warning_by_id)
+        if resources.to_create:
+            created = self._create_resources(resources.to_create, loader, environment_variable_warning_by_id)
             nr_of_created += created
-        if to_update:
-            updated = self._update_resources(to_update, loader, environment_variable_warning_by_id)
+        if resources.to_update:
+            updated = self._update_resources(resources.to_update, loader, environment_variable_warning_by_id)
             nr_of_changed += updated
         return ResourceDeployResult(
             name=loader.display_name,
@@ -348,10 +343,7 @@ class DeployCommand(ToolkitCommand):
 
     @staticmethod
     def dry_run_deploy(
-        to_create: T_CogniteResourceList,
-        to_update: T_CogniteResourceList,
-        to_delete: list[T_ID],
-        unchanged: T_CogniteResourceList,
+        resources: CategorizedResources[T_ID, T_CogniteResourceList],
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
@@ -364,39 +356,40 @@ class DeployCommand(ToolkitCommand):
             and (not isinstance(loader, ResourceContainerLoader) or has_dropped_data)
         ):
             # Means the resources will be deleted and not left unchanged or changed
-            for item in unchanged:
+            for item in resources.unchanged:
                 # We cannot use extents as LoadableNodes cannot be extended.
-                to_create.append(item)
-            for item in to_update:
-                to_create.append(item)
-            unchanged.clear()
-            to_update.clear()
+                resources.to_create.append(item)
+            for item in resources.to_update:
+                resources.to_create.append(item)
+            resources.unchanged.clear()
+            resources.to_update.clear()
         return ResourceDeployResult(
             name=loader.display_name,
-            created=len(to_create),
-            deleted=len(to_delete),
-            changed=len(to_update),
-            unchanged=len(unchanged),
-            total=len(to_create) + len(to_delete) + len(to_update) + len(unchanged),
+            created=len(resources.to_create),
+            deleted=len(resources.to_delete),
+            changed=len(resources.to_update),
+            unchanged=len(resources.unchanged),
+            total=len(resources.to_create)
+            + len(resources.to_delete)
+            + len(resources.to_update)
+            + len(resources.unchanged),
         )
 
     @staticmethod
     def _verbose_print(
-        to_create: T_CogniteResourceList,
-        to_update: T_CogniteResourceList,
-        unchanged: T_CogniteResourceList,
+        resources: CategorizedResources[T_ID, T_CogniteResourceList],
         loader: ResourceLoader,
         dry_run: bool,
     ) -> None:
         print_outs = []
         prefix = "Would have " if dry_run else ""
-        if to_create:
-            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(to_create), limit=20)}")
-        if to_update:
-            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(to_update), limit=20)}")
-        if unchanged:
+        if resources.to_create:
+            print_outs.append(f"{prefix}Created {_print_ids_or_length(loader.get_ids(resources.to_create), limit=20)}")
+        if resources.to_update:
+            print_outs.append(f"{prefix}Updated {_print_ids_or_length(loader.get_ids(resources.to_update), limit=20)}")
+        if resources.unchanged:
             print_outs.append(
-                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(unchanged), limit=5)}"
+                f"{'Untouched' if dry_run else 'Unchanged'} {_print_ids_or_length(loader.get_ids(resources.unchanged), limit=5)}"
             )
         prefix_message = f" {loader.display_name}: "
         if len(print_outs) == 1:
