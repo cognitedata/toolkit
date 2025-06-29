@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReference,
     FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
     IndustrialCanvasApply,
 )
 from tests.test_unit.utils import FakeCogniteResourceGenerator
@@ -134,3 +135,10 @@ class TestIndustrialCanvasDataClass:
         overlapping_ids = original_ids.intersection(backup_ids)
         solution_tags_ids = {tag.as_id() for tag in instance.solution_tags}
         assert solution_tags_ids == overlapping_ids, "Expected overlapping IDs to be solution tags IDs only"
+
+    def test_dump_load(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvas)
+        dumped = instance.dump()
+        reloaded = IndustrialCanvas.load(dumped)
+
+        assert reloaded.dump() == instance.dump(), "Failed to reload IndustrialCanvas."
