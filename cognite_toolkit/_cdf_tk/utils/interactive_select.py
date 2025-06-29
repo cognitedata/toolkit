@@ -1,5 +1,8 @@
 from abc import abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass
 from functools import lru_cache
+from typing import ClassVar, Literal
 
 import questionary
 from cognite.client.data_classes import (
@@ -11,9 +14,13 @@ from cognite.client.data_classes import (
     EventFilter,
     FileMetadataFilter,
     TimeSeriesFilter,
+    filters,
 )
+from cognite.client.data_classes.data_modeling import NodeList
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.canvas import Canvas
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
 
 
 class AssetCentricInteractiveSelect:
@@ -153,3 +160,90 @@ class EventInteractiveSelect(AssetCentricInteractiveSelect):
                 asset_subtree_ids=[{"externalId": item} for item in hierarchies] or None,
             )
         )
+
+
+@dataclass
+class CanvasFilter:
+    visibility: Literal["public", "private"] | None = None
+    created_by: Literal["user"] | None = None
+    select_all: bool = False
+
+    def as_dms_filter(self) -> filters.Filter:
+        canvas_id = Canvas.get_source()
+        leaf_filters: list[filters.Filter] = [
+            filters.Not(filters.Equals(canvas_id.as_property_ref("isArchived"), True)),
+            # When sourceCanvasId is not set, we get the newest version of the canvas
+            filters.Not(filters.Exists(canvas_id.as_property_ref("sourceCanvasId"))),
+        ]
+        if self.visibility is not None:
+            leaf_filters.append(filters.Equals(canvas_id.as_property_ref("visibility"), self.visibility))
+
+        return filters.And(*leaf_filters)
+
+
+class InteractiveCanvasSelect:
+    opening_choices: ClassVar[list[questionary.Choice]] = [
+        questionary.Choice(title="All public Canvases", value=CanvasFilter(visibility="public", select_all=True)),
+        questionary.Choice(title="Selected public Canvases", value=CanvasFilter(visibility="public", select_all=False)),
+        questionary.Choice(title="All by given user", value=CanvasFilter(created_by="user", select_all=True)),
+        questionary.Choice(title="Selected by given user", value=CanvasFilter(created_by="user", select_all=False)),
+        questionary.Choice(title="All Canvases", value=CanvasFilter(visibility=None, select_all=True)),
+    ]
+
+    def __init__(self, client: ToolkitClient) -> None:
+        self.client = client
+
+    def select_external_ids(self) -> list[str]:
+        select_filter = self._select_filter()
+
+        return self._select_external_ids(select_filter)
+
+    @classmethod
+    def _select_filter(cls) -> CanvasFilter:
+        user_response = questionary.select(
+            "Which Canvases do you want to select?",
+            choices=cls.opening_choices,
+        ).ask()
+        if user_response is None:
+            raise ToolkitValueError("No Canvas selection made. Aborting.")
+        return user_response
+
+    def _select_external_ids(self, select_filter: CanvasFilter) -> list[str]:
+        available_canvases = self.client.canvas.list(filter=select_filter.as_dms_filter(), limit=-1)
+        if select_filter.select_all and select_filter.created_by is None:
+            return [canvas.external_id for canvas in available_canvases]
+        users = self.client.iam.user_profiles.list(limit=-1)
+        display_name_by_user_identifier = {user.user_identifier: user.display_name or "missing" for user in users}
+        if select_filter.created_by == "user":
+            canvas_by_user: dict[str, list[Canvas]] = defaultdict(list)
+            for canvas in available_canvases:
+                canvas_by_user[canvas.created_by].append(canvas)
+
+            user_response = questionary.select(
+                "Which user do you want to select Canvases for?",
+                choices=[
+                    questionary.Choice(
+                        title=f"{user.display_name} ({user.user_identifier})",
+                        value=canvas_by_user[user.user_identifier],
+                    )
+                    for user in users
+                    if user.user_identifier in canvas_by_user
+                ],
+            ).ask()
+            available_canvases = NodeList[Canvas](user_response)
+
+        if select_filter.select_all:
+            return [canvas.external_id for canvas in available_canvases]
+
+        selected_canvases = questionary.checkbox(
+            "Select Canvases",
+            choices=[
+                questionary.Choice(
+                    title=f"{canvas.name} (Created by {display_name_by_user_identifier[canvas.created_by]!r}, last updated {canvas.updated_at!r})",
+                    value=canvas.external_id,
+                )
+                for canvas in available_canvases
+            ],
+        ).ask()
+
+        return selected_canvases or []
