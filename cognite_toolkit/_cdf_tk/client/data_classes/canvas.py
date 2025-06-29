@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -13,6 +14,7 @@ from cognite.client.data_classes.data_modeling.instances import (
     NodeApply,
     NodeListWithCursor,
     PropertyOptions,
+    T_Node,
     TypedNode,
     TypedNodeApply,
 )
@@ -910,6 +912,33 @@ class IndustrialCanvas:
             FdmInstanceContainerReference
         ]([], None)
         self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
+
+    @classmethod
+    def load(cls, resource: dict[str, object]) -> "IndustrialCanvas":
+        """Load an IndustrialCanvas instance from a QueryResult."""
+        if not ("canvas" in resource and isinstance(resource["canvas"], Sequence) and len(resource["canvas"]) == 1):
+            raise ValueError("Resource does not contain a canvas node.")
+        canvas = Canvas._load(resource["canvas"][0].dump())
+        return cls(
+            canvas=canvas,
+            annotations=cls._load_items(resource.get("annotations"), CanvasAnnotation),
+            container_references=cls._load_items(resource.get("containerReferences"), ContainerReference),
+            fdm_instance_container_references=cls._load_items(
+                resource.get("fdmInstanceContainerReferences"), FdmInstanceContainerReference
+            ),
+            solution_tags=cls._load_items(resource.get("solutionTags"), CogniteSolutionTag),
+        )
+
+    @classmethod
+    def _load_items(cls, items: object | None, node_cls: type[T_Node]) -> NodeListWithCursor[T_Node]:
+        if items is None:
+            return NodeListWithCursor[T_Node]([], None)
+        elif isinstance(items, Sequence):
+            return NodeListWithCursor[T_Node](
+                [node_cls._load(node.dump()) for node in items],
+                items.cursor if isinstance(items, NodeListWithCursor) else None,
+            )
+        raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(items).__name__}")
 
     def dump(self) -> dict[str, object]:
         """Dump the IndustrialCanvas to a dictionary."""
