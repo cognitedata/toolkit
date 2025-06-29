@@ -1,5 +1,4 @@
 from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl, DataModelsAcl, SpaceIDScope
-from cognite.client.exceptions import CogniteAPIError
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
@@ -8,10 +7,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReferenceApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.migration import Mapping, AssetCentricId
+from cognite_toolkit._cdf_tk.client.data_classes.migration import AssetCentricId, Mapping
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.exceptions import AuthenticationError, ToolkitMigrationError
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.interactive_select import InteractiveCanvasSelect
 
@@ -126,4 +125,26 @@ class MigrationCanvasCommand(ToolkitCommand):
         self, reference: ContainerReferenceApply, mapping_by_reference_id: dict[AssetCentricId, Mapping]
     ) -> FdmInstanceContainerReferenceApply:
         """Migrate a single container reference by replacing the asset-centric ID with the data model instance ID."""
-        raise NotImplementedError()
+        asset_centric_id = reference.as_asset_centric_id()
+        mapping = mapping_by_reference_id[asset_centric_id]
+        return FdmInstanceContainerReferenceApply(
+            external_id=reference.external_id,
+            id_=reference.id_,
+            container_reference_type="fdmInstance",
+            instance_space=mapping.space,
+            instance_external_id=mapping.external_id,
+            # For now, we just map into CogniteCore. Ideally, we should map to an extension view
+            # as that is likely what the user wants. However, this requires us to store which view to use for
+            # each instance
+            view_space="cdf_cdm",
+            view_external_id=asset_centric_id.core_view_external_id,
+            view_version="v1",
+            label=reference.label,
+            properties_=reference.properties_,
+            x=reference.x,
+            y=reference.y,
+            width=reference.width,
+            height=reference.height,
+            max_width=reference.max_width,
+            max_height=reference.max_height,
+        )

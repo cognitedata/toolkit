@@ -485,6 +485,16 @@ class ContainerReferenceApply(_ContainerReferenceProperties, TypedNodeApply):
         self.max_width = max_width
         self.max_height = max_height
 
+    def as_asset_centric_id(self) -> AssetCentricId:
+        if self.container_reference_type not in {"asset", "event", "file", "sequence", "timeseries"}:
+            raise ValueError(
+                f"Cannot convert ContainerReference of type {self.container_reference_type} to AssetCentricId."
+            )
+        return AssetCentricId(
+            resource_type=self.container_reference_type,
+            id_=self.resource_id,
+        )
+
 
 class ContainerReference(_ContainerReferenceProperties, TypedNode):
     """This represents the reading format of container reference.
