@@ -1,15 +1,34 @@
 from datetime import datetime
 
-from cognite.client.data_classes.data_modeling import DirectRelationReference
+from cognite.client.data_classes.data_modeling import (
+    DirectRelationReference,
+    EdgeId,
+    NodeId,
+    filters,
+    query,
+)
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
+    EdgeApply,
+    InstanceApply,
+    Node,
+    NodeApply,
+    NodeListWithCursor,
     PropertyOptions,
+    T_Node,
     TypedNode,
     TypedNodeApply,
 )
+from cognite.client.data_classes.data_modeling.query import QueryResult
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
+CANVAS_SCHEMA_SPACE = "cdf_industrial_canvas"
+ANNOTATION_EDGE_TYPE = DirectRelationReference(CANVAS_SCHEMA_SPACE, "referencesCanvasAnnotation")
+CONTAINER_REFERENCE_EDGE_TYPE = DirectRelationReference(CANVAS_SCHEMA_SPACE, "referencesContainerReference")
+FDM_CONTAINER_REFERENCE_EDGE_TYPE = DirectRelationReference(
+    CANVAS_SCHEMA_SPACE, "referencesFdmInstanceContainerReference"
+)
 
 
 class _CanvasProperties:
@@ -748,4 +767,222 @@ class FdmInstanceContainerReference(_FdmInstanceContainerReferenceProperties, Ty
             max_height=self.max_height,
             existing_version=self.version,
             type=self.type,
+        )
+
+
+class IndustrialCanvasApply:
+    """This class represents the writing format of IndustrialCanvas.
+    It is used to when data is written to CDF.
+    Args:
+        canvas: The Canvas object.
+        annotations: A list of CanvasAnnotation objects.
+        container_references: A list of ContainerReference objects.
+        fdm_instance_container_references: A list of FdmInstanceContainerReference objects.
+        solution_tags: A list of CogniteSolutionTag objects.
+    """
+
+    def __init__(
+        self,
+        canvas: CanvasApply,
+        annotations: list[CanvasAnnotationApply] | None = None,
+        container_references: list[ContainerReferenceApply] | None = None,
+        fdm_instance_container_references: list[FdmInstanceContainerReferenceApply] | None = None,
+        solution_tags: list[CogniteSolutionTagApply] | None = None,
+    ) -> None:
+        self.canvas = canvas
+        self.annotations: list[CanvasAnnotationApply] = annotations or []
+        self.container_references: list[ContainerReferenceApply] = container_references or []
+        self.fdm_instance_container_references: list[FdmInstanceContainerReferenceApply] = (
+            fdm_instance_container_references or []
+        )
+        self.solution_tags: list[CogniteSolutionTagApply] = solution_tags or []
+
+    def as_instances(self) -> list[InstanceApply]:
+        """Convert the IndustrialCanvasApply to a list of InstanceApply objects."""
+        instances: list[InstanceApply] = [self.canvas]
+        instances.extend(self.annotations)
+        instances.extend(self.container_references)
+        instances.extend(self.fdm_instance_container_references)
+        instances.extend(self.solution_tags)
+        for items, edge_type in [
+            (self.annotations, ANNOTATION_EDGE_TYPE),
+            (self.container_references, CONTAINER_REFERENCE_EDGE_TYPE),
+            (self.fdm_instance_container_references, FDM_CONTAINER_REFERENCE_EDGE_TYPE),
+        ]:
+            # MyPy does not recognize that items is a list of TypedNodeApply
+            for item in items:  # type: ignore[attr-defined]
+                instances.append(
+                    EdgeApply(
+                        space=CANVAS_INSTANCE_SPACE,
+                        external_id=f"{self.canvas.external_id}_{item.external_id}",
+                        start_node=DirectRelationReference(
+                            space=self.canvas.space, external_id=self.canvas.external_id
+                        ),
+                        end_node=DirectRelationReference(space=item.space, external_id=item.external_id),
+                        type=edge_type,
+                    )
+                )
+
+        return instances
+
+    def as_id(self) -> str:
+        return self.canvas.external_id
+
+    def as_instance_ids(self, include_solution_tags: bool = False) -> list[NodeId | EdgeId]:
+        """Return a list of IDs for the instances in the IndustrialCanvasApply."""
+        instances = self.as_instances()
+        ids: list[NodeId | EdgeId] = []
+        for instance in instances:
+            if isinstance(instance, NodeApply):
+                if include_solution_tags or not isinstance(instance, CogniteSolutionTagApply):
+                    ids.append(NodeId(instance.space, instance.external_id))
+            elif isinstance(instance, EdgeApply):
+                ids.append(EdgeId(instance.space, instance.external_id))
+
+            else:
+                raise TypeError(f"Unexpected instance type: {type(instance)}")
+        return ids
+
+    def dump(self, exclude_existing_version: bool = False) -> dict[str, object]:
+        """Dump the IndustrialCanvasApply to a dictionary."""
+        output: dict[str, object] = {
+            "canvas": self.canvas.dump(),
+            "annotations": [annotation.dump() for annotation in self.annotations],
+            "containerReferences": [container_ref.dump() for container_ref in self.container_references],
+            "fdmInstanceContainerReferences": [
+                fdm_instance_container_ref.dump()
+                for fdm_instance_container_ref in self.fdm_instance_container_references
+            ],
+            "solutionTags": [solution_tag.dump() for solution_tag in self.solution_tags],
+        }
+        if exclude_existing_version:
+            for key in list(output.keys()):
+                value = output[key]
+                if isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict) and "existingVersion" in item:
+                            del item["existingVersion"]
+                elif isinstance(value, dict) and "existingVersion" in value:
+                    del value["existingVersion"]
+        return output
+
+
+class IndustrialCanvas:
+    """This class represents one instances of the Canvas with all connected data."""
+
+    def __init__(
+        self,
+        canvas: Canvas,
+        annotations: NodeListWithCursor[CanvasAnnotation] | None = None,
+        container_references: NodeListWithCursor[ContainerReference] | None = None,
+        fdm_instance_container_references: NodeListWithCursor[FdmInstanceContainerReference] | None = None,
+        solution_tags: NodeListWithCursor[CogniteSolutionTag] | None = None,
+    ) -> None:
+        self.canvas = canvas
+        self.annotations = annotations or NodeListWithCursor[CanvasAnnotation]([], None)
+        self.container_references = container_references or NodeListWithCursor[ContainerReference]([], None)
+        self.fdm_instance_container_references = fdm_instance_container_references or NodeListWithCursor[
+            FdmInstanceContainerReference
+        ]([], None)
+        self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
+
+    @classmethod
+    def _load(cls, result: QueryResult) -> "IndustrialCanvas":
+        """Load an IndustrialCanvas instance from a QueryResult."""
+        if not ("canvas" in result and isinstance(result["canvas"], NodeListWithCursor) and len(result["canvas"]) == 1):
+            raise ValueError("QueryResult does not contain a canvas node.")
+        canvas = Canvas._load(result["canvas"][0].dump())
+        return cls(
+            canvas=canvas,
+            annotations=cls._load_items(result.get("annotations"), CanvasAnnotation),
+            container_references=cls._load_items(result.get("containerReferences"), ContainerReference),
+            fdm_instance_container_references=cls._load_items(
+                result.get("fdmInstanceContainerReferences"), FdmInstanceContainerReference
+            ),
+            solution_tags=cls._load_items(result.get("solutionTags"), CogniteSolutionTag),
+        )
+
+    @classmethod
+    def _load_items(
+        cls, response: NodeListWithCursor[Node] | None, node_cls: type[T_Node]
+    ) -> NodeListWithCursor[T_Node]:
+        if response is None:
+            return NodeListWithCursor[T_Node]([], None)
+        return NodeListWithCursor[T_Node]([node_cls._load(node.dump()) for node in response], response.cursor)
+
+    @classmethod
+    def _retrieve_query(cls, external_id: str) -> query.Query:
+        return query.Query(
+            with_={
+                "canvas": query.NodeResultSetExpression(
+                    filter=filters.InstanceReferences([(CANVAS_INSTANCE_SPACE, external_id)]),
+                    limit=1,
+                ),
+                "solutionTags": query.NodeResultSetExpression(
+                    from_="canvas",
+                    through=Canvas.get_source().as_property_ref("solutionTags"),
+                ),
+                "annotationEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(["edge", "type"], ANNOTATION_EDGE_TYPE.dump()),
+                    node_filter=filters.HasData(views=[CanvasAnnotation.get_source()]),
+                    direction="outwards",
+                ),
+                "containerReferenceEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(["edge", "type"], CONTAINER_REFERENCE_EDGE_TYPE.dump()),
+                    node_filter=filters.HasData(views=[ContainerReference.get_source()]),
+                    direction="outwards",
+                ),
+                "fdmInstanceContainerReferenceEdges": query.EdgeResultSetExpression(
+                    from_="canvas",
+                    filter=filters.Equals(
+                        ["edge", "type"],
+                        FDM_CONTAINER_REFERENCE_EDGE_TYPE.dump(),
+                    ),
+                    node_filter=filters.HasData(views=[FdmInstanceContainerReference.get_source()]),
+                    direction="outwards",
+                ),
+                "annotations": query.NodeResultSetExpression(from_="annotationEdges"),
+                "containerReferences": query.NodeResultSetExpression(from_="containerReferenceEdges"),
+                "fdmInstanceContainerReferences": query.NodeResultSetExpression(
+                    from_="fdmInstanceContainerReferenceEdges"
+                ),
+            },
+            select={
+                "canvas": query.Select([query.SourceSelector(Canvas.get_source(), properties=["*"])]),
+                "solutionTags": query.Select([query.SourceSelector(CogniteSolutionTag.get_source(), properties=["*"])]),
+                "annotations": query.Select([query.SourceSelector(CanvasAnnotation.get_source(), properties=["*"])]),
+                "containerReferences": query.Select(
+                    [query.SourceSelector(ContainerReference.get_source(), properties=["*"])]
+                ),
+                "fdmInstanceContainerReferences": query.Select(
+                    [query.SourceSelector(FdmInstanceContainerReference.get_source(), properties=["*"])]
+                ),
+            },
+        )
+
+    def dump(self) -> dict[str, object]:
+        """Dump the IndustrialCanvas to a dictionary."""
+        return {
+            "canvas": self.canvas.dump(),
+            "annotations": [annotation.dump() for annotation in self.annotations],
+            "containerReferences": [container_ref.dump() for container_ref in self.container_references],
+            "fdmInstanceContainerReferences": [
+                fdm_instance_container_ref.dump()
+                for fdm_instance_container_ref in self.fdm_instance_container_references
+            ],
+            "solutionTags": [solution_tag.dump() for solution_tag in self.solution_tags],
+        }
+
+    def as_write(self) -> "IndustrialCanvasApply":
+        return IndustrialCanvasApply(
+            canvas=self.canvas.as_write(),
+            annotations=[annotation.as_write() for annotation in self.annotations],
+            container_references=[container_ref.as_write() for container_ref in self.container_references],
+            fdm_instance_container_references=[
+                fdm_instance_container_ref.as_write()
+                for fdm_instance_container_ref in self.fdm_instance_container_references
+            ],
+            solution_tags=[solution_tag.as_write() for solution_tag in self.solution_tags],
         )
