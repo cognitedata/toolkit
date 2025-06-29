@@ -93,9 +93,11 @@ class IndustrialCanvasAPI:
         self._validate_instance_count(len(instances))
         return self._instance_api.apply_fast(instances)
 
-    def retrieve(self, external_id: str) -> IndustrialCanvas:
+    def retrieve(self, external_id: str) -> IndustrialCanvas | None:
         retrieve_query = self._retrieve_query(external_id)
         result = self._instance_api.query(retrieve_query)
+        if len(result["canvas"]) == 0:
+            return None
         return IndustrialCanvas.load(result)
 
     def update(self, canvas: IndustrialCanvasApply) -> InstancesApplyResultList:
