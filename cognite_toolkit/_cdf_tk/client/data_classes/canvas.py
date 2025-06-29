@@ -5,22 +5,17 @@ from cognite.client.data_classes.data_modeling import (
     DirectRelationReference,
     EdgeId,
     NodeId,
-    filters,
-    query,
 )
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.instances import (
     EdgeApply,
     InstanceApply,
-    Node,
     NodeApply,
     NodeListWithCursor,
     PropertyOptions,
-    T_Node,
     TypedNode,
     TypedNodeApply,
 )
-from cognite.client.data_classes.data_modeling.query import QueryResult
 
 CANVAS_INSTANCE_SPACE = "IndustrialCanvasInstanceSpace"
 SOLUTION_TAG_SPACE = "SolutionTagsInstanceSpace"
@@ -915,82 +910,6 @@ class IndustrialCanvas:
             FdmInstanceContainerReference
         ]([], None)
         self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
-
-    @classmethod
-    def _load(cls, result: QueryResult) -> "IndustrialCanvas":
-        """Load an IndustrialCanvas instance from a QueryResult."""
-        if not ("canvas" in result and isinstance(result["canvas"], NodeListWithCursor) and len(result["canvas"]) == 1):
-            raise ValueError("QueryResult does not contain a canvas node.")
-        canvas = Canvas._load(result["canvas"][0].dump())
-        return cls(
-            canvas=canvas,
-            annotations=cls._load_items(result.get("annotations"), CanvasAnnotation),
-            container_references=cls._load_items(result.get("containerReferences"), ContainerReference),
-            fdm_instance_container_references=cls._load_items(
-                result.get("fdmInstanceContainerReferences"), FdmInstanceContainerReference
-            ),
-            solution_tags=cls._load_items(result.get("solutionTags"), CogniteSolutionTag),
-        )
-
-    @classmethod
-    def _load_items(
-        cls, response: NodeListWithCursor[Node] | None, node_cls: type[T_Node]
-    ) -> NodeListWithCursor[T_Node]:
-        if response is None:
-            return NodeListWithCursor[T_Node]([], None)
-        return NodeListWithCursor[T_Node]([node_cls._load(node.dump()) for node in response], response.cursor)
-
-    @classmethod
-    def _retrieve_query(cls, external_id: str) -> query.Query:
-        return query.Query(
-            with_={
-                "canvas": query.NodeResultSetExpression(
-                    filter=filters.InstanceReferences([(CANVAS_INSTANCE_SPACE, external_id)]),
-                    limit=1,
-                ),
-                "solutionTags": query.NodeResultSetExpression(
-                    from_="canvas",
-                    through=Canvas.get_source().as_property_ref("solutionTags"),
-                ),
-                "annotationEdges": query.EdgeResultSetExpression(
-                    from_="canvas",
-                    filter=filters.Equals(["edge", "type"], ANNOTATION_EDGE_TYPE.dump()),
-                    node_filter=filters.HasData(views=[CanvasAnnotation.get_source()]),
-                    direction="outwards",
-                ),
-                "containerReferenceEdges": query.EdgeResultSetExpression(
-                    from_="canvas",
-                    filter=filters.Equals(["edge", "type"], CONTAINER_REFERENCE_EDGE_TYPE.dump()),
-                    node_filter=filters.HasData(views=[ContainerReference.get_source()]),
-                    direction="outwards",
-                ),
-                "fdmInstanceContainerReferenceEdges": query.EdgeResultSetExpression(
-                    from_="canvas",
-                    filter=filters.Equals(
-                        ["edge", "type"],
-                        FDM_CONTAINER_REFERENCE_EDGE_TYPE.dump(),
-                    ),
-                    node_filter=filters.HasData(views=[FdmInstanceContainerReference.get_source()]),
-                    direction="outwards",
-                ),
-                "annotations": query.NodeResultSetExpression(from_="annotationEdges"),
-                "containerReferences": query.NodeResultSetExpression(from_="containerReferenceEdges"),
-                "fdmInstanceContainerReferences": query.NodeResultSetExpression(
-                    from_="fdmInstanceContainerReferenceEdges"
-                ),
-            },
-            select={
-                "canvas": query.Select([query.SourceSelector(Canvas.get_source(), properties=["*"])]),
-                "solutionTags": query.Select([query.SourceSelector(CogniteSolutionTag.get_source(), properties=["*"])]),
-                "annotations": query.Select([query.SourceSelector(CanvasAnnotation.get_source(), properties=["*"])]),
-                "containerReferences": query.Select(
-                    [query.SourceSelector(ContainerReference.get_source(), properties=["*"])]
-                ),
-                "fdmInstanceContainerReferences": query.Select(
-                    [query.SourceSelector(FdmInstanceContainerReference.get_source(), properties=["*"])]
-                ),
-            },
-        )
 
     def dump(self) -> dict[str, object]:
         """Dump the IndustrialCanvas to a dictionary."""
