@@ -19,6 +19,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReference,
     FdmInstanceContainerReferenceApply,
+    IndustrialCanvasApply,
 )
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -115,3 +116,21 @@ class TestCanvasAPI:
             "sort": None,
             "filter": None,
         }
+
+
+class TestIndustrialCanvasDataClass:
+    def test_create_backup(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
+
+        backup = instance.create_backup()
+
+        original_ids = set(instance.as_instance_ids(include_solution_tags=False))
+        backup_ids = set(backup.as_instance_ids(include_solution_tags=False))
+        overlapping_ids = original_ids.intersection(backup_ids)
+        assert not overlapping_ids
+
+        original_ids = set(instance.as_instance_ids(include_solution_tags=True))
+        backup_ids = set(backup.as_instance_ids(include_solution_tags=True))
+        overlapping_ids = original_ids.intersection(backup_ids)
+        solution_tags_ids = {tag.as_id() for tag in instance.solution_tags}
+        assert solution_tags_ids == overlapping_ids, "Expected overlapping IDs to be solution tags IDs only"
