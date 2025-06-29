@@ -77,10 +77,13 @@ class MigrationCanvasCommand(ToolkitCommand):
         if canvas is None:
             self.warn(MediumSeverityWarning(f"Canvas with external ID '{external_id}' not found. Skipping.. "))
             return
-        if any(
-            ref.container_reference_type in {"asset", "event", "file", "timeseries"}
-            for ref in canvas.container_references
-        ):
+        update = canvas.as_write()
+        to_migrate = [
+            ref
+            for ref in update.container_references
+            if ref.container_reference_type in {"asset", "event", "file", "timeseries"}
+        ]
+        if not to_migrate:
             self.warn(
                 LowSeverityWarning(
                     f"Canvas with name '{canvas.canvas.name}' does not have any asset-centric references. Skipping.. "
@@ -88,11 +91,7 @@ class MigrationCanvasCommand(ToolkitCommand):
             )
         if verbose:
             self.console(f"Found canvas: {canvas.canvas.name}")
-        reference_ids = [
-            ref.as_asset_centric_id()
-            for ref in canvas.container_references
-            if ref.container_reference_type in {"asset", "event", "file", "timeseries"}
-        ]
+        reference_ids = [ref.as_asset_centric_id() for ref in to_migrate]
         mappings = client.migration.mapping.retrieve(reference_ids)
         mapping_by_reference_id = {mapping.as_asset_centric_id(): mapping for mapping in mappings}
         missing = set(reference_ids) - set(mapping_by_reference_id.keys())
@@ -113,12 +112,7 @@ class MigrationCanvasCommand(ToolkitCommand):
                 f"Migrating canvas '{canvas.canvas.name}' with {len(mappings)} references to asset-centric resources."
             )
         backup = canvas.as_write().create_backup()
-        update = canvas.as_write()
-        to_migrate = [
-            ref
-            for ref in update.container_references
-            if ref.container_reference_type in {"asset", "event", "file", "timeseries"}
-        ]
+
         update.container_references = [
             ref
             for ref in update.container_references
