@@ -222,9 +222,9 @@ class EnvironmentVariables:
         )
 
     def get_token(self) -> Token:
-        if not self.TOKEN:
+        if not self.CDF_TOKEN:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
-        return Token(self.TOKEN)
+        return Token(self.CDF_TOKEN)
 
     def get_client(self) -> ToolkitClient:
         config = ToolkitClientConfig(
@@ -289,7 +289,7 @@ def _prompt_user() -> EnvironmentVariables:
     variables.LOGIN_FLOW = login_flow  # type: ignore[assignment]
     if login_flow == "token":
         token = Prompt.ask("Enter token")
-        variables.TOKEN = token
+        variables.CDF_TOKEN = token
         return variables
 
     variables.IDP_CLIENT_ID = Prompt.ask("Enter IDP Client ID")
