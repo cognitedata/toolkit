@@ -836,7 +836,6 @@ class IndustrialCanvasApply:
                     ids.append(NodeId(instance.space, instance.external_id))
             elif isinstance(instance, EdgeApply):
                 ids.append(EdgeId(instance.space, instance.external_id))
-
             else:
                 raise TypeError(f"Unexpected instance type: {type(instance)}")
         return ids
