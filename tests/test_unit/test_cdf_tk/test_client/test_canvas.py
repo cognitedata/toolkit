@@ -142,3 +142,44 @@ class TestIndustrialCanvasDataClass:
         reloaded = IndustrialCanvas.load(dumped)
 
         assert reloaded.dump() == instance.dump(), "Failed to reload IndustrialCanvas."
+
+    def test_as_instances(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
+
+        node_or_edges = instance.as_instances()
+
+        # 1 canvas + solution tags + 2 x (rest - one for node and one for edge connecting canvas to node)
+        expected_instance_count = (
+            1
+            + len(instance.solution_tags)
+            + 2
+            * (
+                len(instance.container_references)
+                + len(instance.fdm_instance_container_references)
+                + len(instance.annotations)
+            )
+        )
+        assert len(node_or_edges) == expected_instance_count
+
+        assert len(instance.solution_tags) > 0, "Expected solution tags to be present in the instance."
+        assert len(instance.as_instance_ids(include_solution_tags=False)) == expected_instance_count - len(
+            instance.solution_tags
+        )
+        assert len(instance.as_instance_ids(include_solution_tags=True)) == expected_instance_count
+        assert instance.as_id() == instance.canvas.external_id
+
+    def test_as_write(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvas)
+        write_instances = instance.as_write()
+
+        assert isinstance(write_instances, IndustrialCanvasApply)
+
+        assert write_instances.canvas.external_id == instance.canvas.external_id
+        assert len(write_instances.container_references) == len(instance.container_references) > 0
+        assert (
+            len(write_instances.fdm_instance_container_references)
+            == len(instance.fdm_instance_container_references)
+            > 0
+        )
+        assert len(write_instances.annotations) == len(instance.annotations) > 0
+        assert len(write_instances.solution_tags) == len(instance.solution_tags) > 0
