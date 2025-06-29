@@ -914,11 +914,17 @@ class IndustrialCanvas:
         self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
 
     @classmethod
-    def load(cls, resource: dict[str, object]) -> "IndustrialCanvas":
+    def load(cls, resource: dict[str, list]) -> "IndustrialCanvas":
         """Load an IndustrialCanvas instance from a QueryResult."""
         if not ("canvas" in resource and isinstance(resource["canvas"], Sequence) and len(resource["canvas"]) == 1):
             raise ValueError("Resource does not contain a canvas node.")
-        canvas = Canvas._load(resource["canvas"][0].dump())
+        canvas_resource = resource["canvas"][0]
+        if isinstance(canvas_resource, dict):
+            canvas = Canvas._load(canvas_resource)
+        elif isinstance(canvas_resource, Canvas):
+            canvas = canvas_resource
+        else:
+            raise TypeError(f"Canvas resource {type(canvas_resource)} is not supported.")
         return cls(
             canvas=canvas,
             annotations=cls._load_items(resource.get("annotations"), CanvasAnnotation),
@@ -934,16 +940,25 @@ class IndustrialCanvas:
         if items is None:
             return NodeListWithCursor[T_Node]([], None)
         elif isinstance(items, Sequence):
+            nodes: list[T_Node] = []
+            for node in items:
+                if isinstance(node, dict):
+                    # Bug in PySDK node_cls._load returns an instances of T_Node
+                    nodes.append(node_cls._load(node))  # type: ignore[arg-type]
+                elif isinstance(node, node_cls):
+                    nodes.append(node)
+                else:
+                    raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(node).__name__}")
             return NodeListWithCursor[T_Node](
-                [node_cls._load(node.dump()) for node in items],
+                nodes,
                 items.cursor if isinstance(items, NodeListWithCursor) else None,
             )
         raise TypeError(f"Expected a sequence of {node_cls.__name__}, got {type(items).__name__}")
 
-    def dump(self) -> dict[str, object]:
+    def dump(self) -> dict[str, list]:
         """Dump the IndustrialCanvas to a dictionary."""
         return {
-            "canvas": self.canvas.dump(),
+            "canvas": [self.canvas.dump()],
             "annotations": [annotation.dump() for annotation in self.annotations],
             "containerReferences": [container_ref.dump() for container_ref in self.container_references],
             "fdmInstanceContainerReferences": [
