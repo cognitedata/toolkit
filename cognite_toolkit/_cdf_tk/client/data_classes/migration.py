@@ -97,3 +97,14 @@ class Mapping(_MappingProperties, TypedNode):
             resource_type=self.resource_type,
             id_=self.id_,
         )
+
+    @property
+    def default_core_view_external_id(self) -> str:
+        if self.resource_type == "sequence":
+            raise ValueError("Sequences do not have a core view external ID.")
+        return {
+            "asset": "CogniteAsset",
+            "event": "CogniteActivity",
+            "file": "CogniteFile",
+            "timeseries": "CogniteTimeSeries",
+        }[self.resource_type]
