@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -913,7 +913,7 @@ class IndustrialCanvas:
         self.solution_tags = solution_tags or NodeListWithCursor[CogniteSolutionTag]([], None)
 
     @classmethod
-    def load(cls, resource: dict[str, list]) -> "IndustrialCanvas":
+    def load(cls, resource: Mapping[str, list]) -> "IndustrialCanvas":
         """Load an IndustrialCanvas instance from a QueryResult."""
         if not ("canvas" in resource and isinstance(resource["canvas"], Sequence) and len(resource["canvas"]) == 1):
             raise ValueError("Resource does not contain a canvas node.")
