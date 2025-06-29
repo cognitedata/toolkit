@@ -33,6 +33,10 @@ class AssetCentricId(CogniteObject):
             "id" if camel_case else "id_": self.id_,
         }
 
+    def __str__(self) -> str:
+        """Return a string representation of the AssetCentricId."""
+        return f"{self.resource_type}(id={self.id_})"
+
 
 class _MappingProperties:
     resource_type = PropertyOptions("resourceType")
