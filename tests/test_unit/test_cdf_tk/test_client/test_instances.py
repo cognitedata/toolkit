@@ -62,7 +62,8 @@ class TestInstances:
         error = exc_info.value
         assert isinstance(error, CogniteAPIError)
         assert error.code == 400
-        assert error.message == "the message"
+        assert error.message == "Invalid request"
+        assert error.failed == [instance.as_id() for instance in different_instance_types]
 
     @pytest.mark.usefixtures("disable_gzip")
     def test_apply_fast_429_status_split(self, toolkit_config: ToolkitClientConfig) -> None:
