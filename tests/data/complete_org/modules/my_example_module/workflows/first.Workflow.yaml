@@ -1,3 +1,3 @@
-externalId: {{ workflow_external_id }}
+externalId: baz
 description: A workflow for processing data
 dataSetExternalId: ds_complete_org
