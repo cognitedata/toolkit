@@ -4,7 +4,7 @@ import socket
 import pytest
 import responses
 from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAssetApply, CogniteTimeSeriesApply
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -21,6 +21,37 @@ def some_timeseries() -> CogniteTimeSeriesApply:
 
 
 class TestInstances:
+    def test_apply_fast_failed_multiple_types(self, toolkit_config) -> None:
+        two_node_types = [
+            CogniteTimeSeriesApply(
+                space="some_space",
+                external_id="test_time_series",
+                is_step=False,
+                time_series_type="numeric",
+            ),
+            CogniteAssetApply(
+                space="some_space",
+                external_id="test_asset",
+                name="Test Asset",
+            ),
+        ]
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                url,
+                status=400,
+                json={"error": "Invalid request", "message": "the message"},
+            )
+            client = ToolkitClient(config=toolkit_config)
+            with pytest.raises(CogniteAPIError) as exc_info:
+                _ = client.data_modeling.instances.apply_fast(two_node_types)
+
+        error = exc_info.value
+        assert isinstance(error, CogniteAPIError)
+        assert error.code == 400
+        assert error.message == "the message"
+
     @pytest.mark.usefixtures("disable_gzip")
     def test_apply_fast_429_status_split(self, toolkit_config: ToolkitClientConfig) -> None:
         instances = [
