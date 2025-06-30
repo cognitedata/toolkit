@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.utils import (
     calculate_secure_hash,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -464,20 +465,15 @@ class FunctionScheduleLoader(
             )
             self.authentication_by_id[identifier] = credentials
             auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
-            extra_str = f" {self._hash_key}: {auth_hash}"
-            if "description" not in resource:
-                resource["description"] = extra_str[1:]
-            elif resource["description"].endswith(extra_str[1:]):
-                # The hash is already in the description
-                ...
-            elif len(resource["description"]) + len(extra_str) < self._description_character_limit:
-                resource["description"] += f"{extra_str}"
-            else:
-                LowSeverityWarning(f"Description is too long for schedule {identifier!r}. Truncating...").print_warning(
-                    console=self.console
-                )
-                truncation = self._description_character_limit - len(extra_str) - 3
-                resource["description"] = f"{resource['description'][:truncation]}...{extra_str}"
+            extra_str = f"{self._hash_key}: {auth_hash}"
+            resource["description"] = suffix_description(
+                extra_str,
+                resource.get("description"),
+                self._description_character_limit,
+                self.get_id(resource),
+                self.display_name,
+                self.console,
+            )
         return resources
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
