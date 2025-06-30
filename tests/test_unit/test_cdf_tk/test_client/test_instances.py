@@ -4,7 +4,11 @@ import socket
 import pytest
 import responses
 from cognite.client.data_classes.data_modeling import NodeApply, NodeOrEdgeData, ViewId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAssetApply, CogniteTimeSeriesApply
+from cognite.client.data_classes.data_modeling.cdm.v1 import (
+    CogniteAnnotationApply,
+    CogniteAssetApply,
+    CogniteTimeSeriesApply,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
@@ -22,7 +26,7 @@ def some_timeseries() -> CogniteTimeSeriesApply:
 
 class TestInstances:
     def test_apply_fast_failed_multiple_types(self, toolkit_config) -> None:
-        two_node_types = [
+        different_instance_types = [
             CogniteTimeSeriesApply(
                 space="some_space",
                 external_id="test_time_series",
@@ -33,6 +37,14 @@ class TestInstances:
                 space="some_space",
                 external_id="test_asset",
                 name="Test Asset",
+            ),
+            CogniteAnnotationApply(
+                space="some_space",
+                external_id="test_annotation",
+                type=("some_space", "entity.match"),
+                start_node=("some_space", "test_asset"),
+                end_node=("some_space", "test_asset"),
+                name="Test Annotation",
             ),
         ]
         url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
@@ -45,7 +57,7 @@ class TestInstances:
             )
             client = ToolkitClient(config=toolkit_config)
             with pytest.raises(CogniteAPIError) as exc_info:
-                _ = client.data_modeling.instances.apply_fast(two_node_types)
+                _ = client.data_modeling.instances.apply_fast(different_instance_types)
 
         error = exc_info.value
         assert isinstance(error, CogniteAPIError)
