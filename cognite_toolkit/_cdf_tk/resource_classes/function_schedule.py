@@ -29,7 +29,7 @@ class FunctionScheduleYAML(ToolkitResource):
         min_length=1,
         max_length=500,
     )
-    data: dict[str, str] | None = Field(
+    data: dict[str, object] | None = Field(
         default=None,
         description="Input data to the function.",
     )
