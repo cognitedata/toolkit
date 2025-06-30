@@ -1,0 +1,67 @@
+space: strongly-coupled-model
+externalId: Property
+name: Property
+usedFor: node
+description: Missing
+properties:
+  type:
+    type:
+      type: enum
+      values:
+        Input: {}
+        Output: {}
+    immutable: true
+    nullable: false
+    autoIncrement: false
+    name: type
+    description: Missing
+  nodeOrEdge:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: nodeOrEdge
+  workflow:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: workflow
+  unit:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: unit
+  valueClassicRef:
+    type:
+      type: timeseries
+      list: false
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: value
+  valueRef:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: valueRef
+constraints:
+  cogniteDescribablePresent:
+    require:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    constraintType: requires
+indexes: {}

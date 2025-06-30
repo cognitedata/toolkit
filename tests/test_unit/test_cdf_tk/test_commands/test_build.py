@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes.data_modeling import DataModelId
+from cognite.client.data_classes.data_modeling import DataModelId, Space
 
-from cognite_toolkit._cdf_tk.commands.build import BuildCommand
+from cognite_toolkit._cdf_tk.commands.build_cmd import BuildCommand
 from cognite_toolkit._cdf_tk.data_classes import BuildVariables, Environment
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitMissingModuleError,
@@ -16,7 +17,9 @@ from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import ModuleDefinition
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests import data
+from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 @pytest.fixture(scope="session")
@@ -24,7 +27,7 @@ def dummy_environment() -> Environment:
     return Environment(
         name="dev",
         project="my_project",
-        build_type="dev",
+        validation_type="dev",
         selected=["none"],
     )
 
@@ -82,6 +85,66 @@ class TestBuildCommand:
         ]
         assert len(transformation_files) == 2
 
+    def test_build_complete_org_without_warnings(
+        self,
+        tmp_path: Path,
+        env_vars_with_client: EnvironmentVariables,
+    ) -> None:
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                build_dir=tmp_path / "build",
+                organization_dir=data.COMPLETE_ORG,
+                selected=None,
+                build_env_name="dev",
+                no_clean=False,
+            )
+
+        assert not cmd.warning_list, (
+            f"No warnings should be raised. Got {len(cmd.warning_list)} warnings: {cmd.warning_list}"
+        )
+
+    def test_build_no_warnings_when_space_exists_in_cdf(
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient, tmp_path: Path
+    ) -> None:
+        my_group = """name: gp_trigger_issue
+sourceId: '1234567890123456789'
+capabilities:
+- dataModelInstancesAcl:
+    actions:
+    - READ
+    scope:
+      spaceIdScope:
+        spaceIds:
+        - existing-space
+"""
+        filepath = tmp_path / "my_org" / "modules" / "my_module" / "auth" / "my.Group.yaml"
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        filepath.write_text(my_group)
+
+        # Simulate that the space exists in CDF
+        toolkit_client_approval.append(Space, Space("existing-space", False, 1, 1, None, None))
+        cmd = BuildCommand(silent=True, skip_tracking=True)
+        with patch.dict(
+            os.environ,
+            {"CDF_PROJECT": env_vars_with_client.CDF_PROJECT, "CDF_CLUSTER": env_vars_with_client.CDF_CLUSTER},
+        ):
+            cmd.execute(
+                verbose=False,
+                organization_dir=tmp_path / "my_org",
+                build_dir=tmp_path / "build",
+                selected=None,
+                build_env_name=None,
+                no_clean=False,
+                client=toolkit_client_approval.mock_client,
+                on_error="raise",
+            )
+        assert len(cmd.warning_list) == 0
+
 
 class TestCheckYamlSemantics:
     def test_build_valid_read_int_version(self) -> None:
@@ -99,6 +162,7 @@ externalId: some_external_id
         source_filepath = MagicMock(spec=Path)
         source_filepath.read_text.return_value = raw_yaml
         source_filepath.suffix = ".yaml"
+        source_filepath.read_bytes.return_value = raw_yaml.encode("utf-8")
 
         source_files = cmd._replace_variables(
             [source_filepath], BuildVariables([]), TransformationLoader.folder_name, Path("my_module"), verbose=False

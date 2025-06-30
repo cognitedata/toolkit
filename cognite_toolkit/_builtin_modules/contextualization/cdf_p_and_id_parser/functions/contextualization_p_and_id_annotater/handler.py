@@ -224,7 +224,8 @@ def trigger_diagram_detection_jobs(
         is_file_type = dm.filters.In(
             file_view.as_property_ref("mimeType"), ["application/pdf", "image/jpeg", "image/png", "image/tiff"]
         )
-        is_selected = dm.filters.And(is_view, is_uploaded, is_file_type)
+        is_instance_space = dm.filters.SpaceFilter(config.data.instance_spaces, instance_type="node")
+        is_selected = dm.filters.And(is_view, is_uploaded, is_file_type, is_instance_space)
 
         entities = get_entities(client, job_config, instance_spaces, logger)
         if not entities:

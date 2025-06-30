@@ -102,8 +102,10 @@ class WarningList(UserList, Generic[T_Warning]):
             header = group_list[0].group_header()
             if header:
                 output.append(header)
+            space = "    " * 2
             for warning in group_list:
-                output.append(f"{'    ' * 2} * {warning!s}")
+                warning_str = str(warning).replace("\n", f"\n{space}")
+                output.append(f"{space} * {warning_str}")
         return "\n".join(output)
 
 
@@ -118,7 +120,6 @@ def catch_warnings(warning_type: type[ToolkitWarning] | None = None) -> Iterator
     """Catch warnings and append them to the warning list."""
     warning_list = WarningList[ToolkitWarning]()
     with warnings.catch_warnings(record=True) as warning_logger:
-        warnings.simplefilter("always")
         try:
             yield warning_list
         finally:

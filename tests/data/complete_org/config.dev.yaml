@@ -1,6 +1,6 @@
 environment:
   name: dev
-  project: <customer-dev>
+  project: pytest-project
   type: dev
   selected:
     - modules/
@@ -27,6 +27,4 @@ variables:
     scheduleDaily: 35 1 * * *
 
     example_variable: foo
-    workflow_external_id: baz
     example_secret: '${ENVIRONMENT_SECRET}'
-    space_files: sp_complete_org_files

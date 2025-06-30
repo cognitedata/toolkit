@@ -1,0 +1,48 @@
+space: strongly-coupled-model
+externalId: SimNodeAndEdge
+name: SimNodeAndEdge
+description: Missing
+usedFor: node
+properties:
+  modelId:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: modelId
+  type:
+    type:
+      type: text
+      list: false
+      collation: ucs_basic
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: type
+  entity:
+    type:
+      type: direct
+      list: false
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: entity
+  model:
+    type:
+      type: direct
+      list: false
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: model
+constraints:
+  cogniteDescribablePresent:
+    require:
+      space: cdf_cdm
+      externalId: CogniteDescribable
+      type: container
+    constraintType: requires
+indexes: {}

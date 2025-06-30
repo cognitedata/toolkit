@@ -148,6 +148,13 @@ class ToolkitValueError(ValueError, ToolkitError):
     pass
 
 
+class ToolkitMissingValueError(ToolkitValueError):
+    pass
+
+
+class ToolkitKeyError(KeyError, ToolkitError): ...
+
+
 class ToolkitTypeError(TypeError, ToolkitError): ...
 
 
@@ -201,3 +208,16 @@ class AuthorizationError(ToolkitError):
 
 
 class GraphQLParseError(ToolkitError): ...
+
+
+class CDFAPIError(ToolkitError, RuntimeError):
+    """Error raised when the CDF API returns an error."""
+
+    ...
+
+
+class ToolkitMissingDependencyError(ToolkitError):
+    """Error raised when a required dependency is missing."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)

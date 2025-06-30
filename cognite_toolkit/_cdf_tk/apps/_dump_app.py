@@ -6,37 +6,76 @@ from cognite.client.data_classes import WorkflowVersionId
 from cognite.client.data_classes.data_modeling import DataModelId, ViewId
 from rich import print
 
-from cognite_toolkit._cdf_tk.commands import DumpAssetsCommand, DumpResourceCommand, DumpTimeSeriesCommand
+from cognite_toolkit._cdf_tk.commands import DumpDataCommand, DumpResourceCommand
+from cognite_toolkit._cdf_tk.commands.dump_data import (
+    AssetFinder,
+    EventFinder,
+    FileMetadataFinder,
+    TimeSeriesFinder,
+)
 from cognite_toolkit._cdf_tk.commands.dump_resource import (
     DataModelFinder,
     GroupFinder,
+    LocationFilterFinder,
     NodeFinder,
     TransformationFinder,
     WorkflowFinder,
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError
 from cognite_toolkit._cdf_tk.feature_flags import Flags
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from cognite_toolkit._cdf_tk.utils.interactive_select import (
+    AssetInteractiveSelect,
+    EventInteractiveSelect,
+    FileMetadataInteractiveSelect,
+    TimeSeriesInteractiveSelect,
+)
 
 
 class DumpApp(typer.Typer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.dump_main)
-        self.command("datamodel")(self.dump_datamodel_cmd)
-        self.command("asset")(self.dump_asset_cmd)
-        self.command("timeseries")(self.dump_timeseries_cmd)
+        if Flags.DUMP_DATA.is_enabled():
+            self.add_typer(DumpDataApp(*args, **kwargs), name="data")
+            self.add_typer(DumpConfigApp(*args, **kwargs), name="config")
+        else:
+            self.command("datamodel")(DumpConfigApp.dump_datamodel_cmd)
 
-        if Flags.DUMP_EXTENDED.is_enabled():
-            self.command("workflow")(self.dump_workflow)
-            self.command("transformation")(self.dump_transformation)
-            self.command("group")(self.dump_group)
-            self.command("node")(self.dump_node)
+            self.command("asset")(DumpDataApp.dump_asset_cmd)
+            self.command("timeseries")(DumpDataApp.dump_timeseries_cmd)
 
-    def dump_main(self, ctx: typer.Context) -> None:
+            self.command("workflow")(DumpConfigApp.dump_workflow)
+            self.command("transformation")(DumpConfigApp.dump_transformation)
+            self.command("group")(DumpConfigApp.dump_group)
+            self.command("node")(DumpConfigApp.dump_node)
+
+    @staticmethod
+    def dump_main(ctx: typer.Context) -> None:
         """Commands to dump resource configurations from CDF into a temporary directory."""
         if ctx.invoked_subcommand is None:
             print("Use [bold yellow]cdf dump --help[/] for more information.")
+        return None
+
+
+class DumpConfigApp(typer.Typer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.callback(invoke_without_command=True)(self.dump_config_main)
+
+        self.command("datamodel")(self.dump_datamodel_cmd)
+        self.command("workflow")(self.dump_workflow)
+        self.command("transformation")(self.dump_transformation)
+        self.command("group")(self.dump_group)
+        self.command("node")(self.dump_node)
+        if Flags.DUMP_EXTENDED.is_enabled():
+            self.command("location-filters")(self.dump_location_filters)
+
+    @staticmethod
+    def dump_config_main(ctx: typer.Context) -> None:
+        """Commands to dump resource configurations from CDF into a temporary directory."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf dump config --help[/] for more information.")
         return None
 
     @staticmethod
@@ -59,6 +98,15 @@ class DumpApp(typer.Typer):
                 allow_dash=True,
             ),
         ] = Path("tmp"),
+        include_global: Annotated[
+            bool,
+            typer.Option(
+                "--include-global",
+                "-i",
+                help="Include global containers, views, spaces in the dump. "
+                "If this flag is not set, the global resources will be skipped.",
+            ),
+        ] = False,
         clean: Annotated[
             bool,
             typer.Option(
@@ -79,17 +127,17 @@ class DumpApp(typer.Typer):
         """This command will dump the selected data model as yaml to the folder specified, defaults to /tmp."""
         selected_data_model: Union[DataModelId, None] = None
         if data_model_id is not None:
-            if len(data_model_id) <= 2:
+            if len(data_model_id) < 2:
                 raise ToolkitRequiredValueError(
                     "Data model ID must have at least 2 parts: space, external_id, and, optionally, version."
                 )
             selected_data_model = DataModelId(*data_model_id)
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                DataModelFinder(client, selected_data_model),
+                DataModelFinder(client, selected_data_model, include_global=include_global),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
@@ -140,7 +188,7 @@ class DumpApp(typer.Typer):
                     "Workflow ID must have at least 1 part: external_id and, optionally, version."
                 )
             selected_workflow = WorkflowVersionId(*workflow_id)
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -156,10 +204,10 @@ class DumpApp(typer.Typer):
     def dump_transformation(
         ctx: typer.Context,
         transformation_id: Annotated[
-            Optional[str],
+            Optional[list[str]],
             typer.Argument(
-                help="Transformation ID to dump. Format: external_id. Example: 'my_external_id'. "
-                "If nothing is provided, an interactive prompt will be shown to select the transformation.",
+                help="Transformation IDs to dump. Format: external_id. Example: 'my_external_id'. "
+                "If nothing is provided, an interactive prompt will be shown to select the transformation(s).",
             ),
         ] = None,
         output_dir: Annotated[
@@ -189,12 +237,12 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected transformation as yaml to the folder specified, defaults to /tmp."""
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
             lambda: cmd.dump_to_yamls(
-                TransformationFinder(client, transformation_id),
+                TransformationFinder(client, tuple(transformation_id) if transformation_id else None),
                 output_dir=output_dir,
                 clean=clean,
                 verbose=verbose,
@@ -238,7 +286,7 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected group as yaml to the folder specified, defaults to /tmp."""
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
 
         cmd = DumpResourceCommand()
         cmd.run(
@@ -290,7 +338,7 @@ class DumpApp(typer.Typer):
         The intended use case is to dump nodes which are used as configuration. It is not intended to dump
         large amounts of data.
         """
-        client = CDFToolConfig.from_context(ctx).toolkit_client
+        client = EnvironmentVariables.create_from_environment().get_client()
         selected_view_id: Union[None, ViewId] = None
         if view_id is not None:
             if len(view_id) <= 2:
@@ -309,8 +357,73 @@ class DumpApp(typer.Typer):
             )
         )
 
+    @staticmethod
+    def dump_location_filters(
+        ctx: typer.Context,
+        external_id: Annotated[
+            Optional[list[str]],
+            typer.Argument(
+                help="The external IDs of the location filters you want to dump. You can provide multiple external IDs separated by spaces. "
+                "If nothing is provided, an interactive prompt will be shown to select the location filters.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the location filters.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the location filters.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected location filters as yaml to the folder specified, defaults to /tmp."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = DumpResourceCommand()
+        cmd.run(
+            lambda: cmd.dump_to_yamls(
+                LocationFilterFinder(client, tuple(external_id) if external_id else None),
+                output_dir=output_dir,
+                clean=clean,
+                verbose=verbose,
+            )
+        )
+
+
+class DumpDataApp(typer.Typer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.callback(invoke_without_command=True)(self.dump_data_main)
+        self.command("asset")(self.dump_asset_cmd)
+        self.command("files-metadata")(self.dump_files_cmd)
+        self.command("timeseries")(self.dump_timeseries_cmd)
+        self.command("event")(self.dump_event_cmd)
+
+    @staticmethod
+    def dump_data_main(ctx: typer.Context) -> None:
+        """Commands to dump data from CDF into a temporary directory."""
+        if ctx.invoked_subcommand is None:
+            print("Use [bold yellow]cdf dump data --help[/] for more information.")
+        return None
+
+    @staticmethod
     def dump_asset_cmd(
-        self,
         ctx: typer.Context,
         hierarchy: Annotated[
             Optional[list[str]],
@@ -334,7 +447,7 @@ class DumpApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the assets in. Supported formats: yaml, csv, and parquet.",
+                help="Format to dump the assets in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -372,12 +485,14 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected assets in the selected format to the folder specified, defaults to /tmp."""
-        cmd = DumpAssetsCommand()
+        cmd = DumpDataCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = AssetInteractiveSelect(client).interactive_select_hierarchy_datasets()
+
         cmd.run(
-            lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
-                hierarchy,
-                data_set,
+            lambda: cmd.dump_table(
+                AssetFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
                 limit,
@@ -386,15 +501,23 @@ class DumpApp(typer.Typer):
             )
         )
 
-    def dump_timeseries_cmd(
-        self,
+    @staticmethod
+    def dump_files_cmd(
         ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump filemetadata from.",
+            ),
+        ] = None,
         data_set: Annotated[
             Optional[list[str]],
             typer.Option(
                 "--data-set",
                 "-d",
-                help="Data set to dump. If not provided, the user will be prompted to select which timeseries to dump.",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
             ),
         ] = None,
         format_: Annotated[
@@ -402,7 +525,85 @@ class DumpApp(typer.Typer):
             typer.Option(
                 "--format",
                 "-f",
-                help="Format to dump the timeseries in. Supported formats: yaml, csv, and parquet.",
+                help="Format to dump the filemetadata in. Supported formats: csv, and parquet.",
+            ),
+        ] = "csv",
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of filemetadata to dump.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the filemetadata files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the filemetadata.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DumpDataCommand()
+        cmd.validate_directory(output_dir, clean)
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = FileMetadataInteractiveSelect(client).interactive_select_hierarchy_datasets()
+        cmd.run(
+            lambda: cmd.dump_table(
+                FileMetadataFinder(client, hierarchy or [], data_set or []),
+                output_dir,
+                clean,
+                limit,
+                format_,  # type: ignore [arg-type]
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_timeseries_cmd(
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump timeseries from.",
+            ),
+        ] = None,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+            ),
+        ] = None,
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the timeseries in. Supported formats: csv, and parquet.",
             ),
         ] = "csv",
         limit: Annotated[
@@ -440,16 +641,95 @@ class DumpApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will dump the selected timeseries to the selected format in the folder specified, defaults to /tmp."""
-        cmd = DumpTimeSeriesCommand()
+        cmd = DumpDataCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = TimeSeriesInteractiveSelect(client).interactive_select_hierarchy_datasets()
         cmd.run(
-            lambda: cmd.execute(
-                CDFToolConfig.from_context(ctx),
-                data_set,
-                None,
+            lambda: cmd.dump_table(
+                TimeSeriesFinder(client, hierarchy or [], data_set or []),
                 output_dir,
                 clean,
                 limit,
                 format_,  # type: ignore [arg-type]
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def dump_event_cmd(
+        ctx: typer.Context,
+        hierarchy: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--hierarchy",
+                "-h",
+                help="Asset hierarchy (sub-trees) to dump event from.",
+            ),
+        ] = None,
+        data_set: Annotated[
+            Optional[list[str]],
+            typer.Option(
+                "--data-set",
+                "-d",
+                help="Data set to dump. If neither hierarchy nor data set is provided, the user will be prompted.",
+            ),
+        ] = None,
+        format_: Annotated[
+            str,
+            typer.Option(
+                "--format",
+                "-f",
+                help="Format to dump the event in. Supported formats: csv, and parquet.",
+            ),
+        ] = "csv",
+        limit: Annotated[
+            Optional[int],
+            typer.Option(
+                "--limit",
+                "-l",
+                help="Limit the number of events to dump.",
+            ),
+        ] = None,
+        output_dir: Annotated[
+            Path,
+            typer.Option(
+                "--output-dir",
+                "-o",
+                help="Where to dump the events files.",
+                allow_dash=True,
+            ),
+        ] = Path("tmp"),
+        clean: Annotated[
+            bool,
+            typer.Option(
+                "--clean",
+                "-c",
+                help="Delete the output directory before dumping the events.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will dump the selected events to the selected format in the folder specified, defaults to /tmp."""
+        cmd = DumpDataCommand()
+        cmd.validate_directory(output_dir, clean)
+        client = EnvironmentVariables.create_from_environment().get_client()
+        if hierarchy is None and data_set is None:
+            hierarchy, data_set = EventInteractiveSelect(client).interactive_select_hierarchy_datasets()
+        cmd.run(
+            lambda: cmd.dump_table(
+                EventFinder(client, hierarchy or [], data_set or []),
+                output_dir,
+                clean,
+                limit,
+                format_,
                 verbose,
             )
         )

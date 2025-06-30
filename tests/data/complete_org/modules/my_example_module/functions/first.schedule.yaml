@@ -10,5 +10,5 @@
     # Credentials to use to run the function in this schedule.
     # In this example, we just use the main deploy credentials, so the result is the same, but use a different set of
     # credentials (env variables) if you want to run the function with different permissions.
-    clientId: {{ cicd_clientId }}
-    clientSecret: {{ cicd_clientSecret }}
+    clientId: ${IDP_CLIENT_ID}
+    clientSecret: ${IDP_CLIENT_SECRET}

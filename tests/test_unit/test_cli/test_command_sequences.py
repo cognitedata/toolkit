@@ -10,16 +10,15 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-import typer
 from pytest import MonkeyPatch
 
-from cognite_toolkit._cdf_tk.apps import CoreApp
-from cognite_toolkit._cdf_tk.commands import BuildCommand
+from cognite_toolkit._cdf_tk.commands import BuildCommand, CleanCommand, DeployCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import ModuleDirectories
 from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME, Loader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection, iterate_modules
+from cognite_toolkit._cdf_tk.utils import humanize_collection, iterate_modules
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import COMPLETE_ORG, COMPLETE_ORG_ALPHA_FLAGS
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.utils import mock_read_yaml_file
@@ -64,32 +63,31 @@ def test_build_deploy_module(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir: Path,
     data_regression,
 ) -> None:
-    app = CoreApp()
-
-    cmd = BuildCommand(skip_tracking=True, silent=True)
-    cmd.execute(
+    BuildCommand(skip_tracking=True, silent=True).execute(
         verbose=False,
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=[module_path.name],
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=cdf_tool_mock,
+        client=env_vars_with_client.get_client(),
         on_error="raise",
     )
 
-    app.deploy(
-        typer_context,
+    DeployCommand(skip_tracking=True, silent=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=False,
         include=[],
+        verbose=False,
+        drop_data=True,
+        force_update=False,
     )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()
@@ -114,28 +112,31 @@ def test_build_deploy_with_dry_run(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir: Path,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(skip_tracking=True, silent=True).execute(
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
         no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
+        verbose=False,
     )
-    app.deploy(
-        typer_context,
+    DeployCommand(skip_tracking=True, silent=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
         dry_run=True,
         include=[],
+        verbose=False,
+        drop_data=True,
+        force_update=False,
     )
 
     create_result = toolkit_client_approval.create_calls()
@@ -150,28 +151,29 @@ def test_init_build_clean(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
     organization_dir: Path,
     data_regression,
 ) -> None:
     mock_environments_yaml_file(module_path, monkeypatch)
 
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=None,
-        build_env_name="dev",
         no_clean=False,
+        client=env_vars_with_client.get_client(),
+        build_env_name="dev",
+        on_error="raise",
     )
-    app.clean(
-        typer_context,
+    CleanCommand(silent=True, skip_tracking=True).execute(
+        env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
         dry_run=False,
-        include=[],
+        include=None,
+        verbose=False,
     )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()
@@ -194,26 +196,29 @@ def test_build_deploy_complete_org(
     build_tmp_path: Path,
     monkeypatch: MonkeyPatch,
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
-    typer_context: typer.Context,
+    env_vars_with_client: EnvironmentVariables,
     data_regression,
 ) -> None:
-    app = CoreApp()
-    app.build(
-        typer_context,
+    BuildCommand(silent=True, skip_tracking=True).execute(
+        verbose=False,
         organization_dir=organization_dir,
         build_dir=build_tmp_path,
         selected=None,
         build_env_name="dev",
         no_clean=False,
+        client=env_vars_with_client.get_client(),
+        on_error="raise",
     )
-    app.deploy(
-        typer_context,
+    DeployCommand(silent=True, skip_tracking=True).deploy_build_directory(
+        env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
         drop=True,
+        drop_data=True,
         dry_run=False,
-        include=[],
+        force_update=False,
+        include=None,
+        verbose=False,
     )
 
     not_mocked = toolkit_client_approval.not_mocked_calls()

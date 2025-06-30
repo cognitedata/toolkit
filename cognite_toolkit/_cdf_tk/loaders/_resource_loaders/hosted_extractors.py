@@ -12,10 +12,12 @@ from cognite.client.data_classes.hosted_extractors import (
     DestinationList,
     DestinationWrite,
     DestinationWriteList,
+    EventHubSourceWrite,
     Job,
     JobList,
     JobWrite,
     JobWriteList,
+    KafkaSourceWrite,
     Mapping,
     MappingList,
     MappingWrite,
@@ -25,11 +27,19 @@ from cognite.client.data_classes.hosted_extractors import (
     SourceWrite,
     SourceWriteList,
 )
+from cognite.client.data_classes.hosted_extractors.sources import (
+    AuthenticationWrite,
+    BasicAuthenticationWrite,
+    RESTClientCredentialsAuthenticationWrite,
+    RestSourceWrite,
+    _MQTTSourceWrite,
+)
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich.console import Console
 
-from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.exceptions import ToolkitNotSupported
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning
 
@@ -46,6 +56,7 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     kind = "Source"
     _doc_base_url = "https://api-docs.cognite.com/20230101-alpha/tag/"
     _doc_url = "Sources/operation/create_sources"
+    _SupportedSources = (_MQTTSourceWrite, KafkaSourceWrite, RestSourceWrite, EventHubSourceWrite)
 
     @property
     def display_name(self) -> str:
@@ -103,17 +114,46 @@ class HostedExtractorSourceLoader(ResourceLoader[str, SourceWrite, Source, Sourc
     @classmethod
     @lru_cache(maxsize=1)
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
-        spec = super().get_write_cls_parameter_spec()
-        # Used by the SDK to determine the class to load the resource into.
-        spec.add(ParameterSpec(("type",), frozenset({"str"}), is_required=True, _is_nullable=False))
-        spec.add(ParameterSpec(("authentication", "type"), frozenset({"str"}), is_required=True, _is_nullable=False))
-        return spec
+        # parameterspec is highly dependent on type of source, so we accept any parameter
+        return ParameterSpecSet(
+            [ParameterSpec((ANYTHING,), frozenset({"dict"}), is_required=False, _is_nullable=False)]
+        )
 
     def dump_resource(self, resource: Source, local: dict[str, Any] | None = None) -> dict[str, Any]:
         HighSeverityWarning(
             "Sources will always be considered different, and thus will always be redeployed."
         ).print_warning()
         return self.dump_id(resource.external_id)
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> SourceWrite:
+        loaded = super().load_resource(resource, is_dry_run=is_dry_run)
+        if not isinstance(loaded, self._SupportedSources):
+            # We need to explicitly check for the supported types as we need to ensure that we know
+            # what the sensitive strings are for each type of source.
+            # Technically, we could support any new source type added to the cognite-sdk, but
+            # we would risk printing sensitive strings in the terminal.
+            raise ToolkitNotSupported(
+                f"Hosted extractor source type {type(loaded).__name__} is not supported."
+                f"Please contact support to request support for this source type."
+            )
+        return loaded
+
+    def sensitive_strings(self, item: SourceWrite) -> Iterable[str]:
+        if isinstance(item, _MQTTSourceWrite | KafkaSourceWrite | RestSourceWrite) and item.authentication:
+            yield from self._sensitive_auth_strings(item.authentication)
+        if (
+            isinstance(item, _MQTTSourceWrite | KafkaSourceWrite)
+            and item.auth_certificate
+            and item.auth_certificate.key_password
+        ):
+            yield item.auth_certificate.key_password
+
+    @staticmethod
+    def _sensitive_auth_strings(auth: AuthenticationWrite) -> Iterable[str]:
+        if isinstance(auth, BasicAuthenticationWrite):
+            yield auth.password
+        elif isinstance(auth, RESTClientCredentialsAuthenticationWrite):
+            yield auth.client_secret
 
 
 class HostedExtractorDestinationLoader(
@@ -190,6 +230,7 @@ class HostedExtractorDestinationLoader(
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DestinationWrite:
         if raw_auth := resource.pop("credentials", None):
             credentials = ClientCredentials._load(raw_auth)
+            self._authentication_by_id[self.get_id(resource)] = credentials
             if is_dry_run:
                 resource["credentials"] = {"nonce": "dummy_nonce"}
             else:
@@ -210,6 +251,12 @@ class HostedExtractorDestinationLoader(
     def get_write_cls_parameter_spec(cls) -> ParameterSpecSet:
         spec = super().get_write_cls_parameter_spec()
         # Handled by Toolkit
+
+        spec.add(ParameterSpec(("credentials", "clientId"), frozenset({"str"}), is_required=False, _is_nullable=True))
+        spec.add(
+            ParameterSpec(("credentials", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=True)
+        )
+
         spec.discard(ParameterSpec(("targetDataSetId",), frozenset({"int"}), is_required=False, _is_nullable=True))
         spec.add(ParameterSpec(("targetDataSetExternalId",), frozenset({"str"}), is_required=False, _is_nullable=True))
         return spec
@@ -218,6 +265,12 @@ class HostedExtractorDestinationLoader(
     def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceLoader], Hashable]]:
         if "targetDataSetId" in item:
             yield DataSetsLoader, item["targetDataSetId"]
+
+    def sensitive_strings(self, item: DestinationWrite) -> Iterable[str]:
+        yield item.credentials.nonce
+        id_ = self.get_id(item)
+        if id_ in self._authentication_by_id:
+            yield self._authentication_by_id[id_].client_secret
 
 
 class HostedExtractorJobLoader(ResourceLoader[str, JobWrite, Job, JobWriteList, JobList]):

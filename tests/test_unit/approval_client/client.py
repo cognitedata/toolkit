@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import itertools
 import json as JSON
+import random
+import string
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from pathlib import Path
@@ -13,6 +15,7 @@ import pandas as pd
 from cognite.client import CogniteClient
 from cognite.client import data_modeling as dm
 from cognite.client._api.iam import IAMAPI
+from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import (
     Database,
     DataSet,
@@ -33,6 +36,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes._base import CogniteResource, T_CogniteResource
 from cognite.client.data_classes.capabilities import AllProjectsScope, ProjectCapability, ProjectCapabilityList
 from cognite.client.data_classes.data_modeling import (
+    DataModelList,
     Edge,
     EdgeApply,
     EdgeApplyResult,
@@ -52,19 +56,21 @@ from cognite.client.data_classes.data_modeling import (
     View,
 )
 from cognite.client.data_classes.data_modeling.graphql import DMLApplyResult
-from cognite.client.data_classes.data_modeling.ids import InstanceId
+from cognite.client.data_classes.data_modeling.ids import DataModelIdentifier, InstanceId
 from cognite.client.data_classes.functions import FunctionsStatus
 from cognite.client.data_classes.iam import CreatedSession, GroupWrite, ProjectSpec, TokenInspection
 from cognite.client.utils._text import to_camel_case
 from cognite.client.utils.useful_types import SequenceNotStr
 from requests import Response
 
+from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModelWrite
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase
 from cognite_toolkit._cdf_tk.client.testing import ToolkitClientMock
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.loaders import FileLoader
-from cognite_toolkit._cdf_tk.utils import calculate_bytes_or_file_hash, calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils import calculate_hash
+from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 from .config import API_RESOURCES
 from .data_classes import APIResource, AuthGroupCalls
@@ -82,8 +88,9 @@ del cap, scopes, names, action, scope
 
 
 class LookUpAPIMock:
-    def __init__(self):
+    def __init__(self, allow_reverse_lookup: bool = False):
         self._reverse_cache: dict[int, str] = {}
+        self._generate_random_external_id_on_lookup_failure = allow_reverse_lookup
 
     @staticmethod
     def _create_id(string: str, allow_empty: bool = False) -> int:
@@ -120,7 +127,10 @@ class LookUpAPIMock:
         try:
             return self._reverse_cache[id] if isinstance(id, int) else [self._reverse_cache[i] for i in id]
         except KeyError:
-            raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
+            if self._generate_random_external_id_on_lookup_failure:
+                return "".join(random.choices(string.ascii_letters + string.digits, k=10))
+            else:
+                raise RuntimeError(f"{type(self).__name__} does not support reverse lookup before lookup")
 
 
 class ApprovalToolkitClient:
@@ -132,10 +142,20 @@ class ApprovalToolkitClient:
 
     """
 
-    def __init__(self, mock_client: ToolkitClientMock):
+    def __init__(self, mock_client: ToolkitClientMock, allow_reverse_lookup: bool = False):
         self._return_verify_resources = False
         self.mock_client = mock_client
-        self.mock_client._config = "config"
+        credentials = MagicMock(spec=OAuthClientCredentials)
+        credentials.client_id = "toolkit-client-id"
+        credentials.client_secret = "toolkit-client-secret"
+        credentials.token_url = "https://toolkit.auth.com/oauth/token"
+        credentials.scopes = ["ttps://pytest-field.cognitedata.com/.default"]
+        self.mock_client.config = ToolkitClientConfig(
+            client_name=CLIENT_NAME,
+            project="pytest-project",
+            credentials=credentials,
+            is_strict_validation=False,
+        )
         # This is used to simulate the existing resources in CDF
         self._existing_resources: dict[str, list[CogniteResource]] = defaultdict(list)
         # This is used to log all delete operations
@@ -167,7 +187,7 @@ class ApprovalToolkitClient:
         for method_name, lookup_api in self.mock_client.lookup.__dict__.items():
             if method_name.startswith("_") or method_name == "method_calls":
                 continue
-            mock_lookup = LookUpAPIMock()
+            mock_lookup = LookUpAPIMock(allow_reverse_lookup)
             lookup_api.id.side_effect = mock_lookup.id
             lookup_api.external_id.side_effect = mock_lookup.external_id
         self.mock_client.verify.authorization.return_value = []
@@ -624,7 +644,7 @@ class ApprovalToolkitClient:
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
             return _upload_file_content_files_api(
-                calculate_bytes_or_file_hash(Path(path), shorten=True), external_id=external_id, instance_id=instance_id
+                calculate_hash(Path(path), shorten=True), external_id=external_id, instance_id=instance_id
             )
 
         def upload_file_content_bytes_files_api(
@@ -633,7 +653,7 @@ class ApprovalToolkitClient:
             instance_id: NodeId | None = None,
         ) -> FileMetadata:
             return _upload_file_content_files_api(
-                calculate_str_or_file_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
+                calculate_hash(content, shorten=True), external_id=external_id, instance_id=instance_id
             )
 
         def _upload_file_content_files_api(
@@ -782,6 +802,19 @@ class ApprovalToolkitClient:
 
             return read_list_cls(existing_resources[resource_cls.__name__], cognite_client=client)
 
+        def return_data_models(
+            ids: DataModelIdentifier | Sequence[DataModelIdentifier], inline_views: bool = False
+        ) -> DataModelList:
+            if not existing_resources[resource_cls.__name__]:
+                return DataModelList([])
+            id_set = {ids} if isinstance(ids, str | tuple | dm.DataModelId) else set(ids)
+            to_return = read_list_cls([], cognite_client=client)
+            for resource in existing_resources[resource_cls.__name__]:
+                id_ = resource.as_id()
+                if id_ in id_set or id_.as_tuple() in id_set or id_.as_tuple()[:2] in id_set:
+                    to_return.append(resource)
+            return to_return
+
         def iterate_values(*argd, **kwargs):
             list_ = return_values(*argd, **kwargs)
             return (value for value in list_)
@@ -807,10 +840,11 @@ class ApprovalToolkitClient:
                 return return_value(external_id=external_id)
 
         def data_model_retrieve(ids, *args, **kwargs):
-            id_list = list(ids) if isinstance(ids, Sequence) else [ids]
+            id_set = set(ids) if isinstance(ids, Sequence) else {ids}
             to_return = read_list_cls([], cognite_client=client)
             for resource in existing_resources[resource_cls.__name__]:
-                if resource.as_id() in id_list:
+                id = resource.as_id()
+                if id in id_set or (id.as_tuple() in id_set and id.as_tuple()[:2] in id_set):
                     to_return.append(resource)
             return to_return
 
@@ -823,6 +857,7 @@ class ApprovalToolkitClient:
                 return_instances,
                 files_retrieve,
                 iterate_values,
+                return_data_models,
             ]
         }
         if mock_method not in available_retrieve_methods:

@@ -225,7 +225,6 @@ pyrightconfig.json
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
@@ -309,3 +308,6 @@ tmp.py
 tmp*.py
 my_*/
 !cognite_toolkit/_builtin_modules/custom/my_module/
+function_local_venvs*/
+qa_pending_id/
+tests/**/cdf.toml

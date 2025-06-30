@@ -5,28 +5,29 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Literal, TypeAlias, get_args
 
-from cognite.client import ClientConfig, CogniteClient
 from cognite.client.config import global_config
 from cognite.client.credentials import CredentialProvider, OAuthClientCredentials, OAuthInteractive, Token
 from rich.prompt import Prompt
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
 from cognite_toolkit._cdf_tk.utils.auth import CLIENT_NAME
 
 _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "token"]
 _VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)
 
 
-def get_cognite_client(env_file_name: str) -> CogniteClient:
-    """Instantiate a CogniteClient using environment variables. If the environment variables are not set, the user will
+def get_toolkit_client(env_file_name: str, enable_set_pending_ids: bool = False) -> ToolkitClient:
+    """Instantiate a ToolkitClient using environment variables. If the environment variables are not set, the user will
     be prompted to enter them.
 
     Args:
         env_file_name: The name of the .env file to look for in the repository root / current working directory. If
         the file is found, the variables will be loaded from the file. If the file is not found, the user will
         be prompted to enter the variables and the file will be created.
+        enable_set_pending_ids: Whether to enable the set_pending_ids method on the client.
 
     Returns:
-        CogniteClient: A CogniteClient instance.
+        ToolkitClient: A ToolkitClient instance.
 
     """
     if not env_file_name.endswith(".env"):
@@ -37,13 +38,13 @@ def get_cognite_client(env_file_name: str) -> CogniteClient:
     if repo_root:
         with suppress(KeyError, FileNotFoundError, TypeError):
             variables = _from_dotenv(repo_root / env_file_name)
-            client = variables.get_client()
+            client = variables.get_client(enable_set_pending_ids)
             print(f"Found {env_file_name} file in repository root. Loaded variables from {env_file_name} file.")
             return client
     elif (Path.cwd() / env_file_name).exists():
         with suppress(KeyError, FileNotFoundError, TypeError):
             variables = _from_dotenv(Path.cwd() / env_file_name)
-            client = variables.get_client()
+            client = variables.get_client(enable_set_pending_ids)
             print(
                 f"Found {env_file_name} file in current working directory. Loaded variables from {env_file_name} file."
             )
@@ -52,7 +53,7 @@ def get_cognite_client(env_file_name: str) -> CogniteClient:
     with suppress(KeyError):
         variables = EnvironmentVariables.create_from_environ()
         print("Loaded variables from environment variables.")
-        return variables.get_client()
+        return variables.get_client(enable_set_pending_ids)
     # If not found, prompt the user
     variables = _prompt_user()
     if repo_root and _env_in_gitignore(repo_root, env_file_name):
@@ -62,7 +63,7 @@ def get_cognite_client(env_file_name: str) -> CogniteClient:
         # We do not offer to create the file in the repository root if it is in .gitignore
         # as an inexperienced user might accidentally commit it.
         print("Cannot create .env file in repository root as there is no .env entry in the .gitignore.")
-        return variables.get_client()
+        return variables.get_client(enable_set_pending_ids)
     else:
         env_file = Path.cwd() / env_file_name
         location = "current working directory"
@@ -77,7 +78,7 @@ def get_cognite_client(env_file_name: str) -> CogniteClient:
         env_file.write_text(variables.create_env_file())
         print(f"Created {env_file_name} file in {location}.")
 
-    return variables.get_client()
+    return variables.get_client(enable_set_pending_ids)
 
 
 @dataclass
@@ -226,8 +227,8 @@ class EnvironmentVariables:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
         return Token(self.TOKEN)
 
-    def get_client(self) -> CogniteClient:
-        config = ClientConfig(
+    def get_client(self, enable_set_pending_ids: bool = False) -> ToolkitClient:
+        config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project=self.CDF_PROJECT,
             credentials=self.get_credentials(),
@@ -235,7 +236,7 @@ class EnvironmentVariables:
             max_workers=self.CDF_MAX_WORKERS,
             timeout=self.CDF_TIMEOUT,
         )
-        return CogniteClient(config)
+        return ToolkitClient(config, enable_set_pending_ids)
 
     def create_env_file(self) -> str:
         lines: list[str] = []

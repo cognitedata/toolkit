@@ -1,0 +1,31 @@
+externalId: ParentView
+space: sp_schema
+version: v1
+properties:
+  name:
+    container:
+      externalId: NameContainer
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: name
+  fileView:
+    connectionType: multi_edge_connection
+    type:
+      space: sp_schema
+      externalId: FileType
+    source:
+      type: view
+      space: cdf_cdm
+      externalId: CogniteFile
+      version: v1
+  directFile:
+    container:
+      externalId: NameContainer
+      space: sp_schema
+      type: container
+    containerPropertyIdentifier: direct
+    source:
+      type: view
+      space: cdf_cdm
+      externalId: CogniteFile
+      version: v1

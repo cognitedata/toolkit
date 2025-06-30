@@ -11,6 +11,7 @@ import pytest
 import requests
 import yaml
 from cognite.client.data_classes import (
+    CreatedSession,
     FileMetadata,
     Transformation,
     TransformationSchedule,
@@ -24,29 +25,33 @@ from cognite_toolkit._cdf_tk._parameters import ParameterSet, read_parameters_fr
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel
 from cognite_toolkit._cdf_tk.client.data_classes.streamlit_ import Streamlit
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildConfigYAML,
-    BuildEnvironment,
 )
+from cognite_toolkit._cdf_tk.feature_flags import FeatureFlag, Flags
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
     LOADER_LIST,
     RESOURCE_LOADER_LIST,
     DatapointsLoader,
     FileMetadataLoader,
+    FunctionScheduleLoader,
     GroupResourceScopedLoader,
+    HostedExtractorDestinationLoader,
+    HostedExtractorSourceLoader,
     Loader,
     LocationFilterLoader,
     ResourceLoader,
     ResourceTypes,
+    TransformationLoader,
     ViewLoader,
+    WorkflowTriggerLoader,
     get_loader,
 )
-from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
-    tmp_build_directory,
-)
+from cognite_toolkit._cdf_tk.utils import tmp_build_directory
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.validation import validate_resource_yaml
 from tests.constants import REPO_ROOT
 from tests.data import LOAD_DATA, PROJECT_FOR_TEST
@@ -67,19 +72,21 @@ SNAPSHOTS_DIR = SNAPSHOTS_DIR_ALL / "load_data_snapshots"
 def test_loader_class(
     loader_cls: type[ResourceLoader],
     toolkit_client_approval: ApprovalToolkitClient,
-    cdf_tool_mock: CDFToolConfig,
+    env_vars_with_client: EnvironmentVariables,
     data_regression: DataRegressionFixture,
 ):
     cmd = DeployCommand(print_warning=False)
-    loader = loader_cls.create_loader(cdf_tool_mock.toolkit_client, LOAD_DATA)
-    cmd.deploy_resources(loader, cdf_tool_mock, BuildEnvironment(), dry_run=False)
+    loader = loader_cls.create_loader(env_vars_with_client.get_client(), LOAD_DATA)
+    cmd.deploy_resource_type(loader, env_vars_with_client, [], dry_run=False)
 
     dump = toolkit_client_approval.dump()
     data_regression.check(dump, fullpath=SNAPSHOTS_DIR / f"{loader.folder_name}.yaml")
 
 
 class TestDeployResources:
-    def test_deploy_resource_order(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
+    def test_deploy_resource_order(
+        self, toolkit_client_approval: ApprovalToolkitClient, env_vars_with_client: EnvironmentVariables
+    ):
         build_env_name = "dev"
         cdf_toml = CDFToml.load(PROJECT_FOR_TEST)
         config = BuildConfigYAML.load_from_directory(PROJECT_FOR_TEST, build_env_name)
@@ -91,10 +98,10 @@ class TestDeployResources:
         expected_order = ["MyView", "MyOtherView"]
 
         cmd = DeployCommand(print_warning=False)
-        cmd.deploy_resources(
-            ViewLoader.create_loader(cdf_tool_mock.toolkit_client, BUILD_DIR),
-            cdf_tool_mock,
-            BuildEnvironment(),
+        cmd.deploy_resource_type(
+            ViewLoader.create_loader(env_vars_with_client.get_client(), BUILD_DIR),
+            env_vars_with_client,
+            [],
             dry_run=False,
         )
 
@@ -108,22 +115,24 @@ class TestDeployResources:
 class TestFormatConsistency:
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_fake_resource_generator(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch
+        self, Loader: type[ResourceLoader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
     ):
         fakegenerator = FakeCogniteResourceGenerator(seed=1337)
 
-        loader = Loader.create_loader(
-            cdf_tool_mock.toolkit_client,
-        )
+        loader = Loader.create_loader(env_vars_with_client.get_client())
         instance = fakegenerator.create_instance(loader.resource_write_cls)
 
         assert isinstance(instance, loader.resource_write_cls)
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_dict(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
+        self,
+        Loader: type[ResourceLoader],
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
+        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -146,15 +155,19 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
+        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
         assert isinstance(loaded, list)
         assert len(loaded) == 1
 
     @pytest.mark.parametrize("Loader", RESOURCE_LOADER_LIST)
     def test_loader_takes_list(
-        self, Loader: type[ResourceLoader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch, tmp_path: Path
+        self,
+        Loader: type[ResourceLoader],
+        env_vars_with_client: EnvironmentVariables,
+        monkeypatch: MonkeyPatch,
+        tmp_path: Path,
     ) -> None:
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client, tmp_path)
+        loader = Loader.create_loader(env_vars_with_client.get_client(), tmp_path)
 
         if loader.resource_cls in [Transformation, FileMetadata, GraphQLDataModel, Streamlit]:
             pytest.skip("Skipped loaders that require secondary files")
@@ -181,7 +194,7 @@ class TestFormatConsistency:
         file.name = "dict.yaml"
         file.parent.name = loader.folder_name
 
-        loaded = loader.load_resource_file(filepath=file, environment_variables=cdf_tool_mock.environment_variables())
+        loaded = loader.load_resource_file(filepath=file, environment_variables=env_vars_with_client.dump())
         assert isinstance(loaded, list)
 
     @staticmethod
@@ -195,8 +208,10 @@ class TestFormatConsistency:
     @pytest.mark.parametrize(
         "Loader", [loader for loader in LOADER_LIST if loader.folder_name != "robotics"]
     )  # Robotics does not have a public doc_url
-    def test_loader_has_doc_url(self, Loader: type[Loader], cdf_tool_mock: CDFToolConfig, monkeypatch: MonkeyPatch):
-        loader = Loader.create_loader(cdf_tool_mock.toolkit_client)
+    def test_loader_has_doc_url(
+        self, Loader: type[Loader], env_vars_with_client: EnvironmentVariables, monkeypatch: MonkeyPatch
+    ):
+        loader = Loader.create_loader(env_vars_with_client.get_client())
         assert loader.doc_url() != loader._doc_base_url, f"{Loader.folder_name} is missing doc_url deep link"
         assert self.check_url(loader.doc_url()), f"{Loader.folder_name} doc_url is not accessible"
 
@@ -207,6 +222,12 @@ def test_resource_types_is_up_to_date() -> None:
 
     missing = expected - actual
     extra = actual - expected
+
+    if not FeatureFlag.is_enabled(Flags.AGENTS):
+        extra.discard("agents")
+    if not FeatureFlag.is_enabled(Flags.INFIELD):
+        extra.discard("cdf_applications")
+
     assert not missing, f"Missing {missing=}"
     assert not extra, f"Extra {extra=}"
 
@@ -256,8 +277,149 @@ def cognite_module_files_with_loader() -> Iterable[ParameterSet]:
                                 yield pytest.param(loader, item, id=f"{module.name} - {filepath.stem} - list {no}")
 
 
+def sensitive_strings_test_cases() -> Iterable[ParameterSet]:
+    yield pytest.param(
+        WorkflowTriggerLoader,
+        """externalId: my_trigger
+triggerRule:
+  triggerType: schedule
+  cronExpression: '* * * * *'
+workflowExternalId: my_workflow
+workflowVersion: v1
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+        """,
+        {"my_super_secret_42"},
+        id="WorkflowTriggerLoader",
+    )
+    yield pytest.param(
+        FunctionScheduleLoader,
+        """name: daily-8pm-utc
+functionExternalId: 'fn_example_repeater'
+cronExpression: '0 20 * * *'
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+""",
+        {"my_super_secret_42"},
+        id="FunctionScheduleLoader",
+    )
+    yield pytest.param(
+        TransformationLoader,
+        """externalId: my_transformation
+name: My Transformation
+destination:
+  type: 'asset_hierarchy'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: select * from my_table
+authentication:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+  tokenUri: https://token_uri.com
+  cdfProjectName: my_project
+  scopes: https://scope.com
+""",
+        {"my_super_secret_42"},
+        id="TransformationLoader with authentication",
+    )
+    yield pytest.param(
+        TransformationLoader,
+        """externalId: my_transformation
+name: My Transformation
+destination:
+  type: 'asset_hierarchy'
+ignoreNullFields: true
+isPublic: true
+conflictMode: upsert
+query: select * from my_table
+authentication:
+  read:
+    clientId: my_client_id
+    clientSecret: my_super_secret_42
+    tokenUri: https://token_uri.com
+    cdfProjectName: my_project
+    scopes: https://scope.com
+  write:
+    clientId: my_client_id
+    clientSecret: my_other_super_secret_43
+    tokenUri: https://token_uri.com
+    cdfProjectName: my_project
+    scopes: https://scope.com
+""",
+        {"my_super_secret_42", "my_other_super_secret_43"},
+        id="TransformationLoader with read and write authentication",
+    )
+
+    yield pytest.param(
+        HostedExtractorDestinationLoader,
+        """externalId: my_cdf
+credentials:
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+targetDataSetExternalId: ds_files_hamburg""",
+        {"my_super_secret_42"},
+        id="HostedExtractorDestinationLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: mqtt5
+externalId: my_mqtt
+host: mqtt.example.com
+port: 1883
+authentication:
+  type: basic
+  username: my_user
+  password: my_password""",
+        {"my_password"},
+        id="MQTT HostedExtractorSourceLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: kafka
+externalId: my_kafka
+bootstrapBrokers:
+- host: kafka.example.com
+  port: 9092
+authentication:
+  type: basic
+  username: my_user
+  password: my_password
+authCertificate:
+  key: my_key
+  keyPassword: my_key_password
+  type: der
+  certificate: my_certificate
+""",
+        {"my_password", "my_key_password"},
+        id="Kafka HostedExtractorSourceLoader",
+    )
+    yield pytest.param(
+        HostedExtractorSourceLoader,
+        """type: rest
+externalId: my_rest
+host: rest.example.com
+port: 443
+authentication:
+  type: clientCredentials
+  clientId: my_client_id
+  clientSecret: my_super_secret_42
+  tokenUrl: https://token.example.com
+  scopes: scope1 scope2
+""",
+        {"my_super_secret_42"},
+        id="REST HostedExtractorSourceLoader",
+    )
+
+
 class TestResourceLoaders:
-    @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
+    # The HostedExtractorSourceLoader does not support parameter spec.
+    @pytest.mark.parametrize(
+        "loader_cls",
+        [loader_cls for loader_cls in RESOURCE_LOADER_LIST if loader_cls is not HostedExtractorSourceLoader],
+    )
     def test_get_write_cls_spec(self, loader_cls: type[ResourceLoader]) -> None:
         resource = FakeCogniteResourceGenerator(seed=1337, max_list_dict_items=1).create_instance(
             loader_cls.resource_write_cls
@@ -295,7 +457,7 @@ class TestResourceLoaders:
 
     @pytest.mark.parametrize("loader_cls", RESOURCE_LOADER_LIST)
     def test_empty_required_capabilities_when_no_items(
-        self, loader_cls: type[ResourceLoader], cdf_tool_mock: CDFToolConfig
+        self, loader_cls: type[ResourceLoader], env_vars_with_client: EnvironmentVariables
     ):
         actual = loader_cls.get_required_capability(loader_cls.list_write_cls([]), read_only=False)
 
@@ -313,11 +475,53 @@ class TestResourceLoaders:
 
         assert not duplicated, f"Duplicated kind by folder: {duplicated!s}"
 
+    @pytest.mark.parametrize("loader_cls, local_file, expected_strings", list(sensitive_strings_test_cases()))
+    def test_sensitive_strings(
+        self, loader_cls: type[ResourceLoader], local_file: str, expected_strings: set[str]
+    ) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.iam.sessions.create.return_value = CreatedSession(123, "READY", "my-nonce")
+            loader = loader_cls.create_loader(client)
+
+        file = MagicMock(spec=Path)
+        file.read_text.return_value = local_file
+        loaded_dict = loader.load_resource_file(file)[0]
+        loaded = loader.load_resource(loaded_dict)
+
+        sensitive_strings = set(loader.sensitive_strings(loaded))
+
+        assert expected_strings.issubset(sensitive_strings), f"Expected {expected_strings} but got {sensitive_strings}"
+
+    @pytest.mark.parametrize(
+        "loader_cls",
+        [
+            loader_cls
+            for loader_cls in RESOURCE_LOADER_LIST
+            if loader_cls != {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
+        ],
+    )
+    def test_dump_resource_with_local_id(self, loader_cls: type[ResourceLoader]) -> None:
+        with monkeypatch_toolkit_client() as toolkit_client:
+            # Since we are not loading the local resource, we must allow reverse lookup
+            # without first lookup.
+            approval_client = ApprovalToolkitClient(toolkit_client, allow_reverse_lookup=True)
+
+        loader = loader_cls.create_loader(approval_client.mock_client)
+        resource = FakeCogniteResourceGenerator(seed=1337).create_instance(loader.resource_cls)
+        local_dict = loader.dump_id(loader.get_id(resource))
+
+        # The dump_resource method should work with the local dict only containing the
+        # identifier of the resource. This is to match the expectation of the cdf modules pull
+        # command.
+        dumped = loader.dump_resource(resource, local_dict)
+
+        assert isinstance(dumped, dict)
+
 
 class TestLoaders:
-    def test_unique_display_names(self, cdf_tool_mock: CDFToolConfig):
+    def test_unique_display_names(self, env_vars_with_client: EnvironmentVariables):
         name_by_count = Counter(
-            [loader_cls.create_loader(cdf_tool_mock.toolkit_client).display_name for loader_cls in LOADER_LIST]
+            [loader_cls.create_loader(env_vars_with_client.get_client()).display_name for loader_cls in LOADER_LIST]
         )
 
         duplicates = {name: count for name, count in name_by_count.items() if count > 1}

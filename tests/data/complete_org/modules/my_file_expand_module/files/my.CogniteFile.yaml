@@ -1,4 +1,4 @@
-- space: {{ space_files }}
+- space: sp_complete_org_files
   externalId: $FILENAME
   name: $FILENAME
   mimeType: text/plain

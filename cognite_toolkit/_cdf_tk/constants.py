@@ -35,6 +35,7 @@ CUSTOM_MODULES = "custom_modules"
 MODULES = "modules"
 REPO_FILES_DIR = "_repo_files"
 DOCKER_IMAGE_NAME = "cognite/toolkit"
+BUILD_FOLDER_ENCODING = "utf-8"
 
 ROOT_MODULES = [MODULES, CUSTOM_MODULES, COGNITE_MODULES]
 MODULE_PATH_SEP = "/"
@@ -76,6 +77,49 @@ HINT_LEAD_TEXT = "[bold blue]HINT[/bold blue] "
 HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
+SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
+CONTAINER_EXTERNAL_ID_PATTERN = r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$"
+FORBIDDEN_SPACES = frozenset(["space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"])
+FORBIDDEN_CONTAINER_EXTERNAL_IDS = frozenset(
+    [
+        "Query",
+        "Mutation",
+        "Subscription",
+        "String",
+        "Int32",
+        "Int64",
+        "Int",
+        "Float32",
+        "Float64",
+        "Float",
+        "Timestamp",
+        "JSONObject",
+        "Date",
+        "Numeric",
+        "Boolean",
+        "PageInfo",
+        "File",
+        "Sequence",
+        "TimeSeries",
+    ]
+)
+FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER = frozenset(
+    [
+        "space",
+        "externalId",
+        "createdTime",
+        "lastUpdatedTime",
+        "deletedTime",
+        "edge_id",
+        "node_id",
+        "project_id",
+        "property_group",
+        "seq",
+        "tg_table_name",
+        "extensions",
+    ]
+)
+CONTAINER_PROPERTIES_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
 
 
 def clean_name(name: str) -> str:
@@ -90,3 +134,18 @@ class URL:
     configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/configs"
     plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
     libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"
+    build_variables = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/api/config_yaml#the-variables-section"
+
+
+# The number of instances that should be left as a margin when Toolkit writes to CDF through the DMS API.
+# This is currently set conservatively to 1 million. The reasoning for this is that there are CDF
+# applications such as Infield and Industrial Canvas that can write to the DMS API, as well as likely third-party
+# applications that can write to the DMS API. If Toolkit fills up the entire capacity, these type of data gathering
+# applications will experience data loss. The limit of 1 million is chosen such that it will trigger alarms in the
+# CDF projects, such that admins can take action to increase or clean up the capacity before it is too late.
+DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
+
+# This is the maximum number of rows that can be iterated over in a single query
+# agreed upon with the transformations team.
+MAX_ROW_ITERATION_RUN_QUERY = 500_000
+MAX_RUN_QUERY_FREQUENCY_MIN = 10

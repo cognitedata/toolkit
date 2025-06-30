@@ -16,6 +16,6 @@ def dummy_environment() -> Environment:
     return Environment(
         name="dev",
         project="my_project",
-        build_type="dev",
+        validation_type="dev",
         selected=["none"],
     )

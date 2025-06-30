@@ -1,3 +1,0 @@
-cognite-extractor-utils>=7
-cognite-sdk>=7.26
-pyyaml>=6

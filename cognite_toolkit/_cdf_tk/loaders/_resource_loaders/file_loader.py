@@ -46,6 +46,7 @@ from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import FileMetadataYAML
 from cognite_toolkit._cdf_tk.utils import (
     in_dict,
 )
@@ -64,13 +65,14 @@ class FileMetadataLoader(
     item_name = "file contents"
     folder_name = "files"
     filename_pattern = (
-        # Matches all yaml files except file names whose stem ends with `.CogniteFile`.
-        r"^(?!.*CogniteFile$).*"
+        # Matches all yaml files except file names whose stem ends with `.CogniteFile` or `File`.
+        r"(?i)^(?!.*(?:File|CogniteFile)$).*$"
     )
     resource_cls = FileMetadata
     resource_write_cls = FileMetadataWrite
     list_cls = FileMetadataList
     list_write_cls = FileMetadataWriteList
+    yaml_cls = FileMetadataYAML
     kind = "FileMetadata"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, LabelLoader, AssetLoader})
 
@@ -143,7 +145,7 @@ class FileMetadataLoader(
 
     def dump_resource(self, resource: FileMetadata, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
-        if ds_id := dumped.pop("dataSetId"):
+        if ds_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(ds_id)
         if security_categories := dumped.pop("securityCategories", []):
             dumped["securityCategoryNames"] = self.client.lookup.security_categories.external_id(security_categories)

@@ -12,9 +12,11 @@ from cognite_toolkit._cdf_tk.loaders import StreamlitLoader
 from cognite_toolkit._cdf_tk.tk_warnings import (
     FileReadWarning,
     HighSeverityWarning,
+    StreamlitRequirementsWarning,
     ToolkitWarning,
     WarningList,
 )
+from cognite_toolkit._cdf_tk.utils.file import safe_read
 
 
 class StreamlitBuilder(Builder):
@@ -74,6 +76,11 @@ class StreamlitBuilder(Builder):
                 raise ToolkitNotADirectoryError(
                     f"StreamlitApp directory not found in {app_directory}(based on externalId {external_id} defined in {source_file.source.path.as_posix()!r}.)"
                 )
+
+            requirements_file_content = safe_read(app_directory / "requirements.txt").splitlines()
+            missing_packages = StreamlitLoader._missing_recommended_requirements(requirements_file_content)
+            if len(missing_packages) > 0:
+                warnings.append(StreamlitRequirementsWarning(app_directory / "requirements.txt", missing_packages))
 
             destination = self.build_dir / self.resource_folder / external_id
             if destination.exists():

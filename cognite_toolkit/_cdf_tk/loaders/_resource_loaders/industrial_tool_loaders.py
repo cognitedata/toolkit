@@ -10,6 +10,7 @@ from cognite.client.data_classes.capabilities import (
     FilesAcl,
 )
 from cognite.client.utils.useful_types import SequenceNotStr
+from packaging.requirements import Requirement
 from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpec, ParameterSpecSet
@@ -26,7 +27,7 @@ from cognite_toolkit._cdf_tk.utils import (
     load_yaml_inject_variables,
     safe_read,
 )
-from cognite_toolkit._cdf_tk.utils.hashing import calculate_str_or_file_hash
+from cognite_toolkit._cdf_tk.utils.hashing import calculate_hash
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -48,6 +49,10 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
     @property
     def display_name(self) -> str:
         return "Streamlit apps"
+
+    @classmethod
+    def recommended_packages(cls) -> list[Requirement]:
+        return [Requirement("pyodide-http==0.2.1"), Requirement(f"cognite-sdk=={CogniteSDKVersion.__version__}")]
 
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
@@ -99,7 +104,7 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
             item_id = self.get_id(item)
             self._source_file_by_external_id[item_id] = filepath
             content = self._as_json_string(item_id, item["entrypoint"])
-            item["cogniteToolkitAppHash"] = calculate_str_or_file_hash(content, shorten=True)
+            item["cogniteToolkitAppHash"] = calculate_hash(content, shorten=True)
         return raw_list
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> StreamlitWrite:
@@ -109,8 +114,11 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
 
     def dump_resource(self, resource: Streamlit, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
+        local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+        if dumped.get("theme") == "Light" and "theme" not in local:
+            dumped.pop("theme")
         return dumped
 
     @lru_cache
@@ -120,10 +128,11 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
         if not app_path.exists():
             raise ToolkitNotADirectoryError(f"Streamlit app folder does not exists. Expected: {app_path}")
         requirements_txt = app_path / "requirements.txt"
+
         if requirements_txt.exists():
             requirements_txt_lines = safe_read(requirements_txt).splitlines()
         else:
-            requirements_txt_lines = ["pyodide-http==0.2.1", f"cognite-sdk=={CogniteSDKVersion.__version__}"]
+            requirements_txt_lines = [str(r) for r in self.recommended_packages()]
         files = {
             py_file.relative_to(app_path).as_posix(): {"content": {"text": safe_read(py_file), "$case": "text"}}
             for py_file in app_path.rglob("*.py")
@@ -137,6 +146,15 @@ class StreamlitLoader(ResourceLoader[str, StreamlitWrite, Streamlit, StreamlitWr
                 "requirements": requirements_txt_lines,
             }
         )
+
+    @staticmethod
+    def _missing_recommended_requirements(requirements: list[str]) -> list[str]:
+        missing = []
+        user_requirements = {Requirement(req).name for req in requirements}
+        for recommended in StreamlitLoader.recommended_packages():
+            if recommended.name not in user_requirements:
+                missing.append(recommended.name)
+        return missing
 
     def create(self, items: StreamlitWriteList) -> StreamlitList:
         created = StreamlitList([])

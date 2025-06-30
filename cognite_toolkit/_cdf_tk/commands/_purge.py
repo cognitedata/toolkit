@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Hashable
-from graphlib import TopologicalSorter
+from graphlib import CycleError, TopologicalSorter
+from typing import cast
 
 import questionary
-from cognite.client.data_classes import DataSetUpdate, filters
+from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
@@ -15,9 +16,15 @@ from rich.status import Status
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
-from cognite_toolkit._cdf_tk.exceptions import ToolkitMissingResourceError, ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import (
+    CDFAPIError,
+    ToolkitMissingResourceError,
+    ToolkitRequiredValueError,
+    ToolkitValueError,
+)
 from cognite_toolkit._cdf_tk.loaders import (
     RESOURCE_LOADER_LIST,
+    AssetLoader,
     CogniteFileLoader,
     DataSetsLoader,
     FunctionLoader,
@@ -35,7 +42,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ViewLoader,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, humanize_collection
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 
 from ._base import ToolkitCommand
 
@@ -43,7 +50,7 @@ from ._base import ToolkitCommand
 class PurgeCommand(ToolkitCommand):
     def space(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         space: str | None = None,
         include_space: bool = False,
         dry_run: bool = False,
@@ -51,7 +58,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a space and all its content"""
-        selected_space = self._get_selected_space(space, ToolGlobals.toolkit_client)
+        selected_space = self._get_selected_space(space, client)
         if space is None:
             # Interactive mode
             include_space = questionary.confirm("Do you also want to delete the space itself?", default=False).ask()
@@ -75,9 +82,9 @@ class PurgeCommand(ToolkitCommand):
                 CogniteFileLoader,
             },
         )
-        is_purged = self._purge(ToolGlobals, loaders, selected_space, dry_run=dry_run, verbose=verbose)
+        is_purged = self._purge(client, loaders, selected_space, dry_run=dry_run, verbose=verbose)
         if include_space and is_purged:
-            space_loader = SpaceLoader.create_loader(ToolGlobals.toolkit_client)
+            space_loader = SpaceLoader.create_loader(client)
             if dry_run:
                 print(f"Would delete space {selected_space}")
             else:
@@ -109,9 +116,9 @@ class PurgeCommand(ToolkitCommand):
         if space is None:
             spaces = client.data_modeling.spaces.list(limit=-1, include_global=False)
             selected_space = questionary.select(
-                "Which space are you going to purge"
-                " (delete all data models, views, containers, nodes and edges in space)?",
-                [space.space for space in spaces],
+                "Which space do you want to purge"
+                " (including all data models, views, containers, nodes and edges within that space)?",
+                sorted([space.space for space in spaces]),
             ).ask()
         else:
             retrieved = client.data_modeling.spaces.retrieve(space)
@@ -125,7 +132,7 @@ class PurgeCommand(ToolkitCommand):
 
     def dataset(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         external_id: str | None = None,
         include_dataset: bool = False,
         dry_run: bool = False,
@@ -133,7 +140,7 @@ class PurgeCommand(ToolkitCommand):
         verbose: bool = False,
     ) -> None:
         """Purge a dataset and all its content"""
-        selected_dataset = self._get_selected_dataset(external_id, ToolGlobals.toolkit_client)
+        selected_dataset = self._get_selected_dataset(external_id, client)
         if external_id is None:
             # Interactive mode
             include_dataset = questionary.confirm(
@@ -161,9 +168,7 @@ class PurgeCommand(ToolkitCommand):
                 LocationFilterLoader,
             },
         )
-        is_purged = self._purge(
-            ToolGlobals, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose
-        )
+        is_purged = self._purge(client, loaders, selected_data_set=selected_dataset, dry_run=dry_run, verbose=verbose)
         if include_dataset and is_purged:
             if dry_run:
                 print(f"Would have archived {selected_dataset}")
@@ -174,7 +179,7 @@ class PurgeCommand(ToolkitCommand):
                     .metadata.add({"archived": "true"})
                     .write_protected.set(True)
                 )
-                ToolGlobals.toolkit_client.data_sets.update(archived)
+                client.data_sets.update(archived)
                 print(f"DataSet {selected_dataset} archived")
         elif include_dataset:
             self.warn(
@@ -205,7 +210,7 @@ class PurgeCommand(ToolkitCommand):
             datasets = client.data_sets.list(limit=-1)
             selected_dataset: str = questionary.select(
                 "Which space are you going to purge (delete all resources in dataset)?",
-                [dataset.external_id for dataset in datasets if dataset.external_id],
+                sorted([dataset.external_id for dataset in datasets if dataset.external_id]),
             ).ask()
         else:
             retrieved = client.data_sets.retrieve(external_id=external_id)
@@ -219,7 +224,7 @@ class PurgeCommand(ToolkitCommand):
 
     def _purge(
         self,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
         loaders: dict[type[ResourceLoader], frozenset[type[ResourceLoader]]],
         selected_space: str | None = None,
         selected_data_set: str | None = None,
@@ -236,13 +241,13 @@ class PurgeCommand(ToolkitCommand):
                 if loader_cls not in loaders:
                     # Dependency that is included
                     continue
-                loader = loader_cls.create_loader(ToolGlobals.toolkit_client, console=status.console)
+                loader = loader_cls.create_loader(client, console=status.console)
                 status_prefix = "Would have deleted" if dry_run else "Deleted"
                 if isinstance(loader, ViewLoader) and not dry_run:
                     status_prefix = "Expected deleted"  # Views are not always deleted immediately
                     has_purged_views = True
 
-                if isinstance(loader, NodeLoader) and not dry_run:
+                if not dry_run and isinstance(loader, NodeLoader):
                     # Special handling of nodes as node type must be deleted after regular nodes
                     # In dry-run mode, we are not deleting the nodes, so we can skip this.
                     warnings_before = len(self.warning_list)
@@ -257,13 +262,21 @@ class PurgeCommand(ToolkitCommand):
                     ):
                         is_purged = False
                     continue
+                elif not dry_run and isinstance(loader, AssetLoader):
+                    # Special handling of assets as we must ensure all children are deleted before the parent.
+                    # In dry-run mode, we are not deleting the assets, so we can skip this.
+                    deleted_assets = self._purge_assets(loader, status, selected_data_set)
+                    results[loader.display_name] = ResourceDeployResult(
+                        loader.display_name, deleted=deleted_assets, total=deleted_assets
+                    )
+                    continue
 
                 # Child loaders are, for example, WorkflowTriggerLoader, WorkflowVersionLoader for WorkflowLoader
                 # These must delete all resources that are connected to the resource that the loader is deleting
                 # Exclude loaders that we are already iterating over
                 child_loader_classes = self._get_dependencies(loader_cls, exclude=set(loaders))
                 child_loaders = [
-                    child_loader.create_loader(ToolGlobals.toolkit_client)
+                    child_loader.create_loader(client)
                     for child_loader in reversed(list(TopologicalSorter(child_loader_classes).static_order()))
                     # Necessary as the topological sort includes dependencies that are not in the loaders
                     if child_loader in child_loader_classes
@@ -364,7 +377,7 @@ class PurgeCommand(ToolkitCommand):
                     raise delete_error
 
         if verbose:
-            prefix = "Would delete" if dry_run else "Deleted"
+            prefix = "Would delete" if dry_run else "Finished purging"
             console.print(f"{prefix} {deleted:,} {loader.display_name}")
         return deleted, batch_size
 
@@ -400,10 +413,15 @@ class PurgeCommand(ToolkitCommand):
     ) -> int:
         """Special handling of nodes as we must ensure all node types are deleted last."""
         # First find all Node Types
-        node_types: set[NodeId] = set()
+        node_types: dict[NodeId, set[NodeId]] = {}
+        total_count = 0
         for node in loader.iterate(space=selected_space):
-            if node.type:
-                node_types.add(NodeId(node.type.space, node.type.external_id))
+            if node.type and (selected_space is None or node.space == selected_space):
+                node_id = NodeId(node.type.space, node.type.external_id)
+                node_types[node_id] = set()
+            total_count += 1
+            status.update(f"Looking up node.type {total_count:,}...")
+
         count = 0
         batch_ids: list[NodeId] = []
         for node in loader.iterate(space=selected_space):
@@ -415,18 +433,33 @@ class PurgeCommand(ToolkitCommand):
             if len(batch_ids) >= batch_size:
                 deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
                 count += deleted
-                status.update(f"Deleted {count:,} {loader.display_name}...")
+                status.update(f"Deleted {count:,}/{total_count} {loader.display_name}...")
                 batch_ids = []
 
         if batch_ids:
             deleted, batch_size = self._delete_node_batch(batch_ids, loader, batch_size, status.console, verbose)
             count += deleted
 
-        # Finally delete all node types
-        deleted, batch_size = self._delete_node_batch(list(node_types), loader, batch_size, status.console, verbose)
+        # Finally delete all node types, first do a lookup and topological sort to ensure deleting in the right order.
+        # Note this is an edge case, and is a result of some strange usage. But we need to handle it.
+        for node_type in loader.retrieve(list(node_types.keys())):
+            if node_type.type:
+                required = NodeId(node_type.type.space, node_type.type.external_id)
+                if required in node_types:
+                    node_types[required].add(node_type.as_id())
+
+        try:
+            node_type_ids = list(TopologicalSorter(node_types).static_order())
+        except CycleError as e:
+            self.warn(
+                HighSeverityWarning(f"Failed to delete node-types: Cycle detected. {e.args}"), console=status.console
+            )
+            return count
+
+        deleted, batch_size = self._delete_node_batch(node_type_ids, loader, batch_size, status.console, verbose)
         count += deleted
         if count > 0:
-            status.console.print(f"Deleted {count:,} {loader.display_name}.")
+            status.console.print(f"Finished purging {loader.display_name}.")
         return count
 
     def _delete_node_batch(
@@ -448,13 +481,14 @@ class PurgeCommand(ToolkitCommand):
                     except CogniteAPIError:
                         is_type = filters.Equals(["node", "type"], node_id.dump(include_instance_type=False))
                         instance_spaces = {node.space for node in loader.client.data_modeling.instances(filter=is_type)}
-                        self.warn(
-                            HighSeverityWarning(
-                                f"Failed to delete {node_id!r}. It is used as a node type in the following spaces, "
+                        if instance_spaces:
+                            suffix = (
+                                "It is used as a node type in the following spaces, "
                                 f"which must be purged first: {humanize_collection(instance_spaces)}"
-                            ),
-                            console=console,
-                        )
+                            )
+                        else:
+                            suffix = "It is used as a node type, but failed to find the spaces where it is used."
+                        self.warn(HighSeverityWarning(f"Failed to delete {node_id!r}. {suffix}"), console=console)
             elif (
                 delete_error.code == 408
                 and "timed out" in delete_error.message.casefold()
@@ -484,3 +518,69 @@ class PurgeCommand(ToolkitCommand):
         if verbose:
             console.print(f"Deleted {deleted:,} {loader.display_name}")
         return deleted, batch_size
+
+    def _purge_assets(
+        self,
+        loader: AssetLoader,
+        status: Status,
+        selected_data_set: str | None = None,
+        batch_size: int = 1000,
+    ) -> int:
+        # Using sets to avoid duplicates
+        children_ids: set[int] = set()
+        parent_ids: set[int] = set()
+        is_first = True
+        last_failed = False
+        count = level = depth = last_parent_count = 0
+        total_asset_count: int | None = None
+        # Iterate through the asset hierarchy once per depth level. This is to delete all children before the parent.
+        while is_first or level < depth:
+            for asset in loader.iterate(data_set_external_id=selected_data_set):
+                aggregates = cast(AggregateResultItem, asset.aggregates)
+                if is_first and aggregates.depth is not None:
+                    depth = max(depth, aggregates.depth)
+
+                if aggregates.child_count == 0:
+                    children_ids.add(asset.id)
+                else:
+                    parent_ids.add(asset.id)
+
+                if len(children_ids) >= batch_size:
+                    count += loader.delete(list(children_ids))
+                    if total_asset_count:
+                        status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
+                    else:
+                        status.update(f"Deleted {count:,} {loader.display_name}...")
+                    children_ids = set()
+
+            if is_first:
+                total_asset_count = count + len(parent_ids) + len(children_ids)
+            if children_ids:
+                count += loader.delete(list(children_ids))
+                status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
+                children_ids = set()
+
+            if len(parent_ids) == last_parent_count and last_failed:
+                try:
+                    # Just try to delete them all at once
+                    count += loader.delete(list(parent_ids))
+                except CogniteAPIError as e:
+                    raise CDFAPIError(
+                        f"Failed to delete {len(parent_ids)} assets. This could be due to a parent-child cycle or an "
+                        "eventual consistency issue. Wait a few seconds and try again. An alternative is to use the "
+                        "Python-SDK to delete the asset hierarchy "
+                        "`client.assets.delete(external_id='my_root_asset', recursive=True)`"
+                    ) from e
+                else:
+                    status.update(f"Deleted {count:,}/{total_asset_count:,} {loader.display_name}...")
+                    break
+            elif len(parent_ids) == last_parent_count:
+                last_failed = True
+            else:
+                last_failed = False
+            level += 1
+            last_parent_count = len(parent_ids)
+            parent_ids.clear()
+            is_first = False
+        status.console.print(f"Finished purging {loader.display_name}.")
+        return count

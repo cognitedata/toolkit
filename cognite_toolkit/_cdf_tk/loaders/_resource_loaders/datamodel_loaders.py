@@ -68,10 +68,12 @@ from cognite.client.data_classes.data_modeling.ids import (
     NodeId,
     ViewId,
 )
+from cognite.client.data_classes.data_modeling.views import ReverseDirectRelationApply
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
@@ -82,16 +84,17 @@ from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import (
     GraphQLDataModelWrite,
     GraphQLDataModelWriteList,
 )
-from cognite_toolkit._cdf_tk.constants import HAS_DATA_FILTER_LIMIT
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, HAS_DATA_FILTER_LIMIT
 from cognite_toolkit._cdf_tk.exceptions import GraphQLParseError, ToolkitCycleError, ToolkitFileNotFoundError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import (
     ResourceContainerLoader,
     ResourceLoader,
 )
-from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
+from cognite_toolkit._cdf_tk.resource_classes import SpaceYAML
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     GraphQLParser,
-    calculate_str_or_file_hash,
+    calculate_hash,
     in_dict,
     load_yaml_inject_variables,
     quote_int_value_by_key_in_yaml,
@@ -101,6 +104,7 @@ from cognite_toolkit._cdf_tk.utils import (
 )
 from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.tarjan import tarjan
 
 from .auth_loaders import GroupAllScopedLoader
 
@@ -115,6 +119,7 @@ class SpaceLoader(ResourceContainerLoader[str, SpaceApply, Space, SpaceApplyList
     list_write_cls = SpaceApplyList
     list_cls = SpaceList
     kind = "Space"
+    yaml_cls = SpaceYAML
     dependencies = frozenset({GroupAllScopedLoader})
     _doc_url = "Spaces/operation/ApplySpaces"
     delete_recreate_limit_seconds: int = 10
@@ -316,7 +321,7 @@ class ContainerLoader(
             if prop_id not in local_prop_by_id:
                 continue
             local_prop = local_prop_by_id[prop_id]
-            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", False)]:
+            for key, default in [("immutable", False), ("autoIncrement", False), ("nullable", True)]:
                 if cdf_prop.get(key) is default and key not in local_prop:
                     cdf_prop.pop(key, None)
             cdf_type = cdf_prop.get("type", {})
@@ -324,6 +329,8 @@ class ContainerLoader(
             for key, type_default in [("list", False), ("collation", "ucs_basic")]:
                 if cdf_type.get(key) == type_default and key not in local_type:
                     cdf_type.pop(key, None)
+        if "usedFor" not in local:
+            dumped.pop("usedFor", None)
         return dumped
 
     def create(self, items: Sequence[ContainerApply]) -> ContainerList:
@@ -488,10 +495,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     dependencies = frozenset({SpaceLoader, ContainerLoader})
     _doc_url = "Views/operation/ApplyViews"
 
-    def __init__(self, client: ToolkitClient, build_dir: Path, console: Console | None) -> None:
+    def __init__(
+        self,
+        client: ToolkitClient,
+        build_dir: Path | None,
+        console: Console | None,
+        topological_sort_implements: bool = False,
+    ) -> None:
         super().__init__(client, build_dir, console)
-        # Caching to avoid multiple lookups on the same interfaces.
-        self._interfaces_by_id: dict[ViewId, View] = {}
+        self._topological_sort_implements = topological_sort_implements
+        self._view_by_id: dict[ViewId, View] = {}
 
     @property
     def display_name(self) -> str:
@@ -563,16 +576,40 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def dump_resource(self, resource: View, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         local = local or {}
         if not dumped.get("properties") and not local.get("properties"):
-            # All properties were removed, so we remove the properties key.
-            dumped.pop("properties", None)
+            if "properties" in local:
+                # In case the properties is an empty dict, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["properties"] = local["properties"]
+            else:
+                dumped.pop("properties", None)
         if not dumped.get("implements") and not local.get("implements"):
-            dumped.pop("implements", None)
+            if "implements" in local:
+                # In case the implements is an empty list, we still want to keep it in the dump.
+                # such that the dumped evaluates to the same as the local.
+                dumped["implements"] = local["implements"]
+            else:
+                dumped.pop("implements", None)
+        if resource.implements and len(resource.implements) > 1 and self._topological_sort_implements:
+            # This is a special case that we want to do when we run the cdf dump datamodel command.
+            # The issue is as follows:
+            # 1. If a data model is deployed through GraphQL, the implements for a child view are sorted
+            #   from parent, grandparent, etc.
+            # 2. If the grand parent has a direct relation that the parent overwrites to update the source.
+            #   The child will get the grandparent's source, not the parent's.
+            # We sort the implements in topological order to ensure that the child view get the order grandparent,
+            # parent, such that the parent's source is used.
+            try:
+                dumped["implements"] = [view_id.dump() for view_id in self.topological_sort(resource.implements)]
+            except ToolkitCycleError as e:
+                warning = MediumSeverityWarning(f"Failed to sort implements for view {resource.as_id()}: {e}")
+                warning.print_warning(console=self.console)
+
         local_properties = local.get("properties", {})
         for prop_id, prop in dumped.get("properties", {}).items():
             if prop_id not in local_properties:
@@ -581,6 +618,16 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
             if all(isinstance(v.get("container"), dict) for v in [prop, local_prop]):
                 if prop["container"].get("type") == "container" and "type" not in local_prop["container"]:
                     prop["container"].pop("type", None)
+            is_connection_prop = "connectionType" in prop
+            is_local_connection_prop = "connectionType" in local_prop
+            if (
+                is_connection_prop
+                and is_local_connection_prop
+                and "direction" not in local_prop
+                and prop.get("direction") == "outwards"
+            ):
+                # The API will set the direction to outwards by default, so we remove it from the dump.
+                prop.pop("direction", None)
         return dumped
 
     def diff_list(
@@ -591,7 +638,106 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
         return super().diff_list(local, cdf, json_path)
 
     def create(self, items: Sequence[ViewApply]) -> ViewList:
-        return self.client.data_modeling.views.apply(items)
+        try:
+            return self.client.data_modeling.views.apply(items)
+        except CogniteAPIError as e1:
+            if self._is_auto_retryable(e1):
+                # Fallback to creating one by one if the error is auto-retryable.
+                return self._fallback_create_one_by_one(items, e1)
+            elif self._is_false_not_exists(e1, {item.as_id() for item in items}):
+                return self._try_to_recover_coupled(items, e1)
+            raise
+
+    @staticmethod
+    def _is_false_not_exists(e: CogniteAPIError, request_views: set[ViewId]) -> bool:
+        if "not exist" not in e.message and 400 <= e.code < 500:
+            return False
+        results = re.findall(r"'([a-zA-Z0-9_-]+):([a-zA-Z0-9_]+)/([.a-zA-Z0-9_-]+)'", e.message)
+        if not results:
+            # No view references in the message
+            return False
+        error_message_views = {ViewId(*result) for result in results}
+        return error_message_views.issubset(request_views)
+
+    def _try_to_recover_coupled(self, items: Sequence[ViewApply], original_error: CogniteAPIError) -> ViewList:
+        """The /models/views endpoint can give faulty 400 about missing views that are part of the request.
+
+        This method tries to recover from such errors by identifying the strongly connected components in the graph
+        defined by the implements and through properties of the views. We then create the components in topological
+        order.
+
+        Args:
+            items: The items that failed to create.
+            original_error: The original error that was raised. If the problem is not recoverable, this error is raised.
+
+        Returns:
+            The views that were created.
+
+        """
+        views_by_id = {self.get_id(item): item for item in items}
+        parents_by_child: dict[ViewId, set[ViewId]] = {
+            view_id: {parent for parent in view.implements or [] if parent in views_by_id}
+            for view_id, view in views_by_id.items()
+        }
+        # Check for cycles in the implements graph
+        try:
+            TopologicalSorter(parents_by_child).static_order()
+        except CycleError as e:
+            raise ToolkitCycleError(f"Failed to deploy views. This likely due to a cycle in implements. {e.args[1]}")
+
+        dependencies_by_id: dict[ViewId, set[ViewId]] = defaultdict(set)
+        for view_id, view in views_by_id.items():
+            dependencies_by_id[view_id].update([parent for parent in view.implements or [] if parent in views_by_id])
+            for properties in (view.properties or {}).values():
+                if isinstance(properties, ReverseDirectRelationApply):
+                    if isinstance(properties.through.source, ViewId) and properties.through.source in views_by_id:
+                        dependencies_by_id[view_id].add(properties.through.source)
+
+        LowSeverityWarning(
+            f"Failed to create {len(items)} views: {escape(original_error.message)}.\nAttempting to recover..."
+        ).print_warning(include_timestamp=True, console=self.console)
+        created = ViewList([])
+        for strongly_connected in tarjan(dependencies_by_id):
+            to_create = [views_by_id[view_id] for view_id in strongly_connected]
+            try:
+                created_set = self.client.data_modeling.views.apply(to_create)
+            except CogniteAPIError as error:
+                self.client.data_modeling.views.delete(created.as_ids())
+                HighSeverityWarning(
+                    f"Recovering attempt failed. Could not create views {self.get_ids(to_create)}: "
+                    f"{escape(error.message)}.\n Raising original error."
+                ).print_warning(console=self.console)
+                raise original_error
+            created.extend(created_set)
+        message = f"Recovery attempt succeeded. Created {len(created)} views."
+        if self.console:
+            self.console.print(message)
+        else:
+            print(message)
+        return created
+
+    @staticmethod
+    def _is_auto_retryable(e: CogniteAPIError) -> bool:
+        return isinstance(e.extra, dict) and "isAutoRetryable" in e.extra and e.extra["isAutoRetryable"]
+
+    def _fallback_create_one_by_one(
+        self, items: Sequence[ViewApply], e1: CogniteAPIError, warn: bool = True
+    ) -> ViewList:
+        if warn:
+            MediumSeverityWarning(
+                f"Failed to create {len(items)} views error:\n{escape(str(e1))}\n\n----------------------------\nTrying to create one by one..."
+            ).print_warning(include_timestamp=True, console=self.console)
+        created_list = ViewList([])
+        for no, item in enumerate(items):
+            try:
+                created = self.client.data_modeling.views.apply(item)
+            except CogniteAPIError as e2:
+                e2.failed.extend(items[no + 1 :])
+                e2.successful.extend(created_list)
+                raise e2 from e1
+            else:
+                created_list.append(created)
+        return created_list
 
     def retrieve(self, ids: SequenceNotStr[ViewId]) -> ViewList:
         return self.client.data_modeling.views.retrieve(
@@ -719,6 +865,32 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
     def as_str(cls, id: ViewId) -> str:
         return to_directory_compatible(id.external_id)
 
+    def _lookup_views(self, view_ids: list[ViewId]) -> dict[ViewId, View]:
+        """Looks up views by their IDs and caches them."""
+        missing_ids = [view_id for view_id in view_ids if view_id not in self._view_by_id]
+        if missing_ids:
+            retrieved_views = self.client.data_modeling.views.retrieve(missing_ids, all_versions=False)
+            for view in retrieved_views:
+                self._view_by_id[view.as_id()] = view
+        return {view_id: self._view_by_id[view_id] for view_id in view_ids if view_id in self._view_by_id}
+
+    def topological_sort(self, view_ids: list[ViewId]) -> list[ViewId]:
+        """Sorts the views in topological order based on their implements and through properties."""
+        view_by_ids = self._lookup_views(view_ids)
+        parents_by_child: dict[ViewId, set[ViewId]] = {}
+        for child, view in view_by_ids.items():
+            parents_by_child[child] = set()
+            for parent in view.implements or []:
+                parents_by_child[child].add(parent)
+        try:
+            sorted_views = list(TopologicalSorter(parents_by_child).static_order())
+        except CycleError as e:
+            raise ToolkitCycleError(
+                f"Failed to sort views topologically. This likely due to a cycle in implements. {e.args[1]}"
+            )
+
+        return sorted_views
+
 
 @final
 class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, DataModelApplyList, DataModelList]):
@@ -783,7 +955,7 @@ class DataModelLoader(ResourceLoader[DataModelId, DataModelApply, DataModel, Dat
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def dump_resource(self, resource: DataModel, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
@@ -944,23 +1116,16 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
         # CDF resource does not have properties set, so we need to do a lookup
         local = local or {}
         sources = [ViewId.load(source["source"]) for source in local.get("sources", []) if "source" in source]
+
         if sources:
             try:
-                result = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
-                if len(result.nodes) > 0:
-                    cdf_resource_with_properties = result.nodes[0]
-                else:
-                    raise Exception("No nodes found")
-            except Exception as e:
-                print(f"Error retrieving node {resource.as_id()}: {e}")
-                print(f"View: {sources}")
-
+                res = self.client.data_modeling.instances.retrieve(nodes=resource.as_id(), sources=sources)
+            except CogniteAPIError:
                 # View does not exist
                 dumped = resource.as_write().dump()
             else:
-                dumped = cdf_resource_with_properties.as_write().dump()
+                dumped = res.nodes[0].as_write().dump() if len(res.nodes) > 0 else resource.as_write().dump()
         else:
-            # No sources, so we can just dump the resource.
             dumped = resource.as_write().dump()
 
         if "existingVersion" not in local:
@@ -977,7 +1142,10 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def create(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=True, replace=False
+            # Note replace should never be relevant as Toolkit always checks whether the node exists before applying.
+            nodes=items,
+            auto_create_direct_relations=True,
+            replace=True,
         )
         return result.nodes
 
@@ -986,7 +1154,7 @@ class NodeLoader(ResourceContainerLoader[NodeId, NodeApply, Node, NodeApplyList,
 
     def update(self, items: NodeApplyList) -> NodeApplyResultList:
         result = self.client.data_modeling.instances.apply(
-            nodes=items, auto_create_direct_relations=False, replace=True
+            nodes=items, auto_create_direct_relations=True, replace=False
         )
         return result.nodes
 
@@ -1102,7 +1270,7 @@ class GraphQLLoader(
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -1124,7 +1292,7 @@ class GraphQLLoader(
                 )
 
             self._graphql_filepath_cache[model_id] = graphql_file
-            graphql_content = safe_read(graphql_file)
+            graphql_content = safe_read(graphql_file, encoding=BUILD_FOLDER_ENCODING)
 
             parser = GraphQLParser(graphql_content, model_id)
             try:
@@ -1137,7 +1305,7 @@ class GraphQLLoader(
 
             # Add hash to description
             description = item.get("description", "")
-            hash_ = calculate_str_or_file_hash(graphql_content)[:8]
+            hash_ = calculate_hash(graphql_content)[:8]
             suffix = f"{self._hash_name}{hash_}"
             if len(description) + len(suffix) > 1024:
                 LowSeverityWarning(f"Description is above limit for {model_id}. Truncating...").print_warning()
@@ -1319,8 +1487,8 @@ class EdgeLoader(ResourceContainerLoader[EdgeId, EdgeApply, Edge, EdgeApplyList,
             cdf_resource_with_properties = self.client.data_modeling.instances.retrieve(
                 edges=resource.as_id(), sources=sources
             ).edges[0]
-        except CogniteAPIError:
-            # View does not exist
+        except (CogniteAPIError, IndexError):
+            # View or Edge does not exist
             dumped = resource.as_write().dump()
         else:
             dumped = cdf_resource_with_properties.as_write().dump()

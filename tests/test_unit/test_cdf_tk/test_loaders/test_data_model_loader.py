@@ -7,16 +7,17 @@ import pytest
 from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk.client.data_classes.graphql_data_models import GraphQLDataModel, GraphQLDataModelWriteList
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.exceptions import ToolkitCycleError
 from cognite_toolkit._cdf_tk.loaders import DataModelLoader, ResourceWorker
-from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.loaders._resource_loaders import GraphQLLoader, ViewLoader
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestDataModelLoader:
     def test_update_data_model_random_view_order(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ):
         cdf_data_model = dm.DataModel(
             space="sp_space",
@@ -51,19 +52,19 @@ class TestDataModelLoader:
         filepath.read_text.return_value = local_data_model
 
         loader = DataModelLoader.create_loader(
-            cdf_tool_mock.toolkit_client,
+            env_vars_with_client.get_client(),
         )
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
-    def test_are_equal_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
+    def test_are_equal_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:
         local_yaml = """space: sp_space
 externalId: my_model
 version: 1
@@ -84,7 +85,7 @@ views:
             name=None,
             is_global=False,
         )
-        loader = DataModelLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = DataModelLoader.create_loader(env_vars_with_client.get_client())
         filepath = MagicMock(spec=Path)
         filepath.read_text.return_value = local_yaml
         # The load filepath method ensures version is read as an int.
@@ -97,9 +98,9 @@ views:
 
 class TestGraphQLLoader:
     def test_deployment_order(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
         # The first model is dependent on the second model
         first_file = self._create_mock_file(
             """
@@ -131,9 +132,9 @@ type GeneratingUnit {
         assert created[1].external_id == "WindTurbineModel"
 
     def test_raise_cycle_error(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
     ) -> None:
-        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
         # The two models are dependent on each other
         first_file = self._create_mock_file(
             """type WindTurbine @import(dataModel: {externalId: "SolarModel", version: "v1", space: "second_space"}) {
@@ -162,7 +163,7 @@ name: String}""",
             "WindTurbineModel",
         ]
 
-    def test_load_version_int(self, cdf_tool_mock: CDFToolConfig) -> None:
+    def test_load_version_int(self, env_vars_with_client: EnvironmentVariables) -> None:
         file = self._create_mock_file(
             """type WindTurbine{
             name: String}""",
@@ -170,7 +171,7 @@ name: String}""",
             "AssetHierarchyDOM",
             "3_0_2",
         )
-        loader = GraphQLLoader.create_loader(cdf_tool_mock.toolkit_client)
+        loader = GraphQLLoader.create_loader(env_vars_with_client.get_client())
 
         items = loader.load_resource_file(file, {})
 
@@ -194,3 +195,63 @@ dml: model.graphql
 
         yaml_file.with_suffix.return_value = graphql_file
         return yaml_file
+
+
+@pytest.fixture()
+def parent_grandparent_view() -> dm.ViewlList:
+    return dm.ViewList(
+        [
+            dm.View(
+                space="space",
+                external_id="Parent",
+                version="v1",
+                name="Parent",
+                description=None,
+                implements=[dm.ViewId("space", "GrandParent", "v1")],
+                properties={},
+                last_updated_time=1,
+                created_time=1,
+                filter=None,
+                writable=True,
+                used_for="node",
+                is_global=False,
+            ),
+            dm.View(
+                space="space",
+                external_id="GrandParent",
+                version="v1",
+                name="GrandParent",
+                description=None,
+                implements=[],
+                properties={},
+                last_updated_time=1,
+                created_time=1,
+                filter=None,
+                writable=True,
+                used_for="node",
+                is_global=False,
+            ),
+        ]
+    )
+
+
+class TestViewLoader:
+    def test_topological_sorting(self, parent_grandparent_view: dm.ViewList) -> None:
+        with monkeypatch_toolkit_client() as client:
+            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            actual = loader.topological_sort(
+                [dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")]
+            )
+
+        assert actual == [dm.ViewId("space", "GrandParent", "v1"), dm.ViewId("space", "Parent", "v1")]
+
+    def test_topological_sorting_cycle(self, parent_grandparent_view: dm.ViewList) -> None:
+        parent_grandparent_view[1].implements = [parent_grandparent_view[0].as_id()]
+
+        with monkeypatch_toolkit_client() as client, pytest.raises(ToolkitCycleError) as exc_info:
+            client.data_modeling.views.retrieve.return_value = parent_grandparent_view
+            loader = ViewLoader(client, Path("build_dir"), None, topological_sort_implements=True)
+            loader.topological_sort([dm.ViewId("space", "Parent", "v1"), dm.ViewId("space", "GrandParent", "v1")])
+
+        assert "cycle in implements" in str(exc_info.value)

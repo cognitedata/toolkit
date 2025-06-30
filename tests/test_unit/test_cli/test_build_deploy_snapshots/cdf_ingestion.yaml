@@ -241,6 +241,8 @@ Workflow:
   externalId: ingestion
 WorkflowTrigger:
 - externalId: ingestion
+  metadata:
+    cognite-toolkit-auth-hash: 003722e2
   triggerRule:
     cronExpression: 0 4 * * *
     triggerType: schedule
@@ -257,8 +259,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: pi_timeseries_springfield_aveva_pi
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - externalId: sap_assets_springfield_s4hana
       onFailure: abortWorkflow
@@ -267,8 +267,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_assets_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - externalId: sap_equipment_springfield_s4hana
       onFailure: abortWorkflow
@@ -277,8 +275,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_equipment_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: sap_assets_springfield_s4hana
@@ -290,8 +286,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_equipment_to_asset_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - externalId: sap_maintenance_orders_springfield_s4hana
       onFailure: abortWorkflow
@@ -300,8 +294,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_maintenance_orders_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - externalId: sap_operations_springfield_s4hana
       onFailure: abortWorkflow
@@ -310,8 +302,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_operations_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: sap_maintenance_orders_springfield_s4hana
@@ -323,8 +313,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: sap_operation_to_maintenance_order_springfield_s4hana
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - externalId: files_metadata_springfield
       onFailure: abortWorkflow
@@ -333,8 +321,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: files_metadata_springfield
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: sap_assets_springfield_s4hana
@@ -348,8 +334,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: activity_to_asset
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: sap_equipment_springfield_s4hana
@@ -364,8 +348,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: activity_to_equipment
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: pi_timeseries_springfield_aveva_pi
@@ -379,8 +361,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: activity_to_timeseries
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: pi_timeseries_springfield_aveva_pi
@@ -392,8 +372,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: timeseries_to_asset
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: pi_timeseries_springfield_aveva_pi
@@ -406,8 +384,6 @@ WorkflowVersion:
           concurrencyPolicy: fail
           externalId: timeseries_to_equipment
           useTransformationCredentials: false
-      retries: null
-      timeout: null
       type: transformation
     - dependsOn:
       - externalId: sap_assets_springfield_s4hana
@@ -421,8 +397,6 @@ WorkflowVersion:
           data:
             logLevel: INFO
           externalId: contextualization_p_and_id_annotater
-      retries: null
-      timeout: null
       type: function
     - dependsOn:
       - externalId: contextualization_p_and_id_annotater
@@ -433,7 +407,5 @@ WorkflowVersion:
           data:
             logLevel: INFO
           externalId: contextualization_connection_writer
-      retries: null
-      timeout: null
       type: function
   workflowExternalId: ingestion

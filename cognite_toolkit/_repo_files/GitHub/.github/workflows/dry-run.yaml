@@ -1,0 +1,59 @@
+name: Toolkit Dry Run
+
+on:
+  pull_request:
+
+jobs:
+  build-modules:
+    runs-on: ubuntu-latest
+    # refers to the Environment concept in GitHub
+    environment: dev
+    name: Deploy Dry Run
+    container:
+      image: cognite/toolkit:0.0.0
+      env:
+        CDF_CLUSTER: ${{ vars.CDF_CLUSTER }}
+        CDF_PROJECT: ${{ vars.CDF_PROJECT }}
+        IDP_CLIENT_ID: ${{ vars.IDP_CLIENT_ID }}
+        IDP_CLIENT_SECRET: ${{ secrets.IDP_CLIENT_SECRET }}
+        IDP_TENANT_ID: ${{ vars.IDP_TENANT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the modules
+        run: cdf build --env dev | tee build-output.txt
+      - name: Dry Run the modules deployment
+        run: cdf deploy --dry-run | tee dryrun-output.txt
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const buildOutput = fs.readFileSync('build-output.txt', 'utf8');
+            const dryrunOutput = fs.readFileSync('dryrun-output.txt', 'utf8');
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+      
+            const commentHeader = `✅Dry-run has finished!\n📑Please Review before merging`;
+            const commentBuild  = `<details><summary>Build output:</summary>\n\n\`\`\`yaml\n${buildOutput}\n\`\`\`\n</details>`;
+            const commentDryRun = `<details><summary>Dry-run output:</summary>\n\n\`\`\`yaml\n${dryrunOutput}\n\`\`\`\n</details>`;
+            const commentBody = `${commentHeader}\n\n${commentBuild}\n\n${commentDryRun}`;
+            const existingComment = comments.find(comment => comment.user.login === 'github-actions[bot]' && comment.body.includes('✅Dry-run has finished!'));
+      
+            if (existingComment) {
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentBody,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: commentBody,
+              });
+            }

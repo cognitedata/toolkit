@@ -1,5 +1,6 @@
 [module]
-title = "Ice Cream API"
+title = "Bootcamp"
+is_selected_by_default = true
 
 [packages]
 tags = [

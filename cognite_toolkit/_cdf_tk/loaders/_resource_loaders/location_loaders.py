@@ -16,7 +16,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
     LocationFilterWrite,
     LocationFilterWriteList,
 )
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import LocationYAML
 from cognite_toolkit._cdf_tk.utils import in_dict, quote_int_value_by_key_in_yaml, safe_read
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
 
@@ -37,6 +40,7 @@ class LocationFilterLoader(
     resource_write_cls = LocationFilterWrite
     list_cls = LocationFilterList
     list_write_cls = LocationFilterWriteList
+    yaml_cls = LocationYAML
     dependencies = frozenset(
         {
             AssetLoader,
@@ -97,11 +101,19 @@ class LocationFilterLoader(
         # This is technically a user mistake, as you should quote the version in the YAML file.
         # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
         # so we fix it here.
-        return quote_int_value_by_key_in_yaml(safe_read(filepath), key="version")
+        return quote_int_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="version")
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> LocationFilterWrite:
         if parent_external_id := resource.pop("parentExternalId", None):
-            resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
+            # This is a workaround: when the parentExternalId cannot be resolved because the parent hasn't been created yet, , we save it so that we can try again "later"
+
+            #
+            try:
+                resource["parentId"] = self.client.lookup.location_filters.id(parent_external_id, is_dry_run)
+            except ResourceRetrievalError:
+                resource["parentId"] = -1
+                resource["_parentExternalId"] = parent_external_id
+
         if "assetCentric" not in resource:
             return LocationFilterWrite._load(resource)
         asset_centric = resource["assetCentric"]
@@ -155,14 +167,30 @@ class LocationFilterLoader(
             items = LocationFilterWriteList([items])
 
         created = []
+        # Note: the Location API does not support batch creation, so we need to do this one by one.
+        # Furthermore, we could not do the parentExternalId->parentId lookup before the parent was created,
+        # hence it may be deferred here.
         for item in items:
+            # These are set if lookup has been deferred
+            if item._parent_external_id and item.parent_id == -1:
+                item.parent_id = self.client.lookup.location_filters.id(item._parent_external_id)
             created.append(self.client.location_filters.create(item))
         return LocationFilterList(created)
 
     def retrieve(self, external_ids: SequenceNotStr[str]) -> LocationFilterList:
-        return LocationFilterList(
-            [loc for loc in self.client.location_filters.list() if loc.external_id in external_ids]
-        )
+        all_locations = self.client.location_filters.list()
+        found_locations: LocationFilterList = LocationFilterList([])
+
+        # locationfilter list returns a tree structure, so we need to traverse it
+        def _recursive_find(locs: LocationFilterList) -> None:
+            for loc in locs:
+                if loc.external_id in external_ids:
+                    found_locations.append(loc)
+                if loc.locations:
+                    _recursive_find(loc.locations)
+
+        _recursive_find(all_locations)
+        return LocationFilterList(found_locations)
 
     def update(self, items: LocationFilterWrite | LocationFilterWriteList) -> LocationFilterList:
         if isinstance(items, LocationFilterWrite):

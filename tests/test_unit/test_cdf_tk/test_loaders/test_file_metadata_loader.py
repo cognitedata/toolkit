@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from _pytest.mark import ParameterSet
 from _pytest.monkeypatch import MonkeyPatch
-from cognite.client.data_classes import FileMetadataWrite, FileMetadataWriteList
+from cognite.client.data_classes import FileMetadata, FileMetadataWrite, FileMetadataWriteList
 
 from cognite_toolkit._cdf_tk.loaders import FileMetadataLoader
 from tests.test_unit.approval_client import ApprovalToolkitClient
@@ -87,3 +87,17 @@ class TestLoadResources:
         path = MagicMock(spec=Path)
         path.exists.return_value = True
         return path
+
+    def test_dump_file_metadata_without_dataset(
+        self, monkeypatch: MonkeyPatch, toolkit_client_approval: ApprovalToolkitClient
+    ) -> None:
+        metadata = FileMetadata("my_file", name="my_file.txt", mime_type="text/plain")
+        loader = FileMetadataLoader.create_loader(toolkit_client_approval.mock_client)
+
+        dumped = loader.dump_resource(metadata)
+
+        assert dumped == {
+            "externalId": "my_file",
+            "name": "my_file.txt",
+            "mimeType": "text/plain",
+        }

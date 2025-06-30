@@ -1,0 +1,23 @@
+externalId: SimulationResultFile
+space: strongly-coupled-model
+name: SimulationResultFile
+version: v1
+description: Missing
+properties:
+  entity:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: SimulationResultFile
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: Production
+      version: v1
+    containerPropertyIdentifier: entity
+    name: entity
+implements:
+- type: view
+  space: cdf_cdm
+  externalId: CogniteFile
+  version: v1

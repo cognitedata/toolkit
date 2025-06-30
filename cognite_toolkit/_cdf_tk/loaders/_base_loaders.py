@@ -19,9 +19,10 @@ from rich.console import Console
 
 from cognite_toolkit._cdf_tk._parameters import ParameterSpecSet, read_parameter_from_init_type_hints
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.constants import EXCL_FILES, USE_SENTRY
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING, EXCL_FILES, USE_SENTRY
+from cognite_toolkit._cdf_tk.resource_classes import ToolkitResource
 from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, load_yaml_inject_variables, safe_read, to_directory_compatible
+from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, safe_read, to_directory_compatible
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.data_classes import BuildEnvironment
@@ -176,6 +177,7 @@ class ResourceLoader(
     resource_cls: type[T_WritableCogniteResource]
     list_cls: type[T_WritableCogniteResourceList]
     list_write_cls: type[T_CogniteResourceList]
+    yaml_cls: type[ToolkitResource] | None = None
     # Optional to set in the subclass
     support_drop = True
     support_update = True
@@ -307,7 +309,7 @@ class ResourceLoader(
         """Reads the file and returns the content. This is intended to be overwritten in subclasses that require special
         handling of the files content. For example, Data Models need to quote the value on the version key to ensure
         it is parsed as a string."""
-        return safe_read(filepath)
+        return safe_read(filepath, encoding=BUILD_FOLDER_ENCODING)
 
     def load_resource_file(
         self, filepath: Path, environment_variables: dict[str, str | None] | None = None
@@ -383,6 +385,15 @@ class ResourceLoader(
         raise NotImplementedError(
             f"Missing implementation for {type(self).__name__} for {'.'.join(map(str, json_path))}."
         )
+
+    def sensitive_strings(self, item: T_WriteClass) -> Iterable[str]:
+        """Returns a list of strings that should be masked when printing.
+
+        This is used by the loaders with credentials to mask the credentials secrets. For example, the
+        WorkflowTriggerLoader uses this to maks the clientSecret.
+        """
+        return
+        yield
 
     # Helper methods
     @classmethod
@@ -464,7 +475,7 @@ class DataLoader(Loader, ABC):
     item_name: str
 
     @abstractmethod
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         raise NotImplementedError
 
     def _find_data_files(self, directory: Path) -> list[Path]:

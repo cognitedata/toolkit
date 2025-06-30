@@ -19,8 +19,10 @@ import pandas as pd
 import yaml
 from rich import print
 
+from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.constants import ENV_VAR_PATTERN, HINT_LEAD_TEXT, URL
 from cognite_toolkit._cdf_tk.exceptions import (
+    ToolkitValueError,
     ToolkitYAMLFormatError,
 )
 from cognite_toolkit._cdf_tk.tk_warnings import EnvironmentVariableMissingWarning, MediumSeverityWarning
@@ -67,7 +69,7 @@ def load_yaml_inject_variables(
 
     Args:
         filepath (Path | str): Path to the YAML file or file content.
-        environ_variables (dict[str, str | None]): Dictionary with environment variables.
+        environment_variables (dict[str, str | None]): Dictionary with environment variables.
         required_return_type (Literal["any", "list", "dict"], optional): The required return type. Defaults to "any".
         validate (bool, optional): Whether to validate that all environment variables were replaced. Defaults to True.
         original_filepath (Path | None, optional): In case the filepath is a string, this is the original path.
@@ -84,7 +86,7 @@ def load_yaml_inject_variables(
     for key, value in environment_variables.items():
         if value is None:
             continue
-        content = content.replace(f"${{{key}}}", value)
+        content = content.replace(f"${{{key}}}", str(value))
     if validate and (missing_variables := [match.group(1) for match in ENV_VAR_PATTERN.finditer(content)]):
         if isinstance(filepath, Path):
             source = filepath
@@ -185,16 +187,21 @@ def tmp_build_directory() -> typing.Generator[Path, None, None]:
         safe_rmtree(build_dir)
 
 
-def safe_read(file: Path | str) -> str:
+def safe_read(file: Path | str, encoding: str | None = None) -> str:
     """Falls back on explicit using utf-8 if the default .read_text()"""
+    encoding = encoding or CDFToml.load().cdf.file_encoding
     if isinstance(file, str):
         return file
     try:
-        return file.read_text()
+        return file.read_text(encoding=encoding)
     except UnicodeDecodeError:
+        # If we set the encoding, we try the system default. If we tried the system default, we try utf-8.
+        backup_encoding: str | None = None
+        if encoding is None:
+            backup_encoding = "utf-8"
         # On Windows, we may have issues as the encoding is not always utf-8
         try:
-            return file.read_text(encoding="utf-8")
+            return file.read_text(encoding=backup_encoding)
         except UnicodeDecodeError:
             raise
 
@@ -299,7 +306,7 @@ class YAMLWithComments(UserDict[T_Key, T_Value]):
     def _dump_yaml_with_comments(self, indent_size: int = 2, newline_after_indent_reduction: bool = False) -> str:
         """Dump a config dictionary to a yaml string"""
         config = self.dump()
-        dumped = yaml.dump(config, sort_keys=False, indent=indent_size)
+        dumped = yaml.dump(config, sort_keys=False, indent=indent_size, width=float("inf"))
         out_lines = []
         if comments := self._get_comment(tuple()):
             for comment in comments.above:
@@ -401,3 +408,20 @@ def safe_rmtree(path: Path) -> None:
         MediumSeverityWarning(
             f"Failed to remove {name} {path.as_posix()}. You may need to remove it manually."
         ).print_warning()
+
+
+def get_table_columns(table: Path) -> list[str]:
+    """Get the columns of a table
+
+    Args:
+        table (Path): Path to the table
+
+    Returns:
+        list[str]: List of columns
+    """
+    if table.suffix == ".csv":
+        return read_csv(table).columns.tolist()
+    elif table.suffix == ".parquet":
+        return pd.read_parquet(table).columns.tolist()
+    else:
+        raise ToolkitValueError(f"The file {table.name} is not a supported table format (csv, parquet)")

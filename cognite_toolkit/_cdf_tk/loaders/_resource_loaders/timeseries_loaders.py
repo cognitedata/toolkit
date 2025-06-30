@@ -1,5 +1,7 @@
+import json
 from collections.abc import Hashable, Iterable, Sequence
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast, final
 
 from cognite.client.data_classes import (
@@ -21,13 +23,16 @@ from cognite.client.data_classes.capabilities import (
 from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 
-from cognite_toolkit._cdf_tk._parameters import ANY_STR, ParameterSpec, ParameterSpecSet
+from cognite_toolkit._cdf_tk._parameters import ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.constants import MAX_TIMESTAMP_MS, MIN_TIMESTAMP_MS
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceContainerLoader, ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import TimeSeriesYAML
+from cognite_toolkit._cdf_tk.utils import calculate_hash
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, dm_identifier
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth_loaders import GroupAllScopedLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader
@@ -43,6 +48,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
     resource_write_cls = TimeSeriesWrite
     list_cls = TimeSeriesList
     list_write_cls = TimeSeriesWriteList
+    yaml_cls = TimeSeriesYAML
     kind = "TimeSeries"
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader, AssetLoader})
     _doc_url = "Time-series/operation/postTimeSeries"
@@ -106,7 +112,7 @@ class TimeSeriesLoader(ResourceContainerLoader[str, TimeSeriesWrite, TimeSeries,
                 security_categories_names, is_dry_run
             )
         if asset_external_id := resource.pop("assetExternalId", None):
-            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return TimeSeriesWrite._load(resource)
 
     def dump_resource(self, resource: TimeSeries, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -214,6 +220,9 @@ class DatapointSubscriptionLoader(
         }
     )
 
+    _hash_key = "cdf-hash"
+    _description_character_limit = 1000
+
     @property
     def display_name(self) -> str:
         return "timeseries subscriptions"
@@ -243,7 +252,7 @@ class DatapointSubscriptionLoader(
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
                 object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
-        spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
+        spec.add(ParameterSpec(("filter", ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=False))
         return spec
 
     @classmethod
@@ -323,25 +332,58 @@ class DatapointSubscriptionLoader(
     ) -> Iterable[DatapointSubscription]:
         return iter(self.client.time_series.subscriptions)
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+        for resource in resources:
+            if "timeSeriesIds" not in resource and "instanceIds" not in resource:
+                continue
+            # If the timeSeriesIds or instanceIds is set, we need to add the auth hash to the description.
+            # such that we can detect if the subscription has changed.
+            content: dict[str, object] = {}
+            if "timeSeriesIds" in resource:
+                content["timeSeriesIds"] = resource["timeSeriesIds"]
+            if "instanceIds" in resource:
+                content["instanceIds"] = resource["instanceIds"]
+            timeseries_hash = calculate_hash(json.dumps(content), shorten=True)
+            extra_str = f"{self._hash_key}: {timeseries_hash}"
+            resource["description"] = suffix_description(
+                extra_str,
+                resource.get("description"),
+                self._description_character_limit,
+                self.get_id(resource),
+                self.display_name,
+                self.console,
+            )
+
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> DataPointSubscriptionWrite:
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         return DataPointSubscriptionWrite._load(resource)
 
     def dump_resource(self, resource: DatapointSubscription, local: dict[str, Any] | None = None) -> dict[str, Any]:
-        dumped = resource.as_write().dump()
+        if resource.filter is not None:
+            dumped = resource.as_write().dump()
+        else:
+            # If filter is not set, the subscription uses explicit timeSeriesIds, which are not returned in the
+            # response. Calling .as_write() in this case raises ValueError because either filter or
+            # timeSeriesIds must be set.
+            dumped = resource.dump()
+            for server_prop in ("createdTime", "lastUpdatedTime", "timeSeriesCount"):
+                dumped.pop(server_prop, None)
         local = local or {}
         if data_set_id := dumped.pop("dataSetId", None):
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
-        if "timeSeriesIds" not in dumped:
-            return dumped
-        # Sorting the timeSeriesIds in the local order
-        # Sorting in the same order as the local file.
-        ts_order_by_id = {ts_id: no for no, ts_id in enumerate(local.get("timeSeriesIds", []))}
-        end_of_list = len(ts_order_by_id)
-        dumped["timeSeriesIds"] = sorted(
-            dumped["timeSeriesIds"], key=lambda ts_id: ts_order_by_id.get(ts_id, end_of_list)
-        )
+        # timeSeriesIds and instanceIds are not returned in the response, so we need to add them
+        # to the dumped resource if they are set in the local resource. If there is a discrepancy between
+        # the local and dumped resource, th hash added to the description will change.
+        if "timeSeriesIds" in local:
+            dumped["timeSeriesIds"] = local["timeSeriesIds"]
+        if "instanceIds" in local:
+            dumped["instanceIds"] = local["instanceIds"]
         return dumped
 
     def diff_list(

@@ -1,0 +1,23 @@
+externalId: SimSubNode
+space: strongly-coupled-model
+version: v1
+name: SimSubNode
+description: Missing
+properties:
+  parent:
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: SimNode
+      version: v1
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: SimSubNode
+    containerPropertyIdentifier: parent
+    name: parent
+implements:
+- type: view
+  space: strongly-coupled-model
+  externalId: SimNode
+  version: v1

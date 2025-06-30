@@ -11,7 +11,8 @@ from cognite.client.data_classes._base import T_CogniteResourceList, T_WritableC
 
 from cognite_toolkit._cdf_tk.client.data_classes.extendable_cognite_file import ExtendableCogniteFileApply
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawTable
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, read_yaml_content, safe_read
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.utils import read_yaml_content, safe_read
 from cognite_toolkit._cdf_tk.utils.file import read_csv
 
 from ._base_loaders import T_ID, DataLoader, ResourceLoader, T_WritableCogniteResourceList
@@ -34,7 +35,7 @@ class DatapointsLoader(DataLoader):
     def display_name(self) -> str:
         return "timeseries datapoints"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -98,7 +99,7 @@ class FileLoader(DataLoader):
     def display_name(self) -> str:
         return "file content"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -138,7 +139,7 @@ class FileLoader(DataLoader):
         ],
         identifier: T_ID,
     ) -> T_WriteClass:
-        built_content = read_yaml_content(safe_read(destination))
+        built_content = read_yaml_content(safe_read(destination, encoding=BUILD_FOLDER_ENCODING))
         if isinstance(built_content, dict):
             return loader.resource_write_cls.load(built_content)
         elif isinstance(built_content, list):
@@ -163,7 +164,7 @@ class RawFileLoader(DataLoader):
     def display_name(self) -> str:
         return "raw rows"
 
-    def upload(self, state: BuildEnvironment, ToolGlobals: CDFToolConfig, dry_run: bool) -> Iterable[tuple[str, int]]:
+    def upload(self, state: BuildEnvironment, dry_run: bool) -> Iterable[tuple[str, int]]:
         if self.folder_name not in state.built_resources:
             return
 
@@ -186,7 +187,7 @@ class RawFileLoader(DataLoader):
             if datafile.suffix == ".csv":
                 # The replacement is used to ensure that we read exactly the same file on Windows and Linux
                 file_content = datafile.read_bytes().replace(b"\r\n", b"\n").decode("utf-8")
-                data = read_csv(io.StringIO(file_content), dtype=str)
+                data = read_csv(io.StringIO(file_content))
                 data.fillna("", inplace=True)
                 if not data.columns.empty and data.columns[0] == "key":
                     print(f"Setting index to 'key' for {datafile.name}")

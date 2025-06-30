@@ -6,7 +6,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk.cdf_toml import CDFToml
 from cognite_toolkit._cdf_tk.commands import ModulesCommand, PullCommand
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._version import __version__
 
 CDF_TOML = CDFToml.load(Path.cwd())
@@ -62,14 +62,14 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Initialize or upgrade a new CDF project with templates interactively."""
 
-        cmd = ModulesCommand()
-        cmd.run(
-            lambda: cmd.init(
-                organization_dir=organization_dir,
-                select_all=all,
-                clean=clean,
+        with ModulesCommand() as cmd:
+            cmd.run(
+                lambda: cmd.init(
+                    organization_dir=organization_dir,
+                    select_all=all,
+                    clean=clean,
+                )
             )
-        )
 
     def upgrade(
         self,
@@ -116,8 +116,8 @@ class ModulesApp(typer.Typer):
         ] = False,
     ) -> None:
         """Add one or more new module(s) to the project."""
-        cmd = ModulesCommand()
-        cmd.run(lambda: cmd.add(organization_dir=organization_dir))
+        with ModulesCommand() as cmd:
+            cmd.run(lambda: cmd.add(organization_dir=organization_dir))
 
     def pull(
         self,
@@ -164,7 +164,7 @@ class ModulesApp(typer.Typer):
     ) -> None:
         """Pull a module from CDF. This will overwrite the local files with the latest version from CDF."""
         cmd = PullCommand()
-        ToolGlobals = CDFToolConfig.from_context(ctx)
+        env_vars = EnvironmentVariables.create_from_environment()
         cmd.run(
             lambda: cmd.pull_module(
                 module_name_or_path=module_name_or_path,
@@ -172,7 +172,7 @@ class ModulesApp(typer.Typer):
                 env=build_env,
                 dry_run=dry_run,
                 verbose=verbose,
-                ToolGlobals=ToolGlobals,
+                env_vars=env_vars,
             )
         )
 

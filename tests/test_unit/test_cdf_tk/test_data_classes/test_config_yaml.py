@@ -178,3 +178,20 @@ variable4: "value with #in it" # But a comment after
         assert ("variables", "modules", "another_module", "dataset") not in config.keys()
         assert ("variables", "modules", "another_module", "source_asset") in config.keys()
         assert ("variables", "modules", "parent_module", "child_module", "source_asset") in config.keys()
+
+    def test_allow_wide_lines(self, dummy_environment) -> None:
+        long_default_value = "value " * 20  # whitespace makes default yaml.dump split lines
+
+        config = InitConfigYAML(
+            dummy_environment,
+            {
+                ("variables", "modules", "infield", "shared_variable"): ConfigEntry(
+                    key_path=("variables", "modules", "infield", "shared_variable"),
+                    default_value=long_default_value,
+                )
+            },
+        )
+
+        dumped = config.dump_yaml_with_comments()
+        loaded = yaml.safe_load(dumped)
+        assert loaded["variables"]["modules"]["infield"]["shared_variable"] == long_default_value

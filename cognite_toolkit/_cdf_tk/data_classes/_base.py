@@ -23,8 +23,7 @@ class ConfigCore(ABC):
         return cls.filename.format(build_env=build_env)
 
     @classmethod
-    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str | None) -> T_BuildConfig:
-        build_env = build_env or "dev"
+    def load_from_directory(cls: type[T_BuildConfig], organization_dir: Path, build_env: str) -> T_BuildConfig:
         filename = cls.get_filename(build_env)
         filepath = organization_dir / filename
         filepath = filepath if filepath.is_file() else Path.cwd() / filename

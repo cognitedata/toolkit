@@ -1,103 +1,168 @@
-import os
-from ast import literal_eval
 from datetime import datetime, timedelta, timezone
-from threading import Event
+from itertools import islice
+from timeit import default_timer
 
 from cognite.client import CogniteClient
-from cognite.extractorutils import Extractor
-from cognite.extractorutils.statestore import AbstractStateStore
-from cognite.extractorutils.uploader import TimeSeriesUploadQueue
-from config import Config
+from cognite.client.data_classes import ExtractionPipelineRun
+from cognite.client.data_classes.data_modeling import NodeId, ViewId
+from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteAsset, CogniteTimeSeries
+from cognite.client.data_classes.filters import Prefix, ContainsAny
+
 from ice_cream_factory_api import IceCreamFactoryAPI
 
+from cognite.client.config import global_config
+global_config.disable_pypi_version_check = True
 
-def get_timeseries_for_site(client: CogniteClient, site, config: Config):
+from itertools import islice
+
+
+def batcher(iterable, batch_size):
+    iterator = iter(iterable)
+    while batch := list(islice(iterator, batch_size)):
+        yield batch
+
+
+def get_time_series_for_site(client: CogniteClient, site):
     this_site = site.lower()
-    ts = client.time_series.list(
-        data_set_external_ids=config.extractor.data_set_ext_id, metadata={"site": this_site}, limit=None
+    sub_tree_root = client.data_modeling.instances.retrieve_nodes(
+        NodeId("icapi_dm_space", this_site),
+        node_cls=CogniteAsset
     )
 
-    # filter returned list because the API returns connected timeseries. planned_status -> status, good -> count
-    ts = [item for item in ts if any(substring in item.external_id for substring in ["planned_status", "good"])]
-    return ts
+    if not sub_tree_root:
+        print(
+            f"----No CogniteAssets in CDF for {site}!----\n"
+            f"    Run the 'Create Cognite Asset Hierarchy' transformation!"
+        )
+        return []
 
-
-def run_extractor(client: CogniteClient, states: AbstractStateStore, config: Config, stop_event: Event) -> None:
-    # The only way to pass variables to and Extractor's run function
-    if "SITES" in os.environ:
-        config.extractor.sites = literal_eval(os.environ["SITES"])
-    if "BACKFILL" in os.environ:
-        config.extractor.backfill = True if os.environ["BACKFILL"] == "True" else False
-        if "HOURS" in os.environ:
-            config.extractor.hours = int(os.environ["HOURS"])
-
-    now = datetime.now(timezone.utc).timestamp() * 1000
-    increment = timedelta(seconds=7200).total_seconds() * 1000
-
-    ice_cream_api = IceCreamFactoryAPI(base_url=config.extractor.api_url)
-
-    upload_queue = TimeSeriesUploadQueue(
-        client,
-        post_upload_function=states.post_upload_handler(),
-        max_queue_size=500000,
-        trigger_log_level="INFO",
-        thread_name="Timeseries Upload Queue",
+    sub_tree_nodes = client.data_modeling.instances.list(
+        instance_type=CogniteAsset,
+        filter=Prefix(property=["cdf_cdm", "CogniteAsset/v1", "path"], value=sub_tree_root.path),
+        limit=None
     )
 
-    for site in config.extractor.sites:
-        print(f"Getting TimeSeries for {site}")
-        time_series = get_timeseries_for_site(client, site, config)
+    if not sub_tree_nodes:
+        print(
+            f"----No CogniteTimeSeries in CDF for {site}!----\n"
+            f"    Run the 'Contextualize Timeseries and Assets' transformation!"
+        )
+        return []
 
-        if not config.extractor.backfill:
-            # Get all the latest datapoints in one API call
-            latest_dps = {
-                dp.external_id: dp.timestamp
-                for dp in client.time_series.data.retrieve_latest(
-                    external_id=[ts.external_id for ts in time_series], ignore_unknown_ids=True
-                )
-            }
+    value_list = [{"space": node.space, "externalId": node.external_id} for node in sub_tree_nodes]
 
-        for ts in time_series:
-            # figure out the window of datapoints to pull
-            if not config.extractor.backfill:
-                latest = latest_dps[ts.external_id][0] if latest_dps.get(ts.external_id) else None
-                start = latest if latest else now - increment
-            else:
-                start = now - timedelta(hours=config.extractor.hours).total_seconds() * 1000
-            end = now
+    time_series = [
+        client.data_modeling.instances.search(
+            view=ViewId("cdf_cdm", "CogniteTimeSeries", "v1"),
+            instance_type=CogniteTimeSeries,
+            filter=ContainsAny(property=["cdf_cdm", "CogniteTimeSeries/v1", "assets"], values=batch),
+            limit=None
+        )
+        for batch in batcher(value_list, 20)
+    ]
 
-            dps = ice_cream_api.get_datapoints(timeseries_ext_id=ts.external_id, start=start, end=end)
-            for external_id, datapoints in dps.items():
-                upload_queue.add_to_upload_queue(external_id=external_id, datapoints=datapoints)
+    # Combine list of batch results into a single NodeList
+    time_series = [node for nodelist in time_series for node in nodelist]
 
-            print(f"Queued {len(datapoints)} {ts.external_id} datapoints for upload")
+    if not time_series:
+        print("No CogniteTimeSeries in the CogniteCore Data Model (cdf_cdm Space)")
 
-        # trigger upload for this site
-        upload_queue.upload()
+    time_series = [
+        item for item in time_series
+        if any(substring in item.external_id for substring in ["planned_status", "good"])
+    ]
 
+    return time_series
+
+
+def report_ext_pipe(client: CogniteClient, status, message=None):
+    ext_pipe_run = ExtractionPipelineRun(
+        extpipe_external_id="ep_icapi_datapoints",
+        status=status,
+        message=message
+    )
+
+    client.extraction_pipelines.runs.create(run=ext_pipe_run)
 
 def handle(client: CogniteClient = None, data=None):
-    config_file_path = "extractor_config.yaml"
+    report_ext_pipe(client, "seen")
+    
+    sites = None
+    backfill = None
+    hours = None
+    max_hours = 336
 
-    # Can't pass parameters to the Extractor, so create environment variables
     if data:
         sites = data.get("sites")
         backfill = data.get("backfill")
         hours = data.get("hours")
 
-        if sites:
-            os.environ["SITES"] = f"{sites}"
-        if backfill:
-            os.environ["BACKFILL"] = f"{backfill}"
-            if hours:
-                os.environ["HOURS"] = f"{hours}"
+        if hours and hours > max_hours:
+            print(f"{hours} > {max_hours}! The Ice Cream API can't serve more than {max_hours} hours of datapoints, setting hours to max")
+            hours = max_hours
 
-    with Extractor(
-        name="icapi_datapoints_extractor",
-        description="An extractor that ingest Timeseries' Datapoints from the Ice Cream Factory API to CDF clean",
-        config_class=Config,
-        version="1.0",
-        config_file_path=config_file_path,
-        run_handle=run_extractor,
-    ) as extractor:
-        extractor.run()
+    all_sites = [
+        "Houston",
+        "Oslo",
+        "Kuala_Lumpur",
+        "Hannover",
+        "Nuremberg",
+        "Marseille",
+        "Sao_Paulo",
+        "Chicago",
+        "Rotterdam",
+        "London",
+    ]
+
+    sites = sites or all_sites
+    backfill = backfill or True
+    hours = hours or max_hours
+
+    now = datetime.now(timezone.utc).timestamp() * 1000
+    increment = timedelta(hours=hours).total_seconds() * 1000
+
+    ice_cream_api = IceCreamFactoryAPI(base_url="https://ice-cream-factory.inso-internal.cognite.ai")
+
+    try:
+        for site in sites:
+            print(f"Getting Data Points for {site}")
+            big_start = default_timer()
+
+            time_series = get_time_series_for_site(client, site)
+
+            latest_dps = {
+                dp.external_id: dp.timestamp
+                for dp in client.time_series.data.retrieve_latest(
+                    external_id=[ts.external_id for ts in time_series],
+                    ignore_unknown_ids=True
+                )
+            } if not backfill else None
+
+            to_insert = []
+            for ts in time_series:
+                # figure out the window of datapoints to pull for this Time Series
+                latest = latest_dps[ts.external_id][0] if not backfill and latest_dps.get(ts.external_id) else None
+
+                start = latest if latest else now - increment
+                end = now
+            
+                dps_list = ice_cream_api.get_datapoints(timeseries_ext_id=ts.external_id, start=start, end=end)
+
+                for dp_dict in dps_list:
+                    dp_dict["instance_id"] = NodeId(space="icapi_dm_space", external_id=dp_dict["instance_id"])
+
+                to_insert.extend(dps_list)
+
+                if len(to_insert) > 50:
+                    client.time_series.data.insert_multiple(datapoints=to_insert)
+                    to_insert = []
+
+            if to_insert:
+                client.time_series.data.insert_multiple(datapoints=to_insert)
+                print(f"  {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
+            else:
+                print(f"  No TimeSeries, for {hours}h of Datapoints took {default_timer() - big_start:.2f} seconds")
+
+        report_ext_pipe(client, "success")
+    except Exception as e:
+        report_ext_pipe(client, "fail", e)

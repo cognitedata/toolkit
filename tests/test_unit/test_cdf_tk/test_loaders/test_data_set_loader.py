@@ -1,16 +1,18 @@
 from cognite.client.data_classes import DataSet
 
 from cognite_toolkit._cdf_tk.loaders import DataSetsLoader, ResourceWorker
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from tests.data import LOAD_DATA
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
 class TestDataSetsLoader:
-    def test_upsert_data_set(self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient):
-        loader = DataSetsLoader.create_loader(cdf_tool_mock.toolkit_client)
+    def test_upsert_data_set(
+        self, env_vars_with_client: EnvironmentVariables, toolkit_client_approval: ApprovalToolkitClient
+    ):
+        loader = DataSetsLoader.create_loader(env_vars_with_client.get_client())
         raw_list = loader.load_resource_file(
-            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", cdf_tool_mock.environment_variables()
+            LOAD_DATA / "data_sets" / "1.my_datasets.yaml", env_vars_with_client.dump()
         )
         assert len(raw_list) == 2
 
@@ -23,13 +25,11 @@ class TestDataSetsLoader:
         toolkit_client_approval.append(DataSet, first)
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
-            [LOAD_DATA / "data_sets" / "1.my_datasets.yaml"]
-        )
+        resources = worker.prepare_resources([LOAD_DATA / "data_sets" / "1.my_datasets.yaml"])
 
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 1, "change": 0, "delete": 0, "unchanged": 1}

@@ -3,6 +3,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 from cognite.client.data_classes.data_modeling import NodeId
@@ -13,17 +14,20 @@ from rich.panel import Panel
 from cognite_toolkit._cdf_tk.commands import BuildCommand, DeployCommand, PullCommand
 from cognite_toolkit._cdf_tk.data_classes import BuiltModuleList, ResourceDeployResult
 from cognite_toolkit._cdf_tk.loaders import (
-    LOADER_BY_FOLDER_NAME,
     RESOURCE_LOADER_LIST,
     FunctionLoader,
+    FunctionScheduleLoader,
     GraphQLLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
     ResourceWorker,
     StreamlitLoader,
+    TransformationLoader,
+    WorkflowTriggerLoader,
 )
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.loaders._resource_loaders.location_loaders import LocationFilterLoader
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import remove_trailing_newline
 from tests import data
 
@@ -31,7 +35,7 @@ from tests import data
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
-def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
+def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
     built_modules = build.execute(
@@ -41,36 +45,39 @@ def test_deploy_complete_org(cdf_tool_config: CDFToolConfig, build_dir: Path) ->
         build_env_name="dev",
         no_clean=False,
         selected=None,
-        ToolGlobals=cdf_tool_config,
+        client=env_vars.get_client(),
     )
 
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
-    cdf_tool_config._environ["EVENTHUB_CLIENT_ID"] = os.environ["IDP_CLIENT_ID"]
-    cdf_tool_config._environ["EVENTHUB_CLIENT_SECRET"] = os.environ["IDP_CLIENT_SECRET"]
+    client_id = os.environ["IDP_CLIENT_ID"]
+    client_secret = os.environ["IDP_CLIENT_SECRET"]
+    with patch.dict(
+        os.environ,
+        {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
+    ):
+        deploy_command.deploy_build_directory(
+            env_vars=env_vars,
+            build_dir=build_dir,
+            build_env_name="dev",
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            force_update=False,
+            include=None,
+            verbose=True,
+        )
 
-    deploy_command.execute(
-        cdf_tool_config,
-        build_dir=build_dir,
-        build_env_name="dev",
-        dry_run=False,
-        drop=False,
-        drop_data=False,
-        force_update=False,
-        include=list(LOADER_BY_FOLDER_NAME.keys()),
-        verbose=True,
-    )
-
-    changed_resources = get_changed_resources(cdf_tool_config, build_dir)
+    changed_resources = get_changed_resources(env_vars, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=True)
+    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=True)
     assert len(changed_source_files) == 0, f"Pulling the same source should not change anything {changed_source_files}"
 
 
 @pytest.mark.skipif(
     sys.version_info < (3, 11), reason="We only run this test on Python 3.11+ to avoid parallelism issues"
 )
-def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Path) -> None:
+def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Path) -> None:
     build = BuildCommand(silent=True, skip_tracking=True)
 
     built_modules = build.execute(
@@ -80,43 +87,47 @@ def test_deploy_complete_org_alpha(cdf_tool_config: CDFToolConfig, build_dir: Pa
         build_env_name="dev",
         no_clean=False,
         selected=None,
-        ToolGlobals=cdf_tool_config,
+        client=env_vars.get_client(),
     )
 
     deploy_command = DeployCommand(silent=False, skip_tracking=True)
-    cdf_tool_config._environ["EVENTHUB_CLIENT_ID"] = os.environ["IDP_CLIENT_ID"]
-    cdf_tool_config._environ["EVENTHUB_CLIENT_SECRET"] = os.environ["IDP_CLIENT_SECRET"]
+    client_id = os.environ["IDP_CLIENT_ID"]
+    client_secret = os.environ["IDP_CLIENT_SECRET"]
+    with patch.dict(
+        os.environ,
+        {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
+    ):
+        deploy_command.deploy_build_directory(
+            env_vars,
+            build_dir=build_dir,
+            build_env_name="dev",
+            dry_run=False,
+            drop=False,
+            drop_data=False,
+            force_update=False,
+            include=None,
+            verbose=True,
+        )
 
-    deploy_command.execute(
-        cdf_tool_config,
-        build_dir=build_dir,
-        build_env_name="dev",
-        dry_run=False,
-        drop=False,
-        drop_data=False,
-        force_update=False,
-        include=list(LOADER_BY_FOLDER_NAME.keys()),
-        verbose=True,
-    )
-
-    changed_resources = get_changed_resources(cdf_tool_config, build_dir)
+    changed_resources = get_changed_resources(env_vars, build_dir)
     assert not changed_resources, "Redeploying the same resources should not change anything"
 
-    changed_source_files = get_changed_source_files(cdf_tool_config, build_dir, built_modules, verbose=False)
+    changed_source_files = get_changed_source_files(env_vars, build_dir, built_modules, verbose=False)
     assert not changed_source_files, "Pulling the same source should not change anything"
 
 
-def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> dict[str, set[Any]]:
+def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> dict[str, set[Any]]:
     changed_resources: dict[str, set[Any]] = {}
+    client = env_vars.get_client()
     for loader_cls in RESOURCE_LOADER_LIST:
         if loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
             # These two we have no way of knowing if they have changed. So they are always redeployed.
             continue
-        loader = loader_cls.create_loader(cdf_tool_config.toolkit_client, build_dir)
+        loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader)
         files = worker.load_files()
-        _, to_update, *__ = worker.load_resources(files, environment_variables=cdf_tool_config.environment_variables())
-        if changed := (set(loader.get_ids(to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
+        resources = worker.prepare_resources(files, environment_variables=env_vars.dump())
+        if changed := (set(loader.get_ids(resources.to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
 
@@ -124,7 +135,7 @@ def get_changed_resources(cdf_tool_config: CDFToolConfig, build_dir: Path) -> di
 
 
 def get_changed_source_files(
-    cdf_tool_config: CDFToolConfig, build_dir: Path, built_modules: BuiltModuleList, verbose: bool = False
+    env_vars: EnvironmentVariables, build_dir: Path, built_modules: BuiltModuleList, verbose: bool = False
 ) -> dict[str, set[Path]]:
     # This is a modified copy of the PullCommand._pull_build_dir and PullCommand._pull_resources methods
     # This will likely be hard to maintain, but if the pull command changes, should be refactored to be more
@@ -138,9 +149,13 @@ def get_changed_source_files(
             loader_cls in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}
             # External files that cannot (or not yet supported) be pulled
             or loader_cls in {GraphQLLoader, FunctionLoader, StreamlitLoader}
+            # Have authentication hashes that is different for each environment
+            or loader_cls in {TransformationLoader, FunctionScheduleLoader, WorkflowTriggerLoader}
+            # LocationFilterLoader needs to split the file into multiple files, so we cannot compare them
+            or loader_cls is LocationFilterLoader
         ):
             continue
-        loader = loader_cls.create_loader(cdf_tool_config.toolkit_client, build_dir)
+        loader = loader_cls.create_loader(env_vars.get_client(), build_dir)
         resources = built_modules.get_resources(
             None, loader.folder_name, loader.kind, is_supported_file=loader.is_supported_file
         )
@@ -152,7 +167,7 @@ def get_changed_source_files(
         resources_by_file = resources.by_file()
         file_results = ResourceDeployResult(loader.display_name)
 
-        environment_variables = cdf_tool_config.environment_variables()
+        environment_variables = env_vars.dump()
 
         for source_file, resources in resources_by_file.items():
             if source_file.name == "extended.CogniteFile.yaml":

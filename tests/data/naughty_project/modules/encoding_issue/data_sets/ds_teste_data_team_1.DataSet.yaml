@@ -1,0 +1,8 @@
+description: dataset criado para teste de CI/CD - exemplo de Data Team 1
+externalId: ds_teste_data_team_1
+metadata:
+  consoleCreatedBy: '{"username":"Wellington - PrestServ"}'
+  consoleLabels: '["DATA_TEAM_1"]'
+  consoleMetaDataVersion: '3'
+name: ds_teste_data_team_1
+writeProtected: false

@@ -1,0 +1,103 @@
+space: population_model
+externalId: PrimitiveNullable
+name: PrimitiveNullable
+usedFor: node
+properties:
+  text:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: text
+  boolean:
+    type:
+      list: false
+      type: boolean
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: text
+  float32:
+    type:
+      list: false
+      type: float32
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: float32
+  float64:
+    type:
+      list: false
+      type: float64
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: float64
+  int32:
+    type:
+      list: false
+      type: int32
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: int32
+  int64:
+    type:
+      list: false
+      type: int64
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: int64
+  timestamp:
+    type:
+      list: false
+      type: timestamp
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: timestamp
+  date:
+    type:
+      list: false
+      type: date
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: date
+  json:
+    type:
+      list: false
+      type: json
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: json
+  enum:
+    type:
+      type: enum
+      unknownValue: Unknown
+      values:
+        Running:
+          name: Running
+          description: Running
+        Stopped:
+          name: Stopped
+          description: Stopped
+        Unknown:
+          name: Unknown
+          description: Unknown
+    autoIncrement: false
+    nullable: true
+    immutable: false
+  direct:
+    type:
+      list: false
+      type: direct
+    nullable: true
+    autoIncrement: false
+    immutable: false
+    name: direct

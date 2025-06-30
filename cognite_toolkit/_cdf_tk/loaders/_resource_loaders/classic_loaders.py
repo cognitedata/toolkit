@@ -37,6 +37,7 @@ from cognite_toolkit._cdf_tk.client.data_classes.sequences import (
     ToolkitSequenceRowsWriteList,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import AssetYAML, EventYAML
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
@@ -54,6 +55,7 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
     resource_write_cls = AssetWrite
     list_cls = AssetList
     list_write_cls = AssetWriteList
+    yaml_cls = AssetYAML
     kind = "Asset"
     dependencies = frozenset({DataSetsLoader, LabelLoader})
     _doc_url = "Assets/operation/createAssets"
@@ -117,10 +119,14 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         return self.client.assets.update(items, mode="replace")
 
     def delete(self, ids: SequenceNotStr[str | int]) -> int:
+        if not ids:
+            return 0
         internal_ids, external_ids = self._split_ids(ids)
         try:
             self.client.assets.delete(id=internal_ids, external_id=external_ids)
-        except (CogniteAPIError, CogniteNotFoundError) as e:
+        except CogniteNotFoundError as e:
+            # Do a CogniteNotFoundError instead of passing 'ignore_unknown_ids=True' to the delete method
+            # to obtain an accurate list of deleted assets.
             non_existing = set(e.failed or [])
             if existing := [id_ for id_ in ids if id_ not in non_existing]:
                 internal_ids, external_ids = self._split_ids(existing)
@@ -135,7 +141,13 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
         space: str | None = None,
         parent_ids: list[Hashable] | None = None,
     ) -> Iterable[Asset]:
-        return iter(self.client.assets(data_set_external_ids=[data_set_external_id] if data_set_external_id else None))
+        return iter(
+            self.client.assets(
+                data_set_external_ids=[data_set_external_id] if data_set_external_id else None,
+                # This is used in the purge command to delete the children before the parent.
+                aggregated_properties=["depth", "child_count", "path"],
+            )
+        )
 
     @classmethod
     @lru_cache(maxsize=1)
@@ -223,6 +235,8 @@ class AssetLoader(ResourceLoader[str, AssetWrite, Asset, AssetWriteList, AssetLi
             dumped["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
         if not dumped.get("metadata") and "metadata" not in local:
             dumped.pop("metadata", None)
+        if "parentId" in dumped and "parentId" not in local:
+            dumped.pop("parentId")
         return dumped
 
 
@@ -288,7 +302,7 @@ class SequenceLoader(ResourceLoader[str, SequenceWrite, Sequence, SequenceWriteL
         if ds_external_id := resource.pop("dataSetExternalId", None):
             resource["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
         if asset_external_id := resource.pop("assetExternalId", None):
-            resource["assetId"] = self.client.lookup.assets.id(asset_external_id)
+            resource["assetId"] = self.client.lookup.assets.id(asset_external_id, is_dry_run)
         return SequenceWrite._load(resource)
 
     def dump_resource(self, resource: Sequence, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -510,6 +524,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
     resource_write_cls = EventWrite
     list_cls = EventList
     list_write_cls = EventWriteList
+    yaml_cls = EventYAML
     kind = "Event"
     dependencies = frozenset({DataSetsLoader, AssetLoader})
     _doc_url = "Events/operation/createEvents"
@@ -603,9 +618,7 @@ class EventLoader(ResourceLoader[str, EventWrite, Event, EventWriteList, EventLi
 
         spec.add(ParameterSpec(("assetExternalIds",), frozenset({"list"}), is_required=False, _is_nullable=False))
         spec.add(
-            ParameterSpec(
-                ("assetExternalIds", ANY_INT, "externalId"), frozenset({"str"}), is_required=False, _is_nullable=False
-            )
+            ParameterSpec(("assetExternalIds", ANY_INT), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
         spec.discard(ParameterSpec(("assetIds",), frozenset({"int"}), is_required=False, _is_nullable=False))
         spec.discard(ParameterSpec(("assetIds", ANY_INT), frozenset({"int"}), is_required=False, _is_nullable=False))

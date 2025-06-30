@@ -1,0 +1,58 @@
+externalId: Production
+space: strongly-coupled-model
+name: Production
+version: v1
+description: Missing
+properties:
+  id:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Production
+    containerPropertyIdentifier: id
+    name: id
+    description: Missing
+  simpleType:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Production
+    containerPropertyIdentifier: type
+    name: simpleType
+  files:
+    connectionType: multi_reverse_direct_relation
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: SimulationResultFile
+      version: v1
+    through:
+      source:
+        type: view
+        space: strongly-coupled-model
+        externalId: SimulationResultFile
+        version: v1
+      identifier: entity
+    name: files
+    description: Missing
+  timeSeries:
+    connectionType: multi_reverse_direct_relation
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: ProductionTimeseries
+      version: v1
+    through:
+      source:
+        type: view
+        space: strongly-coupled-model
+        externalId: ProductionTimeseries
+        version: v1
+      identifier: entity
+    name: timeSeries
+    description: Missing
+implements:
+- type: view
+  space: cdf_cdm
+  externalId: CogniteAsset
+  version: v1

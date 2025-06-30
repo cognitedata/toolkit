@@ -1,0 +1,35 @@
+externalId: Coordinate
+space: strongly-coupled-model
+version: v1
+name: Coordinate
+description: Missing
+properties:
+  elevation:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinate
+    containerPropertyIdentifier: elevation
+    name: elevation
+  lat:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinate
+    containerPropertyIdentifier: lat
+    name: lat
+  long:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinate
+    containerPropertyIdentifier: long
+    name: long
+  crs:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Coordinate
+    containerPropertyIdentifier: crs
+    name: crs
+implements: []

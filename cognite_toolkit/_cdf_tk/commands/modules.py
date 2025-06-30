@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import shutil
+import tempfile
+import zipfile
 from collections import Counter
+from hashlib import sha256
 from importlib import resources
 from pathlib import Path
+from types import TracebackType
 from typing import Any, Literal, Optional
 
 import questionary
+import requests
 import typer
 from packaging.version import Version
 from packaging.version import parse as parse_version
@@ -14,7 +19,7 @@ from rich import print
 from rich.markdown import Markdown
 from rich.padding import Padding
 from rich.panel import Panel
-from rich.progress import track
+from rich.progress import Progress, track
 from rich.rule import Rule
 from rich.table import Table
 from rich.tree import Tree
@@ -39,6 +44,7 @@ from cognite_toolkit._cdf_tk.constants import (
     EnvType,
 )
 from cognite_toolkit._cdf_tk.data_classes import (
+    BuildConfigYAML,
     Environment,
     InitConfigYAML,
     ModuleLocation,
@@ -46,11 +52,12 @@ from cognite_toolkit._cdf_tk.data_classes import (
     Package,
     Packages,
 )
-from cognite_toolkit._cdf_tk.exceptions import ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.exceptions import ToolkitError, ToolkitRequiredValueError, ToolkitValueError
+from cognite_toolkit._cdf_tk.feature_flags import Flags
 from cognite_toolkit._cdf_tk.hints import verify_module_directory
 from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection, read_yaml_file
-from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write
+from cognite_toolkit._cdf_tk.utils.file import safe_read, safe_rmtree, safe_write, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import module_directory_from_path
 from cognite_toolkit._cdf_tk.utils.repository import FileDownloader
 from cognite_toolkit._version import __version__
@@ -84,6 +91,28 @@ class ModulesCommand(ToolkitCommand):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False):
         super().__init__(print_warning, skip_tracking, silent)
         self._builtin_modules_path = Path(resources.files(cognite_toolkit.__name__)) / BUILTIN_MODULES  # type: ignore [arg-type]
+        self._temp_download_dir = Path(tempfile.gettempdir()) / "library_downloads"
+        if not self._temp_download_dir.exists():
+            self._temp_download_dir.mkdir(parents=True, exist_ok=True)
+
+    def __enter__(self) -> ModulesCommand:
+        """
+        Context manager to ensure the temporary download directory is cleaned up after use. It requires the command to be used in a `with` block.
+        """
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,  # Type of the exception
+        exc_value: BaseException | None,  # Exception instance
+        traceback: TracebackType | None,  # Traceback object
+    ) -> None:
+        """
+        Clean up the temporary download directory.
+        """
+
+        if self._temp_download_dir.exists():
+            safe_rmtree(self._temp_download_dir)
 
     @classmethod
     def _create_tree(cls, item: Packages) -> Tree:
@@ -127,6 +156,7 @@ class ModulesCommand(ToolkitCommand):
         downloader_by_repo: dict[str, FileDownloader] = {}
 
         extra_resources: set[Path] = set()
+
         for package_name, package in selected_packages.items():
             print(f"{INDENT}[{'yellow' if mode == 'clean' else 'green'}]Creating {package_name}[/]")
 
@@ -225,7 +255,7 @@ class ModulesCommand(ToolkitCommand):
                     Environment(
                         name=environment,
                         project=f"<my-project-{environment}>",
-                        build_type=environment,
+                        validation_type=environment,
                         selected=[f"{MODULES}/"],
                     )
                 ).load_defaults(self._builtin_modules_path, selected_paths, ignore_variable_patterns)
@@ -279,7 +309,8 @@ default_organization_dir = "{organization_dir.name}"''',
             organization_dir = Path(organization_dir_raw.strip())
 
         modules_root_dir = organization_dir / MODULES
-        packages = Packages().load(self._builtin_modules_path)
+
+        packages = self._get_available_packages()
 
         if select_all:
             print(Panel("Instantiating all available modules"))
@@ -664,13 +695,117 @@ default_organization_dir = "{organization_dir.name}"''',
         print(table)
 
     def add(self, organization_dir: Path) -> None:
-        verify_module_directory(organization_dir, "dev")
+        verify_module_directory(organization_dir, None)
+        environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
+        if environments:
+            build_env = environments[0]
+        else:
+            default = BuildConfigYAML.load_default(organization_dir)
+            print(
+                f"No config.[env].yaml files found in {organization_dir}."
+                f"This is required to add modules. Creating {default.filename}."
+            )
+            safe_write(default.filepath, yaml_safe_dump(default.dump()))
+            environments.append(default.environment.validation_type)
+            build_env = default.environment.validation_type
 
-        existing_module_names = [module.name for module in ModuleResources(organization_dir, "dev").list()]
-        available_packages = Packages().load(self._builtin_modules_path)
-
+        existing_module_names = [module.name for module in ModuleResources(organization_dir, build_env).list()]
+        available_packages = self._get_available_packages()
         added_packages = self._select_packages(available_packages, existing_module_names)
 
-        environments = [env for env in EnvType.__args__ if (organization_dir / f"config.{env}.yaml").exists()]  # type: ignore[attr-defined]
         download_data = self._get_download_data(added_packages)
         self._create(organization_dir, added_packages, environments, "update", download_data)
+
+    def _get_available_packages(self) -> Packages:
+        """
+        Returns a list of available packages, either from the CDF TOML file or from external libraries if the feature flag is enabled.
+        If the feature flag is not enabled and no libraries are specified, it returns the built-in modules.
+        """
+
+        cdf_toml = CDFToml.load()
+        if Flags.EXTERNAL_LIBRARIES.is_enabled() and cdf_toml.libraries:
+            for library_name, library in cdf_toml.libraries.items():
+                try:
+                    print(f"[green]Adding library {library_name}[/]")
+                    file_path = self._temp_download_dir / f"{library_name}.zip"
+                    self._download(library.url, file_path)
+                    self._validate_checksum(library.checksum, file_path)
+                    self._unpack(file_path)
+                    return Packages().load(file_path.parent)
+                except Exception as e:
+                    if isinstance(e, ToolkitError):
+                        raise e
+                    else:
+                        raise ToolkitError(
+                            f"An unexpected error occurred during downloading {library.url} to {file_path}: {e}"
+                        ) from e
+
+                    raise ToolkitError(f"Failed to add library {library_name}, {e}")
+            # If no libraries are specified or the flag is not enabled, load the built-in modules
+            raise ValueError("No valid libraries found.")
+        else:
+            return Packages.load(self._builtin_modules_path)
+
+    def _download(self, url: str, file_path: Path) -> None:
+        """
+        Downloads a file from a URL to the specified output path.
+        If the file already exists, it skips the download.
+        """
+        try:
+            response = requests.get(url, stream=True)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+
+            total_size = int(response.headers.get("content-length", 0))
+
+            with Progress() as progress:
+                task = progress.add_task("Download", total=total_size)
+                with open(file_path, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                        progress.update(task, advance=len(chunk))
+
+        except requests.exceptions.RequestException as e:
+            raise ToolkitError(f"Error downloading file from {url}: {e}") from e
+
+    def _validate_checksum(self, checksum: str, file_path: Path) -> None:
+        """
+        Compares the checksum of the downloaded file with the expected checksum.
+        """
+
+        if checksum.lower().startswith("sha256:"):
+            checksum = checksum[7:]
+        else:
+            raise ToolkitValueError(f"Unsupported checksum format: {checksum}. Expected 'sha256:' prefix")
+
+        chunk_size: int = 8192
+        sha256_hash = sha256()
+        try:
+            with open(file_path, "rb") as f:
+                # Read the file in chunks to handle large files efficiently
+                for chunk in iter(lambda: f.read(chunk_size), b""):
+                    sha256_hash.update(chunk)
+            calculated = sha256_hash.hexdigest()
+            if calculated != checksum:
+                raise ToolkitError(f"Checksum mismatch. Expected {checksum}, got {calculated}.")
+            else:
+                print("Checksum verified")
+        except Exception as e:
+            raise ToolkitError(f"Failed to calculate checksum for {file_path}: {e}") from e
+
+    def _unpack(self, file_path: Path) -> None:
+        """
+        Unzips the downloaded file to the specified output path.
+        If the file is not a zip file, it raises an error.
+        """
+        total_size = file_path.stat().st_size if file_path.exists() else 0
+
+        try:
+            with Progress() as progress:
+                unzip = progress.add_task("Unzipping", total=total_size)
+                with zipfile.ZipFile(file_path, "r") as zip_ref:
+                    zip_ref.extractall(file_path.parent)
+                    progress.update(unzip, advance=total_size)
+        except zipfile.BadZipFile as e:
+            raise ToolkitError(f"Error unpacking zip file {file_path}: {e}") from e
+        except Exception as e:
+            raise ToolkitError(f"An unexpected error occurred while unpacking {file_path}: {e}") from e

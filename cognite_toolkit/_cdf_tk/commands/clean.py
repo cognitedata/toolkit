@@ -27,6 +27,7 @@ from cognite_toolkit._cdf_tk.data_classes._module_directories import ReadModule
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitCleanResourceError,
     ToolkitNotADirectoryError,
+    ToolkitValidationError,
 )
 from cognite_toolkit._cdf_tk.loaders import (
     LOADER_BY_FOLDER_NAME,
@@ -45,12 +46,14 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
     ToolkitNotSupportedWarning,
 )
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     humanize_collection,
     read_yaml_file,
 )
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from ._utils import _print_ids_or_length
+
+AVAILABLE_DATA_TYPES: tuple[str, ...] = tuple(LOADER_BY_FOLDER_NAME)
 
 
 class CleanCommand(ToolkitCommand):
@@ -59,7 +62,7 @@ class CleanCommand(ToolkitCommand):
         loader: ResourceLoader[
             T_ID, T_WriteClass, T_WritableCogniteResource, T_CogniteResourceList, T_WritableCogniteResourceList
         ],
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         read_modules: list[ReadModule],
         dry_run: bool = False,
         drop: bool = True,
@@ -85,13 +88,12 @@ class CleanCommand(ToolkitCommand):
         if not files:
             return None
         # Since we do a clean, we do not want to verify that everything exists wrt data sets, spaces etc.
-        existing_resources, duplicated = worker.load_resources(
+        local_resources = worker.load_resources(
             filepaths=files,
-            return_existing=True,
-            environment_variables=ToolGlobals.environment_variables(),
+            environment_variables=env_vars.dump(include_os=True),
             is_dry_run=True,
-            verbose=verbose,
         )
+        existing_resources = loader.retrieve(list(local_resources.keys()))
         nr_of_existing = len(existing_resources)
 
         if drop:
@@ -102,7 +104,7 @@ class CleanCommand(ToolkitCommand):
             with_data = ""
         print(f"[bold]{prefix} {nr_of_existing} {loader.display_name} {with_data}from CDF...[/]")
         if not isinstance(loader, RawDatabaseLoader):
-            for duplicate in duplicated:
+            for duplicate in worker.duplicates:
                 self.warn(LowSeverityWarning(f"Duplicate {loader.display_name} {duplicate}."))
 
         # Deleting resources.
@@ -200,11 +202,11 @@ class CleanCommand(ToolkitCommand):
 
     def execute(
         self,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
         build_dir: Path,
         build_env_name: str | None,
         dry_run: bool,
-        include: list[str],
+        include: list[str] | None,
         verbose: bool,
     ) -> None:
         if not build_dir.exists():
@@ -220,10 +222,10 @@ class CleanCommand(ToolkitCommand):
             raise ToolkitCleanResourceError(
                 "One or more source files have been modified since the last build. Please rebuild the project."
             )
-
+        client = env_vars.get_client(clean_state.is_strict_validation)
         environment_vars = ""
         if not _RUNNING_IN_BROWSER:
-            environment_vars = f"\n\nConnected to {ToolGlobals.as_string()}"
+            environment_vars = f"\n\nConnected to {env_vars.as_string()}"
 
         action = ""
         if dry_run:
@@ -231,7 +233,7 @@ class CleanCommand(ToolkitCommand):
 
         print(
             Panel(
-                f"[bold]Cleaning {action}[/]resource from CDF project {ToolGlobals._project} based "
+                f"[bold]Cleaning {action}[/]resource from CDF project {client.config.project} based "
                 f"on resource files in {build_dir} directory."
                 f"{environment_vars}",
                 expand=False,
@@ -261,13 +263,13 @@ class CleanCommand(ToolkitCommand):
         for loader_cls in reversed(resolved_list):
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
+            loader = loader_cls.create_loader(client, build_dir)
             if type(loader) is DataSetsLoader:
                 self.warn(ToolkitNotSupportedWarning(feature="Dataset clean."))
                 continue
             result = self.clean_resources(
                 loader,
-                ToolGlobals,
+                env_vars=env_vars,
                 read_modules=clean_state.read_modules,
                 drop=True,
                 dry_run=dry_run,
@@ -317,3 +319,12 @@ class CleanCommand(ToolkitCommand):
                     )
                 )
         return selected_loaders
+
+    @staticmethod
+    def validate_include(include: list[str] | None) -> list[str]:
+        if include and (invalid_types := set(include).difference(AVAILABLE_DATA_TYPES)):
+            raise ToolkitValidationError(
+                f"Invalid resource types specified: {invalid_types}, available types: {AVAILABLE_DATA_TYPES}"
+            )
+        include = include or list(AVAILABLE_DATA_TYPES)
+        return include

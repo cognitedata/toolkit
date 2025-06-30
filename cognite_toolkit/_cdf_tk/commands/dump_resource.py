@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Iterable, Iterator
+from functools import cached_property
 from pathlib import Path
-from typing import Generic
+from typing import Generic, cast
 
 import questionary
 import typer
@@ -9,7 +10,6 @@ from cognite.client import data_modeling as dm
 from cognite.client.data_classes import (
     Group,
     GroupList,
-    Transformation,
     TransformationList,
     TransformationNotificationList,
     TransformationScheduleList,
@@ -32,6 +32,7 @@ from rich import print
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterList
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceRetrievalError,
     ToolkitMissingResourceError,
@@ -42,6 +43,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ContainerLoader,
     DataModelLoader,
     GroupLoader,
+    LocationFilterLoader,
     NodeLoader,
     ResourceLoader,
     SpaceLoader,
@@ -82,62 +84,63 @@ class ResourceFinder(Iterable, ABC, Generic[T_ID]):
 
 
 class DataModelFinder(ResourceFinder[DataModelId]):
-    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None):
+    def __init__(self, client: ToolkitClient, identifier: DataModelId | None = None, include_global: bool = False):
         super().__init__(client, identifier)
+        self._include_global = include_global
         self.data_model: dm.DataModel[dm.ViewId] | None = None
         self.view_ids: set[dm.ViewId] = set()
         self.container_ids: set[dm.ContainerId] = set()
         self.space_ids: set[str] = set()
 
     def _interactive_select(self) -> DataModelId:
-        include_global = False
-        spaces = self.client.data_modeling.spaces.list(limit=-1, include_global=include_global)
-        selected_space: str = questionary.select(
-            "In which space is your data model located?", [space.space for space in spaces]
-        ).ask()
-
         data_model_ids = self.client.data_modeling.data_models.list(
-            space=selected_space, all_versions=False, limit=-1, include_global=include_global
+            all_versions=False, limit=-1, include_global=False
         ).as_ids()
-
-        if not data_model_ids:
-            raise ToolkitMissingResourceError(f"No data models found in space {selected_space}")
+        available_spaces = sorted({model.space for model in data_model_ids})
+        if not available_spaces:
+            raise ToolkitMissingResourceError("No data models found")
+        if len(available_spaces) == 1:
+            selected_space = available_spaces[0]
+        else:
+            selected_space = questionary.select("In which space is your data model located?", available_spaces).ask()
+        data_model_ids = sorted(
+            [model for model in data_model_ids if model.space == selected_space], key=lambda model: model.as_tuple()
+        )
 
         selected_data_model: DataModelId = questionary.select(
-            "Which data model would you like to dump?", [Choice(f"{model!r}", value=model) for model in data_model_ids]
+            "Which data model would you like to dump?",
+            [
+                Choice(f"{model_id!r}", value=model_id)
+                for model_id in sorted(data_model_ids, key=lambda model: model.as_tuple())
+            ],
         ).ask()
 
-        data_models = self.client.data_modeling.data_models.list(
-            space=selected_space,
-            all_versions=True,
-            limit=-1,
-            include_global=include_global,
-            inline_views=False,
+        retrieved_models = self.client.data_modeling.data_models.retrieve(
+            (selected_data_model.space, selected_data_model.external_id), inline_views=False
         )
-        data_model_ids = data_models.as_ids()
-        data_model_versions = [
-            model.version
-            for model in data_model_ids
-            if (model.space, model.external_id) == (selected_data_model.space, selected_data_model.external_id)
-            and model.version is not None
-        ]
-
-        if (
-            len(data_model_versions) == 1
-            or not questionary.confirm(
-                f"Would you like to select a different version than {selected_data_model.version} of the data model",
-                default=False,
-            ).ask()
-        ):
-            self.data_model = data_models[0]
+        if not retrieved_models:
+            # This happens if the data model is removed after the list call above.
+            raise ToolkitMissingResourceError(f"Data model {selected_data_model} not found")
+        if len(retrieved_models) == 1:
+            self.data_model = retrieved_models[0]
+            return selected_data_model
+        models_by_version = {model.version: model for model in retrieved_models if model.version is not None}
+        if len(models_by_version) == 1:
+            self.data_model = retrieved_models[0]
+            return selected_data_model
+        if not questionary.confirm(
+            f"Would you like to select a different version than {selected_data_model.version} of the data model",
+            default=False,
+        ).ask():
+            self.data_model = models_by_version[cast(str, selected_data_model.version)]
             return selected_data_model
 
-        selected_version = questionary.select("Which version would you like to dump?", data_model_versions).ask()
-        for model in data_models:
-            if model.as_id() == (selected_space, selected_data_model.external_id, selected_version):
-                self.data_model = model
-                break
-        return DataModelId(selected_space, selected_data_model.external_id, selected_version)
+        selected_model = questionary.select(
+            "Which version would you like to dump?",
+            [Choice(f"{version}", value=model) for version, model in models_by_version.items()],
+        ).ask()
+        self.data_model = models_by_version[selected_model]
+        return self.data_model.as_id()
 
     def update(self, resources: CogniteResourceList) -> None:
         if isinstance(resources, dm.DataModelList):
@@ -152,13 +155,39 @@ class DataModelFinder(ResourceFinder[DataModelId]):
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
+        model_loader = DataModelLoader.create_loader(self.client)
         if self.data_model:
-            yield [], dm.DataModelList([self.data_model]), DataModelLoader.create_loader(self.client), None
+            is_global_model = self.data_model.is_global
+            yield [], dm.DataModelList([self.data_model]), model_loader, None
         else:
-            yield [self.identifier], None, DataModelLoader.create_loader(self.client), None
-        yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
-        yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
-        yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+            model_list = model_loader.retrieve([self.identifier])
+            if not model_list:
+                raise ToolkitResourceMissingError(f"Data model {self.identifier} not found", str(self.identifier))
+            is_global_model = model_list[0].is_global
+            yield [], model_list, model_loader, None
+        if self._include_global or is_global_model:
+            yield list(self.view_ids), None, ViewLoader.create_loader(self.client), "views"
+            yield list(self.container_ids), None, ContainerLoader.create_loader(self.client), "containers"
+            yield list(self.space_ids), None, SpaceLoader.create_loader(self.client), None
+        else:
+            view_loader = ViewLoader(self.client, None, None, topological_sort_implements=True)
+            views = dm.ViewList([view for view in view_loader.retrieve(list(self.view_ids)) if not view.is_global])
+            yield [], views, view_loader, "views"
+            container_loader = ContainerLoader.create_loader(self.client)
+            containers = dm.ContainerList(
+                [
+                    container
+                    for container in container_loader.retrieve(list(self.container_ids))
+                    if not container.is_global
+                ]
+            )
+            yield [], containers, container_loader, "containers"
+
+            space_loader = SpaceLoader.create_loader(self.client)
+            spaces = dm.SpaceList(
+                [space for space in space_loader.retrieve(list(self.space_ids)) if not space.is_global]
+            )
+            yield [], spaces, space_loader, None
 
 
 class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
@@ -213,56 +242,60 @@ class WorkflowFinder(ResourceFinder[WorkflowVersionId]):
         else:
             yield [self.identifier], None, WorkflowVersionLoader.create_loader(self.client), None
         trigger_loader = WorkflowTriggerLoader.create_loader(self.client)
-        trigger_list = WorkflowTriggerList(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
+        trigger_list = WorkflowTriggerList(
+            list(trigger_loader.iterate(parent_ids=[self.identifier.workflow_external_id]))
+        )
         yield [], trigger_list, trigger_loader, None
 
 
-class TransformationFinder(ResourceFinder[str]):
-    def __init__(self, client: ToolkitClient, identifier: str | None = None):
+class TransformationFinder(ResourceFinder[tuple[str, ...]]):
+    def __init__(self, client: ToolkitClient, identifier: tuple[str, ...] | None = None):
         super().__init__(client, identifier)
-        self.transformation: Transformation | None = None
+        self.transformations: TransformationList | None = None
 
-    def _interactive_select(self) -> str:
-        transformations = self.client.transformations.list(limit=-1)
-        transformation_ids = [
-            transformation.external_id for transformation in transformations if transformation.external_id
-        ]
-
-        if transformations and not transformation_ids:
+    def _interactive_select(self) -> tuple[str, ...]:
+        self.transformations = self.client.transformations.list(limit=-1)
+        if self.transformations and not any(transformation.external_id for transformation in self.transformations):
             raise ToolkitValueError(
                 "ExternalID is required for dumping transformations. "
-                f"Found {len(transformations)} transformations with only internal IDs."
+                f"Found {len(self.transformations)} transformations with only internal IDs."
             )
-        elif not transformation_ids:
+        elif not self.transformations:
             raise ToolkitMissingResourceError("No transformations found")
 
-        selected_transformation_id: str = questionary.select(
-            "Which transformation would you like to dump?",
-            [
-                Choice(transformation.external_id, value=transformation.external_id)
-                for transformation in transformations
-                if transformation.external_id
-            ],
-        ).ask()
-        for transformation in transformations:
-            if transformation.external_id == selected_transformation_id:
-                self.transformation = transformation
-                break
+        choices = [
+            Choice(f"{transformation.name} ({transformation.external_id})", value=transformation.external_id)
+            for transformation in sorted(self.transformations, key=lambda t: t.name or "")
+            if transformation.external_id
+        ]
 
-        return selected_transformation_id
+        selected_transformation_ids: tuple[str, ...] | None = questionary.checkbox(
+            "Which transformation(s) would you like to dump?",
+            choices=choices,
+        ).ask()
+        if selected_transformation_ids is None:
+            raise ToolkitValueError("No transformations selected for dumping.")
+        return tuple(selected_transformation_ids)
 
     def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
         self.identifier = self._selected()
-        if self.transformation:
-            yield [], TransformationList([self.transformation]), TransformationLoader.create_loader(self.client), None
+        if self.transformations:
+            yield (
+                [],
+                TransformationList([t for t in self.transformations if t.external_id in self.identifier]),
+                TransformationLoader.create_loader(self.client),
+                None,
+            )
         else:
-            yield [self.identifier], None, TransformationLoader.create_loader(self.client), None
+            yield list(self.identifier), None, TransformationLoader.create_loader(self.client), None
 
         schedule_loader = TransformationScheduleLoader.create_loader(self.client)
-        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=[self.identifier]))
+        schedule_list = TransformationScheduleList(schedule_loader.iterate(parent_ids=list(self.identifier)))
         yield [], schedule_list, schedule_loader, None
         notification_loader = TransformationNotificationLoader.create_loader(self.client)
-        notification_list = TransformationNotificationList(notification_loader.iterate(parent_ids=[self.identifier]))
+        notification_list = TransformationNotificationList(
+            notification_loader.iterate(parent_ids=list(self.identifier))
+        )
         yield [], notification_list, notification_loader, None
 
 
@@ -326,7 +359,7 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
             count = self.client.data_modeling.instances.aggregate(
                 self.identifier, dm.aggregations.Count("externalId"), instance_type="node"
             ).value
-            if count == 0:
+            if count == 0 or count is None:
                 raise ToolkitMissingResourceError(f"No nodes found in {self.identifier}")
             elif count > 50:
                 if not questionary.confirm(
@@ -336,6 +369,37 @@ class NodeFinder(ResourceFinder[dm.ViewId]):
                     typer.Exit(0)
         nodes = dm.NodeList[dm.Node](list(loader.iterate()))
         yield [], nodes, loader, None
+
+
+class LocationFilterFinder(ResourceFinder[tuple[str, ...]]):
+    @cached_property
+    def all_filters(self) -> LocationFilterList:
+        return self.client.location_filters.list()
+
+    def _interactive_select(self) -> tuple[str, ...]:
+        filters = self.all_filters
+        if not filters:
+            raise ToolkitMissingResourceError("No filters found")
+        id_by_display_name = {f"{filter.name} ({filter.external_id})": filter.external_id for filter in filters}
+        return tuple(
+            questionary.checkbox(
+                "Which filters would you like to dump?",
+                choices=[Choice(name, value=id_) for name, id_ in id_by_display_name.items()],
+            ).ask()
+        )
+
+    def _get_filters(self, identifiers: tuple[str, ...]) -> LocationFilterList:
+        if not identifiers:
+            return self.all_filters
+        filters = [f for f in self.all_filters if f.external_id in identifiers]
+        if not filters:
+            raise ToolkitResourceMissingError(f"Location filters {identifiers} not found", str(identifiers))
+        return LocationFilterList(filters)
+
+    def __iter__(self) -> Iterator[tuple[list[Hashable], CogniteResourceList | None, ResourceLoader, None | str]]:
+        self.identifier = self.identifier or self._interactive_select()
+        filters = self._get_filters(self.identifier)
+        yield [], filters, LocationFilterLoader.create_loader(self.client), None
 
 
 class DumpResourceCommand(ToolkitCommand):

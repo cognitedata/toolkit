@@ -1,0 +1,22 @@
+space: strongly-coupled-model
+externalId: ProductionTimeseries
+name: ProductionTimeseries
+description: Missing
+properties:
+  entity:
+    type:
+      list: false
+      type: direct
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: entity
+constraints:
+  cogniteTimeSeriesPresent:
+    require:
+      space: cdf_cdm
+      externalId: CogniteTimeSeries
+      type: container
+    constraintType: requires
+indexes: {}
+usedFor: node

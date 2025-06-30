@@ -20,9 +20,41 @@ class Flags(Enum):
         "visible": True,
         "description": "Enables the support for repeating modules in the config file",
     }
+    POPULATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the populate command",
+    }
+    AGENTS: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for Atlas Agents and Agent Tools",
+    }
     DUMP_EXTENDED: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
         "visible": True,
-        "description": "Enables support for dump workflow/transformation/group/node",
+        "description": "Enables support for the dumping Location Filters.",
+    }
+    PROFILE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for the profile command",
+    }
+    INFIELD: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables support for Infield configs",
+    }
+    DUMP_DATA: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Splits the dump command in dump data and dump config",
+    }
+    EXIT_ON_WARNING: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the exit on warning feature during the build command",
+    }
+    MIGRATE: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the migrate command",
+    }
+    EXTERNAL_LIBRARIES: ClassVar[dict[str, Any]] = {  # type: ignore[misc]
+        "visible": True,
+        "description": "Enables the support for external libraries in the config file",
     }
 
     def is_enabled(self) -> bool:

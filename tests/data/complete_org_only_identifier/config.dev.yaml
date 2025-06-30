@@ -1,0 +1,6 @@
+environment:
+  name: dev
+  project: pytest-project
+  type: dev
+  selected:
+    - modules/

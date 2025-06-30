@@ -1,0 +1,69 @@
+externalId: Property
+space: strongly-coupled-model
+version: v1
+name: Property
+description: Missing
+properties:
+  type:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: type
+  nodeOrEdge:
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: SimNodeAndEdge
+      version: v1
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: nodeOrEdge
+    name: nodeOrEdge
+  modelName:
+    container:
+      type: container
+      space: cdf_cdm
+      externalId: CogniteDescribable
+    containerPropertyIdentifier: name
+    name: modelName
+  workflow:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: workflow
+    name: workflow
+  unit:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: unit
+    name: unit
+  valueClassicRef:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: valueClassicRef
+    name: valueClassicRef
+  valueRef:
+    source:
+      type: view
+      space: strongly-coupled-model
+      externalId: ProductionTimeseries
+      version: v1
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: Property
+    containerPropertyIdentifier: valueRef
+    name: valueRef
+implements:
+- type: view
+  space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1

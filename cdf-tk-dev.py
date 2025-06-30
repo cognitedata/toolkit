@@ -45,7 +45,7 @@ if not Path(REPO_ROOT / "cognite_toolkit" / "config.local.yaml").exists():
         Environment(
             name="local",
             project="<my-project>",
-            build_type="dev",
+            validation_type="dev",
             selected=["cdf_demo_infield", "cdf_oid_example_data"],
         )
     ).load_defaults(REPO_ROOT / "cognite_toolkit")

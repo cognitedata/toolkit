@@ -43,6 +43,7 @@ from rich import print
 
 from cognite_toolkit._cdf_tk._parameters import ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawDatabase, RawTable
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitRequiredValueError,
 )
@@ -293,7 +294,7 @@ class ExtractionPipelineConfigLoader(
     def safe_read(self, filepath: Path | str) -> str:
         # The config is expected to be a string that is parsed as a YAML on the server side.
         # The user typically writes the config as an object, so add a | to ensure it is parsed as a string.
-        return stringify_value_by_key_in_yaml(safe_read(filepath), key="config")
+        return stringify_value_by_key_in_yaml(safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="config")
 
     def load_resource_file(
         # special case where the environment variable keys in the 'config' value
@@ -305,7 +306,9 @@ class ExtractionPipelineConfigLoader(
         raw_str = self.safe_read(filepath)
 
         original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
-        replaced = load_yaml_inject_variables(raw_str, environment_variables or {}, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
 
         if isinstance(original, dict) and isinstance(replaced, dict):
             if "config" in original:
@@ -344,23 +347,11 @@ class ExtractionPipelineConfigLoader(
         return super().diff_list(local, cdf, json_path)
 
     def _upsert(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
-        updated = ExtractionPipelineConfigList([])
+        upserted = ExtractionPipelineConfigList([])
         for item in items:
-            if not item.external_id:
-                raise ToolkitRequiredValueError("ExtractionPipelineConfig must have external_id set.")
-            try:
-                latest = self.client.extraction_pipelines.config.retrieve(item.external_id)
-            except CogniteAPIError:
-                latest = None
-            local_dict = item.dump()
-
-            if latest and local_dict == self.dump_resource(latest, local_dict):
-                updated.append(latest)
-                continue
-            else:
-                created = self.client.extraction_pipelines.config.create(item)
-                updated.append(created)
-        return updated
+            created = self.client.extraction_pipelines.config.create(item)
+            upserted.append(created)
+        return upserted
 
     def create(self, items: ExtractionPipelineConfigWriteList) -> ExtractionPipelineConfigList:
         return self._upsert(items)
@@ -386,6 +377,12 @@ class ExtractionPipelineConfigLoader(
         return retrieved
 
     def delete(self, ids: SequenceNotStr[str]) -> int:
+        """Delete is not supported for extraction pipeline configs.
+
+        Instead, we assume that when the user deletes the extraction pipeline configs, they are also deleting the
+        extraction pipelines which will automatically delete the configs. In this method, we simply count the number
+        of configs that exist for the given ids and return that number as these will be deleted.
+        """
         count = 0
         for id_ in ids:
             try:

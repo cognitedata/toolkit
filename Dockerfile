@@ -1,36 +1,36 @@
-FROM python:3.11-slim AS builder
-# Python
-ENV PYTHONFAULTHANDLER=1 \
-  PYTHONUNBUFFERED=1 \
-  PYTHONHASHSEED=random \
-  # Pip
-  PIP_NO_CACHE_DIR=off \
-  PIP_DISABLE_PIP_VERSION_CHECK=on \
-  PIP_DEFAULT_TIMEOUT=100 \
-  # Poetry's configuration:
-  POETRY_NO_INTERACTION=1 \
-  POETRY_VIRTUALENVS_CREATE=false \
-  POETRY_CACHE_DIR='/var/cache/pypoetry' \
-  POETRY_HOME='/usr/local' \
-  POETRY_VERSION=2.0.1
-RUN apt-get update && apt-get install -y curl
-RUN curl -sSL https://install.python-poetry.org | python3 -
+# First, build the application in the `/app` directory.
+# See `Dockerfile` for details.
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 
-ENV PATH="$POETRY_HOME/bin:$VIRTUAL_ENV/bin:$PATH"
+# Disable Python downloads, because we want to use the system interpreter
+# across both images. If using a managed Python version, it needs to be
+# copied from the build image into the final image; see `standalone.Dockerfile`
+# for an example.
+ENV UV_PYTHON_DOWNLOADS=0
 
-COPY poetry.lock pyproject.toml README.md ./
-COPY cognite_toolkit/. ./cognite_toolkit/
-# Ensure we get the exact version of the dependencies
-RUN poetry sync --without dev
+WORKDIR /installation
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project --no-dev
+ADD . /installation
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 
-# Building final image
-FROM python:3.11-slim-bookworm
-COPY --from=builder /usr/local/lib/python3.11/site-packages  /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
-COPY --from=builder /cognite_toolkit /cognite_toolkit
 
-RUN mkdir /app
+# Then, use a final image without uv
+FROM python:3.12-slim-bookworm
+# It is important to use the image that matches the builder, as the path to the
+# Python executable must be the same, e.g., using `python:3.11-slim-bookworm`
+# will fail.
+
+# Copy the application from the builder
+COPY --from=builder --chown=installation:installation /installation /installation
+
+# Place executables in the environment at the front of the path
+ENV PATH="/installation/.venv/bin:$PATH"
+
 WORKDIR /app
-
 
 CMD ["cdf", "--help"]

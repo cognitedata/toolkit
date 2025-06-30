@@ -1,0 +1,25 @@
+externalId: ModelExecutionEnvironment
+space: strongly-coupled-model
+version: v1
+name: ModelExecutionEnvironment
+description: Missing
+properties:
+  type:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: ModelExecutionEnvironment
+    containerPropertyIdentifier: type
+    name: type
+  version:
+    container:
+      type: container
+      space: strongly-coupled-model
+      externalId: ModelExecutionEnvironment
+    containerPropertyIdentifier: version
+    name: version
+implements:
+- type: view
+  space: cdf_cdm
+  externalId: CogniteDescribable
+  version: v1

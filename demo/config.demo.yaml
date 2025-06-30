@@ -7,8 +7,6 @@ environment:
   # Order is important.
   selected:
     - cdf_auth_readwrite_all
-    - cdf_oid_example_data
-    - cdf_data_pipeline_asset_valhall
 
 variables:
   modules:

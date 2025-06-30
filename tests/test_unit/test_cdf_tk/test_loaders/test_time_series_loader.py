@@ -1,7 +1,9 @@
 import yaml
+from cognite.client.data_classes import TimeSeriesWrite
+from cognite.client.utils.useful_types import SequenceNotStr
 
+from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
 from cognite_toolkit._cdf_tk.loaders import TimeSeriesLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 from tests.test_unit.approval_client.client import LookUpAPIMock
 
@@ -22,7 +24,6 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_with_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
@@ -36,7 +37,6 @@ description: PH 1stStgSuctCool Gas Out
     def test_load_skip_validation_no_preexisting_dataset(
         self,
         toolkit_client_approval: ApprovalToolkitClient,
-        cdf_tool_real: CDFToolConfig,
     ) -> None:
         loader = TimeSeriesLoader(toolkit_client_approval.mock_client, None)
         ts_dict = yaml.safe_load(self.timeseries_yaml)
@@ -49,3 +49,34 @@ description: PH 1stStgSuctCool Gas Out
         loaded = loader.load_resource(ts_dict, is_dry_run=False)
 
         assert loaded.data_set_id == -1
+
+    def test_load_timeseries_ref_not_yet_deployed(self) -> None:
+        actual_is_dry_run: list[bool] = []
+
+        def mock_id_lookup(
+            external_id: str | SequenceNotStr[str], is_dry_run: bool = False, allow_empty: bool = False
+        ) -> int | list[int]:
+            actual_is_dry_run.append(is_dry_run)
+            return -1 if isinstance(external_id, str) else [-1] * len(external_id)
+
+        with monkeypatch_toolkit_client() as client:
+            client.lookup.data_sets.id.side_effect = mock_id_lookup
+            client.lookup.assets.id.side_effect = mock_id_lookup
+            client.lookup.security_categories.id.side_effect = mock_id_lookup
+            loader = TimeSeriesLoader.create_loader(client)
+
+        resource = {
+            "externalId": "MyTimeseries",
+            "assetExternalId": "my_asset",
+            "dataSetExternalId": "my_dataset",
+            "securityCategoryNames": ["my_security_category"],
+        }
+
+        ts = loader.load_resource(resource.copy(), is_dry_run=True)
+        _ = loader.load_resource(resource.copy(), is_dry_run=False)
+
+        assert isinstance(ts, TimeSeriesWrite)
+        assert ts.asset_id == -1
+        assert ts.data_set_id == -1
+        assert ts.security_categories == [-1]
+        assert actual_is_dry_run == [True] * 3 + [False] * 3

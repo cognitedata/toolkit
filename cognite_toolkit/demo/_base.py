@@ -4,18 +4,28 @@ import textwrap
 from pathlib import Path
 
 from cognite.client.data_classes import UserProfile
+from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.panel import Panel
 
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import AuthCommand, BuildCommand, DeployCommand, ModulesCommand
-from cognite_toolkit._cdf_tk.constants import MODULES
+from cognite_toolkit._cdf_tk.constants import _RUNNING_IN_BROWSER, MODULES
+from cognite_toolkit._cdf_tk.exceptions import AuthenticationError
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils.auth import AuthVariables, CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
 class CogniteToolkitDemo:
     def __init__(self) -> None:
-        self._cdf_tool_config = CDFToolConfig()
+        if _RUNNING_IN_BROWSER:
+            try:
+                self._client = ToolkitClient()
+            except CogniteAPIError as e:
+                raise AuthenticationError(f"Failed to initialize CogniteClient in browser: {e}")
+        else:
+            self._client = EnvironmentVariables.create_from_environment().get_client()
+        self._env_vars: EnvironmentVariables | None = None
         print(
             Panel(
                 textwrap.dedent("""
@@ -53,7 +63,7 @@ class CogniteToolkitDemo:
         if company_prefix:
             self._verify_company_prefix(company_prefix)
         print(Panel("Running Toolkit QuickStart..."))
-        user = self._cdf_tool_config.toolkit_client.iam.user_profiles.me()
+        user = self._client.iam.user_profiles.me()
         if client_id is None and client_secret is None:
             print("Client ID and secret not provided. Assuming user has all the necessary permissions.")
             self._init_build_deploy(user, company_prefix)
@@ -64,7 +74,7 @@ class CogniteToolkitDemo:
             # Lookup user ID to add user ID to the group to run the workflow
             auth = AuthCommand()
             auth_result = auth.verify(
-                self._cdf_tool_config,
+                self._client,
                 dry_run=False,
                 no_prompt=True,
                 demo_principal=client_id,
@@ -84,20 +94,22 @@ class CogniteToolkitDemo:
                 return
 
             print("Switching to the demo service principal...")
-            self._cdf_tool_config = CDFToolConfig(
-                auth_vars=AuthVariables(
-                    provider="cdf",
-                    cluster=self._cdf_tool_config.cdf_cluster,
-                    project=self._cdf_tool_config.project,
-                    login_flow="client_credentials",
-                    client_id=client_id,
-                    client_secret=client_secret,
-                )
+            cluster = self._client.config.cdf_cluster
+            if cluster is None:
+                raise ValueError("CDF_CLUSTER is not set in the environment.")
+            self._env_vars = EnvironmentVariables(
+                PROVIDER="cdf",  # type: ignore[arg-type]
+                LOGIN_FLOW="client_credentials",
+                CDF_CLUSTER=cluster,
+                CDF_PROJECT=self._client.config.project,
+                IDP_CLIENT_ID=client_id,
+                IDP_CLIENT_SECRET=client_secret,
             )
+            self._client = self._env_vars.get_client()
             self._init_build_deploy(user, company_prefix)
         finally:
             if group_id is not None:
-                self._cdf_tool_config.toolkit_client.iam.groups.delete(id=group_id)
+                self._client.iam.groups.delete(id=group_id)
 
     def _init_build_deploy(self, user: UserProfile, company_prefix: str | None = None) -> None:
         modules_cmd = ModulesCommand()
@@ -116,7 +128,7 @@ class CogniteToolkitDemo:
         config_raw = config_raw.replace("<your user id>", user.user_identifier)
         # To avoid warnings about not set values
         config_raw = config_raw.replace("<not set>", "123456-to-be-replaced")
-        config_raw = config_raw.replace("<my-project-dev>", self._cdf_tool_config.project)
+        config_raw = config_raw.replace("<my-project-dev>", self._client.config.project)
         if company_prefix is not None:
             config_raw = config_raw.replace("YourOrg", company_prefix)
         config_yaml.write_text(config_raw)
@@ -134,17 +146,20 @@ class CogniteToolkitDemo:
                 selected=None,
                 build_env_name="dev",
                 verbose=False,
-                ToolGlobals=self._cdf_tool_config,
+                client=self._client,
                 on_error="raise",
                 no_clean=False,
             )
         )
 
         deploy = DeployCommand()
+        if self._env_vars is None:
+            raise AuthenticationError("Environment variables not set.")
 
         deploy.run(
-            lambda: deploy.execute(
-                ToolGlobals=self._cdf_tool_config,
+            lambda: deploy.deploy_build_directory(
+                # MyPy fails to see th check above.
+                env_vars=self._env_vars,  # type: ignore[arg-type]
                 build_dir=self._build_dir,
                 build_env_name="dev",
                 dry_run=False,

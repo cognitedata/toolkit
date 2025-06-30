@@ -38,7 +38,7 @@ from cognite_toolkit._cdf_tk.tk_warnings import (
 from cognite_toolkit._cdf_tk.utils import (
     YAMLComment,
     YAMLWithComments,
-    calculate_str_or_file_hash,
+    calculate_hash,
     flatten_dict,
     read_yaml_content,
     safe_read,
@@ -58,36 +58,27 @@ _AVAILABLE_ENV_TYPES = tuple(get_args(EnvType))
 class Environment:
     name: str = "dev"
     project: str = field(default_factory=lambda: os.environ.get("CDF_PROJECT", "UNKNOWN"))
-    build_type: EnvType = DEFAULT_ENV  # type: ignore[assignment]
+    validation_type: str = "dev"
     selected: list[str | Path] = field(default_factory=lambda: [Path(MODULES)])
 
-    def __post_init__(self) -> None:
-        if self.build_type not in _AVAILABLE_ENV_TYPES:
-            raise ToolkitEnvError(
-                f"Invalid type {self.build_type} in {self.name!s}. Must be one of {_AVAILABLE_ENV_TYPES}"
-            )
+    @property
+    def is_strict_validation(self) -> bool:
+        return self.validation_type.casefold() != "dev"
 
     @classmethod
     def load(cls, data: dict[str, Any], build_name: str) -> Environment:
         _deprecation_selected(data)
         if "name" not in data:
             data["name"] = build_name
-
-        if missing := {"name", "project", "type", "selected"} - set(data.keys()):
+        _deprecate_type(data, build_name)
+        if missing := {"name", "project", "validation-type", "selected"} - set(data.keys()):
             raise ToolkitEnvError(
                 f"Environment section is missing one or more required fields: {missing} in {BuildConfigYAML.get_filename(build_name)!s}"
             )
-        build_type = data["type"]
-        if build_type not in _AVAILABLE_ENV_TYPES:
-            raise ToolkitEnvError(
-                f"Invalid type {build_type} in {BuildConfigYAML.get_filename(build_name)!s}. "
-                f"Must be one of {_AVAILABLE_ENV_TYPES}"
-            )
-
         return Environment(
             name=build_name,
             project=data["project"],
-            build_type=build_type,
+            validation_type=data["validation-type"],
             selected=parse_user_selected_modules(data.get("selected")),
         )
 
@@ -95,7 +86,7 @@ class Environment:
         return {
             "name": self.name,
             "project": self.project,
-            "type": self.build_type,
+            "validation-type": self.validation_type,
             "selected": [
                 selected.as_posix() + "/" if isinstance(selected, Path) else selected for selected in self.selected
             ],
@@ -125,7 +116,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.environment.name
-        os.environ["CDF_BUILD_TYPE"] = self.environment.build_type
+        os.environ["CDF_BUILD_TYPE"] = self.environment.validation_type
 
     def validate_environment(self) -> ToolkitWarning | None:
         if _RUNNING_IN_BROWSER:
@@ -135,7 +126,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         if project_env == project:
             return None
 
-        build_type = self.environment.build_type
+        is_strict_validation = self.environment.is_strict_validation
         env_name = self.environment.name
         file_name = self.get_filename(env_name)
         missing_message = (
@@ -150,11 +141,11 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
             "building configurations for staging and prod environments to ensure that you do not "
             "accidentally deploy to the wrong project."
         )
-        if build_type != "dev" and project_env is None:
+        if is_strict_validation and project_env is None:
             raise ToolkitEnvError(missing_message)
-        elif build_type != "dev":
+        elif is_strict_validation:
             raise ToolkitEnvError(mismatch_message)
-        elif build_type == "dev" and project_env is None:
+        elif not is_strict_validation and project_env is None:
             return MediumSeverityWarning(missing_message)
         else:
             return MediumSeverityWarning(mismatch_message)
@@ -181,7 +172,7 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
         return BuildEnvironment(
             name=self.environment.name,  # type: ignore[arg-type]
             project=self.environment.project,
-            build_type=self.environment.build_type,
+            validation_type=self.environment.validation_type,
             selected=self.environment.selected,
             cdf_toolkit_version=__version__,
             built_resources=built_modules.as_resources_by_folder(),
@@ -235,6 +226,9 @@ class BuildConfigYAML(ConfigYAMLCore, ConfigCore):
     def load_default(cls, organization_dir: Path) -> BuildConfigYAML:
         return cls(filepath=organization_dir / BuildConfigYAML.get_filename(DEFAULT_ENV))
 
+    def dump(self) -> dict[str, Any]:
+        return {"environment": self.environment.dump(), "variables": self.variables}
+
 
 @dataclass
 class BuildEnvironment(Environment):
@@ -286,12 +280,12 @@ class BuildEnvironment(Environment):
         read_modules: list[ReadModule] = []
         if "read_modules" in data:
             read_modules = [ReadModule.load(module_data) for module_data in data["read_modules"]]
-
+        _deprecate_type(data, build_name or "dev")
         try:
             return cls(
                 name=data["name"],
                 project=data["project"],
-                build_type=data["type"],
+                validation_type=data["validation-type"],
                 selected=data["selected"],
                 cdf_toolkit_version=version,
                 built_resources=built_resources,
@@ -299,13 +293,13 @@ class BuildEnvironment(Environment):
             )
         except KeyError:
             raise ToolkitEnvError(
-                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'type', "
+                f"  [bold red]ERROR:[/] Environment {build_name} is missing required fields 'name', 'project', 'validation-type', "
                 f"or 'selected' in {BUILD_ENVIRONMENT_FILE!s}"
             )
 
     def set_environment_variables(self) -> None:
         os.environ["CDF_ENVIRON"] = self.name
-        os.environ["CDF_BUILD_TYPE"] = self.build_type
+        os.environ["CDF_BUILD_TYPE"] = self.validation_type
 
     def check_source_files_changed(self) -> WarningList[FileReadWarning]:
         warning_list = WarningList[FileReadWarning]()
@@ -326,7 +320,7 @@ class BuildEnvironment(Environment):
                         warning_list.append(
                             MissingFileWarning(source_filepath, attempted_check="source file has changed")
                         )
-                    elif source.hash != calculate_str_or_file_hash(source_filepath, shorten=True):
+                    elif source.hash != calculate_hash(source_filepath, shorten=True):
                         warning_list.append(SourceFileModifiedWarning(source_filepath))
         return warning_list
 
@@ -338,6 +332,14 @@ def _deprecation_selected(data: dict[str, Any]) -> None:
             "is deprecated, use 'selected' instead."
         )
         data["selected"] = data.pop("selected_modules_and_packages")
+
+
+def _deprecate_type(data: dict[str, Any], build_name: str) -> None:
+    if "type" in data and "validation-type" not in data:
+        MediumSeverityWarning(
+            f"In environment section of {BuildConfigYAML.get_filename(build_name)!s}: 'type' is deprecated, use 'validation-type' instead."
+        ).print_warning()
+        data["validation-type"] = data.pop("type")
 
 
 @dataclass

@@ -1,3 +1,0 @@
-# Only valid for this module, loads template variables from environment
-raw_db: pump_assets
-data_set: src:lift_pump_stations

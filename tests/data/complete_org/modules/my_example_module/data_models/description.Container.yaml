@@ -1,0 +1,9 @@
+space: sp_schema
+externalId: DescriptionContainer
+usedFor: node
+description: Container with a description property
+properties:
+  description:
+    type:
+      type: text
+      list: false

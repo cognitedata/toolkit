@@ -204,7 +204,8 @@ FunctionSchedule:
     read_multiple_dial_gauges_label: read_multiple_dial_gauges
     read_valve_label: read_valve
     spill_detection_label: unprocessed_spill_detection
-  description: Contextualizes the robot data and adds appropriate labels
+  description: 'Contextualizes the robot data and adds appropriate labels cdf-auth:
+    acb31846'
   functionExternalId: fn_contextualize_robot_data
   name: contextualize_robot_data
 - cronExpression: '* * * * *'
@@ -214,6 +215,7 @@ FunctionSchedule:
     input_label: read_ir
     output_label: ir_finished
     success_label: SUCCESS_IR
+  description: 'cdf-auth: acb31846'
   functionExternalId: fn_get_ir_data_from_ir_raw
   name: get_ir_data
 - cronExpression: '* * * * *'
@@ -223,7 +225,7 @@ FunctionSchedule:
     input_label: read_dial_gauge
     output_label: gauge_reading
     success_label: SUCCESS
-  description: Reads the dial gauge data from the robot
+  description: 'Reads the dial gauge data from the robot cdf-auth: acb31846'
   functionExternalId: fn_gauge_reading
   name: read_dial_gauge
 - cronExpression: '* * * * *'
@@ -233,6 +235,7 @@ FunctionSchedule:
     input_label: read_digital_gauge
     output_label: gauge_reading
     success_label: SUCCESS
+  description: 'cdf-auth: acb31846'
   functionExternalId: fn_gauge_reading
   name: read_digital_gauge
 - cronExpression: '* * * * *'
@@ -242,7 +245,7 @@ FunctionSchedule:
     input_label: read_level_gauge
     output_label: gauge_reading
     success_label: SUCCESS
-  description: Reads the level gauge data from the robot
+  description: 'Reads the level gauge data from the robot cdf-auth: acb31846'
   functionExternalId: fn_gauge_reading
   name: read_level_gauge
 - cronExpression: '* * * * *'
@@ -252,12 +255,13 @@ FunctionSchedule:
     input_label: read_valve
     output_label: gauge_reading
     success_label: SUCCESS
-  description: Reads the valve data from the robot
+  description: 'Reads the valve data from the robot cdf-auth: acb31846'
   functionExternalId: fn_gauge_reading
   name: read_valve
 - cronExpression: '* * * * *'
   data:
     data_set_external_id: ds_robot_1
+  description: 'cdf-auth: acb31846'
   functionExternalId: fn_threesixty
   name: threesixty
 Group:
@@ -366,9 +370,9 @@ Node:
       customerDataSpaceVersion: '1'
       featureConfiguration:
         rootLocationConfigurations:
-        - appDataInstanceSpace: sp_<change_me>_app_data
-          assetExternalId: <change_me>
-          sourceDataInstanceSpace: sp_<change_me>_source_data
+        - appDataInstanceSpace: sp_my_location_app_data
+          assetExternalId: my_root_asset
+          sourceDataInstanceSpace: sp_my_location_source_data
       name: InRobot APM App Config
     source:
       externalId: APM_Config

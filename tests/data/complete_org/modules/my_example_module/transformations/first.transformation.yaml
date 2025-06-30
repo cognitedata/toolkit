@@ -5,10 +5,11 @@ destination:
 ignoreNullFields: true
 isPublic: true
 conflictMode: upsert
+dataSetExternalId: ds_complete_org
 authentication:
-  clientId: {{ cicd_clientId }}
-  clientSecret: {{ cicd_clientSecret }}
-  tokenUri: {{ cicd_tokenUri }}
-  cdfProjectName: {{ cdfProjectName }}
-  scopes: {{ cicd_scopes }}
-  audience: {{ cicd_audience }}
+  clientId: ${IDP_CLIENT_ID}
+  clientSecret: ${IDP_CLIENT_SECRET}
+  tokenUri: ${IDP_TOKEN_URL}
+  cdfProjectName: ${CDF_PROJECT}
+  scopes: ${IDP_SCOPES}
+  audience: ${IDP_AUDIENCE}

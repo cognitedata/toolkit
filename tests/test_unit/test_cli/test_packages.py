@@ -1,4 +1,4 @@
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -12,51 +12,7 @@ from cognite_toolkit._cdf_tk.commands import BuildCommand, ModulesCommand
 from cognite_toolkit._cdf_tk.constants import BUILTIN_MODULES_PATH
 from cognite_toolkit._cdf_tk.data_classes import Package, Packages
 from cognite_toolkit._cdf_tk.tk_warnings import DuplicatedItemWarning, TemplateVariableWarning
-
-
-class MockQuestion:
-    def __init__(self, answer: Any, choices: list[Choice] | None = None) -> None:
-        self.answer = answer
-        self.choices = choices
-
-    def ask(self) -> Any:
-        if isinstance(self.answer, Callable):
-            return self.answer(self.choices)
-        return self.answer
-
-
-class MockQuestionary:
-    def __init__(self, module_target: str, monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
-        self.module_target = module_target
-        self.answers = answers
-        self.monkeypatch = monkeypatch
-
-    def select(self, *_, choices: list[Choice], **__) -> MockQuestion:
-        return MockQuestion(self.answers.pop(0), choices)
-
-    def confirm(self, *_, **__) -> MockQuestion:
-        return MockQuestion(self.answers.pop(0))
-
-    def checkbox(self, *_, choices: list[Choice], **__) -> MockQuestion:
-        return MockQuestion(self.answers.pop(0), choices)
-
-    def text(self, *_, **__) -> MockQuestion:
-        return MockQuestion(self.answers.pop(0))
-
-    def __enter__(self):
-        for method in [self.select, self.confirm, self.checkbox, self.text]:
-            self.monkeypatch.setattr(f"{self.module_target}.questionary.{method.__name__}", method)
-        return self
-
-    def __exit__(self, *args):
-        self.monkeypatch.undo()
-        return False
-
-    @staticmethod
-    def select_all(choices: list[Choice]) -> list[str]:
-        if not choices:
-            return []
-        return [choice.value for choice in choices]
+from tests.test_unit.utils import MockQuestionary
 
 
 def get_packages() -> list[ParameterSet]:
@@ -68,8 +24,7 @@ def get_packages() -> list[ParameterSet]:
     packages = (
         package
         for package in packages.values()
-        if package.name
-        not in ["bootcamp", "examples", "sourcesystem", "industrial_tools", "contextualization", "custom"]
+        if package.name not in ["bootcamp", "sourcesystem", "industrial_tools", "contextualization", "custom"]
     )
     return [pytest.param(package, id=package.name) for package in sorted(packages, key=lambda p: p.name)]
 
@@ -112,7 +67,7 @@ def test_build_packages_without_warnings(
         organization_dir=organization_dir,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=None,
     )
 
@@ -129,7 +84,7 @@ def test_build_packages_without_warnings(
 def get_individual_modules() -> list[str]:
     packages = Packages.load(BUILTIN_MODULES_PATH)
 
-    for package_name in ["examples", "sourcesystem"]:
+    for package_name in ["sourcesystem"]:
         modules = packages[package_name]
         for module_name in sorted(modules.module_names):
             yield package_name, module_name
@@ -174,7 +129,7 @@ def test_build_individual_module(
         organization_dir=organization_dir,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=None,
     )
 
@@ -209,7 +164,7 @@ def test_no_builtin_duplicates(organization_dir: Path, build_tmp_path: Path) -> 
         build_dir=build_tmp_path,
         build_env_name="dev",
         no_clean=False,
-        ToolGlobals=None,
+        client=None,
         selected=[
             modules / "cdf_ingestion",
             modules / "common",

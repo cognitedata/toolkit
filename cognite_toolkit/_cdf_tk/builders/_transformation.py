@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from cognite_toolkit._cdf_tk.builders import Builder
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildDestinationFile,
     BuildSourceFile,
@@ -11,7 +12,7 @@ from cognite_toolkit._cdf_tk.data_classes import (
 )
 from cognite_toolkit._cdf_tk.exceptions import ToolkitYAMLFormatError
 from cognite_toolkit._cdf_tk.loaders import TransformationLoader
-from cognite_toolkit._cdf_tk.tk_warnings import ToolkitWarning
+from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, ToolkitWarning
 from cognite_toolkit._cdf_tk.utils import safe_write
 
 
@@ -80,13 +81,16 @@ class TransformationBuilder(Builder):
                     f"Please remove one of the definitions, either the query property in {filepath} or the file {query_file}",
                 )
             elif "query" not in entry and query_file is None:
-                raise ToolkitYAMLFormatError(
-                    f"query property or is missing. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
-                    filepath,
+                warning = HighSeverityWarning(
+                    f"query property or is missing in {filepath.as_posix()!r}. It can be inline or a separate file named {filepath.stem}.sql or {external_id}.sql",
                 )
+                if self.warn:
+                    self.warn(warning)
+                else:
+                    warning.print_warning()
             elif query_file is not None:
                 destination_path = self._create_destination_path(query_file.source.path, "Query")
-                safe_write(destination_path, query_file.content)
+                safe_write(destination_path, query_file.content, encoding=BUILD_FOLDER_ENCODING)
                 relative = destination_path.relative_to(transformation_destination_path.parent)
                 entry["queryFile"] = relative.as_posix()
                 extra_sources.append(query_file.source)

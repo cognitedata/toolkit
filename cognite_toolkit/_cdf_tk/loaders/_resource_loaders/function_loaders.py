@@ -17,12 +17,15 @@ from cognite.client.data_classes import (
     FunctionWriteList,
 )
 from cognite.client.data_classes.capabilities import (
+    AllScope,
     Capability,
+    DataSetScope,
     FilesAcl,
     FunctionsAcl,
     SessionsAcl,
 )
 from cognite.client.data_classes.functions import HANDLER_FILE_NAME
+from cognite.client.exceptions import CogniteAuthError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
@@ -33,15 +36,17 @@ from cognite_toolkit._cdf_tk.client.data_classes.functions import FunctionSchedu
 from cognite_toolkit._cdf_tk.exceptions import (
     ResourceCreationError,
     ToolkitRequiredValueError,
-    ToolkitTypeError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
+from cognite_toolkit._cdf_tk.resource_classes import FunctionScheduleYAML, FunctionsYAML
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, LowSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
     calculate_directory_hash,
+    calculate_hash,
     calculate_secure_hash,
-    calculate_str_or_file_hash,
 )
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.text import suffix_description
 
 from .auth_loaders import GroupAllScopedLoader
 from .data_organization_loaders import DataSetsLoader
@@ -60,6 +65,7 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
     list_cls = FunctionList
     list_write_cls = FunctionWriteList
     kind = "Function"
+    yaml_cls = FunctionsYAML
     dependencies = frozenset({DataSetsLoader, GroupAllScopedLoader})
     _doc_url = "Functions/operation/postFunctions"
     metadata_value_limit = 512
@@ -138,7 +144,9 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
 
     @classmethod
     def _create_hash_values(cls, function_rootdir: Path) -> str:
-        root_hash = calculate_directory_hash(function_rootdir, ignore_files={".pyc"}, shorten=True)
+        root_hash = calculate_directory_hash(
+            function_rootdir, exclude_prefixes={".DS_Store"}, ignore_files={".pyc"}, shorten=True
+        )
         hash_value = f"/={root_hash}"
         to_search = [function_rootdir]
         while to_search:
@@ -149,12 +157,49 @@ class FunctionLoader(ResourceLoader[str, FunctionWrite, Function, FunctionWriteL
                     continue
                 elif file.is_file() and file.suffix == ".pyc":
                     continue
-                file_hash = calculate_str_or_file_hash(file, shorten=True)
+                elif file.is_file() and file.name == ".DS_Store":
+                    continue
+                file_hash = calculate_hash(file, shorten=True)
                 new_entry = f"{file.relative_to(function_rootdir).as_posix()}={file_hash}"
                 if len(hash_value) + len(new_entry) > (cls.metadata_value_limit - 1):
                     break
                 hash_value += f";{new_entry}"
         return hash_value
+
+    def get_function_required_capabilities(
+        self, items: Sequence[FunctionWrite] | None, read_only: bool
+    ) -> list[Capability]:
+        """
+        Get required capabilities for working with CDF Functions and their associated files.
+
+        This method determines the necessary permissions needed for function operations,
+        with dataset-scoped file access when possible. When functions are associated with
+        specific datasets, it will request file permissions only for those datasets
+        rather than requiring all-scope file access.
+        """
+        if items is not None and not items:
+            return []
+
+        function_actions = (
+            [FunctionsAcl.Action.Read] if read_only else [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        )
+        file_actions = [FilesAcl.Action.Read] if read_only else [FilesAcl.Action.Read, FilesAcl.Action.Write]
+
+        file_scope: AllScope | DataSetScope = FilesAcl.Scope.All()
+
+        if items and self.data_set_id_by_external_id:
+            dataset_ids = [
+                self.data_set_id_by_external_id[item.external_id]
+                for item in items
+                if item.external_id and item.external_id in self.data_set_id_by_external_id
+            ]
+            if dataset_ids:
+                file_scope = FilesAcl.Scope.DataSet(dataset_ids)
+
+        return [
+            FunctionsAcl(function_actions, FunctionsAcl.Scope.All()),
+            FilesAcl(file_actions, file_scope),  # Needed for uploading function artifacts
+        ]
 
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionWrite:
         item_id = self.get_id(resource)
@@ -344,10 +389,14 @@ class FunctionScheduleLoader(
     list_cls = FunctionSchedulesList
     list_write_cls = FunctionScheduleWriteList
     kind = "Schedule"
+    yaml_cls = FunctionScheduleYAML
     dependencies = frozenset({FunctionLoader, GroupResourceScopedLoader, GroupAllScopedLoader})
     _doc_url = "Function-schedules/operation/postFunctionSchedules"
     parent_resource = frozenset({FunctionLoader})
     support_update = False
+
+    _hash_key = "cdf-auth"
+    _description_character_limit = 500
 
     def __init__(self, client: ToolkitClient, build_path: Path | None, console: Console | None):
         super().__init__(client, build_path, console)
@@ -399,15 +448,40 @@ class FunctionScheduleLoader(
         if "functionExternalId" in item:
             yield FunctionLoader, item["functionExternalId"]
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(
+                resource.get("authentication"),
+                self.client.config,
+                identifier,
+                "function schedule",
+                console=self.console,
+            )
+            self.authentication_by_id[identifier] = credentials
+            auth_hash = calculate_secure_hash(credentials.dump(camel_case=True), shorten=True)
+            extra_str = f"{self._hash_key}: {auth_hash}"
+            resource["description"] = suffix_description(
+                extra_str,
+                resource.get("description"),
+                self._description_character_limit,
+                self.get_id(resource),
+                self.display_name,
+                self.console,
+            )
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> FunctionScheduleWrite:
-        identifier = self.get_id(resource)
-        if auth := resource.pop("authentication", None):
-            if not isinstance(auth, dict):
-                raise ToolkitTypeError(f"Authentication must be a dictionary for schedule {identifier!r}")
-            if "clientId" in auth and "clientSecret" in auth:
-                self.authentication_by_id[identifier] = ClientCredentials(auth["clientId"], auth["clientSecret"])
         if "functionId" in resource:
-            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning()
+            identifier = self.get_id(resource)
+            LowSeverityWarning(f"FunctionId will be ignored in the schedule {identifier!r}").print_warning(
+                console=self.console
+            )
             resource.pop("functionId", None)
 
         return FunctionScheduleWrite._load(resource)
@@ -452,8 +526,16 @@ class FunctionScheduleLoader(
         created_list = FunctionSchedulesList([], cognite_client=self.client)
         for item in items:
             id_ = self.get_id(item)
-            client_credentials = self.authentication_by_id.get(id_)
-            created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
+            if id_ not in self.authentication_by_id:
+                raise ToolkitRequiredValueError(f"Authentication is missing for schedule {id_!r}")
+            client_credentials = self.authentication_by_id[id_]
+            try:
+                created = self.client.functions.schedules.create(item, client_credentials=client_credentials)
+            except CogniteAuthError as e:
+                if hint := try_find_error(client_credentials):
+                    raise ResourceCreationError(f"Failed to create Function Schedule {id_}: {hint}") from e
+                raise e
+
             # The PySDK mutates the input object, such that function_id is set and function_external_id is None.
             # If we call .get_id on the returned object, it will raise an error we require the function_external_id
             # to be set.
@@ -497,3 +579,8 @@ class FunctionScheduleLoader(
             ParameterSpec(("authentication", "clientSecret"), frozenset({"str"}), is_required=False, _is_nullable=False)
         )
         return spec
+
+    def sensitive_strings(self, item: FunctionScheduleWrite) -> Iterable[str]:
+        id_ = self.get_id(item)
+        if id_ in self.authentication_by_id:
+            yield self.authentication_by_id[id_].client_secret

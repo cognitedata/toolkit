@@ -2,4 +2,6 @@
 title = "Admin group for CI/CD"
 
 [packages]
-tags = ["examples"]
+tags = [
+    "custom",
+]

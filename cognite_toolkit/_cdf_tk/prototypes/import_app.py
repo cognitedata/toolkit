@@ -3,7 +3,7 @@ from pathlib import Path
 import typer
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 from .commands.import_ import ImportTransformationCLI
 
@@ -22,12 +22,12 @@ def import_main(ctx: typer.Context) -> None:
 
 @import_app.command("transformation-cli")
 def transformation_cli(
-    ctx: typer.Context,
     source: Path = typer.Argument(..., help="Path to the transformation CLI manifest directory or files."),
     destination: Path = typer.Argument(..., help="Path to the destination directory."),
     overwrite: bool = typer.Option(False, help="Overwrite destination if it already exists."),
     flatten: bool = typer.Option(False, help="Flatten the directory structure."),
     clean: bool = typer.Option(False, help="Remove the source directory after import."),
+    verbose: bool = typer.Option(False, help="Turn on to get more verbose output when running the command"),
 ) -> None:
     """Import transformation CLI manifests into Cognite-Toolkit modules."""
 
@@ -35,9 +35,7 @@ def transformation_cli(
     # This is to ensure the command can be executed without a client if the user does not need to look up dataset ids.
     # (which is likely 99% of the time)
     def get_client() -> ToolkitClient:
-        config = CDFToolConfig.from_context(ctx)
-        return config.toolkit_client
+        return EnvironmentVariables.create_from_environment().get_client()
 
     cmd = ImportTransformationCLI(print_warning=True, get_client=get_client)
-
-    cmd.execute(source, destination, overwrite, flatten, clean, verbose=ctx.obj.verbose)
+    cmd.execute(source, destination, overwrite, flatten, clean, verbose=verbose)

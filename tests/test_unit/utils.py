@@ -12,8 +12,9 @@ import typing
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Any, Literal, Optional, TypeVar, get_args, get_origin
+from typing import IO, Any, Callable, Literal, Optional, TypeVar, get_args, get_origin
 
+import pytest
 from _pytest.monkeypatch import MonkeyPatch
 from cognite.client import CogniteClient
 from cognite.client._constants import MAX_VALID_INTERNAL_ID
@@ -37,6 +38,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
+from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
 from cognite.client.data_classes.hosted_extractors import (
@@ -54,10 +56,17 @@ from cognite.client.data_classes.workflows import (
 )
 from cognite.client.testing import CogniteClientMock
 from cognite.client.utils.useful_types import SequenceNotStr
+from questionary import Choice
 
 from cognite_toolkit._cdf_tk._parameters.get_type_hints import _TypeHints
-from cognite_toolkit._cdf_tk.client.data_classes.location_filters import LocationFilterScene
+from cognite_toolkit._cdf_tk.client.data_classes.location_filters import (
+    LocationFilter,
+    LocationFilterScene,
+)
+from cognite_toolkit._cdf_tk.client.data_classes.sequences import ToolkitSequenceRows
+from cognite_toolkit._cdf_tk.constants import MODULES
 from cognite_toolkit._cdf_tk.utils import load_yaml_inject_variables, read_yaml_file
+from tests.data import COMPLETE_ORG
 
 UNION_TYPES = {typing.Union, UnionType}
 
@@ -205,6 +214,8 @@ class FakeCogniteResourceGenerator:
             elif name == "args" or name == "kwargs":
                 # Skipping generic arguments.
                 continue
+            elif name.startswith("_"):
+                continue
             elif parameter.annotation is inspect.Parameter.empty:
                 raise ValueError(f"Parameter {name} of {resource_cls.__name__} is missing annotation")
             elif skip_defaulted_args and parameter.default is not inspect.Parameter.empty:
@@ -218,6 +229,9 @@ class FakeCogniteResourceGenerator:
             elif name == "version":
                 # Special case
                 value = random.choice(["v1", "v2", "v3"])
+            elif resource_cls is LocationFilter and name == "locations":
+                # Special case for LocationFilter to avoid recursion.
+                value = None
             else:
                 value = self.create_value(type_hint_by_name[name], var_name=name)
 
@@ -254,7 +268,7 @@ class FakeCogniteResourceGenerator:
                     keyword_arguments.pop(key)
         elif resource_cls is DatapointsArray:
             keyword_arguments["is_string"] = False
-        elif resource_cls is SequenceRows:
+        elif resource_cls is SequenceRows or resource_cls is ToolkitSequenceRows:
             # All row values must match the number of columns
             # Reducing to one column, and one value for each row
             if skip_defaulted_args:
@@ -313,6 +327,12 @@ class FakeCogniteResourceGenerator:
                 # The incremental load cannot be of type `nextUrl`
                 load_cls = self._random.choice([BodyLoad, HeaderValueLoad, QueryParamLoad])
                 keyword_arguments["incremental_load"] = self.create_instance(load_cls, skip_defaulted_args)
+        elif issubclass(resource_cls, ListablePropertyType) and "max_list_size" in keyword_arguments:
+            if keyword_arguments["max_list_size"] <= 1:
+                keyword_arguments.pop("max_list_size")
+            elif keyword_arguments["max_list_size"] > 1:
+                keyword_arguments["max_list_size"] = min(2_000, keyword_arguments["max_list_size"])
+                keyword_arguments["is_list"] = True
 
         return resource_cls(*positional_arguments, **keyword_arguments)
 
@@ -457,3 +477,66 @@ class FakeCogniteResourceGenerator:
             "NumpyFloat64Array": NumpyFloat64Array,
             "NumpyObjArray": NumpyObjArray,
         }
+
+
+class MockQuestion:
+    def __init__(self, answer: Any, choices: list[Choice] | None = None) -> None:
+        self.answer = answer
+        self.choices = choices
+
+    def ask(self) -> Any:
+        if isinstance(self.answer, Callable):
+            return self.answer(self.choices)
+        return self.answer
+
+
+class MockQuestionary:
+    def __init__(self, module_target: str, monkeypatch: MonkeyPatch, answers: list[Any]) -> None:
+        self.module_target = module_target
+        self.answers = answers
+        self.monkeypatch = monkeypatch
+
+    def select(self, _: str, choices: list[Choice] | None = None, **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0), choices)
+
+    def confirm(self, *_, **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
+    def checkbox(self, *_, choices: list[Choice], **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0), choices)
+
+    def text(self, *_, **__) -> MockQuestion:
+        return MockQuestion(self.answers.pop(0))
+
+    def __enter__(self):
+        for method in [self.select, self.confirm, self.checkbox, self.text]:
+            self.monkeypatch.setattr(f"{self.module_target}.questionary.{method.__name__}", method)
+        return self
+
+    def __exit__(self, *args):
+        self.monkeypatch.undo()
+        return False
+
+    @staticmethod
+    def select_all(choices: list[Choice]) -> list[str]:
+        if not choices:
+            return []
+        return [choice.value for choice in choices]
+
+
+def find_resources(resource: str, resource_dir: str | None = None):
+    base = COMPLETE_ORG / MODULES
+    for path in base.rglob(f"*{resource}.yaml"):
+        if resource_dir and resource_dir not in path.parts:
+            continue
+        data = read_yaml_file(path)
+        if isinstance(data, dict):
+            yield pytest.param(data, id=path.relative_to(base).as_posix())
+        elif isinstance(data, list):
+            for no, item in enumerate(data):
+                if isinstance(item, dict):
+                    yield pytest.param(item, id=f"{path.relative_to(base).as_posix()} - Item: {no}")
+                else:
+                    raise ValueError(f"Invalid data format in {path}: {item}")
+        else:
+            raise ValueError(f"Invalid data format in {path}: {data}")

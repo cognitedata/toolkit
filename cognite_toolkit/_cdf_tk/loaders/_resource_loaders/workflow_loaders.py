@@ -39,7 +39,7 @@ from cognite.client.data_classes.capabilities import (
     Capability,
     WorkflowOrchestrationAcl,
 )
-from cognite.client.exceptions import CogniteNotFoundError
+from cognite.client.exceptions import CogniteAuthError, CogniteNotFoundError
 from cognite.client.utils.useful_types import SequenceNotStr
 from rich import print
 from rich.console import Console
@@ -47,11 +47,23 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk._parameters import ANY_INT, ANY_STR, ANYTHING, ParameterSpec, ParameterSpecSet
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.exceptions import (
+    ResourceCreationError,
     ToolkitRequiredValueError,
 )
 from cognite_toolkit._cdf_tk.loaders._base_loaders import ResourceLoader
-from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MissingReferencedWarning, ToolkitWarning
-from cognite_toolkit._cdf_tk.utils import humanize_collection, to_directory_compatible
+from cognite_toolkit._cdf_tk.tk_warnings import (
+    LowSeverityWarning,
+    MissingReferencedWarning,
+    ToolkitWarning,
+)
+from cognite_toolkit._cdf_tk.utils import (
+    calculate_secure_hash,
+    humanize_collection,
+    load_yaml_inject_variables,
+    to_directory_compatible,
+)
+from cognite_toolkit._cdf_tk.utils.cdf import read_auth, try_find_error
+from cognite_toolkit._cdf_tk.utils.collection import chunker
 from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable
 
 from .auth_loaders import GroupAllScopedLoader
@@ -222,6 +234,8 @@ class WorkflowVersionLoader(
 
     _doc_base_url = "https://api-docs.cognite.com/20230101-beta/tag/"
     _doc_url = "Workflow-versions/operation/CreateOrUpdateWorkflowVersion"
+    # The /list endpoint has a limit of 100 workflow ids per request.
+    _list_workflow_filter_limit = 100
 
     @property
     def display_name(self) -> str:
@@ -258,14 +272,62 @@ class WorkflowVersionLoader(
     def dump_id(cls, id: WorkflowVersionId) -> dict[str, Any]:
         return id.dump()
 
+    def load_resource_file(
+        self,
+        filepath: Path,
+        environment_variables: dict[str, str | None] | None = None,
+    ) -> list[dict[str, Any]]:
+        # Special case where the environment variable keys in the 'workflowDefinition.tasks.parameters' are
+        # JSONPaths that are part of the API and thus should not be replaced.
+        raw_str = self.safe_read(filepath)
+
+        original = load_yaml_inject_variables(raw_str, {}, validate=False, original_filepath=filepath)
+        replaced = load_yaml_inject_variables(
+            raw_str, environment_variables or {}, validate=False, original_filepath=filepath
+        )
+
+        if isinstance(original, dict) and isinstance(replaced, dict):
+            self._update_task_parameters(replaced, original)
+            return [replaced]
+        elif isinstance(original, list) and isinstance(replaced, list):
+            for original_item, replaced_item in zip(original, replaced):
+                self._update_task_parameters(replaced_item, original_item)
+            return replaced
+        else:
+            # Should be unreachable
+            raise ValueError(
+                f"Unexpected state. Loaded {filepath.as_posix()!r} twice and got different types: {type(original)} and {type(replaced)}"
+            )
+
+    @staticmethod
+    def _update_task_parameters(replaced: dict, original: dict) -> None:
+        replaced_def = replaced.get("workflowDefinition")
+        original_def = original.get("workflowDefinition")
+        if not (isinstance(replaced_def, dict) and isinstance(original_def, dict)):
+            return
+        replaced_tasks = replaced_def.get("tasks")
+        original_tasks = original_def.get("tasks")
+        if not (isinstance(replaced_tasks, list) and isinstance(original_tasks, list)):
+            return
+        for replaced_task, original_task in zip(replaced_def["tasks"], original_def["tasks"]):
+            if not (isinstance(replaced_task, dict) and isinstance(original_task, dict)):
+                continue
+            if "parameters" in replaced_task and "parameters" in original_task:
+                replaced_task["parameters"] = original_task["parameters"]
+
     def dump_resource(self, resource: WorkflowVersion, local: dict[str, Any] | None = None) -> dict[str, Any]:
         dumped = resource.as_write().dump()
         if not local:
             return dumped
         # Sort to match the order of the local tasks
-        local_task_order_by_id = {
-            task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
-        }
+        if "workflowDefinition" in local and "tasks" in local["workflowDefinition"]:
+            local_task_order_by_id = {
+                task["externalId"]: no for no, task in enumerate(local["workflowDefinition"]["tasks"])
+            }
+            local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
+        else:
+            local_task_order_by_id = {}
+            local_task_by_id = {}
         end_of_list = len(local_task_order_by_id)
         dumped["workflowDefinition"]["tasks"] = sorted(
             dumped["workflowDefinition"]["tasks"],
@@ -274,20 +336,23 @@ class WorkflowVersionLoader(
 
         # Function tasks with empty data can be an empty dict or missing data field
         # This ensures that these two are treated as the same
-        local_task_by_id = {task["externalId"]: task for task in local["workflowDefinition"]["tasks"]}
         for cdf_task in dumped["workflowDefinition"]["tasks"]:
             task_id = cdf_task["externalId"]
             if task_id not in local_task_by_id:
                 continue
             local_task = local_task_by_id[task_id]
+            for default_key, default_value in [("retries", 3), ("timeout", 3600), ("onFailure", "abortWorkflow")]:
+                if default_key not in local_task and cdf_task.get(default_key) == default_value:
+                    del cdf_task[default_key]
+
             if local_task["type"] == "function" and cdf_task["type"] == "function":
                 cdf_parameters = cdf_task["parameters"]
                 local_parameters = local_task["parameters"]
                 if "function" in cdf_parameters and "function" in local_parameters:
                     cdf_function = cdf_parameters["function"]
                     local_function = local_parameters["function"]
-                    if local_function["data"] == {} and "data" not in cdf_function:
-                        cdf_parameters["function"] = local_parameters["function"]
+                    if local_function.get("data") == {} and "data" not in cdf_function:
+                        cdf_parameters["function"] = local_function
         return dumped
 
     def diff_list(
@@ -334,9 +399,13 @@ class WorkflowVersionLoader(
         return warnings
 
     def retrieve(self, ids: SequenceNotStr[WorkflowVersionId]) -> WorkflowVersionList:
+        retrieved = WorkflowVersionList([])
         if not ids:
-            return WorkflowVersionList([])
-        return self.client.workflows.versions.list(list(ids))
+            return retrieved
+        for chunk in chunker(ids, self._list_workflow_filter_limit):
+            retrieved_chunk = self.client.workflows.versions.list(chunk)
+            retrieved.extend(retrieved_chunk)
+        return retrieved
 
     def _upsert(self, items: WorkflowVersionUpsertList) -> WorkflowVersionList:
         return WorkflowVersionList([self.client.workflows.versions.upsert(item) for item in items])
@@ -443,6 +512,9 @@ class WorkflowTriggerLoader(
 
     _doc_url = "Workflow-triggers/operation/CreateOrUpdateTriggers"
 
+    class _MetadataKey:
+        secret_hash = "cognite-toolkit-auth-hash"
+
     def __init__(self, client: ToolkitClient, build_dir: Path | None, console: Console | None = None):
         super().__init__(client, build_dir, console)
         self._authentication_by_id: dict[str, ClientCredentials] = {}
@@ -482,9 +554,17 @@ class WorkflowTriggerLoader(
     def create(self, items: WorkflowTriggerUpsertList) -> WorkflowTriggerList:
         created = WorkflowTriggerList([])
         for item in items:
-            credentials = self._authentication_by_id.get(item.external_id)
-            created.append(self.client.workflows.triggers.upsert(item, credentials))
+            created.append(self._create_item(item))
         return created
+
+    def _create_item(self, item: WorkflowTriggerUpsert) -> WorkflowTrigger:
+        credentials = self._authentication_by_id.get(item.external_id)
+        try:
+            return self.client.workflows.triggers.upsert(item, credentials)
+        except CogniteAuthError as e:
+            if hint := try_find_error(credentials):
+                raise ResourceCreationError(f"Failed to create WorkflowTrigger {item.external_id}: {hint}") from e
+            raise e
 
     def retrieve(self, ids: SequenceNotStr[str]) -> WorkflowTriggerList:
         all_triggers = self.client.workflows.triggers.list(limit=-1)
@@ -499,8 +579,7 @@ class WorkflowTriggerLoader(
             if item.external_id in existing_lookup:
                 self.client.workflows.triggers.delete(external_id=item.external_id)
 
-            credentials = self._authentication_by_id.get(item.external_id)
-            created = self.client.workflows.triggers.upsert(item, client_credentials=credentials)
+            created = self._create_item(item)
             updated.append(created)
         return updated
 
@@ -576,12 +655,29 @@ class WorkflowTriggerLoader(
             if "workflowVersion" in item:
                 yield WorkflowVersionLoader, WorkflowVersionId(item["workflowExternalId"], item["workflowVersion"])
 
+    def load_resource_file(
+        self, filepath: Path, environment_variables: dict[str, str | None] | None = None
+    ) -> list[dict[str, Any]]:
+        resources = super().load_resource_file(filepath, environment_variables)
+
+        # We need to the auth hash calculation here, as the output of the load_resource_file
+        # is used to compare with the CDF resource.
+        for resource in resources:
+            identifier = self.get_id(resource)
+            credentials = read_auth(
+                resource.get("authentication"), self.client.config, identifier, "workflow trigger", console=self.console
+            )
+            self._authentication_by_id[identifier] = credentials
+            if "metadata" not in resource:
+                resource["metadata"] = {}
+            resource["metadata"][self._MetadataKey.secret_hash] = calculate_secure_hash(
+                credentials.dump(camel_case=True), shorten=True
+            )
+        return resources
+
     def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> WorkflowTriggerUpsert:
         if isinstance(resource.get("data"), dict):
             resource["data"] = json.dumps(resource["data"])
-        if "authentication" in resource:
-            raw_auth = resource.pop("authentication")
-            self._authentication_by_id[self.get_id(resource)] = ClientCredentials._load(raw_auth)
         return WorkflowTriggerUpsert._load(resource)
 
     def dump_resource(self, resource: WorkflowTrigger, local: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -589,8 +685,14 @@ class WorkflowTriggerLoader(
         local = local or {}
         if isinstance(dumped.get("data"), str) and isinstance(local.get("data"), dict):
             dumped["data"] = json.loads(dumped["data"])
+
         if "authentication" in local:
-            # Note that change in the authentication will not be detected, and thus,
-            # will require a forced redeployment.
+            # Changes in auth will be detected by the hash. We need to do this to ensure
+            # that the pull command works.
             dumped["authentication"] = local["authentication"]
         return dumped
+
+    def sensitive_strings(self, item: WorkflowTriggerUpsert) -> Iterable[str]:
+        id_ = self.get_id(item)
+        if id_ in self._authentication_by_id:
+            yield self._authentication_by_id[id_].client_secret

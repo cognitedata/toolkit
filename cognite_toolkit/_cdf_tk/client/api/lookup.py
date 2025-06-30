@@ -18,6 +18,7 @@ from cognite.client.utils.useful_types import SequenceNotStr
 from cognite_toolkit._cdf_tk.client.api_client import ToolkitAPI
 from cognite_toolkit._cdf_tk.constants import DRY_RUN_ID
 from cognite_toolkit._cdf_tk.exceptions import ResourceRetrievalError
+from cognite_toolkit._cdf_tk.tk_warnings import MediumSeverityWarning
 
 if TYPE_CHECKING:
     from cognite_toolkit._cdf_tk.client._toolkit_client import ToolkitClient
@@ -69,7 +70,7 @@ class LookUpAPI(ToolkitAPI, ABC):
             self._reverse_cache.update({v: k for k, v in lookup.items()})
             if len(missing) != len(lookup) and not is_dry_run:
                 raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with external_id {missing}.Have you created it?"
+                    f"Failed to retrieve {self.resource_name} with external_id {missing}. Have you created it?"
                 )
         return (
             self._get_id_from_cache(external_id, is_dry_run, allow_empty)
@@ -86,15 +87,12 @@ class LookUpAPI(ToolkitAPI, ABC):
             return self._cache[external_id]
 
     @overload
-    def external_id(self, id: int) -> str: ...
+    def external_id(self, id: int) -> str | None: ...
 
     @overload
     def external_id(self, id: Sequence[int]) -> list[str]: ...
 
-    def external_id(
-        self,
-        id: int | Sequence[int],
-    ) -> str | list[str]:
+    def external_id(self, id: int | Sequence[int]) -> str | None | list[str]:
         ids = [id] if isinstance(id, int) else id
         missing = [id_ for id_ in ids if id_ not in self._reverse_cache]
         if 0 in missing:
@@ -115,20 +113,20 @@ class LookUpAPI(ToolkitAPI, ABC):
             self._reverse_cache.update(lookup)
             self._cache.update({v: k for k, v in lookup.items()})
             if len(missing) != len(lookup):
-                raise ResourceRetrievalError(
-                    f"Failed to retrieve {self.resource_name} with id {missing}.Have you created it?"
-                )
-        return (
-            self._get_external_id_from_cache(id)
-            if isinstance(id, int)
-            else [self._get_external_id_from_cache(id) for id in ids]
-        )
+                MediumSeverityWarning(
+                    f"Failed to retrieve {self.resource_name} with id {missing}. It does not exist in CDF"
+                ).print_warning()
+        if isinstance(id, int):
+            return self._get_external_id_from_cache(id)
+        else:
+            external_ids = (self._get_external_id_from_cache(id) for id in ids)
+            return [id for id in external_ids if id is not None]
 
-    def _get_external_id_from_cache(self, id: int) -> str:
+    def _get_external_id_from_cache(self, id: int) -> str | None:
         if id == 0:
             # Reverse of looking up an empty string.
             return ""
-        return self._reverse_cache[id]
+        return self._reverse_cache.get(id)
 
     @abstractmethod
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
@@ -251,7 +249,7 @@ class AllLookUpAPI(LookUpAPI, ABC):
     def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
         if not self._has_looked_up:
             self._lookup()
-        return {external_id: self._cache[external_id] for external_id in external_id}
+        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
 
     def _external_id(self, id: Sequence[int]) -> dict[int, str]:
         if not self._has_looked_up:
@@ -266,7 +264,7 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
         self._cache = {category.name: category.id for category in categories if category.name and category.id}
         self._reverse_cache = {category.id: category.name for category in categories if category.name and category.id}
 
-    def name(self, id: int | Sequence[int]) -> str | list[str]:
+    def name(self, id: int | Sequence[int]) -> str | list[str] | None:
         return self.external_id(id)
 
     def _read_acl(self) -> Capability:
@@ -278,15 +276,21 @@ class SecurityCategoriesLookUpAPI(AllLookUpAPI):
 
 class LocationFiltersLookUpAPI(AllLookUpAPI):
     def _lookup(self) -> None:
-        location_filters = self._toolkit_client.location_filters.list()
-        self._cache = {location_filter.external_id: location_filter.id for location_filter in location_filters}
-        self._reverse_cache = {location_filter.id: location_filter.external_id for location_filter in location_filters}
+        for location in self._toolkit_client.location_filters.list():
+            if location.external_id and location.id:
+                self._cache[location.external_id] = location.id
+                self._reverse_cache[location.id] = location.external_id
 
     def _read_acl(self) -> Capability:
         return LocationFiltersAcl(
             [LocationFiltersAcl.Action.Read],
             scope=LocationFiltersAcl.Scope.All(),
         )
+
+    def _id(self, external_id: SequenceNotStr[str]) -> dict[str, int]:
+        if not self._has_looked_up:
+            self._lookup()
+        return {external_id: self._cache[external_id] for external_id in external_id if external_id in self._cache}
 
 
 class LookUpGroup(ToolkitAPI):

@@ -1,7 +1,0 @@
-[module]
-title = "Example Asset Hierarchy"
-
-[packages]
-tags = [
-    "examples",
-]

@@ -142,6 +142,7 @@ Container:
         list: false
         type: text
   space: sp_enterprise_schema
+  usedFor: edge
 - constraints: {}
   externalId: ToolkitAsset
   indexes: {}

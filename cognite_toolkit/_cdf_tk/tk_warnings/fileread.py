@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, ClassVar
 
+from rich.markup import escape
+
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT
 
 from .base import SeverityLevel, ToolkitWarning
@@ -257,3 +259,26 @@ class EnvironmentVariableMissingWarning(FileReadWarning):
         suffix = "s are" if len(self.variables) > 1 else " is"
         variables = humanize_collection(self.variables, sort=True, bind_word="and")
         return f"The environment variable{suffix} missing: {variables}"
+
+
+@dataclass(frozen=True)
+class StreamlitRequirementsWarning(FileReadWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.MEDIUM
+    dependencies: str | list[str]
+
+    def get_message(self) -> str:
+        if isinstance(self.dependencies, str):
+            return f"Missing recommended dependencies in requirements.txt: {self.dependencies}"
+        return f"Missing dependencies in requirements.txt: {', '.join(self.dependencies)}"
+
+
+@dataclass(frozen=True)
+class ResourceFormatWarning(FileReadWarning):
+    severity: ClassVar[SeverityLevel] = SeverityLevel.HIGH
+    errors: tuple[str, ...]
+
+    def get_message(self) -> str:
+        sep = "\n     * "
+        errors = sep.join(map(escape, self.errors))
+        s = "s" if len(self.errors) > 1 else ""
+        return f"{type(self).__name__} {len(self.errors)} error{s}:{sep}{errors}"

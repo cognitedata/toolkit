@@ -20,3 +20,4 @@ Transformation:
   query: "select\n\tconcat('VAL_', name) as externalId,\n \tname,\n\tsource as sourceId,\n\
     \tmime_type as mimeType\nfrom `ingestion`.`files_metadata`\nwhere\n\tisnotnull(mime_type)\
     \ and\n\tmime_type = 'application/pdf'\n"
+deleted: {}

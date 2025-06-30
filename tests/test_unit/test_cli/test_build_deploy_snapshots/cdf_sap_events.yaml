@@ -97,3 +97,4 @@ Transformation:
     \  cast(`WORKORDER_STATUS` as STRING) as status,\n  array(cast(`WORKORDER_ITEMNAME`\
     \ as STRING)) as tags\nfrom\n  unique_workitem\nwhere\n  isnotnull(`sourceId`)\
     \ and\n  rn = 1"
+deleted: {}

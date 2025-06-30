@@ -1,0 +1,41 @@
+[packages]
+title = "Built-in Cognite packages"
+
+[packages.quickstart]
+title = "Quickstart"
+description = "Get started with Cognite Data Fusion in minutes."
+canCherryPick = false
+
+[packages.infield]
+title = "InField"
+description = "Put real-time data into the hands of every field worker."
+
+[packages.inrobot]
+title = "InRobot"
+description = "Capture and integrate a broad spectrum of robotics inspection data with other IT and OT data through AI-assisted, optimized data management."
+
+[packages.industrial_tools]
+title = "Industrial Tools"
+description = "Data exploration and analytics"
+
+[packages.bootcamp]
+title = "Bootcamp"
+description = "Initial toolkit configurations for the Cognite Data Fusion Bootcamp"
+canCherryPick = false
+
+[packages.sourcesystem]
+title = "SourceSystem"
+description = "Module templates for setting up a data pipeline from a source system"
+
+[packages.contextualization]
+title = "Contextualization"
+description = "Module templates for data contextualization"
+
+[packages.models]
+title = "Models"
+description = "Module templates for data models"
+
+[packages.custom]
+title = "None"
+description = "start with an empty module"
+

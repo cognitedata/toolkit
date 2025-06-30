@@ -1,3 +1,4 @@
+from .agent_loaders import AgentLoader
 from .auth_loaders import GroupAllScopedLoader, GroupLoader, SecurityCategoryLoader
 from .classic_loaders import AssetLoader, EventLoader, SequenceLoader, SequenceRowLoader
 from .data_organization_loaders import DataSetsLoader, LabelLoader
@@ -11,6 +12,7 @@ from .datamodel_loaders import (
     ViewLoader,
 )
 from .extraction_pipeline_loaders import ExtractionPipelineConfigLoader, ExtractionPipelineLoader
+from .fieldops_loaders import InfieldV1Loader
 from .file_loader import CogniteFileLoader, FileMetadataLoader
 from .function_loaders import FunctionLoader, FunctionScheduleLoader
 from .group_scoped_loader import GroupResourceScopedLoader
@@ -37,6 +39,7 @@ from .transformation_loaders import TransformationLoader, TransformationNotifica
 from .workflow_loaders import WorkflowLoader, WorkflowTriggerLoader, WorkflowVersionLoader
 
 __all__ = [
+    "AgentLoader",
     "AssetLoader",
     "CogniteFileLoader",
     "ContainerLoader",
@@ -58,6 +61,7 @@ __all__ = [
     "HostedExtractorJobLoader",
     "HostedExtractorMappingLoader",
     "HostedExtractorSourceLoader",
+    "InfieldV1Loader",
     "LabelLoader",
     "LocationFilterLoader",
     "NodeLoader",

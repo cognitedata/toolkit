@@ -1,0 +1,17 @@
+externalId: OutputProperty
+space: strongly-coupled-model
+version: v1
+name: OutputProperty
+description: Missing
+filter:
+  equals:
+    property:
+    - strongly-coupled-model
+    - Property
+    - type
+    value: Output
+implements:
+- type: view
+  space: strongly-coupled-model
+  externalId: Property
+  version: v1

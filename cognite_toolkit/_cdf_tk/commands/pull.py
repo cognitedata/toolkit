@@ -18,6 +18,7 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 
 from cognite_toolkit._cdf_tk.builders import create_builder
+from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.constants import BUILD_ENVIRONMENT_FILE, ENV_VAR_PATTERN
 from cognite_toolkit._cdf_tk.data_classes import (
     BuildEnvironment,
@@ -36,6 +37,7 @@ from cognite_toolkit._cdf_tk.loaders import (
     ExtractionPipelineConfigLoader,
     FunctionLoader,
     GraphQLLoader,
+    GroupAllScopedLoader,
     HostedExtractorDestinationLoader,
     HostedExtractorSourceLoader,
     ResourceLoader,
@@ -44,13 +46,13 @@ from cognite_toolkit._cdf_tk.loaders import (
 from cognite_toolkit._cdf_tk.loaders._base_loaders import T_ID, T_WritableCogniteResourceList
 from cognite_toolkit._cdf_tk.tk_warnings import LowSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import (
-    CDFToolConfig,
     YAMLComment,
     YAMLWithComments,
     read_yaml_content,
     read_yaml_file,
     safe_read,
 )
+from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree, yaml_safe_dump
 from cognite_toolkit._cdf_tk.utils.modules import (
     is_module_path,
@@ -59,7 +61,7 @@ from cognite_toolkit._cdf_tk.utils.modules import (
 )
 
 from ._base import ToolkitCommand
-from .build import BuildCommand
+from .build_cmd import BuildCommand
 from .clean import CleanCommand
 
 _VARIABLE_PATTERN = re.compile(r"\{\{(.+?)\}\}")
@@ -413,8 +415,10 @@ class PullCommand(ToolkitCommand):
         env: str,
         dry_run: bool,
         verbose: bool,
-        ToolGlobals: CDFToolConfig,
+        env_vars: EnvironmentVariables,
     ) -> None:
+        client = env_vars.get_client()
+        client.config.is_strict_validation = False
         if not module_name_or_path:
             modules = ModuleDirectories.load(organization_dir, None)
             if not modules:
@@ -457,13 +461,13 @@ class PullCommand(ToolkitCommand):
                 selected=[build_module],
                 build_env_name=env,
                 no_clean=False,
-                ToolGlobals=ToolGlobals,
+                client=client,
                 on_error="raise",
             )
         except ToolkitError as e:
             raise ToolkitError(f"Failed to build module {module_name_or_path}.") from e
         else:
-            self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, ToolGlobals)
+            self._pull_build_dir(build_dir, selected, built_modules, dry_run, env, client, env_vars)
         finally:
             try:
                 safe_rmtree(build_dir)
@@ -477,7 +481,8 @@ class PullCommand(ToolkitCommand):
         built_modules: BuiltModuleList,
         dry_run: bool,
         build_env_name: str,
-        ToolGlobals: CDFToolConfig,
+        client: ToolkitClient,
+        env_vars: EnvironmentVariables,
     ) -> None:
         build_environment_file_path = build_dir / BUILD_ENVIRONMENT_FILE
         built = BuildEnvironment.load(read_yaml_file(build_environment_file_path), build_env_name, "pull")
@@ -496,7 +501,7 @@ class PullCommand(ToolkitCommand):
         for loader_cls in selected_loaders:
             if not issubclass(loader_cls, ResourceLoader):
                 continue
-            loader = loader_cls.create_loader(ToolGlobals.toolkit_client, build_dir)
+            loader = loader_cls.create_loader(client, build_dir)
             resources: BuiltFullResourceList[T_ID] = built_modules.get_resources(  # type: ignore[valid-type]
                 None,
                 loader.folder_name,  # type: ignore[arg-type]
@@ -506,12 +511,12 @@ class PullCommand(ToolkitCommand):
             )
             if not resources:
                 continue
-            if loader in {HostedExtractorSourceLoader, HostedExtractorDestinationLoader}:
+            if isinstance(loader, HostedExtractorSourceLoader | HostedExtractorDestinationLoader):
                 self.warn(
                     LowSeverityWarning(f"Skipping {loader.display_name} as it is not supported by the pull command.")
                 )
                 continue
-            if loader in {GraphQLLoader, FunctionLoader, StreamlitLoader}:
+            if isinstance(loader, GraphQLLoader | FunctionLoader | StreamlitLoader):
                 self.warn(
                     LowSeverityWarning(
                         f"Skipping {loader.display_name} as it is not supported by the pull command due to"
@@ -519,7 +524,12 @@ class PullCommand(ToolkitCommand):
                     )
                 )
                 continue
-            result = self._pull_resources(loader, resources, dry_run, ToolGlobals.environment_variables())
+            if isinstance(loader, GroupAllScopedLoader):
+                # We have two loaders for Groups. We skip this one and
+                # only use the GroupResourceScopedLoader
+                continue
+
+            result = self._pull_resources(loader, resources, dry_run, env_vars.dump(include_os=True))
             results[loader.display_name] = result
 
         table = results.counts_table(exclude_columns={"Total"})

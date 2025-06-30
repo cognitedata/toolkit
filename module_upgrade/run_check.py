@@ -15,6 +15,7 @@ from unittest.mock import patch
 from cognite.client.config import global_config
 
 from cognite_toolkit._cdf_tk.utils.file import safe_rmtree
+from tests.auth_utils import EnvironmentVariables
 
 # Do not warn the user about feature previews from the Cognite-SDK we use in Toolkit
 global_config.disable_pypi_version_check = True
@@ -38,7 +39,7 @@ from cognite_toolkit._cdf_tk.commands import _cli_commands as CLICommands
 from cognite_toolkit._cdf_tk.commands._changes import ManualChange
 from cognite_toolkit._cdf_tk.constants import ROOT_MODULES, SUPPORT_MODULE_UPGRADE_FROM_VERSION
 from cognite_toolkit._cdf_tk.loaders import LOADER_BY_FOLDER_NAME
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig, module_from_path
+from cognite_toolkit._cdf_tk.utils import module_from_path
 from cognite_toolkit._version import __version__
 
 TEST_DIR_ROOT = Path(__file__).resolve().parent
@@ -96,9 +97,9 @@ def run() -> None:
         with (
             local_tmp_project_path() as project_path,
             local_build_path() as build_path,
-            tool_globals() as cdf_tool_config,
+            get_env_vars() as env_vars,
         ):
-            run_modules_upgrade(version, project_path, build_path, cdf_tool_config)
+            run_modules_upgrade(version, project_path, build_path, env_vars)
 
 
 def get_versions_since(support_upgrade_from_version: str) -> list[Version]:
@@ -207,7 +208,7 @@ def create_project_init(version: str) -> None:
 
 
 def run_modules_upgrade(
-    previous_version: Version, project_path: Path, build_path: Path, cdf_tool_config: CDFToolConfig
+    previous_version: Version, project_path: Path, build_path: Path, env_vars: EnvironmentVariables
 ) -> None:
     if (TEST_DIR_ROOT / CDFToml.file_name).exists():
         # Cleanup after previous run
@@ -248,8 +249,8 @@ def run_modules_upgrade(
         build.execute(False, project_path, build_path, selected=None, build_env_name="dev", no_clean=False)
 
         deploy = DeployCommand(print_warning=False)
-        deploy.execute(
-            cdf_tool_config,
+        deploy.deploy_build_directory(
+            env_vars,
             build_path,
             build_env_name="dev",
             dry_run=True,
@@ -320,11 +321,11 @@ def chdir(new_dir: Path) -> Iterator[None]:
 
 
 @contextmanager
-def tool_globals() -> Iterator[CDFToolConfig]:
+def get_env_vars() -> Iterator[EnvironmentVariables]:
     load_dotenv(TEST_DIR_ROOT.parent / ".env")
 
     try:
-        yield CDFToolConfig()
+        yield EnvironmentVariables.create_from_environ()
     finally:
         ...
 

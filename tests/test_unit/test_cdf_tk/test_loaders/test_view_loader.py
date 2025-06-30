@@ -7,7 +7,6 @@ from cognite.client.data_classes import data_modeling as dm
 
 from cognite_toolkit._cdf_tk._parameters import read_parameters_from_dict
 from cognite_toolkit._cdf_tk.loaders import ContainerLoader, ResourceLoader, ResourceWorker, SpaceLoader, ViewLoader
-from cognite_toolkit._cdf_tk.utils import CDFToolConfig
 from tests.test_unit.approval_client import ApprovalToolkitClient
 
 
@@ -61,10 +60,8 @@ class TestViewLoader:
 
         assert not extra, f"Extra keys: {extra}"
 
-    def test_unchanged_view_int_version(
-        self, cdf_tool_mock: CDFToolConfig, toolkit_client_approval: ApprovalToolkitClient
-    ) -> None:
-        loader = ViewLoader.create_loader(cdf_tool_mock.toolkit_client)
+    def test_unchanged_view_int_version(self, toolkit_client_approval: ApprovalToolkitClient) -> None:
+        loader = ViewLoader.create_loader(toolkit_client_approval.mock_client)
         raw_file = """- space: sp_space
   externalId: my_view
   version: 1"""
@@ -89,12 +86,12 @@ class TestViewLoader:
         toolkit_client_approval.append(dm.View, [cdf_view])
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([file])
+        resources = worker.prepare_resources([file])
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
     @pytest.mark.parametrize(

@@ -1,0 +1,38 @@
+space: strongly-coupled-model
+externalId: Production
+name: Production
+description: Missing
+properties:
+  id:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: id
+    description: Missing
+  type:
+    type:
+      list: false
+      collation: ucs_basic
+      type: text
+    immutable: false
+    nullable: true
+    autoIncrement: false
+    name: type
+constraints:
+  cogniteAssetPresent:
+    require:
+      space: cdf_cdm
+      externalId: CogniteAsset
+      type: container
+    constraintType: requires
+indexes:
+  id:
+    properties:
+    - id
+    cursorable: true
+    indexType: btree
+usedFor: node
