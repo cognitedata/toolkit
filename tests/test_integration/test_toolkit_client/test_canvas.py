@@ -11,7 +11,6 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     IndustrialCanvasApply,
 )
-from cognite_toolkit._cdf_tk.client.data_classes.instances import InstancesApplyResultList
 
 
 @pytest.fixture(scope="session")
@@ -102,7 +101,6 @@ class TestIndustrialCanvasAPI:
     def test_create_update_retrieve_delete(self, toolkit_client: ToolkitClient, three_events: EventList) -> None:
         canvas = create_canvas(three_events)
 
-        created: InstancesApplyResultList | None = None
         deleted: list[NodeId | EdgeId] | None = None
         try:
             created = toolkit_client.canvas.industrial.create(canvas)
@@ -115,9 +113,7 @@ class TestIndustrialCanvasAPI:
 
             retrieved = toolkit_client.canvas.industrial.retrieve(canvas.as_id())
 
-            assert retrieved.as_write().dump(exclude_existing_version=True) == canvas.dump(
-                exclude_existing_version=True
-            )
+            assert retrieved.as_write().dump(keep_existing_version=False) == canvas.dump(keep_existing_version=False)
 
             deleted = toolkit_client.canvas.industrial.delete(canvas)
 
