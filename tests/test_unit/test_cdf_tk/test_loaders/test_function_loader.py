@@ -73,13 +73,13 @@ secrets:
         filepath.parent.name = FunctionLoader.folder_name
 
         worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path))
-        to_create, to_update, to_delete, unchanged = worker.prepare_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "update": len(to_update),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "update": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
         toolkit_client_approval.clear_cdf_resources(Function)
@@ -90,13 +90,13 @@ secrets:
             }
         )
         toolkit_client_approval.append(Function, cdf_function)
-        to_create, to_update, to_delete, unchanged = worker.prepare_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "update": len(to_update),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "update": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 1, "update": 0, "delete": 1, "unchanged": 0}
 
     def test_dump_index_url_set(self, env_vars_with_client: EnvironmentVariables, tmp_path: Path) -> None:
