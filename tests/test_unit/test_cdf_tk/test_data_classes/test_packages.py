@@ -10,11 +10,12 @@ class TestPackages:
     @pytest.fixture(autouse=True)
     def builtin_packages(self) -> Packages:
         res = Packages.load(BUILTIN_MODULES_PATH)
+        assert res is not None
+        assert len(res) >= 5
+
         return res
 
     def test_load(self, builtin_packages: Packages) -> None:
-        assert builtin_packages is not None
-        assert len(builtin_packages) >= 5
         assert "infield" in builtin_packages
         infield = builtin_packages["infield"]
         assert len(infield.modules) > 0
@@ -44,7 +45,6 @@ class TestPackages:
         self, builtin_packages: Packages, package_name: str, expected_module_names: list[str]
     ) -> None:
         # Assert that the fixture provided packages (basic sanity check)
-        assert builtin_packages is not None
 
         # Access the specific package using the parameterized package_name
         package = builtin_packages[package_name]
