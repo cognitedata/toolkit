@@ -74,7 +74,7 @@ from ._worker import ResourceWorker
 if sys.version_info >= (3, 10):
     from typing import TypeAlias
 else:
-    from typing_extensions import TypeAlias
+    from typing import TypeAlias
 
 _EXCLUDED_LOADERS: set[type[ResourceLoader]] = set()
 if not FeatureFlag.is_enabled(Flags.GRAPHQL):

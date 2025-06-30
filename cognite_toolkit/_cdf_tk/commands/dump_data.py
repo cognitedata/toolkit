@@ -1,10 +1,10 @@
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from functools import lru_cache
 from itertools import groupby
 from pathlib import Path
-from typing import Any, Callable, ClassVar, Generic, Literal
+from typing import Any, ClassVar, Generic, Literal
 
 from cognite.client.data_classes import (
     Asset,

@@ -1,5 +1,4 @@
 import json
-import socket
 
 import pytest
 import responses
@@ -127,7 +126,7 @@ class TestInstances:
             pytest.param(
                 dict(body=ConnectionRefusedError("Connection refused")), CogniteConnectionError, id="Connection refused"
             ),
-            pytest.param(dict(body=socket.timeout("timed out")), CogniteReadTimeout, id="Connection timed out"),
+            pytest.param(dict(body=TimeoutError("timed out")), CogniteReadTimeout, id="Connection timed out"),
         ],
     )
     def test_apply_fast_raise(

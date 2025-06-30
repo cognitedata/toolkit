@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from rich import print
@@ -30,7 +30,7 @@ class ModulesApp(typer.Typer):
     def init(
         self,
         organization_dir: Annotated[
-            Optional[Path],
+            Path | None,
             typer.Argument(
                 help="Directory path to project to initialize or upgrade with templates.",
             ),
@@ -123,7 +123,7 @@ class ModulesApp(typer.Typer):
         self,
         ctx: typer.Context,
         module_name_or_path: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="The module or path to module to pull from CDF. If not provided, interactive mode will be used.",
                 allow_dash=True,
@@ -187,7 +187,7 @@ class ModulesApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         build_env: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 help="Build environment to use.",

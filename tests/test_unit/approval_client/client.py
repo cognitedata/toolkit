@@ -6,9 +6,9 @@ import json as JSON
 import random
 import string
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, TextIO, cast
+from typing import Any, BinaryIO, TextIO, cast
 from unittest.mock import MagicMock
 
 import pandas as pd

@@ -3,7 +3,7 @@
 import contextlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Optional, Union
+from typing import Annotated, Union
 
 import typer
 from dotenv import load_dotenv
@@ -54,7 +54,7 @@ class CoreApp(typer.Typer):
             ),
         ] = True,
         env_path: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 help="Path to .env file to load. Defaults to .env in current or parent directory.",
             ),
@@ -149,7 +149,7 @@ class CoreApp(typer.Typer):
             ),
         ] = Path("./build"),
         selected: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--modules",
                 "-m",
@@ -157,7 +157,7 @@ class CoreApp(typer.Typer):
             ),
         ] = None,
         build_env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -243,7 +243,7 @@ class CoreApp(typer.Typer):
             ),
         ] = Path("./build"),
         build_env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -275,7 +275,7 @@ class CoreApp(typer.Typer):
             ),
         ] = False,
         include: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--include",
                 help=f"Specify which resources to deploy, available options: {AVAILABLE_DATA_TYPES}.",
@@ -325,7 +325,7 @@ class CoreApp(typer.Typer):
             ),
         ] = Path("./build"),
         build_env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -342,7 +342,7 @@ class CoreApp(typer.Typer):
             ),
         ] = False,
         include: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--include",
                 help=f"Specify which resource types to deploy, supported types: {AVAILABLE_DATA_TYPES}",
