@@ -31,7 +31,7 @@ class FunctionScheduleYAML(ToolkitResource):
     )
     data: dict[str, str] | None = Field(
         default=None,
-        description="nput data to the function.",
+        description="Input data to the function.",
     )
     authentication: AuthenticationClientIdSecret | None = Field(
         default=None, description="Credentials required for the authentication."
