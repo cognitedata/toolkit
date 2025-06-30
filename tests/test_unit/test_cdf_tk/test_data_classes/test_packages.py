@@ -12,7 +12,7 @@ class TestPackages:
         res = Packages.load(BUILTIN_MODULES_PATH)
         return res
 
-    def test_load(self, builtin_packages) -> None:
+    def test_load(self, builtin_packages: Packages) -> None:
         assert builtin_packages is not None
         assert len(builtin_packages) >= 5
         assert "infield" in builtin_packages
