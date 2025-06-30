@@ -41,7 +41,7 @@ class TestPackages:
         ],
     )
     def test_load_module_duplication(
-        self, builtin_packages, package_name: str, expected_module_names: list[str]
+        self, builtin_packages: Packages, package_name: str, expected_module_names: list[str]
     ) -> None:
         # Assert that the fixture provided packages (basic sanity check)
         assert builtin_packages is not None
