@@ -145,3 +145,8 @@ class URL:
 # applications will experience data loss. The limit of 1 million is chosen such that it will trigger alarms in the
 # CDF projects, such that admins can take action to increase or clean up the capacity before it is too late.
 DMS_INSTANCE_LIMIT_MARGIN = 1_000_000
+
+# This is the maximum number of rows that can be iterated over in a single query
+# agreed upon with the transformations team.
+MAX_ROW_ITERATION_RUN_QUERY = 500_000
+MAX_RUN_QUERY_FREQUENCY_MIN = 10

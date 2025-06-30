@@ -14,6 +14,10 @@ class SQLTable:
     schema: str
     name: str
 
+    def __str__(self) -> str:
+        """Return the table name in the format 'schema.table'."""
+        return f"{self.schema}.{self.name}"
+
 
 class SQLParser:
     def __init__(self, query: str, operation: str) -> None:
@@ -44,6 +48,20 @@ class SQLParser:
         if not self._is_parsed:
             self.parse()
         return self._destination_columns
+
+    def is_using_data_set(
+        self, data_set_ids: list[int] | None = None, data_set_external_ids: list[str] | None = None
+    ) -> bool:
+        """Check if the SQL query uses any of the provided data set IDs or external IDs."""
+        for data_set_id in data_set_ids or []:
+            if f"{data_set_id} " in self.query:
+                return True
+        for data_set_external_id in data_set_external_ids or []:
+            if f'dataset_id("{data_set_external_id}")' in self.query:
+                return True
+            elif f"dataset_id('{data_set_external_id}')" in self.query:
+                return True
+        return False
 
     def parse(self) -> None:
         """Parse the SQL query and extract table names."""
