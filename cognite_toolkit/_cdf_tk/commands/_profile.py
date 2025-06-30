@@ -1,5 +1,6 @@
+import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property, partial
 from typing import ClassVar, Literal, TypeAlias, overload
@@ -14,6 +15,8 @@ from rich.table import Table
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.client.data_classes.raw import RawProfileResults, RawTable
+from cognite_toolkit._cdf_tk.exceptions import ToolkitValueError
+from cognite_toolkit._cdf_tk.utils import humanize_collection
 from cognite_toolkit._cdf_tk.utils.aggregators import (
     AssetAggregator,
     AssetCentricAggregator,
@@ -27,6 +30,7 @@ from cognite_toolkit._cdf_tk.utils.aggregators import (
     TimeSeriesAggregator,
 )
 from cognite_toolkit._cdf_tk.utils.cdf import get_transformation_sources
+from cognite_toolkit._cdf_tk.utils.sql_parser import SQLParser, SQLTable
 
 from ._base import ToolkitCommand
 
@@ -485,3 +489,71 @@ class ProfileAssetCentricCommand(ProfileCommand):
         elif col == self.Columns.Transformation:
             return aggregator.transformation_count
         raise ValueError(f"Unknown column: {col} for row: {row}")
+
+
+class ProfileTransformationCommand(ProfileCommand):
+    valid_destinations: frozenset[str] = frozenset({"assets", "files", "events", "timeseries", "sequences"})
+
+    def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
+        super().__init__(print_warning, skip_tracking, silent)
+        self.table_title = "Transformation Profile"
+        self.destination_type: Literal["assets", "files", "events", "timeseries", "sequences"] | None = None
+
+    class Columns:
+        Transformation = "Transformation"
+        Source = "Sources"
+        DestinationColumns = "Destination Columns"
+        Destination = "Destination"
+        ConflictMode = "Conflict Mode"
+        IsPaused = "Is Paused"
+
+    def transformation(
+        self, client: ToolkitClient, destination_type: str | None = None, verbose: bool = False
+    ) -> list[dict[str, CellValue]]:
+        self.destination_type = self._validate_destination_type(destination_type)
+        return self.create_profile_table(client)
+
+    @classmethod
+    def _validate_destination_type(
+        cls, destination_type: str | None
+    ) -> Literal["assets", "files", "events", "timeseries", "sequences"]:
+        if destination_type is None or destination_type not in cls.valid_destinations:
+            raise ToolkitValueError(
+                f"Invalid destination type: {destination_type}. Must be one of {humanize_collection(cls.valid_destinations)}."
+            )
+        # We validated the destination type above
+        return destination_type  # type: ignore[return-value]
+
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+        if self.valid_destinations is None:
+            raise ToolkitValueError("Destination type must be set before calling create_initial_table.")
+        iterable: Iterable[Transformation] = client.transformations.list(
+            destination_type=self.destination_type, limit=-1
+        )
+        if self.destination_type == "assets":
+            iterable = itertools.chain(iterable, client.transformations(destination_type="asset_hierarchy", limit=-1))
+        table: dict[tuple[str, str], PendingCellValue] = {}
+        for transformation in iterable:
+            sources: list[SQLTable] = []
+            destination_columns: list[str] = []
+            if transformation.query:
+                parser = SQLParser(transformation.query, operation="Profile transformations")
+                sources = parser.sources
+                destination_columns = parser.destination_columns
+            index = str(transformation.id)
+            table[(index, self.Columns.Transformation)] = transformation.name or transformation.external_id or "Unknown"
+            table[(index, self.Columns.Source)] = ", ".join(map(str, sources))
+            table[(index, self.Columns.DestinationColumns)] = (
+                ", ".join(destination_columns) or None if destination_columns else None
+            )
+            table[(index, self.Columns.Destination)] = (
+                transformation.destination.type or "Unknown" if transformation.destination else "Unknown"
+            )
+            table[(index, self.Columns.ConflictMode)] = transformation.conflict_mode or "Unknown"
+            table[(index, self.Columns.IsPaused)] = (
+                str(transformation.schedule.is_paused) if transformation.schedule else "No schedule"
+            )
+        return table
+
+    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+        raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
