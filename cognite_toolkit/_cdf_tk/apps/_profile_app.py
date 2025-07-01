@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -28,7 +28,7 @@ class ProfileApp(typer.Typer):
     def assets(
         ctx: typer.Context,
         hierarchy: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
