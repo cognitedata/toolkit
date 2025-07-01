@@ -177,16 +177,6 @@ ssh_known_hosts
 data/
 datasets/
 
-# Test files that might contain mock secrets
-test_*.py
-*_test.py
-tests/
-test/
-
-# Documentation that might contain examples with secrets
-README.md
-*.md
-docs/
 
 # Lock files
 package-lock.json
@@ -199,13 +189,3 @@ Pipfile.lock
 htmlcov/
 .pytest_cache/
 .tox/
-
-# Custom secret patterns (add your organization's patterns here)
-*secret*
-*password*
-*credential*
-*token*
-*key*
-*private*
-*sensitive*
-*confidential* 
