@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 
@@ -155,7 +155,7 @@ class MigrateApp(typer.Typer):
     def canvas(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="The external ID of the Canvas to migrate. If not provided, and interactive selection will be "
                 "performed to select the Canvas to migrate."
