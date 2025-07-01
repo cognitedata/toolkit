@@ -1,9 +1,10 @@
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Callable, Hashable, Iterable, Mapping
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from functools import cached_property, partial
-from typing import ClassVar, Literal, TypeAlias, overload
+from typing import ClassVar, Generic, Literal, TypeAlias, TypeVar, overload
 
 from cognite.client.data_classes import Transformation
 from cognite.client.exceptions import CogniteException
@@ -42,12 +43,14 @@ class WaitingAPICallClass:
 
 WaitingAPICall = WaitingAPICallClass()
 
+
 PendingCellValue: TypeAlias = int | float | str | bool | None | WaitingAPICallClass
 CellValue: TypeAlias = int | float | str | bool | None
-PendingTable: TypeAlias = dict[tuple[str, str], PendingCellValue]
+
+T_Index = TypeVar("T_Index", bound=Hashable)
 
 
-class ProfileCommand(ToolkitCommand, ABC):
+class ProfileCommand(ToolkitCommand, ABC, Generic[T_Index]):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = self.__class__.__name__.removesuffix("Command")
@@ -78,7 +81,8 @@ class ProfileCommand(ToolkitCommand, ABC):
         ):
             while True:
                 current_calls = {
-                    executor.submit(self.create_api_callable(row, col, client)): (row, col)
+                    #
+                    executor.submit(self.create_api_callable(row, col, client)): (row, col)  # type: ignore[arg-type]
                     for (row, col), cell in table.items()
                     if cell is WaitingAPICall
                 }
@@ -97,7 +101,7 @@ class ProfileCommand(ToolkitCommand, ABC):
         return self.as_record_format(table, allow_waiting_api_call=False)
 
     @abstractmethod
-    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[T_Index, str], PendingCellValue]:
         """
         Create the initial table with placeholders for API calls.
         Each cell that requires an API call should be initialized with WaitingAPICall.
@@ -105,10 +109,10 @@ class ProfileCommand(ToolkitCommand, ABC):
         raise NotImplementedError("Subclasses must implement create_initial_table.")
 
     @abstractmethod
-    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: T_Index, col: str, client: ToolkitClient) -> Callable:
         raise NotImplementedError("Subclasses must implement call_api.")
 
-    def format_result(self, result: object, row: str, col: str) -> CellValue:
+    def format_result(self, result: object, row: T_Index, col: str) -> CellValue:
         """
         Format the result of an API call for display in the table.
         This can be overridden by subclasses to customize formatting.
@@ -119,14 +123,14 @@ class ProfileCommand(ToolkitCommand, ABC):
 
     def update_table(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[T_Index, str], PendingCellValue],
         result: object,
-        row: str,
+        row: T_Index,
         col: str,
-    ) -> PendingTable:
+    ) -> dict[tuple[T_Index, str], PendingCellValue]:
         raise NotImplementedError("Subclasses must implement update_table.")
 
-    def draw_table(self, table: PendingTable) -> Table:
+    def draw_table(self, table: dict[tuple[T_Index, str], PendingCellValue]) -> Table:
         rich_table = Table(
             title=self.table_title,
             title_justify="left",
@@ -146,25 +150,25 @@ class ProfileCommand(ToolkitCommand, ABC):
     @classmethod
     @overload
     def as_record_format(
-        cls, table: PendingTable, allow_waiting_api_call: Literal[True] = True
+        cls, table: dict[tuple[T_Index, str], PendingCellValue], allow_waiting_api_call: Literal[True] = True
     ) -> list[dict[str, PendingCellValue]]: ...
 
     @classmethod
     @overload
     def as_record_format(
         cls,
-        table: PendingTable,
+        table: dict[tuple[T_Index, str], PendingCellValue],
         allow_waiting_api_call: Literal[False],
     ) -> list[dict[str, CellValue]]: ...
 
     @classmethod
     def as_record_format(
         cls,
-        table: PendingTable,
+        table: dict[tuple[T_Index, str], PendingCellValue],
         allow_waiting_api_call: bool = True,
     ) -> list[dict[str, PendingCellValue]] | list[dict[str, CellValue]]:
         rows: list[dict[str, PendingCellValue]] = []
-        row_indices: dict[str, int] = {}
+        row_indices: dict[T_Index, int] = {}
         for (row, col), value in table.items():
             if value is WaitingAPICall and not allow_waiting_api_call:
                 value = None
@@ -187,7 +191,14 @@ class ProfileCommand(ToolkitCommand, ABC):
         return str(value)
 
 
-class ProfileAssetCommand(ProfileCommand):
+@dataclass(frozen=True)
+class AssetIndex:
+    aggregator: str
+    data_set_external_id: str | None = None
+    source: RawTable | None = None
+
+
+class ProfileAssetCommand(ProfileCommand[AssetIndex]):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "Asset Profile for Hierarchy"
@@ -205,7 +216,6 @@ class ProfileAssetCommand(ProfileCommand):
         ColumnCount = "Columns"
 
     is_dynamic_table = True
-    _index_split = "-"
     profile_row_limit = 10_000  # The number of rows to profile to get the number of columns.
     # The actual limit is 1 million, we typically run this against 30 tables and that high limit
     # will cause 504 errors.
@@ -235,51 +245,48 @@ class ProfileAssetCommand(ProfileCommand):
         }
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
-        table: PendingTable = {}
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[AssetIndex, str], PendingCellValue]:
+        table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for index, aggregator in self.aggregators.items():
-            table[(index, self.Columns.Resource)] = aggregator.display_name
-            table[(index, self.Columns.Count)] = WaitingAPICall
-            table[(index, self.Columns.DataSets)] = None
-            table[(index, self.Columns.DataSetCount)] = None
-            table[(index, self.Columns.Transformations)] = None
-            table[(index, self.Columns.RawTable)] = None
-            table[(index, self.Columns.RowCount)] = None
-            table[(index, self.Columns.ColumnCount)] = None
+            asset_index = AssetIndex(aggregator=index, data_set_external_id=None, source=None)
+            table[(asset_index, self.Columns.Resource)] = aggregator.display_name
+            table[(asset_index, self.Columns.Count)] = WaitingAPICall
+            table[(asset_index, self.Columns.DataSets)] = None
+            table[(asset_index, self.Columns.DataSetCount)] = None
+            table[(asset_index, self.Columns.Transformations)] = None
+            table[(asset_index, self.Columns.RawTable)] = None
+            table[(asset_index, self.Columns.RowCount)] = None
+            table[(asset_index, self.Columns.ColumnCount)] = None
         return table
 
-    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
-        agg_name, *rest = row.split(self._index_split)
-        aggregator = self.aggregators[agg_name]
+    def create_api_callable(self, row: AssetIndex, col: str, client: ToolkitClient) -> Callable:
+        aggregator = self.aggregators[row.aggregator]
         if col == self.Columns.Count:
             return partial(aggregator.count, hierarchy=self.hierarchy)
         elif col == self.Columns.DataSets:
             return partial(aggregator.used_data_sets, hierarchy=self.hierarchy)
         elif col == self.Columns.DataSetCount:
-            data_set_external_id = rest[-1] if len(rest) > 0 else None
-            if not data_set_external_id:
-                raise ValueError(f"DataSet external ID is required for {row} in column {col}.")
-            return partial(aggregator.count, data_set_external_id=data_set_external_id, hierarchy=self.hierarchy)
+            if row.data_set_external_id is None:
+                raise ValueError(f"DataSet external ID is required for {row!s} in column {col}.")
+            return partial(aggregator.count, data_set_external_id=row.data_set_external_id, hierarchy=self.hierarchy)
         elif col == self.Columns.Transformations:
-            data_set_external_id = rest[-1] if len(rest) > 0 else None
-            if not data_set_external_id:
-                raise ValueError(f"DataSet external ID is required for {row} in column {col}.")
-            return partial(aggregator.used_transformations, data_set_external_ids=[data_set_external_id])
+            if row.data_set_external_id is None:
+                raise ValueError(f"DataSet external ID is required for {row!s} in column {col}.")
+            return partial(aggregator.used_transformations, data_set_external_ids=[row.data_set_external_id])
         elif col == self.Columns.RowCount:
-            db_table = rest[-1] if len(rest) > 0 else None
-            if not isinstance(db_table, str) or "." not in db_table:
-                raise ValueError(f"Database and table name are required for {row} in column {col} in {rest}.")
-            db_name, table_name = db_table.split(".")
+            if row.source is None:
+                raise ValueError(f"Database and table name are required for {row!s} in column {col}.")
+            source = row.source
             return partial(
                 client.raw.profile,
-                database=db_name,
-                table=table_name,
+                database=source.db_name,
+                table=source.table_name,
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
         raise ValueError(f"Unexpected API Call for row {row} and column {col}.")
 
-    def format_result(self, result: object, row: str, col: str) -> CellValue:
+    def format_result(self, result: object, row: AssetIndex, col: str) -> CellValue:
         if isinstance(result, int | float | bool | str):
             return result
         elif col == self.Columns.DataSets:
@@ -292,34 +299,40 @@ class ProfileAssetCommand(ProfileCommand):
             if isinstance(result, RawProfileResults):
                 return result.row_count
             return None
-        raise ValueError(f"unexpected result type {type(result)} for row {row} and column {col}.")
+        raise ValueError(f"unexpected result type {type(result)} for row {row!s} and column {col}.")
 
     def update_table(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        row: str,
-        col: str,
-    ) -> PendingTable:
-        handlers: Mapping[str, Callable[[PendingTable, object, str], PendingTable]] = {
+        selected_row: AssetIndex,
+        selected_col: str,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
+        handlers: Mapping[
+            str,
+            Callable[
+                [dict[tuple[AssetIndex, str], PendingCellValue], object, AssetIndex],
+                dict[tuple[AssetIndex, str], PendingCellValue],
+            ],
+        ] = {
             self.Columns.Count: self._update_count,
             self.Columns.DataSets: self._update_datasets,
             self.Columns.DataSetCount: self._update_dataset_count,
             self.Columns.Transformations: self._update_transformations,
             self.Columns.RowCount: self._update_row_count,
         }
-        handler = handlers.get(col)
+        handler = handlers.get(selected_col)
         if handler:
-            return handler(current_table, result, row)
+            return handler(current_table, result, selected_row)
         return current_table
 
     def _update_count(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        selected_row: str,
-    ) -> PendingTable:
-        new_table: PendingTable = {}
+        selected_row: AssetIndex,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
+        new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row == selected_row and col == self.Columns.DataSets:
                 new_table[(row, col)] = WaitingAPICall
@@ -329,19 +342,21 @@ class ProfileAssetCommand(ProfileCommand):
 
     def _update_datasets(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        selected_row: str,
-    ) -> PendingTable:
+        selected_row: AssetIndex,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
         if not (isinstance(result, list) and len(result) > 0 and all(isinstance(item, str) for item in result)):
             return current_table
-        new_table: PendingTable = {}
+        new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row != selected_row:
                 new_table[(row, col)] = value
                 continue
             for data_set in result:
-                new_index = f"{row}{self._index_split}{data_set}"
+                new_index = AssetIndex(
+                    aggregator=selected_row.aggregator, source=selected_row.source, data_set_external_id=data_set
+                )
                 if col == self.Columns.DataSetCount:
                     new_table[(new_index, col)] = WaitingAPICall
                 elif col == self.Columns.DataSets:
@@ -352,13 +367,13 @@ class ProfileAssetCommand(ProfileCommand):
 
     def _update_dataset_count(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        selected_row: str,
-    ) -> PendingTable:
+        selected_row: AssetIndex,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
         if not isinstance(result, int):
             return current_table
-        new_table: PendingTable = {}
+        new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row != selected_row:
                 new_table[(row, col)] = value
@@ -371,10 +386,10 @@ class ProfileAssetCommand(ProfileCommand):
 
     def _update_transformations(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        selected_row: str,
-    ) -> PendingTable:
+        selected_row: AssetIndex,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
         if not (
             isinstance(result, list) and len(result) > 0 and all(isinstance(item, Transformation) for item in result)
         ):
@@ -385,7 +400,7 @@ class ProfileAssetCommand(ProfileCommand):
             ]
             for transformation in result
         }
-        new_table: PendingTable = {}
+        new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row != selected_row:
                 new_table[(row, col)] = value
@@ -396,7 +411,11 @@ class ProfileAssetCommand(ProfileCommand):
                     new_table[(row, col)] = value
                     continue
                 for source in sources:
-                    new_index = f"{row}{self._index_split}{source!s}"
+                    new_index = AssetIndex(
+                        aggregator=selected_row.aggregator,
+                        data_set_external_id=selected_row.data_set_external_id,
+                        source=source,
+                    )
                     if col == self.Columns.RawTable:
                         new_table[(new_index, col)] = str(source)
                     elif col == self.Columns.RowCount:
@@ -411,13 +430,13 @@ class ProfileAssetCommand(ProfileCommand):
 
     def _update_row_count(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[AssetIndex, str], PendingCellValue],
         result: object,
-        selected_row: str,
-    ) -> PendingTable:
+        selected_row: AssetIndex,
+    ) -> dict[tuple[AssetIndex, str], PendingCellValue]:
         if not isinstance(result, RawProfileResults):
             return current_table
-        new_table: PendingTable = {}
+        new_table: dict[tuple[AssetIndex, str], PendingCellValue] = {}
         for (row, col), value in current_table.items():
             if row != selected_row:
                 new_table[(row, col)] = value
@@ -432,7 +451,7 @@ class ProfileAssetCommand(ProfileCommand):
         return new_table
 
 
-class ProfileAssetCentricCommand(ProfileCommand):
+class ProfileAssetCentricCommand(ProfileCommand[str]):
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
         super().__init__(print_warning, skip_tracking, silent)
         self.table_title = "Asset Centric Profile"
@@ -462,7 +481,7 @@ class ProfileAssetCentricCommand(ProfileCommand):
         )
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
         table: dict[tuple[str, str], str | int | float | bool | None | WaitingAPICallClass] = {}
         for index, aggregator in self.aggregators.items():
             table[(index, self.Columns.Resource)] = aggregator.display_name
@@ -491,7 +510,7 @@ class ProfileAssetCentricCommand(ProfileCommand):
         raise ValueError(f"Unknown column: {col} for row: {row}")
 
 
-class ProfileTransformationCommand(ProfileCommand):
+class ProfileTransformationCommand(ProfileCommand[str]):
     valid_destinations: frozenset[str] = frozenset({"assets", "files", "events", "timeseries", "sequences"})
 
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
