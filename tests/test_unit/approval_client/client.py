@@ -296,7 +296,7 @@ class ApprovalToolkitClient:
 
         def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
             deleted = []
-            if isinstance(ids, (VersionedDataModelingId, InstanceId)):
+            if isinstance(ids, VersionedDataModelingId | InstanceId):
                 deleted.append(ids.dump(camel_case=True))
             elif isinstance(ids, Sequence):
                 deleted.extend([id.dump(camel_case=True) for id in ids])
