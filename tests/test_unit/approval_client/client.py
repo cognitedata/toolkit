@@ -6,9 +6,9 @@ import json as JSON
 import random
 import string
 from collections import defaultdict
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any, BinaryIO, Callable, TextIO, cast
+from typing import Any, BinaryIO, TextIO, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -296,7 +296,7 @@ class ApprovalToolkitClient:
 
         def delete_data_modeling(ids: VersionedDataModelingId | Sequence[VersionedDataModelingId]) -> list:
             deleted = []
-            if isinstance(ids, (VersionedDataModelingId, InstanceId)):
+            if isinstance(ids, VersionedDataModelingId | InstanceId):
                 deleted.append(ids.dump(camel_case=True))
             elif isinstance(ids, Sequence):
                 deleted.extend([id.dump(camel_case=True) for id in ids])
