@@ -78,9 +78,9 @@ HINT_LEAD_TEXT_LEN = 5
 EnvType: TypeAlias = Literal["dev", "test", "staging", "qa", "prod"]
 USE_SENTRY = "pytest" not in sys.modules and os.environ.get("SENTRY_ENABLED", "true").lower() == "true"
 SPACE_FORMAT_PATTERN = r"^[a-zA-Z][a-zA-Z0-9_-]{0,41}[a-zA-Z0-9]?$"
-CONTAINER_EXTERNAL_ID_PATTERN = r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$"
+CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN = r"^[a-zA-Z]([a-zA-Z0-9_]{0,253}[a-zA-Z0-9])?$"
 FORBIDDEN_SPACES = frozenset(["space", "cdf", "dms", "pg3", "shared", "system", "node", "edge"])
-FORBIDDEN_CONTAINER_EXTERNAL_IDS = frozenset(
+FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS = frozenset(
     [
         "Query",
         "Mutation",
@@ -103,7 +103,7 @@ FORBIDDEN_CONTAINER_EXTERNAL_IDS = frozenset(
         "TimeSeries",
     ]
 )
-FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER = frozenset(
+FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER = frozenset(
     [
         "space",
         "externalId",
@@ -119,7 +119,8 @@ FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER = frozenset(
         "extensions",
     ]
 )
-CONTAINER_PROPERTIES_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
+CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN = r"^[a-zA-Z0-9][a-zA-Z0-9_-]{0,253}[a-zA-Z0-9]?$"
+VIEW_VERSION_PATTERN = r"^[a-zA-Z0-9]([.a-zA-Z0-9_-]{0,41}[a-zA-Z0-9])?$"
 
 
 def clean_name(name: str) -> str:

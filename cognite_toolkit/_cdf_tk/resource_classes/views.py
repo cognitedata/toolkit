@@ -1,5 +1,5 @@
 import re
-from typing import Literal
+from typing import Any
 
 from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
@@ -10,53 +10,54 @@ from cognite_toolkit._cdf_tk.constants import (
     FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS,
     FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
+    VIEW_VERSION_PATTERN,
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 
 from .base import ToolkitResource
-from .container_field_definitions import ConstraintDefinition, ContainerPropertyDefinition, IndexDefinition
+from .view_field_definitions import ViewProperty, ViewReference
 
 KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
 
-class ContainerYAML(ToolkitResource):
+class ViewYAML(ToolkitResource):
     space: str = Field(
-        description="The workspace for the container, a unique identifier for the space.",
+        description="Id of the space that the view belongs to.",
         min_length=1,
         max_length=43,
         pattern=SPACE_FORMAT_PATTERN,
     )
     external_id: str = Field(
-        description="External-id of the container.",
+        description="External-id of the view.",
         min_length=1,
         max_length=255,
         pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     )
+    version: str = Field(
+        description="Version of the view.",
+        max_length=43,
+        pattern=VIEW_VERSION_PATTERN,
+    )
     name: str | None = Field(
         default=None,
-        description="name for the container.",
+        description="name for the view.",
         max_length=255,
     )
     description: str | None = Field(
         default=None,
-        description="Description of the container.",
+        description="Description of the view.",
         max_length=1024,
     )
-    used_for: Literal["node", "edge", "all"] | None = Field(
+    filter: dict[str, Any] | None = Field(
         default=None,
-        description="Should this operation apply to nodes, edges or both.",
+        description="A filter Domain Specific Language (DSL) used to create advanced filter queries.",
     )
-    properties: dict[str, ContainerPropertyDefinition] = Field(
-        description="Set of properties to apply to the container."
-    )
-    constraints: dict[str, ConstraintDefinition] | None = Field(
+    implements: list[ViewReference] | None = Field(
         default=None,
-        description="Set of constraints to apply to the container.",
+        description="References to the views from where this view will inherit properties.",
     )
-    indexes: dict[str, IndexDefinition] | None = Field(
-        default=None,
-        description="Set of indexes to apply to the container.",
-        max_length=10,
+    properties: dict[str, ViewProperty] | None = Field(
+        default=None, description="Set of properties to apply to the View."
     )
 
     @field_validator("external_id")
@@ -65,7 +66,7 @@ class ContainerYAML(ToolkitResource):
         """Check the external_id not present in forbidden set"""
         if val in FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS:
             raise ValueError(
-                f"'{val}' is a reserved container External ID. Reserved External IDs are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS)}"
+                f"'{val}' is a reserved view External ID. Reserved External IDs are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS)}"
             )
         return val
 
@@ -85,8 +86,8 @@ class ContainerYAML(ToolkitResource):
     @model_serializer(mode="wrap")
     def serialize_container(self, handler: SerializerFunctionWrapHandler, info: SerializationInfo) -> dict:
         serialized_data = handler(self)
-        if self.constraints:
-            serialized_data["constraints"] = {k: v.model_dump(**vars(info)) for k, v in self.constraints.items()}
-        if self.indexes:
-            serialized_data["indexes"] = {k: v.model_dump(**vars(info)) for k, v in self.indexes.items()}
+        if self.properties:
+            serialized_data["properties"] = {
+                key: value.model_dump(**vars(info)) for key, value in self.properties.items()
+            }
         return serialized_data
