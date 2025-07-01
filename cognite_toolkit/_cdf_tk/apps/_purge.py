@@ -1,4 +1,4 @@
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -23,7 +23,7 @@ class PurgeApp(typer.Typer):
         self,
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="External id of the dataset to purge. If not provided, interactive mode will be used.",
             ),
@@ -79,7 +79,7 @@ class PurgeApp(typer.Typer):
         self,
         ctx: typer.Context,
         space: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="Space to purge. If not provided, interactive mode will be used.",
             ),
