@@ -317,63 +317,63 @@ class ProfileAssetCommand(ProfileCommand):
         self,
         current_table: PendingTable,
         result: object,
-        row: str,
+        selected_row: str,
     ) -> PendingTable:
         new_table: PendingTable = {}
-        for (r, c), value in current_table.items():
-            if r == row and c == self.Columns.DataSets:
-                new_table[(r, c)] = WaitingAPICall
+        for (row, col), value in current_table.items():
+            if row == selected_row and col == self.Columns.DataSets:
+                new_table[(row, col)] = WaitingAPICall
             else:
-                new_table[(r, c)] = value
+                new_table[(row, col)] = value
         return new_table
 
     def _update_datasets(
         self,
         current_table: PendingTable,
         result: object,
-        row: str,
+        selected_row: str,
     ) -> PendingTable:
         if not (isinstance(result, list) and len(result) > 0 and all(isinstance(item, str) for item in result)):
             return current_table
         new_table: PendingTable = {}
-        for (r, c), value in current_table.items():
-            if r != row:
-                new_table[(r, c)] = value
+        for (row, col), value in current_table.items():
+            if row != selected_row:
+                new_table[(row, col)] = value
                 continue
             for data_set in result:
-                new_index = f"{r}{self._index_split}{data_set}"
-                if c == self.Columns.DataSetCount:
-                    new_table[(new_index, c)] = WaitingAPICall
-                elif c == self.Columns.DataSets:
-                    new_table[(new_index, c)] = data_set
+                new_index = f"{row}{self._index_split}{data_set}"
+                if col == self.Columns.DataSetCount:
+                    new_table[(new_index, col)] = WaitingAPICall
+                elif col == self.Columns.DataSets:
+                    new_table[(new_index, col)] = data_set
                 else:
-                    new_table[(new_index, c)] = value
+                    new_table[(new_index, col)] = value
         return new_table
 
     def _update_dataset_count(
         self,
         current_table: PendingTable,
         result: object,
-        row: str,
+        selected_row: str,
     ) -> PendingTable:
         if not isinstance(result, int):
             return current_table
         new_table: PendingTable = {}
-        for (r, c), value in current_table.items():
-            if r != row:
-                new_table[(r, c)] = value
+        for (row, col), value in current_table.items():
+            if row != selected_row:
+                new_table[(row, col)] = value
                 continue
-            if c == self.Columns.Transformations:
-                new_table[(r, c)] = WaitingAPICall
+            if col == self.Columns.Transformations:
+                new_table[(row, col)] = WaitingAPICall
             else:
-                new_table[(r, c)] = value
+                new_table[(row, col)] = value
         return new_table
 
     def _update_transformations(
         self,
         current_table: PendingTable,
         result: object,
-        row: str,
+        selected_row: str,
     ) -> PendingTable:
         if not (
             isinstance(result, list) and len(result) > 0 and all(isinstance(item, Transformation) for item in result)
@@ -386,49 +386,49 @@ class ProfileAssetCommand(ProfileCommand):
             for transformation in result
         }
         new_table: PendingTable = {}
-        for (r, c), value in current_table.items():
-            if r != row:
-                new_table[(r, c)] = value
+        for (row, col), value in current_table.items():
+            if row != selected_row:
+                new_table[(row, col)] = value
                 continue
             for transformation in result:
                 sources = sources_by_transformation_id[transformation.id]
                 if not sources:
-                    new_table[(r, c)] = value
+                    new_table[(row, col)] = value
                     continue
                 for source in sources:
-                    new_index = f"{r}{self._index_split}{source!s}"
-                    if c == self.Columns.RawTable:
-                        new_table[(new_index, c)] = str(source)
-                    elif c == self.Columns.RowCount:
-                        new_table[(new_index, c)] = WaitingAPICall
-                    elif c == self.Columns.ColumnCount:
-                        new_table[(new_index, c)] = None
-                    elif c == self.Columns.Transformations:
-                        new_table[(new_index, c)] = f"{transformation.name} ({transformation.external_id})"
+                    new_index = f"{row}{self._index_split}{source!s}"
+                    if col == self.Columns.RawTable:
+                        new_table[(new_index, col)] = str(source)
+                    elif col == self.Columns.RowCount:
+                        new_table[(new_index, col)] = WaitingAPICall
+                    elif col == self.Columns.ColumnCount:
+                        new_table[(new_index, col)] = None
+                    elif col == self.Columns.Transformations:
+                        new_table[(new_index, col)] = f"{transformation.name} ({transformation.external_id})"
                     else:
-                        new_table[(new_index, c)] = value
+                        new_table[(new_index, col)] = value
         return new_table
 
     def _update_row_count(
         self,
         current_table: PendingTable,
         result: object,
-        row: str,
+        selected_row: str,
     ) -> PendingTable:
         if not isinstance(result, RawProfileResults):
             return current_table
         new_table: PendingTable = {}
-        for (r, c), value in current_table.items():
-            if r != row:
-                new_table[(r, c)] = value
+        for (row, col), value in current_table.items():
+            if row != selected_row:
+                new_table[(row, col)] = value
                 continue
             is_complete = result.is_complete and result.row_count < self.profile_row_limit
-            if c == self.Columns.RowCount:
-                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"
-            elif c == self.Columns.ColumnCount:
-                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count:,}"
+            if col == self.Columns.RowCount:
+                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+            elif col == self.Columns.ColumnCount:
+                new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
-                new_table[(r, c)] = value
+                new_table[(row, col)] = value
         return new_table
 
 
