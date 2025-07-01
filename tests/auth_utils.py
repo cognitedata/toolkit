@@ -16,7 +16,7 @@ _LOGIN_FLOW: TypeAlias = Literal["infer", "client_credentials", "interactive", "
 _VALID_LOGIN_FLOWS = get_args(_LOGIN_FLOW)
 
 
-def get_toolkit_client(env_file_name: str) -> ToolkitClient:
+def get_toolkit_client(env_file_name: str, enable_set_pending_ids: bool = False) -> ToolkitClient:
     """Instantiate a ToolkitClient using environment variables. If the environment variables are not set, the user will
     be prompted to enter them.
 
@@ -24,6 +24,7 @@ def get_toolkit_client(env_file_name: str) -> ToolkitClient:
         env_file_name: The name of the .env file to look for in the repository root / current working directory. If
         the file is found, the variables will be loaded from the file. If the file is not found, the user will
         be prompted to enter the variables and the file will be created.
+        enable_set_pending_ids: Whether to enable the set_pending_ids method on the client.
 
     Returns:
         ToolkitClient: A ToolkitClient instance.
@@ -37,13 +38,13 @@ def get_toolkit_client(env_file_name: str) -> ToolkitClient:
     if repo_root:
         with suppress(KeyError, FileNotFoundError, TypeError):
             variables = _from_dotenv(repo_root / env_file_name)
-            client = variables.get_client()
+            client = variables.get_client(enable_set_pending_ids)
             print(f"Found {env_file_name} file in repository root. Loaded variables from {env_file_name} file.")
             return client
     elif (Path.cwd() / env_file_name).exists():
         with suppress(KeyError, FileNotFoundError, TypeError):
             variables = _from_dotenv(Path.cwd() / env_file_name)
-            client = variables.get_client()
+            client = variables.get_client(enable_set_pending_ids)
             print(
                 f"Found {env_file_name} file in current working directory. Loaded variables from {env_file_name} file."
             )
@@ -52,7 +53,7 @@ def get_toolkit_client(env_file_name: str) -> ToolkitClient:
     with suppress(KeyError):
         variables = EnvironmentVariables.create_from_environ()
         print("Loaded variables from environment variables.")
-        return variables.get_client()
+        return variables.get_client(enable_set_pending_ids)
     # If not found, prompt the user
     variables = _prompt_user()
     if repo_root and _env_in_gitignore(repo_root, env_file_name):
@@ -62,7 +63,7 @@ def get_toolkit_client(env_file_name: str) -> ToolkitClient:
         # We do not offer to create the file in the repository root if it is in .gitignore
         # as an inexperienced user might accidentally commit it.
         print("Cannot create .env file in repository root as there is no .env entry in the .gitignore.")
-        return variables.get_client()
+        return variables.get_client(enable_set_pending_ids)
     else:
         env_file = Path.cwd() / env_file_name
         location = "current working directory"
@@ -77,7 +78,7 @@ def get_toolkit_client(env_file_name: str) -> ToolkitClient:
         env_file.write_text(variables.create_env_file())
         print(f"Created {env_file_name} file in {location}.")
 
-    return variables.get_client()
+    return variables.get_client(enable_set_pending_ids)
 
 
 @dataclass
@@ -87,7 +88,7 @@ class EnvironmentVariables:
     LOGIN_FLOW: _LOGIN_FLOW = "infer"
     IDP_CLIENT_ID: str | None = None
     IDP_CLIENT_SECRET: str | None = None
-    TOKEN: str | None = None
+    CDF_TOKEN: str | None = None
 
     IDP_TENANT_ID: str | None = None
     IDP_TOKEN_URL: str | None = None
@@ -149,7 +150,7 @@ class EnvironmentVariables:
             LOGIN_FLOW=os.environ.get("LOGIN_FLOW", "infer"),  # type: ignore[arg-type]
             IDP_CLIENT_ID=os.environ.get("IDP_CLIENT_ID"),
             IDP_CLIENT_SECRET=os.environ.get("IDP_CLIENT_SECRET"),
-            TOKEN=os.environ.get("TOKEN"),
+            CDF_TOKEN=os.environ.get("CDF_TOKEN"),
             CDF_URL=os.environ.get("CDF_URL"),
             IDP_TOKEN_URL=os.environ.get("IDP_TOKEN_URL"),
             IDP_TENANT_ID=os.environ.get("IDP_TENANT_ID"),
@@ -222,11 +223,11 @@ class EnvironmentVariables:
         )
 
     def get_token(self) -> Token:
-        if not self.TOKEN:
+        if not self.CDF_TOKEN:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
-        return Token(self.TOKEN)
+        return Token(self.CDF_TOKEN)
 
-    def get_client(self) -> ToolkitClient:
+    def get_client(self, enable_set_pending_ids: bool = False) -> ToolkitClient:
         config = ToolkitClientConfig(
             client_name=CLIENT_NAME,
             project=self.CDF_PROJECT,
@@ -235,7 +236,7 @@ class EnvironmentVariables:
             max_workers=self.CDF_MAX_WORKERS,
             timeout=self.CDF_TIMEOUT,
         )
-        return ToolkitClient(config)
+        return ToolkitClient(config, enable_set_pending_ids)
 
     def create_env_file(self) -> str:
         lines: list[str] = []
@@ -289,7 +290,7 @@ def _prompt_user() -> EnvironmentVariables:
     variables.LOGIN_FLOW = login_flow  # type: ignore[assignment]
     if login_flow == "token":
         token = Prompt.ask("Enter token")
-        variables.TOKEN = token
+        variables.CDF_TOKEN = token
         return variables
 
     variables.IDP_CLIENT_ID = Prompt.ask("Enter IDP Client ID")
