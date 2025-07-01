@@ -24,7 +24,7 @@ jobs:
         id: pre-commit-first-run
         uses: pre-commit/action@v3.0.1
       - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6
         id: auto-commit-action
         with:
           create_branch: false
