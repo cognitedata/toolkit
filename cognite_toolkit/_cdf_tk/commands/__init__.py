@@ -1,4 +1,4 @@
-from ._migrate import MigrateAssetsCommand, MigrateTimeseriesCommand, MigrationPrepareCommand
+from ._migrate import MigrateAssetsCommand, MigrateTimeseriesCommand, MigrationCanvasCommand, MigrationPrepareCommand
 from ._populate import PopulateCommand
 from ._profile import ProfileAssetCentricCommand, ProfileAssetCommand, ProfileTransformationCommand
 from ._purge import PurgeCommand
@@ -28,6 +28,7 @@ __all__ = [
     "InitCommand",
     "MigrateAssetsCommand",
     "MigrateTimeseriesCommand",
+    "MigrationCanvasCommand",
     "MigrationPrepareCommand",
     "ModulesCommand",
     "PopulateCommand",
