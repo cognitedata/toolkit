@@ -9,10 +9,11 @@ import random
 import re
 import string
 import typing
+from collections.abc import Callable
 from datetime import date, datetime
 from pathlib import Path
 from types import UnionType
-from typing import IO, Any, Callable, Literal, Optional, TypeVar, get_args, get_origin
+from typing import IO, Any, Literal, TypeVar, get_args, get_origin
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
@@ -140,7 +141,7 @@ class PrintCapture:
         *objects: Any,
         sep: str = " ",
         end: str = "\n",
-        file: Optional[IO[str]] = None,
+        file: IO[str] | None = None,
         flush: bool = False,
     ):
         for obj in objects:

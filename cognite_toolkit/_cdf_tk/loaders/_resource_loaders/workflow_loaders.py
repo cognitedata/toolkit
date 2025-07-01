@@ -454,7 +454,7 @@ class WorkflowVersionLoader(
             if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+                object.__setattr__(item, "path", (*item.path[:length], ANY_STR, *item.path[length:]))
         spec.add(ParameterSpec((*parameter_path, ANY_STR), frozenset({"dict"}), is_required=True, _is_nullable=False))
         # The depends on is implemented as a list of string in the SDK, but in the API spec it
         # is a list of objects with one 'externalId' field.

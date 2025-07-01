@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import itertools
 import re
 import tempfile
 import uuid
@@ -241,7 +242,7 @@ class ResourceYAMLDifference(YAMLWithComments[tuple[Union[str, int], ...], Resou
         dumped: dict[Any, Any] = {}
         for key, prop in self.items():
             current = dumped
-            for part, next_part in zip(key[:-1], key[1:]):
+            for part, next_part in itertools.pairwise(key):
                 if isinstance(part, int) and isinstance(current, list) and len(current) < part + 1:
                     current.append({})
                     current = current[part]
