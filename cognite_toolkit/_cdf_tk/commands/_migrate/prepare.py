@@ -25,7 +25,7 @@ class MigrationPrepareCommand(ToolkitCommand):
         verb = "Would deploy" if dry_run else "Deploying"
         print(f"{verb} {MODEL_ID!r}")
         results = DeployResults([], "deploy", dry_run=dry_run)
-        for loader_cls, resources in [
+        for loader_cls, resource_list in [
             (SpaceLoader, [SPACE]),
             (ContainerLoader, [MAPPING_CONTAINER]),
             (ViewLoader, [MAPPING_VIEW]),
@@ -35,23 +35,15 @@ class MigrationPrepareCommand(ToolkitCommand):
             loader = loader_cls.create_loader(client)  # type: ignore[attr-defined]
             worker = ResourceWorker(loader)
             # MyPy does not understand that `loader` has a `get_id` method.
-            local_by_id = {loader.get_id(item): (item.dump(), item) for item in resources}  # type: ignore[attr-defined]
+            local_by_id = {loader.get_id(item): (item.dump(), item) for item in resource_list}  # type: ignore[attr-defined]
             worker.validate_access(local_by_id, is_dry_run=dry_run)
             cdf_resources = loader.retrieve(list(local_by_id.keys()))
-            to_create, to_update, to_delete, unchanged = worker.categorize_resources(
-                local_by_id, cdf_resources, False, verbose
-            )
+            resources = worker.categorize_resources(local_by_id, cdf_resources, False, verbose)
 
             if dry_run:
-                result = deploy_cmd.dry_run_deploy(to_create, to_update, to_delete, unchanged, loader, False, False)
+                result = deploy_cmd.dry_run_deploy(resources, loader, False, False)
             else:
-                result = deploy_cmd.actual_deploy(
-                    to_create,
-                    to_update,
-                    to_delete,
-                    unchanged,
-                    loader,
-                )
+                result = deploy_cmd.actual_deploy(resources, loader)
             if result:
                 results[result.name] = result
         if results.has_counts:
