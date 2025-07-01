@@ -88,7 +88,7 @@ class EnvironmentVariables:
     LOGIN_FLOW: _LOGIN_FLOW = "infer"
     IDP_CLIENT_ID: str | None = None
     IDP_CLIENT_SECRET: str | None = None
-    TOKEN: str | None = None
+    CDF_TOKEN: str | None = None
 
     IDP_TENANT_ID: str | None = None
     IDP_TOKEN_URL: str | None = None
@@ -150,7 +150,7 @@ class EnvironmentVariables:
             LOGIN_FLOW=os.environ.get("LOGIN_FLOW", "infer"),  # type: ignore[arg-type]
             IDP_CLIENT_ID=os.environ.get("IDP_CLIENT_ID"),
             IDP_CLIENT_SECRET=os.environ.get("IDP_CLIENT_SECRET"),
-            TOKEN=os.environ.get("TOKEN"),
+            CDF_TOKEN=os.environ.get("CDF_TOKEN"),
             CDF_URL=os.environ.get("CDF_URL"),
             IDP_TOKEN_URL=os.environ.get("IDP_TOKEN_URL"),
             IDP_TENANT_ID=os.environ.get("IDP_TENANT_ID"),
@@ -223,9 +223,9 @@ class EnvironmentVariables:
         )
 
     def get_token(self) -> Token:
-        if not self.TOKEN:
+        if not self.CDF_TOKEN:
             raise KeyError("TOKEN must be set in the environment", "TOKEN")
-        return Token(self.TOKEN)
+        return Token(self.CDF_TOKEN)
 
     def get_client(self, enable_set_pending_ids: bool = False) -> ToolkitClient:
         config = ToolkitClientConfig(
@@ -290,7 +290,7 @@ def _prompt_user() -> EnvironmentVariables:
     variables.LOGIN_FLOW = login_flow  # type: ignore[assignment]
     if login_flow == "token":
         token = Prompt.ask("Enter token")
-        variables.TOKEN = token
+        variables.CDF_TOKEN = token
         return variables
 
     variables.IDP_CLIENT_ID = Prompt.ask("Enter IDP Client ID")
