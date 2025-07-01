@@ -52,20 +52,19 @@ def type_hint_test_cases() -> Iterable[ParameterSet]:
         True,
         id="Union with almost all possible types",
     )
-    if sys.version_info >= (3, 10):
-        yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
-        yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
-        yield pytest.param(
-            collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
-        )
-        yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
-        yield pytest.param(
-            str | int | bool, ["str", "int", "bool"], True, False, False, False, False, id="str | int | bool"
-        )
-        yield pytest.param(list[str] | None, ["list"], False, True, False, False, True, id="list | None")
-        yield pytest.param(
-            list[str] | dict[str, int] | None, ["list", "dict"], False, True, False, True, True, id="list | dict | None"
-        )
+    yield pytest.param(Sequence[int], ["list"], False, False, False, False, True, id="Sequence")
+    yield pytest.param(Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="Mapping")
+    yield pytest.param(
+        collections.abc.Mapping[str, PropertyValue], ["dict"], False, False, False, True, False, id="ABC Mapping"
+    )
+    yield pytest.param(str | None, ["str"], True, True, False, False, False, id="str | None")
+    yield pytest.param(
+        str | int | bool, ["str", "int", "bool"], True, False, False, False, False, id="str | int | bool"
+    )
+    yield pytest.param(list[str] | None, ["list"], False, True, False, False, True, id="list | None")
+    yield pytest.param(
+        list[str] | dict[str, int] | None, ["list", "dict"], False, True, False, True, True, id="list | dict | None"
+    )
 
 
 @pytest.mark.skipif(sys.version_info[:2] == (3, 10), reason="Fails for Python 3.10, tech debt to fix")

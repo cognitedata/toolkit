@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -32,11 +32,11 @@ class AgentCore(WriteableCogniteResource["AgentWrite"], ABC):
 
     external_id: str
     name: str
-    description: Optional[str] = None
-    instructions: Optional[str] = None
-    model: Optional[str] = None
-    tools: Optional[list[AgentTool]] = None
-    labels: Optional[list[str]] = None
+    description: str | None = None
+    instructions: str | None = None
+    model: str | None = None
+    tools: list[AgentTool] | None = None
+    labels: list[str] | None = None
 
     def dump(self, camel_case: bool = True) -> dict[str, Any]:
         result = super().dump(camel_case=camel_case)
@@ -74,7 +74,7 @@ class Agent(AgentCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> Agent:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> Agent:
         tools = (
             [AgentTool._load(item) for item in resource.get("tools", [])]
             if isinstance(resource.get("tools"), list)
@@ -108,7 +108,7 @@ class AgentWrite(AgentCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> AgentWrite:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentWrite:
         tools = (
             [AgentTool._load(item) for item in resource.get("tools", [])]
             if isinstance(resource.get("tools"), list)
