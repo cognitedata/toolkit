@@ -142,7 +142,7 @@ class DeployResults(UserDict):
     @property
     def has_uploads(self) -> bool:
         return any(
-            isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult)) for entry in self.data.values()
+            isinstance(entry, UploadDeployResult | ResourceContainerDeployResult) for entry in self.data.values()
         )
 
     def counts_table(
@@ -200,7 +200,7 @@ class DeployResults(UserDict):
         for item in sorted(
             entry
             for entry in self.data.values()
-            if isinstance(entry, (UploadDeployResult, ResourceContainerDeployResult))
+            if isinstance(entry, UploadDeployResult | ResourceContainerDeployResult)
         ):
             if item.name == "raw.tables":
                 # We skip this as we cannot count the number of datapoints in a raw table

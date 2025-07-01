@@ -24,6 +24,7 @@ properties:
       space: sp_schema
       externalId: MyFileExtension
       version: v1
+    direction: outwards
   directFile:
     container:
       externalId: NameContainer
