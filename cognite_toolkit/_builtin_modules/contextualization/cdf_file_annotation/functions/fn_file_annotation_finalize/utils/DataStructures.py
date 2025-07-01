@@ -316,7 +316,7 @@ class PerformanceTracker:
         return report
 
     def generate_overall_report(self) -> str:
-        report = f" Run started {datetime.now(timezone.utc)}\n- total runs: {self.total_runs}\n- count total files processed: {self.files_success+self.files_failed}\n- count successful files: {self.files_success}\n- count failed files: {self.files_failed}\n- total run time: {self.total_time_delta}\n- average run time: {self._average_run_time()}"
+        report = f" Run started {datetime.now(timezone.utc)}\n- total runs: {self.total_runs}\n- total files processed: {self.files_success+self.files_failed}\n- successful files: {self.files_success}\n- failed files: {self.files_failed}\n- total run time: {self.total_time_delta}\n- average run time: {self._average_run_time()}"
         return report
 
     def reset(self) -> None:

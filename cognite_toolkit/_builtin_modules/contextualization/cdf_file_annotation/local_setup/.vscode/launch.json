@@ -5,10 +5,10 @@
       "name": "Launch Handler",
       "type": "debugpy",
       "request": "launch",
-      "program": "modules/contextualization/cdf_file_annotation/functions/fn_dm_context_annotation_launch/handler.py",
+      "program": "<org-folder>/modules/contextualization/cdf_file_annotation/functions/fn_file_annotation_launch/handler.py",
       "console": "integratedTerminal",
       "args": [
-        "ep_ctx_files_annotation",
+        "ep_file_annotation",
         "DEBUG", //ensure that this adheres to -> log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
         "annotation_logs/launch_thread_1.log"
       ]
@@ -17,10 +17,10 @@
       "name": "Finalize Handler - Single Thread",
       "type": "debugpy",
       "request": "launch",
-      "program": "modules/contextualization/cdf_file_annotation/functions/fn_dm_context_annotation_finalize/handler.py",
+      "program": "<org-folder>/modules/contextualization/cdf_file_annotation/functions/fn_file_annotation_finalize/handler.py",
       "console": "integratedTerminal",
       "args": [
-        "ep_ctx_files_annotation",
+        "ep_file_annotation",
         "DEBUG", //ensure that this adheres to -> log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
         "Singular",
         "annotation_logs/finalize_thread_1.log",
@@ -30,10 +30,10 @@
       "name": "Finalize Handler - Multiple Threads",
       "type": "debugpy",
       "request": "launch",
-      "program": "modules/contextualization/cdf_file_annotation/functions/fn_dm_context_annotation_finalize/handler.py",
+      "program": "<org-folder>/modules/contextualization/cdf_file_annotation/functions/fn_file_annotation_finalize/handler.py",
       "console": "integratedTerminal",
       "args": [
-        "ep_ctx_files_annotation",
+        "ep_file_annotation",
         "DEBUG", //ensure that this adheres to -> log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"]
         "Parallel",
         "annotation_logs/finalize_thread_1.log",

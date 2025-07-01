@@ -3,16 +3,16 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 from typing import Any, Tuple, Literal
-from cognite.client import CogniteClient, ClientConfig, global_config
+from cognite.client import CogniteClient, ClientConfig
 from cognite.client.credentials import OAuthClientCredentials
 
 from utils.DataStructures import EnvConfig
-from services.ConfigService import Config, load_config_parameters
-from services.ConfigService import Config
-from services.RetrieveService import GeneralRetrieveService
-from services.ApplyService import GeneralApplyService
 from services.LoggerService import CogniteFunctionLogger
-from services.ReportService import GeneralReportService
+from services.ConfigService import Config, load_config_parameters
+from services.CacheService import GeneralCacheService
+from services.DataModelService import GeneralDataModelService
+from services.AnnotationService import GeneralAnnotationService
+from services.PipelineService import GeneralPipelineService
 
 
 def get_env_variables() -> EnvConfig:
@@ -45,12 +45,6 @@ def get_env_variables() -> EnvConfig:
 
 
 def create_client(env_config: EnvConfig, debug: bool = False):
-    settings = {
-        "max_retries": 5,
-        "disable_ssl": True,
-    }
-    global_config.apply_settings(settings)
-
     SCOPES = [f"https://{env_config.cdf_cluster}.cognitedata.com/.default"]
     TOKEN_URL = (
         f"https://login.microsoftonline.com/{env_config.tenant_id}/oauth2/v2.0/token"
@@ -96,19 +90,25 @@ def create_write_logger_service(log_level, filepath):
         return CogniteFunctionLogger(log_level=log_level, write=True, filepath=filepath)
 
 
-def create_retrieve_service(
-    client: CogniteClient, config: Config, logger: CogniteFunctionLogger
-) -> GeneralRetrieveService:
-    return GeneralRetrieveService(client, config, logger)
+def create_general_cache_service(
+    config: Config, client: CogniteClient, logger: CogniteFunctionLogger
+) -> GeneralCacheService:
+    return GeneralCacheService(config=config, client=client, logger=logger)
 
 
-def create_report_service(
-    client: CogniteClient, config: Config, logger: CogniteFunctionLogger
-) -> GeneralReportService:
-    return GeneralReportService(client, config, logger)
+def create_general_data_model_service(
+    config: Config, client: CogniteClient, logger: CogniteFunctionLogger
+) -> GeneralDataModelService:
+    return GeneralDataModelService(config=config, client=client, logger=logger)
 
 
-def create_apply_service(
-    client: CogniteClient, config: Config, logger: CogniteFunctionLogger
-) -> GeneralApplyService:
-    return GeneralApplyService(client, config, logger)
+def create_general_annotation_service(
+    config: Config, client: CogniteClient, logger: CogniteFunctionLogger
+) -> GeneralAnnotationService:
+    return GeneralAnnotationService(config=config, client=client, logger=logger)
+
+
+def create_general_pipeline_service(
+    client: CogniteClient, pipeline_ext_id: str
+) -> GeneralPipelineService:
+    return GeneralPipelineService(pipeline_ext_id, client)

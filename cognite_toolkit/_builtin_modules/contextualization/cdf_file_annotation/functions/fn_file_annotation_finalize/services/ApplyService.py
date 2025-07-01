@@ -111,7 +111,9 @@ class GeneralApplyService(IApplyService):
             raise ValueError(
                 "Annotated and AnnotationInProcess not found in tag property of file node"
             )
-        source_id: str = cast(str, file_node.properties[self.file_view_id]["sourceId"])
+        source_id: str | None = cast(
+            str, file_node.properties[self.file_view_id].get("sourceId")
+        )
         doc_doc, doc_tag = [], []
         edge_applies: list[EdgeApply] = []
         for detect_annotation in result_item["annotations"]:

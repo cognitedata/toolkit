@@ -1,0 +1,100 @@
+name: gp_file_annotation # Can expand the auth group to be applied for specific workflows and schema spaces... as a template this will do.
+sourceId: {{ groupSourceId }}
+metadata:
+  origin: cdf-project-templates
+capabilities:
+  - projectsAcl:
+      actions:
+        - READ
+        - LIST
+      scope:
+        all: {}
+  - groupsAcl:
+      actions:
+        - LIST
+      scope:
+        all: {}
+  - sessionsAcl:
+      actions:
+        - CREATE
+      scope:
+        all: {}
+  - functionsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+          all: {}
+  - rawAcl:
+      actions:
+        - READ
+        - WRITE
+        - LIST
+      scope:
+        tableScope:
+          dbsToTables:
+            {{ rawDb }}: []
+  - dataModelInstancesAcl:
+      actions:
+        - READ
+        - WRITE
+        - WRITE_PROPERTIES
+      scope:
+        all: {}
+  - dataModelsAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - annotationsAcl:
+      actions:
+        - READ
+        - WRITE
+        - SUGGEST
+        - REVIEW
+      scope:
+        all: {}
+  - entitymatchingAcl:
+      actions:
+        - READ
+        - WRITE
+      scope:
+        all: {}
+  - extractionConfigsAcl:
+      actions:
+          - READ
+      scope:
+        datasetScope:
+          ids:
+            - {{ annotationDatasetExternalId }}
+  - extractionRunsAcl:
+      actions:
+          - READ
+          - WRITE
+      scope:
+        datasetScope:
+          ids:
+            - {{ annotationDatasetExternalId }}
+  - extractionPipelinesAcl:
+        actions:
+          - READ
+          - WRITE
+        scope:
+          datasetScope:
+            ids:
+              - {{ annotationDatasetExternalId }}
+  - workflowOrchestrationAcl:
+        actions:
+            - READ
+            - WRITE
+        scope:
+          datasetScope:
+            ids:
+              - {{ annotationDatasetExternalId }}
+# Bug in /context/diagram/detect/ endpoint that requires this
+  - assetsAcl:
+      actions:
+        - READ
+      scope:
+        all: {}

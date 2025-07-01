@@ -1,7 +1,7 @@
 workflowExternalId: {{ workflowExternalId }}
 version: "v1"
 workflowDefinition:
-  description: "A workflow for file annotations"
+  description: "A workflow for annotating P&ID and documents."
   tasks:
     - externalId: fn_launch
       type: "function"
@@ -14,7 +14,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_launch
+      name: Launch File Annotations
       description: Launch
       retries: 0
       timeout: 600
@@ -31,7 +31,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_finailze_thread_1
+      name: Finalize File Annotations - Thread 1 
       description: Finalize
       retries: 0
       timeout: 600
@@ -48,7 +48,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_finailze_thread_2
+      name: Finalize File Annotations - Thread 2
       description: Finalize
       retries: 0
       timeout: 600
@@ -65,7 +65,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_finailze_thread_3
+      name: Finalize File Annotations - Thread 3
       description: Finalize
       retries: 0
       timeout: 600
@@ -82,7 +82,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_finailze_thread_4
+      name: Finalize File Annotations - Thread 4
       description: Finalize
       retries: 0
       timeout: 600
@@ -99,92 +99,7 @@ workflowDefinition:
               "logLevel": "INFO",
             }
         isAsyncComplete: false
-      name: fn_finailze_thread_5
-      description: Finalize
-      retries: 0
-      timeout: 600
-      onFailure: "abortWorkflow"
-
-    - externalId: fn_finailze_thread_6
-      type: "function"
-      parameters:
-        function:
-          externalId: {{ finalizeFunctionExternalId }}
-          data:
-            {
-              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
-              "logLevel": "INFO",
-            }
-        isAsyncComplete: false
-      name: fn_finailze_thread_6
-      description: Finalize
-      retries: 0
-      timeout: 600
-      onFailure: "abortWorkflow"
-
-    - externalId: fn_finailze_thread_7
-      type: "function"
-      parameters:
-        function:
-          externalId: {{ finalizeFunctionExternalId }}
-          data:
-            {
-              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
-              "logLevel": "INFO",
-            }
-        isAsyncComplete: false
-      name: fn_finailze_thread_7
-      description: Finalize
-      retries: 0
-      timeout: 600
-      onFailure: "abortWorkflow"
-
-    - externalId: fn_finailze_thread_8
-      type: "function"
-      parameters:
-        function:
-          externalId: {{ finalizeFunctionExternalId }}
-          data:
-            {
-              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
-              "logLevel": "INFO",
-            }
-        isAsyncComplete: false
-      name: fn_finailze_thread_8
-      description: Finalize
-      retries: 0
-      timeout: 600
-      onFailure: "abortWorkflow"
-
-    - externalId: fn_finailze_thread_9
-      type: "function"
-      parameters:
-        function:
-          externalId: {{ finalizeFunctionExternalId }}
-          data:
-            {
-              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
-              "logLevel": "INFO",
-            }
-        isAsyncComplete: false
-      name: fn_finailze_thread_9
-      description: Finalize
-      retries: 0
-      timeout: 600
-      onFailure: "abortWorkflow"
-
-    - externalId: fn_finailze_thread_10
-      type: "function"
-      parameters:
-        function:
-          externalId: {{ finalizeFunctionExternalId }}
-          data:
-            {
-              "ExtractionPipelineExtId": {{ extractionPipelineExternalId }},
-              "logLevel": "INFO",
-            }
-        isAsyncComplete: false
-      name: fn_finailze_thread_10
+      name: Finalize File Annotations - Thread 5
       description: Finalize
       retries: 0
       timeout: 600

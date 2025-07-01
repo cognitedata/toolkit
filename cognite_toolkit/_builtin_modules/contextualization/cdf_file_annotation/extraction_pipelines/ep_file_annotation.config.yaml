@@ -27,10 +27,10 @@ config:
     #     externalId: {{fileExternalId}}
     #     version: {{fileVersion}}
     #   filters:
-    #     - values:
-    #       negate:
-    #       operator:
-    #       targetProperty:
+    #     - values: ["AnnotationFailed", "Annotated"]
+    #       negate: False
+    #       operator: In
+    #       targetProperty: tags
     getFilesToAnnotateQuery:
       targetView:
         schemaSpace: {{ fileSchemaSpace }}
@@ -50,7 +50,7 @@ config:
     batchSize: 50
     fileSearchProperty: aliases
     targetEntitiesSearchProperty: aliases
-    primaryScopeProperty: site
+    primaryScopeProperty: None
     secondaryScopeProperty:
     dataModelService:
       getFilesToProcessQuery:

@@ -1,36 +1,39 @@
 # used in /data_sets, /data_models, /functions, /extraction_pipelines, and /workflows
-annotationDatasetExternalId: ds_annotation_files
+annotationDatasetExternalId: ds_file_annotation
 
 # used in /data_models and /extraction_pipelines
 annotationStateExternalId: FileAnnotationState
 annotationStateInstanceSpace: sp_dat_cdf_annotation_states
 annotationStateSchemaSpace: sp_hdm #NOTE: stands for space helper data model
 annotationStateVersion: v1.0.0
-fileExternalId: <insert>
 fileSchemaSpace: <insert>
+fileExternalId: <insert>
 fileVersion: <insert>
 
 # used in /raw and /extraction_pipelines
-rawDb: db_files_annotation
+rawDb: db_file_annotation
 rawTableDocTag: annotation_documents_tags
 rawTableDocDoc: annotation_documents_docs
 rawTableCache: annotation_entities_cache
 
 # used in /extraction_pipelines
-extractionPipelineExternalId: ep_ctx_files_annotation
+extractionPipelineExternalId: ep_file_annotation
 targetEntitySchemaSpace: <insert>
 targetEntityExternalId: <insert>
 targetEntityVersion: <insert>
 
 # used in /functions and /workflows
-launchFunctionExternalId: fn_dm_context_annotation_launch #NOTE: if this is changed, then the folder holding the launch function must be named the same as the new external ID
+launchFunctionExternalId: fn_file_annotation_launch #NOTE: if this is changed, then the folder holding the launch function must be named the same as the new external ID
 launchFunctionVersion: v1.0.0
-finalizeFunctionExternalId: fn_dm_context_annotation_finalize #NOTE: if this is changed, then the folder holding the finalize function must be named the same as the new external ID
+finalizeFunctionExternalId: fn_file_annotation_finalize #NOTE: if this is changed, then the folder holding the finalize function must be named the same as the new external ID
 finalizeFunctionVersion: v1.0.0
 functionClientId: ${IDP_CLIENT_ID}
 functionClientSecret: ${IDP_CLIENT_SECRET}
 
 # used in /workflows
 workflowSchedule: "*/10 * * * *"
-workflowExternalId: wf_annotation_functions
+workflowExternalId: wf_file_annotation
 workflowVersion: v1
+
+# used in /auth
+groupSourceId: <insert> # source ID from Azure AD for the corresponding groups

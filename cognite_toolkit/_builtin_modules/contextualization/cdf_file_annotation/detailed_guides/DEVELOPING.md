@@ -1,24 +1,24 @@
-# Developing and Extending the Annotation Toolkit
+# Developing and Extending the File Annotation Template
 
-This guide is for developers who need to extend the functionality of the Annotation Toolkit beyond what is available in the `extraction_pipeline_config.yaml` file. It explains the toolkit's interface-based architecture and provides a step-by-step guide on how to create and integrate custom service implementations.
+This guide is for developers who need to extend the functionality of the Annotation template beyond what is available in the `ep_file_annotation.congig.yaml` file. It explains the template's interface-based architecture and provides a step-by-step guide on how to create and integrate custom service implementations.
 
 Before reading this, you should be familiar with the high-level architecture described in the main `README.md`.
 
 ## The Philosophy: Configuration vs. Code
 
-The toolkit is built on a core philosophy of balancing ease of use with ultimate flexibility:
+The template is built on a core philosophy of balancing ease of use with ultimate flexibility:
 
-- **Configuration for Intent**: The `extraction_pipeline_config.yaml` is designed to handle the most common variations between projects (the "80%"). This includes pointing to different data models, defining data retrieval filters, setting thresholds, and toggling features. For most standard use cases, you should only need to edit this file.
+- **Configuration for Intent**: The `ep_file_annotation.config.yaml` is designed to handle the most common variations between projects (the "80%"). This includes pointing to different data models, defining data retrieval filters, setting thresholds, and toggling features. For most standard use cases, you should only need to edit this file.
 
-- **Code for Complexity**: When a project's requirements are highly specialized (the "20%"), configuration is not enough. Scenarios like complex business logic, unique performance optimizations, or integration with external systems require custom code. This is where the toolkit's interface-based architecture becomes essential.
+- **Code for Complexity**: When a project's requirements are highly specialized (the "20%"), configuration is not enough. Scenarios like complex business logic, unique performance optimizations, or integration with external systems require custom code. This is where the template's interface-based architecture becomes essential.
 
 > **Rule of Thumb**: If you find yourself trying to express complex procedural logic (e.g., "if-this-then-that") in the YAML, it's a sign that you should probably write a custom Python implementation of a service interface instead.
 
 ## The Interface-Based Architecture
 
-The toolkit is designed around a set of "service interfaces" (defined as Python Abstract Base Classes - ABCs). An interface is a contract that defines what a service should do by specifying its methods and their signatures.
+The template is designed around a set of "service interfaces" (defined as Python Abstract Base Classes - ABCs). An interface is a contract that defines what a service should do by specifying its methods and their signatures.
 
-The toolkit provides a `General...Service` class for most interfaces. This is the default implementation that reads from the `toolkit_config.yaml` and performs the standard logic. By creating your own class that inherits from the same interface, you can provide a custom implementation that the toolkit will use instead.
+The template provides a `General...Service` class for most interfaces. This is the default implementation that reads from the `ep_file_annotation.config.yaml` and performs the standard logic. By creating your own class that inherits from the same interface, you can provide a custom implementation that the template will use instead.
 
 ### Key Service Interfaces for Customization
 
@@ -134,4 +134,4 @@ def _create_launch_service(config, client, logger, tracker) -> AbstractLaunchSer
 
 When the function now runs, you'll have an instance of `HighPriorityLaunchService` wherever an `AbstractLaunchService` is required. The rest of the application (like the `handler.py`) continues to function as before, completely unaware of the specific implementation it's using. It only knows it's working with a service that fulfills the `AbstractLaunchService` contract.
 
-This powerful pattern allows you to surgically replace or extend any part of the toolkit's logic to meet your project's specific needs while leveraging the stability and functionality of the surrounding framework.
+This powerful pattern allows you to surgically replace or extend any part of the template's logic to meet your project's specific needs while leveraging the stability and functionality of the surrounding framework.

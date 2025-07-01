@@ -10,11 +10,13 @@ from dependencies import (
     create_report_service,
     create_retrieve_service,
     create_apply_service,
+    create_general_pipeline_service,
 )
 from services.FinalizeService import AbstractFinalizeService, GeneralFinalizeService
 from services.ApplyService import IApplyService
 from services.ReportService import IReportService
 from services.RetrieveService import IRetrieveService
+from services.PipelineService import IPipelineService
 from utils.DataStructures import PerformanceTracker
 
 
@@ -37,26 +39,39 @@ def handle(data: dict, client: CogniteClient) -> dict:
     config_instance, client = create_config_service(function_data=data, client=client)
     logger_instance = create_logger_service(log_level)
     tracker_instance = PerformanceTracker()
+    pipeline_instance: IPipelineService = create_general_pipeline_service(
+        client, pipeline_ext_id=data["ExtractionPipelineExtId"]
+    )
 
     finalize_instance, report_instance = _create_finalize_service(
         config_instance, client, logger_instance, tracker_instance
     )
 
+    run_status: str = "success"
     try:
         while datetime.now(timezone.utc) - start_time < timedelta(minutes=7):
             if finalize_instance.run():
-                return {"status": "succeeded", "data": data}
+                return {"status": run_status, "data": data}
             logger_instance.info(tracker_instance.generate_local_report(), "START")
-        return {"status": "succeeded", "data": data}
+        return {"status": run_status, "data": data}
     except Exception as e:
+        run_status = "failure"
         msg = f"Ran into the following error: \n{str(e)}"
         logger_instance.error(message=msg, section="BOTH")
-        return {"status": "failure", "message": msg}
+        return {"status": run_status, "message": msg}
     finally:
-        result = report_instance.update_report()
+        result: str = report_instance.update_report()
         logger_instance.info(result)
-        logger_instance.info(tracker_instance.generate_overall_report(), "BOTH")
-        logger_instance.close()
+        overall_report: str = tracker_instance.generate_overall_report()
+        logger_instance.info(overall_report, "BOTH")
+        # only want to report on the count of successful and failed files in ep_logs since they're relatively short
+        parts = overall_report.split("-")
+        ep_parts = parts[4:7]
+        extracted_string = " - ".join(ep_parts)
+        pipeline_instance.update_extraction_pipeline(
+            msg=f"(Finalize) {extracted_string}"
+        )
+        pipeline_instance.upload_extraction_pipeline(status=run_status)
 
 
 def run_locally(config_file: dict[str, str], log_path: str | None = None):

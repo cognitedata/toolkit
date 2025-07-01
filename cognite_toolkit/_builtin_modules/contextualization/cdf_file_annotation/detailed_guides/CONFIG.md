@@ -1,6 +1,6 @@
 # Guide to Configuring the Annotation Function via YAML
 
-This document outlines how to use the `extraction_pipeline_config.yaml` file to control the behavior of the Annotation Function. The Python code, particularly `ConfigService.py`, uses Pydantic models to parse this YAML, making the function adaptable to different data models and operational parameters.
+This document outlines how to use the `ep_file_annotation.config.yaml` file to control the behavior of the Annotation Function. The Python code, particularly `ConfigService.py`, uses Pydantic models to parse this YAML, making the function adaptable to different data models and operational parameters.
 
 ## Overall Structure
 
@@ -21,17 +21,17 @@ This section specifies the Data Model views the function will interact with. Eac
 
 - **Fields for each view (in `ViewPropertyConfig`):**
 
-  - `schemaSpace` (str): The schema space of the view (e.g., `sp_mdm_mpc`).
-  - `instanceSpace` (str, optional): The data space where instances of the view are stored (e.g., `sp_dat_cdf_annotationstates_gvl`). Defaults to `None`.
-  - `externalId` (str): The external ID of the view (e.g., `mpcFile`).
-  - `version` (str): The version of the view (e.g., `v2.4.12`).
+  - `schemaSpace` (str): The schema space of the view (e.g., `sp_hdm`).
+  - `instanceSpace` (str, optional): The data space where instances of the view are stored (e.g., `sp_dat_cdf_annotation_states`). Defaults to `None`.
+  - `externalId` (str): The external ID of the view (e.g., `FileAnnotationState`).
+  - `version` (str): The version of the view (e.g., `v1.0.0`).
   - `annotationType` (str, optional): For entity views, specifies the type of annotation link (e.g., `diagrams.FileLink`, `diagrams.AssetLink`). Defaults to `None`.
 
-- **Configured Views in `example_config.yaml`:**
+- **Configured Views in `ep_file_annotation.config.yaml`:**
   - `coreAnnotationView`: For storing annotation edges (e.g., `CogniteDiagramAnnotation`).
-  - `annotationStateView`: For `mpcAnnotationState` instances tracking file annotation progress.
-  - `fileView`: For the primary files to be annotated (e.g., `mpcFile`).
-  - `targetEntitiesView`: For target entities like assets (e.g., `mpcAsset`) to be detected. _(Pydantic model name: `target_entities_view`)_
+  - `annotationStateView`: For `FileAnnotationState` instances tracking file annotation progress.
+  - `fileView`: For the primary files to be annotated (e.g., `CogniteFile`).
+  - `targetEntitiesView`: For target entities like assets (e.g., `CogniteAsset`) to be detected. _(Pydantic model name: `target_entities_view`)_
 
 ---
 
@@ -62,8 +62,8 @@ Settings for the main annotation job launching process. Parsed by the `LaunchFun
   - `batchSize` (int): Max files per diagram detection API call (e.g., `50`).
   - `fileSearchProperty` (str): Property on `fileView` used for matching entities (e.g., `aliases`).
   - `targetEntitiesSearchProperty` (str): Property on `targetEntitiesView` for matching (e.g., `aliases`).
-  - `primaryScopeProperty` (str, optional): File property for primary grouping/context (e.g., `sysSite`). If set to `None` or omitted, the function processes files without a primary scope grouping. _(Pydantic field: `primary_scope_property`)_
-  - `secondaryScopeProperty` (str, optional): File property for secondary grouping/context (e.g., `sysUnit`). Defaults to `None`. _(Pydantic field: `secondary_scope_property`)_
+  - `primaryScopeProperty` (str, optional): File property for primary grouping/context (e.g., `site`). If set to `None` or omitted, the function processes files without a primary scope grouping. _(Pydantic field: `primary_scope_property`)_
+  - `secondaryScopeProperty` (str, optional): File property for secondary grouping/context (e.g., `unit`). Defaults to `None`. _(Pydantic field: `secondary_scope_property`)_
 
 - **`dataModelService`** (`DataModelServiceConfig`):
   **Note:** For the query configurations below, you can provide a single query object or a list of query objects. If a list is provided, the queries are combined with a logical **OR**.
@@ -75,7 +75,7 @@ Settings for the main annotation job launching process. Parsed by the `LaunchFun
 - **`cacheService`** (`CacheServiceConfig`):
 
   - `cacheTimeLimit` (int): Cache validity in hours (e.g., `24`).
-  - `rawDb` (str): RAW database for the entity cache (e.g., `db_refining_files_annotation`).
+  - `rawDb` (str): RAW database for the entity cache (e.g., `db_file_annotation`).
   - `rawTableCache` (str): RAW table for the entity cache (e.g., `annotation_entities_cache`).
 
 - **`annotationService`** (`AnnotationServiceConfig`):

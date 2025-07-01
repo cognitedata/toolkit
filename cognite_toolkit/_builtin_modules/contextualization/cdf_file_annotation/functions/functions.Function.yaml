@@ -1,17 +1,17 @@
-- name: {{ launchFunctionExternalId }}
+- name: Launch File Annotations
   externalId: {{ launchFunctionExternalId }}
   owner: "Anonymous"
-  description: "Create a queue of diagram detect job IDs to be processed by finalize function"
+  description: "Create a queue of diagram detect job IDs to be processed by finalize function."
   metadata:
     version: {{ launchFunctionVersion }}
 
   runtime: "py311"
   functionPath: "handler.py"
 
-- name: {{ finalizeFunctionExternalId }}
+- name: Finalize File Annotations
   externalId: {{ finalizeFunctionExternalId }}
   owner: "Anonymous"
-  description: "Process diagram detect jobs in the queue built by annotate launch function"
+  description: "Process diagram detect jobs in the queue built by annotate launch function."
   metadata:
     version: {{ finalizeFunctionVersion }}
 
