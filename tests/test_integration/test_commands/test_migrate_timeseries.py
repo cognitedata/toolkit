@@ -1,3 +1,4 @@
+import random
 import time
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +22,7 @@ def three_timeseries_with_datapoints(
     timeseries = TimeSeriesWriteList([])
     for i in range(3):
         ts = TimeSeriesWrite(
-            external_id=f"toolkit_test_migration_{i}",
+            external_id=f"toolkit_test_migration_{i}_{random.randint(0, 10_000)!s}",
             name=f"toolkit_test_migration_{i}",
             is_string=False,
             is_step=False,
