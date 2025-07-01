@@ -78,7 +78,7 @@ class ProfileCommand(ToolkitCommand, ABC):
         ):
             while True:
                 current_calls = {
-                    executor.submit(self.call_api(row, col, client)): (row, col)
+                    executor.submit(self.create_api_callable(row, col, client)): (row, col)
                     for (row, col), cell in table.items()
                     if cell is WaitingAPICall
                 }
@@ -105,7 +105,7 @@ class ProfileCommand(ToolkitCommand, ABC):
         raise NotImplementedError("Subclasses must implement create_initial_table.")
 
     @abstractmethod
-    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         raise NotImplementedError("Subclasses must implement call_api.")
 
     def format_result(self, result: object, row: str, col: str) -> CellValue:
@@ -248,7 +248,7 @@ class ProfileAssetCommand(ProfileCommand):
             table[(index, self.Columns.ColumnCount)] = None
         return table
 
-    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         agg_name, *rest = row.split(self._index_split)
         aggregator = self.aggregators[agg_name]
         if col == self.Columns.Count:
@@ -478,7 +478,7 @@ class ProfileAssetCentricCommand(ProfileCommand):
             table[(index, self.Columns.Transformation)] = WaitingAPICall
         return table
 
-    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         aggregator = self.aggregators[row]
         if col == self.Columns.Count:
             return aggregator.count
@@ -555,5 +555,5 @@ class ProfileTransformationCommand(ProfileCommand):
             )
         return table
 
-    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
