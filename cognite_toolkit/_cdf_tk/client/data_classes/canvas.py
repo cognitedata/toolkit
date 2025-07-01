@@ -936,7 +936,7 @@ class IndustrialCanvasApply:
 
 
 class IndustrialCanvas:
-    """This class represents one instances of the Canvas with all connected data."""
+    """This class represents one instance of the Canvas with all connected data."""
 
     def __init__(
         self,

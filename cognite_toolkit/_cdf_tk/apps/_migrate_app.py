@@ -1,9 +1,14 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 
-from cognite_toolkit._cdf_tk.commands import MigrateTimeseriesCommand, MigrationCanvasCommand, MigrationPrepareCommand
+from cognite_toolkit._cdf_tk.commands import (
+    MigrateAssetsCommand,
+    MigrateTimeseriesCommand,
+    MigrationCanvasCommand,
+    MigrationPrepareCommand,
+)
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -12,6 +17,8 @@ class MigrateApp(typer.Typer):
         super().__init__(*args, **kwargs)
         self.callback(invoke_without_command=True)(self.main)
         self.command("prepare")(self.prepare)
+        # Uncomment when command is ready.
+        # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
         self.command("canvas")(self.canvas)
 
@@ -53,6 +60,48 @@ class MigrateApp(typer.Typer):
         cmd.run(
             lambda: cmd.deploy_cognite_migration(
                 client,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def assets(
+        ctx: typer.Context,
+        mapping_file: Annotated[
+            Path,
+            typer.Option(
+                "--mapping-file",
+                "-m",
+                help="Path to the mapping file that contains the mapping from Assets to CogniteAssets. "
+                "This file is expected to have the following columns: [id/externalId, dataSetId, space, externalId]."
+                "The dataSetId is optional, and can be skipped. If it is set, it is used to check the access to the dataset.",
+            ),
+        ],
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of what would be done is printed.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Assets to CogniteAssets."""
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = MigrateAssetsCommand()
+        cmd.run(
+            lambda: cmd.migrate_assets(
+                client,
+                mapping_file=mapping_file,
                 dry_run=dry_run,
                 verbose=verbose,
             )
@@ -105,7 +154,7 @@ class MigrateApp(typer.Typer):
     def canvas(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="The external ID of the Canvas to migrate. If not provided, and interactive selection will be "
                 "performed to select the Canvas to migrate."

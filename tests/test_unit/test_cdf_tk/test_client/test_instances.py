@@ -1,46 +1,16 @@
 import json
-import socket
 
 import pytest
 import responses
-from cognite.client import global_config
-from cognite.client.credentials import Token
 from cognite.client.data_classes.data_modeling import EdgeId, NodeApply, NodeId, NodeOrEdgeData, ViewId
-from cognite.client.data_classes.data_modeling.cdm.v1 import CogniteTimeSeriesApply
+from cognite.client.data_classes.data_modeling.cdm.v1 import (
+    CogniteAnnotationApply,
+    CogniteAssetApply,
+    CogniteTimeSeriesApply,
+)
 from cognite.client.exceptions import CogniteAPIError, CogniteConnectionError, CogniteReadTimeout
 
 from cognite_toolkit._cdf_tk.client import ToolkitClient, ToolkitClientConfig
-
-BASE_URL = "http://blabla.cognitedata.com"
-TOKEN_URL = "https://test.com/token"
-
-
-@pytest.fixture
-def toolkit_config():
-    return ToolkitClientConfig(
-        client_name="test-client",
-        project="test-project",
-        base_url=BASE_URL,
-        max_workers=1,
-        timeout=10,
-        credentials=Token("abc"),
-    )
-
-
-@pytest.fixture
-def disable_gzip():
-    old = global_config.disable_gzip
-    global_config.disable_gzip = True
-    yield
-    global_config.disable_gzip = old
-
-
-@pytest.fixture
-def max_retries_2():
-    old = global_config.max_retries
-    global_config.max_retries = 2
-    yield
-    global_config.max_retries = old
 
 
 @pytest.fixture()
@@ -54,6 +24,46 @@ def some_timeseries() -> CogniteTimeSeriesApply:
 
 
 class TestInstances:
+    def test_apply_fast_failed_multiple_types(self, toolkit_config) -> None:
+        different_instance_types = [
+            CogniteTimeSeriesApply(
+                space="some_space",
+                external_id="test_time_series",
+                is_step=False,
+                time_series_type="numeric",
+            ),
+            CogniteAssetApply(
+                space="some_space",
+                external_id="test_asset",
+                name="Test Asset",
+            ),
+            CogniteAnnotationApply(
+                space="some_space",
+                external_id="test_annotation",
+                type=("some_space", "entity.match"),
+                start_node=("some_space", "test_asset"),
+                end_node=("some_space", "test_asset"),
+                name="Test Annotation",
+            ),
+        ]
+        url = f"{toolkit_config.base_url}/api/v1/projects/test-project/models/instances"
+        with responses.RequestsMock() as rsps:
+            rsps.add(
+                responses.POST,
+                url,
+                status=400,
+                json={"error": "Invalid request", "message": "the message"},
+            )
+            client = ToolkitClient(config=toolkit_config)
+            with pytest.raises(CogniteAPIError) as exc_info:
+                _ = client.data_modeling.instances.apply_fast(different_instance_types)
+
+        error = exc_info.value
+        assert isinstance(error, CogniteAPIError)
+        assert error.code == 400
+        assert error.message == "Invalid request"
+        assert error.failed == [instance.as_id() for instance in different_instance_types]
+
     @pytest.mark.usefixtures("disable_gzip")
     def test_apply_fast_429_status_split(self, toolkit_config: ToolkitClientConfig) -> None:
         instances = [
@@ -160,7 +170,7 @@ class TestInstances:
             pytest.param(
                 dict(body=ConnectionRefusedError("Connection refused")), CogniteConnectionError, id="Connection refused"
             ),
-            pytest.param(dict(body=socket.timeout("timed out")), CogniteReadTimeout, id="Connection timed out"),
+            pytest.param(dict(body=TimeoutError("timed out")), CogniteReadTimeout, id="Connection timed out"),
         ],
     )
     def test_apply_fast_raise(

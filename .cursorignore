@@ -1,0 +1,191 @@
+# Cursor Ignore File - Excludes all secrets and sensitive data
+
+# Environment files and secrets
+.env
+.env.*
+*.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+
+# Authentication and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.p8
+id_rsa
+id_rsa.pub
+id_ed25519
+id_ed25519.pub
+*.keystore
+*.jks
+
+# API keys and tokens
+*api_key*
+*api_token*
+*access_token*
+*secret*
+*password*
+*credential*
+*token*
+*key*
+
+
+# Database credentials
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Log files (may contain sensitive data)
+*.log
+logs/
+log/
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+
+# Cache directories
+.cache/
+cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build and distribution directories
+build/
+dist/
+target/
+out/
+*.egg-info/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python virtual environments
+venv/
+env/
+.venv/
+.env/
+ENV/
+
+# Docker and container files
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Kubernetes secrets
+*.yaml
+*.yml
+*secret*.yaml
+*secret*.yml
+*config*.yaml
+*config*.yml
+
+# Terraform state and variables
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.auto.tfvars
+.terraform/
+
+# AWS credentials and config
+.aws/
+aws.config
+aws.credentials
+~/.aws/
+
+# Azure credentials
+.azure/
+azure.config
+azure.credentials
+
+# Google Cloud credentials
+gcloud/
+*.json
+service-account-*.json
+
+# SSH and remote access
+.ssh/
+ssh_config
+ssh_known_hosts
+
+# SSL certificates
+*.crt
+*.cer
+*.der
+*.p7b
+*.p7c
+*.p12
+*.pfx
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Archive files
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# Binary files
+*.exe
+*.dll
+*.so
+*.dylib
+*.bin
+
+# Data files that might contain sensitive information
+*.csv
+*.xlsx
+*.xls
+*.json
+*.xml
+data/
+datasets/
+
+
+# Lock files
+package-lock.json
+yarn.lock
+poetry.lock
+Pipfile.lock
+
+# Coverage and test reports
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
