@@ -251,7 +251,7 @@ class DatapointSubscriptionLoader(
             if len(item.path) >= length + 1 and item.path[:length] == parameter_path[:length]:
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+                object.__setattr__(item, "path", (*item.path[:length], ANY_STR, *item.path[length:]))
         spec.add(ParameterSpec(("filter", ANYTHING), frozenset({"dict"}), is_required=False, _is_nullable=False))
         return spec
 

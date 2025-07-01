@@ -790,9 +790,9 @@ class ViewLoader(ResourceLoader[ViewId, ViewApply, View, ViewApplyList, ViewList
                 is_has_data_filter = item.path[1] in ["containers", "views"]
                 if is_has_data_filter:
                     # Special handling of the HasData filter that deviates in SDK implementation from API Spec.
-                    object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length + 1 :])
+                    object.__setattr__(item, "path", (*item.path[:length], ANY_STR, item.path[length + 1 :]))
                 else:
-                    object.__setattr__(item, "path", item.path[:length] + (ANY_STR,) + item.path[length:])
+                    object.__setattr__(item, "path", (*item.path[:length], ANY_STR, *item.path[length:]))
 
         spec.add(ParameterSpec(("filter", ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False))
         # The following types are used by the SDK to load the correct class. They are not part of the init,
