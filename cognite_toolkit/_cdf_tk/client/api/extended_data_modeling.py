@@ -9,7 +9,7 @@ from cognite.client._api.data_modeling.instances import InstancesAPI
 from cognite.client._api_client import T
 from cognite.client._cognite_client import ClientConfig, CogniteClient
 from cognite.client._http_client import HTTPClient, HTTPClientConfig, get_global_requests_session
-from cognite.client.data_classes.data_modeling import InstanceApply
+from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, NodeId
 from cognite.client.exceptions import CogniteConnectionError, CogniteReadTimeout
 from cognite.client.utils import _json
 from cognite.client.utils._concurrency import execute_tasks
@@ -97,9 +97,15 @@ class ExtendedInstancesAPI(InstancesAPI):
             executor=ToolkitConcurrencySettings.get_data_modeling_write_executor(),
         )
 
-        def unwrap_element(el: T) -> InstanceApply | T:
+        def unwrap_element(el: T) -> InstanceApply | NodeId | EdgeId | T:
             if isinstance(el, dict):
-                return type(items[0])._load(el, cognite_client=self._cognite_client)
+                instance_type = el.get("instanceType")
+                if instance_type == "node":
+                    return NodeId.load(el)
+                elif instance_type == "edge":
+                    return EdgeId.load(el)
+                else:
+                    return InstanceApply._load(el)
             else:
                 return el
 
