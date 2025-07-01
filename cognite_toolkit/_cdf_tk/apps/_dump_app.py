@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Any, Union
 
 import typer
 from cognite.client.data_classes import WorkflowVersionId
@@ -82,7 +82,7 @@ class DumpConfigApp(typer.Typer):
     def dump_datamodel_cmd(
         ctx: typer.Context,
         data_model_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="Data model ID to dump. Format: space external_id version. Example: 'my_space my_external_id v1'. "
                 "Note that version is optional and defaults to the latest published version. If nothing is provided,"
@@ -148,7 +148,7 @@ class DumpConfigApp(typer.Typer):
     def dump_workflow(
         ctx: typer.Context,
         workflow_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="Workflow ID to dump. Format: external_id version. Example: 'my_external_id v1'. "
                 "If nothing is provided, an interactive prompt will be shown to select the workflow",
@@ -204,7 +204,7 @@ class DumpConfigApp(typer.Typer):
     def dump_transformation(
         ctx: typer.Context,
         transformation_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="Transformation IDs to dump. Format: external_id. Example: 'my_external_id'. "
                 "If nothing is provided, an interactive prompt will be shown to select the transformation(s).",
@@ -253,7 +253,7 @@ class DumpConfigApp(typer.Typer):
     def dump_group(
         ctx: typer.Context,
         group_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="Group name to dump. Format: name. Example: 'my_group'. "
                 "If nothing is provided, an interactive prompt will be shown to select the group.",
@@ -302,7 +302,7 @@ class DumpConfigApp(typer.Typer):
     def dump_node(
         ctx: typer.Context,
         view_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="The view with the node properties you want to dump. Format: space externalId version. Example: 'my_space my_external_id version'. "
                 "If nothing is provided, an interactive prompt will be shown to select the view.",
@@ -361,7 +361,7 @@ class DumpConfigApp(typer.Typer):
     def dump_location_filters(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="The external IDs of the location filters you want to dump. You can provide multiple external IDs separated by spaces. "
                 "If nothing is provided, an interactive prompt will be shown to select the location filters.",
@@ -426,7 +426,7 @@ class DumpDataApp(typer.Typer):
     def dump_asset_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
@@ -434,7 +434,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = None,
         data_set: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
@@ -451,7 +451,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = "csv",
         limit: Annotated[
-            Optional[int],
+            int | None,
             typer.Option(
                 "--limit",
                 "-l",
@@ -505,7 +505,7 @@ class DumpDataApp(typer.Typer):
     def dump_files_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
@@ -513,7 +513,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = None,
         data_set: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
@@ -529,7 +529,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = "csv",
         limit: Annotated[
-            Optional[int],
+            int | None,
             typer.Option(
                 "--limit",
                 "-l",
@@ -583,7 +583,7 @@ class DumpDataApp(typer.Typer):
     def dump_timeseries_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
@@ -591,7 +591,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = None,
         data_set: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
@@ -607,7 +607,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = "csv",
         limit: Annotated[
-            Optional[int],
+            int | None,
             typer.Option(
                 "--limit",
                 "-l",
@@ -660,7 +660,7 @@ class DumpDataApp(typer.Typer):
     def dump_event_cmd(
         ctx: typer.Context,
         hierarchy: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--hierarchy",
                 "-h",
@@ -668,7 +668,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = None,
         data_set: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Option(
                 "--data-set",
                 "-d",
@@ -684,7 +684,7 @@ class DumpDataApp(typer.Typer):
             ),
         ] = "csv",
         limit: Annotated[
-            Optional[int],
+            int | None,
             typer.Option(
                 "--limit",
                 "-l",

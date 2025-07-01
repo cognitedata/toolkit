@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -23,14 +23,14 @@ class PopulateApp(typer.Typer):
         self,
         ctx: typer.Context,
         view_id: Annotated[
-            Optional[list[str]],
+            list[str] | None,
             typer.Argument(
                 help="View ID to populate. Format space external ID version, for example 'cdf_cdm CogniteAsset v1'"
                 " If not provided, interactive mode will be used.",
             ),
         ] = None,
         table: Annotated[
-            Optional[Path],
+            Path | None,
             typer.Option(
                 "--table",
                 "-t",
@@ -39,7 +39,7 @@ class PopulateApp(typer.Typer):
             ),
         ] = None,
         instance_space: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--space",
                 "-s",
@@ -47,7 +47,7 @@ class PopulateApp(typer.Typer):
             ),
         ] = None,
         external_id_column: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--external-id-column",
                 "-e",
