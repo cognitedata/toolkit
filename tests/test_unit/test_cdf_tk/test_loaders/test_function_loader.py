@@ -5,6 +5,7 @@ import pytest
 import yaml
 from cognite.client.credentials import OAuthClientCredentials
 from cognite.client.data_classes import Function, FunctionSchedule, FunctionWrite
+from cognite.client.data_classes.capabilities import FilesAcl, FunctionsAcl
 
 from cognite_toolkit._cdf_tk.client import ToolkitClientConfig
 from cognite_toolkit._cdf_tk.client.testing import monkeypatch_toolkit_client
@@ -72,13 +73,13 @@ secrets:
         filepath.parent.name = FunctionLoader.folder_name
 
         worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path))
-        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "update": len(to_update),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "update": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "update": 0, "delete": 0, "unchanged": 1}
 
         toolkit_client_approval.clear_cdf_resources(Function)
@@ -89,13 +90,13 @@ secrets:
             }
         )
         toolkit_client_approval.append(Function, cdf_function)
-        to_create, to_update, to_delete, unchanged, _ = worker.load_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "update": len(to_update),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "update": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 1, "update": 0, "delete": 1, "unchanged": 0}
 
     def test_dump_index_url_set(self, env_vars_with_client: EnvironmentVariables, tmp_path: Path) -> None:
@@ -121,6 +122,51 @@ secrets:
 
         assert "indexUrl" in dumped
         assert dumped["indexUrl"] == "http://my-index-url"
+
+    def test_get_function_required_capabilities(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        loader.data_set_id_by_external_id = {"function1": 123, "function2": 456}
+
+        # Mock data
+        items = [
+            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
+            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
+            FunctionWrite(external_id="function3", name="Function 3", file_id=1003),
+        ]
+
+        # Test read-only mode
+        read_capabilities = loader.get_function_required_capabilities(items, read_only=True)
+        assert len(read_capabilities) == 2
+        assert isinstance(read_capabilities[0], FunctionsAcl)
+        assert isinstance(read_capabilities[1], FilesAcl)
+        assert read_capabilities[0].actions == [FunctionsAcl.Action.Read]
+        assert read_capabilities[1].actions == [FilesAcl.Action.Read]
+        assert isinstance(read_capabilities[1].scope, FilesAcl.Scope.DataSet)
+        assert sorted(read_capabilities[1].scope.ids) == [123, 456]
+
+        # Test write mode
+        write_capabilities = loader.get_function_required_capabilities(items, read_only=False)
+        assert len(write_capabilities) == 2
+        assert write_capabilities[0].actions == [FunctionsAcl.Action.Read, FunctionsAcl.Action.Write]
+        assert write_capabilities[1].actions == [FilesAcl.Action.Read, FilesAcl.Action.Write]
+        assert isinstance(write_capabilities[1].scope, FilesAcl.Scope.DataSet)
+        assert sorted(write_capabilities[1].scope.ids) == [123, 456]
+
+    def test_get_function_required_capabilities_empty(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        capabilities = loader.get_function_required_capabilities([], read_only=False)
+        assert capabilities == []
+
+    def test_get_function_required_capabilities_no_datasets(self, env_vars_with_client: EnvironmentVariables) -> None:
+        loader = FunctionLoader.create_loader(env_vars_with_client.get_client(), None)
+        items = [
+            FunctionWrite(external_id="function1", name="Function 1", file_id=1001),
+            FunctionWrite(external_id="function2", name="Function 2", file_id=1002),
+        ]
+
+        capabilities = loader.get_function_required_capabilities(items, read_only=False)
+        assert len(capabilities) == 2
+        assert isinstance(capabilities[1].scope, FilesAcl.Scope.All)
 
 
 class TestFunctionScheduleLoader:

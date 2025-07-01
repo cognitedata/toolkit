@@ -55,7 +55,7 @@ def test_deploy_complete_org(env_vars: EnvironmentVariables, build_dir: Path) ->
         os.environ,
         {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
     ):
-        deploy_command.execute(
+        deploy_command.deploy_build_directory(
             env_vars=env_vars,
             build_dir=build_dir,
             build_env_name="dev",
@@ -97,7 +97,7 @@ def test_deploy_complete_org_alpha(env_vars: EnvironmentVariables, build_dir: Pa
         os.environ,
         {"EVENTHUB_CLIENT_ID": client_id, "EVENTHUB_CLIENT_SECRET": client_secret},
     ):
-        deploy_command.execute(
+        deploy_command.deploy_build_directory(
             env_vars,
             build_dir=build_dir,
             build_env_name="dev",
@@ -126,8 +126,8 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
         loader = loader_cls.create_loader(client, build_dir)
         worker = ResourceWorker(loader)
         files = worker.load_files()
-        _, to_update, *__ = worker.load_resources(files, environment_variables=env_vars.dump())
-        if changed := (set(loader.get_ids(to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
+        resources = worker.prepare_resources(files, environment_variables=env_vars.dump())
+        if changed := (set(loader.get_ids(resources.to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
             # We do not have a way to get CogniteFile extensions. This is a workaround to avoid the test failing.
             changed_resources[loader.display_name] = changed
 

@@ -25,13 +25,11 @@ class TestDataSetsLoader:
         toolkit_client_approval.append(DataSet, first)
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources(
-            [LOAD_DATA / "data_sets" / "1.my_datasets.yaml"]
-        )
+        resources = worker.prepare_resources([LOAD_DATA / "data_sets" / "1.my_datasets.yaml"])
 
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 1, "change": 0, "delete": 0, "unchanged": 1}

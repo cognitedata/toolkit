@@ -370,9 +370,9 @@ Node:
       customerDataSpaceVersion: '1'
       featureConfiguration:
         rootLocationConfigurations:
-        - appDataInstanceSpace: sp_<change_me>_app_data
-          assetExternalId: <change_me>
-          sourceDataInstanceSpace: sp_<change_me>_source_data
+        - appDataInstanceSpace: sp_my_location_app_data
+          assetExternalId: my_root_asset
+          sourceDataInstanceSpace: sp_my_location_source_data
       name: InRobot APM App Config
     source:
       externalId: APM_Config

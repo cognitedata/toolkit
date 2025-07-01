@@ -13,6 +13,7 @@ from cognite.client.data_classes import (
     AssetWriteList,
     ClientCredentials,
     DataPointSubscriptionWrite,
+    DataSet,
     Function,
     FunctionSchedule,
     FunctionSchedulesList,
@@ -21,7 +22,9 @@ from cognite.client.data_classes import (
     FunctionTaskParameters,
     GroupWrite,
     LabelDefinitionWrite,
+    TimeSeriesList,
     TimeSeriesWrite,
+    TimeSeriesWriteList,
     WorkflowVersionUpsert,
     WorkflowVersionUpsertList,
     filters,
@@ -131,6 +134,30 @@ class TestFunctionScheduleLoader:
                 toolkit_client.functions.schedules.delete(created[0].id)
 
 
+@pytest.fixture(scope="session")
+def three_timeseries(cognite_client: CogniteClient) -> TimeSeriesList:
+    ts_list = TimeSeriesWriteList(
+        [
+            TimeSeriesWrite(
+                external_id=f"toolkit_test_timeseries_{i}",
+                name=f"Toolkit Test TimeSeries {i}",
+                is_step=False,
+                is_string=False,
+            )
+            for i in range(1, 4)
+        ]
+    )
+    retrieved = cognite_client.time_series.retrieve_multiple(
+        external_ids=ts_list.as_external_ids(), ignore_unknown_ids=True
+    )
+    existing = set(retrieved.as_external_ids())
+    to_create = [ts for ts in ts_list if ts.external_id not in existing]
+    if to_create:
+        created = cognite_client.time_series.create(to_create)
+        retrieved.extend(created)
+    return retrieved
+
+
 class TestDatapointSubscriptionLoader:
     def test_delete_non_existing(self, cognite_client: CogniteClient) -> None:
         loader = DatapointSubscriptionLoader(cognite_client, None)
@@ -162,6 +189,40 @@ class TestDatapointSubscriptionLoader:
             assert updated[0].name == "Updated name"
         finally:
             loader.delete([sub.external_id])
+
+    def test_no_redeploy_ids_defined(
+        self, toolkit_client: ToolkitClient, toolkit_dataset: DataSet, three_timeseries: TimeSeriesList
+    ) -> None:
+        definition_yaml = f"""externalId: toolkit_test_no_redeploy_ids_defined
+name: Test no redeploy IDs defined
+partitionCount: 1
+dataSetExternalId: {toolkit_dataset.external_id}
+timeSeriesIds:
+- {three_timeseries[0].external_id}
+- {three_timeseries[1].external_id}
+- {three_timeseries[2].external_id}
+"""
+        loader = DatapointSubscriptionLoader.create_loader(toolkit_client)
+
+        filepath = MagicMock(spec=Path)
+        filepath.read_text.return_value = definition_yaml
+
+        resource_dict = loader.load_resource_file(filepath, {})
+        assert len(resource_dict) == 1
+        resource = loader.load_resource(resource_dict[0])
+        assert isinstance(resource, DataPointSubscriptionWrite)
+        if not loader.retrieve([resource.external_id]):
+            _ = loader.create(DatapointSubscriptionWriteList([resource]))
+
+        worker = ResourceWorker(loader)
+        resources = worker.prepare_resources([filepath])
+
+        assert {
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
+        } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
 class TestLabelLoader:
@@ -667,13 +728,13 @@ workflowDefinition:
             _ = loader.create(WorkflowVersionUpsertList([resource]))
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}
 
 
@@ -785,11 +846,11 @@ properties:
             _ = loader.create(ViewApplyList([resource]))
 
         worker = ResourceWorker(loader)
-        to_create, to_change, to_delete, unchanged, _ = worker.load_resources([filepath])
+        resources = worker.prepare_resources([filepath])
 
         assert {
-            "create": len(to_create),
-            "change": len(to_change),
-            "delete": len(to_delete),
-            "unchanged": len(unchanged),
+            "create": len(resources.to_create),
+            "change": len(resources.to_update),
+            "delete": len(resources.to_delete),
+            "unchanged": len(resources.unchanged),
         } == {"create": 0, "change": 0, "delete": 0, "unchanged": 1}

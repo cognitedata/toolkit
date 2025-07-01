@@ -31,6 +31,7 @@ from cognite_toolkit._cdf_tk.data_classes import BuildConfigYAML, Environment
 from cognite_toolkit._cdf_tk.exceptions import ToolkitDuplicatedModuleError
 from cognite_toolkit._cdf_tk.loaders import RESOURCE_LOADER_LIST
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
+from tests.constants import chdir
 from tests.data import (
     BUILD_GROUP_WITH_UNKNOWN_ACL,
     COMPLETE_ORG_ONLY_IDENTIFIER,
@@ -72,7 +73,7 @@ def test_inject_custom_environmental_variables(
         on_error="raise",
         verbose=False,
     )
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=build_tmp_path,
         build_env_name="dev",
@@ -129,6 +130,33 @@ def test_pull_dataset(
         verbose=False,
         env_vars=env_vars_with_client,
     )
+
+    reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    assert reloaded.description == "New description"
+
+
+def test_pull_dataset_relative_path(
+    build_tmp_path: Path,
+    toolkit_client_approval: ApprovalToolkitClient,
+    env_vars_with_client: EnvironmentVariables,
+    organization_dir_mutable: Path,
+) -> None:
+    # Loading a selected dataset to be pulled
+    dataset_yaml = organization_dir_mutable / MODULES / "cdf_common" / "data_sets" / "demo.DataSet.yaml"
+    dataset = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
+    dataset.description = "New description"
+    toolkit_client_approval.append(DataSet, dataset)
+
+    with chdir(organization_dir_mutable):
+        cmd = PullCommand(silent=True)
+        cmd.pull_module(
+            module_name_or_path=f"{MODULES}/cdf_common/data_sets/demo.DataSet.yaml",
+            organization_dir=organization_dir_mutable,
+            env="dev",
+            dry_run=False,
+            verbose=False,
+            env_vars=env_vars_with_client,
+        )
 
     reloaded = DataSet.load(dataset_yaml.read_text().replace("{{ dataset }}", "ingestion"))
     assert reloaded.description == "New description"
@@ -551,7 +579,7 @@ def test_deploy_group_with_unknown_acl(
     toolkit_client_approval: ApprovalToolkitClient,
     env_vars_with_client: EnvironmentVariables,
 ) -> None:
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars=env_vars_with_client,
         build_dir=BUILD_GROUP_WITH_UNKNOWN_ACL,
         build_env_name="dev",
@@ -651,7 +679,7 @@ def test_build_deploy_location_filter_with_same_filename_in_different_modules(
         "raise",
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_tmp_path,
         None,
@@ -688,7 +716,7 @@ def test_build_deploy_keep_special_characters(
         False, NAUGHTY_PROJECT, build_dir, ["encoding_issue"], None, False, env_vars_with_client.get_client(), "raise"
     )
 
-    DeployCommand(silent=True).execute(
+    DeployCommand(silent=True).deploy_build_directory(
         env_vars_with_client,
         build_dir,
         None,
