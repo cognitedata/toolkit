@@ -22,7 +22,7 @@ from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 from .base import BaseMigrateCommand
 from .data_classes import MigrationMapping, MigrationMappingList
-from .data_model import MAPPING_VIEW_ID
+from .data_model import INSTANCE_SOURCE_VIEW_ID
 
 
 class MigrateAssetsCommand(BaseMigrateCommand):
@@ -34,7 +34,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
 
     @property
     def schema_spaces(self) -> list[str]:
-        return [f"{self.cdf_cdm}", MAPPING_VIEW_ID.space]
+        return [f"{self.cdf_cdm}", INSTANCE_SOURCE_VIEW_ID.space]
 
     def source_acl(self, data_set_id: list[int]) -> Capability:
         return AssetsAcl(actions=[AssetsAcl.Action.Read], scope=DataSetScope(data_set_id))
@@ -132,7 +132,7 @@ class MigrateAssetsCommand(BaseMigrateCommand):
                     },
                 ),
                 NodeOrEdgeData(
-                    source=MAPPING_VIEW_ID,
+                    source=INSTANCE_SOURCE_VIEW_ID,
                     properties={
                         "resourceType": "asset",
                         "id": asset.id,
