@@ -75,6 +75,7 @@ INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
         "resourceType": BTreeIndex(["resourceType", "id"], cursorable=False),
     },
 )
+CONTAINERS = [VIEW_SOURCE_CONTAINER, INSTANCE_SOURCE_CONTAINER]
 
 VIEW_SOURCE_VIEW = dm.ViewApply(
     space=SPACE.space,
@@ -134,6 +135,8 @@ INSTANCE_SOURCE_VIEW = dm.ViewApply(
 )
 
 INSTANCE_SOURCE_VIEW_ID = INSTANCE_SOURCE_VIEW.as_id()
+
+VIEWS = [VIEW_SOURCE_VIEW, INSTANCE_SOURCE_VIEW]
 
 COGNITE_MIGRATION_MODEL = dm.DataModelApply(
     space=SPACE.space,

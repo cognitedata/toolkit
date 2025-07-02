@@ -16,7 +16,11 @@ class TestMigrateTimeSeriesCommand:
 
         dry_run_result = cmd.deploy_cognite_migration(toolkit_client, True, verbose=False)
 
-        actual_result = cmd.deploy_cognite_migration(toolkit_client, False, verbose=False)
+        actual_result = cmd.deploy_cognite_migration(
+            toolkit_client,
+            False,
+            verbose=False,
+        )
 
         assert dry_run_result.has_counts, "Dry run should have counts"
         assert actual_result.has_counts, "Actual should have counts"
