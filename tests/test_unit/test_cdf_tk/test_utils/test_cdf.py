@@ -532,7 +532,7 @@ class TestReadAuth:
     def test_read_valid_auth(self, auth: object, expected: ClientCredentials | OidcCredentials) -> None:
         config = MagicMock(spec=ToolkitClientConfig)
         result = read_auth(auth, config, "only-used-in-errors", "only-used-in-errors", allow_oidc=True)
-        assert isinstance(result, (ClientCredentials, OidcCredentials))
+        assert isinstance(result, ClientCredentials | OidcCredentials)
         assert result.dump() == expected.dump()
 
     @pytest.mark.parametrize(

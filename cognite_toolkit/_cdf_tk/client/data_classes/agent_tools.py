@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -28,7 +28,7 @@ class AgentToolCore(WriteableCogniteResource["AgentToolWrite"], ABC):
     name: str
     type: str
     description: str
-    configuration: Optional[dict[str, Any]] = None
+    configuration: dict[str, Any] | None = None
 
     def as_write(self) -> AgentToolWrite:
         return AgentToolWrite(
@@ -53,7 +53,7 @@ class AgentTool(AgentToolCore):
     """
 
     @classmethod
-    def _load(cls, resource: dict[str, Any], cognite_client: Optional[CogniteClient] = None) -> AgentTool:
+    def _load(cls, resource: dict[str, Any], cognite_client: CogniteClient | None = None) -> AgentTool:
         return cls(
             name=resource["name"],
             type=resource["type"],

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 import typer
 from rich import print
@@ -59,7 +59,7 @@ class RunApp(typer.Typer):
     def run_workflow(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--external-id",
                 "-e",
@@ -67,7 +67,7 @@ class RunApp(typer.Typer):
             ),
         ] = None,
         version: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--version",
                 "-v",
@@ -83,7 +83,7 @@ class RunApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -130,7 +130,7 @@ class RunFunctionApp(typer.Typer):
     def run_local(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="External id of the function to run.",
             ),
@@ -144,7 +144,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -152,7 +152,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_env,
         schedule: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--schedule",
                 "-s",
@@ -195,7 +195,7 @@ class RunFunctionApp(typer.Typer):
     def run_cdf(
         ctx: typer.Context,
         external_id: Annotated[
-            Optional[str],
+            str | None,
             typer.Argument(
                 help="External id of the function to run. If not provided, the function "
                 "will be selected interactively.",
@@ -210,7 +210,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_organization_dir,
         env_name: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--env",
                 "-e",
@@ -218,7 +218,7 @@ class RunFunctionApp(typer.Typer):
             ),
         ] = CDF_TOML.cdf.default_env,
         schedule: Annotated[
-            Optional[str],
+            str | None,
             typer.Option(
                 "--schedule",
                 "-s",

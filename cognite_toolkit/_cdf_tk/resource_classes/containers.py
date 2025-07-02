@@ -5,10 +5,10 @@ from pydantic import Field, field_validator, model_serializer
 from pydantic_core.core_schema import SerializationInfo, SerializerFunctionWrapHandler
 
 from cognite_toolkit._cdf_tk.constants import (
-    CONTAINER_EXTERNAL_ID_PATTERN,
-    CONTAINER_PROPERTIES_IDENTIFIER_PATTERN,
-    FORBIDDEN_CONTAINER_EXTERNAL_IDS,
-    FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER,
+    CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
+    CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN,
+    FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS,
+    FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER,
     SPACE_FORMAT_PATTERN,
 )
 from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
@@ -16,7 +16,7 @@ from cognite_toolkit._cdf_tk.utils.collection import humanize_collection
 from .base import ToolkitResource
 from .container_field_definitions import ConstraintDefinition, ContainerPropertyDefinition, IndexDefinition
 
-KEY_PATTERN = re.compile(CONTAINER_PROPERTIES_IDENTIFIER_PATTERN)
+KEY_PATTERN = re.compile(CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER_PATTERN)
 
 
 class ContainerYAML(ToolkitResource):
@@ -30,7 +30,7 @@ class ContainerYAML(ToolkitResource):
         description="External-id of the container.",
         min_length=1,
         max_length=255,
-        pattern=CONTAINER_EXTERNAL_ID_PATTERN,
+        pattern=CONTAINER_AND_VIEW_EXTERNAL_ID_PATTERN,
     )
     name: str | None = Field(
         default=None,
@@ -63,9 +63,9 @@ class ContainerYAML(ToolkitResource):
     @classmethod
     def check_forbidden_external_id_value(cls, val: str) -> str:
         """Check the external_id not present in forbidden set"""
-        if val in FORBIDDEN_CONTAINER_EXTERNAL_IDS:
+        if val in FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS:
             raise ValueError(
-                f"'{val}' is a reserved container External ID. Reserved External IDs are: {humanize_collection(FORBIDDEN_CONTAINER_EXTERNAL_IDS)}"
+                f"'{val}' is a reserved container External ID. Reserved External IDs are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_EXTERNAL_IDS)}"
             )
         return val
 
@@ -76,9 +76,9 @@ class ContainerYAML(ToolkitResource):
         for key in val.keys():
             if not KEY_PATTERN.match(key):
                 raise ValueError(f"Property '{key}' does not match the required pattern: {KEY_PATTERN.pattern}")
-            if key in FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER:
+            if key in FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER:
                 raise ValueError(
-                    f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_PROPERTIES_IDENTIFIER)}"
+                    f"'{key}' is a reserved property identifier. Reserved identifiers are: {humanize_collection(FORBIDDEN_CONTAINER_AND_VIEW_PROPERTIES_IDENTIFIER)}"
                 )
         return val
 
