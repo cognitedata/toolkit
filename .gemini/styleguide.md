@@ -139,7 +139,7 @@ def load_llm_response(response: str) -> dict[str, Any] | None:
 - **Formatter**: `uv run ruff format --force-exclude --quiet`
 - **Linter**: `uv run ruff check --force-exclude --fix --exit-non-zero-on-fix`
 - **Type checker**: `dmypy run -- cognite_toolkit/ --config-file pyproject.toml` (uses mypy)
-- **Pre-commit**: `make pre-commit-happy` for comprehensive checks
+- **Pre-commit**: `pre-commit run --all-files` for comprehensive checks
 
 ## Ruff Configuration Deviations
 
