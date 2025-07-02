@@ -23,8 +23,8 @@ from .data_model import MAPPING_VIEW_ID
 
 
 class BaseMigrateCommand(ToolkitCommand, ABC):
-    @abstractmethod
     @property
+    @abstractmethod
     def schema_spaces(self) -> list[str]:
         """Return the schema spaces used by this migration command."""
         raise NotImplementedError()
@@ -50,7 +50,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
         if data_set_ids is not None:
             required_capabilities.append(self.source_acl(data_set_ids))
         if missing := client.iam.verify_capabilities(required_capabilities):
-            raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.")
+            raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.", missing)
 
     @staticmethod
     def validate_instance_source_exists(client: ToolkitClient) -> None:
@@ -75,8 +75,8 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
         if available_capacity_after < DMS_INSTANCE_LIMIT_MARGIN:
             raise ToolkitValueError(
                 "Cannot proceed with migration, not enough instance capacity available. Total capacity after migration"
-                f"would be {available_capacity_after:,} instances, which is less than the required margin of"
-                f"{DMS_INSTANCE_LIMIT_MARGIN:,} instances. Please increase the instance capacity in your CDF project"
+                f" would be {available_capacity_after:,} instances, which is less than the required margin of"
+                f" {DMS_INSTANCE_LIMIT_MARGIN:,} instances. Please increase the instance capacity in your CDF project"
                 f" or delete some existing instances before proceeding with the migration of {instance_count:,} assets."
             )
         total_instances = stats.instances.instances + instance_count
