@@ -10,10 +10,10 @@ from cognite_toolkit._cdf_tk.client.data_classes.search_config import SearchConf
 class SearchConfigurationsAPI(APIClient):
     def __init__(self, config: ClientConfig, api_version: str | None, cognite_client: CogniteClient) -> None:
         super().__init__(config, api_version, cognite_client)
-        if self._api_version is None:
-            self._api_version = "v1"
+        # this is hopefully a very temporary fix to avoid the client concatinating the _RESOURCE_PATH with the ordinary /api/ path.
+        self._api_version = None
         self._RESOURCE_PATH = (
-            f"/apps/{self._api_version}/projects/{self._cognite_client.config.project}/storage/config/apps/search/views"
+            f"/apps/v1/projects/{self._cognite_client.config.project}/storage/config/apps/search/views"
         )
 
     def upsert(self, configuration_update: SearchConfigWrite) -> SearchConfig:
