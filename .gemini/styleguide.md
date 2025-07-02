@@ -136,7 +136,7 @@ def load_llm_response(response: str) -> dict[str, Any] | None:
 
 ## Tooling
 
-- **Formatter**: `poetry run ruff format --force-exclude --quiet`
+- **Formatter**: `uv run ruff format --force-exclude --quiet`
 - **Linter**: `poetry run ruff check --force-exclude --fix --exit-non-zero-on-fix`
 - **Type checker**: `make py-lint` (uses pyright)
 - **Pre-commit**: `make pre-commit-happy` for comprehensive checks
