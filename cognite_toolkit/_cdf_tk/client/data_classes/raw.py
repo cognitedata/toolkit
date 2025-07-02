@@ -54,6 +54,9 @@ class RawTable(WriteableCogniteResource):
     def as_write(self) -> RawTable:
         return self
 
+    def __str__(self) -> str:
+        return f"{self.db_name}.{self.table_name}"
+
 
 class RawDatabaseList(WriteableCogniteResourceList[RawDatabase, RawDatabase]):
     _RESOURCE = RawDatabase
