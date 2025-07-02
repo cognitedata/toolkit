@@ -33,7 +33,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
     def source_acl(self, data_set_id: list[int]) -> Capability:
         raise NotImplementedError()
 
-    def _validate_access(
+    def validate_access(
         self, client: ToolkitClient, instance_spaces: list[str], data_set_ids: list[int] | None = None
     ) -> None:
         required_capabilities: list[Capability] = [
@@ -53,7 +53,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
             raise AuthenticationError(f"Missing required capabilities: {humanize_collection(missing)}.")
 
     @staticmethod
-    def _validate_instance_source_exists(client: ToolkitClient) -> None:
+    def validate_instance_source_exists(client: ToolkitClient) -> None:
         view = client.data_modeling.views.retrieve(MAPPING_VIEW_ID)
         if not view:
             raise ToolkitMigrationError(
@@ -61,7 +61,7 @@ class BaseMigrateCommand(ToolkitCommand, ABC):
                 f"Please run the `cdf migrate prepare` command to deploy the migration data model."
             )
 
-    def _validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
+    def validate_available_capacity(self, client: ToolkitClient, instance_count: int) -> None:
         """Validate that the project has enough capacity to accommodate the migration."""
         try:
             stats = client.data_modeling.statistics.project()

@@ -48,9 +48,9 @@ class MigrateAssetsCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file)
-        self._validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
-        self._validate_instance_source_exists(client)
-        self._validate_available_capacity(client, len(mappings))
+        self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
+        self.validate_instance_source_exists(client)
+        self.validate_available_capacity(client, len(mappings))
         iteration_count = len(mappings) // self.chunk_size + 1
         executor = ProducerWorkerExecutor[list[tuple[Asset, MigrationMapping]], list[NodeApply]](
             download_iterable=self._download_assets(client, mappings),

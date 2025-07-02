@@ -52,9 +52,9 @@ class MigrateTimeseriesCommand(BaseMigrateCommand):
     ) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
         mappings = MigrationMappingList.read_mapping_file(mapping_file)
-        self._validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
+        self.validate_access(client, list(mappings.spaces()), list(mappings.get_data_set_ids()))
         self._validate_timeseries_existence(client, mappings)
-        self._validate_available_capacity(client, len(mappings))
+        self.validate_available_capacity(client, len(mappings))
 
         if dry_run:
             self.console(f"Dry run mode. Would have migrated {len(mappings):,} TimeSeries to CogniteTimeSeries.")
