@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes._base import (
@@ -14,7 +14,7 @@ from cognite.client.data_classes._base import (
     WriteableCogniteResource,
     WriteableCogniteResourceList,
 )
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self
 
 MapType: TypeAlias = Literal["WAYPOINTMAP", "THREEDMODEL", "TWODMAP", "POINTCLOUD"]
 
