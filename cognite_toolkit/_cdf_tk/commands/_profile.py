@@ -579,7 +579,13 @@ class ProfileTransformationCommand(ProfileCommand[str]):
         raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
 
 
-class ProfileRawCommand(ProfileCommand[str]):
+@dataclass(frozen=True)
+class RawProfileIndex:
+    raw_table: RawTable
+    transformation_id: int | None = None
+
+
+class ProfileRawCommand(ProfileCommand[RawProfileIndex]):
     class Columns:
         RAW = "Raw"
         Rows = "Rows"
@@ -593,7 +599,7 @@ class ProfileRawCommand(ProfileCommand[str]):
     # will cause 504 errors.
     profile_timeout_seconds = 60 * 4  # Timeout for the profiling operation in seconds,
     # This is the same ase the run/query maximum timeout.
-    _index_split = "-"
+
     is_dynamic_table = True
 
     def __init__(self, print_warning: bool = True, skip_tracking: bool = False, silent: bool = False) -> None:
@@ -612,15 +618,15 @@ class ProfileRawCommand(ProfileCommand[str]):
         self.destination_type = destination_type
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
-        table: dict[tuple[str, str], PendingCellValue] = {}
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
+        table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
         existing_tables = self._get_existing_tables(client)
         transformations_by_raw_table = self._get_transformations_by_raw_table(client, self.destination_type)
         for raw_id, transformations in transformations_by_raw_table.items():
             is_missing = raw_id not in existing_tables
             missing_str = " (missing)" if is_missing else ""
             for transformation in transformations:
-                index = f"{raw_id!s}{self._index_split}{transformation.id}"
+                index = RawProfileIndex(raw_table=raw_id, transformation_id=transformation.id)
                 table[(index, self.Columns.RAW)] = f"{raw_id!s}{missing_str}"
                 if is_missing:
                     table[(index, self.Columns.Rows)] = "N/A"
@@ -635,46 +641,42 @@ class ProfileRawCommand(ProfileCommand[str]):
                 table[(index, self.Columns.ConflictMode)] = transformation.conflict_mode
         return table
 
-    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: RawProfileIndex, col: str, client: ToolkitClient) -> Callable:
         if col == self.Columns.Rows:
-            raw_id = row.split(self._index_split)[0]
-            if "." not in raw_id:
-                raise ValueError(f"Database and table name are required for {row} in column {col}.")
-            db_name, table_name = raw_id.split(".", 1)
             return partial(
                 client.raw.profile,
-                database=db_name,
-                table=table_name,
+                database=row.raw_table.db_name,
+                table=row.raw_table.table_name,
                 limit=self.profile_row_limit,
                 timeout_seconds=self.profile_timeout_seconds,
             )
         raise ValueError(f"There are no API calls for {row} in column {col}.")
 
-    def format_result(self, result: object, row: str, col: str) -> CellValue:
+    def format_result(self, result: object, row: RawProfileIndex, col: str) -> CellValue:
         if isinstance(result, int | float | bool | str) or result is None:
             return result
         elif isinstance(result, RawProfileResults):
             return result.row_count
-        raise ValueError(f"Unknown result type: {type(result)} for {row} in column {col}.")
+        raise ValueError(f"Unknown result type: {type(result)} for {row!s} in column {col}.")
 
     def update_table(
         self,
-        current_table: dict[tuple[str, str], PendingCellValue],
+        current_table: dict[tuple[RawProfileIndex, str], PendingCellValue],
         result: object,
-        row: str,
-        col: str,
-    ) -> dict[tuple[str, str], PendingCellValue]:
-        if not isinstance(result, RawProfileResults) or col != self.Columns.Rows:
+        selected_row: RawProfileIndex,
+        selected_col: str,
+    ) -> dict[tuple[RawProfileIndex, str], PendingCellValue]:
+        if not isinstance(result, RawProfileResults) or selected_col != self.Columns.Rows:
             return current_table
         is_complete = result.is_complete and result.row_count < self.profile_row_limit
-        new_table: dict[tuple[str, str], PendingCellValue] = {}
-        for (r, c), value in current_table.items():
-            if r == row and c == self.Columns.Rows:
-                new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"
-            elif r == row and c == self.Columns.Columns:
-                new_table[(r, c)] = result.column_count if is_complete else f"≥{result.column_count:,}"
+        new_table: dict[tuple[RawProfileIndex, str], PendingCellValue] = {}
+        for (row, col), value in current_table.items():
+            if row == selected_row and col == self.Columns.Rows:
+                new_table[(row, col)] = result.row_count if is_complete else f"≥{result.row_count:,}"
+            elif row == selected_row and col == self.Columns.Columns:
+                new_table[(row, col)] = result.column_count if is_complete else f"≥{result.column_count:,}"
             else:
-                new_table[(r, c)] = value
+                new_table[(row, col)] = value
         return new_table
 
     @classmethod
