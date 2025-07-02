@@ -2,8 +2,7 @@ import os
 import re
 import sys
 from pathlib import Path
-
-from typing_extensions import Literal, TypeAlias
+from typing import Literal, TypeAlias
 
 try:
     from pyodide.ffi import IN_BROWSER  # type: ignore [import-not-found]

@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
@@ -22,7 +22,7 @@ jobs:
       - name: Linting and static code checks
         continue-on-error: true
         id: pre-commit-first-run
-        uses: pre-commit/action@v3.0.1
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6
         id: auto-commit-action
@@ -32,14 +32,14 @@ jobs:
       # If the first run failed, run the checks again to ensure that the changes fixed the issue.
       - name: Linting and static code checks try 2
         if: steps.pre-commit-first-run.outcome != 'success'
-        uses: pre-commit/action@v3.0.1
+        uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
   test-no-alpha:
     name: Run tests without alpha features
     runs-on: ubuntu-latest
     environment: dev
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.10"
       - name: Install dependencies
@@ -73,7 +73,7 @@ jobs:
           - "3.13"
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
@@ -96,7 +96,7 @@ jobs:
       IDP_TOKEN_URL: ${{ secrets.IDP_TOKEN_URL }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: 3.11
       - name: Install dependencies
@@ -108,7 +108,7 @@ jobs:
           IS_GITHUB_ACTIONS: "true"
         run: uv run pytest --cov=cognite_toolkit/ --cov-config=pyproject.toml --cov-report=xml:coverage.xml tests/   -n8
       - name: Push coverage report to PR
-        uses: orgoro/coverage@v3.2
+        uses: orgoro/coverage@3f13a558c5af7376496aa4848bf0224aead366ac # v3.2
         with:
             coverageFile: coverage.xml
             thresholdAll: 0.6
@@ -125,8 +125,8 @@ jobs:
         LOGIN_FLOW: client_credentials
     name: Dry Run Demo
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
@@ -156,7 +156,7 @@ jobs:
   Build-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       - id: version
         name: Toolkit Version
         # Read the version from the cognite_toolkit/_version.py file
@@ -191,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dependencies
@@ -199,7 +199,7 @@ jobs:
           pip install uv
           uv sync --all-extras
       - name: Dump description to file
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7
         with:
           script: |
             const fs = require('fs');

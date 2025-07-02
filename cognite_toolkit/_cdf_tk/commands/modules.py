@@ -8,7 +8,7 @@ from hashlib import sha256
 from importlib import resources
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import questionary
 import requests
@@ -291,7 +291,7 @@ default_organization_dir = "{organization_dir.name}"''',
 
     def init(
         self,
-        organization_dir: Optional[Path] = None,
+        organization_dir: Path | None = None,
         select_all: bool = False,
         clean: bool = False,
         user_select: str | None = None,

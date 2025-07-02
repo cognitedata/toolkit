@@ -467,7 +467,7 @@ class GroupLoader(ResourceLoader[str, GroupWrite, Group, GroupWriteList, GroupLi
             if item.path[0] == "capabilities" and len(item.path) > 2:
                 # Add extra ANY_STR layer
                 # The spec class is immutable, so we use this trick to modify it.
-                object.__setattr__(item, "path", item.path[:2] + (ANY_STR,) + item.path[2:])
+                object.__setattr__(item, "path", (*item.path[:2], ANY_STR, *item.path[2:]))
         spec.add(
             ParameterSpec(
                 ("capabilities", ANY_INT, ANY_STR), frozenset({"dict"}), is_required=False, _is_nullable=False

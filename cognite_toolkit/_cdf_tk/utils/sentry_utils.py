@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from cognite_toolkit._cdf_tk.exceptions import (
     ToolkitError,
@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from sentry_sdk.types import Hint as SentryHint
 
 
-def sentry_exception_filter(event: "SentryEvent", hint: "SentryHint") -> "Optional[SentryEvent]":
+def sentry_exception_filter(event: "SentryEvent", hint: "SentryHint") -> "SentryEvent | None":
     if "exc_info" in hint:
         exc_type, exc_value, tb = hint["exc_info"]
         # Returning None prevents the event from being sent to Sentry
