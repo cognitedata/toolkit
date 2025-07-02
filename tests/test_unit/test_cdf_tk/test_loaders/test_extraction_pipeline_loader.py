@@ -50,7 +50,7 @@ class TestExtractionPipelineDependencies:
         local_file.read_text.return_value = self.config_yaml
 
         loader = ExtractionPipelineConfigLoader.create_loader(toolkit_client_approval.mock_client)
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([local_file])
         assert {
             "create": len(resources.to_create),

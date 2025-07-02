@@ -12,7 +12,7 @@ class TestDeployCommand:
         path = MagicMock(spec=Path)
         path.name = "my.View.yaml"
         path.read_text.return_value = VIEW_SOURCE_NONE
-        worker = ResourceWorker(ViewLoader.create_loader(env_vars_with_client.get_client()))
+        worker = ResourceWorker(ViewLoader.create_loader(env_vars_with_client.get_client()), "deploy")
 
         with pytest.raises(TypeError) as e:
             worker.prepare_resources([path], environment_variables={}, is_dry_run=True, verbose=False)
