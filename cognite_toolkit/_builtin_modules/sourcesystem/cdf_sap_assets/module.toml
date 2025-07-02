@@ -1,12 +1,6 @@
 [module]
 title = "SAP Source System Asset/Equipment Metadata"
 
-[packages]
-tags = [
-    "sourcesystem",
-    "quickstart",
-]
-
 [dependencies]
 modules = []
 
