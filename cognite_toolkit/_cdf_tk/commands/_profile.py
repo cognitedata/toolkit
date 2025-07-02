@@ -579,7 +579,7 @@ class ProfileTransformationCommand(ProfileCommand[str]):
         raise NotImplementedError(f"{type(self).__name__} does not support API calls for {col} in row {row}.")
 
 
-class ProfileRawCommand(ProfileCommand):
+class ProfileRawCommand(ProfileCommand[str]):
     class Columns:
         RAW = "Raw"
         Rows = "Rows"
@@ -612,8 +612,8 @@ class ProfileRawCommand(ProfileCommand):
         self.destination_type = destination_type
         return self.create_profile_table(client)
 
-    def create_initial_table(self, client: ToolkitClient) -> PendingTable:
-        table: PendingTable = {}
+    def create_initial_table(self, client: ToolkitClient) -> dict[tuple[str, str], PendingCellValue]:
+        table: dict[tuple[str, str], PendingCellValue] = {}
         existing_tables = self._get_existing_tables(client)
         transformations_by_raw_table = self._get_transformations_by_raw_table(client, self.destination_type)
         for raw_id, transformations in transformations_by_raw_table.items():
@@ -635,7 +635,7 @@ class ProfileRawCommand(ProfileCommand):
                 table[(index, self.Columns.ConflictMode)] = transformation.conflict_mode
         return table
 
-    def call_api(self, row: str, col: str, client: ToolkitClient) -> Callable:
+    def create_api_callable(self, row: str, col: str, client: ToolkitClient) -> Callable:
         if col == self.Columns.Rows:
             raw_id = row.split(self._index_split)[0]
             if "." not in raw_id:
@@ -659,15 +659,15 @@ class ProfileRawCommand(ProfileCommand):
 
     def update_table(
         self,
-        current_table: PendingTable,
+        current_table: dict[tuple[str, str], PendingCellValue],
         result: object,
         row: str,
         col: str,
-    ) -> PendingTable:
+    ) -> dict[tuple[str, str], PendingCellValue]:
         if not isinstance(result, RawProfileResults) or col != self.Columns.Rows:
             return current_table
         is_complete = result.is_complete and result.row_count < self.profile_row_limit
-        new_table: PendingTable = {}
+        new_table: dict[tuple[str, str], PendingCellValue] = {}
         for (r, c), value in current_table.items():
             if r == row and c == self.Columns.Rows:
                 new_table[(r, c)] = result.row_count if is_complete else f"≥{result.row_count:,}"

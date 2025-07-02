@@ -4,6 +4,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import (
     ProfileAssetCentricCommand,
     ProfileAssetCommand,
+    ProfileRawCommand,
     ProfileTransformationCommand,
 )
 from tests.test_integration.constants import (
@@ -98,9 +99,6 @@ class TestProfileAssetCommand:
                 ),
             ]
         ]
-
-
-from cognite_toolkit._cdf_tk.commands import ProfileRawCommand
 
 
 class TestDumpResource:
