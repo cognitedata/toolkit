@@ -731,7 +731,9 @@ default_organization_dir = "{organization_dir.name}"''',
                     self._download(library.url, file_path)
                     self._validate_checksum(library.checksum, file_path)
                     self._unpack(file_path)
-                    return Packages().load(file_path.parent)
+                    packages = Packages().load(file_path.parent)
+                    self._validate_packages(packages, f"library {library_name}")
+                    return packages
                 except Exception as e:
                     if isinstance(e, ToolkitError):
                         raise e
@@ -744,7 +746,47 @@ default_organization_dir = "{organization_dir.name}"''',
             # If no libraries are specified or the flag is not enabled, load the built-in modules
             raise ValueError("No valid libraries found.")
         else:
-            return Packages.load(self._builtin_modules_path)
+            packages = Packages.load(self._builtin_modules_path)
+            self._validate_packages(packages, "built-in modules")
+            return packages
+
+    def _validate_packages(self, packages: Packages, source_name: str) -> None:
+        """
+        Validates that packages are properly configured and have accessible modules.
+        Raises descriptive errors for common misconfigurations.
+        """
+        if not packages:
+            raise ToolkitError(
+                f"No packages found in {source_name}. "
+                "This may be due to a misconfigured packages.toml file or missing module directories."
+            )
+
+        # Check for packages with no modules
+        empty_packages = [pkg.name for pkg in packages.values() if not pkg.modules]
+        if empty_packages:
+            self.warn(
+                MediumSeverityWarning(
+                    f"The following packages in {source_name} have no modules: {', '.join(empty_packages)}. "
+                    "This may indicate a misconfiguration in packages.toml."
+                )
+            )
+
+        # Check for missing module directories
+        missing_paths = []
+        for package in packages.values():
+            for module in package.modules:
+                if not module.dir.exists():
+                    missing_paths.append(f"{module.name} ({module.dir})")
+
+        if missing_paths:
+            raise ToolkitError(
+                f"The following module paths in {source_name} do not exist:\n"
+                f"{chr(10).join(f'  - {path}' for path in missing_paths)}\n"
+                "This may be due to:\n"
+                "- Incorrect paths in packages.toml\n"
+                "- Missing module directories\n"
+                "- Corrupted or incomplete module installation"
+            )
 
     def _download(self, url: str, file_path: Path) -> None:
         """
