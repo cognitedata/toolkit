@@ -1,11 +1,13 @@
 import uuid
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
+from functools import partial
 from graphlib import CycleError, TopologicalSorter
-from typing import cast
+from typing import Literal, cast
 
 import questionary
 from cognite.client.data_classes import AggregateResultItem, DataSetUpdate, filters
-from cognite.client.data_classes.data_modeling import NodeId
+from cognite.client.data_classes.aggregations import Count
+from cognite.client.data_classes.data_modeling import NodeId, View
 from cognite.client.exceptions import CogniteAPIError
 from rich import print
 from rich.console import Console
@@ -16,6 +18,7 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.data_classes import DeployResults, ResourceDeployResult
 from cognite_toolkit._cdf_tk.exceptions import (
     CDFAPIError,
+    ResourceDeleteError,
     ToolkitMissingResourceError,
     ToolkitRequiredValueError,
     ToolkitValueError,
@@ -41,6 +44,7 @@ from cognite_toolkit._cdf_tk.loaders import (
 )
 from cognite_toolkit._cdf_tk.tk_warnings import HighSeverityWarning, MediumSeverityWarning
 from cognite_toolkit._cdf_tk.utils import humanize_collection
+from cognite_toolkit._cdf_tk.utils.producer_worker import ProducerWorkerExecutor
 
 from ._base import ToolkitCommand
 
@@ -593,4 +597,112 @@ class PurgeCommand(ToolkitCommand):
         auto_yes: bool = False,
         verbose: bool = False,
     ) -> None:
+        is_interactive = view is None
+        selected_view = self._get_selected_view(view, client)
+        if is_interactive:
+            instance_space = self._interactive_instance_space_selection(client, selected_view)
+            max_workers = self._interactive_max_workers(client, view, instance_space)
+            dry_run = questionary.confirm("Dry run?", default=True).ask()
+        else:
+            self.validate_access(client, selected_view)
+
+        instance_type_str = "nodes and edges" if selected_view.used_for == "all" else selected_view.used_for
+
+        if not dry_run:
+            self._print_panel("view", str(selected_view.as_id()))
+            if not auto_yes:
+                confirm = questionary.confirm(
+                    f"Are you really sure you want to purge all {instance_type_str} with properties in the {selected_view.as_id()!r} view?",
+                    default=False,
+                ).ask()
+                if not confirm:
+                    return
+
+        process: Callable[[]] = self._as_ids
+        if self._is_timeseries(selected_view):
+            process = self._unlink_timeseries
+
+        if self._is_files(selected_view):
+            raise NotImplementedError("Purging files is not supported yet.")
+
+        instances_types: list[Literal["node", "edge"]] = (
+            ["node", "edge"] if selected_view.used_for == "all" else [selected_view.used_for]
+        )
+        for instance_type in instances_types:
+            is_selected_instances: filters.Filter = filters.HasData(views=[selected_view.as_id()])
+            if instance_space:
+                is_selected_instances = filters.And(
+                    is_selected_instances, filters.SpaceFilter(space=instance_space, instance_type=instance_type)
+                )
+            total_result = client.data_modeling.instances.aggregate(
+                view=selected_view.as_id(),
+                aggregates=Count("externalId"),
+                instance_type=instance_type,
+                filter=is_selected_instances,
+                limit=-1,
+            )
+            total = total_result.value
+            if total is None or total == 0:
+                print(f"No {instance_type} instances found with properties in the {selected_view.as_id()!r} view.")
+                continue
+
+            iteration_count = int(total // 1000 + (1 if total % 1000 > 0 else 0))
+            console = Console()
+            executor = ProducerWorkerExecutor(
+                download_iterable=partial(self._iterate_instances),
+                process=process,
+                write=partial(client.data_modeling.instances.delete_fast, max_workers=max_workers),
+                iteration_count=iteration_count,
+                max_queue_size=10,
+                download_description=f"Retrieving {instance_type}",
+                process_description="Preparing instance IDs for deletion",
+                write_description=f"Deleting {instance_type}",
+                console=console,
+            )
+
+            executor.run()
+            if executor.error_occurred:
+                raise ResourceDeleteError(executor.error_message)
+
+            print(
+                f"Successfully purged {executor.total_items:,} {instance_type} with properties in the {selected_view.as_id()!r} view."
+            )
+
+    @staticmethod
+    def validate_access(client: ToolkitClient, view: View) -> None:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _is_timeseries(view: View) -> bool:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _is_files(view: View) -> bool:
+        raise NotImplementedError()
+
+    @staticmethod
+    def _as_ids():
+        raise NotImplementedError()
+
+    @staticmethod
+    def _iterate_instances(
+        client: ToolkitClient,
+        view: View,
+        instance_space: list[str] | None = None,
+        instance_type: Literal["node", "edge"] = "node",
+    ) -> iter[NodeId]: ...
+
+    @staticmethod
+    def _unlink_timeseries():
+        raise NotImplementedError("Unlinking timeseries is not implemented yet.")
+
+    def _get_selected_view(self, view: list[str] | None, client: ToolkitClient) -> View:
+        raise NotImplementedError()
+
+    def _interactive_instance_space_selection(self, client: ToolkitClient, selected_view: View) -> list[str] | None:
+        raise NotImplementedError()
+
+    def _interactive_max_workers(
+        self, client: ToolkitClient, view: list[str] | None, instance_space: list[str] | None
+    ) -> int:
         raise NotImplementedError()
