@@ -190,7 +190,7 @@ class PurgeApp(typer.Typer):
         """This command will delete the contents of the specified instances."""
 
         cmd = PurgeCommand()
-        client = EnvironmentVariables.create_from_environment().get_client()
+        client = EnvironmentVariables.create_from_environment().get_client(enable_set_pending_ids=True)
         cmd.run(
             lambda: cmd.instances(
                 client,
