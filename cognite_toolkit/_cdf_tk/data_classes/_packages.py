@@ -58,7 +58,7 @@ class Packages(dict, MutableMapping[str, Package]):
     @classmethod
     def load(
         cls,
-        root_module_dir: Path,  # todo: relative to org dir
+        root_module_dir: Path,
     ) -> Packages:
         """Loads the packages in the source directory.
 
@@ -69,26 +69,32 @@ class Packages(dict, MutableMapping[str, Package]):
         package_definition_path = next(root_module_dir.rglob("packages.toml"), None)
         if not package_definition_path or not package_definition_path.exists():
             raise ToolkitFileNotFoundError(f"Package manifest toml not found at {package_definition_path}")
-        package_definitions = toml.loads(package_definition_path.read_text(encoding="utf-8"))["packages"]
 
-        collected: dict[str, Package] = {
-            package_name: Package.load(package_name, package_definition)
-            for package_name, package_definition in package_definitions.items()
-            if isinstance(package_definition, dict)
-        }
+        library_definition = toml.loads(package_definition_path.read_text(encoding="utf-8"))
+        package_definitions = library_definition.get("packages", {})
 
+        # Load all available modules
         module_directories = ModuleDirectories.load(root_module_dir)
-        for module in module_directories:
-            if module.definition is None:
-                continue
 
-            for tag in module.definition.tags:
-                if tag in collected:
-                    collected[tag].modules.append(module)
-                else:
-                    raise ToolkitValueError(f"Module {module.name} has an unknown tag {tag}")
+        # Create lookup dictionaries for efficient module discovery
+        module_by_relative_path = {module.relative_path: module for module in module_directories}
 
-        return cls(collected)
+        packages_with_modules: dict[str, Package] = {}
+
+        for package_name, package_definition in package_definitions.items():
+            packages_with_modules[package_name] = Package.load(package_name, package_definition)
+            if modules := package_definition.get("modules"):
+                if isinstance(modules, list) and modules:
+                    for module_path in modules:
+                        if (module := module_by_relative_path.get(Path(module_path))) is None:
+                            available = sorted(str(m.relative_path) for m in module_directories)
+                            raise ToolkitValueError(
+                                f"Module '{module_path}' not found in the module directories.\n"
+                                f"Available modules: {available}"
+                            )
+                        packages_with_modules[package_name].modules.append(module)
+
+        return cls(packages_with_modules)
 
     # The methods are overloads to provide type hints for the methods.
     def items(self) -> ItemsView[str, Package]:  # type: ignore[override]

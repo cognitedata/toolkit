@@ -1,12 +1,6 @@
 [module]
 title = "SAP Source System Events"
 
-[packages]
-tags = [
-    "sourcesystem",
-    "quickstart",
-]
-
 [[data]]
 repoType = "http"
 repo = "https://apps-cdn.cogniteapp.com/toolkit/publicdata"
