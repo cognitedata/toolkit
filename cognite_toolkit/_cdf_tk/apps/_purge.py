@@ -13,6 +13,7 @@ class PurgeApp(typer.Typer):
         self.callback(invoke_without_command=True)(self.main)
         self.command("dataset")(self.purge_dataset)
         self.command("space")(self.purge_space)
+        self.command("instances")(self.purge_instances)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands purge functionality"""
@@ -131,3 +132,60 @@ class PurgeApp(typer.Typer):
                 verbose,
             )
         )
+
+    @staticmethod
+    def purge_instances(
+        view: Annotated[
+            str | None,
+            typer.Argument(
+                help="Purge instances with properties in the specified view. Expected format is "
+                "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
+                "that have properties in the CogniteTimeSeries view.",
+            ),
+        ],
+        instance_space: Annotated[
+            list[str] | None,
+            typer.Option(
+                "--instance-space",
+                "-s",
+                help="Only purge instances that are in the specified instance space(s).",
+            ),
+        ],
+        max_workers: Annotated[
+            int,
+            typer.Option(
+                "--max-workers",
+                "-w",
+                help="The maximum number of workers to use for the purge operation. Default is 1."
+                "Note that typical concurrency limit for a project is 2. Furthermore, if you use the maximum"
+                "number of workers for the project, it will lead to throttling if any other user are deleting "
+                "data at the same time.",
+            ),
+        ] = 1,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-r",
+                help="Whether to do a dry-run, do dry-run if present.",
+            ),
+        ] = False,
+        auto_yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Automatically confirm that you are sure you want to purge the instances.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """This command will delete the contents of the specified instances."""
+        raise NotImplementedError()
