@@ -2,12 +2,6 @@
 title = "OSIsoft/AVEVA PI Data Source"
 is_selected_by_default = false
 
-[packages]
-tags = [
-    "sourcesystem",
-    "quickstart",
-]
-
 [dependencies]
 modules = []
 
