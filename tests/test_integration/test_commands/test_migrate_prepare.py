@@ -1,13 +1,8 @@
-import pytest
-
 from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands import MigrationPrepareCommand
 
 
 class TestMigrateTimeSeriesCommand:
-    @pytest.mark.skip(
-        reason="We are changing the migration model, so this test willbe out until the new model PR #1706 is merged."
-    )
     def test_migration_prepare_command(
         self,
         toolkit_client: ToolkitClient,
