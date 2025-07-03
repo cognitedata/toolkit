@@ -3,7 +3,12 @@ from typing import Annotated, Any
 
 import typer
 
-from cognite_toolkit._cdf_tk.commands import MigrateAssetsCommand, MigrateTimeseriesCommand, MigrationPrepareCommand
+from cognite_toolkit._cdf_tk.commands import (
+    MigrateAssetsCommand,
+    MigrateTimeseriesCommand,
+    MigrationCanvasCommand,
+    MigrationPrepareCommand,
+)
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
 
 
@@ -15,6 +20,8 @@ class MigrateApp(typer.Typer):
         # Uncomment when command is ready.
         # self.command("assets")(self.assets)
         self.command("timeseries")(self.timeseries)
+        # Uncomment when the Canvas migration command is ready
+        # self.command("canvas")(self.canvas)
 
     def main(self, ctx: typer.Context) -> None:
         """Migrate resources from Asset-Centric to data modeling in CDF."""
@@ -139,6 +146,52 @@ class MigrateApp(typer.Typer):
             lambda: cmd.migrate_timeseries(
                 client,
                 mapping_file=mapping_file,
+                dry_run=dry_run,
+                verbose=verbose,
+            )
+        )
+
+    @staticmethod
+    def canvas(
+        ctx: typer.Context,
+        external_id: Annotated[
+            list[str] | None,
+            typer.Argument(
+                help="The external ID of the Canvas to migrate. If not provided, and interactive selection will be "
+                "performed to select the Canvas to migrate."
+            ),
+        ] = None,
+        dry_run: Annotated[
+            bool,
+            typer.Option(
+                "--dry-run",
+                "-d",
+                help="If set, the migration will not be executed, but only a report of "
+                "what would be done is printed. This is useful for checking that all resources referenced by the Canvas"
+                "have been migrated to the new data modeling resources in CDF.",
+            ),
+        ] = False,
+        verbose: Annotated[
+            bool,
+            typer.Option(
+                "--verbose",
+                "-v",
+                help="Turn on to get more verbose output when running the command",
+            ),
+        ] = False,
+    ) -> None:
+        """Migrate Canvas applications from Asset-Centric to data modeling in CDF.
+
+        This command expects that the CogniteMigration data model is already deployed, and that the Mapping view
+        is populated with the mapping from Asset-Centric resources to the new data modeling resources.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+
+        cmd = MigrationCanvasCommand()
+        cmd.run(
+            lambda: cmd.migrate_canvas(
+                client,
+                external_ids=external_id,
                 dry_run=dry_run,
                 verbose=verbose,
             )
