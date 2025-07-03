@@ -34,7 +34,6 @@ class ExampleData:
 class ModuleToml:
     filename: ClassVar[str] = "module.toml"
     title: str | None
-    tags: frozenset[str] = field(default_factory=frozenset)
     dependencies: frozenset[str] = field(default_factory=frozenset)
     is_selected_by_default: bool = False
     data: list[ExampleData] = field(default_factory=list)
@@ -63,10 +62,6 @@ class ModuleToml:
         if "extra_resources" in data and isinstance(data["extra_resources"], list):
             extra_resources = [Path(item["location"]) for item in data["extra_resources"] if "location" in item]
 
-        tags: frozenset[str] = frozenset()
-        if "packages" in data:
-            if "tags" in data["packages"]:
-                tags = frozenset(data["packages"]["tags"])
         title: str | None = None
         is_selected_by_default: bool = False
         if "module" in data:
@@ -75,7 +70,6 @@ class ModuleToml:
 
         return cls(
             title=title,
-            tags=tags,
             dependencies=dependencies,
             is_selected_by_default=is_selected_by_default,
             data=example_data,

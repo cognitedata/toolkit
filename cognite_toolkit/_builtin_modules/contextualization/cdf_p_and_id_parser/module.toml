@@ -1,12 +1,6 @@
 [module]
 title = "Contextualization P&ID Diagram Parser"
 
-[packages]
-tags = [
-    "contextualization",
-    "quickstart",
-]
-
 [[extra_resources]]
 location = "cdf_common/data_sets/demo.DataSet.yaml"
 
