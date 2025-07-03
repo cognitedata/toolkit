@@ -136,11 +136,11 @@ class PurgeApp(typer.Typer):
     @staticmethod
     def purge_instances(
         view: Annotated[
-            str | None,
+            list[str] | None,
             typer.Argument(
                 help="Purge instances with properties in the specified view. Expected format is "
                 "'space externalId version'. For example 'cdf_cdm CogniteTimeSeries v1' will purge all nodes"
-                "that have properties in the CogniteTimeSeries view.",
+                "that have properties in the CogniteTimeSeries view. If not provided, interactive mode will be used.",
             ),
         ],
         instance_space: Annotated[
@@ -188,4 +188,17 @@ class PurgeApp(typer.Typer):
         ] = False,
     ) -> None:
         """This command will delete the contents of the specified instances."""
-        raise NotImplementedError()
+
+        cmd = PurgeCommand()
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd.run(
+            lambda: cmd.instances(
+                client,
+                view,
+                instance_space,
+                max_workers,
+                dry_run,
+                auto_yes,
+                verbose,
+            )
+        )
