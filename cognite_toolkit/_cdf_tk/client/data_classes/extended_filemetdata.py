@@ -103,5 +103,5 @@ class ExtendedFileMetadata(FileMetadata):
         return output
 
 
-class ExtendedFileMetadataListList(FileMetadataList):
+class ExtendedFileMetadataList(FileMetadataList):
     _RESOURCE = ExtendedFileMetadata  # type: ignore[assignment]
