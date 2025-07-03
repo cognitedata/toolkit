@@ -582,3 +582,15 @@ class PurgeCommand(ToolkitCommand):
             is_first = False
         status.console.print(f"Finished purging {loader.display_name}.")
         return count
+
+    def instances(
+        self,
+        client: ToolkitClient,
+        view: list[str] | None = None,
+        instance_space: list[str] | None = None,
+        max_workers: int = 1,
+        dry_run: bool = False,
+        auto_yes: bool = False,
+        verbose: bool = False,
+    ) -> None:
+        raise NotImplementedError()
