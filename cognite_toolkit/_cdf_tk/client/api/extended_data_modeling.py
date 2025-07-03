@@ -13,9 +13,10 @@ from cognite.client.data_classes.data_modeling import EdgeId, InstanceApply, Nod
 from cognite.client.exceptions import CogniteConnectionError, CogniteReadTimeout
 from cognite.client.utils import _json
 from cognite.client.utils._concurrency import execute_tasks
+from cognite.client.utils._identifier import InstanceId
 from requests import Response
 
-from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_WRITE_WORKERS
+from cognite_toolkit._cdf_tk.client._constants import DATA_MODELING_MAX_DELETE_WORKERS, DATA_MODELING_MAX_WRITE_WORKERS
 from cognite_toolkit._cdf_tk.client.data_classes.instances import InstancesApplyResultList
 from cognite_toolkit._cdf_tk.client.utils._concurrency import ToolkitConcurrencySettings
 from cognite_toolkit._cdf_tk.client.utils._http_client import ToolkitRetryTracker
@@ -122,6 +123,71 @@ class ExtendedInstancesAPI(InstancesAPI):
         created_resources = summary.joined_results(lambda res: res.json()["items"])
 
         return InstancesApplyResultList._load(created_resources)
+
+    def delete_fast(
+        self,
+        instance_ids: Sequence[NodeId | EdgeId],
+    ) -> list[NodeId | EdgeId]:
+        """`Delete one or more instances <https://developer.cognite.com/api#tag/Instances/operation/deleteBulk>`_
+
+        Args:
+            instance_ids (Sequence[NodeId | EdgeId]): A sequence of NodeId or EdgeId instances to delete.
+
+        Returns:
+            list[NodeId | EdgeId]: A list of NodeId or EdgeId instances that were successfully deleted. An empty
+                list is returned if no instances were deleted.
+        """
+        tasks = [
+            (f"{self._RESOURCE_PATH}/delete", task_items, ToolkitRetryTracker(self._http_client_with_retry.config))
+            for task_items in self._prepare_item_chunks(
+                [
+                    {"space": item.space, "externalId": item.external_id, "instanceType": item._instance_type}
+                    for item in instance_ids
+                ],
+                self._DELETE_LIMIT,
+                None,
+            )
+        ]
+        summary = execute_tasks(
+            self._post_with_item_reduction_retry,
+            tasks,
+            max_workers=min(self._config.max_workers, DATA_MODELING_MAX_DELETE_WORKERS),
+            executor=ToolkitConcurrencySettings.get_data_modeling_delete_executor(),
+        )
+
+        def unwrap_element(el: T) -> InstanceApply | T:
+            if isinstance(el, dict) and "instanceType" in el:
+                if el["instanceType"] == "node":
+                    return NodeId.load(el)
+                elif el["instanceType"] == "edge":
+                    return EdgeId.load(el)
+                return el
+            else:
+                return el
+
+        def str_format_element(el: T) -> str | T:
+            if isinstance(el, InstanceId):
+                return f"{el.space}:{el.external_id}"
+            return el
+
+        summary.raise_compound_exception_if_failed_tasks(
+            task_unwrap_fn=lambda task: task[1]["items"],
+            task_list_element_unwrap_fn=unwrap_element,
+            str_format_element_fn=str_format_element,
+        )
+        deleted_resources = summary.joined_results(lambda res: res.json()["items"])
+        result: list[NodeId | EdgeId] = []
+        for resource in deleted_resources:
+            if "instanceType" not in resource:
+                raise ValueError("Resource must contain 'instanceType' key.")
+            instance_type = resource.get("instanceType")
+            if instance_type == "node":
+                result.append(NodeId.load(resource))
+            elif instance_type == "edge":
+                result.append(EdgeId.load(resource))
+            else:
+                raise TypeError(f"Resource must be a NodeId or EdgeId, not {instance_type}.")
+        return result
 
     def _post_with_item_reduction_retry(
         self,
