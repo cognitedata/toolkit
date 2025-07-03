@@ -6,6 +6,7 @@ from rich import print
 from cognite_toolkit._cdf_tk.commands import (
     ProfileAssetCentricCommand,
     ProfileAssetCommand,
+    ProfileRawCommand,
     ProfileTransformationCommand,
 )
 from cognite_toolkit._cdf_tk.utils.auth import EnvironmentVariables
@@ -18,6 +19,7 @@ class ProfileApp(typer.Typer):
         self.command("assets")(self.assets)
         self.command("asset-centric")(self.asset_centric)
         self.command("transformations")(self.transformations)
+        self.command("raw")(self.raw)
 
     def main(self, ctx: typer.Context) -> None:
         """Commands profile functionality"""
@@ -93,6 +95,36 @@ class ProfileApp(typer.Typer):
         cmd = ProfileTransformationCommand()
         cmd.run(
             lambda: cmd.transformation(
+                client,
+                destination,
+                verbose,
+            )
+        )
+
+    @staticmethod
+    def raw(
+        ctx: typer.Context,
+        destination: Annotated[
+            str,
+            typer.Option(
+                "--destination",
+                "-d",
+                help="Destination type the raw data should be written to. This can be 'assets', 'events', 'files',"
+                "'timeseries', or 'sequences'.",
+            ),
+        ],
+        verbose: bool = False,
+    ) -> None:
+        """This command gives an overview over the staging tables in CDF and where they are used.
+        It works by checking all transformations that writes to the given destination and lists all the raw tables
+        that are used in those transformations.
+        This is intended to show the flow of data from raw into CDF. This can, for example, be used to determine the
+        source of the data in a specific CDF resource.
+        """
+        client = EnvironmentVariables.create_from_environment().get_client()
+        cmd = ProfileRawCommand()
+        cmd.run(
+            lambda: cmd.raw(
                 client,
                 destination,
                 verbose,
