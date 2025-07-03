@@ -1,3 +1,4 @@
+import itertools
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -19,6 +20,8 @@ from cognite_toolkit._cdf_tk.client.data_classes.canvas import (
     ContainerReferenceApply,
     FdmInstanceContainerReference,
     FdmInstanceContainerReferenceApply,
+    IndustrialCanvas,
+    IndustrialCanvasApply,
 )
 from tests.test_unit.utils import FakeCogniteResourceGenerator
 
@@ -115,3 +118,86 @@ class TestCanvasAPI:
             "sort": None,
             "filter": None,
         }
+
+
+class TestIndustrialCanvasDataClass:
+    def test_create_backup(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
+
+        backup = instance.create_backup()
+
+        original_ids = set(instance.as_instance_ids(include_solution_tags=False))
+        backup_ids = set(backup.as_instance_ids(include_solution_tags=False))
+        assert len(original_ids) == len(backup_ids)
+        overlapping_ids = original_ids.intersection(backup_ids)
+        assert not overlapping_ids
+
+        original_ids = set(instance.as_instance_ids(include_solution_tags=True))
+        backup_ids = set(backup.as_instance_ids(include_solution_tags=True))
+        overlapping_ids = original_ids.intersection(backup_ids)
+        solution_tags_ids = {tag.as_id() for tag in instance.solution_tags}
+        assert solution_tags_ids == overlapping_ids, "Expected overlapping IDs to be solution tags IDs only"
+
+        existing_version = [
+            item.as_id()
+            for item in itertools.chain(
+                [backup.canvas],
+                backup.annotations,
+                backup.container_references,
+                backup.fdm_instance_container_references,
+                # Solutions tags are expected to have existing versions as these are
+                # not created, but reused in the backup
+            )
+            if item.existing_version is not None
+        ]
+        assert not existing_version, (
+            f"Expected no existing versions in backup annotations. Found: {len(existing_version)}"
+        )
+
+    def test_dump_load(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvas)
+        dumped = instance.dump()
+        reloaded = IndustrialCanvas.load(dumped)
+
+        assert reloaded.dump() == instance.dump(), "Failed to reload IndustrialCanvas."
+
+    def test_as_instances(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvasApply)
+
+        node_or_edges = instance.as_instances()
+
+        # 1 canvas + solution tags + 2 x (rest - one for node and one for edge connecting canvas to node)
+        expected_instance_count = (
+            1
+            + len(instance.solution_tags)
+            + 2
+            * (
+                len(instance.container_references)
+                + len(instance.fdm_instance_container_references)
+                + len(instance.annotations)
+            )
+        )
+        assert len(node_or_edges) == expected_instance_count
+
+        assert len(instance.solution_tags) > 0, "Expected solution tags to be present in the instance."
+        assert len(instance.as_instance_ids(include_solution_tags=False)) == expected_instance_count - len(
+            instance.solution_tags
+        )
+        assert len(instance.as_instance_ids(include_solution_tags=True)) == expected_instance_count
+        assert instance.as_id() == instance.canvas.external_id
+
+    def test_as_write(self) -> None:
+        instance = FakeCogniteResourceGenerator().create_instance(IndustrialCanvas)
+        write_instances = instance.as_write()
+
+        assert isinstance(write_instances, IndustrialCanvasApply)
+
+        assert write_instances.canvas.external_id == instance.canvas.external_id
+        assert len(write_instances.container_references) == len(instance.container_references) > 0
+        assert (
+            len(write_instances.fdm_instance_container_references)
+            == len(instance.fdm_instance_container_references)
+            > 0
+        )
+        assert len(write_instances.annotations) == len(instance.annotations) > 0
+        assert len(write_instances.solution_tags) == len(instance.solution_tags) > 0

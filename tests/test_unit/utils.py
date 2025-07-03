@@ -39,6 +39,7 @@ from cognite.client.data_classes import (
 )
 from cognite.client.data_classes._base import CogniteResourceList
 from cognite.client.data_classes.capabilities import Capability, LegacyCapability, UnknownAcl
+from cognite.client.data_classes.data_modeling import NodeListWithCursor
 from cognite.client.data_classes.data_modeling.data_types import ListablePropertyType
 from cognite.client.data_classes.data_modeling.query import NodeResultSetExpression, Query
 from cognite.client.data_classes.filters import Filter
@@ -388,6 +389,11 @@ class FakeCogniteResourceGenerator:
             if any(arg is ... for arg in args):
                 return tuple(self.create_value(first_not_none) for _ in range(self._random.randint(1, 3)))
             raise NotImplementedError(f"Tuple with multiple types is not supported. {self._error_msg}")
+        elif container_type is NodeListWithCursor:
+            return NodeListWithCursor(
+                [self.create_value(first_not_none) for _ in range(self._random.randint(1, 3))],
+                cursor=self.create_value(str),
+            )
 
         if var_name == "external_id" and type_ is str:
             return self._random_string(50, sample_from=string.ascii_uppercase + string.digits)
