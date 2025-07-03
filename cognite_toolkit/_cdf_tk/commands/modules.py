@@ -749,9 +749,13 @@ default_organization_dir = "{organization_dir.name}"''',
     def _download(self, url: str, file_path: Path) -> None:
         """
         Downloads a file from a URL to the specified output path.
-        If the file already exists, it skips the download.
+        If the file already exists, it deletes it before downloading.
         """
         try:
+            # normally the context manager exit should handle this, but if the process is killed the file will not be deleted
+            if file_path.exists():
+                file_path.unlink()
+
             response = requests.get(url, stream=True)
             response.raise_for_status()  # Raise an exception for HTTP errors
 
