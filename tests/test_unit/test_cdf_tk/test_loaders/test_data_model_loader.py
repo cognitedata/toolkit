@@ -54,7 +54,7 @@ class TestDataModelLoader:
         loader = DataModelLoader.create_loader(
             env_vars_with_client.get_client(),
         )
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {

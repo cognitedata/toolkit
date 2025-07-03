@@ -24,7 +24,7 @@ class TestDataSetsLoader:
         # Simulate that the data set is already in CDF
         toolkit_client_approval.append(DataSet, first)
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([LOAD_DATA / "data_sets" / "1.my_datasets.yaml"])
 
         assert {
