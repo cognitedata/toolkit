@@ -1,6 +1,4 @@
-import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
 
 import pytest
 from cognite.client.data_classes.data_modeling import NodeList
@@ -163,14 +161,7 @@ class TestMigrationCanvasCommand:
         command = MigrationCanvasCommand(silent=True)
         canvas, mapping = asset_centric_canvas
 
-        fixed_uuid = uuid.UUID("12345678-1234-5678-1234-567812345678")
-        fixed_datetime = MagicMock(spec=datetime)
-        fixed_datetime.now.return_value = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        with (
-            monkeypatch_toolkit_client() as client,
-            patch(f"{IndustrialCanvas.__module__}.uuid4", return_value=fixed_uuid),
-            patch(f"{IndustrialCanvas.__module__}.datetime", return_value=fixed_datetime),
-        ):
+        with monkeypatch_toolkit_client() as client:
             client.iam.verify_capabilities.return_value = []
             client.canvas.industrial.retrieve.return_value = canvas
             client.migration.mapping.retrieve.return_value = mapping
