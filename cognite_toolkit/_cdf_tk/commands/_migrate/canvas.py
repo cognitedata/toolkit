@@ -123,8 +123,8 @@ class MigrationCanvasCommand(ToolkitCommand):
             fdm_ref = self.migrate_container_reference(ref, mapping)
             update.fdm_instance_container_references.append(fdm_ref)
 
-        _ = client.canvas.industrial.update(update)
         client.canvas.industrial.create(backup)
+        client.canvas.industrial.update(update)
         self.console(
             f'Canvas "{canvas.canvas.name}" migrated successfully with {len(to_migrate)} references to data model instances.'
         )
