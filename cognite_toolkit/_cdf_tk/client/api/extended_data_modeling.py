@@ -127,11 +127,14 @@ class ExtendedInstancesAPI(InstancesAPI):
     def delete_fast(
         self,
         instance_ids: Sequence[NodeId | EdgeId],
+        max_workers: int | None = None,
     ) -> list[NodeId | EdgeId]:
         """`Delete one or more instances <https://developer.cognite.com/api#tag/Instances/operation/deleteBulk>`_
 
         Args:
             instance_ids (Sequence[NodeId | EdgeId]): A sequence of NodeId or EdgeId instances to delete.
+            max_workers (int | None): The maximum number of workers to use for the deletion. If None, the
+                maximum number of workers is determined by the global configuration.
 
         Returns:
             list[NodeId | EdgeId]: A list of NodeId or EdgeId instances that were successfully deleted. An empty
