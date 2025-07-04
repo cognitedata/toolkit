@@ -83,7 +83,7 @@ class CleanCommand(ToolkitCommand):
             )
             return ResourceContainerDeployResult(name=loader.display_name, item_name=loader.item_name)
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "clean")
         files = worker.load_files(read_modules=read_modules)
         if not files:
             return None
