@@ -62,7 +62,7 @@ INSTANCE_SOURCE_CONTAINER = dm.ContainerApply(
             type=dm.data_types.Text(),
             nullable=True,
         ),
-        "preferredConsumeViewId": dm.ContainerProperty(
+        "preferredConsumerViewId": dm.ContainerProperty(
             type=dm.data_types.Json(),
             nullable=True,
         ),
@@ -122,9 +122,9 @@ INSTANCE_SOURCE_VIEW = dm.ViewApply(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
             container_property_identifier="classicExternalId",
         ),
-        "preferredConsumeViewId": dm.MappedPropertyApply(
+        "preferredConsumerViewId": dm.MappedPropertyApply(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
-            container_property_identifier="preferredConsumeViewId",
+            container_property_identifier="preferredConsumerViewId",
         ),
         "ingestionView": dm.MappedPropertyApply(
             container=INSTANCE_SOURCE_CONTAINER.as_id(),
