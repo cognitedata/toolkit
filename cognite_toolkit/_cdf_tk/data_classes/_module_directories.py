@@ -10,6 +10,7 @@ from typing import Any, SupportsIndex, overload
 
 from cognite_toolkit._cdf_tk.constants import INDEX_PATTERN
 from cognite_toolkit._cdf_tk.utils import calculate_directory_hash, iterate_modules, resource_folder_from_path
+from cognite_toolkit._cdf_tk.utils.ignore_patterns import create_ignore_parser_for_module
 
 from ._module_toml import ModuleToml
 
@@ -85,6 +86,10 @@ class ModuleLocation:
         source_paths_by_resource_folder = defaultdict(list)
         # The directories in the module that are not resource directories.
         invalid_resource_directory: set[str] = set()
+        
+        # Create ignore parser for this module
+        ignore_parser = create_ignore_parser_for_module(self.dir)
+        
         for filepath in self.source_paths:
             try:
                 resource_folder = resource_folder_from_path(filepath)
@@ -92,7 +97,12 @@ class ModuleLocation:
                 relative_to_module = filepath.relative_to(self.dir)
                 is_file_in_resource_folder = relative_to_module.parts[0] == filepath.name
                 if not is_file_in_resource_folder:
-                    invalid_resource_directory.add(relative_to_module.parts[0])
+                    directory_name = relative_to_module.parts[0]
+                    directory_path = self.dir / directory_name
+                    
+                    # Check if directory should be ignored based on .toolkitignore patterns
+                    if not ignore_parser.is_ignored(Path(directory_name), is_directory=True):
+                        invalid_resource_directory.add(directory_name)
                 continue
             if filepath.is_file():
                 source_paths_by_resource_folder[resource_folder].append(filepath)
