@@ -24,6 +24,7 @@ from cognite_toolkit._cdf_tk.constants import (
     DEFAULT_ENV,
     DEV_ONLY_MODULES,
     HINT_LEAD_TEXT,
+    MODULE_DOCS_FOLDER,
     ROOT_MODULES,
     TEMPLATE_VARS_FILE_SUFFIXES,
     URL,
@@ -338,7 +339,7 @@ class BuildCommand(ToolkitCommand):
         verbose: bool,
     ) -> dict[str, BuiltResourceList]:
         build_resources_by_folder: dict[str, BuiltResourceList] = defaultdict(BuiltResourceList)
-        if not_resource_directory := module.not_resource_directories:
+        if not_resource_directory := (module.not_resource_directories - {MODULE_DOCS_FOLDER}):
             self.warn(
                 LowSeverityWarning(
                     f"Module {module.dir.name!r} has non-resource directories: {sorted(not_resource_directory)}. {ModuleDefinition.short()}"
