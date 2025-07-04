@@ -256,7 +256,7 @@ class DeployCommand(ToolkitCommand):
         force_update: bool = False,
         verbose: bool = False,
     ) -> ResourceDeployResult | None:
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         files = worker.load_files(read_modules=read_modules)
         if not files:
             return None

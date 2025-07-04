@@ -72,7 +72,7 @@ secrets:
         filepath.read_text.return_value = local_yaml
         filepath.parent.name = FunctionLoader.folder_name
 
-        worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path))
+        worker = ResourceWorker(FunctionLoader.create_loader(env_vars_with_client.get_client(), tmp_path), "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {

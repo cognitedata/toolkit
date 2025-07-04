@@ -26,7 +26,7 @@ class TestResourceWorker:
         )
         loader = WorkflowTriggerLoader.create_loader(toolkit_client_approval.mock_client)
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         local_file = MagicMock(spec=Path)
         local_file.read_text.return_value = """externalId: my_trigger
 triggerRule:
@@ -67,7 +67,7 @@ authentication:
             local_file = MagicMock(spec=Path)
             local_file.parent.name = FunctionLoader.folder_name
 
-            worker = ResourceWorker(loader)
+            worker = ResourceWorker(loader, "deploy")
             local_by_id = worker.load_resources([local_file], None, False)
             worker.validate_access(local_by_id, is_dry_run=False)
             mock_authorization.assert_called_once()

@@ -214,7 +214,7 @@ timeSeriesIds:
         if not loader.retrieve([resource.external_id]):
             _ = loader.create(DatapointSubscriptionWriteList([resource]))
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -727,7 +727,7 @@ workflowDefinition:
         if not loader.retrieve([resource.as_id()]):
             _ = loader.create(WorkflowVersionUpsertList([resource]))
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {
@@ -845,7 +845,7 @@ properties:
         if not loader.retrieve([resource.as_id()]):
             _ = loader.create(ViewApplyList([resource]))
 
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         resources = worker.prepare_resources([filepath])
 
         assert {
