@@ -106,7 +106,7 @@ class ModuleLocation:
                     # Only apply ignore patterns if feature flag is enabled
                     should_ignore = False
                     if ignore_parser is not None:
-                        should_ignore = ignore_parser.is_ignored(Path(directory_name), is_directory=True)
+                        should_ignore = ignore_parser.is_ignored(relative_to_module, is_directory=True)
                     
                     if not should_ignore:
                         invalid_resource_directory.add(directory_name)

@@ -5,7 +5,6 @@ file/directory paths against gitignore-style patterns.
 """
 
 import fnmatch
-import re
 from pathlib import Path
 from typing import Iterable
 
