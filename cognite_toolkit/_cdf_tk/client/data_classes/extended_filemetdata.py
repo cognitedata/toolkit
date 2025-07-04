@@ -1,10 +1,16 @@
+import sys
 from collections.abc import Sequence
-from typing import Any, Self, cast
+from typing import Any, cast
 
 from cognite.client import CogniteClient
 from cognite.client.data_classes import GeoLocation, Label
 from cognite.client.data_classes.data_modeling import NodeId
 from cognite.client.data_classes.files import FileMetadata, FileMetadataList
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 
 class ExtendedFileMetadata(FileMetadata):
