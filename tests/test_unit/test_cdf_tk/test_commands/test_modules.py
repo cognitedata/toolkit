@@ -292,3 +292,32 @@ class TestModulesCommand:
             )
         except ToolkitError as e:
             pytest.fail(f"'_validate_checksum' raised an unexpected ToolkitError: {e}")
+
+    def test_download_deletes_existing_file(self, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+        """Test that _download method deletes existing zip files before downloading."""
+        # Create a stale zip file that should be deleted
+        stale_file_path = tmp_path / "test_file.zip"
+        stale_content = b"stale content"
+        stale_file_path.write_bytes(stale_content)
+
+        # Verify the stale file exists
+        assert stale_file_path.exists()
+        assert stale_file_path.read_bytes() == stale_content
+
+        # Mock the HTTP response with new content
+        new_content = b"new content from download"
+        mock_response = MockResponse(new_content, status_code=200)
+        monkeypatch.setattr(requests, "get", MagicMock(return_value=mock_response))
+
+        cmd = ModulesCommand(print_warning=True, skip_tracking=True)
+
+        # Call _download - this should delete the existing file and download new content
+        cmd._download(url="http://example.com/test.zip", file_path=stale_file_path)
+
+        # Verify the file was deleted and replaced with new content
+        assert stale_file_path.exists()
+        assert stale_file_path.read_bytes() == new_content
+        assert stale_file_path.read_bytes() != stale_content
+
+        # Verify the HTTP request was made
+        requests.get.assert_called_once_with("http://example.com/test.zip", stream=True)
