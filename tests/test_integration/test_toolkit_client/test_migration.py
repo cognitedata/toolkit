@@ -34,7 +34,9 @@ def three_mappings(toolkit_client: ToolkitClient, toolkit_space: Space) -> NodeL
 
 
 class TestMappingAPI:
-    @pytest.mark.skip(reason="This PR updates the Migration model, which makes the mapping API outdated.")
+    @pytest.mark.skip(
+        reason="The mapping API is outdated and needs to be updated with the round 2 of the Migration model."
+    )
     def test_retrieve_mappings(self, toolkit_client: ToolkitClient, three_mappings: NodeList[Mapping]) -> None:
         ids = [mapping.as_asset_centric_id() for mapping in three_mappings]
 
