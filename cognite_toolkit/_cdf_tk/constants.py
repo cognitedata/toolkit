@@ -28,6 +28,8 @@ CONFIG_FILE_SUFFIX = "config.yaml"
 # The global config file
 GLOBAL_CONFIG_FILE = "global.yaml"
 
+# 01 to ensure that the documentation folder is always first in the list.
+MODULE_DOCS_FOLDER = "01_documentation"
 BUILTIN_MODULES = "_builtin_modules"
 COGNITE_MODULES = "cognite_modules"
 CUSTOM_MODULES = "custom_modules"
