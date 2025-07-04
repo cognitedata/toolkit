@@ -47,7 +47,7 @@ DEV_ONLY_MODULES = frozenset(["cdf_auth_readwrite_all"])
 
 DEFAULT_ENV = "dev"
 # Add any other files below that should be included in a build
-EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE]
+EXCL_FILES = ["README.md", DEFAULT_CONFIG_FILE, ".toolkitignore"]
 # Files to search for variables.
 SEARCH_VARIABLES_SUFFIX = frozenset([".yaml", "yml", ".sql", ".csv"])
 YAML_SUFFIX = frozenset([".yaml", ".yml"])
