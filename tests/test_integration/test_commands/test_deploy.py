@@ -124,7 +124,7 @@ def get_changed_resources(env_vars: EnvironmentVariables, build_dir: Path) -> di
             # These two we have no way of knowing if they have changed. So they are always redeployed.
             continue
         loader = loader_cls.create_loader(client, build_dir)
-        worker = ResourceWorker(loader)
+        worker = ResourceWorker(loader, "deploy")
         files = worker.load_files()
         resources = worker.prepare_resources(files, environment_variables=env_vars.dump())
         if changed := (set(loader.get_ids(resources.to_update)) - {NodeId("sp_nodes", "MyExtendedFile")}):
