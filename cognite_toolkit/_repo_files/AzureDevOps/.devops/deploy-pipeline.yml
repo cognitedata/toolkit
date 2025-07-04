@@ -3,7 +3,7 @@ trigger:
     include:
       - main
 
-variables: 
+variables:
   - group: 'dev-toolkit-credentials'
 
 
@@ -13,7 +13,7 @@ jobs:
     displayName: 'Deploy Dry Run'
     pool:
       vmImage: 'ubuntu-latest'
-    container: 
+    container:
       image: 'cognite/toolkit:0.0.0'
       env:
         CDF_CLUSTER: $(CDF_CLUSTER)
@@ -25,5 +25,7 @@ jobs:
       - checkout: self
       - script: cdf build
         displayName: 'Build the modules'
+      - script: cdf auth verify --no-prompt
+        displayName: 'Verify required permissions'
       - script: cdf deploy
         displayName: 'Deploy the modules'
