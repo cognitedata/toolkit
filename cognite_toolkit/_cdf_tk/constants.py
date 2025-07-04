@@ -129,9 +129,9 @@ def clean_name(name: str) -> str:
 
 class URL:
     configure_access = "https://docs.cognite.com/cdf/deploy/cdf_deploy/cdf_deploy_access_management"
-    auth_toolkit = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/configure_deploy_modules#configure-the-cdf-toolkit-authentication"
+    auth_toolkit = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/auth"
     docs = "https://docs.cognite.com/"
-    configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/configs"
+    configs = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
     plugins = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/guides/plugins/"
     libyaml = "https://pyyaml.org/wiki/PyYAMLDocumentation"
     build_variables = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/api/config_yaml#the-variables-section"
